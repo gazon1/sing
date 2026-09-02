@@ -2,8 +2,6 @@ package com.singularity.todo.core.attachments
 
 import com.singularity.todo.core.files.FileChecksum
 import com.singularity.todo.core.files.FileSystem
-import com.singularity.todo.core.platform.Clock
-import kotlinx.coroutines.runBlocking
 
 class AttachmentStorage(
     private val fs: FileSystem,
@@ -13,6 +11,14 @@ class AttachmentStorage(
         runCatching {
             val target = AttachmentDomain.buildLocalPath(dir, taskId, id, ext)
             val data = fs.readBytes(sourcePath)
+            fs.ensureDir("$dir/$taskId")
+            fs.writeBytes(target, data)
+            target
+        }
+
+    suspend fun saveBytes(taskId: String, id: String, data: ByteArray, ext: String): Result<String> =
+        runCatching {
+            val target = AttachmentDomain.buildLocalPath(dir, taskId, id, ext)
             fs.ensureDir("$dir/$taskId")
             fs.writeBytes(target, data)
             target

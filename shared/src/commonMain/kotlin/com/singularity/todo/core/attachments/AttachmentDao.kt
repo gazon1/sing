@@ -26,4 +26,7 @@ interface AttachmentDao {
 
     @Query("DELETE FROM attachments WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("SELECT * FROM attachments WHERE user_id = :userId")
+    suspend fun listAllForUser(userId: String): List<AttachmentEntity>
 }

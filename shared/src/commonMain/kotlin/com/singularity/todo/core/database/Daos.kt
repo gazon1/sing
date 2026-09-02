@@ -57,6 +57,9 @@ interface TaskDao {
 
     @Query("SELECT tag_id FROM task_tags WHERE task_id = :taskId")
     fun getTagIdsForTask(taskId: String): Flow<List<String>>
+
+    @Query("SELECT * FROM tasks WHERE user_id = :userId")
+    suspend fun listAllForUser(userId: String): List<TaskEntity>
 }
 
 @Dao
@@ -81,6 +84,9 @@ interface NoteDao {
 
     @Query("UPDATE notes SET deleted_at = NULL, updated_at = :ts WHERE id = :id")
     suspend fun restore(id: String, ts: Long)
+
+    @Query("SELECT * FROM notes WHERE user_id = :userId")
+    suspend fun listAllForUser(userId: String): List<NoteEntity>
 }
 
 @Dao
@@ -96,6 +102,9 @@ interface ProjectDao {
 
     @Query("UPDATE projects SET is_deleted = 1, deleted_at = :ts, updated_at = :ts WHERE id = :id")
     suspend fun softDelete(id: String, ts: Long)
+
+    @Query("SELECT * FROM projects WHERE user_id = :userId")
+    suspend fun listAllForUser(userId: String): List<ProjectEntity>
 }
 
 @Dao
@@ -111,4 +120,7 @@ interface TagDao {
 
     @Query("UPDATE tags SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
     suspend fun softDelete(id: String, ts: Long)
+
+    @Query("SELECT * FROM tags WHERE user_id = :userId")
+    suspend fun listAllForUser(userId: String): List<TagEntity>
 }

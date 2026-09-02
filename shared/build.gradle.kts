@@ -135,6 +135,7 @@ kotlin {
             // Room
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.sqlite.bundled)
+            implementation(libs.sqlite.jdbc)
 
             // Koin
             implementation(libs.koin.core)
@@ -142,8 +143,8 @@ kotlin {
             // Ktor CIO
             implementation(libs.ktor.client.cio)
 
-            // DataStore
-            implementation(libs.androidx.datastore.preferences.core)
+            // DataStore (full artifact includes JVM factory)
+            implementation(libs.androidx.datastore.preferences)
 
             // DateTime
             implementation(libs.kotlinx.datetime)

@@ -15,6 +15,14 @@ dependencies {
     implementation(libs.compose.material3)
 
     implementation(libs.compose.uiToolingPreview)
+
+    // Room for desktop database
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.sqlite.bundled)
+    implementation(libs.sqlite.jdbc)
+
+    // DataStore
+    implementation(libs.androidx.datastore.preferences)
 }
 
 compose.desktop {

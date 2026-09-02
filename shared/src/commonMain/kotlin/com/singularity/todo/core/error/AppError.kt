@@ -9,5 +9,5 @@ sealed class AppError(message: String) : RuntimeException(message) {
 }
 
 inline fun <T> runCatchingResult(block: () -> T): Result<T> = kotlin.runCatching(block).recoverCatching {
-    throw if (it is AppError) it else AppError.Unknown(it)
+    throw it as? AppError ?: AppError.Unknown(it)
 }

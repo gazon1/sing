@@ -12,6 +12,7 @@ import androidx.room.Room
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.di.sharedModule
 import com.singularity.todo.core.files.AndroidFileSystem
+import com.singularity.todo.core.backup.AndroidBackupCodec
 import com.singularity.todo.core.network.SupabaseConfig
 import com.singularity.todo.core.platform.PlatformContext
 import com.singularity.todo.core.settings.SettingsRepository
@@ -44,13 +45,14 @@ class MainActivity : ComponentActivity() {
         // FileSystem for attachments
         val fileSystem = AndroidFileSystem(applicationContext)
         val attachmentsDir = "${applicationContext.filesDir}/attachments"
+        val backupDir = "${applicationContext.filesDir}/backups"
 
         // Supabase config (from BuildConfig or user settings)
         // TODO: Replace with actual BuildConfig values
         val supabaseConfig: SupabaseConfig? = null  // Will use anonymous auth if null
 
         startKoin {
-            modules(sharedModule(db, settingsRepository, supabaseConfig, attachmentsDir, fileSystem))
+            modules(sharedModule(db, settingsRepository, supabaseConfig, attachmentsDir, backupDir, fileSystem, AndroidBackupCodec()))
         }
 
         setContent {
