@@ -88,6 +88,14 @@ kotlin {
             // MaterialKolor
             implementation(libs.materialkolor)
 
+            // FileKit
+            implementation(libs.filekit.core)
+            implementation(libs.filekit.dialogs.compose)
+
+            // Coil
+            implementation(libs.coil.compose)
+            implementation(libs.coil.core)
+
             // Voyager
             implementation(libs.voyager.navigator)
             implementation(libs.voyager.tab.navigator)
@@ -118,6 +126,9 @@ kotlin {
 
             // DataStore
             implementation(libs.androidx.datastore.preferences.core)
+
+            // FileKit Android
+            implementation(libs.filekit.core)
         }
 
         jvmMain.dependencies {
@@ -136,6 +147,9 @@ kotlin {
 
             // DateTime
             implementation(libs.kotlinx.datetime)
+
+            // Coil Ktor network
+            implementation(libs.coil.network.ktor3)
         }
 
         commonTest.dependencies {

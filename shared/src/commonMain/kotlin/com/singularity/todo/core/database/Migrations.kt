@@ -8,3 +8,10 @@ import androidx.room.migration.AutoMigrationSpec
 object Migration1To2 : AutoMigrationSpec {
     // Room will auto-detect schema changes for v2
 }
+
+/**
+ * Migration from v2 to v3 — adds attachments table.
+ */
+object Migration2To3 : AutoMigrationSpec {
+    // Room will auto-detect schema changes for v3
+}

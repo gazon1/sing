@@ -1,0 +1,24 @@
+package com.singularity.todo.core.files
+
+import android.content.Context
+import java.io.File
+
+class AndroidFileSystem(private val context: Context) : FileSystem {
+    override suspend fun readBytes(path: String): ByteArray =
+        File(path).readBytes()
+
+    override suspend fun writeBytes(path: String, data: ByteArray) {
+        File(path).parentFile?.mkdirs()
+        File(path).writeBytes(data)
+    }
+
+    override suspend fun delete(path: String): Boolean =
+        File(path).delete()
+
+    override suspend fun exists(path: String): Boolean =
+        File(path).exists()
+
+    override suspend fun ensureDir(dir: String) {
+        File(dir).mkdirs()
+    }
+}

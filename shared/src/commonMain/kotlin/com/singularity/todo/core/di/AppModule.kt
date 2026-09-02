@@ -1,9 +1,16 @@
 package com.singularity.todo.core.di
 
+import com.singularity.todo.core.attachments.AttachmentConverters
+import com.singularity.todo.core.attachments.AttachmentDao
+import com.singularity.todo.core.attachments.AttachmentRepository
+import com.singularity.todo.core.attachments.AttachmentRepositoryImpl
+import com.singularity.todo.core.attachments.AttachmentStorage
+import com.singularity.todo.core.attachments.StubAttachmentUploadService
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.database.AppDatabase
+import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.network.createSupabaseClient
 import com.singularity.todo.core.network.createHttpClient
 import com.singularity.todo.core.network.SupabaseConfig
@@ -16,6 +23,7 @@ import com.singularity.todo.feature.tasks.TaskRepository
 import com.singularity.todo.feature.tasks.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.TasksViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
+import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +40,9 @@ import kotlin.coroutines.CoroutineContext
 fun sharedModule(
     database: AppDatabase,
     settingsRepository: SettingsRepository,
-    supabaseConfig: SupabaseConfig?
+    supabaseConfig: SupabaseConfig?,
+    attachmentsDir: String,
+    fs: FileSystem
 ): Module = module {
     // Database
     single<AppDatabase> { database }
@@ -41,6 +51,7 @@ fun sharedModule(
     single { database.projectDao() }
     single { database.tagDao() }
     single { database.syncOutboxDao() }
+    single { database.attachmentDao() }
 
     // Settings
     single<SettingsRepository> { settingsRepository }
@@ -79,7 +90,14 @@ fun sharedModule(
     // Repositories
     single<TaskRepository> { TaskRepositoryImpl(get(), get()) }
 
+    // Attachments
+    single<StubAttachmentUploadService> { StubAttachmentUploadService() }
+    single<FileSystem> { fs }
+    single { AttachmentStorage(get(), attachmentsDir) }
+    single<AttachmentRepository> { AttachmentRepositoryImpl(get(), get(), get(), get()) }
+
     // ViewModels
     factory { TasksViewModel(get(), get(), get(), get()) }
     factory { AuthViewModel(get()) }
+    factory { AttachmentsViewModel(get(), get()) }
 }

@@ -61,6 +61,12 @@ supabaseVersion = "3.8.0"
 ulid = "5.2.4"
 turbine = "1.2.0"
 
+# FileKit
+filekit = "0.15.0"
+
+# Coil
+coil = "3.6.1"
+
 # Testing
 junit = "4.13.2"
 robolectric = "4.13"
@@ -152,6 +158,15 @@ voyager-screenmodel = { module = "cafe.adriel.voyager:voyager-screenmodel", vers
 ulid = { module = "com.github.f4b6a3:ulid-creator", version.ref = "ulid" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 robolectric = { module = "org.robolectric:android-all", version.ref = "robolectric" }
+
+# FileKit
+filekit-core = { module = "io.github.vinceglb:filekit-core", version.ref = "filekit" }
+filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
+
+# Coil
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
+coil-core = { module = "io.coil-kt.coil3:coil-core", version.ref = "coil" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
