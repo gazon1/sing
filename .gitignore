@@ -1,0 +1,84 @@
+# Gradle / Kotlin Multiplatform
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+*.class
+*.jar
+*.log
+
+# Kotlin
+.kotlin/
+*.ktbuild
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+local.properties
+*.ipr
+*.iws
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-*
+
+# VS Code
+.vscode/
+
+# Keystore / Signing
+*.jks
+*.keystore
+*.keystore.properties
+
+# OS
+.DS_Store
+Thumbs.db
+~*
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+**/build/
+**/out/
+
+# Desktop packaging
+*.deb
+*.rpm
+*.msi
+
+# Temporary files
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+**/logs/
+
+# Test results
+**/test-results/
+**/reports/
+**/jvm-test-results/
+
+# KSP generated
+**/ksp/
+
+# Build reports
+**/reports/
+
+# Gradle outputs
+.gradle/
+build/
+out/
+
+# Module builds
+*.module
+
+# Crash logs
+*.stacktrace
+
+# Maven / Ivy (if used)
+target/
