@@ -29,7 +29,14 @@ data class TaskEntity(
     @ColumnInfo("is_pinned") val isPinned: Boolean = false,
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
-    @ColumnInfo("user_id") val userId: String
+    @ColumnInfo("user_id") val userId: String,
+    // Sync columns
+    @ColumnInfo("server_version") val serverVersion: Long = 0L,
+    @ColumnInfo("sync_status") val syncStatus: String = "LOCAL_ONLY",
+    @ColumnInfo("sync_error") val syncError: String? = null,
+    @ColumnInfo("last_synced_at") val lastSyncedAt: Long? = null,
+    @ColumnInfo("device_id") val deviceId: String? = null,
+    @ColumnInfo("hlc") val hlc: String? = null
 )
 
 @Entity(
@@ -57,7 +64,14 @@ data class NoteEntity(
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("deleted_at") val deletedAt: Long?,
-    @ColumnInfo("archived_at") val archivedAt: Long?
+    @ColumnInfo("archived_at") val archivedAt: Long?,
+    // Sync columns
+    @ColumnInfo("server_version") val serverVersion: Long = 0L,
+    @ColumnInfo("sync_status") val syncStatus: String = "LOCAL_ONLY",
+    @ColumnInfo("sync_error") val syncError: String? = null,
+    @ColumnInfo("last_synced_at") val lastSyncedAt: Long? = null,
+    @ColumnInfo("device_id") val deviceId: String? = null,
+    @ColumnInfo("hlc") val hlc: String? = null
 )
 
 @Entity(
@@ -81,7 +95,14 @@ data class ProjectEntity(
     @ColumnInfo("parent_id") val parentId: String?,
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
     @ColumnInfo("is_notebook") val isNotebook: Boolean = false,
-    @ColumnInfo("external_id") val externalId: String?
+    @ColumnInfo("external_id") val externalId: String?,
+    // Sync columns
+    @ColumnInfo("server_version") val serverVersion: Long = 0L,
+    @ColumnInfo("sync_status") val syncStatus: String = "LOCAL_ONLY",
+    @ColumnInfo("sync_error") val syncError: String? = null,
+    @ColumnInfo("last_synced_at") val lastSyncedAt: Long? = null,
+    @ColumnInfo("device_id") val deviceId: String? = null,
+    @ColumnInfo("hlc") val hlc: String? = null
 )
 
 @Entity(
@@ -98,4 +119,11 @@ data class TagEntity(
     @ColumnInfo("parent_id") val parentId: String?,
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
     @ColumnInfo("deleted_at") val deletedAt: Long?,
+    // Sync columns
+    @ColumnInfo("server_version") val serverVersion: Long = 0L,
+    @ColumnInfo("sync_status") val syncStatus: String = "LOCAL_ONLY",
+    @ColumnInfo("sync_error") val syncError: String? = null,
+    @ColumnInfo("last_synced_at") val lastSyncedAt: Long? = null,
+    @ColumnInfo("device_id") val deviceId: String? = null,
+    @ColumnInfo("hlc") val hlc: String? = null
 )

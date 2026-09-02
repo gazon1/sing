@@ -8,6 +8,9 @@ import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -15,6 +18,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.LocalDate
 
 interface TaskRepository {
+    /** Emits every task after it's created or updated — for SyncEngine observer */
+    val changes: SharedFlow<Task>
+
     suspend fun create(task: Task): Result<Unit>
     suspend fun update(task: Task): Result<Unit>
     suspend fun softDelete(id: TaskId): Result<Unit>
@@ -31,6 +37,9 @@ class TaskRepositoryImpl(
     private val taskDao: TaskDao,
     private val clock: Clock
 ) : TaskRepository {
+
+    private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
+    override val changes: SharedFlow<Task> = _changes.asSharedFlow()
 
     override fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> {
         val today = LocalDate.fromEpochDays(
@@ -62,10 +71,12 @@ class TaskRepositoryImpl(
         task.tags.forEach { tagId ->
             taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = task.id.value, tagId = tagId.value))
         }
+        _changes.tryEmit(task)
     }
 
     override suspend fun update(task: Task): Result<Unit> = runCatching {
         taskDao.upsert(task.toEntity())
+        _changes.tryEmit(task)
     }
 
     override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {

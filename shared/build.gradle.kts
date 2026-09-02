@@ -96,6 +96,11 @@ kotlin {
 
             // Utils
             implementation(libs.ulid)
+
+            // Supabase
+            implementation("io.github.jan-tennert.supabase:auth-kt:3.8.0")
+            implementation("io.github.jan-tennert.supabase:postgrest-kt:3.8.0")
+            implementation("io.github.jan-tennert.supabase:functions-kt:3.8.0")
         }
 
         androidMain.dependencies {
