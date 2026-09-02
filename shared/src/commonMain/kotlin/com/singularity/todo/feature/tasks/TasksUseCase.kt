@@ -6,6 +6,8 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tags.TagId
 import kotlinx.coroutines.flow.Flow
 
+// ===== Use Cases =====
+
 class GetTasksUseCase(private val repo: TaskRepository) {
     operator fun invoke(userId: UserId, filter: TaskFilter): Flow<List<Task>> = repo.watchTasks(userId, filter)
 }
@@ -14,33 +16,33 @@ class GetTaskUseCase(private val repo: TaskRepository) {
     operator fun invoke(id: TaskId): Flow<Task?> = repo.watchTask(id)
 }
 
-class CreateTaskUseCase(private val repo: TaskRepository, private val clock: Clock) {
+class CreateTaskUseCase(
+    private val repo: TaskRepository,
+    private val clock: Clock
+) {
+    /**
+     * Creates a new task.
+     * Validates input using pure domain logic, then persists via repository.
+     */
     suspend operator fun invoke(input: CreateTaskInput): Result<TaskId> = runCatchingResult {
-        require(input.title.isNotBlank()) { throw AppError.Validation("Title cannot be blank") }
+        // Pure domain validation - throws AppError.Validation if invalid
+        TasksDomain.validateTitle(input.title)
+
         val now = clock.now()
-        val task = Task(
-            id = TaskId.generate(),
-            title = input.title.trim(),
-            description = input.description?.trim(),
-            priority = input.priority,
-            kind = input.kind,
-            projectId = input.projectId,
-            tags = input.tagIds,
-            dueDate = input.dueDate,
-            dueTime = input.dueTime,
-            someday = input.someday,
-            createdAt = now,
-            updatedAt = now,
-            userId = input.userId
-        )
+        val task = TasksDomain.buildTask(input, createdAt = now, updatedAt = now)
+
         repo.create(task).getOrThrow()
         task.id
     }
 }
 
-class UpdateTaskUseCase(private val repo: TaskRepository, private val clock: Clock) {
+class UpdateTaskUseCase(
+    private val repo: TaskRepository,
+    private val clock: Clock
+) {
     suspend operator fun invoke(task: Task): Result<Unit> = runCatchingResult {
-        repo.update(task.copy(updatedAt = clock.now())).getOrThrow()
+        val updated = task.copy(updatedAt = clock.now())
+        repo.update(updated).getOrThrow()
     }
 }
 
