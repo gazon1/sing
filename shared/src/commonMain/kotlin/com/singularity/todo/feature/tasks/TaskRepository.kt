@@ -14,12 +14,25 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.LocalDate
 
+interface TaskRepository {
+    suspend fun create(task: Task): Result<Unit>
+    suspend fun update(task: Task): Result<Unit>
+    suspend fun softDelete(id: TaskId): Result<Unit>
+    suspend fun restore(id: TaskId): Result<Unit>
+    suspend fun toggleComplete(id: TaskId): Result<Unit>
+    suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit>
+    fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>>
+    fun watchTask(id: TaskId): Flow<Task?>
+    fun getTagIds(taskId: TaskId): Flow<List<TagId>>
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
-class TaskRepository(
+class TaskRepositoryImpl(
     private val taskDao: TaskDao,
     private val clock: Clock
-) {
-    fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> {
+) : TaskRepository {
+
+    override fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> {
         val today = LocalDate.fromEpochDays(
             clock.now().toEpochMilliseconds() / (24 * 60 * 60 * 1000)
         ).toString()
@@ -40,32 +53,32 @@ class TaskRepository(
         }
     }
 
-    fun watchTask(id: TaskId): Flow<Task?> {
+    override fun watchTask(id: TaskId): Flow<Task?> {
         return taskDao.watchById(id.value).map { it?.toTask() }
     }
 
-    suspend fun create(task: Task): Result<Unit> = runCatching {
+    override suspend fun create(task: Task): Result<Unit> = runCatching {
         taskDao.upsert(task.toEntity())
         task.tags.forEach { tagId ->
             taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = task.id.value, tagId = tagId.value))
         }
     }
 
-    suspend fun update(task: Task): Result<Unit> = runCatching {
+    override suspend fun update(task: Task): Result<Unit> = runCatching {
         taskDao.upsert(task.toEntity())
     }
 
-    suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
+    override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
         taskDao.softDelete(id.value, ts)
     }
 
-    suspend fun restore(id: TaskId): Result<Unit> = runCatching {
+    override suspend fun restore(id: TaskId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
         taskDao.restore(id.value, ts)
     }
 
-    suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatching {
+    override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatching {
         val task = taskDao.watchById(id.value).first() ?: return@runCatching
         val ts = clock.now().toEpochMilliseconds()
         if (task.completedAt != null) {
@@ -75,11 +88,11 @@ class TaskRepository(
         }
     }
 
-    fun getTagIds(taskId: TaskId): Flow<List<TagId>> {
+    override fun getTagIds(taskId: TaskId): Flow<List<TagId>> {
         return taskDao.getTagIdsForTask(taskId.value).map { it.map { id -> TagId.fromString(id) } }
     }
 
-    suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
+    override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
         // Clear existing tags
         val existing = taskDao.getTagIdsForTask(taskId.value).first()
         existing.forEach { tagId ->

@@ -139,6 +139,11 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
         }
+
+        jvmTest.dependencies {
+            implementation(libs.sqlite.jdbc)
+            implementation(libs.androidx.room.testing)
+        }
     }
 }
 
