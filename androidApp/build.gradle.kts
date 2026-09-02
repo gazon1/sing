@@ -14,9 +14,20 @@ kotlin {
 dependencies {
     implementation(project(":shared"))
 
+    // AndroidX
     implementation(libs.androidx.activity.compose)
+
+    // Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.sqlite.bundled)
+
+    // DataStore
+    implementation(libs.androidx.datastore.preferences)
+
+    // Koin
     implementation(libs.koin.android)
 
+    // Compose
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
 }

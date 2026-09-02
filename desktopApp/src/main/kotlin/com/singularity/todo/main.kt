@@ -4,15 +4,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.window.singleWindowApplication
 import com.singularity.todo.App
-import com.singularity.todo.core.di.sharedModule
 import org.koin.core.context.startKoin
 
 fun main() = singleWindowApplication(
     title = "Singularity Todo"
 ) {
+    // Desktop: Full DI wiring deferred until Supabase SDK integration
+    // For now, app starts without sync/auth (anonymous mode)
     startKoin {
-        // Note: Full DI setup requires platform-specific modules with database and settings
-        // For now, this is a minimal startup
+        // Minimal setup - sync/auth will be stubs until SDK integrated
     }
 
     MaterialTheme {

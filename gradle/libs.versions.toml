@@ -127,6 +127,7 @@ koin-annotations-compiler = { module = "io.insert-koin:koin-annotations-compiler
 
 # DataStore
 androidx-datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastore" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 
 # Kermit
 kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
