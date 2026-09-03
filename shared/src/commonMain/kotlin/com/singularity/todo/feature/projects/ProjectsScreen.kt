@@ -15,9 +15,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,8 +31,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +55,27 @@ fun ProjectsScreen(
 ) {
     val viewModel: ProjectsViewModel = koinInject()
     val state by viewModel.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    var aiResultText by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.aiResult.collectLatest { result ->
+            aiResultText = result
+        }
+    }
+
+    aiResultText?.let { result ->
+        AlertDialog(
+            onDismissRequest = { aiResultText = null },
+            title = { Text("Project Review") },
+            text = { Text(result) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { aiResultText = null }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Projects") }) },
@@ -71,7 +101,8 @@ fun ProjectsScreen(
                     ProjectCard(
                         project = project,
                         onClick = { onNavigateToProject(project.id.value) },
-                        onDelete = { viewModel.delete(project.id) }
+                        onDelete = { viewModel.delete(project.id) },
+                        onReviewClick = { viewModel.reviewProject(project) }
                     )
                 }
             }
@@ -86,7 +117,8 @@ fun ProjectsScreen(
 fun ProjectCard(
     project: Project,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onReviewClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -125,6 +157,13 @@ fun ProjectCard(
                         color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+            IconButton(onClick = onReviewClick) {
+                Icon(
+                    Icons.Filled.AutoAwesome,
+                    contentDescription = "AI Review",
+                    tint = androidx.compose.material3.MaterialTheme.colorScheme.primary
+                )
             }
             IconButton(onClick = onDelete) {
                 Icon(

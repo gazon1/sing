@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatListBulleted
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Title
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -28,10 +30,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.SpanStyle
@@ -55,6 +61,8 @@ fun NoteEditorScreen(
     viewModel: NotesViewModel = koinInject()
 ) {
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    var aiResultText by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(noteId) {
         if (noteId != null) {
@@ -64,6 +72,28 @@ fun NoteEditorScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.aiResult.collectLatest { result ->
+            aiResultText = when (result) {
+                is NoteAiResult.Improved -> "Note improved!\n\nTitle: ${result.title}"
+                is NoteAiResult.Error -> "Error: ${result.message}"
+            }
+        }
+    }
+
+    aiResultText?.let { result ->
+        AlertDialog(
+            onDismissRequest = { aiResultText = null },
+            title = { Text("AI Result") },
+            text = { Text(result) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { aiResultText = null }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
     NoteEditorScreenContent(
         editorState = editorState,
         onTitleChange = { id, title -> viewModel.editTitle(id, title) },
@@ -71,7 +101,8 @@ fun NoteEditorScreen(
         onBack = {
             viewModel.closeEditor()
             onBack()
-        }
+        },
+        onAiClick = { viewModel.improveNote() }
     )
 }
 
@@ -81,7 +112,8 @@ fun NoteEditorScreenContent(
     editorState: EditorState,
     onTitleChange: (id: String, title: String) -> Unit,
     onBodyChange: (id: String, html: String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onAiClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -114,7 +146,8 @@ fun NoteEditorScreenContent(
                 state = editorState,
                 modifier = Modifier.padding(padding),
                 onTitleChange = onTitleChange,
-                onBodyChange = onBodyChange
+                onBodyChange = onBodyChange,
+                onAiClick = onAiClick
             )
         }
     }
@@ -126,7 +159,8 @@ private fun EditorBody(
     state: EditorState.Editing,
     modifier: Modifier = Modifier,
     onTitleChange: (id: String, title: String) -> Unit,
-    onBodyChange: (id: String, html: String) -> Unit
+    onBodyChange: (id: String, html: String) -> Unit,
+    onAiClick: () -> Unit
 ) {
     val richTextState = remember { RichTextState() }
     var titleFieldValue by remember(state.id) {
@@ -158,7 +192,8 @@ private fun EditorBody(
 
         EditorToolbar(
             richTextState = richTextState,
-            onHtmlChange = { onBodyChange(state.id, richTextState.toHtml()) }
+            onHtmlChange = { onBodyChange(state.id, richTextState.toHtml()) },
+            onAiClick = onAiClick
         )
 
         RichTextEditor(
@@ -177,7 +212,8 @@ private fun EditorBody(
 @Composable
 private fun EditorToolbar(
     richTextState: RichTextState,
-    onHtmlChange: () -> Unit
+    onHtmlChange: () -> Unit,
+    onAiClick: () -> Unit
 ) {
     val toolbarActions = listOf(
         ToolbarButton(EditorAction.Bold, Icons.Filled.FormatBold, "Bold") {
@@ -224,6 +260,14 @@ private fun EditorToolbar(
             ) {
                 Icon(button.icon, button.label)
             }
+        }
+        // AI improve button at the end
+        IconButton(onClick = onAiClick) {
+            Icon(
+                Icons.Filled.AutoAwesome,
+                contentDescription = "AI improve",
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

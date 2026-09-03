@@ -3,6 +3,7 @@ package com.singularity.todo.feature.notes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -11,8 +12,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
@@ -43,6 +46,11 @@ sealed interface EditorState {
     data class Error(val id: String, val message: String) : EditorState
 }
 
+sealed interface NoteAiResult {
+    data class Improved(val title: String, val body: String) : NoteAiResult
+    data class Error(val message: String) : NoteAiResult
+}
+
 // ─── ViewModel ───────────────────────────────────────────────────────────────
 
 /**
@@ -60,6 +68,7 @@ open class NotesViewModel(
     private val store: NotesStore,
     private val htmlPort: MarkdownHtmlPort,
     settingsRepository: SettingsRepository,
+    private val improveNote: ImproveNoteUseCase? = null,
     private val scopeProvider: () -> CoroutineScope = {
         CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
     }
@@ -76,6 +85,10 @@ open class NotesViewModel(
     // Editor state
     private val _editorState = MutableStateFlow<EditorState>(EditorState.Empty)
     val editorState: StateFlow<EditorState> = _editorState.asStateFlow()
+
+    // AI action results
+    private val _aiResult = MutableSharedFlow<NoteAiResult>()
+    val aiResult = _aiResult.asSharedFlow()
 
     private var autosaveJob: Job? = null
 
@@ -149,6 +162,19 @@ open class NotesViewModel(
             } catch (e: Exception) {
                 _editorState.value = EditorState.Error(id, e.message ?: "Save failed")
             }
+        }
+    }
+
+    fun improveNote() {
+        val tool = improveNote ?: return
+        viewModelScope.launch {
+            val current = _editorState.value as? EditorState.Editing ?: return@launch
+            tool(current.title, current.html)
+                .onSuccess { result ->
+                    _editorState.value = current.copy(title = result.title, html = result.body, isDirty = true)
+                    _aiResult.emit(NoteAiResult.Improved(result.title, result.body))
+                }
+                .onFailure { _aiResult.emit(NoteAiResult.Error(it.message ?: "Failed")) }
         }
     }
 

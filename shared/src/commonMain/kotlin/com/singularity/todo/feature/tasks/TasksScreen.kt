@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Star
@@ -24,17 +25,27 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,6 +57,73 @@ fun TasksScreen(
     val viewModel: TasksViewModel = koinInject()
     val state by viewModel.state.collectAsState()
     val filter by viewModel.filter.collectAsState()
+    val scope = rememberCoroutineScope()
+
+    var showAiSheet by remember { mutableStateOf(false) }
+    var selectedTask by remember { mutableStateOf<Task?>(null) }
+    var aiResultText by remember { mutableStateOf<String?>(null) }
+    val sheetState = rememberModalBottomSheetState()
+
+    // Collect AI results
+    LaunchedEffect(Unit) {
+        viewModel.aiResult.collectLatest { result ->
+            aiResultText = when (result) {
+                is AiActionResult.RefineTitle -> "Refined title: ${result.newTitle}"
+                is AiActionResult.GenerateDescription -> "Description: ${result.description}"
+                is AiActionResult.GenerateChecklist -> "Checklist:\n${result.steps.joinToString("\n") { "- $it" }}"
+                is AiActionResult.DecomposeTask -> "Sub-tasks:\n${result.subTasks.joinToString("\n") { "- $it" }}"
+                is AiActionResult.PickTime -> "Suggested time: ${result.suggestedTime}"
+                is AiActionResult.Error -> "Error: ${result.message}"
+            }
+        }
+    }
+
+    if (showAiSheet && selectedTask != null) {
+        ModalBottomSheet(
+            onDismissRequest = { showAiSheet = false },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "AI Actions for: ${selectedTask!!.title}",
+                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium
+                )
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(8.dp))
+                TextButton(onClick = { viewModel.refineTaskTitle(selectedTask!!); scope.launch { sheetState.hide(); showAiSheet = false } }) {
+                    Icon(Icons.Filled.AutoAwesome, null); Text(" Refine title")
+                }
+                TextButton(onClick = { viewModel.generateTaskDescription(selectedTask!!); scope.launch { sheetState.hide(); showAiSheet = false } }) {
+                    Icon(Icons.Filled.AutoAwesome, null); Text(" Generate description")
+                }
+                TextButton(onClick = { viewModel.generateChecklist(selectedTask!!); scope.launch { sheetState.hide(); showAiSheet = false } }) {
+                    Icon(Icons.Filled.AutoAwesome, null); Text(" Generate checklist")
+                }
+                TextButton(onClick = { viewModel.decomposeTask(selectedTask!!); scope.launch { sheetState.hide(); showAiSheet = false } }) {
+                    Icon(Icons.Filled.AutoAwesome, null); Text(" Decompose into sub-tasks")
+                }
+                TextButton(onClick = { viewModel.suggestTime(selectedTask!!); scope.launch { sheetState.hide(); showAiSheet = false } }) {
+                    Icon(Icons.Filled.AutoAwesome, null); Text(" Suggest time")
+                }
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(16.dp))
+            }
+        }
+    }
+
+    // AI result snackbar/alert
+    aiResultText?.let { result ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { aiResultText = null },
+            title = { Text("AI Result") },
+            text = { Text(result) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { aiResultText = null }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -53,7 +131,7 @@ fun TasksScreen(
                 title = { Text("Tasks") },
                 actions = {
                     IconButton(onClick = { /* navigate to search */ }) {
-                        Icon(Icons.Filled.Add, "Search")
+                        Icon(Icons.Filled.AutoAwesome, "AI Actions")
                     }
                 }
             )
@@ -86,7 +164,8 @@ fun TasksScreen(
                             task = task,
                             onClick = { onNavigateToTask(task.id.value) },
                             onToggle = { viewModel.toggle(task.id) },
-                            onDelete = { viewModel.delete(task.id) }
+                            onDelete = { viewModel.delete(task.id) },
+                            onAiClick = { selectedTask = task; showAiSheet = true }
                         )
                     }
                 }
@@ -137,7 +216,8 @@ fun TaskCard(
     task: Task,
     onClick: () -> Unit,
     onToggle: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onAiClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -183,6 +263,14 @@ fun TaskCard(
             }
 
             PriorityChip(priority = task.priority)
+
+            IconButton(onClick = onAiClick) {
+                Icon(
+                    Icons.Filled.AutoAwesome,
+                    contentDescription = "AI actions",
+                    tint = androidx.compose.material3.MaterialTheme.colorScheme.primary
+                )
+            }
 
             IconButton(onClick = onDelete) {
                 Icon(

@@ -17,7 +17,7 @@ import kotlinx.serialization.json.Json
 data class WeeklyPlanInput(val tasks: List<String>)
 
 @Serializable
-private data class WeeklyPlanItems(val items: List<String>)
+data class WeeklyPlanOutput(val items: List<String>)
 
 class WeeklyPlanTool(
     private val promptExecutor: PromptExecutor,
@@ -32,13 +32,13 @@ class WeeklyPlanTool(
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
         return try {
-            val items = Json.decodeFromString<WeeklyPlanItems>(text).items
-            Json.encodeToString(WeeklyPlanItems.serializer(), WeeklyPlanItems(items))
+            val items = Json.decodeFromString<WeeklyPlanOutput>(text).items
+            Json.encodeToString(WeeklyPlanOutput.serializer(), WeeklyPlanOutput(items))
         } catch (_: Exception) {
             val lines = text.lines()
                 .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }
                 .map { it.trim().removePrefix("- ").removePrefix("* ").removeSurrounding("\"") }
-            Json.encodeToString(WeeklyPlanItems.serializer(), WeeklyPlanItems(lines))
+            Json.encodeToString(WeeklyPlanOutput.serializer(), WeeklyPlanOutput(lines))
         }
     }
 
