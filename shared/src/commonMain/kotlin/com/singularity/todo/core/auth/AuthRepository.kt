@@ -3,6 +3,8 @@ package com.singularity.todo.core.auth
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,7 +45,7 @@ class SupabaseAuthRepository(
 
     init {
         sessionScope.launch {
-            val deviceId = sessionStore.deviceIdBlocking()
+            val deviceId = runBlocking { sessionStore.deviceId.first() }
             _session.value = Session.Anonymous(UserId.fromString(deviceId))
         }
     }
@@ -75,7 +77,7 @@ class SupabaseAuthRepository(
     }
 
     override suspend fun signInAnonymously(): Result<Unit> = runCatchingResult {
-        val deviceId = sessionStore.deviceIdBlocking()
+        val deviceId = sessionStore.deviceId.first()
         _session.value = Session.Anonymous(UserId.fromString(deviceId))
     }
 

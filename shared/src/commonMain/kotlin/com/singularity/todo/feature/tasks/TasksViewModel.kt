@@ -9,10 +9,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 sealed interface TasksUiState {
     data object Loading : TasksUiState
@@ -32,7 +34,7 @@ class TasksViewModel(
     private val _filter = MutableStateFlow<TaskFilter>(TaskFilter.Today)
     val filter: StateFlow<TaskFilter> = _filter.asStateFlow()
 
-    private val currentUserId = UserId.fromString(settingsRepository.userIdBlocking())
+    private val currentUserId = UserId.fromString(runBlocking { settingsRepository.userId.first() })
 
     val state: StateFlow<TasksUiState> = _filter
         .flatMapLatest { filter ->

@@ -5,39 +5,54 @@ import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
-class NotesRepository(
+/**
+ * Contract for notes persistence.
+ */
+interface NotesRepository {
+    fun watchNotes(userId: UserId): Flow<List<Note>>
+    fun watchNote(id: NoteId): Flow<Note?>
+    fun searchNotes(query: String): Flow<List<Note>>
+    suspend fun create(note: Note): Result<Unit>
+    suspend fun update(note: Note): Result<Unit>
+    suspend fun softDelete(id: NoteId): Result<Unit>
+    suspend fun restore(id: NoteId): Result<Unit>
+}
+
+/**
+ * Room-backed production [NotesRepository].
+ */
+class RoomNotesRepository(
     private val noteDao: NoteDao,
     private val clock: Clock
-) {
-    fun watchNotes(userId: UserId): Flow<List<Note>> {
+) : NotesRepository {
+    override fun watchNotes(userId: UserId): Flow<List<Note>> {
         return noteDao.watchAll(userId.value).map { list -> list.map { it.toNote() } }
     }
 
-    fun watchNote(id: NoteId): Flow<Note?> {
+    override fun watchNote(id: NoteId): Flow<Note?> {
         return noteDao.watchById(id.value).map { it?.toNote() }
     }
 
-    fun searchNotes(query: String): Flow<List<Note>> {
+    override fun searchNotes(query: String): Flow<List<Note>> {
         return noteDao.search(query).map { list -> list.map { it.toNote() } }
     }
 
-    suspend fun create(note: Note): Result<Unit> = runCatching {
+    override suspend fun create(note: Note): Result<Unit> = runCatching {
         noteDao.upsert(note.toEntity())
     }
 
-    suspend fun update(note: Note): Result<Unit> = runCatching {
+    override suspend fun update(note: Note): Result<Unit> = runCatching {
         noteDao.upsert(note.toEntity())
     }
 
-    suspend fun softDelete(id: NoteId): Result<Unit> = runCatching {
+    override suspend fun softDelete(id: NoteId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
         noteDao.softDelete(id.value, ts)
     }
 
-    suspend fun restore(id: NoteId): Result<Unit> = runCatching {
+    override suspend fun restore(id: NoteId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
         noteDao.restore(id.value, ts)
     }

@@ -6,27 +6,41 @@ import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-class ProjectsRepository(
+/**
+ * Contract for projects persistence.
+ */
+interface ProjectsRepository {
+    fun watchProjects(userId: String): Flow<List<Project>>
+    fun watchProject(id: ProjectId): Flow<Project?>
+    suspend fun create(project: Project): Result<Unit>
+    suspend fun update(project: Project): Result<Unit>
+    suspend fun delete(id: ProjectId): Result<Unit>
+}
+
+/**
+ * Room-backed production [ProjectsRepository].
+ */
+class ProjectsRepositoryImpl(
     private val projectDao: ProjectDao,
     private val clock: Clock
-) {
-    fun watchProjects(userId: String): Flow<List<Project>> {
+) : ProjectsRepository {
+    override fun watchProjects(userId: String): Flow<List<Project>> {
         return projectDao.watchAll(userId).map { list -> list.map { it.toProject() } }
     }
 
-    fun watchProject(id: ProjectId): Flow<Project?> {
+    override fun watchProject(id: ProjectId): Flow<Project?> {
         return projectDao.watchById(id.value).map { it?.toProject() }
     }
 
-    suspend fun create(project: Project): Result<Unit> = runCatching {
+    override suspend fun create(project: Project): Result<Unit> = runCatching {
         projectDao.upsert(project.toEntity())
     }
 
-    suspend fun update(project: Project): Result<Unit> = runCatching {
+    override suspend fun update(project: Project): Result<Unit> = runCatching {
         projectDao.upsert(project.toEntity())
     }
 
-    suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
+    override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
         projectDao.softDelete(id.value, ts)
     }

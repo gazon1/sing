@@ -1,0 +1,72 @@
+package com.singularity.todo.core.di
+
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import com.singularity.todo.core.backup.AndroidBackupCodec
+import com.singularity.todo.core.backup.BackupCodec
+import com.singularity.todo.core.database.AppDatabase
+import com.singularity.todo.core.files.AndroidFileSystem
+import com.singularity.todo.core.files.FileSystem
+import com.singularity.todo.core.notifications.AndroidNotificationPort
+import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.core.security.AndroidSecureStorage
+import com.singularity.todo.core.security.SecureStoragePort
+import org.koin.core.module.Module
+import org.koin.dsl.module
+
+/**
+ * Android platform bindings.
+ *
+ * - Room [AppDatabase] is created here and provides DAOs directly (no reflection)
+ * - [SecureStoragePort] → [AndroidSecureStorage]
+ * - [NotificationPort] → [AndroidNotificationPort]
+ * - [FileSystem] → [AndroidFileSystem]
+ * - [BackupCodec] → [AndroidBackupCodec]
+ * - [PromptExecutor] → stub (Koog not supported on Android)
+ * - [androidx.datastore.core.DataStore] → application preferences DataStore
+ */
+actual fun platformModule(): Module = module {
+    // ─── Room Database ────────────────────────────────────────────────────
+
+    single<AppDatabase> {
+        Room.databaseBuilder(
+            get<android.content.Context>(),
+            AppDatabase::class.java,
+            "todo.db"
+        ).build()
+    }
+
+    single { get<AppDatabase>().taskDao() }
+    single { get<AppDatabase>().noteDao() }
+    single { get<AppDatabase>().projectDao() }
+    single { get<AppDatabase>().tagDao() }
+    single { get<AppDatabase>().syncOutboxDao() }
+    single { get<AppDatabase>().attachmentDao() }
+    single { get<AppDatabase>().reminderDao() }
+
+    // ─── DataStore ────────────────────────────────────────────────────────
+
+    single<DataStore<Preferences>> {
+        PreferenceDataStoreFactory.create { get<android.content.Context>().filesDir.resolve("settings.preferences_pb") }
+    }
+
+    // ─── Platform Ports ─────────────────────────────────────────────────
+
+    single<SecureStoragePort> { AndroidSecureStorage(get()) }
+
+    single<NotificationPort> { AndroidNotificationPort(get()) }
+
+    single<FileSystem> { AndroidFileSystem(get()) }
+
+    single<BackupCodec> { AndroidBackupCodec() }
+
+    // ─── Prompt Executor ─────────────────────────────────────────────────
+
+    single<ai.koog.prompt.executor.model.PromptExecutor> {
+        error("Koog PromptExecutor is not available on Android. Use the desktop/JVM target for AI features.")
+    }
+
+}

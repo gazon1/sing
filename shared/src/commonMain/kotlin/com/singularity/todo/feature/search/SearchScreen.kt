@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.tasks.TaskCard
 import org.koin.compose.koinInject
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,8 +42,8 @@ fun SearchScreen(
 ) {
     val settingsRepo: com.singularity.todo.core.settings.SettingsRepository = koinInject()
     var query by remember { mutableStateOf("") }
-    val results by searchUseCase(query, settingsRepo.userIdBlocking())
-        .collectAsState(initial = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
+    val results by searchUseCase(query, runBlocking { settingsRepo.userId.first() })
+        .collectAsState(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Search") }) }

@@ -14,8 +14,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 // ─── List screen state ────────────────────────────────────────────────────────
 
@@ -65,7 +67,7 @@ open class NotesViewModel(
     /** Scope for collection-until-stable flows (init, openEditor). Lazy to defer Dispatchers.Unconfined access. */
     private val scope: CoroutineScope by lazy { scopeProvider() }
 
-    private val currentUserId = UserId.fromString(settingsRepository.userIdBlocking())
+    private val currentUserId = UserId.fromString(runBlocking { settingsRepository.userId.first() })
 
     // List state
     private val _notes = MutableStateFlow<NotesUiState>(NotesUiState.Loading)

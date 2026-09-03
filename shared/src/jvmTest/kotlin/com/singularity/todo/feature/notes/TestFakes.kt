@@ -1,30 +1,11 @@
 package com.singularity.todo.feature.notes
 
-import com.singularity.todo.core.settings.SettingsRepository
-import com.singularity.todo.feature.tasks.UserId
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
+import com.singularity.todo.test.fakes.FakeSettingsRepository
 
 /**
- * Minimal test double for [SettingsRepository].
- * Only implements what [NotesViewModel] actually uses: [userIdBlocking].
+ * Minimal test double for [SettingsRepository] — implements interface directly.
  */
-class FakeSettingsRepository(userId: UserId) : SettingsRepository(FakeDataStore()) {
-    private val _userId = userId.value
-
-    override val userId: Flow<String> = MutableStateFlow(_userId)
-    override fun userIdBlocking() = _userId
-}
-
-/** Fake DataStore that returns empty preferences — never actually read in tests */
-private class FakeDataStore : androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> {
-    private val prefs = androidx.datastore.preferences.core.emptyPreferences()
-    override val data: Flow<androidx.datastore.preferences.core.Preferences> =
-        kotlinx.coroutines.flow.flowOf(prefs)
-    override suspend fun updateData(
-        transform: suspend (androidx.datastore.preferences.core.Preferences) -> androidx.datastore.preferences.core.Preferences
-    ): androidx.datastore.preferences.core.Preferences = prefs
-}
+typealias FakeNotesSettingsRepository = FakeSettingsRepository
 
 /** Pass-through HTML port for tests that don't need conversion verification */
 class FakeMarkdownHtmlPort : MarkdownHtmlPort {

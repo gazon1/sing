@@ -39,7 +39,7 @@ data class ChatMessageUi(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    openAiClient: OpenAiClient,
+    textGen: TextGenPort,
     settingsRepository: com.singularity.todo.core.settings.SettingsRepository
 ) {
     val messages = remember { mutableStateOf<List<ChatMessageUi>>(emptyList()) }

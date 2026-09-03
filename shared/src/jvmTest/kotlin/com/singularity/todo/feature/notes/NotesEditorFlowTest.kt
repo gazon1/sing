@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.notes
 
 import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -30,7 +31,7 @@ class NotesEditorFlowTest {
         return NotesViewModel(
             store,
             htmlPort,
-            FakeSettingsRepository(testUserId)
+            FakeSettingsRepository(testUserId.value)
         )
     }
 

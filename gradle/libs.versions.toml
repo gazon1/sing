@@ -2,7 +2,7 @@
 # Kotlin / Build
 agp = "9.4.0"
 kotlin = "2.4.10"
-ksp = "2.4.10"
+ksp = "2.4.10-1.0.29"
 kotlin-serialization = "2.0.21"
 
 # Android
@@ -139,6 +139,7 @@ koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel", ver
 koin-test = { module = "io.insert-koin:koin-test", version.ref = "koin" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 koin-annotations-compiler = { module = "io.insert-koin:koin-annotations-compiler", version.ref = "koin-ksp" }
+koin-annotations-runtime = { module = "io.insert-koin:koin-annotations", version.ref = "koin-ksp" }
 
 # DataStore
 androidx-datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastore" }

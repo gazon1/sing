@@ -2,6 +2,8 @@ package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.platform.Clock
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 /**
  * Factory for creating HLC timestamps with a fixed device node ID.
@@ -10,7 +12,7 @@ class HlcFactory(
     private val sessionStore: SessionStore,
     private val clock: Clock
 ) {
-    private val nodeId: String by lazy { sessionStore.deviceIdBlocking() }
+    private val nodeId: String by lazy { runBlocking { sessionStore.deviceId.first() } }
 
     private var _lastHlc: Hlc = Hlc.zero(nodeId)
 

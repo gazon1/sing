@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.settings
 
 import com.singularity.todo.core.security.FakeSecureStorage
+import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest

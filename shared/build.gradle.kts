@@ -1,11 +1,11 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidMultiplatformLibrary)
-    alias(libs.plugins.composeMultiplatform)
-    alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.kotlinSerialization)
+	alias(libs.plugins.kotlinMultiplatform)
+	alias(libs.plugins.androidMultiplatformLibrary)
+	alias(libs.plugins.composeMultiplatform)
+	alias(libs.plugins.composeCompiler)
+	alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
@@ -20,6 +20,7 @@ kotlin {
             jvmTarget = JvmTarget.JVM_11
             freeCompilerArgs.add("-Xskip-metadata-version-check")
             freeCompilerArgs.add("-Xbinary=allow-kotlin-metadata-version-mismatch=true")
+            freeCompilerArgs.add("-Xopt-in=kotlin.time.ExperimentalTime")
         }
         androidResources {
             enable = true
@@ -60,10 +61,10 @@ kotlin {
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.sqlite.bundled)
 
-            // Koin
-            implementation(libs.koin.core)
-            implementation(libs.koin.compose)
-            implementation(libs.koin.compose.viewmodel)
+						// Koin
+						implementation(libs.koin.core)
+						implementation(libs.koin.compose)
+						implementation(libs.koin.compose.viewmodel)
 
             // Ktor
             implementation(libs.ktor.client.core)
@@ -134,7 +135,7 @@ kotlin {
             implementation(libs.ktor.client.okhttp)
 
             // DataStore
-            implementation(libs.androidx.datastore.preferences.core)
+            implementation(libs.androidx.datastore.preferences)
 
             // FileKit Android
             implementation(libs.filekit.core)

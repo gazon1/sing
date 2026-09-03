@@ -7,9 +7,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 sealed interface ProjectsUiState {
     data object Loading : ProjectsUiState
@@ -24,7 +26,7 @@ class ProjectsViewModel(
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
-    private val currentUserId = settingsRepository.userIdBlocking()
+    private val currentUserId = runBlocking { settingsRepository.userId.first() }
 
     val state: StateFlow<ProjectsUiState> = getProjects(currentUserId)
         .map<List<Project>, ProjectsUiState> { projects ->

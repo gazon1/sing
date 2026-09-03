@@ -6,27 +6,41 @@ import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-class TagsRepository(
+/**
+ * Contract for tags persistence.
+ */
+interface TagsRepository {
+    fun watchTags(userId: String): Flow<List<Tag>>
+    fun watchTag(id: TagId): Flow<Tag?>
+    suspend fun create(tag: Tag): Result<Unit>
+    suspend fun update(tag: Tag): Result<Unit>
+    suspend fun delete(id: TagId): Result<Unit>
+}
+
+/**
+ * Room-backed production [TagsRepository].
+ */
+class TagsRepositoryImpl(
     private val tagDao: TagDao,
     private val clock: Clock
-) {
-    fun watchTags(userId: String): Flow<List<Tag>> {
+) : TagsRepository {
+    override fun watchTags(userId: String): Flow<List<Tag>> {
         return tagDao.watchAll(userId).map { list -> list.map { it.toTag() } }
     }
 
-    fun watchTag(id: TagId): Flow<Tag?> {
+    override fun watchTag(id: TagId): Flow<Tag?> {
         return tagDao.watchById(id.value).map { it?.toTag() }
     }
 
-    suspend fun create(tag: Tag): Result<Unit> = runCatching {
+    override suspend fun create(tag: Tag): Result<Unit> = runCatching {
         tagDao.upsert(tag.toEntity())
     }
 
-    suspend fun update(tag: Tag): Result<Unit> = runCatching {
+    override suspend fun update(tag: Tag): Result<Unit> = runCatching {
         tagDao.upsert(tag.toEntity())
     }
 
-    suspend fun delete(id: TagId): Result<Unit> = runCatching {
+    override suspend fun delete(id: TagId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
         tagDao.softDelete(id.value, ts)
     }
