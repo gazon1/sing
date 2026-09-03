@@ -1,0 +1,32 @@
+package com.singularity.todo.feature.ai.tools
+
+import ai.koog.agents.core.tools.SimpleTool
+import ai.koog.serialization.TypeToken
+import com.singularity.todo.feature.notes.NotesStore
+import kotlinx.coroutines.flow.first
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class GetNoteInput(val noteId: String)
+
+@Serializable
+data class GetNoteOutput(val id: String, val title: String, val bodyMarkdown: String?)
+
+class GetNoteTool(private val notesStore: NotesStore) :
+    SimpleTool<GetNoteInput>(TypeToken.of(GetNoteInput::class.java), NAME, DESCRIPTION) {
+
+    override suspend fun execute(args: GetNoteInput): String {
+        val note = notesStore.watch(args.noteId).first()
+        val output = if (note != null) {
+            GetNoteOutput(note.id.value, note.title, note.bodyMarkdown)
+        } else {
+            GetNoteOutput(args.noteId, "(not found)", null)
+        }
+        return kotlinx.serialization.json.Json.encodeToString(GetNoteOutput.serializer(), output)
+    }
+
+    companion object {
+        const val NAME = "get_note"
+        const val DESCRIPTION = "Fetch a single note by its ID."
+    }
+}

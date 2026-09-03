@@ -174,7 +174,7 @@ fun sharedModule(
         // Projects
         single { ProjectsRepository(get(), get()) }
 
-        // AI — text generation (Koog integration in Phase 5)
-        single<TextGenPort> { KoogAgentService(get(), get()) }
+        // AI — Koog PromptExecutor (platform-specific) + AgentService
+        single<TextGenPort> { KoogAgentService(get(), get(), createKoogPromptExecutor()) }
     }
 }

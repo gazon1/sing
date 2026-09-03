@@ -88,8 +88,11 @@ kotlin {
             // OpenAI (legacy client — replaced by Koog in Phase 5)
             implementation(libs.openai.client)
 
-            // Koog AI Agent Framework (JetBrains) — added in Phase 5 once API confirmed
-            // implementation(libs.koog.agents)
+            // Koog AI Agent Framework (JetBrains) — Phase 5 real integration
+            implementation(libs.koog.agents)
+            implementation(libs.koog.prompt.executor.openai.client)
+            implementation(libs.koog.prompt.llm)
+            implementation(libs.koog.prompt.executor.model)
 
             // MaterialKolor
             implementation(libs.materialkolor)
@@ -160,6 +163,13 @@ kotlin {
 
             // Coil Ktor network
             implementation(libs.coil.network.ktor3)
+
+            // Koog OkHttp HTTP backend — JVM-only
+            implementation(libs.koog.http.client.okhttp)
+
+            // Koog OpenAI client — JVM-only (multiplatform artifact resolves to android stub
+            // in KMP context; explicit -jvm dep needed for JVM target compile classpath)
+            implementation(libs.koog.prompt.executor.openai.client.jvm)
         }
 
         commonTest.dependencies {

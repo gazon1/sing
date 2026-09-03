@@ -71,7 +71,7 @@ rich-editor = "1.2.0"
 security-crypto = "1.1.0-alpha06"
 
 # AI Agent Framework (JetBrains Koog)
-koog = "1.2.0"
+koog = "1.1.1"
 
 # Coil
 coil = "3.6.1"
@@ -185,6 +185,11 @@ android-security-crypto = { module = "androidx.security:security-crypto", versio
 
 # Koog AI Agent
 koog-agents = { module = "ai.koog:koog-agents", version.ref = "koog" }
+koog-prompt-executor-openai-client = { module = "ai.koog:prompt-executor-openai-client", version.ref = "koog" }
+koog-prompt-executor-openai-client-jvm = { module = "ai.koog:prompt-executor-openai-client-jvm", version.ref = "koog" }
+koog-prompt-llm = { module = "ai.koog:prompt-llm", version.ref = "koog" }
+koog-prompt-executor-model = { module = "ai.koog:prompt-executor-model", version.ref = "koog" }
+koog-http-client-okhttp = { module = "ai.koog:http-client-okhttp", version.ref = "koog" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
