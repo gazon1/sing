@@ -3,8 +3,9 @@ package com.singularity.todo.core.di
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
-import androidx.room.Room
-import androidx.room.RoomDatabase
+import androidx.room3.Room
+import androidx.room3.RoomDatabase
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.singularity.todo.core.backup.AndroidBackupCodec
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.database.AppDatabase
@@ -31,11 +32,9 @@ actual fun platformModule(): Module = module {
     // ─── Room Database ────────────────────────────────────────────────────
 
     single<AppDatabase> {
-        Room.databaseBuilder(
-            get<android.content.Context>(),
-            AppDatabase::class.java,
-            "todo.db"
-        ).build()
+        Room.databaseBuilder<AppDatabase>(name = "todo.db")
+            .setDriver(BundledSQLiteDriver())
+            .build()
     }
 
     single { get<AppDatabase>().taskDao() }

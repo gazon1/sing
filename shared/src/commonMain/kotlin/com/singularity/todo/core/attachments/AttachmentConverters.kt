@@ -1,17 +1,17 @@
 package com.singularity.todo.core.attachments
 
-import androidx.room.TypeConverter
+import androidx.room3.ColumnTypeConverter
 
 class AttachmentConverters {
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromAttachmentType(type: AttachmentType): String = type.name
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun toAttachmentType(value: String): AttachmentType = AttachmentType.fromString(value)
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromSyncStatus(status: AttachmentSyncStatus): String = status.name
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun toSyncStatus(value: String): AttachmentSyncStatus = AttachmentSyncStatus.fromString(value)
 }

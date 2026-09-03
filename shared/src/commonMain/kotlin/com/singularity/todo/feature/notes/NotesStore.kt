@@ -3,7 +3,6 @@ package com.singularity.todo.feature.notes
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.flow.Flow
-import kotlinx.datetime.Instant
 
 /**
  * Abstraction over note persistence — enables mock-free testing via [FakeNotesStore].
@@ -24,7 +23,7 @@ interface NotesStore {
 }
 
 /** Returns the current instant using the platform clock */
-private fun currentInstant(): Instant = Clock.now()
+private fun currentInstant(): kotlin.time.Instant = Clock.now()
 
 /**
  * In-memory fake for unit tests — no mocking framework required.

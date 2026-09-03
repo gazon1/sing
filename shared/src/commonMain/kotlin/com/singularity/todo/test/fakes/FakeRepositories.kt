@@ -25,7 +25,6 @@ import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.datetime.Instant
 
 // ─── SessionStore ─────────────────────────────────────────────────────────────
 
@@ -161,7 +160,7 @@ class FakeTaskRepository : TaskRepository {
     override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatching {
         val task = tasks.value.find { it.id == id } ?: return@runCatching
         update(task.copy(
-            completedAt = if (task.completedAt != null) null else Instant.fromEpochMilliseconds(0)
+            completedAt = if (task.completedAt != null) null else kotlin.time.Instant.fromEpochMilliseconds(0)
         ))
     }
 

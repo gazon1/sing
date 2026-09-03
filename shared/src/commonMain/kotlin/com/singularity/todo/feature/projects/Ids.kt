@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.projects
 
 import java.util.UUID
+import kotlin.time.Instant
 
 @JvmInline
 value class ProjectId(val value: String) {
@@ -16,13 +17,13 @@ data class Project(
     val color: Int, // ARGB
     val icon: String? = null,
     val description: String? = null,
-    val createdAt: kotlinx.datetime.Instant,
-    val updatedAt: kotlinx.datetime.Instant,
+    val createdAt: Instant,
+    val updatedAt: Instant,
     val isDefault: Boolean = false,
     val dueDate: kotlinx.datetime.LocalDate? = null,
     val team: String? = null,
     val isDeleted: Boolean = false,
-    val deletedAt: kotlinx.datetime.Instant? = null,
+    val deletedAt: Instant? = null,
     val parentId: ProjectId? = null,
     val sortOrder: Int = 0,
     val isNotebook: Boolean = false,

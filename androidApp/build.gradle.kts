@@ -17,10 +17,6 @@ dependencies {
     // AndroidX
     implementation(libs.androidx.activity.compose)
 
-    // Room
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.sqlite.bundled)
-
     // DataStore
     implementation(libs.androidx.datastore.preferences)
 

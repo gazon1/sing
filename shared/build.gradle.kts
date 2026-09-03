@@ -6,6 +6,10 @@ plugins {
 	alias(libs.plugins.composeMultiplatform)
 	alias(libs.plugins.composeCompiler)
 	alias(libs.plugins.kotlinSerialization)
+	// KSP for Room annotation processing
+	alias(libs.plugins.ksp)
+	// Room 3 KSP plugin (schema export)
+	alias(libs.plugins.room3)
 }
 
 kotlin {
@@ -57,9 +61,9 @@ kotlin {
             // Serialization
             implementation(libs.kotlinx.serialization.json)
 
-            // Room (runtime only for common - platform-specific drivers in each target)
-            implementation(libs.androidx.room.runtime)
-            implementation(libs.androidx.sqlite.bundled)
+            // Room 3 (KMP)
+            implementation(libs.androidx.room3.runtime)
+            implementation(libs.androidx.sqlite)
 
 						// Koin
 						implementation(libs.koin.core)
@@ -116,17 +120,18 @@ kotlin {
             implementation(libs.ulid)
 
             // Supabase
-            implementation("io.github.jan-tennert.supabase:auth-kt:3.8.0")
-            implementation("io.github.jan-tennert.supabase:postgrest-kt:3.8.0")
-            implementation("io.github.jan-tennert.supabase:functions-kt:3.8.0")
+            implementation(libs.auth.kt)
+            implementation(libs.postgrest.kt)
+            implementation(libs.functions.kt)
         }
 
         androidMain.dependencies {
             implementation(libs.compose.uiTooling)
             implementation(libs.compose.uiToolingPreview)
 
-            // Room
-            implementation(libs.androidx.room.runtime)
+            // Room Android
+            implementation(libs.androidx.room3.runtime)
+            implementation(libs.androidx.sqlite.bundled)
 
             // Koin Android
             implementation(libs.koin.android)
@@ -145,10 +150,12 @@ kotlin {
         }
 
         jvmMain.dependencies {
-            // Room
-            implementation(libs.androidx.room.runtime)
-            implementation(libs.androidx.sqlite.bundled)
+            // SQLite JDBC (used by Room JVM driver)
             implementation(libs.sqlite.jdbc)
+
+            // Room JVM
+            implementation(libs.androidx.room3.runtime)
+            implementation(libs.androidx.sqlite)
 
             // Koin
             implementation(libs.koin.core)
@@ -182,13 +189,16 @@ kotlin {
 
         jvmTest.dependencies {
             implementation(libs.sqlite.jdbc)
-            implementation(libs.androidx.room.testing)
+            implementation(libs.androidx.room3.testing)
         }
     }
 }
 
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
+
+    // Room 3 KSP compiler for Android target
+    add("kspAndroid", libs.androidx.room3.compiler)
 }
 
 configurations.all {
@@ -208,3 +218,7 @@ configurations.all {
     }
 }
 
+// Room 3 KSP schema export
+room3 {
+    schemaDirectory("$projectDir/schemas")
+}

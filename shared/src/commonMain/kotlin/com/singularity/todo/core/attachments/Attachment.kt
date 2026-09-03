@@ -2,7 +2,6 @@ package com.singularity.todo.core.attachments
 
 import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.UserId
-import kotlinx.datetime.Instant
 
 data class Attachment(
     val id: AttachmentId,
@@ -17,9 +16,9 @@ data class Attachment(
     val mimeType: String? = null,
     val checksum: String? = null,
     val syncStatus: AttachmentSyncStatus = AttachmentSyncStatus.Pending,
-    val createdAt: Instant,
-    val updatedAt: Instant,
-    val deletedAt: Instant? = null,
+    val createdAt: kotlin.time.Instant,
+    val updatedAt: kotlin.time.Instant,
+    val deletedAt: kotlin.time.Instant? = null,
     // Sync columns
     val serverVersion: Long = 0L,
     val hlc: String? = null

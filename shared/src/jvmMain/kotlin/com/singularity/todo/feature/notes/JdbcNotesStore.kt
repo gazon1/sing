@@ -5,7 +5,6 @@ import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.datetime.Instant
 import java.sql.Connection
 import java.sql.DriverManager
 
@@ -67,7 +66,7 @@ class JdbcNotesStore : NotesStore {
 
     private fun rsToNote(rs: java.sql.ResultSet): Note {
         fun long0(col: String): Long? = rs.getLong(col).takeIf { !rs.wasNull() }
-        fun inst(col: String): Instant? = long0(col)?.let { Instant.fromEpochMilliseconds(it) }
+        fun inst(col: String): kotlin.time.Instant? = long0(col)?.let { kotlin.time.Instant.fromEpochMilliseconds(it) }
 
         return Note(
             id = NoteId.fromString(rs.getString("id")),
@@ -77,8 +76,8 @@ class JdbcNotesStore : NotesStore {
             bodyHtml = rs.getString("body_html"),
             isFolder = rs.getInt("is_folder") == 1,
             parentNoteId = rs.getString("parent_note_id")?.let { NoteId.fromString(it) },
-            createdAt = Instant.fromEpochMilliseconds(rs.getLong("created_at")),
-            updatedAt = Instant.fromEpochMilliseconds(rs.getLong("updated_at")),
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(rs.getLong("created_at")),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(rs.getLong("updated_at")),
             deletedAt = inst("deleted_at"),
             archivedAt = inst("archived_at")
         )

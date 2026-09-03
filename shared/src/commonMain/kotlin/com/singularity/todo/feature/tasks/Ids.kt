@@ -4,6 +4,7 @@ import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.notes.NoteId
 import java.util.UUID
+import kotlin.time.Instant
 
 @JvmInline
 value class TaskId(val value: String) {
@@ -52,12 +53,12 @@ data class Task(
     val tags: List<TagId> = emptyList(),
     val dueDate: kotlinx.datetime.LocalDate? = null,
     val dueTime: String? = null, // "HH:mm"
-    val completedAt: kotlinx.datetime.Instant? = null,
+    val completedAt: Instant? = null,
     val someday: Boolean = false,
-    val archivedAt: kotlinx.datetime.Instant? = null,
+    val archivedAt: Instant? = null,
     val isPinned: Boolean = false,
-    val createdAt: kotlinx.datetime.Instant,
-    val updatedAt: kotlinx.datetime.Instant,
+    val createdAt: Instant,
+    val updatedAt: Instant,
     val userId: UserId
 ) {
     val isCompleted: Boolean get() = completedAt != null

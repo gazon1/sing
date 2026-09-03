@@ -143,7 +143,7 @@ private class JvmTaskDao(
     override fun watchTrash(userId: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.archivedAt != null && it.userId == userId } }
     override fun watchSomeday(userId: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.someday && it.userId == userId && it.archivedAt == null } }
     override fun watchByDate(userId: String, date: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.dueDate == date && it.userId == userId && it.archivedAt == null } }
-    override fun watchUpcoming(userId: String, today: String, endDate: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.dueDate != null && it.dueDate!! > today && it.dueDate!! <= endDate && it.userId == userId && it.archivedAt == null } }
+    override fun watchUpcoming(userId: String, today: String, endDate: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.dueDate != null && it.dueDate > today && it.dueDate!! <= endDate && it.userId == userId && it.archivedAt == null } }
     override fun watchByProject(userId: String, projectId: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.projectId == projectId && it.userId == userId && it.archivedAt == null } }
     override fun search(q: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.title.contains(q, ignoreCase = true) || (it.description?.contains(q, ignoreCase = true) == true) } }
     override suspend fun upsert(task: TaskEntity) { }

@@ -2,6 +2,7 @@ package com.singularity.todo.feature.notes
 
 import com.singularity.todo.feature.tasks.UserId
 import java.util.UUID
+import kotlin.time.Instant
 
 @JvmInline
 value class NoteId(val value: String) {
@@ -19,10 +20,10 @@ data class Note(
     val bodyHtml: String? = null,
     val isFolder: Boolean = false,
     val parentNoteId: NoteId? = null,
-    val createdAt: kotlinx.datetime.Instant,
-    val updatedAt: kotlinx.datetime.Instant,
-    val deletedAt: kotlinx.datetime.Instant? = null,
-    val archivedAt: kotlinx.datetime.Instant? = null
+    val createdAt: Instant,
+    val updatedAt: Instant,
+    val deletedAt: Instant? = null,
+    val archivedAt: Instant? = null
 ) {
     val isLeaf: Boolean get() = !isFolder
     val isDeleted: Boolean get() = deletedAt != null

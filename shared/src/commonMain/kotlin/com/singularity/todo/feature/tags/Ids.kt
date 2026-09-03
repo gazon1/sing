@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tags
 
 import java.util.UUID
+import kotlin.time.Instant
 
 @JvmInline
 value class TagId(val value: String) {
@@ -14,11 +15,11 @@ data class Tag(
     val id: TagId,
     val name: String,
     val color: Int, // ARGB
-    val createdAt: kotlinx.datetime.Instant,
-    val updatedAt: kotlinx.datetime.Instant,
+    val createdAt: Instant,
+    val updatedAt: Instant,
     val parentId: TagId? = null,
     val sortOrder: Int = 0,
-    val deletedAt: kotlinx.datetime.Instant? = null,
+    val deletedAt: Instant? = null,
     val userId: String
 )
 

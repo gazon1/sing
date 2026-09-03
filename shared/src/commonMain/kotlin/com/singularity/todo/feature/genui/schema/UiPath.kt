@@ -102,9 +102,4 @@ private fun UiPath.tailSuffix(): String {
     return "/" + tail.toPointer()
 }
 
-private fun UiPath.Segment.toString(): String {
-    return when (this) {
-        is UiPath.Segment.Index -> this.value.toString()
-        is UiPath.Segment.Key -> this.value
-    }
-}
+

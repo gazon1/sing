@@ -1,9 +1,9 @@
 [versions]
 # Kotlin / Build
 agp = "9.4.0"
-kotlin = "2.4.10"
-ksp = "2.4.10-1.0.29"
-kotlin-serialization = "2.0.21"
+kotlin = "2.3.21"
+ksp = "2.3.11"
+kotlin-serialization = "1.11.0"
 
 # Android
 android-compileSdk = "37"
@@ -24,9 +24,12 @@ material3 = "1.11.0-alpha07"
 coroutines = "1.11.0"
 datetime = "0.8.0"
 
-# Database / Room
-room = "2.8.4"
+# Database / SQLDelight
+postgrestKt = "3.8.0"
+room = "3.0.0"
 sqlite = "2.7.0"
+sqlDelightVersion = "1.5.5"
+sqliteJdbc = "3.47.0.0"
 
 # Networking / Ktor
 ktor = "3.5.2"
@@ -84,6 +87,8 @@ robolectric = "4.13"
 
 [libraries]
 # Kotlin / Build
+auth-kt = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "postgrestKt" }
+functions-kt = { module = "io.github.jan-tennert.supabase:functions-kt", version.ref = "postgrestKt" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -115,15 +120,22 @@ compose-components-resources = { module = "org.jetbrains.compose.components:comp
 compose-runtime-liveedit = { module = "org.jetbrains.compose.runtime:runtime-liveedit", version.ref = "composeMultiplatform" }
 kotlinx-coroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }
 
-# Room
-androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
-androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
-androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
-androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
+# SQLDelight (correct artifact names for 1.5.x)
+sqlDelight-runtime = { module = "com.squareup.sqldelight:sqlite-driver", version.ref = "sqlDelightVersion" }
+sqlDelight-android = { module = "com.squareup.sqldelight:android-driver", version.ref = "sqlDelightVersion" }
+sqlDelight-jdbc = { module = "com.squareup.sqldelight:jdbc-driver", version.ref = "sqlDelightVersion" }
+
+# Room 3 (androidx.room3 group)
+androidx-room3-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room" }
+androidx-room3-compiler = { module = "androidx.room3:room3-compiler", version.ref = "room" }
+androidx-room3-ktx = { module = "androidx.room3:room3-ktx", version.ref = "room" }
+androidx-room3-testing = { module = "androidx.room3:room3-testing", version.ref = "room" }
+androidx-sqlite = { module = "androidx.sqlite:sqlite", version.ref = "sqlite" }
 androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
 
 # SQLite JDBC for JVM tests
-sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version = "3.45.1.0" }
+postgrest-kt = { module = "io.github.jan-tennert.supabase:postgrest-kt", version.ref = "postgrestKt" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
 
 # Ktor
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
@@ -203,4 +215,6 @@ kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-androidxRoom = { id = "androidx.room", version.ref = "room" }
+
+# Room 3 KSP plugin
+room3 = { id = "androidx.room3", version.ref = "room" }

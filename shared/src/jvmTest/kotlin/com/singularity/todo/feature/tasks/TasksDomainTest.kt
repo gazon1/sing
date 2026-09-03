@@ -9,6 +9,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * Tests for pure domain logic in TasksDomain.
@@ -91,8 +92,8 @@ class TasksDomainTest {
             title = "Test task",
             userId = UserId.fromString("user-1")
         )
-        val createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(1000)
-        val updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(2000)
+        val createdAt = Instant.fromEpochMilliseconds(1000)
+        val updatedAt = Instant.fromEpochMilliseconds(2000)
 
         val task = TasksDomain.buildTask(input, createdAt = createdAt, updatedAt = updatedAt)
 
@@ -111,7 +112,7 @@ class TasksDomainTest {
     private fun taskWith(
         dueDate: kotlinx.datetime.LocalDate? = null,
         someday: Boolean = false,
-        archivedAt: kotlinx.datetime.Instant? = null,
+        archivedAt: Instant? = null,
         projectId: ProjectId? = null,
         tags: List<TagId> = emptyList(),
         title: String = "Task",
@@ -126,8 +127,8 @@ class TasksDomainTest {
         archivedAt = archivedAt,
         projectId = projectId,
         tags = tags,
-        createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
-        updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0)
+        createdAt = Instant.fromEpochMilliseconds(0),
+        updatedAt = Instant.fromEpochMilliseconds(0)
     )
 
     @Test
@@ -149,7 +150,7 @@ class TasksDomainTest {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(
             dueDate = today,
-            archivedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(1)
+            archivedAt = Instant.fromEpochMilliseconds(1)
         )
         assertFalse(TasksDomain.matchesFilter(task, TaskFilter.Today, today))
     }
@@ -184,14 +185,14 @@ class TasksDomainTest {
         val somedayTask = taskWith(someday = true)
         assertFalse(TasksDomain.matchesFilter(somedayTask, TaskFilter.Inbox, today))
 
-        val trashedTask = taskWith(archivedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(1))
+        val trashedTask = taskWith(archivedAt = Instant.fromEpochMilliseconds(1))
         assertFalse(TasksDomain.matchesFilter(trashedTask, TaskFilter.Inbox, today))
     }
 
     @Test
     fun `matchesFilter - Trash`() {
         val today = LocalDate(2024, 1, 15)
-        val trashedTask = taskWith(archivedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(1))
+        val trashedTask = taskWith(archivedAt = Instant.fromEpochMilliseconds(1))
         assertTrue(TasksDomain.matchesFilter(trashedTask, TaskFilter.Trash, today))
 
         val activeTask = taskWith()

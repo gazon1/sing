@@ -6,6 +6,7 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlin.time.Instant
 
 /**
  * Production [NotesStore] backed by Room via [NoteDao].
@@ -65,8 +66,8 @@ private fun NoteEntity.toNote(): Note = Note(
     bodyHtml = null,
     isFolder = isFolder,
     parentNoteId = parentNoteId?.let { NoteId.fromString(it) },
-    createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(createdAt),
-    updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(updatedAt),
-    deletedAt = deletedAt?.let { kotlinx.datetime.Instant.fromEpochMilliseconds(it) },
-    archivedAt = archivedAt?.let { kotlinx.datetime.Instant.fromEpochMilliseconds(it) }
+    createdAt = Instant.fromEpochMilliseconds(createdAt),
+    updatedAt = Instant.fromEpochMilliseconds(updatedAt),
+    deletedAt = deletedAt?.let { Instant.fromEpochMilliseconds(it) },
+    archivedAt = archivedAt?.let { Instant.fromEpochMilliseconds(it) }
 )

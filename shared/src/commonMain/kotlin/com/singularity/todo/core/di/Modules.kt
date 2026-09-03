@@ -8,6 +8,7 @@ import com.singularity.todo.core.backup.StubRemoteBackupService
 import com.singularity.todo.core.settings.DataStoreSettingsRepository
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
@@ -173,6 +174,8 @@ fun domainModule(): Module = module {
         RoomReminderRepository(get())
     }
 
+    // Platform clock singleton — actual implementation is in androidMain/jvmMain
+    single { Clock }
     // ─── Ports ───────────────────────────────────────────────────────────
 
     single<com.singularity.todo.feature.notes.MarkdownHtmlPort> { RichEditorMarkdownHtmlPort() }

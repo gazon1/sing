@@ -6,7 +6,6 @@ import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.datetime.Instant
 
 interface AttachmentRepository {
     fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Attachment>>
@@ -123,9 +122,9 @@ private fun AttachmentEntity.toAttachment(): Attachment = Attachment(
     mimeType = mimeType,
     checksum = checksum,
     syncStatus = AttachmentSyncStatus.fromString(syncStatus),
-    createdAt = Instant.fromEpochMilliseconds(createdAt),
-    updatedAt = Instant.fromEpochMilliseconds(updatedAt),
-    deletedAt = deletedAt?.let { Instant.fromEpochMilliseconds(it) }
+    createdAt = kotlin.time.Instant.fromEpochMilliseconds(createdAt),
+    updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt),
+    deletedAt = deletedAt?.let { kotlin.time.Instant.fromEpochMilliseconds(it) }
 )
 
 private fun Attachment.toEntity(): AttachmentEntity = AttachmentEntity(

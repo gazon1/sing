@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import kotlin.time.Instant
 
 /**
  * Pure domain logic for task validation and creation.
@@ -61,8 +62,8 @@ object TasksDomain {
     fun buildTask(
         input: CreateTaskInput,
         id: TaskId = generateTaskId(),
-        createdAt: kotlinx.datetime.Instant,
-        updatedAt: kotlinx.datetime.Instant
+        createdAt: Instant,
+        updatedAt: Instant
     ): Task = Task(
         id = id,
         title = input.title,

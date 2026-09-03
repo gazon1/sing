@@ -18,8 +18,8 @@ dependencies {
     implementation(libs.compose.uiToolingPreview)
 
     // Room for desktop database
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.sqlite.bundled)
+    implementation(libs.androidx.room3.runtime)
+    implementation(libs.androidx.sqlite)
     implementation(libs.sqlite.jdbc)
 
     // DataStore

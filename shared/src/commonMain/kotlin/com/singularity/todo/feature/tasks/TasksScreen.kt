@@ -292,7 +292,6 @@ fun PriorityChip(priority: TaskPriority) {
         TaskPriority.Medium -> androidx.compose.ui.graphics.Color(0xFFFF9800)
         TaskPriority.High -> androidx.compose.ui.graphics.Color(0xFFF44336)
         TaskPriority.Urgent -> androidx.compose.ui.graphics.Color(0xFFE91E63)
-        else -> androidx.compose.ui.graphics.Color.Transparent
     }
     
     Box(

@@ -1,15 +1,19 @@
 package com.singularity.todo.core.database
 
-import androidx.room.AutoMigration
-import androidx.room.Database
-import androidx.room.RoomDatabase
-import androidx.room.TypeConverters
+import androidx.room3.ConstructedBy
+import androidx.room3.Database
+import androidx.room3.RoomDatabase
+import androidx.room3.ColumnTypeConverters
 import com.singularity.todo.core.attachments.AttachmentConverters
 import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
 
+/**
+ * Room database for Android.
+ * Entity and DAO classes are defined in commonMain and are visible here.
+ */
 @Database(
     entities = [
         TaskEntity::class,
@@ -22,14 +26,10 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         TaskReminderEntity::class
     ],
     version = 4,
-    exportSchema = true,
-    autoMigrations = [
-        AutoMigration(from = 1, to = 2),
-        AutoMigration(from = 2, to = 3),
-        AutoMigration(from = 3, to = 4)
-    ]
+    exportSchema = true
 )
-@TypeConverters(AttachmentConverters::class)
+@ConstructedBy(AppDatabaseCtor::class)
+@ColumnTypeConverters(AttachmentConverters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun noteDao(): NoteDao
