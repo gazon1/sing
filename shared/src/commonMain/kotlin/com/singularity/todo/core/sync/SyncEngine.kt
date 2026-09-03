@@ -1,19 +1,15 @@
 package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.auth.AuthRepository
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.auth.Session
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import java.util.UUID
 
 /**
@@ -35,6 +31,10 @@ data class PullResult(
 
 /**
  * Sync engine — orchestrates push and pull operations.
+ *
+ * When the user is signed in, it polls push every 30 seconds.
+ * The polling job is cancelled automatically when session becomes SignedOut,
+ * and a new job is started when session becomes SignedIn again.
  */
 class SyncEngine(
     private val api: SyncApiClient,
@@ -55,15 +55,34 @@ class SyncEngine(
     private val _lastPullResult = MutableStateFlow<PullResult?>(null)
     val lastPullResult: StateFlow<PullResult?> = _lastPullResult.asStateFlow()
 
+    // Tracks the current push-loop job — cancelled on SignedOut, restarted on SignedIn
+    private var pushJob: Job? = null
+
     init {
+        // React to session changes: start/stop the push loop
         scope.launch {
-            while (true) {
-                val session = authRepository.session.value
-                if (session is com.singularity.todo.core.auth.Session.SignedIn) {
-                    push()
-                    delay(30_000)
-                } else {
-                    delay(10_000)
+            authRepository.session.collect { session ->
+                when (session) {
+                    is Session.SignedIn -> {
+                        if (pushJob?.isActive != true) {
+                            pushJob = scope.launch {
+                                while (true) {
+                                    try {
+                                        push()
+                                    } catch (e: Exception) {
+                                        _status.value = SyncEngineStatus.Error(e.message ?: "Push failed")
+                                    }
+                                    delay(30_000)
+                                }
+                            }
+                        }
+                    }
+                    is Session.Anonymous,
+                    is Session.SignedOut,
+                    is Session.Loading -> {
+                        pushJob?.cancel()
+                        pushJob = null
+                    }
                 }
             }
         }
@@ -93,7 +112,7 @@ class SyncEngine(
      */
     suspend fun push(): PushResult {
         val session = authRepository.session.value
-        if (session !is com.singularity.todo.core.auth.Session.SignedIn) {
+        if (session !is Session.SignedIn) {
             return PushResult(0, 0)
         }
 
@@ -151,7 +170,7 @@ class SyncEngine(
      */
     suspend fun pull(sinceLsn: Long = 0): PullResult {
         val session = authRepository.session.value
-        if (session !is com.singularity.todo.core.auth.Session.SignedIn) {
+        if (session !is Session.SignedIn) {
             return PullResult(0)
         }
 
@@ -161,7 +180,7 @@ class SyncEngine(
             val events = api.getEventsSince(session.userId.value, sinceLsn)
             var received = 0
 
-            events.forEach { event ->
+            events.forEach { _ ->
                 received++
             }
 

@@ -32,6 +32,7 @@ actual fun platformModule(): Module = module {
         JvmDatabase.create(dbPath)
     }
 
+    // DAOs — used by Android Room, not used on desktop (desktop uses JdbcNotesStore directly)
     single { get<JvmDatabase>().taskDao() }
     single { get<JvmDatabase>().noteDao() }
     single { get<JvmDatabase>().projectDao() }
@@ -39,6 +40,11 @@ actual fun platformModule(): Module = module {
     single { get<JvmDatabase>().syncOutboxDao() }
     single { get<JvmDatabase>().attachmentDao() }
     single { get<JvmDatabase>().reminderDao() }
+
+    // NotesStore — real JDBC on desktop (Android uses RoomNotesStore via its platform module)
+    single<com.singularity.todo.feature.notes.NotesStore> {
+        com.singularity.todo.feature.notes.JdbcNotesStore()
+    }
 
     // ─── DataStore ──────────────────────────────────────────────────────
 

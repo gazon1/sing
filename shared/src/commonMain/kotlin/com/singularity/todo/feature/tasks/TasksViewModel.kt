@@ -45,7 +45,6 @@ class TasksViewModel(
     private val taskRepo: TaskRepository,
     private val createTask: CreateTaskUseCase,
     private val updateTask: UpdateTaskUseCase,
-    private val setTags: SetTagsUseCase,
     private val settingsRepository: SettingsRepository,
     private val refineTask: RefineTaskUseCase,
     private val generateDescription: GenerateDescriptionUseCase,

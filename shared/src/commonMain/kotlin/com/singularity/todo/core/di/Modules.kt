@@ -165,10 +165,6 @@ fun domainModule(): Module = module {
         TagsRepositoryImpl(get(), get())
     }
 
-    single<com.singularity.todo.feature.notes.NotesStore> {
-        com.singularity.todo.feature.notes.RoomNotesStore(get(), get())
-    }
-
     single<com.singularity.todo.core.attachments.AttachmentRepository> {
         AttachmentRepositoryImpl(get(), get(), get(), get())
     }
@@ -201,7 +197,6 @@ fun domainModule(): Module = module {
 
     factory { CreateTaskUseCase(get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
-    factory { SetTagsUseCase(get()) }
 
     factory { CreateNoteUseCase(get(), get()) }
     factory { UpdateNoteUseCase(get(), get()) }
@@ -329,19 +324,16 @@ fun domainModule(): Module = module {
 
     factory { SettingsViewModel(get(), get()) }
 
-    factory { TasksViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    factory { TasksViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
 
     factory { ProjectsViewModel(get(), get(), get(), get(), get()) }
 
     factory { TagsViewModel(get(), get()) }
 
-    factory { NotesViewModel(get(), get(), get(), get(), get()) }
+    factory { NotesViewModel(get(), get(), get()) }
 
     factory {
-        val userId = kotlinx.coroutines.runBlocking {
-            com.singularity.todo.feature.tasks.UserId.fromString("anonymous")
-        }
-        AttachmentsViewModel(get(), userId)
+        AttachmentsViewModel(get(), com.singularity.todo.feature.tasks.UserId.anonymous)
     }
 
     factory { AuthViewModel(get()) }

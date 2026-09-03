@@ -5,11 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.tasks.UserId
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -54,14 +52,10 @@ sealed interface NoteAiResult {
 // ─── ViewModel ───────────────────────────────────────────────────────────────
 
 /**
- * Note: This ViewModel uses two coroutine scopes:
- * - [scope] is used for all collection-until-stable flows (init, openEditor).
- *   It uses Dispatchers.Unconfined so flows run synchronously and tests don't need
- *   virtual time advancement.
- * - [viewModelScope] is used for fire-and-forget operations (createNote, delete, autosave)
- *   where immediate return is expected and tests don't need to await them.
+ * Uses [viewModelScope] for all coroutine work.
+ * Long-lived subscriptions (init, openEditor) are cancelled automatically in [onCleared].
  *
- * [scopeProvider] allows tests to inject a custom scope. Defaults to [Dispatchers.Unconfined].
+ * @param improveNote optional AI note improvement; when absent the improve button is hidden in UI.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 open class NotesViewModel(
@@ -69,13 +63,7 @@ open class NotesViewModel(
     private val htmlPort: MarkdownHtmlPort,
     settingsRepository: SettingsRepository,
     private val improveNote: ImproveNoteUseCase? = null,
-    private val scopeProvider: () -> CoroutineScope = {
-        CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-    }
 ) : ViewModel() {
-
-    /** Scope for collection-until-stable flows (init, openEditor). Lazy to defer Dispatchers.Unconfined access. */
-    private val scope: CoroutineScope by lazy { scopeProvider() }
 
     private val userId: Flow<UserId> = settingsRepository.userId.map { UserId.fromString(it) }
 
@@ -93,7 +81,9 @@ open class NotesViewModel(
     private var autosaveJob: Job? = null
 
     init {
-        scope.launch {
+        // viewModelScope ensures cancellation on clear; Unconfined makes synchronous
+        // flows (FakeNotesStore) emit without needing virtual time advancement.
+        viewModelScope.launch(Dispatchers.Unconfined) {
             userId.flatMapLatest { uid ->
                 store.watchAll(uid)
                     .map { notes -> if (notes.isEmpty()) NotesUiState.Empty(uid) else NotesUiState.Content(notes) }
@@ -104,7 +94,9 @@ open class NotesViewModel(
     }
 
     fun openEditor(noteId: String) {
-        scope.launch {
+        // viewModelScope ensures cancellation on clear; Unconfined makes synchronous
+        // flows emit without virtual time (testability).
+        viewModelScope.launch(Dispatchers.Unconfined) {
             store.watch(noteId)
                 .collect { note ->
                     if (note == null) {

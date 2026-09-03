@@ -162,7 +162,7 @@ private fun EditorBody(
     onBodyChange: (id: String, html: String) -> Unit,
     onAiClick: () -> Unit
 ) {
-    val richTextState = remember { RichTextState() }
+    val richTextState = remember(state.id) { RichTextState() }
     var titleFieldValue by remember(state.id) {
         mutableStateOf(TextFieldValue(state.title))
     }
