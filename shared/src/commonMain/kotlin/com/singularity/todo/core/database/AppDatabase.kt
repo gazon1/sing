@@ -18,13 +18,15 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         ProjectEntity::class,
         TagEntity::class,
         SyncOutboxEntity::class,
-        AttachmentEntity::class
+        AttachmentEntity::class,
+        TaskReminderEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
-        AutoMigration(from = 2, to = 3)
+        AutoMigration(from = 2, to = 3),
+        AutoMigration(from = 3, to = 4)
     ]
 )
 @TypeConverters(AttachmentConverters::class)
@@ -35,4 +37,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun syncOutboxDao(): SyncOutboxDao
     abstract fun attachmentDao(): AttachmentDao
+    abstract fun reminderDao(): ReminderDao
 }

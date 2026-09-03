@@ -11,7 +11,13 @@ import com.singularity.todo.core.database.JvmDatabase
 import com.singularity.todo.core.di.sharedModule
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.network.SupabaseConfig
+import com.singularity.todo.core.notifications.JvmNotificationPort
+import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.security.JvmSecureStorage
+import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.reminders.RoomReminderRepository
 import org.koin.core.context.startKoin
 import java.io.File
 
@@ -24,12 +30,20 @@ fun main() = singleWindowApplication(
     val dbPath = "${System.getProperty("user.home")}/.singularity-todo/singularity-todo.db"
     File(dbPath).parentFile?.mkdirs()
 
-    // Desktop database using SQLite via JDBC (JvmDatabase)
-    // Android uses Room's generated AppDatabase_Impl via KSP
+    // Desktop database using SQLite via JDBC
     val db = JvmDatabase.create(dbPath)
 
     // Build settings repository
     val settingsRepository = SettingsRepository(createDesktopDataStore())
+
+    // Secure storage (secret-tool on Linux, AES-GCM file fallback)
+    val secureStorage: SecureStoragePort = JvmSecureStorage()
+
+    // Notifications (notify-send on Linux)
+    val notificationPort: NotificationPort = JvmNotificationPort()
+
+    // Reminders
+    val reminderRepository: ReminderRepository = RoomReminderRepository(db.reminderDao())
 
     // FileSystem for attachments
     val fileSystem = JvmFileSystem()
@@ -48,6 +62,9 @@ fun main() = singleWindowApplication(
             sharedModule(
                 database = db,
                 settingsRepository = settingsRepository,
+                secureStorage = secureStorage,
+                notificationPort = notificationPort,
+                reminderRepository = reminderRepository,
                 supabaseConfig = supabaseConfig,
                 attachmentsDir = attachmentsDir,
                 backupDir = backupDir,

@@ -88,6 +88,16 @@ class JvmDatabase private constructor(private val dbPath: String) {
                     hlc TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
                 )
             """.trimIndent())
+
+            s.execute("""
+                CREATE TABLE IF NOT EXISTS task_reminders (
+                    id TEXT NOT NULL, user_id TEXT NOT NULL, task_id TEXT NOT NULL,
+                    type TEXT NOT NULL, offset_minutes INTEGER NOT NULL,
+                    fire_at INTEGER NOT NULL, recurring_pattern TEXT,
+                    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+                    PRIMARY KEY (user_id, id)
+                )
+            """.trimIndent())
         }
     }
 
@@ -101,6 +111,7 @@ class JvmDatabase private constructor(private val dbPath: String) {
     private val _tagFlow = MutableStateFlow<List<TagEntity>>(emptyList())
     private val _attachmentFlow = MutableStateFlow<List<AttachmentEntity>>(emptyList())
     private val _syncOutboxFlow = MutableStateFlow<List<SyncOutboxEntity>>(emptyList())
+    private val _reminderFlow = MutableStateFlow<List<TaskReminderEntity>>(emptyList())
 
     fun taskDao(): TaskDao = JvmTaskDao(conn, _taskFlow)
     fun noteDao(): NoteDao = JvmNoteDao(conn, _noteFlow)
@@ -108,6 +119,7 @@ class JvmDatabase private constructor(private val dbPath: String) {
     fun tagDao(): TagDao = JvmTagDao(conn, _tagFlow)
     fun syncOutboxDao(): SyncOutboxDao = JvmSyncOutboxDao(conn, _syncOutboxFlow)
     fun attachmentDao(): AttachmentDao = JvmAttachmentDao(conn, _attachmentFlow)
+    fun reminderDao(): ReminderDao = JvmReminderDao(conn, _reminderFlow)
 
     fun close() {
         _connection?.close()
@@ -191,4 +203,30 @@ private class JvmAttachmentDao(private val conn: Connection, private val attachm
     override fun watchBySyncStatus(status: String): Flow<List<AttachmentEntity>> = attachmentFlow.map { list -> list.filter { it.syncStatus == status } }
     override suspend fun delete(id: String) { }
     override suspend fun listAllForUser(userId: String): List<AttachmentEntity> = emptyList()
+}
+
+private class JvmReminderDao(
+    private val conn: Connection,
+    private val reminderFlow: MutableStateFlow<List<TaskReminderEntity>>
+) : ReminderDao {
+    override fun watchAll(userId: String): Flow<List<TaskReminderEntity>> =
+        reminderFlow.map { list -> list.filter { it.userId == userId } }
+    override fun watchByTask(taskId: String, userId: String): Flow<List<TaskReminderEntity>> =
+        reminderFlow.map { list -> list.filter { it.taskId == taskId && it.userId == userId } }
+    override fun watchDueBefore(now: Long, userId: String): Flow<List<TaskReminderEntity>> =
+        reminderFlow.map { list -> list.filter { it.fireAt <= now && it.userId == userId } }
+    override suspend fun upsert(reminder: TaskReminderEntity) {
+        val list = reminderFlow.value.toMutableList()
+        val idx = list.indexOfFirst { it.id == reminder.id && it.userId == reminder.userId }
+        if (idx >= 0) list[idx] = reminder else list.add(reminder)
+        reminderFlow.value = list
+    }
+    override suspend fun delete(id: String, userId: String) {
+        reminderFlow.value = reminderFlow.value.filter { !(it.id == id && it.userId == userId) }
+    }
+    override suspend fun deleteByTask(taskId: String, userId: String) {
+        reminderFlow.value = reminderFlow.value.filter { !(it.taskId == taskId && it.userId == userId) }
+    }
+    override suspend fun getById(id: String, userId: String): TaskReminderEntity? =
+        reminderFlow.value.find { it.id == id && it.userId == userId }
 }

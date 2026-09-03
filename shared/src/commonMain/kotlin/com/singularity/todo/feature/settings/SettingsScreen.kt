@@ -1,23 +1,26 @@
 package com.singularity.todo.feature.settings
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -27,88 +30,110 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.core.settings.SettingsRepository
-import com.singularity.todo.core.ui.theme.SingularityAccents
+import com.singularity.todo.feature.settings.screens.AccountSettingsScreen
+import com.singularity.todo.feature.settings.screens.AiProviderSettingsScreen
+import com.singularity.todo.feature.settings.screens.AppearanceSettingsScreen
+import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
+import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
 import org.koin.compose.koinInject
 
-@OptIn(ExperimentalMaterial3Api::class)
+private enum class SettingsTab(val label: String) {
+    Appearance("Appearance"),
+    Notifications("Notifications"),
+    AIProvider("AI Provider"),
+    WorkSchedule("Work Schedule"),
+    Account("Account"),
+}
+
 @Composable
-fun SettingsScreen() {
-    val settings: SettingsRepository = koinInject()
-    val darkTheme by settings.darkTheme.collectAsState(initial = false)
-    val accentColor by settings.accentColor.collectAsState(initial = "blue")
-    val fontSize by settings.fontSizeScale.collectAsState(initial = 1f)
-    val aiApiKey by settings.aiApiKey.collectAsState(initial = null)
-    val aiModel by settings.aiModel.collectAsState(initial = "gpt-4o-mini")
+fun SettingsScreen(
+    modifier: Modifier = Modifier,
+) {
+    val viewModel: SettingsViewModel = koinInject()
+    val uiState by viewModel.uiState.collectAsState()
+    var selectedTab by remember { mutableStateOf(SettingsTab.Appearance) }
 
-    var apiKeyInput by remember(aiApiKey) { mutableStateOf(aiApiKey ?: "") }
-    var modelInput by remember(aiModel) { mutableStateOf(aiModel) }
-
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("Settings") }) }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier.padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Text("Appearance", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+    when (val state = uiState) {
+        is SettingsUiState.Loading -> {
+            Box(modifier = modifier.fillMaxSize()) {
+                Text("Loading...", modifier = Modifier.padding(16.dp))
             }
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Dark Theme")
-                        Switch(
-                            checked = darkTheme,
-                            onCheckedChange = { /* TODO */ }
+        }
+        is SettingsUiState.Error -> {
+            Box(modifier = modifier.fillMaxSize()) {
+                Text("Error: ${state.cause}", modifier = Modifier.padding(16.dp))
+            }
+        }
+        is SettingsUiState.Content -> {
+            Row(modifier = modifier.fillMaxSize()) {
+                // Navigation rail on wide screens
+                if (false) { // TODO: use WindowSizeClass
+                    SettingsNavRail(selectedTab, Modifier.fillMaxHeight()) { tab ->
+                        selectedTab = tab
+                    }
+                    VerticalDivider()
+                }
+
+                // Sub-screen content
+                Box(modifier = Modifier.weight(1f)) {
+                    when (selectedTab) {
+                        SettingsTab.Appearance -> AppearanceSettingsScreen(
+                            state = state,
+                            onIntent = viewModel::processIntent,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        SettingsTab.Notifications -> NotificationSettingsScreen(
+                            state = state,
+                            onIntent = viewModel::processIntent,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        SettingsTab.AIProvider -> AiProviderSettingsScreen(
+                            state = state,
+                            onIntent = viewModel::processIntent,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        SettingsTab.WorkSchedule -> WorkScheduleSettingsScreen(
+                            state = state,
+                            onIntent = viewModel::processIntent,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        SettingsTab.Account -> AccountSettingsScreen(
+                            state = state,
+                            modifier = Modifier.fillMaxSize()
                         )
                     }
                 }
             }
-            item {
-                Text("Accent Color", style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(SingularityAccents.entries) { accent ->
-                        Card(
-                            modifier = Modifier.clickable { /* TODO */ },
-                            colors = androidx.compose.material3.CardDefaults.cardColors(
-                                containerColor = accent.color
-                            )
-                        ) {
-                            Text(
-                                accent.displayName,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                color = androidx.compose.ui.graphics.Color.White
-                            )
-                        }
-                    }
-                }
-            }
+        }
+    }
+}
 
-            item {
-                Text("AI Settings", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+@Composable
+private fun SettingsNavRail(
+    selectedTab: SettingsTab,
+    modifier: Modifier = Modifier,
+    onSelect: (SettingsTab) -> Unit,
+) {
+    Column(modifier = modifier.width(80.dp).padding(vertical = 8.dp)) {
+        SettingsTab.entries.forEach { tab ->
+            val icon = when (tab) {
+                SettingsTab.Appearance -> Icons.Filled.Palette
+                SettingsTab.Notifications -> Icons.Filled.Notifications
+                SettingsTab.AIProvider -> Icons.Filled.SmartToy
+                SettingsTab.WorkSchedule -> Icons.Filled.Schedule
+                SettingsTab.Account -> Icons.Filled.AccountCircle
             }
-            item {
-                OutlinedTextField(
-                    value = apiKeyInput,
-                    onValueChange = { apiKeyInput = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("OpenAI API Key") },
-                    singleLine = true
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = modelInput,
-                    onValueChange = { modelInput = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Model") },
-                    singleLine = true
+            Column(
+                modifier = Modifier
+                    .clickable { onSelect(tab) }
+                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(icon, contentDescription = tab.label)
+                Text(
+                    tab.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
         }

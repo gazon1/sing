@@ -127,3 +127,27 @@ data class TagEntity(
     @ColumnInfo("device_id") val deviceId: String? = null,
     @ColumnInfo("hlc") val hlc: String? = null
 )
+
+/**
+ * Reminder for a task. Multiple reminders can exist per task.
+ *
+ * [fireAt] is epoch millis. [type] distinguishes gentle from annoying variants.
+ * [recurringPattern] is null for one-shot reminders, or a cron-style expression
+ * (e.g. "0 9 * * *" for daily at 9 AM) for recurring ones.
+ */
+@Entity(
+    tableName = "task_reminders",
+    primaryKeys = ["user_id", "id"],
+    indices = [Index("user_id"), Index("task_id"), Index("fire_at")]
+)
+data class TaskReminderEntity(
+    val id: String,
+    @ColumnInfo("task_id") val taskId: String,
+    @ColumnInfo("user_id") val userId: String,
+    val type: String,          // "gentle" | "annoying"
+    @ColumnInfo("offset_minutes") val offsetMinutes: Int,  // minutes before due (negative = after)
+    @ColumnInfo("fire_at") val fireAt: Long,              // epoch millis
+    @ColumnInfo("recurring_pattern") val recurringPattern: String?, // null or cron expr
+    @ColumnInfo("created_at") val createdAt: Long,
+    @ColumnInfo("updated_at") val updatedAt: Long,
+)

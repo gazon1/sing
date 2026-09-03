@@ -85,8 +85,11 @@ kotlin {
             // Rich Text Editor
             implementation(libs.rich.editor.compose)
 
-            // OpenAI
+            // OpenAI (legacy client — replaced by Koog in Phase 5)
             implementation(libs.openai.client)
+
+            // Koog AI Agent Framework (JetBrains) — added in Phase 5 once API confirmed
+            // implementation(libs.koog.agents)
 
             // MaterialKolor
             implementation(libs.materialkolor)
@@ -132,6 +135,9 @@ kotlin {
 
             // FileKit Android
             implementation(libs.filekit.core)
+
+            // Security — EncryptedSharedPreferences
+            implementation(libs.android.security.crypto)
         }
 
         jvmMain.dependencies {

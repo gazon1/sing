@@ -14,8 +14,14 @@ import com.singularity.todo.core.di.sharedModule
 import com.singularity.todo.core.files.AndroidFileSystem
 import com.singularity.todo.core.backup.AndroidBackupCodec
 import com.singularity.todo.core.network.SupabaseConfig
+import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.platform.PlatformContext
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.security.AndroidSecureStorage
+import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.reminders.RoomReminderRepository
 import org.koin.core.context.startKoin
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -42,6 +48,15 @@ class MainActivity : ComponentActivity() {
         // Build settings repository
         val settingsRepository = SettingsRepository(settingsDataStore)
 
+        // Secure storage (EncryptedSharedPreferences on Android)
+        val secureStorage: SecureStoragePort = AndroidSecureStorage(applicationContext)
+
+        // Notifications
+        val notificationPort: NotificationPort = AndroidNotificationPort(applicationContext)
+
+        // Reminders
+        val reminderRepository: ReminderRepository = RoomReminderRepository(db.reminderDao())
+
         // FileSystem for attachments
         val fileSystem = AndroidFileSystem(applicationContext)
         val attachmentsDir = "${applicationContext.filesDir}/attachments"
@@ -49,10 +64,23 @@ class MainActivity : ComponentActivity() {
 
         // Supabase config (from BuildConfig or user settings)
         // TODO: Replace with actual BuildConfig values
-        val supabaseConfig: SupabaseConfig? = null  // Will use anonymous auth if null
+        val supabaseConfig: SupabaseConfig? = null
 
         startKoin {
-            modules(sharedModule(db, settingsRepository, supabaseConfig, attachmentsDir, backupDir, fileSystem, AndroidBackupCodec()))
+            modules(
+                sharedModule(
+                    database = db,
+                    settingsRepository = settingsRepository,
+                    secureStorage = secureStorage,
+                    notificationPort = notificationPort,
+                    reminderRepository = reminderRepository,
+                    supabaseConfig = supabaseConfig,
+                    attachmentsDir = attachmentsDir,
+                    backupDir = backupDir,
+                    fs = fileSystem,
+                    backupCodec = AndroidBackupCodec()
+                )
+            )
         }
 
         setContent {

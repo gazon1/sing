@@ -67,6 +67,12 @@ filekit = "0.15.0"
 # Rich Text Editor
 rich-editor = "1.2.0"
 
+# Security
+security-crypto = "1.1.0-alpha06"
+
+# AI Agent Framework (JetBrains Koog)
+koog = "1.2.0"
+
 # Coil
 coil = "3.6.1"
 
@@ -173,6 +179,12 @@ coil-core = { module = "io.coil-kt.coil3:coil-core", version.ref = "coil" }
 
 # Rich Text Editor
 rich-editor-compose = { module = "com.mohamedrejeb.richeditor:richeditor-compose", version.ref = "rich-editor" }
+
+# Security
+android-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
+
+# Koog AI Agent
+koog-agents = { module = "ai.koog:koog-agents", version.ref = "koog" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

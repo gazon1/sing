@@ -1,0 +1,23 @@
+package com.singularity.todo.feature.ai
+
+import kotlinx.coroutines.flow.Flow
+
+/**
+ * Port for text generation (LLM completion).
+ *
+ * Abstracts the underlying AI provider so tools are testable without mocking Koog internals.
+ * Implementations: KoogTextGen (production), FakeTextGen (tests).
+ */
+interface TextGenPort {
+    /**
+     * Generates a text response to [prompt].
+     * [systemPrompt] is prepended as a system message.
+     *
+     * Returns a [Flow] of string chunks (streaming), or a single result.
+     */
+    suspend fun generate(
+        prompt: String,
+        systemPrompt: String? = null,
+        model: String? = null
+    ): Result<String>
+}

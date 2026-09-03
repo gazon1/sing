@@ -127,3 +127,27 @@ interface TagDao {
     @Query("SELECT * FROM tags WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TagEntity>
 }
+
+@Dao
+interface ReminderDao {
+    @Query("SELECT * FROM task_reminders WHERE user_id = :userId ORDER BY fire_at ASC")
+    fun watchAll(userId: String): Flow<List<TaskReminderEntity>>
+
+    @Query("SELECT * FROM task_reminders WHERE task_id = :taskId AND user_id = :userId ORDER BY fire_at ASC")
+    fun watchByTask(taskId: String, userId: String): Flow<List<TaskReminderEntity>>
+
+    @Query("SELECT * FROM task_reminders WHERE fire_at <= :now AND user_id = :userId ORDER BY fire_at ASC")
+    fun watchDueBefore(now: Long, userId: String): Flow<List<TaskReminderEntity>>
+
+    @Upsert
+    suspend fun upsert(reminder: TaskReminderEntity)
+
+    @Query("DELETE FROM task_reminders WHERE id = :id AND user_id = :userId")
+    suspend fun delete(id: String, userId: String)
+
+    @Query("DELETE FROM task_reminders WHERE task_id = :taskId AND user_id = :userId")
+    suspend fun deleteByTask(taskId: String, userId: String)
+
+    @Query("SELECT * FROM task_reminders WHERE id = :id AND user_id = :userId")
+    suspend fun getById(id: String, userId: String): TaskReminderEntity?
+}

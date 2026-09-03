@@ -19,6 +19,7 @@ import com.singularity.todo.core.backup.StubRemoteBackupService
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.ProjectDao
+import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.sync.SyncOutboxDao
@@ -27,6 +28,10 @@ import com.singularity.todo.core.network.createSupabaseClient
 import com.singularity.todo.core.network.createHttpClient
 import com.singularity.todo.core.network.SupabaseConfig
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.core.sync.SyncEngine
@@ -43,6 +48,10 @@ import com.singularity.todo.feature.notes.NotesStore
 import com.singularity.todo.feature.notes.NotesViewModel
 import com.singularity.todo.feature.notes.RoomNotesStore
 import com.singularity.todo.feature.notes.RichEditorMarkdownHtmlPort
+import com.singularity.todo.feature.projects.ProjectsRepository
+import com.singularity.todo.feature.settings.SettingsViewModel
+import com.singularity.todo.feature.ai.KoogAgentService
+import com.singularity.todo.feature.ai.TextGenPort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -64,6 +73,9 @@ import kotlin.coroutines.CoroutineContext
 fun sharedModule(
     database: Any,
     settingsRepository: SettingsRepository,
+    secureStorage: com.singularity.todo.core.security.SecureStoragePort,
+    notificationPort: NotificationPort,
+    reminderRepository: ReminderRepository,
     supabaseConfig: SupabaseConfig?,
     attachmentsDir: String,
     backupDir: String,
@@ -77,6 +89,7 @@ fun sharedModule(
     val tagDao: TagDao = database.javaClass.getMethod("tagDao").invoke(database) as TagDao
     val syncOutboxDao: SyncOutboxDao = database.javaClass.getMethod("syncOutboxDao").invoke(database) as SyncOutboxDao
     val attachmentDao: AttachmentDao = database.javaClass.getMethod("attachmentDao").invoke(database) as AttachmentDao
+    val reminderDao: ReminderDao = database.javaClass.getMethod("reminderDao").invoke(database) as ReminderDao
 
     return module {
         // Database
@@ -86,9 +99,19 @@ fun sharedModule(
         single { tagDao }
         single { syncOutboxDao }
         single { attachmentDao }
+        single { reminderDao }
 
         // Settings
         single<SettingsRepository> { settingsRepository }
+        single<SecureStoragePort> { secureStorage }
+
+        // Notifications + Reminders
+        single<NotificationPort> { notificationPort }
+        single<ReminderRepository> { reminderRepository }
+        factory { ReminderScheduler(get(), get()) }
+
+        // Settings ViewModel
+        factory { SettingsViewModel(get(), get()) }
 
         // Network (optional - may be null if Supabase not configured)
         if (supabaseConfig != null) {
@@ -147,5 +170,11 @@ fun sharedModule(
         single<RemoteBackupService> { StubRemoteBackupService() }
         single<BackupRepository> { BackupRepositoryImpl(get(), get(), get(), get(), backupDir, get()) }
         factory { BackupViewModel(get(), get()) }
+
+        // Projects
+        single { ProjectsRepository(get(), get()) }
+
+        // AI — text generation (Koog integration in Phase 5)
+        single<TextGenPort> { KoogAgentService(get(), get()) }
     }
 }
