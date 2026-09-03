@@ -82,6 +82,9 @@ kotlin {
             implementation(libs.markdown.renderer)
             implementation(libs.markdown.renderer.m3)
 
+            // Rich Text Editor
+            implementation(libs.rich.editor.compose)
+
             // OpenAI
             implementation(libs.openai.client)
 

@@ -70,6 +70,9 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE id = :id")
     fun watchById(id: String): Flow<NoteEntity?>
 
+    @Query("SELECT * FROM notes WHERE id = :id")
+    suspend fun getById(id: String): NoteEntity?
+
     @Query("SELECT * FROM notes WHERE parent_note_id = :parentId AND deleted_at IS NULL ORDER BY title ASC")
     fun watchChildren(parentId: String): Flow<List<NoteEntity>>
 

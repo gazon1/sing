@@ -148,6 +148,7 @@ private class JvmTaskDao(
 private class JvmNoteDao(private val conn: Connection, private val noteFlow: MutableStateFlow<List<NoteEntity>>) : NoteDao {
     override fun watchAll(userId: String): Flow<List<NoteEntity>> = noteFlow
     override fun watchById(id: String): Flow<NoteEntity?> = noteFlow.map { list -> list.find { it.id == id } }
+    override suspend fun getById(id: String): NoteEntity? = noteFlow.value.find { it.id == id }
     override fun watchChildren(parentId: String): Flow<List<NoteEntity>> = noteFlow.map { list -> list.filter { it.parentNoteId == parentId } }
     override fun search(q: String): Flow<List<NoteEntity>> = noteFlow.map { list -> list.filter { it.title.contains(q, ignoreCase = true) } }
     override suspend fun upsert(note: NoteEntity) { }

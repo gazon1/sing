@@ -16,14 +16,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.feature.tasks.TasksScreen
 import com.singularity.todo.feature.notes.NotesScreen
+import com.singularity.todo.feature.notes.NoteEditorScreen
 import com.singularity.todo.feature.projects.ProjectsScreen
-import com.singularity.todo.feature.tags.TagsScreen
 import com.singularity.todo.feature.search.SearchScreen
 import com.singularity.todo.feature.settings.SettingsScreen
 
@@ -66,11 +67,32 @@ fun HomeTab() {
         Box(modifier = Modifier.padding(padding)) {
             when (selectedIndex) {
                 0 -> TasksScreen(onNavigateToTask = { }, onNavigateToCreateTask = { })
-                1 -> NotesScreen(onNavigateToNote = { }, onNavigateToCreateNote = { })
+                1 -> NotesSection()
                 2 -> ProjectsScreen(onNavigateToProject = { }, onNavigateToCreateProject = { })
                 3 -> SearchScreen()
                 4 -> SettingsScreen()
             }
         }
+    }
+}
+
+@Composable
+private fun NotesSection() {
+    var editingNoteId by remember { mutableStateOf<String?>(null) }
+    var isCreatingNote by remember { mutableStateOf(false) }
+
+    if (editingNoteId != null || isCreatingNote) {
+        NoteEditorScreen(
+            noteId = editingNoteId,
+            onBack = {
+                editingNoteId = null
+                isCreatingNote = false
+            }
+        )
+    } else {
+        NotesScreen(
+            onNavigateToNote = { id -> editingNoteId = id },
+            onNavigateToCreateNote = { isCreatingNote = true }
+        )
     }
 }

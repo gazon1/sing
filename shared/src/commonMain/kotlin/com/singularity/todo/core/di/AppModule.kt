@@ -31,13 +31,18 @@ import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.core.sync.SyncEngine
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.TaskRepository
 import com.singularity.todo.feature.tasks.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.TasksViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
-import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.feature.notes.MarkdownHtmlPort
+import com.singularity.todo.feature.notes.NotesStore
+import com.singularity.todo.feature.notes.NotesViewModel
+import com.singularity.todo.feature.notes.RoomNotesStore
+import com.singularity.todo.feature.notes.RichEditorMarkdownHtmlPort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -124,6 +129,11 @@ fun sharedModule(
         single<FileSystem> { fs }
         single { AttachmentStorage(get(), attachmentsDir) }
         single<AttachmentRepository> { AttachmentRepositoryImpl(get(), get(), get(), get()) }
+
+        // Notes / Rich Text
+        single<MarkdownHtmlPort> { RichEditorMarkdownHtmlPort() }
+        single<NotesStore> { RoomNotesStore(get(), get()) }
+        factory { NotesViewModel(get(), get(), get()) }
 
         // ViewModels
         factory { TasksViewModel(get(), get(), get(), get()) }

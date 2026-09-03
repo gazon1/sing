@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
-class SettingsRepository(private val dataStore: DataStore<Preferences>) {
+open class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
     companion object {
         val DARK_THEME = booleanPreferencesKey("dark_theme")
@@ -31,11 +31,11 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     val aiProvider: Flow<String> = dataStore.data.map { it[AI_PROVIDER] ?: "openai" }
     val aiModel: Flow<String> = dataStore.data.map { it[AI_MODEL] ?: "gpt-4o-mini" }
     val aiSystemPrompt: Flow<String> = dataStore.data.map { it[AI_SYSTEM_PROMPT] ?: DEFAULT_SYSTEM_PROMPT }
-    val userId: Flow<String> = dataStore.data.map { it[USER_ID] ?: "anonymous" }
+    open val userId: Flow<String> = dataStore.data.map { it[USER_ID] ?: "anonymous" }
 
     fun aiApiKeyBlocking(): String? = kotlinx.coroutines.runBlocking { dataStore.data.first()[AI_API_KEY] }
     fun aiModelBlocking(): String = kotlinx.coroutines.runBlocking { dataStore.data.first()[AI_MODEL] } ?: "gpt-4o-mini"
-    fun userIdBlocking(): String = kotlinx.coroutines.runBlocking { dataStore.data.first()[USER_ID] } ?: "anonymous"
+    open fun userIdBlocking(): String = kotlinx.coroutines.runBlocking { dataStore.data.first()[USER_ID] } ?: "anonymous"
 
     suspend fun setDarkTheme(value: Boolean) { dataStore.edit { it[DARK_THEME] = value } }
     suspend fun setAccentColor(value: String) { dataStore.edit { it[ACCENT_COLOR] = value } }
