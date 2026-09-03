@@ -39,6 +39,14 @@ import com.singularity.todo.core.sync.SupabaseSyncApiClient
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.TaskRepository
 import com.singularity.todo.feature.tasks.TaskRepositoryImpl
+import com.singularity.todo.feature.tasks.GetTasksUseCase
+import com.singularity.todo.feature.tasks.GetTaskUseCase
+import com.singularity.todo.feature.tasks.CreateTaskUseCase
+import com.singularity.todo.feature.tasks.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.DeleteTaskUseCase
+import com.singularity.todo.feature.tasks.RestoreTaskUseCase
+import com.singularity.todo.feature.tasks.ToggleCompleteUseCase
+import com.singularity.todo.feature.tasks.SetTagsUseCase
 import com.singularity.todo.feature.tasks.TasksViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
@@ -104,6 +112,7 @@ fun sharedModule(
         // Settings
         single<SettingsRepository> { settingsRepository }
         single<SecureStoragePort> { secureStorage }
+        single { Clock }
 
         // Notifications + Reminders
         single<NotificationPort> { notificationPort }
@@ -146,6 +155,16 @@ fun sharedModule(
 
         // Repositories
         single<TaskRepository> { TaskRepositoryImpl(get(), get()) }
+
+        // Task Use Cases
+        factory { GetTasksUseCase(get()) }
+        factory { GetTaskUseCase(get()) }
+        factory { CreateTaskUseCase(get(), get()) }
+        factory { UpdateTaskUseCase(get(), get()) }
+        factory { DeleteTaskUseCase(get()) }
+        factory { RestoreTaskUseCase(get()) }
+        factory { ToggleCompleteUseCase(get()) }
+        factory { SetTagsUseCase(get()) }
 
         // Attachments
         single<StubAttachmentUploadService> { StubAttachmentUploadService() }
