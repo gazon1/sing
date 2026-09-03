@@ -1,5 +1,6 @@
 package com.singularity.todo.core.backup
 
+import com.singularity.todo.core.files.FileStat
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.UserId
@@ -34,23 +35,24 @@ class BackupRepositoryImpl(
         }
     }
 
-    private fun scanBackups(): List<BackupMetadata> {
-        val dir = java.io.File(backupDir)
-        if (!dir.exists() || !dir.isDirectory) return emptyList()
-        return dir.listFiles()
-            ?.filter { it.extension == "zip" }
-            ?.map { file ->
-                BackupMetadata(
-                    id = BackupId.fromPath(file.absolutePath),
-                    path = file.absolutePath,
-                    createdAtEpochMillis = file.lastModified(),
-                    sizeBytes = file.length(),
-                    entityCounts = null // Parsed lazily on demand
-                )
-            }
-            ?.sortedByDescending { it.createdAtEpochMillis }
-            ?: emptyList()
+    private suspend fun scanBackups(): List<BackupMetadata> {
+        val entries = fs.listDir(backupDir)
+            .mapNotNull { path -> fs.stat(path) }
+            .filter { !it.isDirectory && pathEndsWithZip(it.path) }
+            .sortedByDescending { it.lastModifiedEpochMillis }
+        return entries.map { stat ->
+            BackupMetadata(
+                id = BackupId.fromPath(stat.path),
+                path = stat.path,
+                createdAtEpochMillis = stat.lastModifiedEpochMillis,
+                sizeBytes = stat.sizeBytes,
+                entityCounts = null // Parsed lazily on demand
+            )
+        }
     }
+
+    private fun pathEndsWithZip(path: String): Boolean =
+        path.endsWith(".zip", ignoreCase = true)
 
     override suspend fun export(options: ExportOptions): Result<BackupResult> = runCatching {
         fs.ensureDir(backupDir)

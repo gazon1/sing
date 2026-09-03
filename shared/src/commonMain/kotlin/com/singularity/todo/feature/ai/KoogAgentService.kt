@@ -2,13 +2,11 @@ package com.singularity.todo.feature.ai
 
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.AIAgentBuilder
-import ai.koog.agents.core.agent.functionalStrategy
-import ai.koog.agents.core.agent.singleRunStrategy
+import ai.koog.agents.core.tools.Tool
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.llm.LLModel
-import ai.koog.prompt.llm.LLMProvider
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.prompts.Prompts
@@ -30,7 +28,10 @@ class KoogAgentService(
     private val secureStorage: SecureStoragePort,
     private val settings: SettingsRepository,
     private val promptExecutor: PromptExecutor,
+    private val tools: List<Tool<*, *>>,
 ) : TextGenPort {
+
+    private val agentTools: ToolRegistry = ToolRegistry.builder().tools(tools).build()
 
     /**
      * Creates a fresh [AIAgent] for each request.
@@ -61,8 +62,6 @@ class KoogAgentService(
             else -> OpenAIModels.Chat.GPT4oMini
         }
     }
-
-    private val agentTools: ToolRegistry = ToolRegistry.EMPTY
 
     override suspend fun generate(
         prompt: String,

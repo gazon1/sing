@@ -7,7 +7,7 @@ kotlin-serialization = "2.0.21"
 
 # Android
 android-compileSdk = "37"
-android-minSdk = "24"
+android-minSdk = "26"
 android-targetSdk = "36"
 androidx-activity = "1.13.0"
 androidx-appcompat = "1.8.0"

@@ -72,6 +72,9 @@ import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.SmartRewriteUseCase
+import ai.koog.agents.core.tools.Tool
+import ai.koog.prompt.executor.clients.openai.OpenAIModels
+import ai.koog.prompt.llm.LLModel
 import com.singularity.todo.feature.ai.KoogAgentService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -207,7 +210,10 @@ fun domainModule(): Module = module {
 
     // ─── AI Tools ───────────────────────────────────────────────────────
 
-    // LLM tools (require PromptExecutor + model from platform)
+    // Default LLM used by all LLM-based tools
+    single<LLModel> { OpenAIModels.Chat.GPT4oMini }
+
+    // LLM tools (require PromptExecutor + model)
     factory { RefineTaskTool(get(), get()) }
     factory { SmartRewriteTool(get(), get()) }
     factory { GenerateDescriptionTool(get(), get()) }
@@ -227,6 +233,28 @@ fun domainModule(): Module = module {
     factory { ListTasksTool(get()) }
     factory { SearchTasksTool(get()) }
 
+    // All AI tools collected into a list for KoogAgentService
+    single<List<Tool<*, *>>> {
+        listOf(
+            get<RefineTaskTool>(),
+            get<SmartRewriteTool>(),
+            get<GenerateDescriptionTool>(),
+            get<DecomposeTaskTool>(),
+            get<GenerateChecklistTool>(),
+            get<PickTimeTool>(),
+            get<ClusterTasksTool>(),
+            get<ClusterNotesTool>(),
+            get<ProjectReviewTool>(),
+            get<WeeklyPlanTool>(),
+            get<GetNoteTool>(),
+            get<GetProjectTool>(),
+            get<GetTaskTool>(),
+            get<ListLinkedTasksTool>(),
+            get<ListTasksTool>(),
+            get<SearchTasksTool>(),
+        )
+    }
+
     // AI Use Cases
     factory { RefineTaskUseCase(get()) }
     factory { SmartRewriteUseCase(get()) }
@@ -239,7 +267,7 @@ fun domainModule(): Module = module {
 
     // AI Service
     single<com.singularity.todo.feature.ai.TextGenPort> {
-        KoogAgentService(get(), get(), get())
+        KoogAgentService(get(), get(), get(), get())
     }
 
     // ─── ViewModels ─────────────────────────────────────────────────────

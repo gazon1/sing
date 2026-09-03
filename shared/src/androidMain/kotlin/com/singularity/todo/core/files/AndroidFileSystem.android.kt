@@ -21,4 +21,16 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
     override suspend fun ensureDir(dir: String) {
         File(dir).mkdirs()
     }
+
+    override suspend fun listDir(dir: String): List<String> {
+        val f = File(dir)
+        return if (f.exists() && f.isDirectory) f.listFiles()?.map { it.absolutePath } ?: emptyList()
+        else emptyList()
+    }
+
+    override suspend fun stat(path: String): FileStat? {
+        val f = File(path)
+        return if (f.exists()) FileStat(f.absolutePath, f.lastModified(), f.length(), f.isDirectory)
+        else null
+    }
 }
