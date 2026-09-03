@@ -4,9 +4,13 @@ import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.AIAgentBuilder
 import ai.koog.agents.core.tools.Tool
 import ai.koog.agents.core.tools.ToolRegistry
+import ai.koog.prompt.Prompt
+import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.streaming.StreamFrame
+import ai.koog.utils.time.KoogClock
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.prompts.Prompts
@@ -83,7 +87,8 @@ class KoogAgentService(
     }
 
     /**
-     * Streams chat responses. Each message creates a fresh agent session.
+     * Streams chat responses token-by-token using [PromptExecutor.executeStreaming].
+     * Each message creates a fresh agent session.
      */
     fun streamChat(message: String): Flow<String> = flow {
         val apiKey = secureStorage.read("ai_key_openai").orEmpty()
@@ -93,15 +98,26 @@ class KoogAgentService(
         }
 
         val systemPrompt = settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
-        val model = settings.aiModel.first().ifBlank { "gpt-4o-mini" }
-        val agent = createAgent(systemPrompt, model)
+        val resolvedModel = settings.aiModel.first().ifBlank { "gpt-4o-mini" }
+        val model = resolveModel(resolvedModel)
 
-        try {
-            val result = agent.run(message)
-            emit(result)
-        } finally {
-            agent.close()
+        val p = prompt(Prompt.Empty, KoogClock.System) {
+            system(systemPrompt)
+            user(message)
         }
+
+        promptExecutor.executeStreaming(p, model, emptyList())
+            .collect { frame ->
+                when (frame) {
+                    is StreamFrame.TextDelta -> emit(frame.text)
+                    is StreamFrame.ReasoningDelta -> { /* skip reasoning tokens */ }
+                    is StreamFrame.ToolCallDelta -> { /* skip tool call tokens */ }
+                    is StreamFrame.End -> { /* stream complete */ }
+                    is StreamFrame.TextComplete -> { /* final text, already emitted via deltas */ }
+                    is StreamFrame.ReasoningComplete -> { /* skip */ }
+                    is StreamFrame.ToolCallComplete -> { /* skip */ }
+                }
+            }
     }
 }
 
