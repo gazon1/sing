@@ -3,14 +3,15 @@ package com.singularity.todo.feature.tags
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.settings.SettingsRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 sealed interface TagsUiState {
     data object Loading : TagsUiState
@@ -20,22 +21,23 @@ sealed interface TagsUiState {
 }
 
 class TagsViewModel(
-    private val getTags: GetTagsUseCase,
-    private val deleteTag: DeleteTagUseCase,
+    private val tagRepo: TagsRepository,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
-    private val currentUserId = runBlocking { settingsRepository.userId.first() }
+    private val userId: Flow<String> = settingsRepository.userId
 
-    val state: StateFlow<TagsUiState> = getTags(currentUserId)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val state: StateFlow<TagsUiState> = userId
+        .flatMapLatest { uid -> tagRepo.watchTags(uid) }
         .map<List<Tag>, TagsUiState> { tags ->
-            if (tags.isEmpty()) TagsUiState.Empty(currentUserId)
+            if (tags.isEmpty()) TagsUiState.Empty("")
             else TagsUiState.Content(tags)
         }
         .catch { emit(TagsUiState.Error(it.message ?: "Error")) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TagsUiState.Loading)
 
     fun delete(id: TagId) = viewModelScope.launch {
-        deleteTag(id)
+        tagRepo.delete(id)
     }
 }

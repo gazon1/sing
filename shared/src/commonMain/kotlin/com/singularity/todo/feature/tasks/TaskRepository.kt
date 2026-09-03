@@ -3,8 +3,15 @@ package com.singularity.todo.feature.tasks
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
+import com.singularity.todo.core.database.toEpochMillis
+import com.singularity.todo.core.database.toEpochMillisOrNull
+import com.singularity.todo.core.database.toId
+import com.singularity.todo.core.database.toInstant
+import com.singularity.todo.core.database.toInstantOrNull
+import com.singularity.todo.core.database.toIsoOrNull
+import com.singularity.todo.core.database.toLocalDateOrNull
+import com.singularity.todo.core.database.toProjectIdOrNull
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -117,22 +124,22 @@ class TaskRepositoryImpl(
 }
 
 private fun TaskEntity.toTask(): Task = Task(
-    id = TaskId.fromString(id),
+    id = id.toId(),
     title = title,
     description = description,
     priority = priority,
     kind = kind,
-    projectId = projectId?.let { ProjectId.fromString(it) },
+    projectId = projectId.toProjectIdOrNull(),
     tags = emptyList(), // loaded separately
-    dueDate = dueDate?.let { kotlinx.datetime.LocalDate.parse(it) },
+    dueDate = dueDate.toLocalDateOrNull(),
     dueTime = dueTime,
-    completedAt = completedAt?.let { kotlinx.datetime.Instant.fromEpochMilliseconds(it) },
+    completedAt = completedAt.toInstantOrNull(),
     someday = someday,
-    archivedAt = archivedAt?.let { kotlinx.datetime.Instant.fromEpochMilliseconds(it) },
+    archivedAt = archivedAt.toInstantOrNull(),
     isPinned = isPinned,
-    createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(createdAt),
-    updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(updatedAt),
-    userId = UserId.fromString(userId)
+    createdAt = createdAt.toInstant(),
+    updatedAt = updatedAt.toInstant(),
+    userId = userId.toId()
 )
 
 fun Task.toEntity(): TaskEntity = TaskEntity(
@@ -142,13 +149,13 @@ fun Task.toEntity(): TaskEntity = TaskEntity(
     priority = priority,
     kind = kind,
     projectId = projectId?.value,
-    dueDate = dueDate?.toString(),
+    dueDate = dueDate?.toIsoOrNull(),
     dueTime = dueTime,
-    completedAt = completedAt?.toEpochMilliseconds(),
+    completedAt = completedAt.toEpochMillisOrNull(),
     someday = someday,
-    archivedAt = archivedAt?.toEpochMilliseconds(),
+    archivedAt = archivedAt.toEpochMillisOrNull(),
     isPinned = isPinned,
-    createdAt = createdAt.toEpochMilliseconds(),
-    updatedAt = updatedAt.toEpochMilliseconds(),
+    createdAt = createdAt.toEpochMillis(),
+    updatedAt = updatedAt.toEpochMillis(),
     userId = userId.value
 )

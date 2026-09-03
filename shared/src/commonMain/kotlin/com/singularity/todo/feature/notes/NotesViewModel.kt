@@ -10,14 +10,15 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 // ─── List screen state ────────────────────────────────────────────────────────
 
@@ -67,9 +68,8 @@ open class NotesViewModel(
     /** Scope for collection-until-stable flows (init, openEditor). Lazy to defer Dispatchers.Unconfined access. */
     private val scope: CoroutineScope by lazy { scopeProvider() }
 
-    private val currentUserId = UserId.fromString(runBlocking { settingsRepository.userId.first() })
+    private val userId: Flow<UserId> = settingsRepository.userId.map { UserId.fromString(it) }
 
-    // List state
     private val _notes = MutableStateFlow<NotesUiState>(NotesUiState.Loading)
     val state: StateFlow<NotesUiState> = _notes.asStateFlow()
 
@@ -81,11 +81,10 @@ open class NotesViewModel(
 
     init {
         scope.launch {
-            store.watchAll(currentUserId)
-                .map<List<Note>, NotesUiState> { notes ->
-                    if (notes.isEmpty()) NotesUiState.Empty(currentUserId)
-                    else NotesUiState.Content(notes)
-                }
+            userId.flatMapLatest { uid ->
+                store.watchAll(uid)
+                    .map { notes -> if (notes.isEmpty()) NotesUiState.Empty(uid) else NotesUiState.Content(notes) }
+            }
                 .catch { emit(NotesUiState.Error(it.message ?: "Error")) }
                 .collect { _notes.value = it }
         }
@@ -113,7 +112,8 @@ open class NotesViewModel(
     fun createNote(): String {
         val id = NoteId.generate()
         viewModelScope.launch {
-            store.create(currentUserId, id, "", "")
+            val uid = userId.first()
+            store.create(uid, id, "", "")
         }
         _editorState.value = EditorState.Editing(
             id = id.value,

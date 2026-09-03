@@ -2,6 +2,7 @@ package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.ProjectEntity
+import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TaskEntity
 import org.junit.Assert.assertEquals
@@ -31,12 +32,14 @@ class BackupDtoTest {
             createdAt = now,
             updatedAt = now,
             userId = "user-1",
-            serverVersion = 5L,
-            syncStatus = "SYNCED",
-            syncError = "err",
-            lastSyncedAt = now,
-            deviceId = "device",
-            hlc = "hlc-val"
+            sync = SyncColumns(
+                serverVersion = 5L,
+                syncStatus = "SYNCED",
+                syncError = "err",
+                lastSyncedAt = now,
+                deviceId = "device",
+                hlc = "hlc-val"
+            )
         )
 
         val dto = entity.toDto()
@@ -54,9 +57,9 @@ class BackupDtoTest {
         assertEquals(entity.title, restored.title)
         assertEquals(entity.userId, restored.userId)
         // Sync metadata defaults
-        assertEquals(0L, restored.serverVersion)
-        assertEquals("LOCAL_ONLY", restored.syncStatus)
-        assertNull(restored.syncError)
+        assertEquals(0L, restored.sync.serverVersion)
+        assertEquals("LOCAL_ONLY", restored.sync.syncStatus)
+        assertNull(restored.sync.syncError)
     }
 
     @Test
@@ -74,12 +77,7 @@ class BackupDtoTest {
             updatedAt = now,
             deletedAt = null,
             archivedAt = null,
-            serverVersion = 0L,
-            syncStatus = "LOCAL_ONLY",
-            syncError = null,
-            lastSyncedAt = null,
-            deviceId = null,
-            hlc = null
+            sync = SyncColumns()
         )
 
         val dto = entity.toDto()
@@ -112,12 +110,7 @@ class BackupDtoTest {
             sortOrder = 0,
             isNotebook = false,
             externalId = null,
-            serverVersion = 0L,
-            syncStatus = "LOCAL_ONLY",
-            syncError = null,
-            lastSyncedAt = null,
-            deviceId = null,
-            hlc = null
+            sync = SyncColumns()
         )
 
         val dto = entity.toDto()

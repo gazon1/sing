@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
@@ -22,18 +21,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.tasks.TaskCard
-import org.koin.compose.koinInject
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,8 +40,17 @@ fun SearchScreen(
 ) {
     val settingsRepo: com.singularity.todo.core.settings.SettingsRepository = koinInject()
     var query by remember { mutableStateOf("") }
-    val results by searchUseCase(query, runBlocking { settingsRepo.userId.first() })
-        .collectAsState(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
+
+    // Resolve userId reactively without runBlocking
+    val userId by produceState<String?>(initialValue = null) {
+        value = settingsRepo.userId.first()
+    }
+
+    val results by if (userId != null) {
+        searchUseCase(query, userId!!)
+    } else {
+        kotlinx.coroutines.flow.flowOf(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
+    }.collectAsState(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Search") }) }

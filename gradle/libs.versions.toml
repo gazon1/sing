@@ -80,6 +80,8 @@ coil = "3.6.1"
 junit = "4.13.2"
 robolectric = "4.13"
 
+# Lint
+
 [libraries]
 # Kotlin / Build
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }

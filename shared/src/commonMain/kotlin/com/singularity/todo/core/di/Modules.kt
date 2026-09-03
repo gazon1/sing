@@ -12,18 +12,11 @@ import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.notes.CreateNoteUseCase
-import com.singularity.todo.feature.notes.DeleteNoteUseCase
-import com.singularity.todo.feature.notes.GetNoteUseCase
-import com.singularity.todo.feature.notes.GetNotesUseCase
 import com.singularity.todo.feature.notes.NotesViewModel
 import com.singularity.todo.feature.notes.RichEditorMarkdownHtmlPort
 import com.singularity.todo.feature.notes.RoomNotesRepository
-import com.singularity.todo.feature.notes.SearchNotesUseCase
 import com.singularity.todo.feature.notes.UpdateNoteUseCase
 import com.singularity.todo.feature.projects.CreateProjectUseCase
-import com.singularity.todo.feature.projects.DeleteProjectUseCase
-import com.singularity.todo.feature.projects.GetProjectUseCase
-import com.singularity.todo.feature.projects.GetProjectsUseCase
 import com.singularity.todo.feature.projects.ProjectsViewModel
 import com.singularity.todo.feature.projects.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.UpdateProjectUseCase
@@ -32,20 +25,12 @@ import com.singularity.todo.feature.reminders.RoomReminderRepository
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.settings.SettingsViewModel
 import com.singularity.todo.feature.tags.CreateTagUseCase
-import com.singularity.todo.feature.tags.DeleteTagUseCase
-import com.singularity.todo.feature.tags.GetTagUseCase
-import com.singularity.todo.feature.tags.GetTagsUseCase
 import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.tags.TagsRepositoryImpl
 import com.singularity.todo.feature.tags.UpdateTagUseCase
 import com.singularity.todo.feature.tasks.CreateTaskUseCase
-import com.singularity.todo.feature.tasks.DeleteTaskUseCase
-import com.singularity.todo.feature.tasks.GetTaskUseCase
-import com.singularity.todo.feature.tasks.GetTasksUseCase
-import com.singularity.todo.feature.tasks.RestoreTaskUseCase
 import com.singularity.todo.feature.tasks.SetTagsUseCase
 import com.singularity.todo.feature.tasks.TasksViewModel
-import com.singularity.todo.feature.tasks.ToggleCompleteUseCase
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.TaskRepositoryImpl
 import com.singularity.todo.feature.ai.tools.ClusterNotesTool
@@ -178,33 +163,18 @@ fun domainModule(): Module = module {
 
     // ─── Use Cases ──────────────────────────────────────────────────────
 
-    factory { GetTasksUseCase(get()) }
-    factory { GetTaskUseCase(get()) }
     factory { CreateTaskUseCase(get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
-    factory { DeleteTaskUseCase(get()) }
-    factory { RestoreTaskUseCase(get()) }
-    factory { ToggleCompleteUseCase(get()) }
     factory { SetTagsUseCase(get()) }
 
-    factory { GetNotesUseCase(get()) }
-    factory { GetNoteUseCase(get()) }
-    factory { SearchNotesUseCase(get()) }
     factory { CreateNoteUseCase(get(), get()) }
     factory { UpdateNoteUseCase(get(), get()) }
-    factory { DeleteNoteUseCase(get()) }
 
-    factory { GetProjectsUseCase(get()) }
-    factory { GetProjectUseCase(get()) }
     factory { CreateProjectUseCase(get(), get()) }
     factory { UpdateProjectUseCase(get(), get()) }
-    factory { DeleteProjectUseCase(get()) }
 
-    factory { GetTagsUseCase(get()) }
-    factory { GetTagUseCase(get()) }
     factory { CreateTagUseCase(get(), get()) }
     factory { UpdateTagUseCase(get(), get()) }
-    factory { DeleteTagUseCase(get()) }
 
     factory { SearchUseCase(get(), get(), get(), get()) }
 
@@ -274,11 +244,11 @@ fun domainModule(): Module = module {
 
     factory { SettingsViewModel(get(), get()) }
 
-    factory { TasksViewModel(get(), get(), get(), get()) }
+    factory { TasksViewModel(get(), get(), get(), get(), get()) }
 
     factory { ProjectsViewModel(get(), get(), get()) }
 
-    factory { TagsViewModel(get(), get(), get()) }
+    factory { TagsViewModel(get(), get()) }
 
     factory { NotesViewModel(get(), get(), get(), get()) }
 

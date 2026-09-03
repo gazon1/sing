@@ -2,6 +2,8 @@ package com.singularity.todo.feature.tags
 
 import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TagEntity
+import com.singularity.todo.core.database.toInstant
+import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -50,11 +52,11 @@ private fun TagEntity.toTag(): Tag = Tag(
     id = TagId.fromString(id),
     name = name,
     color = color,
-    createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(createdAt),
-    updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(updatedAt),
+    createdAt = createdAt.toInstant(),
+    updatedAt = updatedAt.toInstant(),
     parentId = parentId?.let { TagId.fromString(it) },
     sortOrder = sortOrder,
-    deletedAt = deletedAt?.let { kotlinx.datetime.Instant.fromEpochMilliseconds(it) },
+    deletedAt = deletedAt.toInstantOrNull(),
     userId = userId
 )
 

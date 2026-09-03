@@ -1,3 +1,8 @@
+---
+name: singularity-todo-rich-editor
+description: Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. Use when adding or modifying the notes editor, markdown toolbar, EditorAction value class, ToolbarState DSL builder, or NotesViewModel dual-scope coroutine strategy. Covers RichTextState, SpanStyle, HeadingStyle, and debounced autosave.
+---
+
 # Skill: Rich-Text Editor for Notes (WYSIWYG)
 
 ## When to Use This Skill

@@ -1,12 +1,26 @@
 package com.singularity.todo.core.database
 
 import androidx.room.ColumnInfo
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.singularity.todo.feature.tasks.TaskKind
 import com.singularity.todo.feature.tasks.TaskPriority
 import kotlinx.datetime.Instant
+
+/**
+ * Mixin for sync metadata. Room flattens @Embedded columns into the parent table,
+ * so the schema is identical — this only removes the duplication across 4 entities.
+ */
+data class SyncColumns(
+    @ColumnInfo("server_version") val serverVersion: Long = 0L,
+    @ColumnInfo("sync_status") val syncStatus: String = "LOCAL_ONLY",
+    @ColumnInfo("sync_error") val syncError: String? = null,
+    @ColumnInfo("last_synced_at") val lastSyncedAt: Long? = null,
+    @ColumnInfo("device_id") val deviceId: String? = null,
+    @ColumnInfo("hlc") val hlc: String? = null,
+)
 
 @Entity(
     tableName = "tasks",
@@ -30,13 +44,7 @@ data class TaskEntity(
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("user_id") val userId: String,
-    // Sync columns
-    @ColumnInfo("server_version") val serverVersion: Long = 0L,
-    @ColumnInfo("sync_status") val syncStatus: String = "LOCAL_ONLY",
-    @ColumnInfo("sync_error") val syncError: String? = null,
-    @ColumnInfo("last_synced_at") val lastSyncedAt: Long? = null,
-    @ColumnInfo("device_id") val deviceId: String? = null,
-    @ColumnInfo("hlc") val hlc: String? = null
+    @Embedded val sync: SyncColumns = SyncColumns()
 )
 
 @Entity(
@@ -65,13 +73,7 @@ data class NoteEntity(
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("deleted_at") val deletedAt: Long?,
     @ColumnInfo("archived_at") val archivedAt: Long?,
-    // Sync columns
-    @ColumnInfo("server_version") val serverVersion: Long = 0L,
-    @ColumnInfo("sync_status") val syncStatus: String = "LOCAL_ONLY",
-    @ColumnInfo("sync_error") val syncError: String? = null,
-    @ColumnInfo("last_synced_at") val lastSyncedAt: Long? = null,
-    @ColumnInfo("device_id") val deviceId: String? = null,
-    @ColumnInfo("hlc") val hlc: String? = null
+    @Embedded val sync: SyncColumns = SyncColumns()
 )
 
 @Entity(
@@ -96,13 +98,7 @@ data class ProjectEntity(
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
     @ColumnInfo("is_notebook") val isNotebook: Boolean = false,
     @ColumnInfo("external_id") val externalId: String?,
-    // Sync columns
-    @ColumnInfo("server_version") val serverVersion: Long = 0L,
-    @ColumnInfo("sync_status") val syncStatus: String = "LOCAL_ONLY",
-    @ColumnInfo("sync_error") val syncError: String? = null,
-    @ColumnInfo("last_synced_at") val lastSyncedAt: Long? = null,
-    @ColumnInfo("device_id") val deviceId: String? = null,
-    @ColumnInfo("hlc") val hlc: String? = null
+    @Embedded val sync: SyncColumns = SyncColumns()
 )
 
 @Entity(
@@ -119,13 +115,7 @@ data class TagEntity(
     @ColumnInfo("parent_id") val parentId: String?,
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
     @ColumnInfo("deleted_at") val deletedAt: Long?,
-    // Sync columns
-    @ColumnInfo("server_version") val serverVersion: Long = 0L,
-    @ColumnInfo("sync_status") val syncStatus: String = "LOCAL_ONLY",
-    @ColumnInfo("sync_error") val syncError: String? = null,
-    @ColumnInfo("last_synced_at") val lastSyncedAt: Long? = null,
-    @ColumnInfo("device_id") val deviceId: String? = null,
-    @ColumnInfo("hlc") val hlc: String? = null
+    @Embedded val sync: SyncColumns = SyncColumns()
 )
 
 /**

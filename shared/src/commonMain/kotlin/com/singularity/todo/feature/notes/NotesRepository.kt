@@ -2,6 +2,10 @@ package com.singularity.todo.feature.notes
 
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.NoteEntity
+import com.singularity.todo.core.database.toEpochMillis
+import com.singularity.todo.core.database.toEpochMillisOrNull
+import com.singularity.todo.core.database.toInstant
+import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.flow.Flow
@@ -66,10 +70,10 @@ private fun NoteEntity.toNote(): Note = Note(
     bodyHtml = bodyHtml,
     isFolder = isFolder,
     parentNoteId = parentNoteId?.let { NoteId.fromString(it) },
-    createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(createdAt),
-    updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(updatedAt),
-    deletedAt = deletedAt?.let { kotlinx.datetime.Instant.fromEpochMilliseconds(it) },
-    archivedAt = archivedAt?.let { kotlinx.datetime.Instant.fromEpochMilliseconds(it) }
+    createdAt = createdAt.toInstant(),
+    updatedAt = updatedAt.toInstant(),
+    deletedAt = deletedAt.toInstantOrNull(),
+    archivedAt = archivedAt.toInstantOrNull()
 )
 
 fun Note.toEntity(): NoteEntity = NoteEntity(
@@ -80,8 +84,8 @@ fun Note.toEntity(): NoteEntity = NoteEntity(
     bodyHtml = bodyHtml,
     isFolder = isFolder,
     parentNoteId = parentNoteId?.value,
-    createdAt = createdAt.toEpochMilliseconds(),
-    updatedAt = updatedAt.toEpochMilliseconds(),
-    deletedAt = deletedAt?.toEpochMilliseconds(),
-    archivedAt = archivedAt?.toEpochMilliseconds()
+    createdAt = createdAt.toEpochMillis(),
+    updatedAt = updatedAt.toEpochMillis(),
+    deletedAt = deletedAt?.toEpochMillisOrNull(),
+    archivedAt = archivedAt?.toEpochMillisOrNull()
 )

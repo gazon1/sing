@@ -4,6 +4,7 @@ import com.singularity.todo.core.attachments.AttachmentEntity
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.TagEntity
+import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import kotlinx.serialization.Contextual
@@ -47,8 +48,7 @@ fun TaskDto.toEntity(userId: String): TaskEntity = TaskEntity(
     archivedAt = archivedAt, isPinned = isPinned,
     createdAt = createdAt, updatedAt = updatedAt,
     userId = userId,
-    serverVersion = 0L, syncStatus = "LOCAL_ONLY",
-    syncError = null, lastSyncedAt = null, deviceId = null, hlc = null
+    sync = SyncColumns()
 )
 
 // ─── NoteDto ───────────────────────────────────────────────────────────────────
@@ -80,8 +80,7 @@ fun NoteDto.toEntity(userId: String): NoteEntity = NoteEntity(
     isFolder = isFolder, parentNoteId = parentNoteId,
     createdAt = createdAt, updatedAt = updatedAt,
     deletedAt = deletedAt, archivedAt = archivedAt,
-    serverVersion = 0L, syncStatus = "LOCAL_ONLY",
-    syncError = null, lastSyncedAt = null, deviceId = null, hlc = null
+    sync = SyncColumns()
 )
 
 // ─── ProjectDto ───────────────────────────────────────────────────────────────
@@ -121,8 +120,7 @@ fun ProjectDto.toEntity(userId: String): ProjectEntity = ProjectEntity(
     isDefault = isDefault, dueDate = dueDate, team = team,
     isDeleted = isDeleted, deletedAt = deletedAt, parentId = parentId,
     sortOrder = sortOrder, isNotebook = isNotebook, externalId = externalId,
-    serverVersion = 0L, syncStatus = "LOCAL_ONLY",
-    syncError = null, lastSyncedAt = null, deviceId = null, hlc = null
+    sync = SyncColumns()
 )
 
 // ─── TagDto ────────────────────────────────────────────────────────────────────
@@ -149,8 +147,7 @@ fun TagDto.toEntity(userId: String): TagEntity = TagEntity(
     id = id, userId = userId, name = name, color = color,
     createdAt = createdAt, updatedAt = updatedAt,
     parentId = parentId, sortOrder = sortOrder, deletedAt = deletedAt,
-    serverVersion = 0L, syncStatus = "LOCAL_ONLY",
-    syncError = null, lastSyncedAt = null, deviceId = null, hlc = null
+    sync = SyncColumns()
 )
 
 // ─── AttachmentDto ─────────────────────────────────────────────────────────────

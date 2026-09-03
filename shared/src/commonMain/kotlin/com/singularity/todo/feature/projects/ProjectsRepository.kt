@@ -2,6 +2,11 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.ProjectEntity
+import com.singularity.todo.core.database.toEpochMillis
+import com.singularity.todo.core.database.toEpochMillisOrNull
+import com.singularity.todo.core.database.toInstant
+import com.singularity.todo.core.database.toInstantOrNull
+import com.singularity.todo.core.database.toLocalDateOrNull
 import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -52,13 +57,13 @@ private fun ProjectEntity.toProject(): Project = Project(
     color = color,
     icon = icon,
     description = description,
-    createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(createdAt),
-    updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(updatedAt),
+    createdAt = createdAt.toInstant(),
+    updatedAt = updatedAt.toInstant(),
     isDefault = isDefault,
-    dueDate = dueDate?.let { kotlinx.datetime.LocalDate.parse(it) },
+    dueDate = dueDate.toLocalDateOrNull(),
     team = team,
     isDeleted = isDeleted,
-    deletedAt = deletedAt?.let { kotlinx.datetime.Instant.fromEpochMilliseconds(it) },
+    deletedAt = deletedAt.toInstantOrNull(),
     parentId = parentId?.let { ProjectId.fromString(it) },
     sortOrder = sortOrder,
     isNotebook = isNotebook,
@@ -73,13 +78,13 @@ fun Project.toEntity(): ProjectEntity = ProjectEntity(
     color = color,
     icon = icon,
     description = description,
-    createdAt = createdAt.toEpochMilliseconds(),
-    updatedAt = updatedAt.toEpochMilliseconds(),
+    createdAt = createdAt.toEpochMillis(),
+    updatedAt = updatedAt.toEpochMillis(),
     isDefault = isDefault,
     dueDate = dueDate?.toString(),
     team = team,
     isDeleted = isDeleted,
-    deletedAt = deletedAt?.toEpochMilliseconds(),
+    deletedAt = deletedAt?.toEpochMillisOrNull(),
     parentId = parentId?.value,
     sortOrder = sortOrder,
     isNotebook = isNotebook,

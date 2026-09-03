@@ -1,0 +1,150 @@
+---
+name: singularity-todo-koin-di
+description: Koin Annotations 4.2.2 DI pattern for this KMP project. Use when adding new repository, use case, ViewModel, or AI tool to the DI graph. Covers @Module, @ComponentScan, @Single, @Factory, @IntoSet, @Named qualifiers, and migration from the classical domainModule() DSL. Also covers Fake test doubles registration in commonTest.
+---
+
+# Singularity TODO — Koin DI Pattern
+
+## Current state
+
+All domain bindings live in `shared/src/commonMain/.../core/di/Modules.kt` as a single `domainModule()` DSL (~295 lines).
+
+Migration to Koin Annotations 4.2.2 + KSP is in progress. Use annotations for **new** code; the old DSL is still the source of truth for existing bindings.
+
+## Key Annotations
+
+```kotlin
+@Single              // singleton — created once, shared everywhere
+@Factory             // new instance every time get() is called
+@Named("qualifier")  // disambiguate same-type bindings
+@IntoSet             // add this bean to a Set<T> (used for 16 AI tools)
+@Module              // marks a class as a DI module
+@ComponentScan("pkg") // auto-register all @Single/@Factory in that package
+@OptIn(KoinApiExtension::class) // required for @ComponentScan
+```
+
+## Migration: DSL → Annotations
+
+### Before (DSL — current)
+```kotlin
+// Modules.kt
+fun domainModule(): Module = module {
+    single<TaskRepository> { TaskRepositoryImpl(get(), get()) }
+    factory { DeleteTaskUseCase(get()) }
+    factory { GetTasksUseCase(get()) }
+    single<List<Tool<*, *>>> {
+        listOf(get<RefineTaskTool>(), get<SmartRewriteTool>(), ...)
+    }
+}
+```
+
+### After (Annotations — target)
+```kotlin
+@Module
+@ComponentScan("com.singularity.todo.feature.tasks")
+class TasksModule
+
+@Single
+class TaskRepositoryImpl(get(), get()) : TaskRepository
+
+@Factory
+class DeleteTaskUseCase(get())
+
+@Factory
+class GetTasksUseCase(get())
+
+@Single
+class TasksViewModel(get(), get()) : ViewModel
+```
+
+## @IntoSet for multi-instance bindings (16 AI tools)
+
+```kotlin
+// Each tool annotated @Single @IntoSet:
+@Single @IntoSet
+class RefineTaskTool(get(), get()) : SimpleTool<...>
+
+// KoogAgentService injects Set<Tool>:
+class KoogAgentService(
+    private val tools: Set<Tool<*, *>>,
+    ...
+) : TextGenPort {
+    private val registry = ToolRegistry {
+        tools.forEach { tool(it) }
+    }
+}
+```
+
+No more hand-written `listOf(get<X>(), get<Y>(), ...)` — Koin aggregates `@IntoSet` beans automatically.
+
+## Qualifiers (@Named)
+
+```kotlin
+@Single @Named("device")
+class DeviceDatabase(...)
+
+@Single @Named("backup")
+class BackupDatabase(...)
+
+// Usage:
+class Service(@Named("device") val db: Database)
+```
+
+## Testing: register Fake doubles
+
+```kotlin
+// In jvmTest or commonTest — override production bindings:
+@Test
+fun `search notes`() = runTest {
+    startKoin {
+        modules(
+            module {
+                single<NotesRepository> { FakeNotesRepository() }
+                single<MarkdownHtmlPort> { FakeHtmlPort() }
+            }
+        )
+    }
+    // test runs with fakes...
+}
+```
+
+Or via constructor injection in the test class:
+```kotlin
+class NotesViewModelTest {
+    private val vm = NotesViewModel(
+        store = FakeNotesStore(),
+        htmlPort = FakeHtmlPort(),
+        settingsRepository = FakeSettingsRepository { "user-1" },
+    )
+    // no Koin needed — pure constructor injection
+}
+```
+
+## Koin Scope for scoped lifetimes
+
+```kotlin
+@Scope
+@ComponentScan("com.singularity.todo.feature.auth")
+class AuthScope
+
+// Inject @Scope scoped bean:
+class SessionManager(@Named("session") val session: Session)
+```
+
+## Gotchas
+
+1. **Last-wins**: if two modules define the same type, the later-loaded one wins (same in both DSL and annotations).
+2. **`@ComponentScan` requires KSP** — ensure `koin-annotations-compiler` is in `kspJvm` / `kspAndroid` configurations.
+3. **`@IntoSet` only works with `Set<T>`** — declare the target as `Set<TheInterface>` in the consumer.
+4. **Run blocking** in `Modules.kt` (fabricating `UserId.anonymous`): migrate to `@Factory` with a suspend builder, or pass a default `UserId` constant.
+5. **Koin Annotations + KMP**: annotations compile in `commonMain`, KSP processor runs per-target (JVM/Android) separately.
+
+## Key Files
+
+| File | Role |
+|---|---|
+| `shared/src/commonMain/.../core/di/Modules.kt` | Current DSL (to be migrated) |
+| `shared/src/commonMain/.../core/di/PlatformModule.kt` | expect fun platformModule() |
+| `shared/src/jvmMain/.../core/di/PlatformModule.jvm.kt` | Database, Ktor CIO, Koog JVM |
+| `shared/src/androidMain/.../core/di/PlatformModule.android.kt` | Database, Ktor OkHttp, Koog error stub |
+| `shared/src/commonMain/.../test/fakes/FakeRepositories.kt` | All fake doubles |
