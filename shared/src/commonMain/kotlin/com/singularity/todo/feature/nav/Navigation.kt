@@ -3,6 +3,7 @@ package com.singularity.todo.feature.nav
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Home
@@ -21,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.singularity.todo.feature.ai.chat.ChatScreen
 import com.singularity.todo.feature.tasks.TasksScreen
 import com.singularity.todo.feature.notes.NotesScreen
 import com.singularity.todo.feature.notes.NoteEditorScreen
@@ -35,6 +37,7 @@ sealed class BottomNavItem(
     data object Tasks : BottomNavItem("Tasks", Icons.Filled.Check)
     data object Notes : BottomNavItem("Notes", Icons.Filled.Create)
     data object Projects : BottomNavItem("Projects", Icons.Filled.Home)
+    data object Chat : BottomNavItem("AI Chat", Icons.Filled.AutoAwesome)
     data object Search : BottomNavItem("Search", Icons.Filled.Search)
     data object Settings : BottomNavItem("Settings", Icons.Filled.Settings)
 }
@@ -46,6 +49,7 @@ fun HomeTab() {
         BottomNavItem.Tasks,
         BottomNavItem.Notes,
         BottomNavItem.Projects,
+        BottomNavItem.Chat,
         BottomNavItem.Search,
         BottomNavItem.Settings
     )
@@ -69,8 +73,9 @@ fun HomeTab() {
                 0 -> TasksScreen(onNavigateToTask = { }, onNavigateToCreateTask = { })
                 1 -> NotesSection()
                 2 -> ProjectsScreen(onNavigateToProject = { }, onNavigateToCreateProject = { })
-                3 -> SearchScreen()
-                4 -> SettingsScreen()
+                3 -> ChatScreen()
+                4 -> SearchScreen()
+                5 -> SettingsScreen()
             }
         }
     }

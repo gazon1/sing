@@ -25,7 +25,6 @@ import org.koin.dsl.module
  * - [NotificationPort] → [AndroidNotificationPort]
  * - [FileSystem] → [AndroidFileSystem]
  * - [BackupCodec] → [AndroidBackupCodec]
- * - [PromptExecutor] → stub (Koog not supported on Android)
  * - [androidx.datastore.core.DataStore] → application preferences DataStore
  */
 actual fun platformModule(): Module = module {
@@ -62,11 +61,4 @@ actual fun platformModule(): Module = module {
     single<FileSystem> { AndroidFileSystem(get()) }
 
     single<BackupCodec> { AndroidBackupCodec() }
-
-    // ─── Prompt Executor ─────────────────────────────────────────────────
-
-    single<ai.koog.prompt.executor.model.PromptExecutor> {
-        error("Koog PromptExecutor is not available on Android. Use the desktop/JVM target for AI features.")
-    }
-
 }

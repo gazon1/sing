@@ -7,10 +7,10 @@ import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
-import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.utils.time.KoogClock
+import com.singularity.todo.core.di.PromptExecutorPort
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.prompts.Prompts
@@ -31,7 +31,8 @@ import kotlinx.coroutines.flow.flow
 class KoogAgentService(
     private val secureStorage: SecureStoragePort,
     private val settings: SettingsRepository,
-    private val promptExecutor: PromptExecutor,
+    private val promptExecutor: ai.koog.prompt.executor.model.PromptExecutor,
+    private val streamingExecutor: PromptExecutorPort,
     private val tools: List<Tool<*, *>>,
 ) : TextGenPort {
 
@@ -87,8 +88,7 @@ class KoogAgentService(
     }
 
     /**
-     * Streams chat responses token-by-token using [PromptExecutor.executeStreaming].
-     * Each message creates a fresh agent session.
+     * Streams chat responses token-by-token using [PromptExecutorPort.executeStreaming].
      */
     fun streamChat(message: String): Flow<String> = flow {
         val apiKey = secureStorage.read("ai_key_openai").orEmpty()
@@ -106,7 +106,7 @@ class KoogAgentService(
             user(message)
         }
 
-        promptExecutor.executeStreaming(p, model, emptyList())
+        streamingExecutor.executeStreaming(p, model, emptyList())
             .collect { frame ->
                 when (frame) {
                     is StreamFrame.TextDelta -> emit(frame.text)

@@ -76,7 +76,7 @@ import org.koin.dsl.module
  * - [com.singularity.todo.core.notifications.NotificationPort]
  * - [com.singularity.todo.core.files.FileSystem]
  * - [com.singularity.todo.core.backup.BackupCodec]
- * - [ai.koog.prompt.executor.model.PromptExecutor]
+ * - [PromptExecutorPort]
  * - [androidx.datastore.core.DataStore]
  *
  * Usage:
@@ -235,10 +235,14 @@ fun domainModule(): Module = module {
     factory { ClusterTasksUseCase(get()) }
     factory { ClusterNotesUseCase(get()) }
 
-    // AI Service
+    // AI Service — needs both the raw Koog PromptExecutor (for AIAgent builder)
+    // and PromptExecutorPort (for streaming)
     single<com.singularity.todo.feature.ai.TextGenPort> {
-        KoogAgentService(get(), get(), get(), get())
+        KoogAgentService(get(), get(), get(), get(), get())
     }
+
+    // Platform-specific PromptExecutor (JvmPromptExecutorPort / StubPromptExecutorPort)
+    single<PromptExecutorPort> { createKoogPromptExecutor() }
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
