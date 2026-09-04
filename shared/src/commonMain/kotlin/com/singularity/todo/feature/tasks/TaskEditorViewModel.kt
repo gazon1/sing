@@ -79,6 +79,35 @@ sealed interface TaskEditorIntent {
 }
 
 /**
+ * Pure reducer — `(State, Intent) -> State`. Covers all intents that don't
+ * have IO / list-mutation side effects. Tested without a VM in
+ * [TaskEditorReducerTest].
+ */
+internal fun TaskEditorUiState.reduce(intent: TaskEditorIntent): TaskEditorUiState = when (intent) {
+    is TaskEditorIntent.TitleChanged -> copy(title = intent.text, errorMessage = null)
+    is TaskEditorIntent.DescriptionChanged -> copy(description = intent.text)
+    is TaskEditorIntent.DueDateChanged -> copy(dueDate = intent.date)
+    is TaskEditorIntent.DueTimeChanged -> copy(dueTime = intent.time)
+    is TaskEditorIntent.ProjectChanged -> copy(projectId = intent.projectId)
+    is TaskEditorIntent.TagsChanged -> copy(tagIds = intent.tagIds)
+    is TaskEditorIntent.NewChecklistItemChanged -> copy(newChecklistItem = intent.text)
+    is TaskEditorIntent.ReminderOffsetChanged -> copy(reminderOffset = intent.offset)
+    is TaskEditorIntent.AddAttachment -> copy(
+        pendingAttachments = pendingAttachments + PendingAttachment(
+            path = intent.path,
+            name = intent.name,
+            mimeType = intent.mimeType,
+        ),
+    )
+    TaskEditorIntent.ErrorShown -> copy(errorMessage = null)
+    // Impure intents pass through unchanged — handled separately in the VM.
+    TaskEditorIntent.AddChecklistItem,
+    is TaskEditorIntent.ToggleChecklistItem,
+    is TaskEditorIntent.DeleteChecklistItem,
+    TaskEditorIntent.Save -> this
+}
+
+/**
  * Create-task screen VM. The legacy implementation lived entirely inside the
  * Composable (`var title by remember { ... }`, `rememberCoroutineScope`); this
  * refactor moves the state and validation into the VM so the screen is a thin
@@ -105,27 +134,15 @@ class TaskEditorViewModel(
     val events: SharedFlow<UiEvent> = _events.asSharedFlow()
 
     fun onIntent(intent: TaskEditorIntent) {
+        // Pure reducer first — covers all intents that don't have side effects.
+        _uiState.update { it.reduce(intent) }
+        // Impure branch — handles side effects (IO, list mutations, save).
         when (intent) {
-            is TaskEditorIntent.TitleChanged -> _uiState.update { it.copy(title = intent.text, errorMessage = null) }
-            is TaskEditorIntent.DescriptionChanged -> _uiState.update { it.copy(description = intent.text) }
-            is TaskEditorIntent.DueDateChanged -> _uiState.update { it.copy(dueDate = intent.date) }
-            is TaskEditorIntent.DueTimeChanged -> _uiState.update { it.copy(dueTime = intent.time) }
-            is TaskEditorIntent.ProjectChanged -> _uiState.update { it.copy(projectId = intent.projectId) }
-            is TaskEditorIntent.TagsChanged -> _uiState.update { it.copy(tagIds = intent.tagIds) }
-            is TaskEditorIntent.NewChecklistItemChanged -> _uiState.update { it.copy(newChecklistItem = intent.text) }
             TaskEditorIntent.AddChecklistItem -> addChecklistItem()
             is TaskEditorIntent.ToggleChecklistItem -> toggleChecklistItem(intent.id)
             is TaskEditorIntent.DeleteChecklistItem -> deleteChecklistItem(intent.id)
-            is TaskEditorIntent.ReminderOffsetChanged -> _uiState.update { it.copy(reminderOffset = intent.offset) }
-            is TaskEditorIntent.AddAttachment -> _uiState.update { st ->
-                st.copy(pendingAttachments = st.pendingAttachments + PendingAttachment(
-                    path = intent.path,
-                    name = intent.name,
-                    mimeType = intent.mimeType,
-                ))
-            }
-            TaskEditorIntent.ErrorShown -> _uiState.update { it.copy(errorMessage = null) }
             TaskEditorIntent.Save -> save()
+            else -> Unit
         }
     }
 
