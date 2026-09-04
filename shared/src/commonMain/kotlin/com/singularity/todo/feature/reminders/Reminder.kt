@@ -28,7 +28,11 @@ data class Reminder(
 
 /** Type-safe ID wrapper. */
 @JvmInline
-value class ReminderId(val value: String)
+value class ReminderId(val value: String) {
+    companion object {
+        fun generate(): ReminderId = ReminderId(java.util.UUID.randomUUID().toString())
+    }
+}
 
 // ─── Mapping ─────────────────────────────────────────────────────────────────
 

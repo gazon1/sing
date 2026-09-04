@@ -4,16 +4,26 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.ChecklistUseCase
+import com.singularity.todo.feature.reminders.Reminder
+import com.singularity.todo.feature.reminders.ReminderId
+import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.reminders.ReminderType
+import com.singularity.todo.feature.settings.ReminderOffset
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -32,6 +42,7 @@ data class TaskEditorUiState(
     val tagIds: List<String> = emptyList(),
     val checklistItems: List<ChecklistItemUi> = emptyList(),
     val newChecklistItem: String = "",
+    val reminderOffset: ReminderOffset? = null,
     val saving: Boolean = false,
     val errorMessage: String? = null,
 )
@@ -53,6 +64,7 @@ sealed interface TaskEditorIntent {
     data object AddChecklistItem : TaskEditorIntent
     data class ToggleChecklistItem(val id: String) : TaskEditorIntent
     data class DeleteChecklistItem(val id: String) : TaskEditorIntent
+    data class ReminderOffsetChanged(val offset: ReminderOffset?) : TaskEditorIntent
     data object Save : TaskEditorIntent
     data object ErrorShown : TaskEditorIntent
 }
@@ -70,6 +82,7 @@ class TaskEditorViewModel(
     private val clock: Clock,
     private val userId: UserId,
     private val checklistUseCase: com.singularity.todo.feature.checklist.ChecklistUseCase,
+    private val reminderRepository: ReminderRepository,
     initialDueDate: kotlinx.datetime.LocalDate? = null,
 ) : ViewModel() {
 
@@ -91,6 +104,7 @@ class TaskEditorViewModel(
             TaskEditorIntent.AddChecklistItem -> addChecklistItem()
             is TaskEditorIntent.ToggleChecklistItem -> toggleChecklistItem(intent.id)
             is TaskEditorIntent.DeleteChecklistItem -> deleteChecklistItem(intent.id)
+            is TaskEditorIntent.ReminderOffsetChanged -> _uiState.update { it.copy(reminderOffset = intent.offset) }
             TaskEditorIntent.ErrorShown -> _uiState.update { it.copy(errorMessage = null) }
             TaskEditorIntent.Save -> save()
         }
@@ -127,6 +141,27 @@ class TaskEditorViewModel(
         }
     }
 
+    private fun computeFireAt(
+        dueDate: kotlinx.datetime.LocalDate?,
+        dueTime: kotlinx.datetime.LocalTime?,
+        offset: ReminderOffset,
+        nowEpochMs: Long,
+    ): Long {
+        val zone = TimeZone.currentSystemDefault()
+        val base = when {
+            dueDate != null && dueTime != null -> {
+                val ldt = LocalDateTime(dueDate.year, dueDate.monthNumber, dueDate.dayOfMonth, dueTime.hour, dueTime.minute)
+                ldt.toInstant(zone).toEpochMilliseconds()
+            }
+            dueDate != null -> {
+                val ldt = LocalDateTime(dueDate.year, dueDate.monthNumber, dueDate.dayOfMonth, 12, 0)
+                ldt.toInstant(zone).toEpochMilliseconds()
+            }
+            else -> nowEpochMs
+        }
+        return base - offset.minutes * 60_000L
+    }
+
     private fun save() = viewModelScope.launch {
         val current = _uiState.value
         if (current.saving) return@launch
@@ -161,6 +196,21 @@ class TaskEditorViewModel(
                         )
                     }
                     checklistUseCase.createBatch(taskId.value, checklistItems)
+                }
+                // Save reminder if offset was selected
+                current.reminderOffset?.let { offset ->
+                    val now = clock.now().toEpochMilliseconds()
+                    val fireAt = computeFireAt(current.dueDate, current.dueTime, offset, now)
+                    val reminder = Reminder(
+                        id = ReminderId.generate(),
+                        taskId = taskId,
+                        userId = userId,
+                        type = ReminderType.Gentle,
+                        offsetMinutes = -offset.minutes,
+                        fireAt = fireAt,
+                        recurringPattern = null,
+                    )
+                    reminderRepository.upsert(reminder)
                 }
                 _events.emit(UiEvent.NavigateBack)
             }

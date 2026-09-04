@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,6 +51,8 @@ import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.components.TagPickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.UiEvent
+import com.singularity.todo.feature.reminders.ReminderPicker
+import com.singularity.todo.feature.settings.ReminderOffset
 import org.koin.core.parameter.parametersOf
 import org.koin.compose.koinInject
 import java.time.format.DateTimeFormatter
@@ -68,6 +71,7 @@ fun TaskEditorScreen(
     var showTimePicker by remember { mutableStateOf(false) }
     var showProjectPicker by remember { mutableStateOf(false) }
     var showTagPicker by remember { mutableStateOf(false) }
+    var showReminderPicker by remember { mutableStateOf(false) }
 
     CollectEvents(vm.events) { event ->
         when (event) {
@@ -109,6 +113,8 @@ fun TaskEditorScreen(
             onAddChecklistItem = { vm.onIntent(TaskEditorIntent.AddChecklistItem) },
             onToggleChecklistItem = { vm.onIntent(TaskEditorIntent.ToggleChecklistItem(it)) },
             onDeleteChecklistItem = { vm.onIntent(TaskEditorIntent.DeleteChecklistItem(it)) },
+            onReminderClick = { showReminderPicker = true },
+            onReminderOffsetChange = { vm.onIntent(TaskEditorIntent.ReminderOffsetChanged(it)) },
             onSave = { vm.onIntent(TaskEditorIntent.Save) },
             modifier = Modifier.padding(padding),
         )
@@ -147,6 +153,27 @@ fun TaskEditorScreen(
         )
     }
 
+    if (showReminderPicker) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showReminderPicker = false },
+            title = { Text("Remind me") },
+            text = {
+                ReminderPicker(
+                    selected = state.reminderOffset ?: ReminderOffset.AT_DUE,
+                    onSelect = { offset ->
+                        vm.onIntent(TaskEditorIntent.ReminderOffsetChanged(offset))
+                        showReminderPicker = false
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showReminderPicker = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
     ResultDialog(title = "Error", text = dialogText, onDismiss = { dialogText = null })
 }
 
@@ -163,6 +190,8 @@ private fun TaskEditorBody(
     onAddChecklistItem: () -> Unit,
     onToggleChecklistItem: (String) -> Unit,
     onDeleteChecklistItem: (String) -> Unit,
+    onReminderClick: () -> Unit,
+    onReminderOffsetChange: (ReminderOffset?) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -335,6 +364,33 @@ private fun TaskEditorBody(
                     )
                 }
             }
+        }
+
+        // Reminder section
+        Text(
+            text = "Reminder",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onReminderClick)
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.AccessTime,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = state.reminderOffset?.label ?: "No reminder",
+                color = if (state.reminderOffset != null) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         Spacer(Modifier.height(8.dp))
