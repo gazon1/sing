@@ -135,7 +135,7 @@ fun coreDomainModule(): Module = module {
         com.singularity.todo.feature.pomodoro.InMemoryPomodoroRepository()
     }
 
-    factory { com.singularity.todo.feature.pomodoro.PomodoroTimer(get()) }
+    factory { com.singularity.todo.feature.pomodoro.PomodoroTimer(get(), get(), get()) }
 
     viewModel { com.singularity.todo.feature.statistics.StatisticsViewModel(get(), get()) }
 
@@ -191,7 +191,7 @@ fun coreDomainModule(): Module = module {
     factory { ProjectEditorViewModel(get(), get()) }
 
     factory { (initialDueDate: kotlinx.datetime.LocalDate?) ->
-        com.singularity.todo.feature.tasks.TaskEditorViewModel(get(), get(), com.singularity.todo.feature.tasks.UserId.anonymous, get(), get(), initialDueDate)
+        com.singularity.todo.feature.tasks.TaskEditorViewModel(get(), get(), com.singularity.todo.feature.tasks.UserId.anonymous, get(), get(), get(), initialDueDate)
     }
 
     // ChatViewModel requires TextGenPort (AI) — registered in aiToolsModule()

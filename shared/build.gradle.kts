@@ -172,6 +172,10 @@ kotlin {
             // DateTime
             implementation(libs.kotlinx.datetime)
 
+            // FileKit JVM
+            implementation(libs.filekit.core)
+            implementation(libs.filekit.dialogs.compose)
+
             // Coil Ktor network
             implementation(libs.coil.network.ktor3)
 

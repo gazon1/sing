@@ -2,22 +2,44 @@ package com.singularity.todo.feature.pomodoro
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.feature.tasks.Task
+import com.singularity.todo.feature.tasks.TaskFilter
+import com.singularity.todo.feature.tasks.TaskRepository
+import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class PomodoroTimer(
     private val repository: PomodoroRepository,
+    private val taskRepository: TaskRepository,
+    private val settingsRepository: SettingsRepository,
     private val config: PomodoroConfig = PomodoroConfig(),
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(PomodoroState(remainingSeconds = config.workMinutes * 60))
     val state: StateFlow<PomodoroState> = _state.asStateFlow()
 
+    private val _tasks = MutableStateFlow<List<Task>>(emptyList())
+    val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
+
     private var timerJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            val uid = try {
+                UserId.fromString(settingsRepository.userId.first())
+            } catch (_: Exception) {
+                UserId.anonymous
+            }
+            taskRepository.watchTasks(uid, TaskFilter.Inbox).collect { _tasks.value = it }
+        }
+    }
 
     fun start(taskId: String? = null) {
         if (_state.value.isRunning) return

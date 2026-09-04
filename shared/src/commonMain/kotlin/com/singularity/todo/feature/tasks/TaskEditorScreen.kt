@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.DatePickerSheet
+import com.singularity.todo.core.files.toFilePickerResult
 import com.singularity.todo.core.ui.components.ProjectPickerSheet
 import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.components.TagPickerSheet
@@ -53,9 +55,10 @@ import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.reminders.ReminderPicker
 import com.singularity.todo.feature.settings.ReminderOffset
+import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
+import io.github.vinceglb.filekit.dialogs.FileKitType
 import org.koin.core.parameter.parametersOf
 import org.koin.compose.koinInject
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +75,19 @@ fun TaskEditorScreen(
     var showProjectPicker by remember { mutableStateOf(false) }
     var showTagPicker by remember { mutableStateOf(false) }
     var showReminderPicker by remember { mutableStateOf(false) }
+
+    val filePickerLauncher = rememberFilePickerLauncher(
+        type = FileKitType.File(),
+    ) { file ->
+        if (file != null) {
+            val result = file.toFilePickerResult()
+            vm.onIntent(TaskEditorIntent.AddAttachment(
+                path = result.path,
+                name = result.name,
+                mimeType = result.mimeType,
+            ))
+        }
+    }
 
     CollectEvents(vm.events) { event ->
         when (event) {
@@ -115,6 +131,7 @@ fun TaskEditorScreen(
             onDeleteChecklistItem = { vm.onIntent(TaskEditorIntent.DeleteChecklistItem(it)) },
             onReminderClick = { showReminderPicker = true },
             onReminderOffsetChange = { vm.onIntent(TaskEditorIntent.ReminderOffsetChanged(it)) },
+            onAttachmentClick = { filePickerLauncher.launch() },
             onSave = { vm.onIntent(TaskEditorIntent.Save) },
             modifier = Modifier.padding(padding),
         )
@@ -192,6 +209,7 @@ private fun TaskEditorBody(
     onDeleteChecklistItem: (String) -> Unit,
     onReminderClick: () -> Unit,
     onReminderOffsetChange: (ReminderOffset?) -> Unit,
+    onAttachmentClick: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -391,6 +409,54 @@ private fun TaskEditorBody(
                 color = if (state.reminderOffset != null) MaterialTheme.colorScheme.onSurface
                 else MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+
+        // Attachments section
+        Text(
+            text = "Attachments",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onAttachmentClick)
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.AttachFile,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = if (state.pendingAttachments.isEmpty()) "Add attachment"
+                else "${state.pendingAttachments.size} attachment(s)",
+                color = if (state.pendingAttachments.isNotEmpty()) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        // Show pending attachments
+        state.pendingAttachments.forEach { att ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Filled.AttachFile,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 8.dp),
+                )
+                Text(
+                    text = att.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
 
         Spacer(Modifier.height(8.dp))

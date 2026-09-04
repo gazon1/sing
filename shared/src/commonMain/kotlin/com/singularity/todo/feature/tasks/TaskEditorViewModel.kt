@@ -43,8 +43,15 @@ data class TaskEditorUiState(
     val checklistItems: List<ChecklistItemUi> = emptyList(),
     val newChecklistItem: String = "",
     val reminderOffset: ReminderOffset? = null,
+    val pendingAttachments: List<PendingAttachment> = emptyList(),
     val saving: Boolean = false,
     val errorMessage: String? = null,
+)
+
+data class PendingAttachment(
+    val path: String,
+    val name: String,
+    val mimeType: String?,
 )
 
 data class ChecklistItemUi(
@@ -65,6 +72,7 @@ sealed interface TaskEditorIntent {
     data class ToggleChecklistItem(val id: String) : TaskEditorIntent
     data class DeleteChecklistItem(val id: String) : TaskEditorIntent
     data class ReminderOffsetChanged(val offset: ReminderOffset?) : TaskEditorIntent
+    data class AddAttachment(val path: String, val name: String, val mimeType: String?) : TaskEditorIntent
     data object Save : TaskEditorIntent
     data object ErrorShown : TaskEditorIntent
 }
@@ -83,6 +91,7 @@ class TaskEditorViewModel(
     private val userId: UserId,
     private val checklistUseCase: com.singularity.todo.feature.checklist.ChecklistUseCase,
     private val reminderRepository: ReminderRepository,
+    private val attachmentsVm: com.singularity.todo.feature.attachments.AttachmentsViewModel,
     initialDueDate: kotlinx.datetime.LocalDate? = null,
 ) : ViewModel() {
 
@@ -105,6 +114,13 @@ class TaskEditorViewModel(
             is TaskEditorIntent.ToggleChecklistItem -> toggleChecklistItem(intent.id)
             is TaskEditorIntent.DeleteChecklistItem -> deleteChecklistItem(intent.id)
             is TaskEditorIntent.ReminderOffsetChanged -> _uiState.update { it.copy(reminderOffset = intent.offset) }
+            is TaskEditorIntent.AddAttachment -> _uiState.update { st ->
+                st.copy(pendingAttachments = st.pendingAttachments + PendingAttachment(
+                    path = intent.path,
+                    name = intent.name,
+                    mimeType = intent.mimeType,
+                ))
+            }
             TaskEditorIntent.ErrorShown -> _uiState.update { it.copy(errorMessage = null) }
             TaskEditorIntent.Save -> save()
         }
@@ -211,6 +227,10 @@ class TaskEditorViewModel(
                         recurringPattern = null,
                     )
                     reminderRepository.upsert(reminder)
+                }
+                // Save pending attachments
+                current.pendingAttachments.forEach { att ->
+                    attachmentsVm.saveFileAttachment(taskId, att.path, att.mimeType)
                 }
                 _events.emit(UiEvent.NavigateBack)
             }

@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.pomodoro
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,11 +11,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,9 +35,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.feature.tasks.TaskId
+import org.koin.compose.koinInject
 
 @Composable
 fun PomodoroScreen(
@@ -42,6 +47,7 @@ fun PomodoroScreen(
     onBack: () -> Unit,
 ) {
     val state by timer.state.collectAsStateWithLifecycle()
+    val tasks by timer.tasks.collectAsStateWithLifecycle()
 
     val phaseColor = when (state.phase) {
         PomodoroPhase.Work -> MaterialTheme.colorScheme.error
@@ -63,6 +69,42 @@ fun PomodoroScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        // Task selection chips
+        if (tasks.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                tasks.forEach { task ->
+                    FilterChip(
+                        selected = state.taskId == task.id.value,
+                        onClick = { timer.start(task.id.value) },
+                        label = {
+                            Text(
+                                task.title,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                    )
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+
+        // Selected task name
+        val selectedTask = tasks.find { it.id.value == state.taskId }
+        if (selectedTask != null) {
+            Text(
+                text = "Focus: ${selectedTask.title}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+
         Text(
             text = state.phase.name.replace(Regex("([A-Z])"), " $1").trim(),
             style = MaterialTheme.typography.titleLarge,
