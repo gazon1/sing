@@ -12,6 +12,7 @@ import com.singularity.todo.core.backup.ImportOptions
 import com.singularity.todo.core.backup.RestoreResult
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.feature.tasks.UserId
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -76,8 +77,11 @@ class BackupViewModelTest {
     private fun fakeAuth(session: Session = Session.Anonymous(testUserId)) =
         FakeAuthRepository(session)
 
-    private fun createVm(repo: RecordingBackupRepository, auth: FakeAuthRepository) =
-        BackupViewModel(repo, auth)
+    private fun createVm(
+        repo: RecordingBackupRepository,
+        auth: FakeAuthRepository,
+        scope: CoroutineScope? = null,
+    ) = BackupViewModel(repo, auth, scope)
 
     private fun manifest(
         tasks: Int = 0,
@@ -106,7 +110,7 @@ class BackupViewModelTest {
             sizeBytes = 1024,
             entityCounts = null,
         ))
-        val vm = createVm(repo, fakeAuth())
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
         advanceUntilIdle()
 
         assertEquals(1, vm.state.value.backups.size)
@@ -124,7 +128,7 @@ class BackupViewModelTest {
                 byteSize = 1024,
             )
         )
-        val vm = createVm(repo, fakeAuth())
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
         advanceUntilIdle()
 
         vm.createBackup()
@@ -139,7 +143,7 @@ class BackupViewModelTest {
     fun `createBackup shows error on failure`() = runTest {
         val repo = RecordingBackupRepository()
         repo.exportResult = Result.failure(RuntimeException("Disk full"))
-        val vm = createVm(repo, fakeAuth())
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
         advanceUntilIdle()
 
         vm.createBackup()
@@ -161,7 +165,7 @@ class BackupViewModelTest {
             )
         )
         val auth = fakeAuth(Session.Anonymous(testUserId))
-        val vm = createVm(repo, auth)
+        val vm = createVm(repo, auth, backgroundScope)
         advanceUntilIdle()
 
         vm.createBackup()
@@ -182,7 +186,7 @@ class BackupViewModelTest {
                 byteSize = 4096,
             )
         )
-        val vm = createVm(repo, fakeAuth())
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
         advanceUntilIdle()
 
         vm.export("/custom.zip")
@@ -201,7 +205,7 @@ class BackupViewModelTest {
         val id = BackupId.fromPath("/path/backup.zip")
         val repo = RecordingBackupRepository()
         repo.addBackup(BackupMetadata(id, "/path/backup.zip", 1000, 1024, null))
-        val vm = createVm(repo, fakeAuth())
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
         advanceUntilIdle()
 
         vm.delete(id)
@@ -217,7 +221,7 @@ class BackupViewModelTest {
         val repo = RecordingBackupRepository()
         repo.addBackup(BackupMetadata(id, "/path/backup.zip", 1000, 1024, null))
         repo.deleteResult = Result.failure(RuntimeException("Permission denied"))
-        val vm = createVm(repo, fakeAuth())
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
         advanceUntilIdle()
 
         vm.delete(id)
@@ -235,7 +239,7 @@ class BackupViewModelTest {
         val repo = RecordingBackupRepository()
         repo.addBackup(BackupMetadata(id, "/path/backup.zip", 1000, 1024, null))
         repo.pushResult = Result.success("https://remote/backup.zip")
-        val vm = createVm(repo, fakeAuth())
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
         advanceUntilIdle()
 
         vm.push(id)
@@ -251,7 +255,7 @@ class BackupViewModelTest {
         val repo = RecordingBackupRepository()
         repo.addBackup(BackupMetadata(id, "/path/backup.zip", 1000, 1024, null))
         repo.pushResult = Result.failure(RuntimeException("Network error"))
-        val vm = createVm(repo, fakeAuth())
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
         advanceUntilIdle()
 
         vm.push(id)
@@ -274,7 +278,7 @@ class BackupViewModelTest {
                 missingAttachmentIds = emptyList(),
             )
         )
-        val vm = createVm(repo, fakeAuth())
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
         advanceUntilIdle()
 
         vm.import("/restore.zip")
@@ -288,7 +292,7 @@ class BackupViewModelTest {
     fun `import shows error on failure`() = runTest {
         val repo = RecordingBackupRepository()
         repo.importResult = Result.failure(RuntimeException("Corrupt archive"))
-        val vm = createVm(repo, fakeAuth())
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
         advanceUntilIdle()
 
         vm.import("/bad.zip")
@@ -305,7 +309,7 @@ class BackupViewModelTest {
     fun `clearError hides error state`() = runTest {
         val repo = RecordingBackupRepository()
         repo.exportResult = Result.failure(RuntimeException("Boom"))
-        val vm = createVm(repo, fakeAuth())
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
         advanceUntilIdle()
 
         vm.createBackup()
@@ -322,7 +326,7 @@ class BackupViewModelTest {
     @Test
     fun `restore is a no-op stub that does not crash`() = runTest {
         val repo = RecordingBackupRepository()
-        val vm = createVm(repo, fakeAuth())
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
         advanceUntilIdle()
 
         vm.restore() // must not throw

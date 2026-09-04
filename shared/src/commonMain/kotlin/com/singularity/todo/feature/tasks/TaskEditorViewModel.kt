@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.settings.SettingsRepository
@@ -181,7 +182,7 @@ class TaskEditorViewModel(
         return base - offset.minutes * 60_000L
     }
 
-    private fun save() = scope.launch {
+    private fun save() = scope.launch(Dispatchers.Unconfined) {
         val current = _uiState.value
         if (current.saving) return@launch
 

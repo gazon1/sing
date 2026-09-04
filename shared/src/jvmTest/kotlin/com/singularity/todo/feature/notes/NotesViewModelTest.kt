@@ -2,6 +2,7 @@ package com.singularity.todo.feature.notes
 
 import com.singularity.todo.feature.tasks.UserId
 import com.singularity.todo.test.fakes.FakeSettingsRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -22,11 +23,13 @@ class NotesViewModelTest {
     private fun createVm(
         store: NotesStore = FakeNotesStore(),
         htmlPort: MarkdownHtmlPort = FakeMarkdownHtmlPort(),
+        scope: CoroutineScope? = null,
     ): NotesViewModel = NotesViewModel(
         store = store,
         htmlPort = htmlPort,
         settingsRepository = FakeSettingsRepository(testUserId.value),
         improveNote = null, // AI not available in tests
+        scopeOverride = scope,
     )
 
     // ─── open editor ──────────────────────────────────────────────────────────
@@ -43,10 +46,10 @@ class NotesViewModelTest {
                 updatedAt = now,
             ))
         }
-        val vm = createVm(store, object : MarkdownHtmlPort {
+        val vm = createVm(store = store, htmlPort = object : MarkdownHtmlPort {
             override fun toHtml(markdown: String) = "<h1>Hello</h1>"
             override fun toMarkdown(html: String) = "# Hello"
-        })
+        }, scope = backgroundScope)
 
         vm.openEditor("n1")
         advanceUntilIdle()

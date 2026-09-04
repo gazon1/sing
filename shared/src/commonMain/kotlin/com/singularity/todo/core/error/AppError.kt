@@ -8,6 +8,9 @@ sealed class AppError(message: String) : RuntimeException(message) {
     class Unknown(cause: Throwable) : AppError(cause.message ?: "Unknown error")
 }
 
-inline fun <T> runCatchingResult(block: () -> T): Result<T> = runCatching(block).recoverCatching {
-    throw it as? AppError ?: AppError.Unknown(it)
+inline fun <T> runCatchingResult(block: () -> T): Result<T> = runCatching(block).recoverCatching { e ->
+    throw when (e) {
+        is AppError -> e
+        else -> AppError.Unknown(e)
+    }
 }

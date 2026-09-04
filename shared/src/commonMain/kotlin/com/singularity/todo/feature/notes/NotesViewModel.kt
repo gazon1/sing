@@ -6,6 +6,7 @@ import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.tasks.UserId
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -67,7 +68,9 @@ open class NotesViewModel(
     private val htmlPort: MarkdownHtmlPort,
     settingsRepository: SettingsRepository,
     private val improveNote: ImproveNoteUseCase? = null,
+    private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
+    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
     private val userId: Flow<UserId> = settingsRepository.userId.map { UserId.fromString(it) }
 
@@ -91,7 +94,7 @@ open class NotesViewModel(
     init {
         // viewModelScope ensures cancellation on clear; Unconfined makes synchronous
         // flows (FakeNotesStore) emit without needing virtual time advancement.
-        viewModelScope.launch(Dispatchers.Unconfined) {
+        scope.launch(Dispatchers.Unconfined) {
             userId.flatMapLatest { uid ->
                 store.watchAll(uid)
                     .map { notes -> if (notes.isEmpty()) NotesUiState.Empty(uid) else NotesUiState.Content(notes) }
@@ -104,7 +107,7 @@ open class NotesViewModel(
     fun openEditor(noteId: String) {
         // Snapshot once — we don't want every Room update to blast the editor.
         // The rich text state is the source of truth after this point.
-        viewModelScope.launch(Dispatchers.Unconfined) {
+        scope.launch(Dispatchers.Unconfined) {
             val note = store.watch(noteId).filterNotNull().first()
             val html = note.bodyMarkdown?.let { htmlPort.toHtml(it) } ?: ""
             _editorState.value = EditorState.Editing(
@@ -118,7 +121,7 @@ open class NotesViewModel(
 
     fun createNote(): String {
         val id = NoteId.generate()
-        viewModelScope.launch {
+        scope.launch {
             val uid = userId.first()
             store.create(uid, id, "", "")
         }
@@ -150,7 +153,7 @@ open class NotesViewModel(
     fun saveNow() {
         val current = _editorState.value as? EditorState.Editing ?: return
         autosaveJob?.cancel()
-        viewModelScope.launch {
+        scope.launch(Dispatchers.Unconfined) {
             _editorState.value = EditorState.Saving(current.id)
             try {
                 val markdown = htmlPort.toMarkdown(current.html)
@@ -165,7 +168,7 @@ open class NotesViewModel(
 
     private fun scheduleAutosave(id: String) {
         autosaveJob?.cancel()
-        autosaveJob = viewModelScope.launch {
+        autosaveJob = scope.launch {
             delay(500.milliseconds) // debounce
             val current = _editorState.value as? EditorState.Editing ?: return@launch
             _editorState.value = EditorState.Saving(id)
@@ -181,7 +184,7 @@ open class NotesViewModel(
 
     fun improveNote() {
         val tool = improveNote ?: return
-        viewModelScope.launch {
+        scope.launch {
             val current = _editorState.value as? EditorState.Editing ?: return@launch
             tool(current.title, current.html)
                 .onSuccess { result ->
@@ -204,7 +207,7 @@ open class NotesViewModel(
     }
 
     fun delete(id: NoteId) {
-        viewModelScope.launch {
+        scope.launch(Dispatchers.Unconfined) {
             store.softDelete(id.value)
         }
     }

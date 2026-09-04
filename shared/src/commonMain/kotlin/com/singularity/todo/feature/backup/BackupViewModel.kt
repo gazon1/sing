@@ -2,6 +2,7 @@ package com.singularity.todo.feature.backup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineScope
 import com.singularity.todo.core.auth.AuthDomain
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupMetadata
@@ -12,6 +13,7 @@ import com.singularity.todo.feature.tasks.UserId
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,8 +36,10 @@ data class BackupSummary(
 
 class BackupViewModel(
     private val repository: BackupRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
+    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
@@ -44,7 +48,8 @@ class BackupViewModel(
         get() = AuthDomain.effectiveUserId(authRepository.session.value)
 
     init {
-        viewModelScope.launch {
+        // Unconfined makes the flow collection synchronous so state is ready before init returns
+        scope.launch(Dispatchers.Unconfined) {
             repository.backups.collect { backups ->
                 _state.update { it.copy(backups = backups) }
             }
@@ -52,7 +57,7 @@ class BackupViewModel(
     }
 
     fun export(destPath: String) {
-        viewModelScope.launch {
+        scope.launch(Dispatchers.Unconfined) {
             _state.update { it.copy(isWorking = true, error = null) }
             val result = repository.export(exportOptions {
                 userId = effectiveUserId
@@ -99,7 +104,7 @@ class BackupViewModel(
     }
 
     fun import(sourcePath: String) {
-        viewModelScope.launch {
+        scope.launch(Dispatchers.Unconfined) {
             _state.update { it.copy(isWorking = true, error = null) }
             val opts = importOptions {
                 this.sourcePath = sourcePath
@@ -117,7 +122,7 @@ class BackupViewModel(
     }
 
     fun delete(backupId: com.singularity.todo.core.backup.BackupId) {
-        viewModelScope.launch {
+        scope.launch(Dispatchers.Unconfined) {
             repository.delete(backupId)
                 .onFailure { e ->
                     _state.update { it.copy(error = e.message, showError = true) }
@@ -126,7 +131,7 @@ class BackupViewModel(
     }
 
     fun push(backupId: com.singularity.todo.core.backup.BackupId) {
-        viewModelScope.launch {
+        scope.launch(Dispatchers.Unconfined) {
             _state.update { it.copy(isWorking = true) }
             repository.push(backupId)
                 .onFailure { e ->

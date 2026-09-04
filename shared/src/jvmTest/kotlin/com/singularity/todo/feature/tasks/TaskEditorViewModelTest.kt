@@ -53,14 +53,14 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `TitleChanged updates title`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.TitleChanged("Buy groceries"))
         assertEquals("Buy groceries", vm.uiState.value.title)
     }
 
     @Test
     fun `TitleChanged clears errorMessage`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.TitleChanged(""))
         advanceUntilIdle()
         vm.onIntent(TaskEditorIntent.Save)
@@ -75,7 +75,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `DescriptionChanged updates description`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.DescriptionChanged("Do this and that"))
         assertEquals("Do this and that", vm.uiState.value.description)
     }
@@ -84,7 +84,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `DueDateChanged updates dueDate`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         val date = kotlinx.datetime.LocalDate(2025, 6, 15)
         vm.onIntent(TaskEditorIntent.DueDateChanged(date))
         assertEquals(date, vm.uiState.value.dueDate)
@@ -92,7 +92,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `DueTimeChanged updates dueTime`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         val time = kotlinx.datetime.LocalTime(14, 30)
         vm.onIntent(TaskEditorIntent.DueTimeChanged(time))
         assertEquals(time, vm.uiState.value.dueTime)
@@ -102,7 +102,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `AddChecklistItem adds item when text is non-blank`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.NewChecklistItemChanged("Milk"))
         vm.onIntent(TaskEditorIntent.AddChecklistItem)
         val items = vm.uiState.value.checklistItems
@@ -113,7 +113,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `AddChecklistItem ignores blank text`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.NewChecklistItemChanged("   "))
         vm.onIntent(TaskEditorIntent.AddChecklistItem)
         assertTrue(vm.uiState.value.checklistItems.isEmpty())
@@ -121,7 +121,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `ToggleChecklistItem toggles completion`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.NewChecklistItemChanged("Milk"))
         vm.onIntent(TaskEditorIntent.AddChecklistItem)
         val id = vm.uiState.value.checklistItems.first().id
@@ -136,7 +136,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `DeleteChecklistItem removes item`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.NewChecklistItemChanged("Milk"))
         vm.onIntent(TaskEditorIntent.AddChecklistItem)
         val id = vm.uiState.value.checklistItems.first().id
@@ -149,7 +149,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `ReminderOffsetChanged updates reminderOffset`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.ReminderOffsetChanged(ReminderOffset.FIFTEEN_MIN))
         assertEquals(ReminderOffset.FIFTEEN_MIN, vm.uiState.value.reminderOffset)
     }
@@ -158,7 +158,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `AddAttachment adds pending attachment`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.AddAttachment("/tmp/file.pdf", "file.pdf", "application/pdf"))
         val attachments = vm.uiState.value.pendingAttachments
         assertEquals(1, attachments.size)
@@ -170,7 +170,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `Save with valid title creates task and emits NavigateBack`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.TitleChanged("New Task"))
         advanceUntilIdle()
 
@@ -183,7 +183,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `Save with checklist items creates checklist entries`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.TitleChanged("New Task"))
         vm.onIntent(TaskEditorIntent.NewChecklistItemChanged("Step 1"))
         vm.onIntent(TaskEditorIntent.AddChecklistItem)
@@ -201,7 +201,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `Save with reminder offset creates reminder`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.TitleChanged("New Task"))
         vm.onIntent(TaskEditorIntent.DueDateChanged(kotlinx.datetime.LocalDate(2025, 6, 15)))
         vm.onIntent(TaskEditorIntent.ReminderOffsetChanged(ReminderOffset.ONE_HOUR))
@@ -218,7 +218,7 @@ class TaskEditorViewModelTest {
     @Test
     fun `Save with pending attachments calls saveAttachment`() = runTest {
         savedAttachments.clear()
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.TitleChanged("New Task"))
         vm.onIntent(TaskEditorIntent.AddAttachment("/tmp/file.pdf", "file.pdf", "application/pdf"))
         advanceUntilIdle()
@@ -236,7 +236,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `Save with blank title sets errorMessage`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.TitleChanged("   "))
         advanceUntilIdle()
 
@@ -252,7 +252,7 @@ class TaskEditorViewModelTest {
     @Test
     fun `constructor with initialDueDate pre-fills dueDate`() = runTest {
         val date = kotlinx.datetime.LocalDate(2025, 3, 20)
-        val vm = createVm(initialDueDate = date)
+        val vm = createVm(initialDueDate = date, scope = backgroundScope)
         assertEquals(date, vm.uiState.value.dueDate)
     }
 
@@ -260,14 +260,14 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `ProjectChanged updates projectId`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.ProjectChanged("proj-1"))
         assertEquals("proj-1", vm.uiState.value.projectId)
     }
 
     @Test
     fun `TagsChanged updates tagIds`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.TagsChanged(listOf("tag-1", "tag-2")))
         assertEquals(listOf("tag-1", "tag-2"), vm.uiState.value.tagIds)
     }
@@ -276,7 +276,7 @@ class TaskEditorViewModelTest {
 
     @Test
     fun `ErrorShown clears errorMessage`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.TitleChanged("   "))
         advanceUntilIdle()
         vm.onIntent(TaskEditorIntent.Save)

@@ -3,6 +3,7 @@ package com.singularity.todo.feature.notes
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /**
  * Abstraction over note persistence — enables mock-free testing via [FakeNotesStore].
@@ -31,9 +32,14 @@ private fun currentInstant(): kotlin.time.Instant = Clock.now()
 class FakeNotesStore : NotesStore {
     private val notes = mutableMapOf<String, Note>()
 
+    private val _notesFlow = kotlinx.coroutines.flow.MutableStateFlow<List<Note>>(emptyList())
+
+    private fun refreshNotesFlow() {
+        _notesFlow.value = notes.values.toList()
+    }
+
     override fun watchAll(userId: UserId): Flow<List<Note>> {
-        val all = notes.values.filter { it.userId == userId && !it.isDeleted }
-        return kotlinx.coroutines.flow.flowOf(all)
+        return _notesFlow.map { list: List<Note> -> list.filter { note -> note.userId == userId && !note.isDeleted } }
     }
 
     override fun watch(id: String): Flow<Note?> =
@@ -49,6 +55,7 @@ class FakeNotesStore : NotesStore {
             createdAt = ts,
             updatedAt = ts
         )
+        refreshNotesFlow()
         return id.value
     }
 
@@ -60,15 +67,18 @@ class FakeNotesStore : NotesStore {
                 updatedAt = currentInstant()
             )
         }
+        refreshNotesFlow()
     }
 
     override suspend fun softDelete(id: String) {
         notes[id]?.let { existing ->
             notes[id] = existing.copy(deletedAt = currentInstant())
         }
+        refreshNotesFlow()
     }
 
     fun seed(id: String, note: Note) {
         notes[id] = note
+        refreshNotesFlow()
     }
 }
