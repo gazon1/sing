@@ -33,6 +33,10 @@ actual fun platformModule(): Module = module {
     single<AppDatabase> {
         Room.databaseBuilder<AppDatabase>(name = "todo.db")
             .setDriver(BundledSQLiteDriver())
+            // Dev-only: drop the on-device DB and recreate when schema version changes
+            // and no migration is registered. Replace with explicit addMigrations(...)
+            // before any production release.
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
     }
 
