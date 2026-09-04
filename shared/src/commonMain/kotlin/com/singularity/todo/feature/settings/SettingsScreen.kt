@@ -8,7 +8,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Schedule
@@ -28,18 +31,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.feature.backup.BackupScreen
+import com.singularity.todo.feature.backup.BackupUiState
+import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.settings.screens.AccountSettingsScreen
 import com.singularity.todo.feature.settings.screens.AiProviderSettingsScreen
-import com.singularity.todo.feature.settings.screens.AppearanceSettingsScreen
+import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
+import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
 import org.koin.compose.koinInject
 
 private enum class SettingsTab(val label: String) {
-    Appearance("Appearance"),
+    Interface("Interface"),
     Notifications("Notifications"),
     AIProvider("AI Provider"),
     WorkSchedule("Work Schedule"),
+    Files("Files"),
+    Backup("Backup"),
     Account("Account"),
 }
 
@@ -47,7 +56,7 @@ private enum class SettingsTab(val label: String) {
 fun SettingsScreen(modifier: Modifier = Modifier) {
     val viewModel: SettingsViewModel = koinInject()
     val uiState by viewModel.uiState.collectAsState()
-    var selectedTab by remember { mutableStateOf(SettingsTab.Appearance) }
+    var selectedTab by remember { mutableStateOf(SettingsTab.Interface) }
 
     when (val state = uiState) {
         is SettingsUiState.Loading -> LoadingIndicator(modifier = modifier)
@@ -79,7 +88,7 @@ private fun SettingsContent(
 
         Box(modifier = Modifier.weight(1f)) {
             when (selectedTab) {
-                SettingsTab.Appearance -> AppearanceSettingsScreen(
+                SettingsTab.Interface -> InterfaceSettingsScreen(
                     state = state,
                     onIntent = viewModel::processIntent,
                 )
@@ -95,10 +104,27 @@ private fun SettingsContent(
                     state = state,
                     onIntent = viewModel::processIntent,
                 )
+                SettingsTab.Files -> FilesSettingsScreen()
+                SettingsTab.Backup -> BackupScreenWrapper(onBack = { onSelectTab(SettingsTab.Interface) })
                 SettingsTab.Account -> AccountSettingsScreen(state = state)
             }
         }
     }
+}
+
+@Composable
+private fun BackupScreenWrapper(onBack: () -> Unit) {
+    val backupVm: BackupViewModel = koinInject()
+    val backupState by backupVm.state.collectAsState()
+    BackupScreen(
+        state = backupState,
+        onBack = onBack,
+        onCreateBackup = backupVm::createBackup,
+        onRestore = backupVm::restore,
+        onDelete = backupVm::delete,
+        onPush = backupVm::push,
+        onClearError = backupVm::clearError,
+    )
 }
 
 @Composable
@@ -110,10 +136,12 @@ private fun SettingsNavRail(
     Column(modifier = modifier.width(80.dp).padding(vertical = 8.dp)) {
         SettingsTab.entries.forEach { tab ->
             val icon = when (tab) {
-                SettingsTab.Appearance -> Icons.Filled.Palette
+                SettingsTab.Interface -> Icons.Filled.Palette
                 SettingsTab.Notifications -> Icons.Filled.Notifications
                 SettingsTab.AIProvider -> Icons.Filled.SmartToy
                 SettingsTab.WorkSchedule -> Icons.Filled.Schedule
+                SettingsTab.Files -> Icons.Filled.Folder
+                SettingsTab.Backup -> Icons.Filled.CloudUpload
                 SettingsTab.Account -> Icons.Filled.AccountCircle
             }
             Column(

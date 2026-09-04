@@ -1,5 +1,7 @@
 package com.singularity.todo.test.fakes
 
+import com.singularity.todo.core.auth.AuthRepository
+import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.backup.BackupId
 import com.singularity.todo.core.backup.BackupMetadata
@@ -9,8 +11,32 @@ import com.singularity.todo.core.backup.ExportOptions
 import com.singularity.todo.core.backup.ImportOptions
 import com.singularity.todo.core.backup.RestoreResult
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.feature.checklist.ChecklistItem
+import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.feature.checklist.ChecklistRepository
+import com.singularity.todo.feature.reminders.Reminder
+import com.singularity.todo.feature.reminders.ReminderId
+import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.Task
+import com.singularity.todo.feature.tasks.TaskFilter
+import com.singularity.todo.feature.tasks.TaskId
+import com.singularity.todo.feature.tasks.TaskRepository
+import com.singularity.todo.feature.tasks.TasksDomain
+import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 // ─── SessionStore ─────────────────────────────────────────────────────────────
 
@@ -132,3 +158,161 @@ class FakeBackupRepository : BackupRepository {
 
 // ─── FileSystem (in-memory) — already exists as MapFileSystem ─────────────────
 // Use: MapFileSystem() from com.singularity.todo.core.files.MapFileSystem
+
+// ─── TaskRepository ───────────────────────────────────────────────────────────
+
+class FakeTaskRepository : TaskRepository {
+    internal val tasks = MutableStateFlow<Map<String, Task>>(emptyMap())
+    private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
+    override val changes: SharedFlow<Task> = _changes.asSharedFlow()
+
+    fun seed(vararg tasks: Task) {
+        this.tasks.value = tasks.associateBy { it.id.value }
+    }
+
+    override suspend fun create(task: Task): Result<Unit> = runCatching {
+        tasks.value = tasks.value + (task.id.value to task)
+        _changes.emit(task)
+    }
+
+    override suspend fun update(task: Task): Result<Unit> = runCatching {
+        tasks.value = tasks.value + (task.id.value to task)
+        _changes.emit(task)
+    }
+
+    override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
+        tasks.value[id.value]?.let { task ->
+            val deleted = task.copy(archivedAt = Clock.now())
+            tasks.value = tasks.value + (id.value to deleted)
+            _changes.emit(deleted)
+        }
+    }
+
+    override suspend fun restore(id: TaskId): Result<Unit> = runCatching {
+        tasks.value[id.value]?.let { task ->
+            val restored = task.copy(archivedAt = null)
+            tasks.value = tasks.value + (id.value to restored)
+            _changes.emit(restored)
+        }
+    }
+
+    override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatching {
+        tasks.value[id.value]?.let { task ->
+            val toggled = if (task.completedAt != null) {
+                task.copy(completedAt = null)
+            } else {
+                task.copy(completedAt = Clock.now())
+            }
+            tasks.value = tasks.value + (id.value to toggled)
+            _changes.emit(toggled)
+        }
+    }
+
+    override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatching {
+        tasks.value[id.value]?.let { task ->
+            val toggled = task.copy(isPinned = !task.isPinned)
+            tasks.value = tasks.value + (id.value to toggled)
+            _changes.emit(toggled)
+        }
+    }
+
+    override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
+        tasks.value[taskId.value]?.let { task ->
+            val updated = task.copy(tags = tagIds)
+            tasks.value = tasks.value + (taskId.value to updated)
+        }
+    }
+
+    override fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> =
+        tasks.map { map ->
+            map.values
+                .filter { it.userId == userId }
+                .filter { TasksDomain.matchesFilter(it, filter, kotlinx.datetime.Instant.fromEpochMilliseconds(Clock.now().toEpochMilliseconds()).toLocalDateTime(TimeZone.currentSystemDefault()).date) }
+                .sortedWith(compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }))
+        }
+
+    override fun watchTask(id: TaskId): Flow<Task?> = tasks.map { it[id.value] }
+
+    override fun getTagIds(taskId: TaskId): Flow<List<TagId>> =
+        tasks.map { it[taskId.value]?.tags ?: emptyList() }
+}
+
+// ─── ChecklistRepository ─────────────────────────────────────────────────────
+
+class FakeChecklistRepository : ChecklistRepository {
+    internal val items = MutableStateFlow<Map<String, ChecklistItem>>(emptyMap())
+
+    fun seed(vararg items: ChecklistItem) {
+        this.items.value = items.associateBy { it.id.value }
+    }
+
+    override fun watchByTask(taskId: String): Flow<List<ChecklistItem>> =
+        items.map { map -> map.values.filter { it.taskId == taskId }.sortedBy { it.sortOrder } }
+
+    override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatching {
+        items.value = items.value + (item.id.value to item)
+    }
+
+    override suspend fun delete(id: ChecklistItemId): Result<Unit> = runCatching {
+        items.value = items.value.filterKeys { it != id.value }
+    }
+
+    override suspend fun createBatch(taskId: String, items: List<ChecklistItem>): Result<Unit> = runCatching {
+        this.items.value = this.items.value + items.associate { it.id.value to it }
+    }
+}
+
+// ─── ReminderRepository ──────────────────────────────────────────────────────
+
+class FakeReminderRepository : ReminderRepository {
+    internal val reminders = MutableStateFlow<Map<String, Reminder>>(emptyMap())
+
+    fun seed(vararg reminders: Reminder) {
+        this.reminders.value = reminders.associateBy { it.id.value }
+    }
+
+    override fun watchAll(userId: UserId): Flow<List<Reminder>> =
+        reminders.map { map -> map.values.filter { it.userId == userId }.sortedBy { it.fireAt } }
+
+    override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Reminder>> =
+        reminders.map { map -> map.values.filter { it.taskId == taskId && it.userId == userId }.sortedBy { it.fireAt } }
+
+    override fun watchDueBefore(nowEpochMs: Long, userId: UserId): Flow<List<Reminder>> =
+        reminders.map { map -> map.values.filter { it.fireAt <= nowEpochMs && it.userId == userId }.sortedBy { it.fireAt } }
+
+    override suspend fun upsert(reminder: Reminder) {
+        reminders.value = reminders.value + (reminder.id.value to reminder)
+    }
+
+    override suspend fun delete(reminderId: ReminderId, userId: UserId) {
+        reminders.value = reminders.value.filterKeys { it != reminderId.value }
+    }
+
+    override suspend fun deleteByTask(taskId: TaskId, userId: UserId) {
+        reminders.value = reminders.value.filterValues { it.taskId != taskId || it.userId != userId }
+    }
+
+    override suspend fun getById(reminderId: ReminderId, userId: UserId): Reminder? =
+        reminders.value[reminderId.value]
+}
+
+// ─── AuthRepository ───────────────────────────────────────────────────────────
+
+class FakeAuthRepository(
+    initialSession: Session = Session.Anonymous(UserId.anonymous)
+) : AuthRepository {
+    private val _session = MutableStateFlow(initialSession)
+    override val session: StateFlow<Session> = _session.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(false)
+    override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    override suspend fun signUp(email: String, password: String): Result<Unit> = Result.success(Unit)
+    override suspend fun signIn(email: String, password: String): Result<Unit> = Result.success(Unit)
+    override suspend fun signInAnonymously(): Result<Unit> = Result.success(Unit)
+    override suspend fun signOut(): Result<Unit> = runCatching {
+        _session.value = Session.SignedOut
+    }
+
+    override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> = Result.success(Unit)
+}

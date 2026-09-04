@@ -24,7 +24,7 @@ import com.singularity.todo.feature.settings.SettingsIntent
 import com.singularity.todo.feature.settings.SettingsUiState
 
 @Composable
-fun AppearanceSettingsScreen(
+fun InterfaceSettingsScreen(
     state: SettingsUiState.Content,
     onIntent: (SettingsIntent) -> Unit,
     modifier: Modifier = Modifier,

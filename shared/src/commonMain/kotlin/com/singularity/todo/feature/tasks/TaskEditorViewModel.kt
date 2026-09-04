@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.settings.SettingsRepository
@@ -88,12 +89,14 @@ sealed interface TaskEditorIntent {
 class TaskEditorViewModel(
     private val createTask: CreateTaskUseCase,
     private val clock: Clock,
-    private val userId: UserId,
+    private val settingsRepository: com.singularity.todo.core.settings.SettingsRepository,
     private val checklistUseCase: com.singularity.todo.feature.checklist.ChecklistUseCase,
     private val reminderRepository: ReminderRepository,
-    private val attachmentsVm: com.singularity.todo.feature.attachments.AttachmentsViewModel,
+    private val saveAttachment: (taskId: TaskId, path: String, mimeType: String?) -> Unit,
     initialDueDate: kotlinx.datetime.LocalDate? = null,
+    private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
+    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
     private val _uiState = MutableStateFlow(TaskEditorUiState(dueDate = initialDueDate))
     val uiState: StateFlow<TaskEditorUiState> = _uiState.asStateFlow()
@@ -178,9 +181,15 @@ class TaskEditorViewModel(
         return base - offset.minutes * 60_000L
     }
 
-    private fun save() = viewModelScope.launch {
+    private fun save() = scope.launch {
         val current = _uiState.value
         if (current.saving) return@launch
+
+        val userId = try {
+            UserId.fromString(settingsRepository.userId.first())
+        } catch (_: Exception) {
+            UserId.anonymous
+        }
 
         val input = try {
             TasksDomain.createInput(
@@ -230,7 +239,7 @@ class TaskEditorViewModel(
                 }
                 // Save pending attachments
                 current.pendingAttachments.forEach { att ->
-                    attachmentsVm.saveFileAttachment(taskId, att.path, att.mimeType)
+                    saveAttachment(taskId, att.path, att.mimeType)
                 }
                 _events.emit(UiEvent.NavigateBack)
             }

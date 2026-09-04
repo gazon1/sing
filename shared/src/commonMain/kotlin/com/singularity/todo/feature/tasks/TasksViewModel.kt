@@ -9,6 +9,7 @@ import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,7 +64,10 @@ class TasksViewModel(
     private val generateChecklist: GenerateChecklistUseCase? = null,
     private val decomposeTask: DecomposeTaskUseCase? = null,
     private val pickTime: PickTimeUseCase? = null,
+    private val sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(5000),
+    private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
+    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
     private val _filter = MutableStateFlow<TaskFilter>(TaskFilter.Today)
     val filter: StateFlow<TaskFilter> = _filter.asStateFlow()
@@ -86,21 +90,21 @@ class TasksViewModel(
             else TasksUiState.Content(_filter.value, tasks, _selectedIds.value)
         }
         .catch { emit(TasksUiState.Error(it.message ?: "Error")) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TasksUiState.Loading)
+        .stateIn(scope, sharingStarted, TasksUiState.Loading)
 
     fun setFilter(filter: TaskFilter) {
         _filter.value = filter
     }
 
-    fun delete(id: TaskId) = viewModelScope.launch {
+    fun delete(id: TaskId) = scope.launch {
         taskRepo.softDelete(id)
     }
 
-    fun toggle(id: TaskId) = viewModelScope.launch {
+    fun toggle(id: TaskId) = scope.launch {
         taskRepo.toggleComplete(id)
     }
 
-    fun togglePin(id: TaskId) = viewModelScope.launch {
+    fun togglePin(id: TaskId) = scope.launch {
         taskRepo.togglePinned(id)
     }
 
@@ -118,14 +122,14 @@ class TasksViewModel(
         _selectedIds.value = emptySet()
     }
 
-    fun bulkCompleteSelected() = viewModelScope.launch {
+    fun bulkCompleteSelected() = scope.launch {
         _selectedIds.value.forEach { id ->
             taskRepo.toggleComplete(id)
         }
         exitSelectionMode()
     }
 
-    fun bulkDeleteSelected() = viewModelScope.launch {
+    fun bulkDeleteSelected() = scope.launch {
         _selectedIds.value.forEach { id ->
             taskRepo.softDelete(id)
         }
@@ -137,7 +141,7 @@ class TasksViewModel(
      * the bottom sheet. Dispatches to the matching use case (or emits a friendly
      * "AI not available" event when the platform doesn't ship the AI stack).
      */
-    fun runAiAction(task: Task, action: TaskAiAction) = viewModelScope.launch {
+    fun runAiAction(task: Task, action: TaskAiAction) = scope.launch {
         val result: AiActionResult = when (action) {
             TaskAiAction.RefineTitle -> refineTask?.invoke(task.title, task.description)?.toResult(AiActionResult::RefineTitle)
                 ?: AiActionResult.Error("AI not available")

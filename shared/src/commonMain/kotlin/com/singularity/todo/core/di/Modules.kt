@@ -191,7 +191,14 @@ fun coreDomainModule(): Module = module {
     factory { ProjectEditorViewModel(get(), get()) }
 
     factory { (initialDueDate: kotlinx.datetime.LocalDate?) ->
-        com.singularity.todo.feature.tasks.TaskEditorViewModel(get(), get(), com.singularity.todo.feature.tasks.UserId.anonymous, get(), get(), get(), initialDueDate)
+        com.singularity.todo.feature.tasks.TaskEditorViewModel(
+            get(), get(), get(), get(), get(),
+            saveAttachment = { taskId, path, mime ->
+                get<com.singularity.todo.feature.attachments.AttachmentsViewModel>()
+                    .saveFileAttachment(taskId, path, mime)
+            },
+            initialDueDate,
+        )
     }
 
     // ChatViewModel requires TextGenPort (AI) — registered in aiToolsModule()

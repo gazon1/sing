@@ -9,6 +9,9 @@ import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.feature.tasks.UserId
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -75,6 +78,24 @@ class BackupViewModel(
                     _state.update { it.copy(isWorking = false, error = e.message, showError = true) }
                 }
         }
+    }
+
+    /** Parameterless backup — uses a timestamped default path under the working directory. */
+    fun createBackup() {
+        val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        // Store in current working directory; BackupRepositoryImpl.export ensures backupDir exists
+        val path = "singularity_backup_$ts.zip"
+        export(path)
+    }
+
+    /**
+     * Restore from a local backup file.
+     * Currently opens a file picker in the UI to select the file.
+     * TODO: wire file picker to call import(selectedPath) when file is selected.
+     */
+    fun restore() {
+        // No-op stub: the UI file picker integration requires platform-specific
+        // file picker wiring that is pending implementation.
     }
 
     fun import(sourcePath: String) {
