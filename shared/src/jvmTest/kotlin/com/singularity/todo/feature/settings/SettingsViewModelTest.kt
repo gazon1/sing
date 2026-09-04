@@ -5,6 +5,8 @@ import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+
+
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs

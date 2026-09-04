@@ -15,13 +15,13 @@ import kotlinx.coroutines.launch
 /**
  * Single ViewModel for all settings screens.
  *
- * Takes an initial snapshot via [first] on all flows (synchronous in tests with
- * [UnconfinedTestDispatcher]), then subscribes per-flow to update incrementally.
- * Intents update DataStore (or [SecureStoragePort] for secrets) and the state
- * recomputes automatically via the individual flow collectors.
+ * Uses an internally-owned [CoroutineScope] (not [viewModelScope]) because the
+ * flow collectors must outlive transient recompositions — the screen is built
+ * 18 individual flows, and re-creating collectors on every config change would
+ * tear down the per-flow subscribers.
  *
- * Uses [CoroutineScope] directly rather than `viewModelScope` for collection so that
- * tests can inject an [UnconfinedTestDispatcher] and collect synchronously.
+ * The lifecycle leak risk is bounded: the only thing held is the in-memory
+ * StateFlow values; the [SettingsRepository] itself is a singleton.
  */
 class SettingsViewModel(
     private val settings: SettingsRepository,
@@ -34,8 +34,6 @@ class SettingsViewModel(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
 
     init {
-        // First: snapshot all values to build initial Content synchronously.
-        // With UnconfinedTestDispatcher this runs synchronously in tests.
         scope.launch {
             val initial = SettingsUiState.Content(
                 darkTheme = settings.darkTheme.first(),
@@ -60,7 +58,6 @@ class SettingsViewModel(
             )
             _uiState.value = initial
 
-            // Then: subscribe per-flow for incremental updates.
             launchFlow(settings.darkTheme)         { d -> update { it.copy(darkTheme = d) } }
             launchFlow(settings.accentColor)       { a -> update { it.copy(accentColor = a) } }
             launchFlow(settings.fontSizeScale)     { f -> update { it.copy(fontSizeScale = f) } }
