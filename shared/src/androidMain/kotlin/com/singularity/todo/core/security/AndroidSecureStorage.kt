@@ -6,6 +6,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.core.content.edit
 
 /**
  * Android implementation of [SecureStoragePort] using
@@ -33,11 +34,11 @@ class AndroidSecureStorage(context: Context) : SecureStoragePort {
     }
 
     override suspend fun write(key: String, value: String) = withContext(Dispatchers.IO) {
-        prefs.edit().putString(key, value).apply()
+        prefs.edit {putString(key, value)}
     }
 
     override suspend fun delete(key: String) = withContext(Dispatchers.IO) {
-        prefs.edit().remove(key).apply()
+        prefs.edit { remove(key) }
     }
 
     override fun isHardwareBacked(): Boolean = true

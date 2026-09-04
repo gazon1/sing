@@ -23,7 +23,7 @@
 | `core/security/` | `SecureStoragePort` (expect/actual: secret-tool/AES-GCM + EncryptedSharedPreferences) |
 | `core/settings/` | `SettingsRepository` (DataStore) |
 | `core/sync/` | HLC, SyncEngine, ConflictResolver, SyncOutbox, SupabaseSyncApiClient |
-| `core/ui/` | Theme, shared components |
+| `core/ui/` | Theme, shared composable library (`components/`), UiEvent contract |
 
 ### `feature/` — UI-фичи (вертикали)
 
@@ -41,6 +41,78 @@
 | `attachments/` | `AttachmentsViewModel` | `AttachmentRepository` | `AttachmentButton/Sheet/Tile/Thumbnail` |
 | `reminders/` | — | `ReminderRepository` | `ReminderPicker`, `ReminderTile` |
 | `nav/` | — | — | `Navigation.kt` (`HomeTab`) |
+
+---
+
+## 1.1. Shared UI library (`core/ui/components/`)
+
+Every screen consumes widgets from this library. **No feature-local copy of any of these is allowed.**
+
+| Widget | Replaces |
+|---|---|
+| `UiEvent` (sealed ShowDialog / ShowError / NavigateBack) | `var dialogText by remember { mutableStateOf<String?>(null) }` |
+| `CollectEvents(flow, onEvent)` | `LaunchedEffect(Unit) { flow.collectLatest { … } }` boilerplate |
+| `ResultDialog(title, text, onDismiss)` | Inline `AlertDialog { title = "AI Result"; text = …; confirmButton = { TextButton("OK") } }` (4 copies) |
+| `LoadingIndicator(modifier)` | `Box(fillMaxSize, Center) { CircularProgressIndicator() }` |
+| `EmptyState(title, subtitle?, modifier)` | `Box(fillMaxSize, Center) { Text("No X yet") }` |
+| `MessageBubble(role, content, modifier)` | Two parallel chat-bubble implementations in old `ChatScreen.kt` |
+| `ChatInputBar(...)` | Inline `Row { OutlinedTextField + IconButton }` in AI Chat |
+| `AiActionButton(onClick, modifier)` | `IconButton { Icon(AutoAwesome, primary tint) }` in TaskCard / ProjectCard / NoteEditor toolbar |
+| `DeleteActionButton(onClick, modifier)` | `IconButton { Icon(Delete, error tint) }` in every card |
+| `ButtonSpinner(modifier)` | 24 dp inline `CircularProgressIndicator` in Login/Backup buttons |
+| `SettingsSection(title) { content }` | `Card { Column { Text(titleSmall) ... } }` in every settings sub-screen |
+| `SettingsSwitchRow(title, subtitle?, checked, onCheckedChange)` | `Row { Column { Text; Text } Switch }` for every toggle setting |
+| `Formatters.kt` (`priorityColorByIndex`, `hexColor`) | `when (priority) { … Color(0xFF…) … }` duplicated across screens |
+
+### UiEvent contract — State vs Event
+
+```
+ViewModel:                          Screen:
+─────────                          ──────
+StateFlow<UiState>      ─────►     collectAsStateWithLifecycle()
+StateFlow (continuous)              (renders list / loading / form)
+
+MutableSharedFlow<UiEvent> ─────►  CollectEvents(vm.events) { … }
+SharedFlow (one-shot)               (renders ResultDialog / snackbar / navigates)
+```
+
+Always:
+
+```kotlin
+private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
+val events: SharedFlow<UiEvent> = _events.asSharedFlow()
+```
+
+`extraBufferCapacity = 4` is required — without it, `emit` from a finished coroutine silently drops. With it, fast screen rotations do not drop events.
+
+### Per-feature components
+
+Feature-specific widgets (TaskCard, ProjectCard, EditorBody, TaskAiBottomSheet) live in `feature/<feature>/components/`. They are owned by the feature, can reference its domain types, but consume shared primitives (`AiActionButton`, `DeleteActionButton`, `LoadingIndicator`, …) instead of inline Material widgets.
+
+### Decomposition rules — when to extract
+
+Extract a sub-composable when ANY of:
+- Function body > 60 lines
+- Same `Box(fillMaxSize) { Text(...) }` repeated ≥ 2× → use `EmptyState`
+- Same `AlertDialog(...)` block repeated ≥ 2× → use `ResultDialog`
+- Card has 4+ separate callback params → pack into `@JvmInline value class XxxCardActions`
+- `when (state)` branch > 30 lines → extract `XxxContent(state, ...)` private composable
+- Toolbar / list / sheet has its own internal state → extract to `feature/<feature>/components/`
+
+**Card callback grouping pattern** (e.g. `TaskCardActions`, `ProjectCardActions`):
+
+```kotlin
+@JvmInline
+value class TaskCardActions(val block: (Action) -> Unit) {
+    enum class Action { Toggle, Delete, Ai }
+    fun onToggle() = block(Action.Toggle)
+    fun onDelete() = block(Action.Delete)
+    fun onAiClick() = block(Action.Ai)
+    companion object { val Empty = TaskCardActions {} }
+}
+```
+
+Adding a new action (e.g. `Pin`) does not break any call site. Read-only callers (e.g. `SearchScreen`) pass `TaskCardActions.Empty`.
 
 ---
 

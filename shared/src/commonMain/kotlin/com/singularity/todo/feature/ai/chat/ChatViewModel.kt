@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * AI chat state and intents.
@@ -82,9 +84,8 @@ class ChatViewModel(
     private fun List<ChatMessage>.replaceAssistantContent(id: String, content: String) =
         map { if (it.id == id) it.copy(content = content) else it }
 
-    private fun newId(): String = System.currentTimeMillis().toString() + counter++.toString()
-
-    private var counter = 0
+    @OptIn(ExperimentalUuidApi::class)
+    private fun newId(): String = Uuid.random().toString()
 }
 
 enum class ChatRole { User, Assistant }

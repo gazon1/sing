@@ -18,6 +18,9 @@ import org.koin.dsl.module
  * Koog is JVM-only. VMs handle null AI deps gracefully.
  */
 actual fun aiToolsModule() = module {
+    // PromptExecutorPort → stub (AI features disabled on Android)
+    single<PromptExecutorPort> { createKoogPromptExecutor() }
+
     // TextGenPort → FakeTextGen on Android (Koog is JVM-only)
     single<TextGenPort> { FakeTextGen() }
 

@@ -34,34 +34,33 @@ import com.singularity.todo.feature.notes.EditorAction
  * of the Composable so the same `when`-table can be unit-tested directly with a
  * real `RichTextState` (no UI runtime required).
  */
-internal fun RichTextState.apply(action: EditorAction): RichTextState = when (action.key) {
-    "bold" -> apply { toggleSpanStyle(SpanStyle(fontWeight = FontWeight.Bold)) }
-    "italic" -> apply { toggleSpanStyle(SpanStyle(fontStyle = FontStyle.Italic)) }
-    "underline" -> apply { toggleSpanStyle(SpanStyle(textDecoration = TextDecoration.Underline)) }
-    "strike" -> apply { toggleSpanStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) }
-    "h1" -> apply { setHeadingStyle(HeadingStyle.H1) }
-    "h2" -> apply { setHeadingStyle(HeadingStyle.H2) }
-    "h3" -> apply { setHeadingStyle(HeadingStyle.H3) }
-    "bullet" -> apply { toggleUnorderedList() }
-    "ordered" -> apply { toggleOrderedList() }
-    "code" -> apply { toggleCodeSpan() }
-    "quote", "link" -> this // not wired to UI yet
-    else -> this
+internal fun RichTextState.apply(action: EditorAction): RichTextState = when (action) {
+    EditorAction.Bold -> apply { toggleSpanStyle(SpanStyle(fontWeight = FontWeight.Bold)) }
+    EditorAction.Italic -> apply { toggleSpanStyle(SpanStyle(fontStyle = FontStyle.Italic)) }
+    EditorAction.Underline -> apply { toggleSpanStyle(SpanStyle(textDecoration = TextDecoration.Underline)) }
+    EditorAction.Strike -> apply { toggleSpanStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) }
+    EditorAction.H1 -> apply { setHeadingStyle(HeadingStyle.H1) }
+    EditorAction.H2 -> apply { setHeadingStyle(HeadingStyle.H2) }
+    EditorAction.H3 -> apply { setHeadingStyle(HeadingStyle.H3) }
+    EditorAction.Bullet -> apply { toggleUnorderedList() }
+    EditorAction.Ordered -> apply { toggleOrderedList() }
+    EditorAction.Code -> apply { toggleCodeSpan() }
+    EditorAction.Quote, EditorAction.Link -> this // not wired to UI yet
 }
 
 /** Pure predicate that mirrors the visual "active" state for each toolbar button. */
-internal fun RichTextState.isActive(action: EditorAction): Boolean = when (action.key) {
-    "bold" -> currentSpanStyle.fontWeight?.let { it >= FontWeight.Bold } ?: false
-    "italic" -> currentSpanStyle.fontStyle == FontStyle.Italic
-    "underline" -> currentSpanStyle.textDecoration?.contains(TextDecoration.Underline) ?: false
-    "strike" -> currentSpanStyle.textDecoration?.contains(TextDecoration.LineThrough) ?: false
-    "h1" -> currentHeadingStyle == HeadingStyle.H1
-    "h2" -> currentHeadingStyle == HeadingStyle.H2
-    "h3" -> currentHeadingStyle == HeadingStyle.H3
-    "bullet" -> isUnorderedList
-    "ordered" -> isOrderedList
-    "code" -> isCodeSpan
-    else -> false
+internal fun RichTextState.isActive(action: EditorAction): Boolean = when (action) {
+    EditorAction.Bold -> currentSpanStyle.fontWeight?.let { it >= FontWeight.Bold } ?: false
+    EditorAction.Italic -> currentSpanStyle.fontStyle == FontStyle.Italic
+    EditorAction.Underline -> currentSpanStyle.textDecoration?.contains(TextDecoration.Underline) ?: false
+    EditorAction.Strike -> currentSpanStyle.textDecoration?.contains(TextDecoration.LineThrough) ?: false
+    EditorAction.H1 -> currentHeadingStyle == HeadingStyle.H1
+    EditorAction.H2 -> currentHeadingStyle == HeadingStyle.H2
+    EditorAction.H3 -> currentHeadingStyle == HeadingStyle.H3
+    EditorAction.Bullet -> isUnorderedList
+    EditorAction.Ordered -> isOrderedList
+    EditorAction.Code -> isCodeSpan
+    EditorAction.Quote, EditorAction.Link -> false
 }
 
 /** One row in the editor toolbar. Pure value, easy to extend or reorder. */

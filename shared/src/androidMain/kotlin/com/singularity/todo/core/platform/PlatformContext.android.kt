@@ -2,19 +2,21 @@ package com.singularity.todo.core.platform
 
 import android.content.Context
 
+// Android implementation of PlatformContext.
+// NOTE: The properties below are stubs — Android uses get<Context>() directly
+// in PlatformModule.android.kt. These exist only to satisfy the expect/actual contract.
+@Suppress("UNUSED_PARAMETER", "EXPECT_ACTUAL_CLASS_IN_BETA")
 actual object PlatformContext {
-    private lateinit var context: Context
-
     actual val databasePath: String
-        get() = context.getDatabasePath("singularity.db").absolutePath
+        get() = ""
 
     actual val preferencesPath: String
-        get() = context.filesDir.absolutePath + "/settings"
+        get() = ""
 
     actual val cachePath: String
-        get() = context.cacheDir.absolutePath
+        get() = ""
 
     actual fun initialize(context: Any) {
-        this.context = context as Context
+        // No-op: Android gets Context via Koin injection in PlatformModule
     }
 }
