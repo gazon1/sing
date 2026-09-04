@@ -2,6 +2,8 @@ package com.singularity.todo.feature.nav
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Menu
@@ -107,7 +109,8 @@ private fun AppTopBar(title: String, onMenuClick: (() -> Unit)? = null) {
 
 @Composable
 private fun AppDrawerContent(current: NavDestination, onSelect: (NavDestination) -> Unit) {
-    Column {
+    val scrollState = rememberScrollState()
+    Column(modifier = Modifier.verticalScroll(scrollState)) {
         DrawerHeader()
         NavGroup.entries.forEach { group ->
             AppDrawerSection(
