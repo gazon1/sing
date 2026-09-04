@@ -21,7 +21,7 @@ data class PomodoroState(
 )
 
 data class PomodoroSession(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = com.singularity.todo.core.ids.nextId(),
     val taskId: String?,
     val phase: String,
     val startedAt: Long,

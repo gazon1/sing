@@ -8,7 +8,7 @@ import kotlin.time.Instant
 @JvmInline
 value class TaskId(val value: String) {
     companion object {
-        fun generate() = TaskId(UUID.randomUUID().toString())
+        fun generate() = TaskId(com.singularity.todo.core.ids.nextId())
         fun fromString(value: String) = TaskId(value)
     }
 }
@@ -16,7 +16,7 @@ value class TaskId(val value: String) {
 @JvmInline
 value class UserId(val value: String) {
     companion object {
-        fun generate() = UserId(UUID.randomUUID().toString())
+        fun generate() = UserId(com.singularity.todo.core.ids.nextId())
         fun fromString(value: String) = UserId(value)
         val anonymous = UserId("anonymous")
     }

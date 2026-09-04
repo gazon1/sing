@@ -30,7 +30,7 @@ data class Reminder(
 @JvmInline
 value class ReminderId(val value: String) {
     companion object {
-        fun generate(): ReminderId = ReminderId(java.util.UUID.randomUUID().toString())
+        fun generate(): ReminderId = ReminderId(com.singularity.todo.core.ids.nextId())
     }
 }
 

@@ -6,7 +6,7 @@ import kotlin.time.Instant
 @JvmInline
 value class TagId(val value: String) {
     companion object {
-        fun generate() = TagId(UUID.randomUUID().toString())
+        fun generate() = TagId(com.singularity.todo.core.ids.nextId())
         fun fromString(value: String) = TagId(value)
     }
 }

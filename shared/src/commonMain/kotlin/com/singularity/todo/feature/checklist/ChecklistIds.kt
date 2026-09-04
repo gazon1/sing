@@ -5,7 +5,7 @@ import java.util.UUID
 @JvmInline
 value class ChecklistItemId private constructor(val value: String) {
     companion object {
-        fun generate() = ChecklistItemId(UUID.randomUUID().toString())
+        fun generate() = ChecklistItemId(com.singularity.todo.core.ids.nextId())
         fun fromString(v: String) = ChecklistItemId(v)
     }
 }

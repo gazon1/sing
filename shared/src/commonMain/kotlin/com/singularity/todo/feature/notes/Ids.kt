@@ -7,7 +7,7 @@ import kotlin.time.Instant
 @JvmInline
 value class NoteId(val value: String) {
     companion object {
-        fun generate() = NoteId(UUID.randomUUID().toString())
+        fun generate() = NoteId(com.singularity.todo.core.ids.nextId())
         fun fromString(value: String) = NoteId(value)
     }
 }

@@ -152,7 +152,7 @@ class TaskEditorViewModel(
         _uiState.update { st ->
             st.copy(
                 checklistItems = st.checklistItems + ChecklistItemUi(
-                    id = java.util.UUID.randomUUID().toString(),
+                    id = com.singularity.todo.core.ids.nextId(),
                     title = text,
                     isCompleted = false,
                 ),
