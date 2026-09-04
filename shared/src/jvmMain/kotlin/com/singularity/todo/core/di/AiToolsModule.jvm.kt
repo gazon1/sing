@@ -78,7 +78,7 @@ import org.koin.dsl.module
  * All bindings require `PromptExecutorPort` from [platformModule].
  */
 actual fun aiToolsModule() = module {
-    // Default LLM
+    // Default LLM — stored as property reference to avoid constructor call at registration time
     single<LLModel> { OpenAIModels.Chat.GPT4oMini }
 
     // PromptExecutorPort → real Koog executor (JVM only)

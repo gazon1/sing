@@ -40,7 +40,7 @@ class NotesViewModelTest {
             ))
         }
         val vm = createVm(store, object : MarkdownHtmlPort {
-            override fun toHtml(md: String) = "<h1>Hello</h1>"
+            override fun toHtml(markdown: String) = "<h1>Hello</h1>"
             override fun toMarkdown(html: String) = "# Hello"
         })
 

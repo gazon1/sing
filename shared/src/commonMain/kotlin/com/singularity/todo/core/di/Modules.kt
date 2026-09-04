@@ -1,7 +1,6 @@
 package com.singularity.todo.core.di
 
 import com.singularity.todo.core.attachments.AttachmentRepositoryImpl
-import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.attachments.StubAttachmentUploadService
 import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.SupabaseAuthRepository
@@ -30,7 +29,6 @@ import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.tags.TagsRepositoryImpl
 import com.singularity.todo.feature.tags.UpdateTagUseCase
 import com.singularity.todo.feature.tasks.CreateTaskUseCase
-import com.singularity.todo.feature.tasks.TasksViewModel
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.TaskRepositoryImpl
 import kotlinx.coroutines.CoroutineScope
@@ -40,7 +38,7 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 
 /**
- * Returns all domain-level bindings as a Koin [Module].
+ * Returns all domain-level bindings as a KOIN [Module].
  *
  * Platform-specific bindings come from [platformModule]:
  * - Database DAOs — androidMain / jvmMain
