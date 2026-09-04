@@ -264,7 +264,9 @@ class FakeChecklistRepository : ChecklistRepository {
 
 // ─── ReminderRepository ──────────────────────────────────────────────────────
 
-class FakeReminderRepository : ReminderRepository {
+class FakeReminderRepository(
+    initialUserId: UserId = UserId("test-user"),
+) : ReminderRepository {
     internal val reminders = MutableStateFlow<Map<String, Reminder>>(emptyMap())
 
     fun seed(vararg reminders: Reminder) {
@@ -315,6 +317,147 @@ class FakeAuthRepository(
     }
 
     override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> = Result.success(Unit)
+}
+
+// ─── ProjectsRepository ──────────────────────────────────────────────────────
+
+class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRepository {
+    private val store = mutableMapOf<String, com.singularity.todo.feature.projects.Project>()
+    private val _flow = MutableStateFlow<List<com.singularity.todo.feature.projects.Project>>(emptyList())
+
+    fun seed(vararg projects: com.singularity.todo.feature.projects.Project) {
+        projects.forEach { store[it.id.value] = it }
+        emit()
+    }
+
+    private fun emit() { _flow.value = store.values.toList() }
+
+    override fun watchProjects(userId: String): Flow<List<com.singularity.todo.feature.projects.Project>> =
+        _flow.map { list -> list.filter { it.userId == userId && !it.isDeleted } }
+
+    override fun watchProject(id: com.singularity.todo.feature.projects.ProjectId): Flow<com.singularity.todo.feature.projects.Project?> =
+        _flow.map { list -> list.firstOrNull { it.id == id } }
+
+    override suspend fun create(project: com.singularity.todo.feature.projects.Project): Result<Unit> = runCatching {
+        store[project.id.value] = project
+        emit()
+    }
+
+    override suspend fun update(project: com.singularity.todo.feature.projects.Project): Result<Unit> = runCatching {
+        store[project.id.value] = project
+        emit()
+    }
+
+    override suspend fun delete(id: com.singularity.todo.feature.projects.ProjectId): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(isDeleted = true, deletedAt = Clock.now())
+            emit()
+        }
+    }
+}
+
+// ─── TagsRepository ──────────────────────────────────────────────────────────
+
+class FakeTagsRepository : com.singularity.todo.feature.tags.TagsRepository {
+    private val store = mutableMapOf<String, com.singularity.todo.feature.tags.Tag>()
+    private val _flow = MutableStateFlow<List<com.singularity.todo.feature.tags.Tag>>(emptyList())
+
+    fun seed(vararg tags: com.singularity.todo.feature.tags.Tag) {
+        tags.forEach { store[it.id.value] = it }
+        emit()
+    }
+
+    private fun emit() { _flow.value = store.values.toList() }
+
+    override fun watchTags(userId: String): Flow<List<com.singularity.todo.feature.tags.Tag>> =
+        _flow.map { list -> list.filter { it.userId == userId } }
+
+    override fun watchTag(id: com.singularity.todo.feature.tags.TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
+        _flow.map { list -> list.firstOrNull { it.id == id } }
+
+    override suspend fun create(tag: com.singularity.todo.feature.tags.Tag): Result<Unit> = runCatching {
+        store[tag.id.value] = tag
+        emit()
+    }
+
+    override suspend fun update(tag: com.singularity.todo.feature.tags.Tag): Result<Unit> = runCatching {
+        store[tag.id.value] = tag
+        emit()
+    }
+
+    override suspend fun delete(id: com.singularity.todo.feature.tags.TagId): Result<Unit> = runCatching {
+        store.remove(id.value)
+        emit()
+    }
+}
+
+// ─── AttachmentRepository ────────────────────────────────────────────────────
+
+class FakeAttachmentRepository : com.singularity.todo.core.attachments.AttachmentRepository {
+    private val store = mutableMapOf<String, com.singularity.todo.core.attachments.Attachment>()
+    private val _flow = MutableStateFlow<List<com.singularity.todo.core.attachments.Attachment>>(emptyList())
+
+    fun seed(vararg attachments: com.singularity.todo.core.attachments.Attachment) {
+        attachments.forEach { store[it.id.value] = it }
+        emit()
+    }
+
+    private fun emit() { _flow.value = store.values.toList() }
+
+    override fun watchByTask(taskId: com.singularity.todo.feature.tasks.TaskId, userId: UserId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
+        _flow.map { list -> list.filter { it.taskId == taskId && it.userId == userId } }
+
+    override suspend fun create(attachment: com.singularity.todo.core.attachments.Attachment): Result<Unit> = runCatching {
+        store[attachment.id.value] = attachment
+        emit()
+    }
+
+    override suspend fun delete(id: com.singularity.todo.core.attachments.AttachmentId): Result<Unit> = runCatching {
+        store.remove(id.value)
+        emit()
+    }
+
+    override suspend fun saveFileAttachment(
+        taskId: com.singularity.todo.feature.tasks.TaskId,
+        userId: UserId,
+        sourcePath: String,
+        mimeType: String?,
+    ): Result<com.singularity.todo.core.attachments.Attachment> = runCatching {
+        val att = com.singularity.todo.core.attachments.Attachment(
+            id = com.singularity.todo.core.attachments.AttachmentId.generate(),
+            taskId = taskId,
+            userId = userId,
+            type = com.singularity.todo.core.attachments.AttachmentType.File,
+            localPath = sourcePath,
+            mimeType = mimeType,
+            createdAt = Clock.now(),
+            updatedAt = Clock.now(),
+        )
+        store[att.id.value] = att
+        emit()
+        att
+    }
+
+    override suspend fun addUrlAttachment(
+        taskId: com.singularity.todo.feature.tasks.TaskId,
+        userId: UserId,
+        url: String,
+        title: String?,
+    ): Result<com.singularity.todo.core.attachments.Attachment> = runCatching {
+        val att = com.singularity.todo.core.attachments.Attachment(
+            id = com.singularity.todo.core.attachments.AttachmentId.generate(),
+            taskId = taskId,
+            userId = userId,
+            type = com.singularity.todo.core.attachments.AttachmentType.Url,
+            url = url,
+            title = title ?: "",
+            createdAt = Clock.now(),
+            updatedAt = Clock.now(),
+        )
+        store[att.id.value] = att
+        emit()
+        att
+    }
 }
 
 // ─── NotesRepository ─────────────────────────────────────────────────────────
