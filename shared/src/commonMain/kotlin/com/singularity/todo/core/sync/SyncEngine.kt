@@ -68,7 +68,7 @@ class SyncEngine(
                                     } catch (e: Exception) {
                                         _status.value = SyncEngineStatus.Error(e.message ?: "Push failed")
                                     }
-                                    delay(30_000L.milliseconds)
+                                    delay(30_000.milliseconds)
                                 }
                             }
                         }

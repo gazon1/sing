@@ -105,7 +105,7 @@ class JdbcNotesStore : NotesStore {
                     }
                 }
             }
-            delay(500L.milliseconds)
+            delay(500.milliseconds)
         }
     }
 
@@ -124,7 +124,7 @@ class JdbcNotesStore : NotesStore {
                     }
                 }
             }
-            delay(500L.milliseconds)
+            delay(500.milliseconds)
         }
     }
 

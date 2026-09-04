@@ -55,7 +55,6 @@ Thumbs.db
 *~
 
 # Logs
-*.log
 **/logs/
 
 # Test results
@@ -67,11 +66,8 @@ Thumbs.db
 **/ksp/
 
 # Build reports
-**/reports/
 
 # Gradle outputs
-.gradle/
-build/
 out/
 
 # Module builds

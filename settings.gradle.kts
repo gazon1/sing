@@ -1,3 +1,4 @@
+@Suppress("UnstableApiUsage")
 rootProject.name = "Singularity_cllone_kmp"
 
 pluginManagement {
