@@ -120,6 +120,64 @@ class NotesViewModelTest {
 }
 ```
 
+## Testing ViewModels with `scopeOverride`
+
+ViewModels that launch coroutines in `init`, `save()`, `delete()`, etc. need the
+`scopeOverride` pattern to make coroutines controllable by the test dispatcher.
+
+### Pattern: add `scopeOverride` parameter
+
+```kotlin
+class TaskEditorViewModel(
+    private val createTask: CreateTaskUseCase,
+    private val clock: Clock,
+    // ... other deps ...
+    private val scopeOverride: CoroutineScope? = null, // ADD
+) : ViewModel() {
+    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope // ADD
+
+    private fun save() = scope.launch(Dispatchers.Unconfined) { // Unconfined for sync execution
+        // ...
+    }
+}
+```
+
+### In tests: pass `backgroundScope`
+
+```kotlin
+@OptIn(ExperimentalCoroutinesApi::class)
+class TaskEditorViewModelTest {
+    @Test
+    fun `Save with valid title creates task`() = runTest {
+        val vm = createVm(scope = backgroundScope)
+        vm.onIntent(TaskEditorIntent.TitleChanged("Buy groceries"))
+        advanceUntilIdle()
+        vm.onIntent(TaskEditorIntent.Save)
+        advanceUntilIdle()
+
+        assertFalse(fakeTaskRepo.tasks.value.isEmpty())
+    }
+}
+```
+
+### Key insight: `Dispatchers.Unconfined` is required
+
+Using just `scope = backgroundScope` is NOT enough — `advanceUntilIdle()` does not
+process coroutines on `backgroundScope` because they run on the test's `TestDispatcher`,
+but the dispatcher isn't advanced. Adding `Dispatchers.Unconfined` makes the coroutine
+execute synchronously up to the first suspension point, so state updates are visible
+immediately without needing `advanceUntilIdle()` to process them.
+
+### `scopeOverride` vs `Dispatchers.Unconfined` alone
+
+| Approach | init block | save() | Tests |
+|---|---|---|---|
+| `viewModelScope` only | ❌ not controlled | ❌ not controlled | fails |
+| `scopeOverride` only | ✅ controlled | ✅ controlled | still fails* |
+| `scopeOverride` + `Unconfined` | ✅ sync | ✅ sync | ✅ passes |
+
+*`advanceUntilIdle()` doesn't process `backgroundScope` coroutines
+
 ## Koin Scope for scoped lifetimes
 
 ```kotlin
