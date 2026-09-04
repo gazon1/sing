@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.ai.KoogAgentService
+import com.singularity.todo.feature.ai.TextGenPort
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -46,7 +47,7 @@ private data class ChatMessage(
 
 @Composable
 fun ChatScreen(modifier: Modifier = Modifier) {
-    val service: KoogAgentService = koinInject()
+    val service: TextGenPort = koinInject()
     val scope = rememberCoroutineScope()
 
     var input by remember { mutableStateOf("") }

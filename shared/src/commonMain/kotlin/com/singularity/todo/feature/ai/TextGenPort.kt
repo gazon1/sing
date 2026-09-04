@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
  * Port for text generation (LLM completion).
  *
  * Abstracts the underlying AI provider so tools are testable without mocking Koog internals.
- * Implementations: KoogTextGen (production), FakeTextGen (tests).
+ * Implementations: KoogAgentService (production), FakeTextGen (tests).
  */
 interface TextGenPort {
     /**
@@ -20,4 +20,10 @@ interface TextGenPort {
         systemPrompt: String? = null,
         model: String? = null
     ): Result<String>
+
+    /**
+     * Streams a chat response token-by-token.
+     * Returns a [Flow] of string chunks. Default impl delegates to [generate].
+     */
+    fun streamChat(message: String): Flow<String>
 }

@@ -90,7 +90,7 @@ class KoogAgentService(
     /**
      * Streams chat responses token-by-token using [PromptExecutorPort.executeStreaming].
      */
-    fun streamChat(message: String): Flow<String> = flow {
+    override fun streamChat(message: String): Flow<String> = flow {
         val apiKey = secureStorage.read("ai_key_openai").orEmpty()
         if (apiKey.isBlank()) {
             emit("(AI unavailable: API key not configured. Set it in Settings > AI Provider.)")
@@ -131,5 +131,9 @@ class FakeTextGen : TextGenPort {
         model: String?
     ): Result<String> = Result.success(
         "(Placeholder AI response — configure API key in Settings > AI Provider to enable real AI.)"
+    )
+
+    override fun streamChat(message: String) = kotlinx.coroutines.flow.flowOf(
+        "(AI not available)"
     )
 }
