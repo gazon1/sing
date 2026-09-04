@@ -44,8 +44,6 @@ sealed interface EditorState {
         val html: String,
         val isDirty: Boolean = false
     ) : EditorState
-    data class Saving(val id: String) : EditorState
-    data class Error(val id: String, val message: String) : EditorState
 }
 
 sealed interface NoteAiResult {
@@ -76,7 +74,9 @@ open class NotesViewModel(
     private val _notes = MutableStateFlow<NotesUiState>(NotesUiState.Loading)
     val state: StateFlow<NotesUiState> = _notes.asStateFlow()
 
-    // Editor state
+    // Editor state — only `Empty` and `Editing`. Saves happen in the background
+    // without remounting EditorBody (the previous `Editing ↔ Saving` swap caused
+    // recomposition that wiped in-progress text on every keystroke).
     private val _editorState = MutableStateFlow<EditorState>(EditorState.Empty)
     val editorState: StateFlow<EditorState> = _editorState.asStateFlow()
 
@@ -84,15 +84,14 @@ open class NotesViewModel(
     private val _aiResult = MutableSharedFlow<NoteAiResult>()
     val aiResult = _aiResult.asSharedFlow()
 
-    // One-shot UI events (dialogs, errors, navigation)
+    // One-shot UI events (dialogs, errors, navigation) — errors from
+    // background saves now route through here, not through EditorState.Error.
     private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<UiEvent> = _events.asSharedFlow()
 
     private var autosaveJob: Job? = null
 
     init {
-        // viewModelScope ensures cancellation on clear; Unconfined makes synchronous
-        // flows (FakeNotesRepository) emit without needing virtual time advancement.
         scope.launch(Dispatchers.Unconfined) {
             userId.flatMapLatest { uid ->
                 repo.watchNotes(uid)
@@ -104,8 +103,6 @@ open class NotesViewModel(
     }
 
     fun openEditor(noteId: String) {
-        // Snapshot once — we don't want every Room update to blast the editor.
-        // The rich text state is the source of truth after this point.
         scope.launch(Dispatchers.Unconfined) {
             val note = repo.watchNote(NoteId.fromString(noteId)).filterNotNull().first()
             val html = note.bodyMarkdown?.let { htmlPort.toHtml(it) } ?: ""
@@ -145,22 +142,18 @@ open class NotesViewModel(
         scheduleAutosave(id)
     }
 
-    /**
-     * Immediate save — cancels pending autosave and writes synchronously.
-     * Used by the Save button in the top bar.
-     */
+    /** Immediate save — cancels pending autosave. Errors route through events. */
     fun saveNow() {
         val current = _editorState.value as? EditorState.Editing ?: return
         autosaveJob?.cancel()
         scope.launch(Dispatchers.Unconfined) {
-            _editorState.value = EditorState.Saving(current.id)
             try {
                 val markdown = htmlPort.toMarkdown(current.html)
                 repo.updateContent(NoteId.fromString(current.id), current.title, markdown).getOrThrow()
                 _editorState.value = current.copy(isDirty = false)
                 _events.emit(UiEvent.NavigateBack)
             } catch (e: Exception) {
-                _editorState.value = EditorState.Error(current.id, e.message ?: "Save failed")
+                _events.emit(UiEvent.ShowError(e.message ?: "Save failed"))
             }
         }
     }
@@ -168,15 +161,14 @@ open class NotesViewModel(
     private fun scheduleAutosave(id: String) {
         autosaveJob?.cancel()
         autosaveJob = scope.launch {
-            delay(500.milliseconds) // debounce
+            delay(500.milliseconds)
             val current = _editorState.value as? EditorState.Editing ?: return@launch
-            _editorState.value = EditorState.Saving(id)
             try {
                 val markdown = htmlPort.toMarkdown(current.html)
                 repo.updateContent(NoteId.fromString(id), current.title, markdown).getOrThrow()
                 _editorState.value = current.copy(isDirty = false)
             } catch (e: Exception) {
-                _editorState.value = EditorState.Error(id, e.message ?: "Save failed")
+                _events.emit(UiEvent.ShowError(e.message ?: "Save failed"))
             }
         }
     }

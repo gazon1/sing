@@ -97,12 +97,6 @@ fun NoteEditorScreenContent(
     ) { padding ->
         when (editorState) {
             EditorState.Empty -> LoadingIndicator(modifier = Modifier.padding(padding))
-            is EditorState.Saving -> LoadingIndicator(modifier = Modifier.padding(padding))
-            is EditorState.Error -> Text(
-                text = "Error: ${editorState.message}",
-                modifier = Modifier.padding(padding),
-                color = MaterialTheme.colorScheme.error,
-            )
             is EditorState.Editing -> EditorBody(
                 state = editorState,
                 onTitleChange = onTitleChange,
