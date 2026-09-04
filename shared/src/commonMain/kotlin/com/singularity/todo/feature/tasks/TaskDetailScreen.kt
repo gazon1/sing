@@ -6,12 +6,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -31,6 +36,7 @@ import com.singularity.todo.core.ui.components.FieldMode
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.components.UiEvent
+import com.singularity.todo.core.attachments.Attachment
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,9 +62,8 @@ fun TaskDetailScreen(
         TaskDetailUiState.Loading -> LoadingIndicator()
         is TaskDetailUiState.Error -> Text("Error: ${s.message}", modifier = Modifier.padding(16.dp))
         is TaskDetailUiState.Loaded -> TaskDetailContent(
-            state = s,
-            onTitleEdit = { viewModel.saveField(s.task, TaskDetailField.Title, it) },
-            onDescriptionEdit = { viewModel.saveField(s.task, TaskDetailField.Description, it) },
+            ui = s.ui,
+            onSaveField = { field, draft -> viewModel.saveField(s.ui.task, field, draft) },
             onBack = onBack,
         )
     }
@@ -69,15 +74,19 @@ fun TaskDetailScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TaskDetailContent(
-    state: TaskDetailUiState.Loaded,
-    onTitleEdit: (String) -> Unit,
-    onDescriptionEdit: (String) -> Unit,
+    ui: TaskDetailUi,
+    onSaveField: (TaskDetailField, String) -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Task", textDecoration = if (state.task.isCompleted) TextDecoration.LineThrough else null) },
+                title = {
+                    Text(
+                        ui.task.title.ifBlank { "Task" },
+                        textDecoration = if (ui.task.isCompleted) TextDecoration.LineThrough else null,
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -87,40 +96,126 @@ private fun TaskDetailContent(
         },
     ) { padding ->
         Column(
-            modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp),
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            EditableField(
+            EditableTextRow(
                 label = "Title",
-                value = state.task.title,
-                mode = state.titleField,
-                onChangeToView = { /* field stays View after save */ },
-                onEditDraftChanged = { /* updated via local state */ },
-                onSave = onTitleEdit,
+                value = ui.task.title,
+                mode = ui.titleField,
+                singleLine = true,
+                onSave = { onSaveField(TaskDetailField.Title, it) },
             )
-            EditableField(
+            EditableTextRow(
                 label = "Description",
-                value = state.task.description ?: "",
-                mode = state.descriptionField,
-                onChangeToView = { /* field stays View after save */ },
-                onEditDraftChanged = { /* updated via local state */ },
-                onSave = onDescriptionEdit,
+                value = ui.task.description ?: "",
+                mode = ui.descriptionField,
+                singleLine = false,
+                onSave = { onSaveField(TaskDetailField.Description, it) },
             )
+            EditableTextRow(
+                label = "Due date",
+                value = ui.task.dueDate?.toString() ?: "",
+                mode = ui.dueDateField,
+                singleLine = true,
+                onSave = { onSaveField(TaskDetailField.DueDate, it) },
+            )
+            EditableTextRow(
+                label = "Due time",
+                value = ui.task.dueTime ?: "",
+                mode = ui.dueTimeField,
+                singleLine = true,
+                onSave = { onSaveField(TaskDetailField.DueTime, it) },
+            )
+            EditableTextRow(
+                label = "Priority",
+                value = ui.task.priority.name,
+                mode = ui.priorityField,
+                singleLine = true,
+                onSave = { onSaveField(TaskDetailField.Priority, it) },
+            )
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Text("Project", style = MaterialTheme.typography.labelMedium)
+            }
+            val projectText = ui.project?.name ?: "(no project)"
+            Text(projectText)
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Text("Tags", style = MaterialTheme.typography.labelMedium)
+            }
+            if (ui.tags.isEmpty()) {
+                Text("(none)", style = MaterialTheme.typography.bodySmall)
+            } else {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    ui.tags.forEach { tag ->
+                        AssistChip(onClick = {}, label = { Text(tag.name) })
+                    }
+                }
+            }
+
+            Text("Checklist (${ui.checklist.size})", style = MaterialTheme.typography.labelMedium)
+            if (ui.checklist.isEmpty()) {
+                Text("(none)", style = MaterialTheme.typography.bodySmall)
+            } else {
+                ui.checklist.forEach { item ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Checkbox(
+                            checked = item.isCompleted,
+                            onCheckedChange = { /* TODO: toggle */ },
+                            enabled = false,
+                        )
+                        Text(
+                            item.title,
+                            textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null,
+                        )
+                    }
+                }
+            }
+
+            Text("Reminders (${ui.reminders.size})", style = MaterialTheme.typography.labelMedium)
+            if (ui.reminders.isEmpty()) {
+                Text("(none)", style = MaterialTheme.typography.bodySmall)
+            } else {
+                ui.reminders.forEach { r ->
+                    Text("• ${r.type.name} — fireAt=${r.fireAt}")
+                }
+            }
+
+            Text("Attachments (${ui.attachments.size})", style = MaterialTheme.typography.labelMedium)
+            if (ui.attachments.isEmpty()) {
+                Text("(none)", style = MaterialTheme.typography.bodySmall)
+            } else {
+                ui.attachments.forEach { a ->
+                    Text("• ${a.title.ifBlank { a.displayTitle }}")
+                }
+            }
+
+            if (ui.task.isPinned) {
+                Text("📌 Pinned", style = MaterialTheme.typography.labelSmall)
+            }
+            if (ui.task.archivedAt != null) {
+                Text("🗑 Archived", style = MaterialTheme.typography.labelSmall)
+            }
         }
     }
 }
 
-/**
- * Single inline-edit field. Tap to enter Edit mode; Save commits; Cancel reverts.
- * Local draft state avoids round-tripping through the VM for every keystroke.
- */
 @Composable
-private fun EditableField(
+private fun EditableTextRow(
     label: String,
     value: String,
     mode: FieldMode,
-    onChangeToView: () -> Unit,
-    onEditDraftChanged: (String) -> Unit,
+    singleLine: Boolean,
     onSave: (String) -> Unit,
 ) {
     var draft by remember(mode, value) { mutableStateOf(mode.draftOr(value)) }
@@ -130,26 +225,24 @@ private fun EditableField(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(label, style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
+                Text(label, style = MaterialTheme.typography.labelMedium)
                 Text(value.ifBlank { "—" })
             }
-            Button(onClick = { draft = value; onEditDraftChanged(value) /* not used for transition */ }) {
-                Text("Edit")
-            }
+            Button(onClick = { draft = value }) { Text("Edit") }
         }
         is FieldMode.Edit -> Column {
             OutlinedTextField(
                 value = draft,
-                onValueChange = { draft = it; onEditDraftChanged(it) },
+                onValueChange = { draft = it },
                 label = { Text(label) },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = label == "Title",
+                singleLine = singleLine,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
-                Button(onClick = { onSave(draft); onChangeToView() }) { Text("Save") }
+                Button(onClick = { onSave(draft) }) { Text("Save") }
             }
         }
     }

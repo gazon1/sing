@@ -210,7 +210,12 @@ fun coreDomainModule(): Module = module {
         )
     }
 
-    factory { com.singularity.todo.feature.tasks.TaskDetailViewModel(get(), get()) }
+    factory {
+        com.singularity.todo.feature.tasks.TaskDetailViewModel(
+            get(), get(),
+            get(), get(), get(), get(), get(), get(),
+        )
+    }
 
     // ChatViewModel requires TextGenPort (AI) — registered in aiToolsModule()
 
