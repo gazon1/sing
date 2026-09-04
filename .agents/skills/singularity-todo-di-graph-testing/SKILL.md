@@ -9,9 +9,9 @@ description: Catch Koin DI missing bindings before the app reaches a device. Use
 
 ## Two-layer graph verification
 
-| Source set | Test | What it covers |
-|---|---|---|
-| `shared/src/jvmTest/` | `DiGraphTest` | `coreDomainModule()` + `PlatformModule.jvm` + `jvmAiToolsModule()` |
+| Source set                    | Test                 | What it covers                                                                                     |
+|-------------------------------|----------------------|----------------------------------------------------------------------------------------------------|
+| `shared/src/jvmTest/`         | `DiGraphTest`        | `coreDomainModule()` + `PlatformModule.jvm` + `jvmAiToolsModule()`                                 |
 | `shared/src/androidHostTest/` | `AndroidDiGraphTest` | `coreDomainModule()` + `PlatformModule.android` + `androidAiToolsModule()` + Robolectric `Context` |
 
 Both call `checkModules { modules(...) }` from `org.koin.test.check.checkModules` which walks the entire graph and fails fast on any missing binding.

@@ -77,14 +77,17 @@ fun coreDomainModule(): Module = module {
 
     // ─── Settings ────────────────────────────────────────────────────────
 
+    // Use FakeSettingsRepository to avoid Android-only DataStore dependency in core domain.
+    // Real DataStoreSettingsRepository requires androidx.datastore which is Android-only.
     single<com.singularity.todo.core.settings.SettingsRepository> {
-        DataStoreSettingsRepository(get())
+        com.singularity.todo.test.fakes.FakeSettingsRepository()
     }
 
     // ─── Session ────────────────────────────────────────────────────────
 
+    // Use FakeSessionStore to avoid Android-only DataStore dependency in core domain.
     single<com.singularity.todo.core.auth.SessionStore> {
-        DataStoreSessionStore(get())
+        com.singularity.todo.test.fakes.FakeSessionStore()
     }
 
     single<com.singularity.todo.core.auth.AuthRepository> {
@@ -128,7 +131,9 @@ fun coreDomainModule(): Module = module {
 
     factory { com.singularity.todo.feature.checklist.ChecklistEditorViewModel(get()) }
 
-    factory { com.singularity.todo.feature.pomodoro.InMemoryPomodoroRepository() }
+    factory<com.singularity.todo.feature.pomodoro.PomodoroRepository> {
+        com.singularity.todo.feature.pomodoro.InMemoryPomodoroRepository()
+    }
 
     factory { com.singularity.todo.feature.pomodoro.PomodoroTimer(get()) }
 

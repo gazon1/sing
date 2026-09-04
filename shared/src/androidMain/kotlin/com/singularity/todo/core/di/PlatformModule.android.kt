@@ -45,6 +45,7 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().syncOutboxDao() }
     single { get<AppDatabase>().attachmentDao() }
     single { get<AppDatabase>().reminderDao() }
+    single { get<AppDatabase>().checklistDao() }
 
     // ─── DataStore ────────────────────────────────────────────────────────
 

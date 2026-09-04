@@ -39,6 +39,7 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().syncOutboxDao() }
     single { get<AppDatabase>().attachmentDao() }
     single { get<AppDatabase>().reminderDao() }
+    single { get<AppDatabase>().checklistDao() }
 
     // NotesStore — same Room-backed implementation on both platforms.
     // The previous JdbcNotesStore (raw JDBC + 500ms polling) was replaced to keep the
