@@ -63,6 +63,9 @@ interface TaskDao {
 
     @Query("SELECT * FROM tasks WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TaskEntity>
+
+    @Query("UPDATE tasks SET archived_at = :ts, updated_at = :ts WHERE completed_at IS NOT NULL AND archived_at IS NULL")
+    suspend fun archiveCompleted(ts: Long): Int
 }
 
 @Dao

@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
@@ -29,6 +30,7 @@ enum class NavDestination(
     Statistics("Stats", Icons.Filled.BarChart, NavGroup.Insights),
     Chat("AI Chat", Icons.Filled.AutoAwesome, NavGroup.Knowledge),
     Search("Search", Icons.Filled.Search, NavGroup.Knowledge),
+    Archive("Archive", Icons.Filled.Inbox, NavGroup.Insights),
     Settings("Settings", Icons.Filled.Settings, NavGroup.Insights);
 
     companion object {

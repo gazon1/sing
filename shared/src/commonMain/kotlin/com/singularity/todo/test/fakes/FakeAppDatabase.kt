@@ -128,6 +128,18 @@ private class FakeTaskDao(
     override suspend fun softDelete(id: String, ts: Long) = mutateTask(id) { it.copy(archivedAt = ts, updatedAt = ts) }
     override suspend fun restore(id: String, ts: Long) = mutateTask(id) { it.copy(archivedAt = null, updatedAt = ts) }
     override suspend fun markComplete(id: String, ts: Long) = mutateTask(id) { it.copy(completedAt = ts, updatedAt = ts) }
+    override suspend fun archiveCompleted(ts: Long): Int {
+        var count = 0
+        store.update { current ->
+            current.mapValues { (_, task) ->
+                if (task.completedAt != null && task.archivedAt == null) {
+                    count++
+                    task.copy(archivedAt = ts, updatedAt = ts)
+                } else task
+            }
+        }
+        return count
+    }
     override suspend fun markIncomplete(id: String, ts: Long) = mutateTask(id) { it.copy(completedAt = null, updatedAt = ts) }
     override suspend fun setPinned(id: String, pinned: Boolean, ts: Long) = mutateTask(id) { it.copy(isPinned = pinned, updatedAt = ts) }
 

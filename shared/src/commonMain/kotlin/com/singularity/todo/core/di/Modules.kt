@@ -129,9 +129,15 @@ fun coreDomainModule(): Module = module {
         com.singularity.todo.feature.checklist.RoomChecklistRepository(get(), get())
     }
 
+    single<com.singularity.todo.feature.archive.ArchiveRepository> {
+        com.singularity.todo.feature.archive.TaskDaoArchiveRepository(get(), get())
+    }
+
     factory { com.singularity.todo.feature.checklist.ChecklistUseCase(get(), get()) }
 
     factory { com.singularity.todo.feature.checklist.ChecklistEditorViewModel(get()) }
+
+    viewModel { com.singularity.todo.feature.archive.ArchiveViewModel(get(), get(), get()) }
 
     factory<com.singularity.todo.feature.pomodoro.PomodoroRepository> {
         com.singularity.todo.feature.pomodoro.InMemoryPomodoroRepository()

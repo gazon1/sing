@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.singularity.todo.feature.ai.chat.ChatScreen
+import com.singularity.todo.feature.archive.ArchiveScreen
 import com.singularity.todo.feature.notes.NotesScreen
 import com.singularity.todo.feature.notes.NoteEditorScreen
 import com.singularity.todo.feature.pomodoro.PomodoroScreen
@@ -43,7 +44,8 @@ fun HomeTab() {
                 4 -> StatisticsScreen()
                 5 -> ChatScreen()
                 6 -> SearchScreen()
-                7 -> SettingsScreen()
+                7 -> ArchiveScreen()
+                8 -> SettingsScreen()
             }
         }
     }
