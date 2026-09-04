@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -28,7 +29,11 @@ import kotlinx.coroutines.launch
 sealed interface TasksUiState {
     data object Loading : TasksUiState
     data class Empty(val filter: TaskFilter) : TasksUiState
-    data class Content(val filter: TaskFilter, val tasks: List<Task>) : TasksUiState
+    data class Content(
+        val filter: TaskFilter,
+        val tasks: List<Task>,
+        val selectedIds: Set<TaskId> = emptySet(),
+    ) : TasksUiState
     data class Error(val message: String) : TasksUiState
 }
 
@@ -71,11 +76,14 @@ class TasksViewModel(
     private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<UiEvent> = _events.asSharedFlow()
 
+    private val _selectedIds = MutableStateFlow<Set<TaskId>>(emptySet())
+    val selectedIds: StateFlow<Set<TaskId>> = _selectedIds.asStateFlow()
+
     val state: StateFlow<TasksUiState> = combine(_filter, userId) { f, uid -> f to uid }
         .flatMapLatest { (filter, uid) -> taskRepo.watchTasks(uid, filter) }
         .map { tasks ->
             if (tasks.isEmpty()) TasksUiState.Empty(_filter.value)
-            else TasksUiState.Content(_filter.value, tasks)
+            else TasksUiState.Content(_filter.value, tasks, _selectedIds.value)
         }
         .catch { emit(TasksUiState.Error(it.message ?: "Error")) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TasksUiState.Loading)
@@ -90,6 +98,38 @@ class TasksViewModel(
 
     fun toggle(id: TaskId) = viewModelScope.launch {
         taskRepo.toggleComplete(id)
+    }
+
+    fun togglePin(id: TaskId) = viewModelScope.launch {
+        taskRepo.togglePinned(id)
+    }
+
+    fun enterSelectionMode(taskId: TaskId) {
+        _selectedIds.value = setOf(taskId)
+    }
+
+    fun toggleSelection(id: TaskId) {
+        _selectedIds.update { current ->
+            if (current.contains(id)) current - id else current + id
+        }
+    }
+
+    fun exitSelectionMode() {
+        _selectedIds.value = emptySet()
+    }
+
+    fun bulkCompleteSelected() = viewModelScope.launch {
+        _selectedIds.value.forEach { id ->
+            taskRepo.toggleComplete(id)
+        }
+        exitSelectionMode()
+    }
+
+    fun bulkDeleteSelected() = viewModelScope.launch {
+        _selectedIds.value.forEach { id ->
+            taskRepo.softDelete(id)
+        }
+        exitSelectionMode()
     }
 
     /**

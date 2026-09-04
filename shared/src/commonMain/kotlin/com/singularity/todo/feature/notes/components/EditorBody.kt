@@ -9,7 +9,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,6 +24,8 @@ import com.singularity.todo.feature.notes.EditorState
 /**
  * Title field + rich text body editor. State owners are the parent — the body
  * only adapts the rich-text widget to the current [EditorState.Editing] snapshot.
+ * After [EditorState.Editing] is set (once per session), the rich text widget
+ * owns its content — no external [LaunchedEffect] overwrites it.
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -37,12 +38,6 @@ fun EditorBody(
 ) {
     val richTextState = remember(state.id) { RichTextState() }
     var titleFieldValue by remember(state.id) { mutableStateOf(TextFieldValue(state.title)) }
-
-    // Sync external HTML → rich text widget only when they diverge (avoids loops).
-    LaunchedEffect(state.html) {
-        val currentHtml = richTextState.toHtml()
-        if (currentHtml != state.html) richTextState.setHtml(state.html)
-    }
 
     Column(modifier = modifier.fillMaxSize()) {
         OutlinedTextField(

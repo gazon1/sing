@@ -140,3 +140,21 @@ data class TaskReminderEntity(
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
 )
+
+/**
+ * Checklist item (subtask) belonging to a task.
+ */
+@Entity(
+    tableName = "checklist_items",
+    primaryKeys = ["id"],
+    indices = [Index("task_id")]
+)
+data class ChecklistItemEntity(
+    val id: String,
+    @ColumnInfo("task_id") val taskId: String,
+    val title: String,
+    @ColumnInfo("is_completed") val isCompleted: Boolean = false,
+    @ColumnInfo("sort_order") val sortOrder: Int = 0,
+    @ColumnInfo("created_at") val createdAt: Long,
+    @ColumnInfo("updated_at") val updatedAt: Long,
+)

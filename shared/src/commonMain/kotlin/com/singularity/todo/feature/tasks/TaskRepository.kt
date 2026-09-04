@@ -32,6 +32,7 @@ interface TaskRepository {
     suspend fun softDelete(id: TaskId): Result<Unit>
     suspend fun restore(id: TaskId): Result<Unit>
     suspend fun toggleComplete(id: TaskId): Result<Unit>
+    suspend fun togglePinned(id: TaskId): Result<Unit>
     suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit>
     fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>>
     fun watchTask(id: TaskId): Flow<Task?>
@@ -63,6 +64,7 @@ class TaskRepositoryImpl(
             is TaskFilter.Trash -> taskDao.watchTrash(userId.value).map { it.map { e -> e.toTask() } }
             is TaskFilter.All -> taskDao.watchActive(userId.value).map { it.map { e -> e.toTask() } }
             is TaskFilter.ByProject -> taskDao.watchByProject(userId.value, filter.id.value).map { it.map { e -> e.toTask() } }
+            is TaskFilter.Pinned -> taskDao.watchPinned(userId.value).map { it.map { e -> e.toTask() } }
             is TaskFilter.ByTag -> flowOf(emptyList()) // TODO: implement tag filtering
             is TaskFilter.Search -> taskDao.search(filter.query).map { it.map { e -> e.toTask() } }
         }
@@ -103,6 +105,12 @@ class TaskRepositoryImpl(
         } else {
             taskDao.markComplete(id.value, ts)
         }
+    }
+
+    override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatching {
+        val task = taskDao.watchById(id.value).first() ?: return@runCatching
+        val ts = clock.now().toEpochMilliseconds()
+        taskDao.setPinned(id.value, !task.isPinned, ts)
     }
 
     override fun getTagIds(taskId: TaskId): Flow<List<TagId>> {

@@ -12,7 +12,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -21,7 +20,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,11 +28,17 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.components.UiEvent
+import com.singularity.todo.feature.tasks.components.BulkActionBar
 import com.singularity.todo.feature.tasks.components.FilterChipsRow
 import com.singularity.todo.feature.tasks.components.TaskAiBottomSheet
 import com.singularity.todo.feature.tasks.components.TaskCard
 import com.singularity.todo.feature.tasks.components.TaskCardActions
 import org.koin.compose.koinInject
+
+sealed interface TasksScreenEntry {
+    data object FromToday : TasksScreenEntry
+    data object FromInbox : TasksScreenEntry
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,8 +62,23 @@ fun TasksScreen(
     Scaffold(
         topBar = { TopAppBar(title = { Text("Tasks") }) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNavigateToCreateTask) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Task")
+            val currentState = state
+            val hasSelection = currentState is TasksUiState.Content && currentState.selectedIds.isNotEmpty()
+            if (!hasSelection) {
+                FloatingActionButton(onClick = onNavigateToCreateTask) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add Task")
+                }
+            }
+        },
+        bottomBar = {
+            val currentState = state
+            if (currentState is TasksUiState.Content && currentState.selectedIds.isNotEmpty()) {
+                BulkActionBar(
+                    selectedCount = currentState.selectedIds.size,
+                    onComplete = viewModel::bulkCompleteSelected,
+                    onDelete = viewModel::bulkDeleteSelected,
+                    onCancel = viewModel::exitSelectionMode,
+                )
             }
         },
     ) { padding ->
@@ -69,8 +88,10 @@ fun TasksScreen(
                 state = state,
                 onNavigateToTask = onNavigateToTask,
                 onToggle = viewModel::toggle,
+                onPin = viewModel::togglePin,
                 onDelete = viewModel::delete,
                 onAiClick = { aiSheetTask = it },
+                onToggleSelection = viewModel::toggleSelection,
             )
         }
     }
@@ -94,8 +115,10 @@ private fun TasksContent(
     state: TasksUiState,
     onNavigateToTask: (String) -> Unit,
     onToggle: (TaskId) -> Unit,
+    onPin: (TaskId) -> Unit,
     onDelete: (TaskId) -> Unit,
     onAiClick: (Task) -> Unit,
+    onToggleSelection: (TaskId) -> Unit,
 ) {
     when (state) {
         is TasksUiState.Loading -> LoadingIndicator()
@@ -104,8 +127,11 @@ private fun TasksContent(
             tasks = state.tasks,
             onNavigateToTask = onNavigateToTask,
             onToggle = onToggle,
+            onPin = onPin,
             onDelete = onDelete,
             onAiClick = onAiClick,
+            selectedIds = state.selectedIds,
+            onToggleSelection = onToggleSelection,
         )
         is TasksUiState.Error -> EmptyState(title = "Error: ${state.message}")
     }
@@ -116,8 +142,11 @@ private fun TaskList(
     tasks: List<Task>,
     onNavigateToTask: (String) -> Unit,
     onToggle: (TaskId) -> Unit,
+    onPin: (TaskId) -> Unit,
     onDelete: (TaskId) -> Unit,
     onAiClick: (Task) -> Unit,
+    selectedIds: Set<TaskId>,
+    onToggleSelection: (TaskId) -> Unit,
 ) {
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
@@ -127,12 +156,20 @@ private fun TaskList(
         items(tasks, key = { it.id.value }) { task ->
             TaskCard(
                 task = task,
-                onClick = { onNavigateToTask(task.id.value) },
+                onClick = {
+                    if (selectedIds.isNotEmpty()) {
+                        onToggleSelection(task.id)
+                    } else {
+                        onNavigateToTask(task.id.value)
+                    }
+                },
+                onLongClick = { onToggleSelection(task.id) },
                 actions = TaskCardActions { action ->
                     when (action) {
                         TaskCardActions.Action.Toggle -> onToggle(task.id)
                         TaskCardActions.Action.Delete -> onDelete(task.id)
                         TaskCardActions.Action.Ai -> onAiClick(task)
+                        TaskCardActions.Action.Pin -> onPin(task.id)
                     }
                 },
             )

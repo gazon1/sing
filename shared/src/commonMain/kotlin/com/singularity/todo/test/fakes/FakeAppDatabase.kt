@@ -3,6 +3,8 @@ package com.singularity.todo.test.fakes
 import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentEntity
 import com.singularity.todo.core.database.AppDatabase
+import com.singularity.todo.core.database.ChecklistDao
+import com.singularity.todo.core.database.ChecklistItemEntity
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.ProjectDao
@@ -39,6 +41,7 @@ class FakeAppDatabase : AppDatabase() {
     private val _outbox = MutableStateFlow<Map<String, SyncOutboxEntity>>(emptyMap())
     private val _attachments = MutableStateFlow<Map<String, AttachmentEntity>>(emptyMap())
     private val _reminders = MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>(emptyMap())
+    private val _checklist = MutableStateFlow<Map<String, ChecklistItemEntity>>(emptyMap())
 
     override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
@@ -47,6 +50,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun syncOutboxDao(): SyncOutboxDao = FakeSyncOutboxDao(_outbox)
     override fun attachmentDao(): AttachmentDao = FakeAttachmentDao(_attachments)
     override fun reminderDao(): ReminderDao = FakeReminderDao(_reminders)
+    override fun checklistDao(): ChecklistDao = FakeChecklistDao(_checklist)
 
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
@@ -57,6 +61,7 @@ class FakeAppDatabase : AppDatabase() {
         _outbox.value = emptyMap()
         _attachments.value = emptyMap()
         _reminders.value = emptyMap()
+        _checklist.value = emptyMap()
     }
 
     // ─── Seed helpers ────────────────────────────────────────────────────────
@@ -71,6 +76,7 @@ class FakeAppDatabase : AppDatabase() {
     fun seedReminders(items: List<com.singularity.todo.core.database.TaskReminderEntity>) {
         _reminders.value = items.associateBy { it.userId to it.id }
     }
+    fun seedChecklist(items: List<ChecklistItemEntity>) { _checklist.value = items.associateBy { it.id } }
 }
 
 // ─── TaskDao ─────────────────────────────────────────────────────────────────
@@ -108,6 +114,10 @@ private class FakeTaskDao(
         store.map { it.values.filter { t -> t.userId == userId && t.projectId == projectId && t.archivedAt == null }
             .sortedWith(compareBy({ !it.isPinned }, { it.dueDate ?: "" })) }
 
+    override fun watchPinned(userId: String): Flow<List<TaskEntity>> =
+        store.map { it.values.filter { t -> t.userId == userId && t.isPinned && t.archivedAt == null }
+            .sortedWith(compareBy({ !it.isPinned }, { it.dueDate ?: "" })) }
+
     override fun search(q: String): Flow<List<TaskEntity>> =
         store.map { it.values.filter { t ->
             t.title.contains(q, ignoreCase = true) ||
@@ -119,6 +129,7 @@ private class FakeTaskDao(
     override suspend fun restore(id: String, ts: Long) = mutateTask(id) { it.copy(archivedAt = null, updatedAt = ts) }
     override suspend fun markComplete(id: String, ts: Long) = mutateTask(id) { it.copy(completedAt = ts, updatedAt = ts) }
     override suspend fun markIncomplete(id: String, ts: Long) = mutateTask(id) { it.copy(completedAt = null, updatedAt = ts) }
+    override suspend fun setPinned(id: String, pinned: Boolean, ts: Long) = mutateTask(id) { it.copy(isPinned = pinned, updatedAt = ts) }
 
     override suspend fun upsertTagCrossRef(ref: TaskTagCrossRef) {
         crossRefs.update { it + ref }
@@ -167,6 +178,12 @@ private class FakeNoteDao(
     override suspend fun upsert(note: NoteEntity) { store.update { it + (note.id to note) } }
     override suspend fun softDelete(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
     override suspend fun restore(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = null, updatedAt = ts) }
+    override suspend fun updateContent(id: String, title: String, markdown: String, updatedAt: Long) {
+        store.update { current ->
+            val existing = current[id] ?: return@update current
+            current + (id to existing.copy(title = title, bodyMarkdown = markdown, updatedAt = updatedAt))
+        }
+    }
     override suspend fun listAllForUser(userId: String): List<NoteEntity> =
         store.value.values.filter { it.userId == userId }
 
@@ -313,4 +330,26 @@ private class FakeReminderDao(
 
     override suspend fun getById(id: String, userId: String): com.singularity.todo.core.database.TaskReminderEntity? =
         store.value[userId to id]
+}
+
+// ─── ChecklistDao ───────────────────────────────────────────────────────────────
+
+private class FakeChecklistDao(
+    private val store: MutableStateFlow<Map<String, ChecklistItemEntity>>,
+) : ChecklistDao {
+
+    override fun watchByTask(taskId: String): kotlinx.coroutines.flow.Flow<List<ChecklistItemEntity>> =
+        store.map { it.values.filter { c -> c.taskId == taskId }.sortedBy { c -> c.sortOrder } }
+
+    override suspend fun upsert(item: ChecklistItemEntity) {
+        store.update { it + (item.id to item) }
+    }
+
+    override suspend fun delete(id: String) {
+        store.update { it - id }
+    }
+
+    override suspend fun deleteByTask(taskId: String) {
+        store.update { current -> current.filterValues { c -> c.taskId != taskId } }
+    }
 }

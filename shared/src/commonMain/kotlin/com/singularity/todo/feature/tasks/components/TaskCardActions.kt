@@ -10,11 +10,12 @@ package com.singularity.todo.feature.tasks.components
 value class TaskCardActions(
     val block: (Action) -> Unit,
 ) {
-    enum class Action { Toggle, Delete, Ai }
+    enum class Action { Toggle, Delete, Ai, Pin }
 
     fun onToggle() = block(Action.Toggle)
     fun onDelete() = block(Action.Delete)
     fun onAiClick() = block(Action.Ai)
+    fun onPin() = block(Action.Pin)
 
     companion object {
         val Empty = TaskCardActions {}

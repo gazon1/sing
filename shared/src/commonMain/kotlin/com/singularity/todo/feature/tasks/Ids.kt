@@ -35,6 +35,7 @@ sealed interface TaskFilter {
     data object Upcoming : TaskFilter
     data object Someday : TaskFilter
     data object Inbox : TaskFilter
+    data object Pinned : TaskFilter
     data object Trash : TaskFilter
     data object All : TaskFilter
     data class ByProject(val id: ProjectId) : TaskFilter

@@ -1,12 +1,15 @@
 package com.singularity.todo.feature.tasks.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,17 +31,19 @@ import com.singularity.todo.feature.tasks.Task
  * Card representation of a single task. Stateless — every piece of behavior is
  * supplied via [onClick] (whole-row tap) and [actions] (per-button callbacks).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TaskCard(
     task: Task,
     onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
     actions: TaskCardActions = TaskCardActions.Empty,
     modifier: Modifier = Modifier,
 ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         colors = CardDefaults.cardColors(
             containerColor = if (task.isPinned)
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
@@ -56,6 +61,7 @@ fun TaskCard(
 
             PriorityChip(priority = task.priority)
 
+            PinButton(isPinned = task.isPinned, onClick = actions::onPin)
             AiActionButton(onClick = actions::onAiClick)
             DeleteActionButton(onClick = actions::onDelete)
         }
@@ -91,5 +97,17 @@ private fun TaskText(task: Task, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+@Composable
+private fun PinButton(isPinned: Boolean, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(
+            imageVector = Icons.Filled.PushPin,
+            contentDescription = if (isPinned) "Unpin" else "Pin",
+            tint = if (isPinned) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

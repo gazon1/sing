@@ -18,6 +18,7 @@ import com.singularity.todo.feature.notes.RichEditorMarkdownHtmlPort
 import com.singularity.todo.feature.notes.RoomNotesRepository
 import com.singularity.todo.feature.notes.UpdateNoteUseCase
 import com.singularity.todo.feature.projects.CreateProjectUseCase
+import com.singularity.todo.feature.projects.ProjectEditorViewModel
 import com.singularity.todo.feature.projects.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.UpdateProjectUseCase
 import com.singularity.todo.feature.reminders.ReminderScheduler
@@ -35,6 +36,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
@@ -118,6 +120,20 @@ fun coreDomainModule(): Module = module {
         RoomReminderRepository(get())
     }
 
+    single<com.singularity.todo.feature.checklist.ChecklistRepository> {
+        com.singularity.todo.feature.checklist.RoomChecklistRepository(get(), get())
+    }
+
+    factory { com.singularity.todo.feature.checklist.ChecklistUseCase(get(), get()) }
+
+    factory { com.singularity.todo.feature.checklist.ChecklistEditorViewModel(get()) }
+
+    factory { com.singularity.todo.feature.pomodoro.InMemoryPomodoroRepository() }
+
+    factory { com.singularity.todo.feature.pomodoro.PomodoroTimer(get()) }
+
+    viewModel { com.singularity.todo.feature.statistics.StatisticsViewModel(get(), get()) }
+
     // Platform clock singleton — actual implementation is in androidMain/jvmMain
     single { Clock }
     // ─── Ports ───────────────────────────────────────────────────────────
@@ -160,15 +176,18 @@ fun coreDomainModule(): Module = module {
 
     factory { SettingsViewModel(get(), get()) }
 
-    // TasksViewModel requires PickTimeUseCase (AI) — registered in aiToolsModule()
-
-    // ProjectsViewModel requires ProjectReviewUseCase (AI) — registered in aiToolsModule()
+    // TasksViewModel and ProjectsViewModel: registered in aiToolsModule()
+    // (AI deps are null on Android; VMs handle null gracefully)
 
     factory { TagsViewModel(get(), get()) }
 
     factory { NotesViewModel(get(), get(), get()) }
 
-    factory { com.singularity.todo.feature.tasks.TaskEditorViewModel(get(), get(), com.singularity.todo.feature.tasks.UserId.anonymous) }
+    factory { ProjectEditorViewModel(get(), get()) }
+
+    factory { (initialDueDate: kotlinx.datetime.LocalDate?) ->
+        com.singularity.todo.feature.tasks.TaskEditorViewModel(get(), get(), com.singularity.todo.feature.tasks.UserId.anonymous, get(), initialDueDate)
+    }
 
     // ChatViewModel requires TextGenPort (AI) — registered in aiToolsModule()
 

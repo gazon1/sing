@@ -28,6 +28,12 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND project_id = :projectId ORDER BY is_pinned DESC, due_date ASC")
     fun watchByProject(userId: String, projectId: String): Flow<List<TaskEntity>>
 
+    @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND is_pinned = 1 ORDER BY is_pinned DESC, due_date ASC")
+    fun watchPinned(userId: String): Flow<List<TaskEntity>>
+
+    @Query("UPDATE tasks SET is_pinned = :pinned, updated_at = :ts WHERE id = :id")
+    suspend fun setPinned(id: String, pinned: Boolean, ts: Long)
+
     @Query("SELECT * FROM tasks WHERE title LIKE '%' || :q || '%' OR description LIKE '%' || :q || '%'")
     fun search(q: String): Flow<List<TaskEntity>>
 
@@ -78,6 +84,10 @@ interface NoteDao {
 
     @Upsert
     suspend fun upsert(note: NoteEntity)
+
+    /** Atomic update — does NOT require a prior read. */
+    @Query("UPDATE notes SET title = :title, body_markdown = :markdown, updated_at = :updatedAt WHERE id = :id")
+    suspend fun updateContent(id: String, title: String, markdown: String, updatedAt: Long)
 
     @Query("UPDATE notes SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
     suspend fun softDelete(id: String, ts: Long)
@@ -147,4 +157,19 @@ interface ReminderDao {
 
     @Query("SELECT * FROM task_reminders WHERE id = :id AND user_id = :userId")
     suspend fun getById(id: String, userId: String): TaskReminderEntity?
+}
+
+@Dao
+interface ChecklistDao {
+    @Query("SELECT * FROM checklist_items WHERE task_id = :taskId ORDER BY sort_order ASC")
+    fun watchByTask(taskId: String): kotlinx.coroutines.flow.Flow<List<com.singularity.todo.core.database.ChecklistItemEntity>>
+
+    @Upsert
+    suspend fun upsert(item: com.singularity.todo.core.database.ChecklistItemEntity)
+
+    @Query("DELETE FROM checklist_items WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query("DELETE FROM checklist_items WHERE task_id = :taskId")
+    suspend fun deleteByTask(taskId: String)
 }

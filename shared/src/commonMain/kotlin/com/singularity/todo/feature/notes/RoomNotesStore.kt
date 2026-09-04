@@ -42,14 +42,7 @@ class RoomNotesStore(
     }
 
     override suspend fun update(id: String, title: String, bodyMarkdown: String) {
-        val existing = noteDao.getById(id) ?: return
-        noteDao.upsert(
-            existing.copy(
-                title = title,
-                bodyMarkdown = bodyMarkdown,
-                updatedAt = clock.now().toEpochMilliseconds()
-            )
-        )
+        noteDao.updateContent(id, title, bodyMarkdown, clock.now().toEpochMilliseconds())
     }
 
     override suspend fun softDelete(id: String) {

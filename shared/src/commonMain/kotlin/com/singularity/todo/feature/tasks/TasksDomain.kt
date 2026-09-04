@@ -90,6 +90,7 @@ object TasksDomain {
             is TaskFilter.Upcoming -> task.dueDate != null && task.dueDate > today && !task.isTrashed && !task.someday
             is TaskFilter.Someday -> task.someday && !task.isTrashed
             is TaskFilter.Inbox -> !task.someday && !task.isTrashed
+            is TaskFilter.Pinned -> task.isPinned && !task.isTrashed
             is TaskFilter.Trash -> task.isTrashed
             is TaskFilter.All -> !task.isTrashed
             is TaskFilter.ByProject -> task.projectId == filter.id && !task.isTrashed

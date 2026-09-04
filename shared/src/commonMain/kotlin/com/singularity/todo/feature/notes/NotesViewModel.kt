@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -101,23 +102,17 @@ open class NotesViewModel(
     }
 
     fun openEditor(noteId: String) {
-        // viewModelScope ensures cancellation on clear; Unconfined makes synchronous
-        // flows emit without virtual time (testability).
+        // Snapshot once — we don't want every Room update to blast the editor.
+        // The rich text state is the source of truth after this point.
         viewModelScope.launch(Dispatchers.Unconfined) {
-            store.watch(noteId)
-                .collect { note ->
-                    if (note == null) {
-                        _editorState.value = EditorState.Error(noteId, "Note not found")
-                    } else {
-                        val html = note.bodyMarkdown?.let { htmlPort.toHtml(it) } ?: ""
-                        _editorState.value = EditorState.Editing(
-                            id = note.id.value,
-                            title = note.title,
-                            html = html,
-                            isDirty = false
-                        )
-                    }
-                }
+            val note = store.watch(noteId).filterNotNull().first()
+            val html = note.bodyMarkdown?.let { htmlPort.toHtml(it) } ?: ""
+            _editorState.value = EditorState.Editing(
+                id = note.id.value,
+                title = note.title,
+                html = html,
+                isDirty = false
+            )
         }
     }
 
@@ -146,6 +141,26 @@ open class NotesViewModel(
         val current = _editorState.value as? EditorState.Editing ?: return
         _editorState.value = current.copy(html = html, isDirty = true)
         scheduleAutosave(id)
+    }
+
+    /**
+     * Immediate save — cancels pending autosave and writes synchronously.
+     * Used by the Save button in the top bar.
+     */
+    fun saveNow() {
+        val current = _editorState.value as? EditorState.Editing ?: return
+        autosaveJob?.cancel()
+        viewModelScope.launch {
+            _editorState.value = EditorState.Saving(current.id)
+            try {
+                val markdown = htmlPort.toMarkdown(current.html)
+                store.update(current.id, current.title, markdown)
+                _editorState.value = current.copy(isDirty = false)
+                _events.emit(UiEvent.NavigateBack)
+            } catch (e: Exception) {
+                _editorState.value = EditorState.Error(current.id, e.message ?: "Save failed")
+            }
+        }
     }
 
     private fun scheduleAutosave(id: String) {

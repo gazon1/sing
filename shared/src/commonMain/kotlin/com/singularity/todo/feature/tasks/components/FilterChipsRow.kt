@@ -29,6 +29,7 @@ fun FilterChipsRow(
         TaskFilter.Upcoming,
         TaskFilter.Someday,
         TaskFilter.Inbox,
+        TaskFilter.Pinned,
     )
     Row(
         modifier = modifier
@@ -51,6 +52,7 @@ private fun TaskFilter.label(): String = when (this) {
     is TaskFilter.Upcoming -> "Upcoming"
     is TaskFilter.Someday -> "Someday"
     is TaskFilter.Inbox -> "Inbox"
+    is TaskFilter.Pinned -> "Pinned"
     is TaskFilter.Trash -> "Trash"
     is TaskFilter.All -> "All"
     is TaskFilter.ByProject -> "Project"

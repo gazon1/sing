@@ -22,9 +22,10 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         TagEntity::class,
         SyncOutboxEntity::class,
         AttachmentEntity::class,
-        TaskReminderEntity::class
+        TaskReminderEntity::class,
+        ChecklistItemEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @ColumnTypeConverters(AttachmentConverters::class)
@@ -36,4 +37,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun syncOutboxDao(): SyncOutboxDao
     abstract fun attachmentDao(): AttachmentDao
     abstract fun reminderDao(): ReminderDao
+    abstract fun checklistDao(): ChecklistDao
 }
