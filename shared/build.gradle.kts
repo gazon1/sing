@@ -153,8 +153,8 @@ kotlin {
         }
 
         jvmMain.dependencies {
-            // SQLite JDBC (used by Room JVM driver)
-            implementation(libs.sqlite.jdbc)
+            // Bundled SQLite — same driver as Android, no external native dep required.
+            implementation(libs.androidx.sqlite.bundled)
 
             // Room JVM
             implementation(libs.androidx.room3.runtime)
@@ -191,7 +191,7 @@ kotlin {
         }
 
         jvmTest.dependencies {
-            implementation(libs.sqlite.jdbc)
+            implementation(libs.androidx.sqlite.bundled)
             implementation(libs.androidx.room3.testing)
             implementation(libs.koin.test)
         }
@@ -210,8 +210,10 @@ kotlin {
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
 
-    // Room 3 KSP compiler for Android target
+    // Room 3 KSP compiler — per-target so AppDatabase_Impl is generated
+    // for both Android and JVM. JVM builds the same Room DB via BundledSQLiteDriver.
     add("kspAndroid", libs.androidx.room3.compiler)
+    add("kspJvm", libs.androidx.room3.compiler)
 
     // Koin Annotations KSP processor — NOTE: koin-ksp-compiler version 2.3.x is
     // INCOMPATIBLE with koin 4.x (koin-annotations 4.x). Only works with koin 2.x.

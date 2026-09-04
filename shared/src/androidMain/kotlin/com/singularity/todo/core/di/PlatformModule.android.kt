@@ -3,11 +3,11 @@ package com.singularity.todo.core.di
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
-import androidx.room3.Room
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.singularity.todo.core.backup.AndroidBackupCodec
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.database.AppDatabase
+import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.files.AndroidFileSystem
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.notifications.AndroidNotificationPort
@@ -20,7 +20,7 @@ import org.koin.dsl.module
 /**
  * Android platform bindings.
  *
- * - Room [AppDatabase] is created here and provides DAOs directly (no reflection)
+ * - Room [AppDatabase] is created via [AppDatabaseFactory] (single seam for Room).
  * - [SecureStoragePort] → [AndroidSecureStorage]
  * - [NotificationPort] → [AndroidNotificationPort]
  * - [FileSystem] → [AndroidFileSystem]
@@ -35,13 +35,7 @@ actual fun platformModule(): Module = module {
         // lands in `/` (read-only) and triggers EROFS when it tries to create
         // `todo.db.lck`. Pass the absolute path under the app's databases dir.
         val dbPath = get<android.content.Context>().getDatabasePath("todo.db").absolutePath
-        Room.databaseBuilder<AppDatabase>(name = dbPath)
-            .setDriver(BundledSQLiteDriver())
-            // Dev-only: drop the on-device DB and recreate when schema version changes
-            // and no migration is registered. Replace with explicit addMigrations(...)
-            // before any production release.
-            .fallbackToDestructiveMigration(dropAllTables = true)
-            .build()
+        AppDatabaseFactory.build(createSqlDriver(), dbPath)
     }
 
     single { get<AppDatabase>().taskDao() }
