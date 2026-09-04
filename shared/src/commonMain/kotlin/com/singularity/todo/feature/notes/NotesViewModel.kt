@@ -3,6 +3,7 @@ package com.singularity.todo.feature.notes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -78,6 +80,10 @@ open class NotesViewModel(
     // AI action results
     private val _aiResult = MutableSharedFlow<NoteAiResult>()
     val aiResult = _aiResult.asSharedFlow()
+
+    // One-shot UI events (dialogs, errors, navigation)
+    private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<UiEvent> = _events.asSharedFlow()
 
     private var autosaveJob: Job? = null
 
@@ -165,9 +171,15 @@ open class NotesViewModel(
             tool(current.title, current.html)
                 .onSuccess { result ->
                     _editorState.value = current.copy(title = result.title, html = result.body, isDirty = true)
-                    _aiResult.emit(NoteAiResult.Improved(result.title, result.body))
+                    val r = NoteAiResult.Improved(result.title, result.body)
+                    _aiResult.emit(r)
+                    _events.emit(UiEvent.ShowDialog(title = "AI Result", text = formatNoteAiResult(r)))
                 }
-                .onFailure { _aiResult.emit(NoteAiResult.Error(it.message ?: "Failed")) }
+                .onFailure { error ->
+                    val r = NoteAiResult.Error(error.message ?: "Failed")
+                    _aiResult.emit(r)
+                    _events.emit(UiEvent.ShowDialog(title = "AI Result", text = formatNoteAiResult(r)))
+                }
         }
     }
 

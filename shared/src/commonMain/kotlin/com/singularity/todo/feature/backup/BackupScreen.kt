@@ -19,8 +19,8 @@ import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import com.singularity.todo.core.ui.components.ButtonSpinner
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -111,7 +111,7 @@ fun BackupScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CircularProgressIndicator(modifier = Modifier.width(24.dp))
+                    ButtonSpinner()
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Working…", style = MaterialTheme.typography.bodyMedium)
                 }

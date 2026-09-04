@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.genui.render
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import com.singularity.todo.feature.genui.catalog.UiNode
 
 /**
@@ -16,30 +17,35 @@ import com.singularity.todo.feature.genui.catalog.UiNode
  */
 class ComponentRegistry {
 
-    private val builders = mutableMapOf<String, @Composable (UiNode, DataContext) -> Unit>()
+    private val builders = mutableMapOf<String, @Composable (UiNode, DataContext, Modifier) -> Unit>()
 
     /**
      * Registers a builder for [kind]. The builder receives the concrete [UiNode] subtype
-     * (already cast from the sealed interface) and the [DataContext].
+     * (already cast from the sealed interface), the [DataContext] and an optional [Modifier].
      */
-    fun register(kind: String, builder: @Composable (UiNode, DataContext) -> Unit) {
+    fun register(kind: String, builder: @Composable (UiNode, DataContext, Modifier) -> Unit) {
         builders[kind] = builder
     }
 
     /**
      * Renders [node] using the registered builder for its kind.
      * Falls back to a simple error text if the kind is unknown.
+     *
+     * [modifier] is forwarded to every registered builder so the caller can
+     * position the rendered subtree without each builder having to thread it
+     * through its own signature.
      */
     @Composable
-    fun render(node: UiNode, ctx: DataContext) {
+    fun render(node: UiNode, ctx: DataContext, modifier: Modifier = Modifier) {
         val kind = node.kind
         val builder = builders[kind]
         if (builder != null) {
-            builder(node, ctx)
+            builder(node, ctx, modifier)
         } else {
             androidx.compose.material3.Text(
                 text = "[Unknown: $kind]",
                 color = androidx.compose.ui.graphics.Color.Red,
+                modifier = modifier,
             )
         }
     }

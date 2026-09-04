@@ -46,4 +46,6 @@ actual fun aiToolsModule() = module {
             projectReview = null,
         )
     }
+
+    factory { com.singularity.todo.feature.ai.chat.ChatViewModel(get()) }
 }

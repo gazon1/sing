@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import com.singularity.todo.core.ui.components.ButtonSpinner
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -100,7 +100,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         if (state is AuthUiState.Loading) {
-            CircularProgressIndicator()
+            ButtonSpinner()
         } else {
             Button(
                 onClick = {

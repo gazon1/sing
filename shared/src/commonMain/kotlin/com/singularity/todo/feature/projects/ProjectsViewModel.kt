@@ -3,6 +3,7 @@ package com.singularity.todo.feature.projects
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.tasks.TaskFilter
 import com.singularity.todo.feature.tasks.TaskRepository
@@ -10,6 +11,7 @@ import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -50,6 +52,9 @@ class ProjectsViewModel(
     private val _aiResult = MutableSharedFlow<String>()
     val aiResult = _aiResult.asSharedFlow()
 
+    private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<UiEvent> = _events.asSharedFlow()
+
     fun delete(id: ProjectId) = viewModelScope.launch {
         projectRepo.delete(id)
     }
@@ -57,9 +62,10 @@ class ProjectsViewModel(
     fun reviewProject(project: Project) = viewModelScope.launch {
         val uid = UserId.fromString(userId.first())
         val tasks = taskRepository.watchTasks(uid, TaskFilter.ByProject(project.id)).first()
-        projectReview?.invoke(project.name, tasks.map { it.title })
-            ?.onSuccess { _aiResult.emit(it) }
-            ?.onFailure { _aiResult.emit("Error: ${it.message ?: "Failed"}") }
-            ?: _aiResult.emit("AI not available on Android")
+        val result = projectReview?.invoke(project.name, tasks.map { it.title })
+            ?.fold(onSuccess = { it }, onFailure = { "Error: ${it.message ?: "Failed"}" })
+            ?: "AI not available on Android"
+        _aiResult.emit(result)
+        _events.emit(UiEvent.ShowDialog(title = "Project Review", text = result))
     }
 }
