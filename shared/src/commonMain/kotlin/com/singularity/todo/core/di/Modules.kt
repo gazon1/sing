@@ -77,10 +77,11 @@ fun coreDomainModule(): Module = module {
 
     // ─── Settings ────────────────────────────────────────────────────────
 
-    // Use FakeSettingsRepository to avoid Android-only DataStore dependency in core domain.
-    // Real DataStoreSettingsRepository requires androidx.datastore which is Android-only.
+    // DataStore<Preferences> is bound per-platform in PlatformModule.{android,jvm}.kt
+    // (real file on Android, in-memory stub on JVM). DataStoreSettingsRepository
+    // works on both because androidx.datastore-preferences-core is in commonMain deps.
     single<com.singularity.todo.core.settings.SettingsRepository> {
-        com.singularity.todo.test.fakes.FakeSettingsRepository()
+        com.singularity.todo.core.settings.DataStoreSettingsRepository(get())
     }
 
     // ─── Session ────────────────────────────────────────────────────────
