@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.feature.ai.chat.ChatScreen
 import com.singularity.todo.feature.tasks.TasksScreen
+import com.singularity.todo.feature.tasks.TaskEditorScreen
 import com.singularity.todo.feature.notes.NotesScreen
 import com.singularity.todo.feature.notes.NoteEditorScreen
 import com.singularity.todo.feature.projects.ProjectsScreen
@@ -70,7 +71,7 @@ fun HomeTab() {
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             when (selectedIndex) {
-                0 -> TasksScreen(onNavigateToTask = { }, onNavigateToCreateTask = { })
+                0 -> TasksSection()
                 1 -> NotesSection()
                 2 -> ProjectsScreen(onNavigateToProject = { }, onNavigateToCreateProject = { })
                 3 -> ChatScreen()
@@ -78,6 +79,22 @@ fun HomeTab() {
                 5 -> SettingsScreen()
             }
         }
+    }
+}
+
+@Composable
+private fun TasksSection() {
+    var isCreatingTask by remember { mutableStateOf(false) }
+
+    if (isCreatingTask) {
+        TaskEditorScreen(
+            onBack = { isCreatingTask = false },
+        )
+    } else {
+        TasksScreen(
+            onNavigateToTask = { /* TODO: task detail screen */ },
+            onNavigateToCreateTask = { isCreatingTask = true },
+        )
     }
 }
 
