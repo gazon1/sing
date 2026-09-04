@@ -42,7 +42,7 @@ class SurfaceController {
             components = event.components,
             dataModel = DataModel(),
         )
-        _surfaces.value = _surfaces.value + (event.surfaceId to surface)
+        _surfaces.value += (event.surfaceId to surface)
     }
 
     private fun updateComponents(event: UiEvent.UpdateComponents) {
@@ -50,7 +50,7 @@ class SurfaceController {
         val updated = existing.copy(
             components = existing.components + event.components,
         )
-        _surfaces.value = _surfaces.value + (event.surfaceId to updated)
+        _surfaces.value += (event.surfaceId to updated)
     }
 
     private fun updateData(event: UiEvent.UpdateData) {
@@ -58,11 +58,11 @@ class SurfaceController {
         existing.dataModel.set(event.path, event.value)
         // DataModel.mutableStateFlow is internal; we need to trigger a new emission
         // by replacing the surface reference with an identical copy
-        _surfaces.value = _surfaces.value + (event.surfaceId to existing)
+        _surfaces.value += (event.surfaceId to existing)
     }
 
     private fun deleteSurface(event: UiEvent.DeleteSurface) {
-        _surfaces.value = _surfaces.value - event.surfaceId
+        _surfaces.value -= event.surfaceId
     }
 
     /** Returns the current snapshot of a surface, or null if not found. */

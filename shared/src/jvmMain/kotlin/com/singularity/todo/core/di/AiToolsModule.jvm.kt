@@ -81,6 +81,9 @@ actual fun aiToolsModule() = module {
     // Default LLM
     single<LLModel> { OpenAIModels.Chat.GPT4oMini }
 
+    // PromptExecutorPort → real Koog executor (JVM only)
+    single<PromptExecutorPort> { createKoogPromptExecutor() }
+
     // LLM tools (require PromptExecutor + model)
     factory { RefineTaskTool(get(), get()) }
     factory { SmartRewriteTool(get(), get()) }

@@ -21,9 +21,9 @@ import org.koin.test.check.checkModules
  */
 class DiGraphTest {
 
+    @Suppress("DEPRECATION")
     @Test
     fun `core domain graph verifies on JVM`() {
-        // checkModules() creates a temporary Koin app, validates all bindings, then closes it
         checkModules {
             modules(coreDomainModule(), platformModule())
         }

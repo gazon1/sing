@@ -3,7 +3,7 @@ package com.singularity.todo.core.backup
 import kotlinx.serialization.json.JsonObject
 
 object BackupMigrations {
-    val CURRENT = BackupFormat.SCHEMA_VERSION
+    const val CURRENT = BackupFormat.SCHEMA_VERSION
 
     // Map<fromVersion, transform>
     // Add as: migrations[1] = { obj -> migrateV1ToV2(obj) }

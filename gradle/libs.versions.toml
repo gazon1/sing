@@ -122,10 +122,6 @@ compose-components-resources = { module = "org.jetbrains.compose.components:comp
 compose-runtime-liveedit = { module = "org.jetbrains.compose.runtime:runtime-liveedit", version.ref = "composeMultiplatform" }
 kotlinx-coroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }
 
-# SQLDelight (correct artifact names for 1.5.x)
-sqlDelight-runtime = { module = "com.squareup.sqldelight:sqlite-driver", version.ref = "sqlDelightVersion" }
-sqlDelight-android = { module = "com.squareup.sqldelight:android-driver", version.ref = "sqlDelightVersion" }
-sqlDelight-jdbc = { module = "com.squareup.sqldelight:jdbc-driver", version.ref = "sqlDelightVersion" }
 
 # Room 3 (androidx.room3 group)
 androidx-room3-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room" }

@@ -52,7 +52,7 @@ class FakeNotesStore : NotesStore {
 
 ### 2. MarkdownHtmlPort as Fun Interface
 
-A SAM interface for markdown↔HTML conversion enables pass-through fakes in tests.
+A SAM interface for Markdown↔HTML conversion enables pass-through fakes in tests.
 
 ```kotlin
 fun interface MarkdownHtmlPort {
@@ -167,11 +167,11 @@ open class NotesViewModel(...) : ViewModel() {
 
 ## Files to Create/Modify
 
-| Action | Files |
-|--------|-------|
-| New | `NotesStore.kt`, `MarkdownHtmlPort.kt`, `EditorAction.kt`, `ToolbarState.kt`, `NoteEditorScreen.kt` |
+| Action | Files                                                                                                       |
+|--------|-------------------------------------------------------------------------------------------------------------|
+| New    | `NotesStore.kt`, `MarkdownHtmlPort.kt`, `EditorAction.kt`, `ToolbarState.kt`, `NoteEditorScreen.kt`         |
 | Modify | `NotesViewModel.kt` (extend with EditorState), `AppModule.kt` (wire DI), `Navigation.kt` (add editor route) |
-| Tests | `NotesViewModelTest.kt`, `NotesEditorFlowTest.kt`, `MarkdownHtmlPortTest.kt`, `TestFakes.kt` |
+| Tests  | `NotesViewModelTest.kt`, `NotesEditorFlowTest.kt`, `MarkdownHtmlPortTest.kt`, `TestFakes.kt`                |
 
 ## DI Wiring (Koin)
 

@@ -80,7 +80,7 @@ class TaskEditorViewModel(
         createTask(input)
             .onSuccess { _events.emit(UiEvent.NavigateBack) }
             .onFailure {
-                _uiState.update { it.copy(saving = false) }
+                _uiState.update { it -> it.copy(saving = false) }
                 _events.emit(UiEvent.ShowError(it.message ?: "Failed to save"))
             }
     }

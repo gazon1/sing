@@ -5,7 +5,7 @@ import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.UserId
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 
 /**

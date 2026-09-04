@@ -19,7 +19,7 @@
 | `core/files/` | `FileSystem` port, `MimeTypes`, `FileChecksum` |
 | `core/network/` | Ktor client config (CIO/OkHttp) |
 | `core/notifications/` | `NotificationPort` (expect/actual) |
-| `core/platform/` | `Clock`, `PlatformContext` (expect/actual) |
+| `core/platform/` | `Clock` (expect/actual) |
 | `core/security/` | `SecureStoragePort` (expect/actual: secret-tool/AES-GCM + EncryptedSharedPreferences) |
 | `core/settings/` | `SettingsRepository` (DataStore) |
 | `core/sync/` | HLC, SyncEngine, ConflictResolver, SyncOutbox, SupabaseSyncApiClient |
@@ -143,7 +143,6 @@ Room DAO (*Dao) + SQLite (jvmMain: sqlite-jdbc, androidMain: sqlite-bundled)
 | `MarkdownHtmlPort` | `RichEditorMarkdownHtmlPort` | — (shared) |
 | `createKoogPromptExecutor()` | `JvmKoogFactory` (MultiLLMPromptExecutor + OpenAILLMClient) | `AndroidKoogFactory` (error stub) |
 | `Clock` | — (kotlinx-datetime same) | — |
-| `PlatformContext` | `JvmPlatformContext` | `AndroidPlatformContext` |
 
 ---
 

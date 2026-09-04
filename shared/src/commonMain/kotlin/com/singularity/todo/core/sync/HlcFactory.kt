@@ -28,7 +28,8 @@ class HlcFactory(
         }
     }
 
-    private var _lastHlc: Hlc = Hlc.zero(nodeIdDeferred.getCompleted())
+    // Initialize with a placeholder node ID — will be updated on first tick() call
+    private var _lastHlc: Hlc = Hlc.zero("pending")
 
     /** Creates a new tick HLC for a local event. */
     fun tick(): Hlc {

@@ -9,20 +9,8 @@ import com.singularity.todo.core.backup.ExportOptions
 import com.singularity.todo.core.backup.ImportOptions
 import com.singularity.todo.core.backup.RestoreResult
 import com.singularity.todo.core.settings.SettingsRepository
-import com.singularity.todo.core.attachments.AttachmentId
-import com.singularity.todo.core.attachments.AttachmentRepository
-import com.singularity.todo.feature.notes.NotesRepository
-import com.singularity.todo.feature.projects.ProjectId
-import com.singularity.todo.feature.projects.ProjectsRepository
-import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.tags.TagsRepository
-import com.singularity.todo.feature.tasks.TaskFilter
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.TaskRepository
-import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
 
 // ─── SessionStore ─────────────────────────────────────────────────────────────
 
@@ -54,7 +42,7 @@ class FakeSessionStore(
 // ─── SettingsRepository ────────────────────────────────────────────────────────
 
 class FakeSettingsRepository(
-    private val initialUserId: String = "test-user"
+    initialUserId: String = "test-user"
 ) : SettingsRepository {
     private val _darkTheme = MutableStateFlow(false)
     private val _accentColor = MutableStateFlow("blue")
@@ -100,7 +88,7 @@ class FakeSettingsRepository(
     override val greetingAfternoonEnd: Flow<Int> = _greetingAfternoonEnd
     override val userId: Flow<String> = _userId
 
-    override suspend fun setDarkTheme(v: Boolean) { _darkTheme.value = v }
+    override suspend fun setDarkTheme(value: Boolean) { _darkTheme.value = value }
     override suspend fun setAccentColor(v: String) { _accentColor.value = v }
     override suspend fun setFontSizeScale(v: Float) { _fontSizeScale.value = v }
     override suspend fun setAiApiKey(v: String) { _aiApiKey.value = v }
@@ -122,157 +110,6 @@ class FakeSettingsRepository(
     override suspend fun setUserId(v: String) { _userId.value = v }
 }
 
-// ─── TaskRepository ────────────────────────────────────────────────────────────
-
-class FakeTaskRepository : TaskRepository {
-    private val tasks = MutableStateFlow<List<com.singularity.todo.feature.tasks.Task>>(emptyList())
-    private val _changes = MutableStateFlow<com.singularity.todo.feature.tasks.Task?>(null)
-
-    override val changes: kotlinx.coroutines.flow.SharedFlow<com.singularity.todo.feature.tasks.Task> =
-        kotlinx.coroutines.flow.MutableSharedFlow(extraBufferCapacity = 64)
-
-    override fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<com.singularity.todo.feature.tasks.Task>> =
-        tasks.map { all -> all.filter { it.userId == userId } }
-
-    override fun watchTask(id: TaskId): Flow<com.singularity.todo.feature.tasks.Task?> =
-        tasks.map { it.find { t -> t.id == id } }
-
-    override fun getTagIds(taskId: TaskId): Flow<List<TagId>> =
-        kotlinx.coroutines.flow.flowOf(emptyList())
-
-    override suspend fun create(task: com.singularity.todo.feature.tasks.Task): Result<Unit> = runCatching {
-        tasks.value = tasks.value + task
-        (changes as kotlinx.coroutines.flow.MutableSharedFlow).tryEmit(task)
-    }
-
-    override suspend fun update(task: com.singularity.todo.feature.tasks.Task): Result<Unit> = runCatching {
-        tasks.value = tasks.value.filter { it.id != task.id } + task
-        (changes as kotlinx.coroutines.flow.MutableSharedFlow).tryEmit(task)
-    }
-
-    override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
-        tasks.value = tasks.value.filter { it.id != id }
-    }
-
-    override suspend fun restore(id: TaskId): Result<Unit> = Result.success(Unit)
-    override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatching {
-        val task = tasks.value.find { it.id == id } ?: return@runCatching
-        update(task.copy(
-            completedAt = if (task.completedAt != null) null else kotlin.time.Instant.fromEpochMilliseconds(0)
-        ))
-    }
-
-    override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = Result.success(Unit)
-
-    fun addTask(task: com.singularity.todo.feature.tasks.Task) {
-        tasks.value = tasks.value + task
-    }
-}
-
-// ─── NotesRepository ──────────────────────────────────────────────────────────
-
-class FakeNotesRepository : NotesRepository {
-    private val notes = MutableStateFlow<List<com.singularity.todo.feature.notes.Note>>(emptyList())
-
-    override fun watchNotes(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        notes.map { it.filter { n -> n.userId == userId } }
-
-    override fun watchNote(id: com.singularity.todo.feature.notes.NoteId): Flow<com.singularity.todo.feature.notes.Note?> =
-        notes.map { it.find { n -> n.id == id } }
-
-    override fun searchNotes(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        notes.map { it.filter { n -> n.title.contains(query, ignoreCase = true) } }
-
-    override suspend fun create(note: com.singularity.todo.feature.notes.Note): Result<Unit> = runCatching {
-        notes.value = notes.value + note
-    }
-
-    override suspend fun update(note: com.singularity.todo.feature.notes.Note): Result<Unit> = runCatching {
-        notes.value = notes.value.filter { it.id != note.id } + note
-    }
-
-    override suspend fun softDelete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        notes.value = notes.value.filter { it.id != id }
-    }
-
-    override suspend fun restore(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = Result.success(Unit)
-}
-
-// ─── ProjectsRepository ────────────────────────────────────────────────────────
-
-class FakeProjectsRepository : ProjectsRepository {
-    private val projects = MutableStateFlow<List<com.singularity.todo.feature.projects.Project>>(emptyList())
-
-    override fun watchProjects(userId: String): Flow<List<com.singularity.todo.feature.projects.Project>> =
-        projects.map { it.filter { p -> p.userId == userId } }
-
-    override fun watchProject(id: ProjectId): Flow<com.singularity.todo.feature.projects.Project?> =
-        projects.map { it.find { p -> p.id == id } }
-
-    override suspend fun create(project: com.singularity.todo.feature.projects.Project): Result<Unit> = runCatching {
-        projects.value = projects.value + project
-    }
-
-    override suspend fun update(project: com.singularity.todo.feature.projects.Project): Result<Unit> = runCatching {
-        projects.value = projects.value.filter { it.id != project.id } + project
-    }
-
-    override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
-        projects.value = projects.value.filter { it.id != id }
-    }
-}
-
-// ─── TagsRepository ───────────────────────────────────────────────────────────
-
-class FakeTagsRepository : TagsRepository {
-    private val tags = MutableStateFlow<List<com.singularity.todo.feature.tags.Tag>>(emptyList())
-
-    override fun watchTags(userId: String): Flow<List<com.singularity.todo.feature.tags.Tag>> =
-        tags.map { it.filter { t -> t.userId == userId } }
-
-    override fun watchTag(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
-        tags.map { it.find { t -> t.id == id } }
-
-    override suspend fun create(tag: com.singularity.todo.feature.tags.Tag): Result<Unit> = runCatching {
-        tags.value = tags.value + tag
-    }
-
-    override suspend fun update(tag: com.singularity.todo.feature.tags.Tag): Result<Unit> = runCatching {
-        tags.value = tags.value.filter { it.id != tag.id } + tag
-    }
-
-    override suspend fun delete(id: TagId): Result<Unit> = runCatching {
-        tags.value = tags.value.filter { it.id != id }
-    }
-}
-
-// ─── AttachmentRepository ─────────────────────────────────────────────────────
-
-class FakeAttachmentRepository : AttachmentRepository {
-    private val attachments = MutableStateFlow<List<com.singularity.todo.core.attachments.Attachment>>(emptyList())
-
-    override fun watchByTask(
-        taskId: TaskId,
-        userId: UserId
-    ): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
-        attachments.map { it.filter { a -> a.taskId == taskId && a.userId == userId } }
-
-    override suspend fun create(attachment: com.singularity.todo.core.attachments.Attachment): Result<Unit> =
-        runCatching { attachments.value = attachments.value + attachment }
-
-    override suspend fun delete(id: AttachmentId): Result<Unit> = runCatching {
-        attachments.value = attachments.value.filter { it.id != id }
-    }
-
-    override suspend fun saveFileAttachment(
-        taskId: TaskId, userId: UserId, sourcePath: String, mimeType: String?
-    ): Result<com.singularity.todo.core.attachments.Attachment> = Result.failure(NotImplementedError())
-
-    override suspend fun addUrlAttachment(
-        taskId: TaskId, userId: UserId, url: String, title: String?
-    ): Result<com.singularity.todo.core.attachments.Attachment> = Result.failure(NotImplementedError())
-}
-
 // ─── BackupRepository ─────────────────────────────────────────────────────────
 
 class FakeBackupRepository : BackupRepository {
@@ -289,7 +126,7 @@ class FakeBackupRepository : BackupRepository {
     override suspend fun pull(remoteRef: String, destPath: String): Result<Unit> = Result.failure(NotImplementedError())
 
     fun addBackup(backup: BackupMetadata) {
-        _backups.value = _backups.value + backup
+        _backups.value += backup
     }
 }
 

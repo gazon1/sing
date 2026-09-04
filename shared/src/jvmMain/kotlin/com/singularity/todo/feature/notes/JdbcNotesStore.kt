@@ -13,7 +13,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * Production [NotesStore] for JVM desktop using raw JDBC.
  *
  * No Room annotation processing required on JVM — all queries are raw SQL.
- * Uses [Clock] for timestamps and [PlatformContext]-derived path for the DB file.
+ * Uses [Clock] for timestamps and stores DB in ~/.singularity-todo/.
  *
  * Key design decisions:
  * - [watchAll] and [watch] use a polling [callbackFlow] (500 ms interval).

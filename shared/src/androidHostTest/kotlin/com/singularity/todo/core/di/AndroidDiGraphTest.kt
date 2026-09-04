@@ -28,6 +28,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])  // Robolectric 4.16 maxSdkVersion=36; app targetSdkVersion=37
 class AndroidDiGraphTest {
 
+    @Suppress("DEPRECATION")
     @Test
     fun `android graph verifies on Robolectric`() {
         val context = ApplicationProvider.getApplicationContext<Context>()

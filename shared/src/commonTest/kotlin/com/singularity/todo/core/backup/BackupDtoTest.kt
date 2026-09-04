@@ -95,7 +95,7 @@ class BackupDtoTest {
             id = "proj-1",
             userId = "user-1",
             name = "My Project",
-            color = 0xFF5500.toInt(),
+            color = 0xFF5500,
             icon = "📁",
             description = "A project",
             createdAt = now,

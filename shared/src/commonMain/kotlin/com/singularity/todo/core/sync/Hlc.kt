@@ -43,11 +43,12 @@ value class Hlc(val encoded: String) : Comparable<Hlc> {
         fun tock(local: Hlc, remote: Hlc, node: String, nowMillis: Long): Hlc {
             val maxPhysical = max(max(local.physical, remote.physical), nowMillis)
 
-            val counter = when {
-                maxPhysical == local.physical && maxPhysical == remote.physical ->
+            val counter = when (maxPhysical) {
+                local.physical if maxPhysical == remote.physical ->
                     max(local.counter, remote.counter) + 1
-                maxPhysical == local.physical -> local.counter + 1
-                maxPhysical == remote.physical -> remote.counter + 1
+
+                local.physical -> local.counter + 1
+                remote.physical -> remote.counter + 1
                 else -> 0
             }
 
