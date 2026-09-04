@@ -29,7 +29,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.feature.tasks.TaskCard
+import com.singularity.todo.feature.tasks.components.TaskCard
+import com.singularity.todo.feature.tasks.components.TaskCardActions
 import kotlinx.coroutines.flow.first
 import org.koin.compose.koinInject
 
@@ -80,9 +81,7 @@ fun SearchScreen(
                             TaskCard(
                                 task = task,
                                 onClick = { /* TODO */ },
-                                onToggle = { /* TODO */ },
-                                onDelete = { /* TODO */ },
-                                onAiClick = { }
+                                actions = TaskCardActions.Empty,
                             )
                         }
                     }

@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,6 +42,9 @@ sealed interface AiActionResult {
     data class Error(val message: String) : AiActionResult
 }
 
+/** Stable, value-classified set of actions a user can trigger from the AI sheet. */
+enum class TaskAiAction { RefineTitle, GenerateDescription, GenerateChecklist, Decompose, SuggestTime }
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class TasksViewModel(
     private val taskRepo: TaskRepository,
@@ -63,6 +68,9 @@ class TasksViewModel(
     private val _aiResult = MutableSharedFlow<AiActionResult>()
     val aiResult = _aiResult.asSharedFlow()
 
+    private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<UiEvent> = _events.asSharedFlow()
+
     val state: StateFlow<TasksUiState> = combine(_filter, userId) { f, uid -> f to uid }
         .flatMapLatest { (filter, uid) -> taskRepo.watchTasks(uid, filter) }
         .map { tasks ->
@@ -84,38 +92,28 @@ class TasksViewModel(
         taskRepo.toggleComplete(id)
     }
 
-    fun refineTaskTitle(task: Task) = viewModelScope.launch {
-        refineTask?.invoke(task.title, task.description)
-            ?.onSuccess { _aiResult.emit(AiActionResult.RefineTitle(it)) }
-            ?.onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
-            ?: _aiResult.emit(AiActionResult.Error("AI not available"))
+    /**
+     * Single entry point the UI calls after the user picks an AI action from
+     * the bottom sheet. Dispatches to the matching use case (or emits a friendly
+     * "AI not available" event when the platform doesn't ship the AI stack).
+     */
+    fun runAiAction(task: Task, action: TaskAiAction) = viewModelScope.launch {
+        val result: AiActionResult = when (action) {
+            TaskAiAction.RefineTitle -> refineTask?.invoke(task.title, task.description)?.toResult(AiActionResult::RefineTitle)
+                ?: AiActionResult.Error("AI not available")
+            TaskAiAction.GenerateDescription -> generateDescription?.invoke(task.title)?.toResult(AiActionResult::GenerateDescription)
+                ?: AiActionResult.Error("AI not available")
+            TaskAiAction.GenerateChecklist -> generateChecklist?.invoke(task.title, task.description)?.toResult(AiActionResult::GenerateChecklist)
+                ?: AiActionResult.Error("AI not available")
+            TaskAiAction.Decompose -> decomposeTask?.invoke(task.title, task.description)?.toResult(AiActionResult::DecomposeTask)
+                ?: AiActionResult.Error("AI not available")
+            TaskAiAction.SuggestTime -> pickTime?.invoke(task.title, task.description)?.toResult(AiActionResult::PickTime)
+                ?: AiActionResult.Error("AI not available")
+        }
+        _aiResult.emit(result)
+        _events.emit(UiEvent.ShowDialog(title = "AI Result", text = formatAiResult(result)))
     }
 
-    fun generateTaskDescription(task: Task) = viewModelScope.launch {
-        generateDescription?.invoke(task.title)
-            ?.onSuccess { _aiResult.emit(AiActionResult.GenerateDescription(it)) }
-            ?.onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
-            ?: _aiResult.emit(AiActionResult.Error("AI not available"))
-    }
-
-    fun generateChecklist(task: Task) = viewModelScope.launch {
-        generateChecklist?.invoke(task.title, task.description)
-            ?.onSuccess { _aiResult.emit(AiActionResult.GenerateChecklist(it)) }
-            ?.onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
-            ?: _aiResult.emit(AiActionResult.Error("AI not available"))
-    }
-
-    fun decomposeTask(task: Task) = viewModelScope.launch {
-        decomposeTask?.invoke(task.title, task.description)
-            ?.onSuccess { _aiResult.emit(AiActionResult.DecomposeTask(it)) }
-            ?.onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
-            ?: _aiResult.emit(AiActionResult.Error("AI not available"))
-    }
-
-    fun suggestTime(task: Task) = viewModelScope.launch {
-        pickTime?.invoke(task.title, task.description)
-            ?.onSuccess { _aiResult.emit(AiActionResult.PickTime(it)) }
-            ?.onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
-            ?: _aiResult.emit(AiActionResult.Error("AI not available"))
-    }
+    private fun <T> Result<T>.toResult(ok: (T) -> AiActionResult): AiActionResult =
+        fold(onSuccess = ok, onFailure = { AiActionResult.Error(it.message ?: "Failed") })
 }

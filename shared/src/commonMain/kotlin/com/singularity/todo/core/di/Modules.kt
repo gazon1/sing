@@ -170,6 +170,8 @@ fun coreDomainModule(): Module = module {
 
     factory { NotesViewModel(get(), get(), get()) }
 
+    // ChatViewModel requires TextGenPort (AI) — registered in aiToolsModule()
+
     factory {
         AttachmentsViewModel(get(), com.singularity.todo.feature.tasks.UserId.anonymous)
     }

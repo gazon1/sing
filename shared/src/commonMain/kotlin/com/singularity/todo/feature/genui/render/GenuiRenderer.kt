@@ -6,48 +6,45 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.singularity.todo.feature.genui.catalog.NodeRef
 import com.singularity.todo.feature.genui.catalog.UiNode
+import com.singularity.todo.feature.genui.surface.Surface
 import com.singularity.todo.feature.genui.surface.SurfaceId
 
 /**
  * Renders a GenUI surface inside a Compose UI.
  *
- * Collects the surface state from [controller] and dispatches to [registry]
- * for each [UiNode].
+ * Collects the surface state once and dispatches to [ComponentRegistry] for the
+ * root node. The registry is reached through [DataContext.registry], so this
+ * function intentionally does not take a separate [ComponentRegistry] parameter.
  *
  * Usage:
  * ```
- * val registry = remember { ComponentRegistry().also { Material3Catalog.install(it) } }
  * val ctx = rememberDataContext(surfaceId, controller)
- * GenuiRenderer(surfaceId, registry, ctx)
+ * GenuiRenderer(surfaceId, ctx)
  * ```
  */
 @Composable
 fun GenuiRenderer(
     surfaceId: SurfaceId,
-    registry: ComponentRegistry,
     ctx: DataContext,
     modifier: Modifier = Modifier,
 ) {
-    val surface by ctx.surfaces.collectAsState()
-    val s = surface[surfaceId] ?: return
-
-    RecursiveRenderer(
-        nodeRef = s.rootId,
-        components = s.components,
-        registry = registry,
-        ctx = ctx,
-        modifier = modifier,
-    )
+    val surfaces by ctx.surfaces.collectAsState()
+    val surface = surfaces[surfaceId] ?: return
+    RenderNode(nodeRef = surface.rootId, surface = surface, ctx = ctx, modifier = modifier)
 }
 
+/**
+ * Recursive dispatcher. Looks up [nodeRef] inside [surface] and asks the
+ * registry to render it. Registry is read from [ctx.registry] — no need to
+ * pass it explicitly.
+ */
 @Composable
-private fun RecursiveRenderer(
+private fun RenderNode(
     nodeRef: NodeRef,
-    components: Map<String, UiNode>,
-    registry: ComponentRegistry,
+    surface: Surface,
     ctx: DataContext,
     modifier: Modifier = Modifier,
 ) {
-    val node = components[nodeRef.id] ?: return
-    registry.render(node, ctx)
+    val node = surface.components[nodeRef.id] ?: return
+    ctx.registry.render(node, ctx, modifier)
 }

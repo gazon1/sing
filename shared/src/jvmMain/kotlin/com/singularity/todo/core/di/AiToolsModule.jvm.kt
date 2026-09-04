@@ -158,6 +158,8 @@ actual fun aiToolsModule() = module {
     // AI Service
     single<TextGenPort> { KoogAgentService(get(), get(), get(), get(), get()) }
 
+    factory { com.singularity.todo.feature.ai.chat.ChatViewModel(get()) }
+
     // Koog PromptExecutor singleton (JVM only — Android uses StubPromptExecutorPort)
     single<ai.koog.prompt.executor.model.PromptExecutor> {
         (get<PromptExecutorPort>() as JvmPromptExecutorPort).executor
