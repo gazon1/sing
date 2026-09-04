@@ -57,7 +57,7 @@ fun BackupScreen(
 
     LaunchedEffect(state.showError, state.error) {
         if (state.showError && state.error != null) {
-            snackbarHostState.showSnackbar(state.error!!)
+            snackbarHostState.showSnackbar(state.error)
             onClearError()
         }
     }

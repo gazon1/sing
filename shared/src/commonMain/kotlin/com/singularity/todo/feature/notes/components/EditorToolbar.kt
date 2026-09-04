@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
@@ -76,7 +77,7 @@ private val buttons = listOf(
     ToolbarButton(EditorAction.Underline, Icons.Filled.FormatUnderlined, "Underline"),
     ToolbarButton(EditorAction.Strike, Icons.Filled.FormatStrikethrough, "Strike"),
     ToolbarButton(EditorAction.H1, Icons.Filled.Title, "Heading 1"),
-    ToolbarButton(EditorAction.Bullet, Icons.Filled.FormatListBulleted, "Bullet list"),
+    ToolbarButton(EditorAction.Bullet, Icons.AutoMirrored.Filled.FormatListBulleted, "Bullet list"),
     ToolbarButton(EditorAction.Ordered, Icons.Filled.FormatListNumbered, "Numbered list"),
     ToolbarButton(EditorAction.Code, Icons.Filled.Code, "Code"),
 )

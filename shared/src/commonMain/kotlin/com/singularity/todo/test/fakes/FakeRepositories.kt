@@ -89,25 +89,25 @@ class FakeSettingsRepository(
     override val userId: Flow<String> = _userId
 
     override suspend fun setDarkTheme(value: Boolean) { _darkTheme.value = value }
-    override suspend fun setAccentColor(v: String) { _accentColor.value = v }
-    override suspend fun setFontSizeScale(v: Float) { _fontSizeScale.value = v }
-    override suspend fun setAiApiKey(v: String) { _aiApiKey.value = v }
-    override suspend fun setAiProvider(v: String) { _aiProvider.value = v }
-    override suspend fun setAiModel(v: String) { _aiModel.value = v }
-    override suspend fun setAiBaseUrl(v: String) { _aiBaseUrl.value = v }
-    override suspend fun setNotificationsEnabled(v: Boolean) { _notificationsEnabled.value = v }
-    override suspend fun setNotificationSound(v: Boolean) { _notificationSound.value = v }
-    override suspend fun setNotificationVibration(v: Boolean) { _notificationVibration.value = v }
-    override suspend fun setReminderDefault(v: com.singularity.todo.feature.settings.ReminderOffset) { _reminderDefault.value = v }
-    override suspend fun setWorkDayStartMinutes(v: Int) { _workDayStartMinutes.value = v }
-    override suspend fun setWorkDayEndMinutes(v: Int) { _workDayEndMinutes.value = v }
-    override suspend fun setWorkLunchStartMinutes(v: Int) { _workLunchStartMinutes.value = v }
-    override suspend fun setWorkLunchEndMinutes(v: Int) { _workLunchEndMinutes.value = v }
-    override suspend fun setWorkWeekendSat(v: Boolean) { _workWeekendSat.value = v }
-    override suspend fun setWorkWeekendSun(v: Boolean) { _workWeekendSun.value = v }
-    override suspend fun setGreetingMorningEnd(v: Int) { _greetingMorningEnd.value = v }
-    override suspend fun setGreetingAfternoonEnd(v: Int) { _greetingAfternoonEnd.value = v }
-    override suspend fun setUserId(v: String) { _userId.value = v }
+    override suspend fun setAccentColor(value: String) { _accentColor.value = value }
+    override suspend fun setFontSizeScale(value: Float) { _fontSizeScale.value = value }
+    override suspend fun setAiApiKey(value: String) { _aiApiKey.value = value }
+    override suspend fun setAiProvider(value: String) { _aiProvider.value = value }
+    override suspend fun setAiModel(value: String) { _aiModel.value = value }
+    override suspend fun setAiBaseUrl(value: String) { _aiBaseUrl.value = value }
+    override suspend fun setNotificationsEnabled(value: Boolean) { _notificationsEnabled.value = value }
+    override suspend fun setNotificationSound(value: Boolean) { _notificationSound.value = value }
+    override suspend fun setNotificationVibration(value: Boolean) { _notificationVibration.value = value }
+    override suspend fun setReminderDefault(value: com.singularity.todo.feature.settings.ReminderOffset) { _reminderDefault.value = value }
+    override suspend fun setWorkDayStartMinutes(value: Int) { _workDayStartMinutes.value = value }
+    override suspend fun setWorkDayEndMinutes(value: Int) { _workDayEndMinutes.value = value }
+    override suspend fun setWorkLunchStartMinutes(value: Int) { _workLunchStartMinutes.value = value }
+    override suspend fun setWorkLunchEndMinutes(value: Int) { _workLunchEndMinutes.value = value }
+    override suspend fun setWorkWeekendSat(value: Boolean) { _workWeekendSat.value = value }
+    override suspend fun setWorkWeekendSun(value: Boolean) { _workWeekendSun.value = value }
+    override suspend fun setGreetingMorningEnd(hour: Int) { _greetingMorningEnd.value = hour }
+    override suspend fun setGreetingAfternoonEnd(hour: Int) { _greetingAfternoonEnd.value = hour }
+    override suspend fun setUserId(value: String) { _userId.value = value }
 }
 
 // ─── BackupRepository ─────────────────────────────────────────────────────────

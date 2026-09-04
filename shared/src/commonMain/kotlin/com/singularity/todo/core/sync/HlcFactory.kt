@@ -5,6 +5,7 @@ import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -32,6 +33,7 @@ class HlcFactory(
     private var _lastHlc: Hlc = Hlc.zero("pending")
 
     /** Creates a new tick HLC for a local event. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun tick(): Hlc {
         val node = nodeIdDeferred.getCompleted()
         val newHlc = Hlc.tick(last = _lastHlc, node = node, nowMillis = currentTimeMillis())
@@ -40,6 +42,7 @@ class HlcFactory(
     }
 
     /** Merges a received remote HLC with the local state. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun tock(remote: Hlc): Hlc {
         val node = nodeIdDeferred.getCompleted()
         val merged = Hlc.tock(local = _lastHlc, remote = remote, node = node, nowMillis = currentTimeMillis())

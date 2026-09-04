@@ -21,5 +21,5 @@ interface SyncableEntity {
  * Marker interface for repositories that emit change events for sync.
  */
 interface SyncableRepository {
-    val changes: Flow<out SyncableEntity>
+    val changes: Flow<SyncableEntity>
 }
