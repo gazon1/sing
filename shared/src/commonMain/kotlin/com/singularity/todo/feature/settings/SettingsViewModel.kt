@@ -1,11 +1,11 @@
 package com.singularity.todo.feature.settings
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,26 +15,26 @@ import kotlinx.coroutines.launch
 /**
  * Single ViewModel for all settings screens.
  *
- * Uses an internally-owned [CoroutineScope] (not [viewModelScope]) because the
- * flow collectors must outlive transient recompositions — the screen is built
- * 18 individual flows, and re-creating collectors on every config change would
- * tear down the per-flow subscribers.
- *
- * The lifecycle leak risk is bounded: the only thing held is the in-memory
- * StateFlow values; the [SettingsRepository] itself is a singleton.
+ * Subscribes to 18 individual settings flows via [viewModelScope] (cancelled
+ * in [onCleared]). For tests that need a controlled dispatcher, pass an
+ * explicit [scopeOverride] — typically the TestScope from `runTest`.
  */
 class SettingsViewModel(
     private val settings: SettingsRepository,
-    private val secureStorage: SecureStoragePort
+    private val secureStorage: SecureStoragePort,
+    private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<SettingsUiState>(SettingsUiState.Loading)
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
     init {
-        scope.launch {
+        // Dispatchers.Unconfined ensures the initial snapshot + per-flow collectors
+        // start before the first UI subscription — important for tests with
+        // TestScope where the dispatcher's queue is lazy by default.
+        scope.launch(Dispatchers.Unconfined) {
             val initial = SettingsUiState.Content(
                 darkTheme = settings.darkTheme.first(),
                 accentColor = settings.accentColor.first(),
@@ -86,12 +86,12 @@ class SettingsViewModel(
     }
 
     private fun <T> launchFlow(flow: kotlinx.coroutines.flow.Flow<T>, onEach: (T) -> Unit) {
-        scope.launch { flow.collect { onEach(it) } }
+        scope.launch(Dispatchers.Unconfined) { flow.collect { onEach(it) } }
     }
 
     /** Process a settings intent, updating DataStore (or SecureStorage for secrets). */
     fun processIntent(intent: SettingsIntent) {
-        scope.launch {
+        scope.launch(Dispatchers.Unconfined) {
             when (intent) {
                 is SettingsIntent.UpdateDarkTheme -> settings.setDarkTheme(intent.value)
                 is SettingsIntent.UpdateAccentColor -> settings.setAccentColor(intent.value)
