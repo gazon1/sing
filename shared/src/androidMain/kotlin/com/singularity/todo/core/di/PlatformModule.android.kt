@@ -63,4 +63,10 @@ actual fun platformModule(): Module = module {
     single<FileSystem> { AndroidFileSystem(get()) }
 
     single<BackupCodec> { AndroidBackupCodec() }
+
+    // NotesStore: Room-backed on Android (separate from NotesRepository
+    // because NotesViewModel directly injects NotesStore for editor operations).
+    single<com.singularity.todo.feature.notes.NotesStore> {
+        com.singularity.todo.feature.notes.RoomNotesStore(get(), get())
+    }
 }

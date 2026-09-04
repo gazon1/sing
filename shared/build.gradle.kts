@@ -193,6 +193,15 @@ kotlin {
             implementation(libs.androidx.room3.testing)
             implementation(libs.koin.test)
         }
+
+        getByName("androidHostTest").dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlin.testJunit)
+            implementation(libs.koin.test)
+            implementation(libs.androidx.testExt.junit)
+            implementation(libs.androidx.test.core)
+            implementation(libs.robolectric)
+        }
     }
 }
 

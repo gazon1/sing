@@ -83,7 +83,7 @@ coil = "3.6.1"
 
 # Testing
 junit = "4.13.2"
-robolectric = "4.13"
+robolectric = "4.16"
 
 # Lint
 
@@ -183,7 +183,8 @@ voyager-screenmodel = { module = "cafe.adriel.voyager:voyager-screenmodel", vers
 # Utils
 ulid = { module = "com.github.f4b6a3:ulid-creator", version.ref = "ulid" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
-robolectric = { module = "org.robolectric:android-all", version.ref = "robolectric" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-testExt" }
 
 # FileKit
 filekit-core = { module = "io.github.vinceglb:filekit-core", version.ref = "filekit" }
