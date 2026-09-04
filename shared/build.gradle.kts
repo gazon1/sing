@@ -65,10 +65,11 @@ kotlin {
             implementation(libs.androidx.room3.runtime)
             implementation(libs.androidx.sqlite)
 
-						// Koin
-						implementation(libs.koin.core)
-						implementation(libs.koin.compose)
-						implementation(libs.koin.compose.viewmodel)
+			// Koin
+			implementation(libs.koin.core)
+			implementation(libs.koin.compose)
+			implementation(libs.koin.compose.viewmodel)
+			implementation(libs.koin.annotations.runtime)
 
             // Ktor
             implementation(libs.ktor.client.core)
@@ -190,6 +191,7 @@ kotlin {
         jvmTest.dependencies {
             implementation(libs.sqlite.jdbc)
             implementation(libs.androidx.room3.testing)
+            implementation(libs.koin.test)
         }
     }
 }
@@ -199,6 +201,12 @@ dependencies {
 
     // Room 3 KSP compiler for Android target
     add("kspAndroid", libs.androidx.room3.compiler)
+
+    // Koin Annotations KSP processor — NOTE: koin-ksp-compiler version 2.3.x is
+    // INCOMPATIBLE with koin 4.x (koin-annotations 4.x). Only works with koin 2.x.
+    // Until a compatible version is released, DI validation relies on DiGraphTest.
+    // add("kspJvm", libs.koin.ksp.compiler)
+    // add("kspAndroid", libs.koin.ksp.compiler)
 }
 
 configurations.all {

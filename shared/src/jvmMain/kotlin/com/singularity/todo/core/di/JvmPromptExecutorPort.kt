@@ -12,7 +12,7 @@ import kotlinx.coroutines.runBlocking
  * behind the platform-agnostic [PromptExecutorPort] interface.
  */
 class JvmPromptExecutorPort(
-    private val executor: ai.koog.prompt.executor.model.PromptExecutor,
+    val executor: ai.koog.prompt.executor.model.PromptExecutor,
 ) : PromptExecutorPort {
 
     // PromptExecutor.execute() is a suspend function — call it inside runBlocking
