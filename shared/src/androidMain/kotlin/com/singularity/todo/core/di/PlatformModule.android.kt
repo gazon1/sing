@@ -31,7 +31,11 @@ actual fun platformModule(): Module = module {
     // ─── Room Database ────────────────────────────────────────────────────
 
     single<AppDatabase> {
-        Room.databaseBuilder<AppDatabase>(name = "todo.db")
+        // Room 3 KMP resolves `name` as a relative file path, which on Android
+        // lands in `/` (read-only) and triggers EROFS when it tries to create
+        // `todo.db.lck`. Pass the absolute path under the app's databases dir.
+        val dbPath = get<android.content.Context>().getDatabasePath("todo.db").absolutePath
+        Room.databaseBuilder<AppDatabase>(name = dbPath)
             .setDriver(BundledSQLiteDriver())
             // Dev-only: drop the on-device DB and recreate when schema version changes
             // and no migration is registered. Replace with explicit addMigrations(...)
