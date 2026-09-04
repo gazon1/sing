@@ -32,7 +32,7 @@ class ProjectsViewModel(
     private val createProject: CreateProjectUseCase,
     private val settingsRepository: SettingsRepository,
     private val taskRepository: TaskRepository,
-    private val projectReview: ProjectReviewUseCase
+    private val projectReview: ProjectReviewUseCase? = null
 ) : ViewModel() {
 
     private val userId: Flow<String> = settingsRepository.userId
@@ -57,8 +57,9 @@ class ProjectsViewModel(
     fun reviewProject(project: Project) = viewModelScope.launch {
         val uid = UserId.fromString(userId.first())
         val tasks = taskRepository.watchTasks(uid, TaskFilter.ByProject(project.id)).first()
-        projectReview(project.name, tasks.map { it.title })
-            .onSuccess { _aiResult.emit(it) }
-            .onFailure { _aiResult.emit("Error: ${it.message ?: "Failed"}") }
+        projectReview?.invoke(project.name, tasks.map { it.title })
+            ?.onSuccess { _aiResult.emit(it) }
+            ?.onFailure { _aiResult.emit("Error: ${it.message ?: "Failed"}") }
+            ?: _aiResult.emit("AI not available on Android")
     }
 }

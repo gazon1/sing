@@ -46,11 +46,13 @@ class TasksViewModel(
     private val createTask: CreateTaskUseCase,
     private val updateTask: UpdateTaskUseCase,
     private val settingsRepository: SettingsRepository,
-    private val refineTask: RefineTaskUseCase,
-    private val generateDescription: GenerateDescriptionUseCase,
-    private val generateChecklist: GenerateChecklistUseCase,
-    private val decomposeTask: DecomposeTaskUseCase,
-    private val pickTime: PickTimeUseCase,
+    // AI use cases are optional — Android doesn't ship with Koog/JVM AI stack,
+    // so VMs work with null AI dependencies (AI buttons become no-ops on Android)
+    private val refineTask: RefineTaskUseCase? = null,
+    private val generateDescription: GenerateDescriptionUseCase? = null,
+    private val generateChecklist: GenerateChecklistUseCase? = null,
+    private val decomposeTask: DecomposeTaskUseCase? = null,
+    private val pickTime: PickTimeUseCase? = null,
 ) : ViewModel() {
 
     private val _filter = MutableStateFlow<TaskFilter>(TaskFilter.Today)
@@ -83,32 +85,37 @@ class TasksViewModel(
     }
 
     fun refineTaskTitle(task: Task) = viewModelScope.launch {
-        refineTask(task.title, task.description)
-            .onSuccess { _aiResult.emit(AiActionResult.RefineTitle(it)) }
-            .onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
+        refineTask?.invoke(task.title, task.description)
+            ?.onSuccess { _aiResult.emit(AiActionResult.RefineTitle(it)) }
+            ?.onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
+            ?: _aiResult.emit(AiActionResult.Error("AI not available"))
     }
 
     fun generateTaskDescription(task: Task) = viewModelScope.launch {
-        generateDescription(task.title)
-            .onSuccess { _aiResult.emit(AiActionResult.GenerateDescription(it)) }
-            .onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
+        generateDescription?.invoke(task.title)
+            ?.onSuccess { _aiResult.emit(AiActionResult.GenerateDescription(it)) }
+            ?.onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
+            ?: _aiResult.emit(AiActionResult.Error("AI not available"))
     }
 
     fun generateChecklist(task: Task) = viewModelScope.launch {
-        generateChecklist(task.title, task.description)
-            .onSuccess { _aiResult.emit(AiActionResult.GenerateChecklist(it)) }
-            .onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
+        generateChecklist?.invoke(task.title, task.description)
+            ?.onSuccess { _aiResult.emit(AiActionResult.GenerateChecklist(it)) }
+            ?.onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
+            ?: _aiResult.emit(AiActionResult.Error("AI not available"))
     }
 
     fun decomposeTask(task: Task) = viewModelScope.launch {
-        decomposeTask(task.title, task.description)
-            .onSuccess { _aiResult.emit(AiActionResult.DecomposeTask(it)) }
-            .onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
+        decomposeTask?.invoke(task.title, task.description)
+            ?.onSuccess { _aiResult.emit(AiActionResult.DecomposeTask(it)) }
+            ?.onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
+            ?: _aiResult.emit(AiActionResult.Error("AI not available"))
     }
 
     fun suggestTime(task: Task) = viewModelScope.launch {
-        pickTime(task.title, task.description)
-            .onSuccess { _aiResult.emit(AiActionResult.PickTime(it)) }
-            .onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
+        pickTime?.invoke(task.title, task.description)
+            ?.onSuccess { _aiResult.emit(AiActionResult.PickTime(it)) }
+            ?.onFailure { _aiResult.emit(AiActionResult.Error(it.message ?: "Failed")) }
+            ?: _aiResult.emit(AiActionResult.Error("AI not available"))
     }
 }
