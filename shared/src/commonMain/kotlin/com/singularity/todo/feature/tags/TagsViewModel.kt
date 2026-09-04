@@ -2,9 +2,8 @@ package com.singularity.todo.feature.tags
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.auth.CurrentUser
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -22,14 +21,14 @@ sealed interface TagsUiState {
 
 class TagsViewModel(
     private val tagRepo: TagsRepository,
-    private val settingsRepository: SettingsRepository
+    private val currentUser: CurrentUser
 ) : ViewModel() {
 
-    private val userId: Flow<String> = settingsRepository.userId
+    private val userIdFlow = currentUser.userId
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<TagsUiState> = userId
-        .flatMapLatest { uid -> tagRepo.watchTags(uid) }
+    val state: StateFlow<TagsUiState> = userIdFlow
+        .flatMapLatest { uid -> tagRepo.watchTags(uid.value) }
         .map { tags ->
             if (tags.isEmpty()) TagsUiState.Empty("")
             else TagsUiState.Content(tags)

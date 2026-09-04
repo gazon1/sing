@@ -2,23 +2,21 @@ package com.singularity.todo.feature.pomodoro
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.TaskFilter
 import com.singularity.todo.feature.tasks.TaskRepository
-import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class PomodoroTimer(
     private val repository: PomodoroRepository,
     private val taskRepository: TaskRepository,
-    private val settingsRepository: SettingsRepository,
+    private val currentUser: CurrentUser,
     private val config: PomodoroConfig = PomodoroConfig(),
 ) : ViewModel() {
 
@@ -32,11 +30,7 @@ class PomodoroTimer(
 
     init {
         viewModelScope.launch {
-            val uid = try {
-                UserId.fromString(settingsRepository.userId.first())
-            } catch (_: Exception) {
-                UserId.anonymous
-            }
+            val uid = currentUser.current
             taskRepository.watchTasks(uid, TaskFilter.Inbox).collect { _tasks.value = it }
         }
     }

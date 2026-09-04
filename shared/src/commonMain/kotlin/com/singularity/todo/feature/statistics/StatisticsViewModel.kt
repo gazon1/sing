@@ -2,53 +2,48 @@ package com.singularity.todo.feature.statistics
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.tasks.Task
-import com.singularity.todo.feature.tasks.TaskRepository
 import com.singularity.todo.feature.tasks.TaskFilter
-import com.singularity.todo.feature.tasks.UserId
-import kotlinx.coroutines.flow.MutableStateFlow
+import com.singularity.todo.feature.tasks.TaskRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.ZoneId
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 data class StatisticsUiState(
     val snapshot: StatisticsSnapshot? = null,
     val loading: Boolean = true,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class StatisticsViewModel(
     private val taskRepository: TaskRepository,
+    private val currentUser: CurrentUser,
     private val clock: Clock,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(StatisticsUiState())
-    val state: StateFlow<StatisticsUiState> = _state.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(loading = true)
-            val nowMs = clock.now().toEpochMilliseconds()
-            val allTasks: List<Task> = taskRepository
-                .watchTasks(UserId.anonymous, TaskFilter.All)
-                .first()
-
-            val completed: List<Pair<String, Long>> = allTasks
-                .filter { it.completedAt != null }
-                .map { it.id.value to it.completedAt!!.toEpochMilliseconds() }
-
-            val overdue: List<Pair<String, Long>> = allTasks
-                .filter { it.dueDate != null && it.completedAt == null }
-                .map { task ->
-                    val dueEpoch = task.dueDate!!.toEpochDays() * 86_400_000L
-                    task.id.value to dueEpoch
+    val state: StateFlow<StatisticsUiState> = currentUser.userId
+        .flatMapLatest { uid ->
+            taskRepository.watchTasks(uid, TaskFilter.All)
+                .map { tasks ->
+                    val nowMs = clock.now().toEpochMilliseconds()
+                    val completed = tasks.filter { it.completedAt != null }
+                        .map { it.id.value to it.completedAt!!.toEpochMilliseconds() }
+                    val overdue = tasks.filter { it.dueDate != null && it.completedAt == null }
+                        .map { task ->
+                            val dueEpoch = task.dueDate!!.toEpochDays() * 86_400_000L
+                            task.id.value to dueEpoch
+                        }
+                    StatisticsUiState(
+                        snapshot = computeStatistics(completed, overdue, nowMs, 7),
+                        loading = false,
+                    )
                 }
-
-            val stats = computeStatistics(completed, overdue, nowMs, 7)
-            _state.value = StatisticsUiState(snapshot = stats, loading = false)
         }
-    }
+        .catch { emit(StatisticsUiState(loading = false)) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), StatisticsUiState(loading = true))
 }

@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.notes
 
 import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.test.fakes.FakeAuthRepository
+import com.singularity.todo.test.fakes.FakeCurrentUser
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -27,7 +29,7 @@ class NotesViewModelTest {
     ): NotesViewModel = NotesViewModel(
         store = store,
         htmlPort = htmlPort,
-        settingsRepository = FakeSettingsRepository(testUserId.value),
+        currentUser = FakeCurrentUser(FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId))),
         improveNote = null, // AI not available in tests
         scopeOverride = scope,
     )

@@ -2,7 +2,7 @@ package com.singularity.todo.feature.notes
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.tasks.UserId
@@ -11,7 +11,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -19,8 +18,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -66,13 +65,13 @@ sealed interface NoteAiResult {
 open class NotesViewModel(
     private val store: NotesStore,
     private val htmlPort: MarkdownHtmlPort,
-    settingsRepository: SettingsRepository,
+    currentUser: CurrentUser,
     private val improveNote: ImproveNoteUseCase? = null,
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
-    private val userId: Flow<UserId> = settingsRepository.userId.map { UserId.fromString(it) }
+    private val userId = currentUser.userId
 
     private val _notes = MutableStateFlow<NotesUiState>(NotesUiState.Loading)
     val state: StateFlow<NotesUiState> = _notes.asStateFlow()

@@ -94,6 +94,8 @@ fun coreDomainModule(): Module = module {
         SupabaseAuthRepository(get(), Dispatchers.IO)
     }
 
+    single { com.singularity.todo.core.auth.CurrentUser(get()) }
+
     // ─── Repositories ─────────────────────────────────────────────────────
 
     single<com.singularity.todo.feature.tasks.TaskRepository> {
@@ -137,7 +139,7 @@ fun coreDomainModule(): Module = module {
 
     factory { com.singularity.todo.feature.pomodoro.PomodoroTimer(get(), get(), get()) }
 
-    viewModel { com.singularity.todo.feature.statistics.StatisticsViewModel(get(), get()) }
+    viewModel { com.singularity.todo.feature.statistics.StatisticsViewModel(get(), get(), get()) }
 
     // Platform clock singleton — actual implementation is in androidMain/jvmMain
     single { Clock }
@@ -204,7 +206,7 @@ fun coreDomainModule(): Module = module {
     // ChatViewModel requires TextGenPort (AI) — registered in aiToolsModule()
 
     factory {
-        AttachmentsViewModel(get(), com.singularity.todo.feature.tasks.UserId.anonymous)
+        AttachmentsViewModel(get(), get())
     }
 
     factory { AuthViewModel(get()) }

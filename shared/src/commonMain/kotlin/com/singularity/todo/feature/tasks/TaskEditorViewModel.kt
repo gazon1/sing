@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
@@ -25,7 +25,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -90,7 +89,7 @@ sealed interface TaskEditorIntent {
 class TaskEditorViewModel(
     private val createTask: CreateTaskUseCase,
     private val clock: Clock,
-    private val settingsRepository: com.singularity.todo.core.settings.SettingsRepository,
+    private val currentUser: CurrentUser,
     private val checklistUseCase: com.singularity.todo.feature.checklist.ChecklistUseCase,
     private val reminderRepository: ReminderRepository,
     private val saveAttachment: (taskId: TaskId, path: String, mimeType: String?) -> Unit,
@@ -186,11 +185,7 @@ class TaskEditorViewModel(
         val current = _uiState.value
         if (current.saving) return@launch
 
-        val userId = try {
-            UserId.fromString(settingsRepository.userId.first())
-        } catch (_: Exception) {
-            UserId.anonymous
-        }
+        val userId = currentUser.current
 
         val input = try {
             TasksDomain.createInput(

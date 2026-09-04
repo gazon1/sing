@@ -17,3 +17,5 @@ actual fun todayInSystemZone(): LocalDate {
     val kxInstant = kotlinx.datetime.Instant.fromEpochMilliseconds(nowMs)
     return kxInstant.toLocalDateTime(TimeZone.currentSystemDefault()).date
 }
+
+actual val isDesktop: Boolean = false

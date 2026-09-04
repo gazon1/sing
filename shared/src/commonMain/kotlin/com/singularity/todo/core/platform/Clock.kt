@@ -7,3 +7,5 @@ expect object Clock {
 }
 
 expect fun todayInSystemZone(): kotlinx.datetime.LocalDate
+
+expect val isDesktop: Boolean

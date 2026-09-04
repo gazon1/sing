@@ -3,7 +3,9 @@ package com.singularity.todo.feature.tasks
 import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.settings.ReminderOffset
+import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
+import com.singularity.todo.test.fakes.FakeCurrentUser
 import com.singularity.todo.test.fakes.FakeReminderRepository
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
@@ -27,7 +29,7 @@ class TaskEditorViewModelTest {
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeChecklistRepo = FakeChecklistRepository()
     private val fakeReminderRepo = FakeReminderRepository()
-    private val fakeSettings = FakeSettingsRepository(testUserId.value)
+    private val fakeCurrentUser = FakeCurrentUser(FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)))
 
     private val savedAttachments = mutableListOf<Triple<String, String, String?>>() // taskId, path, mime
 
@@ -38,7 +40,7 @@ class TaskEditorViewModelTest {
         return TaskEditorViewModel(
             createTask = CreateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
             clock = com.singularity.todo.core.platform.Clock,
-            settingsRepository = fakeSettings,
+            currentUser = fakeCurrentUser,
             checklistUseCase = ChecklistUseCase(fakeChecklistRepo, com.singularity.todo.core.platform.Clock),
             reminderRepository = fakeReminderRepo,
             saveAttachment = { taskId, path, mime ->

@@ -2,7 +2,7 @@ package com.singularity.todo.feature.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
@@ -11,7 +11,6 @@ import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -56,7 +55,7 @@ class TasksViewModel(
     private val taskRepo: TaskRepository,
     private val createTask: CreateTaskUseCase,
     private val updateTask: UpdateTaskUseCase,
-    private val settingsRepository: SettingsRepository,
+    private val currentUser: CurrentUser,
     // AI use cases are optional — Android doesn't ship with Koog/JVM AI stack,
     // so VMs work with null AI dependencies (AI buttons become no-ops on Android)
     private val refineTask: RefineTaskUseCase? = null,
@@ -72,8 +71,6 @@ class TasksViewModel(
     private val _filter = MutableStateFlow<TaskFilter>(TaskFilter.Today)
     val filter: StateFlow<TaskFilter> = _filter.asStateFlow()
 
-    private val userId: Flow<UserId> = settingsRepository.userId.map { UserId.fromString(it) }
-
     private val _aiResult = MutableSharedFlow<AiActionResult>()
     val aiResult = _aiResult.asSharedFlow()
 
@@ -83,7 +80,7 @@ class TasksViewModel(
     private val _selectedIds = MutableStateFlow<Set<TaskId>>(emptySet())
     val selectedIds: StateFlow<Set<TaskId>> = _selectedIds.asStateFlow()
 
-    val state: StateFlow<TasksUiState> = combine(_filter, userId) { f, uid -> f to uid }
+    val state: StateFlow<TasksUiState> = combine(_filter, currentUser.userId) { f, uid -> f to uid }
         .flatMapLatest { (filter, uid) -> taskRepo.watchTasks(uid, filter) }
         .map { tasks ->
             if (tasks.isEmpty()) TasksUiState.Empty(_filter.value)

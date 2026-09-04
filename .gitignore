@@ -79,3 +79,4 @@ out/
 # Maven / Ivy (if used)
 target/
 .zcode/plans
+/.tmp-screens/

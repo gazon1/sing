@@ -2,18 +2,15 @@ package com.singularity.todo.feature.projects
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.ui.components.UiEvent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -42,7 +39,7 @@ sealed interface ProjectEditorIntent {
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProjectEditorViewModel(
     private val createProject: CreateProjectUseCase,
-    private val settingsRepository: SettingsRepository,
+    private val currentUser: CurrentUser,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProjectEditorUiState())
@@ -75,7 +72,7 @@ class ProjectEditorViewModel(
 
         _state.value = current.copy(saving = true, errorMessage = null)
         viewModelScope.launch {
-            val userId = settingsRepository.userId.first()
+            val userId = currentUser.current.value
             val input = CreateProjectInput(
                 name = current.name.trim(),
                 color = current.color,

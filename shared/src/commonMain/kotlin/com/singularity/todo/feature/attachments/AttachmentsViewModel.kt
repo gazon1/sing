@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentRepository
+import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,11 +21,13 @@ data class AttachmentsUiState(
 
 class AttachmentsViewModel(
     private val repository: AttachmentRepository,
-    private val currentUserId: UserId
+    private val currentUser: CurrentUser,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AttachmentsUiState())
     val state: StateFlow<AttachmentsUiState> = _state.asStateFlow()
+
+    private val currentUserId get() = currentUser.current
 
     fun watchAttachments(taskId: TaskId) {
         viewModelScope.launch {

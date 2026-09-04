@@ -2,14 +2,12 @@ package com.singularity.todo.feature.projects
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.tasks.TaskFilter
 import com.singularity.todo.feature.tasks.TaskRepository
-import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,16 +30,16 @@ sealed interface ProjectsUiState {
 class ProjectsViewModel(
     private val projectRepo: ProjectsRepository,
     private val createProject: CreateProjectUseCase,
-    private val settingsRepository: SettingsRepository,
+    private val currentUser: CurrentUser,
     private val taskRepository: TaskRepository,
     private val projectReview: ProjectReviewUseCase? = null
 ) : ViewModel() {
 
-    private val userId: Flow<String> = settingsRepository.userId
+    private val userIdFlow = currentUser.userId
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<ProjectsUiState> = userId
-        .flatMapLatest { uid -> projectRepo.watchProjects(uid) }
+    val state: StateFlow<ProjectsUiState> = userIdFlow
+        .flatMapLatest { uid -> projectRepo.watchProjects(uid.value) }
         .map { projects ->
             if (projects.isEmpty()) ProjectsUiState.Empty("")
             else ProjectsUiState.Content(projects)
@@ -60,7 +58,7 @@ class ProjectsViewModel(
     }
 
     fun reviewProject(project: Project) = viewModelScope.launch {
-        val uid = UserId.fromString(userId.first())
+        val uid = currentUser.current
         val tasks = taskRepository.watchTasks(uid, TaskFilter.ByProject(project.id)).first()
         val result = projectReview?.invoke(project.name, tasks.map { it.title })
             ?.fold(onSuccess = { it }, onFailure = { "Error: ${it.message ?: "Failed"}" })

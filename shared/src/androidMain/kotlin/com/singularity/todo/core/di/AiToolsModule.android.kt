@@ -32,7 +32,7 @@ actual fun aiToolsModule() = module {
             taskRepo = get(),
             createTask = get(),
             updateTask = get(),
-            settingsRepository = get(),
+            currentUser = get(),
             refineTask = null,
             generateDescription = null,
             generateChecklist = null,
@@ -44,7 +44,7 @@ actual fun aiToolsModule() = module {
         ProjectsViewModel(
             projectRepo = get(),
             createProject = get(),
-            settingsRepository = get(),
+            currentUser = get(),
             taskRepository = get(),
             projectReview = null,
         )
