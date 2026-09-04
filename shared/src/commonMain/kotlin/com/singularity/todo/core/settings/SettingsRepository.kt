@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.map
  * Creates a typed preferences key with a name and a default value.
  * Usage: `val key = keyOf("dark_theme", false)` → Preferences.Key<Boolean>
  */
+@Suppress("UNCHECKED_CAST") // Safe: type is verified at runtime via `when (T::class)`
 inline fun <reified T> DataStore<Preferences>.keyOf(
     name: String,
     default: T

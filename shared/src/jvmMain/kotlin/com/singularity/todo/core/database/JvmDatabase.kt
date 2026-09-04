@@ -19,7 +19,7 @@ class JvmDatabase private constructor(private val dbPath: String) {
     private var _connection: Connection? = null
 
     init {
-        DriverManager.getConnection("jdbc:sqlite:$dbPath").use { conn ->
+        DriverManager.getConnection("JDBC:sqlite:$dbPath").use { conn ->
             createTables(conn)
         }
     }
@@ -102,7 +102,7 @@ class JvmDatabase private constructor(private val dbPath: String) {
     }
 
     private val conn: Connection
-        get() = _connection ?: DriverManager.getConnection("jdbc:sqlite:$dbPath").also { _connection = it }
+        get() = _connection ?: DriverManager.getConnection("JDBC:sqlite:$dbPath").also { _connection = it }
 
     // In-memory state flows
     private val _taskFlow = MutableStateFlow<List<TaskEntity>>(emptyList())
@@ -143,7 +143,7 @@ private class JvmTaskDao(
     override fun watchTrash(userId: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.archivedAt != null && it.userId == userId } }
     override fun watchSomeday(userId: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.someday && it.userId == userId && it.archivedAt == null } }
     override fun watchByDate(userId: String, date: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.dueDate == date && it.userId == userId && it.archivedAt == null } }
-    override fun watchUpcoming(userId: String, today: String, endDate: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.dueDate != null && it.dueDate > today && it.dueDate!! <= endDate && it.userId == userId && it.archivedAt == null } }
+    override fun watchUpcoming(userId: String, today: String, endDate: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.dueDate != null && it.dueDate > today && it.dueDate <= endDate && it.userId == userId && it.archivedAt == null } }
     override fun watchByProject(userId: String, projectId: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.projectId == projectId && it.userId == userId && it.archivedAt == null } }
     override fun search(q: String): Flow<List<TaskEntity>> = taskFlow.map { list -> list.filter { it.title.contains(q, ignoreCase = true) || (it.description?.contains(q, ignoreCase = true) == true) } }
     override suspend fun upsert(task: TaskEntity) { }

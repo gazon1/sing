@@ -25,6 +25,8 @@ kotlin {
             freeCompilerArgs.add("-Xskip-metadata-version-check")
             freeCompilerArgs.add("-Xbinary=allow-kotlin-metadata-version-mismatch=true")
             freeCompilerArgs.add("-Xopt-in=kotlin.time.ExperimentalTime")
+            // Suppress warning: expect/actual classes are in Beta
+            freeCompilerArgs.add("-Xexpect-actual-classes")
         }
         androidResources {
             enable = true
