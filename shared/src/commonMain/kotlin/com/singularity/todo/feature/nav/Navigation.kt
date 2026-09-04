@@ -21,6 +21,8 @@ import com.singularity.todo.feature.statistics.StatisticsScreen
 import com.singularity.todo.feature.tasks.TaskEditorScreen
 import com.singularity.todo.feature.tasks.TasksScreen
 import com.singularity.todo.feature.tasks.TasksScreenEntry
+import com.singularity.todo.feature.tasks.TaskDetailScreen
+import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.core.platform.isDesktop
 import com.singularity.todo.core.platform.todayInSystemZone
 import org.koin.compose.koinInject
@@ -56,20 +58,26 @@ private fun drawerStyleForPlatform(): DrawerStyle =
 
 @Composable
 private fun TasksSection(entry: TasksScreenEntry) {
+    var editingTaskId by remember { mutableStateOf<String?>(null) }
     var isCreatingTask by remember { mutableStateOf(false) }
 
-    if (isCreatingTask) {
-        val initialDueDate: kotlinx.datetime.LocalDate? = when (entry) {
-            TasksScreenEntry.FromToday -> todayInSystemZone()
-            TasksScreenEntry.FromInbox -> null
-        }
-        TaskEditorScreen(
-            initialDueDate = initialDueDate,
-            onBack = { isCreatingTask = false },
+    when {
+        editingTaskId != null -> TaskDetailScreen(
+            taskId = TaskId.fromString(editingTaskId!!),
+            onBack = { editingTaskId = null },
         )
-    } else {
-        TasksScreen(
-            onNavigateToTask = { /* TODO: task detail screen */ },
+        isCreatingTask -> {
+            val initialDueDate: kotlinx.datetime.LocalDate? = when (entry) {
+                TasksScreenEntry.FromToday -> todayInSystemZone()
+                TasksScreenEntry.FromInbox -> null
+            }
+            TaskEditorScreen(
+                initialDueDate = initialDueDate,
+                onBack = { isCreatingTask = false },
+            )
+        }
+        else -> TasksScreen(
+            onNavigateToTask = { id -> editingTaskId = id },
             onNavigateToCreateTask = { isCreatingTask = true },
         )
     }
