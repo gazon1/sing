@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -27,6 +26,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.feature.settings.screens.AccountSettingsScreen
 import com.singularity.todo.feature.settings.screens.AiProviderSettingsScreen
 import com.singularity.todo.feature.settings.screens.AppearanceSettingsScreen
@@ -43,63 +44,58 @@ private enum class SettingsTab(val label: String) {
 }
 
 @Composable
-fun SettingsScreen(
-    modifier: Modifier = Modifier,
-) {
+fun SettingsScreen(modifier: Modifier = Modifier) {
     val viewModel: SettingsViewModel = koinInject()
     val uiState by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableStateOf(SettingsTab.Appearance) }
 
     when (val state = uiState) {
-        is SettingsUiState.Loading -> {
-            Box(modifier = modifier.fillMaxSize()) {
-                Text("Loading...", modifier = Modifier.padding(16.dp))
-            }
-        }
-        is SettingsUiState.Error -> {
-            Box(modifier = modifier.fillMaxSize()) {
-                Text("Error: ${state.cause}", modifier = Modifier.padding(16.dp))
-            }
-        }
-        is SettingsUiState.Content -> {
-            Row(modifier = modifier.fillMaxSize()) {
-                // Navigation rail on wide screens
-                if (false) { // TODO: use WindowSizeClass
-                    SettingsNavRail(selectedTab, Modifier.fillMaxHeight()) { tab ->
-                        selectedTab = tab
-                    }
-                    VerticalDivider()
-                }
+        is SettingsUiState.Loading -> LoadingIndicator(modifier = modifier)
+        is SettingsUiState.Error -> EmptyState(title = "Error", subtitle = state.cause.toString(), modifier = modifier)
+        is SettingsUiState.Content -> SettingsContent(
+            state = state,
+            selectedTab = selectedTab,
+            onSelectTab = { selectedTab = it },
+            viewModel = viewModel,
+            modifier = modifier,
+        )
+    }
+}
 
-                // Sub-screen content
-                Box(modifier = Modifier.weight(1f)) {
-                    when (selectedTab) {
-                        SettingsTab.Appearance -> AppearanceSettingsScreen(
-                            state = state,
-                            onIntent = viewModel::processIntent,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        SettingsTab.Notifications -> NotificationSettingsScreen(
-                            state = state,
-                            onIntent = viewModel::processIntent,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        SettingsTab.AIProvider -> AiProviderSettingsScreen(
-                            state = state,
-                            onIntent = viewModel::processIntent,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        SettingsTab.WorkSchedule -> WorkScheduleSettingsScreen(
-                            state = state,
-                            onIntent = viewModel::processIntent,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        SettingsTab.Account -> AccountSettingsScreen(
-                            state = state,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
+@Composable
+private fun SettingsContent(
+    state: SettingsUiState.Content,
+    selectedTab: SettingsTab,
+    onSelectTab: (SettingsTab) -> Unit,
+    viewModel: SettingsViewModel,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier = modifier) {
+        // Navigation rail on wide screens (disabled until WindowSizeClass is wired)
+        if (false) {
+            SettingsNavRail(selectedTab, Modifier.fillMaxHeight(), onSelectTab)
+            VerticalDivider()
+        }
+
+        Box(modifier = Modifier.weight(1f)) {
+            when (selectedTab) {
+                SettingsTab.Appearance -> AppearanceSettingsScreen(
+                    state = state,
+                    onIntent = viewModel::processIntent,
+                )
+                SettingsTab.Notifications -> NotificationSettingsScreen(
+                    state = state,
+                    onIntent = viewModel::processIntent,
+                )
+                SettingsTab.AIProvider -> AiProviderSettingsScreen(
+                    state = state,
+                    onIntent = viewModel::processIntent,
+                )
+                SettingsTab.WorkSchedule -> WorkScheduleSettingsScreen(
+                    state = state,
+                    onIntent = viewModel::processIntent,
+                )
+                SettingsTab.Account -> AccountSettingsScreen(state = state)
             }
         }
     }

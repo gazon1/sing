@@ -26,7 +26,7 @@ import com.singularity.todo.feature.notes.EditorState
  * Title field + rich text body editor. State owners are the parent — the body
  * only adapts the rich-text widget to the current [EditorState.Editing] snapshot.
  */
-@OptIn(com.mohamedrejeb.richeditor.ui.material3.ExperimentalRichTextEditorApi::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun EditorBody(
     state: EditorState.Editing,
