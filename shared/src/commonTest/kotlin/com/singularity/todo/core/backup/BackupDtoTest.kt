@@ -3,7 +3,6 @@ package com.singularity.todo.core.backup
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.SyncColumns
-import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TaskEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

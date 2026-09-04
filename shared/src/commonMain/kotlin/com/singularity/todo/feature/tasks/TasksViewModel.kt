@@ -63,7 +63,7 @@ class TasksViewModel(
 
     val state: StateFlow<TasksUiState> = combine(_filter, userId) { f, uid -> f to uid }
         .flatMapLatest { (filter, uid) -> taskRepo.watchTasks(uid, filter) }
-        .map<List<Task>, TasksUiState> { tasks ->
+        .map { tasks ->
             if (tasks.isEmpty()) TasksUiState.Empty(_filter.value)
             else TasksUiState.Content(_filter.value, tasks)
         }

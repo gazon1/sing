@@ -6,11 +6,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.util.UUID
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Result of a push operation.
@@ -33,7 +32,7 @@ data class PullResult(
  * Sync engine — orchestrates push and pull operations.
  *
  * When the user is signed in, it polls push every 30 seconds.
- * The polling job is cancelled automatically when session becomes SignedOut,
+ * The polling job is canceled automatically when session becomes SignedOut,
  * and a new job is started when session becomes SignedIn again.
  */
 class SyncEngine(
@@ -47,15 +46,12 @@ class SyncEngine(
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     private val _status = MutableStateFlow<SyncEngineStatus>(SyncEngineStatus.Idle)
-    val status: StateFlow<SyncEngineStatus> = _status.asStateFlow()
 
     private val _lastPushResult = MutableStateFlow<PushResult?>(null)
-    val lastPushResult: StateFlow<PushResult?> = _lastPushResult.asStateFlow()
 
     private val _lastPullResult = MutableStateFlow<PullResult?>(null)
-    val lastPullResult: StateFlow<PullResult?> = _lastPullResult.asStateFlow()
 
-    // Tracks the current push-loop job — cancelled on SignedOut, restarted on SignedIn
+    // Tracks the current push-loop job — canceled on SignedOut, restarted on SignedIn
     private var pushJob: Job? = null
 
     init {
@@ -72,7 +68,7 @@ class SyncEngine(
                                     } catch (e: Exception) {
                                         _status.value = SyncEngineStatus.Error(e.message ?: "Push failed")
                                     }
-                                    delay(30_000)
+                                    delay(30_000L.milliseconds)
                                 }
                             }
                         }
@@ -123,7 +119,7 @@ class SyncEngine(
             return PushResult(0, 0)
         }
 
-        val patches = pending.mapNotNull { entity ->
+        val patches = pending.map { entity ->
             json.decodeFromString<DeltaPatch>(entity.payload)
         }
 

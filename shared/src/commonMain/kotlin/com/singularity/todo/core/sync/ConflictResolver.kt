@@ -55,7 +55,7 @@ object ConflictResolver {
      */
     fun checksum(state: kotlinx.serialization.json.JsonObject): String {
         val normalized = state.entries.sortedBy { it.key }
-            .joinToString("&") { (k, v) -> "$k=${v.toString()}" }
+            .joinToString("&") { (k, v) -> "$k=$v" }
         return sha256(normalized.toByteArray())
     }
 

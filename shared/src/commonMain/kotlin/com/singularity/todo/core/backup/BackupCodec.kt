@@ -21,5 +21,25 @@ interface BackupCodec {
         val manifestBytes: ByteArray,
         val payloadBytes: ByteArray,
         val attachments: Map<String, ByteArray>
-    )
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as CodecReadResult
+
+            if (!manifestBytes.contentEquals(other.manifestBytes)) return false
+            if (!payloadBytes.contentEquals(other.payloadBytes)) return false
+            if (attachments != other.attachments) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = manifestBytes.contentHashCode()
+            result = 31 * result + payloadBytes.contentHashCode()
+            result = 31 * result + attachments.hashCode()
+            return result
+        }
+    }
 }

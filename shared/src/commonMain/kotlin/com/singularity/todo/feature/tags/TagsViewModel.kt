@@ -30,7 +30,7 @@ class TagsViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     val state: StateFlow<TagsUiState> = userId
         .flatMapLatest { uid -> tagRepo.watchTags(uid) }
-        .map<List<Tag>, TagsUiState> { tags ->
+        .map { tags ->
             if (tags.isEmpty()) TagsUiState.Empty("")
             else TagsUiState.Content(tags)
         }

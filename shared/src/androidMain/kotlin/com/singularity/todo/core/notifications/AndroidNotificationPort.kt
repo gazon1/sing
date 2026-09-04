@@ -94,16 +94,14 @@ class AndroidNotificationPort(private val context: Context) : NotificationPort {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Task Reminders",
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = "Gentle reminders for tasks"
-            }
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Task Reminders",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Gentle reminders for tasks"
         }
+        notificationManager.createNotificationChannel(channel)
     }
 
     companion object {

@@ -7,9 +7,7 @@ import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.tasks.UserId
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.encodeToString
 
 class BackupExporter(
     private val taskDao: TaskDao,

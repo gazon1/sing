@@ -2,12 +2,9 @@ package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.feature.tasks.UserId
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonObject
 
 /**
  * DSL builder for Session in tests.

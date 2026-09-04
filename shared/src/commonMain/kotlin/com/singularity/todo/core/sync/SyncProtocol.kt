@@ -3,7 +3,6 @@ package com.singularity.todo.core.sync
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
 
 /**
  * Batch push request — sent to /sync Edge Function.

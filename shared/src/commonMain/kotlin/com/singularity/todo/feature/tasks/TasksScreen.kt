@@ -118,7 +118,7 @@ fun TasksScreen(
             title = { Text("AI Result") },
             text = { Text(result) },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { aiResultText = null }) {
+                TextButton(onClick = { aiResultText = null }) {
                     Text("OK")
                 }
             }

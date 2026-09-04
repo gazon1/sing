@@ -10,6 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Integration tests for the notes editor flow: create → edit → close → reopen.
@@ -89,7 +90,7 @@ class NotesEditorFlowTest {
         val id = vm.createNote()
         advanceUntilIdle()
         vm.editTitle(id, "My Title")
-        advanceTimeBy(600) // trigger 500ms debounce
+        advanceTimeBy(600.milliseconds) // trigger 500ms debounce
         advanceUntilIdle()
 
         // Close

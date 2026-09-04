@@ -40,7 +40,7 @@ class ProjectsViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     val state: StateFlow<ProjectsUiState> = userId
         .flatMapLatest { uid -> projectRepo.watchProjects(uid) }
-        .map<List<Project>, ProjectsUiState> { projects ->
+        .map { projects ->
             if (projects.isEmpty()) ProjectsUiState.Empty("")
             else ProjectsUiState.Content(projects)
         }

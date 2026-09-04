@@ -3,7 +3,6 @@ package com.singularity.todo.core.backup
 import com.singularity.todo.feature.tasks.UserId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Test
 
 class BackupDomainTest {

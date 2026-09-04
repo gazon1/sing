@@ -110,7 +110,7 @@ class TasksDomainTest {
     // ===== matchesFilter =====
 
     private fun taskWith(
-        dueDate: kotlinx.datetime.LocalDate? = null,
+        dueDate: LocalDate? = null,
         someday: Boolean = false,
         archivedAt: Instant? = null,
         projectId: ProjectId? = null,

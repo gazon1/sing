@@ -42,7 +42,7 @@ class ReminderScheduler(
 
     private suspend fun loop() {
         while (true) {
-            delay(POLL_INTERVAL_MS)
+            delay(POLL_INTERVAL_MS.milliseconds)
             poll()
         }
     }

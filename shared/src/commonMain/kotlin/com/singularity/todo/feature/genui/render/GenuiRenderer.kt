@@ -6,11 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.singularity.todo.feature.genui.catalog.NodeRef
 import com.singularity.todo.feature.genui.catalog.UiNode
-import com.singularity.todo.feature.genui.surface.Surface
-import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.serialization.json.JsonObject
 
 /**
  * Renders a GenUI surface inside a Compose UI.

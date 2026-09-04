@@ -20,9 +20,7 @@ class JvmPromptExecutorPort(
         prompt: ai.koog.prompt.Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>,
-    ): Message.Assistant = runBlocking {
-        executor.execute(prompt, model, tools)
-    }
+    ): Message.Assistant = executor.execute(prompt, model, tools)
 
     override fun executeStreaming(
         prompt: ai.koog.prompt.Prompt,

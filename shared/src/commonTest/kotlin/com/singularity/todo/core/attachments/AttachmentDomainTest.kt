@@ -2,7 +2,6 @@ package com.singularity.todo.core.attachments
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Test
 
 class AttachmentDomainTest {

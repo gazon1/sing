@@ -144,7 +144,7 @@ open class NotesViewModel(
     private fun scheduleAutosave(id: String) {
         autosaveJob?.cancel()
         autosaveJob = viewModelScope.launch {
-            delay(500) // debounce
+            delay(500.milliseconds) // debounce
             val current = _editorState.value as? EditorState.Editing ?: return@launch
             _editorState.value = EditorState.Saving(id)
             try {

@@ -3,7 +3,6 @@ package com.singularity.todo.core.backup
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertTrue
 import org.junit.Test
 

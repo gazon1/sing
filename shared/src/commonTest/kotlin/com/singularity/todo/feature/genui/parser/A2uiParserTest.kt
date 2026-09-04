@@ -2,7 +2,6 @@ package com.singularity.todo.feature.genui.parser
 
 import com.singularity.todo.feature.genui.catalog.NodeRef
 import com.singularity.todo.feature.genui.catalog.UiNode
-import com.singularity.todo.feature.genui.schema.UiPath
 import com.singularity.todo.feature.genui.schema.toPointer
 import com.singularity.todo.feature.genui.surface.SurfaceId
 import kotlinx.serialization.json.jsonPrimitive

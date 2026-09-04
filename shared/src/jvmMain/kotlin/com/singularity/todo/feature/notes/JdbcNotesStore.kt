@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import java.sql.Connection
 import java.sql.DriverManager
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Production [NotesStore] for JVM desktop using raw JDBC.
@@ -104,7 +105,7 @@ class JdbcNotesStore : NotesStore {
                     }
                 }
             }
-            delay(500L)
+            delay(500L.milliseconds)
         }
     }
 
@@ -123,7 +124,7 @@ class JdbcNotesStore : NotesStore {
                     }
                 }
             }
-            delay(500L)
+            delay(500L.milliseconds)
         }
     }
 

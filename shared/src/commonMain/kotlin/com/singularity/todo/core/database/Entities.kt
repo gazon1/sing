@@ -7,7 +7,6 @@ import androidx.room3.Index
 import androidx.room3.PrimaryKey
 import com.singularity.todo.feature.tasks.TaskKind
 import com.singularity.todo.feature.tasks.TaskPriority
-import kotlinx.datetime.Instant
 
 /**
  * Mixin for sync metadata. Room flattens @Embedded columns into the parent table,

@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.notes.NoteId
 import java.util.UUID
 import kotlin.time.Instant
 

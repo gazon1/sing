@@ -30,7 +30,6 @@ import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.tags.TagsRepositoryImpl
 import com.singularity.todo.feature.tags.UpdateTagUseCase
 import com.singularity.todo.feature.tasks.CreateTaskUseCase
-import com.singularity.todo.feature.tasks.SetTagsUseCase
 import com.singularity.todo.feature.tasks.TasksViewModel
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.TaskRepositoryImpl
@@ -93,7 +92,6 @@ import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.SmartRewriteUseCase
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
-import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import ai.koog.agents.core.tools.Tool
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.llm.LLModel

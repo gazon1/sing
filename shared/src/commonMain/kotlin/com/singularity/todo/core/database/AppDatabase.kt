@@ -1,6 +1,5 @@
 package com.singularity.todo.core.database
 
-import androidx.room3.ConstructedBy
 import androidx.room3.Database
 import androidx.room3.RoomDatabase
 import androidx.room3.ColumnTypeConverters
@@ -28,7 +27,6 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
     version = 4,
     exportSchema = true
 )
-@ConstructedBy(AppDatabaseCtor::class)
 @ColumnTypeConverters(AttachmentConverters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao

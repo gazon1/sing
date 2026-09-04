@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.settings
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -10,7 +9,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 

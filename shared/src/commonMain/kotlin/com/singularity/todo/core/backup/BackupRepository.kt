@@ -1,14 +1,14 @@
 package com.singularity.todo.core.backup
 
-import com.singularity.todo.core.files.FileStat
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.UserId
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
-import kotlin.coroutines.coroutineContext
+import kotlin.time.Duration.Companion.milliseconds
 
 interface BackupRepository {
     val backups: Flow<List<BackupMetadata>>
@@ -29,9 +29,9 @@ class BackupRepositoryImpl(
 ) : BackupRepository {
 
     override val backups: Flow<List<BackupMetadata>> = flow {
-        while (coroutineContext.isActive) {
+        while (currentCoroutineContext().isActive) {
             emit(scanBackups())
-            delay(5_000)
+            delay(5_000.milliseconds)
         }
     }
 

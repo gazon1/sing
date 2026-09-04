@@ -1,7 +1,6 @@
 package com.singularity.todo
 
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.window.singleWindowApplication
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule

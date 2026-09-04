@@ -7,7 +7,6 @@ import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
-import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 
 // ─── TaskDto ───────────────────────────────────────────────────────────────────

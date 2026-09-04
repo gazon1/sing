@@ -1,7 +1,6 @@
 package com.singularity.todo.core.files
 
 import java.io.File
-import kotlin.coroutines.cancellation.CancellationException
 
 data class FileStat(
     val path: String,

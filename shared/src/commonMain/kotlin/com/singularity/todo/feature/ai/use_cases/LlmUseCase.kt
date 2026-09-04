@@ -101,7 +101,7 @@ class DecomposeTaskUseCase(tool: DecomposeTaskTool) : LlmUseCase<DecomposeTaskIn
         execute(DecomposeTaskInput(title, description)).map { it.subTasks }
 }
 
-class ImproveNoteUseCase(tool: ai.koog.agents.core.tools.SimpleTool<com.singularity.todo.feature.ai.tools.ImproveNoteInput>) : LlmUseCase<com.singularity.todo.feature.ai.tools.ImproveNoteInput, com.singularity.todo.feature.ai.tools.ImproveNoteOutput>(
+class ImproveNoteUseCase(tool: SimpleTool<com.singularity.todo.feature.ai.tools.ImproveNoteInput>) : LlmUseCase<com.singularity.todo.feature.ai.tools.ImproveNoteInput, com.singularity.todo.feature.ai.tools.ImproveNoteOutput>(
     tool, com.singularity.todo.feature.ai.tools.ImproveNoteOutput.serializer()
 ) {
     suspend operator fun invoke(title: String, body: String): Result<com.singularity.todo.feature.ai.tools.ImproveNoteOutput> =
