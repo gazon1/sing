@@ -316,3 +316,88 @@ class FakeAuthRepository(
 
     override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> = Result.success(Unit)
 }
+
+// ─── NotesRepository ─────────────────────────────────────────────────────────
+
+class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
+    private val store = mutableMapOf<String, com.singularity.todo.feature.notes.Note>()
+    private val _flow = MutableStateFlow<List<com.singularity.todo.feature.notes.Note>>(emptyList())
+
+    fun seed(note: com.singularity.todo.feature.notes.Note) {
+        store[note.id.value] = note
+        emit()
+    }
+
+    private fun emit() {
+        _flow.value = store.values.toList()
+    }
+
+    override fun watchNotes(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        _flow.map { list -> list.filter { it.userId == userId && it.deletedAt == null } }
+
+    override fun watchNote(id: com.singularity.todo.feature.notes.NoteId): Flow<com.singularity.todo.feature.notes.Note?> =
+        _flow.map { list -> list.firstOrNull { it.id == id } }
+
+    override fun searchNotes(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        _flow.map { list ->
+            list.filter { it.userId.value == it.userId.value && it.deletedAt == null && (it.title.contains(query, ignoreCase = true) || (it.bodyMarkdown?.contains(query, ignoreCase = true) == true)) }
+        }
+
+    override suspend fun create(note: com.singularity.todo.feature.notes.Note): Result<Unit> = runCatching {
+        store[note.id.value] = note
+        emit()
+    }
+
+    override suspend fun update(note: com.singularity.todo.feature.notes.Note): Result<Unit> = runCatching {
+        store[note.id.value] = note
+        emit()
+    }
+
+    override suspend fun createWithContent(
+        userId: UserId,
+        id: com.singularity.todo.feature.notes.NoteId,
+        title: String,
+        bodyMarkdown: String,
+    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
+        val now = Clock.now()
+        store[id.value] = com.singularity.todo.feature.notes.Note(
+            id = id,
+            userId = userId,
+            title = title,
+            bodyMarkdown = bodyMarkdown,
+            createdAt = now,
+            updatedAt = now,
+        )
+        emit()
+        id
+    }
+
+    override suspend fun updateContent(
+        id: com.singularity.todo.feature.notes.NoteId,
+        title: String,
+        bodyMarkdown: String,
+    ): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(
+                title = title,
+                bodyMarkdown = bodyMarkdown,
+                updatedAt = Clock.now(),
+            )
+            emit()
+        }
+    }
+
+    override suspend fun softDelete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(deletedAt = Clock.now())
+            emit()
+        }
+    }
+
+    override suspend fun restore(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(deletedAt = null)
+            emit()
+        }
+    }
+}

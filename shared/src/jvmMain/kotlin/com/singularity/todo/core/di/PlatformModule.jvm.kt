@@ -11,8 +11,6 @@ import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
-import com.singularity.todo.feature.notes.NotesStore
-import com.singularity.todo.feature.notes.RoomNotesStore
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -20,8 +18,7 @@ import org.koin.dsl.module
  * JVM/desktop platform bindings — Room 3 (same stack as Android, no extra native deps).
  *
  * Database layout mirrors `PlatformModule.android.kt`: one [AppDatabase] singleton, all
- * DAOs wired through Koin, [NotesStore] resolved to the common [RoomNotesStore] (no
- * platform-specific `JdbcNotesStore` — that class is gone).
+ * DAOs wired through Koin.
  */
 actual fun platformModule(): Module = module {
     // ─── Room Database ────────────────────────────────────────────────────
@@ -40,11 +37,6 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().attachmentDao() }
     single { get<AppDatabase>().reminderDao() }
     single { get<AppDatabase>().checklistDao() }
-
-    // NotesStore — same Room-backed implementation on both platforms.
-    // The previous JdbcNotesStore (raw JDBC + 500ms polling) was replaced to keep the
-    // schema in lock-step with Android and to gain real invalidation-driven Flow.
-    single<NotesStore> { RoomNotesStore(get(), get()) }
 
     // ─── DataStore ──────────────────────────────────────────────────────
 

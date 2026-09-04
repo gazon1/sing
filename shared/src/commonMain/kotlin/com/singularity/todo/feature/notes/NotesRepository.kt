@@ -12,14 +12,27 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * Contract for notes persistence.
+ * Single contract for notes persistence — list, search, editor CRUD, and
+ * AI-tool reads. Replaces the previous pair of `NotesRepository` + `NotesStore`.
+ *
+ * Mutation contract returns [Result] so transport failures (DB errors) are
+ * handled uniformly across list, editor, and tool callers.
  */
 interface NotesRepository {
+    // ─── Reads ──────────────────────────────────────────────────────────────
     fun watchNotes(userId: UserId): Flow<List<Note>>
     fun watchNote(id: NoteId): Flow<Note?>
     fun searchNotes(query: String): Flow<List<Note>>
+
+    // ─── Editor mutations (whole-Note) ──────────────────────────────────────
     suspend fun create(note: Note): Result<Unit>
     suspend fun update(note: Note): Result<Unit>
+
+    // ─── Editor mutations (id + fields — autosave path) ─────────────────────
+    suspend fun createWithContent(userId: UserId, id: NoteId, title: String, bodyMarkdown: String): Result<NoteId>
+    suspend fun updateContent(id: NoteId, title: String, bodyMarkdown: String): Result<Unit>
+
+    // ─── Lifecycle ─────────────────────────────────────────────────────────
     suspend fun softDelete(id: NoteId): Result<Unit>
     suspend fun restore(id: NoteId): Result<Unit>
 }
@@ -31,17 +44,15 @@ class RoomNotesRepository(
     private val noteDao: NoteDao,
     private val clock: Clock
 ) : NotesRepository {
-    override fun watchNotes(userId: UserId): Flow<List<Note>> {
-        return noteDao.watchAll(userId.value).map { list -> list.map { it.toNote() } }
-    }
 
-    override fun watchNote(id: NoteId): Flow<Note?> {
-        return noteDao.watchById(id.value).map { it?.toNote() }
-    }
+    override fun watchNotes(userId: UserId): Flow<List<Note>> =
+        noteDao.watchAll(userId.value).map { list -> list.map { it.toNote() } }
 
-    override fun searchNotes(query: String): Flow<List<Note>> {
-        return noteDao.search(query).map { list -> list.map { it.toNote() } }
-    }
+    override fun watchNote(id: NoteId): Flow<Note?> =
+        noteDao.watchById(id.value).map { it?.toNote() }
+
+    override fun searchNotes(query: String): Flow<List<Note>> =
+        noteDao.search(query).map { list -> list.map { it.toNote() } }
 
     override suspend fun create(note: Note): Result<Unit> = runCatching {
         noteDao.upsert(note.toEntity())
@@ -51,14 +62,44 @@ class RoomNotesRepository(
         noteDao.upsert(note.toEntity())
     }
 
+    override suspend fun createWithContent(
+        userId: UserId,
+        id: NoteId,
+        title: String,
+        bodyMarkdown: String,
+    ): Result<NoteId> = runCatching {
+        val now = clock.now().toEpochMilliseconds()
+        noteDao.upsert(
+            NoteEntity(
+                id = id.value,
+                userId = userId.value,
+                title = title,
+                bodyMarkdown = bodyMarkdown,
+                bodyHtml = null,
+                parentNoteId = null,
+                createdAt = now,
+                updatedAt = now,
+                deletedAt = null,
+                archivedAt = null,
+            )
+        )
+        id
+    }
+
+    override suspend fun updateContent(
+        id: NoteId,
+        title: String,
+        bodyMarkdown: String,
+    ): Result<Unit> = runCatching {
+        noteDao.updateContent(id.value, title, bodyMarkdown, clock.now().toEpochMilliseconds())
+    }
+
     override suspend fun softDelete(id: NoteId): Result<Unit> = runCatching {
-        val ts = clock.now().toEpochMilliseconds()
-        noteDao.softDelete(id.value, ts)
+        noteDao.softDelete(id.value, clock.now().toEpochMilliseconds())
     }
 
     override suspend fun restore(id: NoteId): Result<Unit> = runCatching {
-        val ts = clock.now().toEpochMilliseconds()
-        noteDao.restore(id.value, ts)
+        noteDao.restore(id.value, clock.now().toEpochMilliseconds())
     }
 }
 

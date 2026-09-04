@@ -203,11 +203,11 @@ fun llmProjectReviewTool(promptExecutor: PromptExecutor, model: LLModel) = objec
 
 // ─── Data tool factories ────────────────────────────────────────────────────────
 
-fun dataGetNoteTool(notesStore: com.singularity.todo.feature.notes.NotesStore) = dataTool<GetNoteInput, GetNoteOutput>(
+fun dataGetNoteTool(notesRepo: com.singularity.todo.feature.notes.NotesRepository) = dataTool<GetNoteInput, GetNoteOutput>(
     name = "get_note",
     description = "Fetch a single note by its ID.",
     block = { args ->
-        val note = notesStore.watch(args.noteId).first()
+        val note = notesRepo.watchNote(com.singularity.todo.feature.notes.NoteId.fromString(args.noteId)).first()
         val output = if (note != null) {
             GetNoteOutput(note.id.value, note.title, note.bodyMarkdown)
         } else {

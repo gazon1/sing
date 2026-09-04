@@ -3,7 +3,7 @@ package com.singularity.todo.feature.notes
 import com.singularity.todo.feature.tasks.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeCurrentUser
-import com.singularity.todo.test.fakes.FakeSettingsRepository
+import com.singularity.todo.test.fakes.FakeNotesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -12,7 +12,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
-import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
@@ -23,14 +22,14 @@ class NotesViewModelTest {
     private val now = Instant.fromEpochMilliseconds(1000L)
 
     private fun createVm(
-        store: NotesStore = FakeNotesStore(),
+        repo: NotesRepository = FakeNotesRepository(),
         htmlPort: MarkdownHtmlPort = FakeMarkdownHtmlPort(),
         scope: CoroutineScope? = null,
     ): NotesViewModel = NotesViewModel(
-        store = store,
+        repo = repo,
         htmlPort = htmlPort,
         currentUser = FakeCurrentUser(FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId))),
-        improveNote = null, // AI not available in tests
+        improveNote = null,
         scopeOverride = scope,
     )
 
@@ -38,8 +37,8 @@ class NotesViewModelTest {
 
     @Test
     fun `open editor loads note and converts body`() = runTest {
-        val store = FakeNotesStore().apply {
-            seed("n1", Note(
+        val repo = FakeNotesRepository().apply {
+            seed(Note(
                 id = NoteId.fromString("n1"),
                 userId = testUserId,
                 title = "My Note",
@@ -48,7 +47,7 @@ class NotesViewModelTest {
                 updatedAt = now,
             ))
         }
-        val vm = createVm(store = store, htmlPort = object : MarkdownHtmlPort {
+        val vm = createVm(repo = repo, htmlPort = object : MarkdownHtmlPort {
             override fun toHtml(markdown: String) = "<h1>Hello</h1>"
             override fun toMarkdown(html: String) = "# Hello"
         }, scope = backgroundScope)
@@ -130,8 +129,8 @@ class NotesViewModelTest {
 
     @Test
     fun `saveNow writes and emits NavigateBack`() = runTest {
-        val store = FakeNotesStore()
-        val vm = createVm(store = store)
+        val repo = FakeNotesRepository()
+        val vm = createVm(repo = repo)
         val id = vm.createNote()
         advanceUntilIdle()
 
@@ -171,8 +170,8 @@ class NotesViewModelTest {
 
     @Test
     fun `state emits Content when notes exist`() = runTest {
-        val store = FakeNotesStore().apply {
-            seed("n1", Note(
+        val repo = FakeNotesRepository().apply {
+            seed(Note(
                 id = NoteId.fromString("n1"),
                 userId = testUserId,
                 title = "Note 1",
@@ -181,7 +180,7 @@ class NotesViewModelTest {
                 updatedAt = now,
             ))
         }
-        val vm = createVm(store = store)
+        val vm = createVm(repo = repo)
         advanceUntilIdle()
 
         val state = vm.state.value
@@ -191,8 +190,8 @@ class NotesViewModelTest {
 
     @Test
     fun `delete removes note from store`() = runTest {
-        val store = FakeNotesStore().apply {
-            seed("n1", Note(
+        val repo = FakeNotesRepository().apply {
+            seed(Note(
                 id = NoteId.fromString("n1"),
                 userId = testUserId,
                 title = "Note 1",
@@ -201,7 +200,7 @@ class NotesViewModelTest {
                 updatedAt = now,
             ))
         }
-        val vm = createVm(store = store)
+        val vm = createVm(repo = repo)
         advanceUntilIdle()
 
         vm.delete(NoteId.fromString("n1"))

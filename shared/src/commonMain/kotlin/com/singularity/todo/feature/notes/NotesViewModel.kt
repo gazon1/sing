@@ -63,7 +63,7 @@ sealed interface NoteAiResult {
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 open class NotesViewModel(
-    private val store: NotesStore,
+    private val repo: NotesRepository,
     private val htmlPort: MarkdownHtmlPort,
     currentUser: CurrentUser,
     private val improveNote: ImproveNoteUseCase? = null,
@@ -92,10 +92,10 @@ open class NotesViewModel(
 
     init {
         // viewModelScope ensures cancellation on clear; Unconfined makes synchronous
-        // flows (FakeNotesStore) emit without needing virtual time advancement.
+        // flows (FakeNotesRepository) emit without needing virtual time advancement.
         scope.launch(Dispatchers.Unconfined) {
             userId.flatMapLatest { uid ->
-                store.watchAll(uid)
+                repo.watchNotes(uid)
                     .map { notes -> if (notes.isEmpty()) NotesUiState.Empty(uid) else NotesUiState.Content(notes) }
             }
                 .catch { emit(NotesUiState.Error(it.message ?: "Error")) }
@@ -107,7 +107,7 @@ open class NotesViewModel(
         // Snapshot once — we don't want every Room update to blast the editor.
         // The rich text state is the source of truth after this point.
         scope.launch(Dispatchers.Unconfined) {
-            val note = store.watch(noteId).filterNotNull().first()
+            val note = repo.watchNote(NoteId.fromString(noteId)).filterNotNull().first()
             val html = note.bodyMarkdown?.let { htmlPort.toHtml(it) } ?: ""
             _editorState.value = EditorState.Editing(
                 id = note.id.value,
@@ -121,8 +121,8 @@ open class NotesViewModel(
     fun createNote(): String {
         val id = NoteId.generate()
         scope.launch {
-            val uid = userId.first()
-            store.create(uid, id, "", "")
+            val uid = userId.value
+            repo.createWithContent(uid, id, "", "").getOrThrow()
         }
         _editorState.value = EditorState.Editing(
             id = id.value,
@@ -156,7 +156,7 @@ open class NotesViewModel(
             _editorState.value = EditorState.Saving(current.id)
             try {
                 val markdown = htmlPort.toMarkdown(current.html)
-                store.update(current.id, current.title, markdown)
+                repo.updateContent(NoteId.fromString(current.id), current.title, markdown).getOrThrow()
                 _editorState.value = current.copy(isDirty = false)
                 _events.emit(UiEvent.NavigateBack)
             } catch (e: Exception) {
@@ -173,7 +173,7 @@ open class NotesViewModel(
             _editorState.value = EditorState.Saving(id)
             try {
                 val markdown = htmlPort.toMarkdown(current.html)
-                store.update(id, current.title, markdown)
+                repo.updateContent(NoteId.fromString(id), current.title, markdown).getOrThrow()
                 _editorState.value = current.copy(isDirty = false)
             } catch (e: Exception) {
                 _editorState.value = EditorState.Error(id, e.message ?: "Save failed")
@@ -207,7 +207,7 @@ open class NotesViewModel(
 
     fun delete(id: NoteId) {
         scope.launch(Dispatchers.Unconfined) {
-            store.softDelete(id.value)
+            repo.softDelete(id)
         }
     }
 }
