@@ -37,6 +37,8 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.core.attachments.Attachment
+import com.singularity.todo.core.ui.components.ProjectPickerSheet
+import com.singularity.todo.feature.projects.ProjectId
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,13 +60,27 @@ fun TaskDetailScreen(
         }
     }
 
+    var showProjectPicker by remember { mutableStateOf(false) }
+
     when (val s = state) {
         TaskDetailUiState.Loading -> LoadingIndicator()
         is TaskDetailUiState.Error -> Text("Error: ${s.message}", modifier = Modifier.padding(16.dp))
         is TaskDetailUiState.Loaded -> TaskDetailContent(
             ui = s.ui,
             onSaveField = { field, draft -> viewModel.saveField(s.ui.task, field, draft) },
+            onEditProject = { showProjectPicker = true },
+            onToggleChecklist = viewModel::toggleChecklistItem,
             onBack = onBack,
+        )
+    }
+
+    if (showProjectPicker) {
+        val loaded = state as? TaskDetailUiState.Loaded
+        ProjectPickerSheet(
+            onProjectSelected = { project ->
+                loaded?.let { viewModel.saveProject(it.ui.task, project?.id) }
+            },
+            onDismiss = { showProjectPicker = false },
         )
     }
 
@@ -76,6 +92,8 @@ fun TaskDetailScreen(
 private fun TaskDetailContent(
     ui: TaskDetailUi,
     onSaveField: (TaskDetailField, String) -> Unit,
+    onEditProject: () -> Unit,
+    onToggleChecklist: (com.singularity.todo.feature.checklist.ChecklistItem) -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -142,8 +160,13 @@ private fun TaskDetailContent(
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text("Project", style = MaterialTheme.typography.labelMedium)
             }
-            val projectText = ui.project?.name ?: "(no project)"
-            Text(projectText)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(ui.project?.name ?: "(no project)")
+                Button(onClick = onEditProject) { Text("Edit") }
+            }
 
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text("Tags", style = MaterialTheme.typography.labelMedium)
@@ -171,8 +194,7 @@ private fun TaskDetailContent(
                     ) {
                         Checkbox(
                             checked = item.isCompleted,
-                            onCheckedChange = { /* TODO: toggle */ },
-                            enabled = false,
+                            onCheckedChange = { onToggleChecklist(item) },
                         )
                         Text(
                             item.title,

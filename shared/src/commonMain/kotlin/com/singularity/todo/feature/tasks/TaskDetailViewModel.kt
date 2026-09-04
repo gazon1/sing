@@ -7,6 +7,8 @@ import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.ui.components.FieldMode
 import com.singularity.todo.core.ui.components.UiEvent
+import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.projects.Project
@@ -148,10 +150,30 @@ class TaskDetailViewModel(
                 val parsed = runCatching { TaskPriority.valueOf(draft) }.getOrNull() ?: current.priority
                 current.copy(priority = parsed)
             }
-            TaskDetailField.Project -> current // project editing requires a picker UI
+            TaskDetailField.Project -> current // project editing goes via saveProject, not saveField
         }
         updateTask(updated)
             .onSuccess { _events.emit(UiEvent.ShowDialog("Saved", "Field updated")) }
             .onFailure { _events.emit(UiEvent.ShowError(it.message ?: "Save failed")) }
+    }
+
+    /** Sets / clears the task's project. Used by ProjectPickerSheet. */
+    fun saveProject(current: Task, projectId: ProjectId?) = viewModelScope.launch {
+        updateTask(current.copy(projectId = projectId))
+            .onSuccess { _events.emit(UiEvent.ShowDialog("Saved", "Project updated")) }
+            .onFailure { _events.emit(UiEvent.ShowError(it.message ?: "Save failed")) }
+    }
+
+    /** Toggles a checklist item's completed flag in place. */
+    fun toggleChecklistItem(item: com.singularity.todo.feature.checklist.ChecklistItem) = viewModelScope.launch {
+        val toggled = item.copy(isCompleted = !item.isCompleted)
+        checklistRepo.upsert(toggled)
+            .onFailure { _events.emit(UiEvent.ShowError(it.message ?: "Toggle failed")) }
+    }
+
+    /** Removes a checklist item. */
+    fun deleteChecklistItem(id: ChecklistItemId) = viewModelScope.launch {
+        checklistRepo.delete(id)
+            .onFailure { _events.emit(UiEvent.ShowError(it.message ?: "Delete failed")) }
     }
 }
