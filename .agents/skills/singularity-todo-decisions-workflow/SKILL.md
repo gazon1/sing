@@ -95,6 +95,18 @@ If unsure, write a one-paragraph entry — small is fine. Missing a decision is 
 
 The script is idempotent — running it on an already-fresh tree is a no-op that exits 0.
 
+#### Tools (optional, documented — not installed)
+
+- **`mdq`** — Markdown Query. CLI tool for grepping the decision corpus. Available at [github.com/megabreezy/mdq](https://github.com/megabreezy/mdq) (`brew install mdq` / `pip install mdq`). Not installed in this workspace; documented only.
+  ```bash
+  # Query the digest
+  mdq "koin" docs/decisions/DIGEST.md
+  # Search across all entries
+  mdq "OpenAIModels" docs/decisions/*.md
+  ```
+  If you prefer not to use it, `grep` and `awk` work fine against the raw files.
+  If you run `mdq` ad-hoc, the digest is pre-filtered for critical rules — start there.
+
 #### Why this beats per-skill docs
 
 Per-skill docs accumulate. After six months you have 20 narrow skills, each 100 lines, each describing a different facet of the same system. The agent picks one based on the description, misses the others, and gets a partial picture. The digest is **one file**, fetched at session start, that consolidates rules. Per-decision entries are human-facing, the digest is agent-facing.

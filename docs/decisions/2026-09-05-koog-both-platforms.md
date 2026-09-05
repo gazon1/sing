@@ -30,9 +30,9 @@ Avoiding the duplication in `buildExecutor(...)` would require sharing `MultiLLM
 
 ## Consequences
 
-- `ai.koog:http-client-okhttp` must be declared in **both** `androidMain.dependencies` and `jvmMain.dependencies`.
+- **Always** declare `ai.koog:http-client-okhttp` in **both** `androidMain.dependencies` and `jvmMain.dependencies`.
 - The unified `KoogPromptExecutorPort` lives in `commonMain` and exposes `val executor: PromptExecutor` publicly for the platform `single<PromptExecutor>` binding.
-- `single<PromptExecutorPort>` and `single<PromptExecutor>` are both bound; `PromptExecutorPort` is for the streaming executor inside `KoogAgentService`, `PromptExecutor` is for the AI tool factories.
+- **Always** bind both `single<PromptExecutorPort>` and `single<PromptExecutor>`; `PromptExecutorPort` is for the streaming executor inside `KoogAgentService`, `PromptExecutor` is for the AI tool factories.
 - The old `JvmPromptExecutorPort` and `AndroidPromptExecutorPort` files are deleted.
 - A passing `:androidApp:assembleDebug` is the cross-platform smoke test (it would have failed under the old stub).
 

@@ -2,12 +2,17 @@
 # refresh-decisions-digest.sh — rebuild docs/decisions/DIGEST.md from the
 # dated entries in docs/decisions/*.md.
 #
-# Idempotent. Safe to run any time — exits 0 even when nothing changed.
-# Run before starting any non-trivial agent task; run after adding new entries.
+# Output sections:
+#   1. Critical — auto-extracted from **Always**/**Never**/**MUST** markers
+#      in Consequences (rules the agent MUST NOT violate).
+#   2. Per-tag — remaining Consequences bullets, grouped by their entry's
+#      `tags:` frontmatter.
+#   3. Index — slug → tags mapping for grep / mdq.
+#
+# Idempotent. Safe to run any time. Run before any non-trivial agent task.
 
 set -euo pipefail
 
-# Resolve project root from this script's location, regardless of cwd.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DECISIONS_DIR="$PROJECT_ROOT/docs/decisions"
@@ -18,7 +23,6 @@ if [[ ! -d "$DECISIONS_DIR" ]]; then
     exit 1
 fi
 
-# Collect dated entries (anything matching YYYY-MM-DD-*.md, excluding the digest).
 mapfile -t ENTRIES < <(
     find "$DECISIONS_DIR" -mindepth 1 -maxdepth 1 -type f \
         -regextype posix-extended -regex '.*/[0-9]{4}-[0-9]{2}-[0-9]{2}-[^/]+\.md' \
@@ -30,48 +34,57 @@ if [[ ${#ENTRIES[@]} -eq 0 ]]; then
     exit 0
 fi
 
-# Collect superseded slugs so we can skip their Consequences.
-SUPERSEDED=()
-for entry in "${ENTRIES[@]}"; do
-    sup=$(awk '
-        BEGIN { in_fm = 0 }
-        /^---$/ { in_fm = !in_fm; next }
-        in_fm && /^supersedes:[[:space:]]*/ { sub(/^supersedes:[[:space:]]*/, ""); print; exit }
-    ' "$entry" || true)
-    if [[ -n "$sup" ]]; then
-        SUPERSEDED+=("$sup")
-    fi
-done
-
-# Render each entry's Consequences section as a bullet list, grouped by tag.
-TMP="$(mktemp)"
-trap 'rm -f "$TMP"' EXIT
+# Parse frontmatter from each entry: title, tags, supersedes.
+declare -A TITLE
+declare -A TAGS_RAW
+declare -A SUPERSEDED  # slug → 1 if some newer entry says `supersedes: <slug>`
 
 for entry in "${ENTRIES[@]}"; do
     slug="$(basename "$entry" .md)"
-    # Skip if this entry is itself marked as superseded.
-    for sup in "${SUPERSEDED[@]:-}"; do
-        # Look up the slug of the entry that does the superseding.
-        superseder_slug="$(basename "$sup" .md)"
-        if [[ "$slug" == "$superseder_slug" ]]; then
-            # $slug is superseded — skip its Consequences from the digest.
-            continue 2
-        fi
-    done
-
-    # Pull title from frontmatter.
-    title=$(awk '
+    while IFS= read -r line; do
+        case "$line" in
+            "title:"*)
+                TITLE[$slug]="${line#title: }"
+                TITLE[$slug]="${TITLE[$slug]#\"}"
+                TITLE[$slug]="${TITLE[$slug]%\"}"
+                ;;
+            "tags:"*)
+                raw="${line#tags: }"
+                raw="${raw#[}"; raw="${raw%]}"
+                TAGS_RAW[$slug]="${raw//,/ }"
+                ;;
+            "supersedes:"*)
+                sup_slug="${line#supersedes: }"
+                SUPERSEDED[$sup_slug]=1
+                ;;
+        esac
+    done < <(awk '
         BEGIN { in_fm = 0 }
-        /^---$/ { in_fm = !in_fm; next }
-        in_fm && /^title:[[:space:]]*/ { sub(/^title:[[:space:]]*/, ""); print; exit }
+        /^---$/ { in_fm = !in_fm; if (!in_fm) exit }
+        in_fm { print }
     ' "$entry")
-    [[ -z "$title" ]] && title="$slug"
+done
 
-    # Pull the Consequences section (between `## Consequences` and the next
-    # `## ` or EOF). Take only lines that begin with `-` or `*` after
-    # optional whitespace — this skips any fenced-code-block contents
-    # naturally because code-block lines don't start with a bullet.
+# Build the bullet corpus: one TSV line per (entry, tag, bullet).
+# Columns: TAG\tBULLET\tSLUG
+# Bullets containing **Always**/**Never**/**MUST** are kept here and routed
+# to "Critical" downstream by the renderer.
+CORPUS_TMP="$(mktemp)"
+trap 'rm -f "$CORPUS_TMP"' EXIT
+
+CRITICAL_REGEX='[*][*]Always[*][*]|[*][*]Never[*][*]|[*][*]MUST[*][*]'
+
+for entry in "${ENTRIES[@]}"; do
+    slug="$(basename "$entry" .md)"
+    [[ -n "${SUPERSEDED[$slug]:-}" ]] && continue
+
+    # Emit bullets as TSV rows: TAG\tBULLET\tSLUG (TAG="_untagged_" if no tags).
+    # Awk prints only bullets (skipping fenced code blocks); the shell loop
+    # fans them out across tags.
     awk '
+        BEGIN { in_code = 0; in_c = 0 }
+        /^```/ { in_code = !in_code; next }
+        in_code { next }
         /^## Consequences/ { in_c = 1; next }
         in_c && /^## / { in_c = 0; next }
         in_c && /^[[:space:]]*[-*][[:space:]]+/ {
@@ -79,47 +92,87 @@ for entry in "${ENTRIES[@]}"; do
             sub(/^[[:space:]]*\[[ xX]\][[:space:]]+/, "")
             if (NF > 0) print
         }
-    ' "$entry" | sort -u | {
-        # Print heading + bullets for this entry.
-        printf "\n### %s\n" "$slug"
-        cat
-    } >> "$TMP"
+    ' "$entry" | while IFS= read -r stripped; do
+        [[ -z "$stripped" ]] && continue
+
+        # Trim leading whitespace.
+        stripped="${stripped#"${stripped%%[![:space:]]*}"}"
+
+        if [[ -z "${TAGS_RAW[$slug]:-}" ]]; then
+            printf '_untagged_\t%s\t%s\n' "$stripped" "$slug" >> "$CORPUS_TMP"
+        else
+            for tag in ${TAGS_RAW[$slug]}; do
+                printf '%s\t%s\t%s\n' "$tag" "$stripped" "$slug" >> "$CORPUS_TMP"
+            done
+        fi
+    done
 done
 
-# Render digest.
+# Render digest. Use awk to group by tag and route critical bullets.
 {
     echo "# Decision Log Digest"
     echo
     echo "Auto-generated consolidated rules from \`docs/decisions/\`. The agent"
-    echo "reads this at session start. Per-decision entries (\`docs/decisions/YYYY-MM-DD-*.md\`)"
-    echo "are the human-facing reasoning. Refresh with:"
+    echo "reads this at session start. Per-decision entries"
+    echo "(\`docs/decisions/YYYY-MM-DD-*.md\`) are the human-facing reasoning. Refresh with:"
     echo
     echo '```bash'
     echo "./scripts/refresh-decisions-digest.sh"
     echo '```'
     echo
-    echo "Each bullet below is a rule the agent must honour. Entries that have"
-    echo "been superseded (see frontmatter \`supersedes:\`) are excluded."
+    echo "Markers that surface as Critical: \`**Always**\`, \`**Never**\`, \`**MUST**\`."
     echo
-    echo "## Rules"
+
+    # Critical section: dedupe on slug+bullet (dropping tag), then format.
+    echo "## Critical"
     echo
-    if [[ -s "$TMP" ]]; then
-        cat "$TMP"
-    else
-        echo "_No active consequences — every decision's `supersedes:` covers it._"
+    awk -F'\t' -v re="$CRITICAL_REGEX" '
+        $2 ~ re { print $3 "\t" $2 }
+    ' "$CORPUS_TMP" | sort -u | awk -F'\t' '{ printf "- %s _(from `%s`)_\n", $2, $1 }'
+    if [[ $(awk -F'\t' -v re="$CRITICAL_REGEX" '$2 ~ re' "$CORPUS_TMP" | wc -l) -eq 0 ]]; then
+        echo "_No critical markers in current entries. Add **Always** or **Never**"
+        echo "to bullets in \`## Consequences\` to surface them here._"
     fi
     echo
+
+    # Per-tag section — bullets that did NOT match Critical, grouped by tag.
+    echo "## Per-tag"
+    echo
+    awk -F'\t' -v re="$CRITICAL_REGEX" '!/Critical/ && $2 !~ re { print }' "$CORPUS_TMP" \
+        | sort -u \
+        | awk -F'\t' '
+            function flush() {
+                if (tag != "") {
+                    printf "### `%s`\n\n", tag
+                    for (i = 0; i < n; i++) printf "- %s _(from `%s`)_\n", bullets[i], slugs[i]
+                    print ""
+                }
+                tag = ""; n = 0; delete bullets; delete slugs
+            }
+            {
+                if ($1 != tag) { flush(); tag = $1 }
+                bullets[n] = $2; slugs[n] = $3; n++
+            }
+            END { flush() }
+        '
+    echo
+
+    # Index.
+    echo "## Index (slug → tags)"
+    echo
+    for slug in $(printf '%s\n' "${!TAGS_RAW[@]}" | sort); do
+        [[ -n "${SUPERSEDED[$slug]:-}" ]] && continue
+        printf -- "- \`%s\` — %s\n" "$slug" "${TAGS_RAW[$slug]:-_untagged_}"
+    done
+    echo
+
+    # Active entries.
     echo "## Active entries"
     echo
     for entry in "${ENTRIES[@]}"; do
         slug="$(basename "$entry" .md)"
-        title=$(awk '
-            BEGIN { in_fm = 0 }
-            /^---$/ { in_fm = !in_fm; next }
-            in_fm && /^title:[[:space:]]*/ { sub(/^title:[[:space:]]*/, ""); print; exit }
-        ' "$entry")
-        [[ -z "$title" ]] && title="$slug"
-        printf -- "- \`%s\` — %s\n" "$slug" "$title"
+        [[ -n "${SUPERSEDED[$slug]:-}" ]] && continue
+        printf -- "- \`%s\` — %s\n" "$slug" "${TITLE[$slug]:-_(no title)}"
     done
 } > "$DIGEST"
 

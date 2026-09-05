@@ -44,11 +44,11 @@ The AI Provider settings screen needed: provider selection (OpenAI / Ollama / cu
 
 ## Consequences
 
-- `AiTestResult` is part of `SettingsUiState.Content.aiTestResult` with default `Idle`. Don't make it a `UiEvent`.
-- Provider-switch logic in the UI delegates to `OpenAiConfig.resolveBaseUrl(storedUrl, provider)`. If you change the auto-fill rule, change it in `resolveBaseUrl` only.
-- `SettingsViewModel.testConnection()` always short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`.
+- `AiTestResult` is part of `SettingsUiState.Content.aiTestResult` with default `Idle`. **Never** make it a `UiEvent`.
+- **Always** keep the auto-fill rule in `OpenAiConfig.resolveBaseUrl(storedUrl, provider)` only. The UI delegates to it — changing both is a bug.
+- `SettingsViewModel.testConnection()` **always** short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`.
 - The Test connection "probe" prompt is hard-coded: `"Reply with the single word: pong."` — change together with the system prompt if needed.
-- `FakeTextGen` is parametrised: `(success, failureMessage, trackGenerateCalls)`. Use `trackGenerateCalls = true` in VM tests that assert the no-key short-circuit.
+- `FakeTextGen` is parametrised: `(success, failureMessage, trackGenerateCalls)`. **Always** use `trackGenerateCalls = true` in VM tests that assert the no-key short-circuit.
 
 ## Links
 

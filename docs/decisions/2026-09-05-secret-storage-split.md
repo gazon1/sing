@@ -31,12 +31,12 @@ The Composable password field holds its value in `remember { mutableStateOf("") 
 
 ## Consequences
 
-- `SettingsRepository` must NOT contain an `aiApiKey` field. Adding one back is a regression.
-- `SettingsUiState.Content` must NOT contain an `aiApiKey` field.
-- `SettingsViewModel.processIntent(UpdateAiApiKey)` writes only to `secureStorage`. Never `settings.setAiApiKey(...)`.
-- The password field on `AiProviderSettingsScreen` is a local `mutableStateOf`. Don't lift it to the VM.
+- **Never** add an `aiApiKey` (or any secret) field back to `SettingsRepository`. Adding one is a regression.
+- **Never** add an `aiApiKey` field to `SettingsUiState.Content`.
+- `SettingsViewModel.processIntent(UpdateAiKey)` **always** writes only to `secureStorage`. **Never** call `settings.setAiKey(...)`.
+- The password field on `AiProviderSettingsScreen` is a local `mutableStateOf`. **Never** lift it to the VM.
 - `AiApiKeyMigration` is wired through `koinBridge { ... }` inside the DataStore factory's `.also { ds -> ... }` block. See `koin-suspend-bridge` decision.
-- Adding a new secret (e.g. another provider's API key) follows the same pattern: new `KEY_*` constant, new `OpenAiConfig`-style config object, migration on first DataStore access, no DataStore copy.
+- Adding a new secret (e.g. another provider's API key) **always** follows the same pattern: new `KEY_*` constant, new config object, migration on first DataStore access, no DataStore copy.
 
 ## Links
 

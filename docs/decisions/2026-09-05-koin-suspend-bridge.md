@@ -40,11 +40,11 @@ The helper is `internal inline` — zero overhead, zero allocations, same `runBl
 
 ## Consequences
 
-- Use `koinBridge { ... }` in any Koin factory that calls a `suspend` function.
-- Don't use raw `runBlocking { ... }` inside `module { ... }` blocks.
-- Don't use `GlobalScope.launch { ... }` inside factories — non-deterministic.
+- **Always** use `koinBridge { ... }` in any Koin factory that calls a `suspend` function.
+- **Never** use raw `runBlocking { ... }` inside `module { ... }` blocks.
+- **Never** use `GlobalScope.launch { ... }` inside factories — non-deterministic.
 - When the script's grep is broken (a stray `runBlocking` appears), fix it immediately; the helper exists specifically so this is detectable.
-- `koinBridge` is for one-shot startup reads. Not for hot-path code, not for long-running operations.
+- `koinBridge` is for one-shot startup reads only — **not for** hot-path code, **not for** long-running operations.
 
 ## Links
 
