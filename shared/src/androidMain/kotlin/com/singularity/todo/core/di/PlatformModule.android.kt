@@ -15,7 +15,6 @@ import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.AndroidSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.settings.AiApiKeyMigration
-import kotlinx.coroutines.runBlocking
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -57,7 +56,7 @@ actual fun platformModule(): Module = module {
                 // One-shot migration: legacy versions stored the OpenAI key in
                 // DataStore; newer versions only in SecureStorage. Runs at first
                 // DataStore access, no-ops on subsequent launches.
-                runBlocking { AiApiKeyMigration.run(ds, get<SecureStoragePort>()) }
+                koinBridge { AiApiKeyMigration.run(ds, get<SecureStoragePort>()) }
             }
     }
 

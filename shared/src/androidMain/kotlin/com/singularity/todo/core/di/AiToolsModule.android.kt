@@ -4,7 +4,6 @@ import ai.koog.prompt.llm.LLModel
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.KnownModels
-import kotlinx.coroutines.runBlocking
 import org.koin.dsl.module
 
 /**
@@ -16,7 +15,7 @@ import org.koin.dsl.module
  * [createKoogPromptExecutor], the default [LLModel], and the raw
  * [ai.koog.prompt.executor.model.PromptExecutor] for AI tools.
  *
- * `createKoogPromptExecutor` is suspend; bridged via `runBlocking` here.
+ * `createKoogPromptExecutor` is suspend; bridged via [koinBridge] here.
  */
 actual fun aiToolsModule() = module {
     includes(aiToolsCoreModule())
@@ -28,7 +27,7 @@ actual fun aiToolsModule() = module {
 
     // Real Koog executor on Android
     single<PromptExecutorPort> {
-        runBlocking {
+        koinBridge {
             createKoogPromptExecutor(get<SecureStoragePort>(), get<SettingsRepository>())
         }
     }
