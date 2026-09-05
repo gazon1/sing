@@ -39,6 +39,7 @@ interface SettingsRepository {
     companion object {
         const val DEFAULT_SYSTEM_PROMPT =
             "You are a helpful productivity assistant. Be concise and actionable."
+        const val DEFAULT_AI_MODEL = "gpt-4o-mini"
     }
 
     // ── Appearance ─────────────────────────────────────────────────────────────
@@ -159,7 +160,7 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
     // ── AI ───────────────────────────────────────────────────────────────────
 
     override val aiProvider: Flow<String> = dataStore.data.map { it[AI_PROVIDER] ?: "openai" }
-    override val aiModel: Flow<String> = dataStore.data.map { it[AI_MODEL] ?: "gpt-4o-mini" }
+    override val aiModel: Flow<String> = dataStore.data.map { it[AI_MODEL] ?: SettingsRepository.DEFAULT_AI_MODEL }
     override val aiBaseUrl: Flow<String> = dataStore.data.map { it[AI_BASE_URL] ?: "https://api.openai.com/v1" }
     override val aiSystemPrompt: Flow<String> =
         dataStore.data.map { it[AI_SYSTEM_PROMPT] ?: SettingsRepository.DEFAULT_SYSTEM_PROMPT }

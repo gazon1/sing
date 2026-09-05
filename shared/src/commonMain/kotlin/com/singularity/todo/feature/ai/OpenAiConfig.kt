@@ -3,6 +3,7 @@ package com.singularity.todo.feature.ai
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
 import kotlinx.coroutines.flow.firstOrNull
+import com.singularity.todo.core.settings.SettingsRepository.Companion.DEFAULT_AI_MODEL
 
 /** A non-blank OpenAI API key. */
 @JvmInline
@@ -28,8 +29,9 @@ data class OpenAiConfig(
         /** Key used to read/write the OpenAI API key in [SecureStoragePort]. */
         const val KEY_OPENAI = "ai_key_openai"
 
-        /** Model selected when settings has no preference. */
-        const val DEFAULT_MODEL = "gpt-4o-mini"
+        /** Model selected when settings has no preference. Aliased to
+         *  [SettingsRepository.DEFAULT_AI_MODEL] so there's a single source of truth. */
+        const val DEFAULT_MODEL: String = DEFAULT_AI_MODEL
 
         /** System prompt shipped with the app. User-editable via Settings. */
         const val DEFAULT_SYSTEM_PROMPT =
