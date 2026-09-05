@@ -98,7 +98,11 @@ internal fun aiToolsCoreModule(): Module = module {
     factory { com.singularity.todo.feature.ai.use_cases.PickTimeUseCase(get()) }
     factory { com.singularity.todo.feature.ai.use_cases.ClusterTasksUseCase(get()) }
     factory { com.singularity.todo.feature.ai.use_cases.ClusterNotesUseCase(get()) }
-    factory { com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase(get()) }
+    factory {
+        com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase(
+            tool = get<com.singularity.todo.feature.ai.tools.ImproveNoteTool>(),
+        )
+    }
     factory { com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase(get()) }
 
     // ─── AI Tools ───

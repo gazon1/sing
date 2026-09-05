@@ -1,5 +1,7 @@
 package com.singularity.todo.core.di
 
+import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.llm.OpenAILLMProvider
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.SmartRewriteUseCase
@@ -28,32 +30,42 @@ import com.singularity.todo.feature.ai.tools.GetTaskTool
 import com.singularity.todo.feature.ai.tools.ListLinkedTasksTool
 import com.singularity.todo.feature.ai.tools.ListTasksTool
 import com.singularity.todo.feature.ai.tools.SearchTasksTool
-import org.junit.Ignore
 import org.junit.Test
+import org.koin.dsl.module
 
 /**
  * Smoke-test that the JVM-side AI graph wires up correctly.
  *
- * Builds the Koog [PromptExecutor] (with empty key, no network call yet) and resolves
- * every tool + use case + TextGenPort binding. Real LLM traffic is NOT exercised —
- * just the fact that the graph is well-formed and every dependency resolves.
+ * Builds the Koog [PromptExecutorPort] (with empty key, no network call yet) and
+ * resolves every tool + use case + TextGenPort binding. Real LLM traffic is
+ * NOT exercised — just the fact that the graph is well-formed.
  *
- * Currently @Ignore-d because the JVM-test classpath initialises
- * [ai.koog.prompt.executor.clients.openai.OpenAIModels] differently from the
- * runtime classpath (ServiceLoader ordering / native libs), and a static
- * <clinit> NPEs when first reading `OpenAIModels.Chat.GPT4oMini`. The same
- * wiring is exercised by the Android build (:androidApp:assembleDebug) and
- * by manual end-to-end runs, so the JVM unit-test gap is acceptable for now.
+ * The production [aiToolsModule] binds `LLModel` to
+ * `OpenAIModels.Chat.GPT4oMini`, whose static initialisation NPEs in the JVM-
+ * test classpath. We override the binding with a tiny test fixture so the
+ * graph can build without touching Koog's static state.
  *
  * Run with: ./gradlew :shared:jvmTest --tests "*JvmAiDiGraphTest"
  */
 class JvmAiDiGraphTest {
 
-    @Ignore("Static init of OpenAIModels NPEs in JVM-test classpath — covered by Android assembleDebug instead.")
+    /**
+     * Minimal [LLModel] for DI-graph tests. Never used for inference — only
+     * constructed to satisfy the `single<LLModel>` binding.
+     */
+    private val testLLModel = LLModel(provider = OpenAILLMProvider, id = "test-model")
+
     @Test
     fun `full AI module resolves every binding without network calls`() {
         val app = org.koin.core.context.startKoin {
-            modules(coreDomainModule(), platformModule(), aiToolsModule())
+            modules(
+                coreDomainModule(),
+                platformModule(),
+                // Override the production LLModel binding to avoid touching
+                // OpenAIModels.<clinit> in the JVM-test classpath.
+                aiToolsModule(),
+                module { single<LLModel> { testLLModel } },
+            )
         }
         try {
             val koin = app.koin
