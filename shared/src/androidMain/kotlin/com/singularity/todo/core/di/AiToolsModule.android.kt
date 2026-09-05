@@ -1,9 +1,9 @@
 package com.singularity.todo.core.di
 
-import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.llm.LLModel
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.feature.ai.KnownModels
 import kotlinx.coroutines.runBlocking
 import org.koin.dsl.module
 
@@ -21,8 +21,10 @@ import org.koin.dsl.module
 actual fun aiToolsModule() = module {
     includes(aiToolsCoreModule())
 
-    // Default LLM
-    single<LLModel> { OpenAIModels.Chat.GPT4oMini }
+    // Default LLM. Built via the public LLModel constructor rather than
+    // OpenAIModels.Chat.GPT4oMini to avoid triggering OpenAIModels.<clinit>
+    // in the JVM-test classpath.
+    single<LLModel> { KnownModels.GPT4oMini }
 
     // Real Koog executor on Android
     single<PromptExecutorPort> {
