@@ -80,3 +80,6 @@ out/
 target/
 .zcode/plans
 /.tmp-screens/
+
+# UI verification screenshots
+*.png
