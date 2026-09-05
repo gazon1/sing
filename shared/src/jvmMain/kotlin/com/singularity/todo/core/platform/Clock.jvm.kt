@@ -19,3 +19,7 @@ actual fun todayInSystemZone(): LocalDate {
 }
 
 actual val isDesktop: Boolean = true
+
+actual val systemTimeZone: TimeZoneProvider = object : TimeZoneProvider {
+    override fun current(): TimeZone = TimeZone.currentSystemDefault()
+}

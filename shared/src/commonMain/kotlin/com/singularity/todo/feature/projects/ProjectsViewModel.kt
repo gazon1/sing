@@ -3,10 +3,11 @@ package com.singularity.todo.feature.projects
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.auth.CurrentUser
-import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
+import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.TaskFilter
 import com.singularity.todo.feature.tasks.TaskRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -32,8 +33,11 @@ class ProjectsViewModel(
     private val createProject: CreateProjectUseCase,
     private val currentUser: CurrentUser,
     private val taskRepository: TaskRepository,
-    private val projectReview: ProjectReviewUseCase? = null
+    private val projectReview: ProjectReviewUseCase? = null,
+    private val deleteProject: DeleteProjectUseCase,
+    private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
+    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
     private val userIdFlow = currentUser.userId
 
@@ -45,25 +49,26 @@ class ProjectsViewModel(
             else ProjectsUiState.Content(projects)
         }
         .catch { emit(ProjectsUiState.Error(it.message ?: "Error")) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ProjectsUiState.Loading)
+        .stateIn(scope, SharingStarted.WhileSubscribed(5000), ProjectsUiState.Loading)
 
     private val _aiResult = MutableSharedFlow<String>()
     val aiResult = _aiResult.asSharedFlow()
 
-    private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<UiEvent> = _events.asSharedFlow()
+    private val _events = MutableSharedFlow<ProjectsUiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<ProjectsUiEvent> = _events.asSharedFlow()
 
-    fun delete(id: ProjectId) = viewModelScope.launch {
-        projectRepo.delete(id)
+    fun delete(id: ProjectId) = scope.launch {
+        val userId = currentUser.current.value
+        deleteProject(id, userId)
     }
 
-    fun reviewProject(project: Project) = viewModelScope.launch {
+    fun reviewProject(project: Project) = scope.launch {
         val uid = currentUser.current
         val tasks = taskRepository.watchTasks(uid, TaskFilter.ByProject(project.id)).first()
         val result = projectReview?.invoke(project.name, tasks.map { it.title })
             ?.fold(onSuccess = { it }, onFailure = { "Error: ${it.message ?: "Failed"}" })
             ?: "AI not available on Android"
         _aiResult.emit(result)
-        _events.emit(UiEvent.ShowDialog(title = "Project Review", text = result))
+        _events.emit(ProjectsUiEvent.ProjectReviewResult(result))
     }
 }

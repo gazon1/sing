@@ -12,3 +12,8 @@ sealed interface FieldMode {
     data object View : FieldMode
     data class Edit(val draft: String) : FieldMode
 }
+
+/**
+ * Extension for [FieldMode] used when editing a field that has a draft value.
+ */
+fun FieldMode.draftOr(fallback: String): String = if (this is FieldMode.Edit) draft else fallback

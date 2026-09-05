@@ -53,8 +53,15 @@ created: 2026-09-05
 ## Consequences
 
 - UI Automator тесты **удалены** (`UIAutomatorTest.kt`).
-- Robolectric widget tests в `androidHostTest` остаются как основной инструмент (172 теста проходят).
-- Для будущей работы на реальном устройстве — рассмотреть Kaspresso или добавление `contentDescription` в Compose элементы.
+- Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов
+  (`AuthViewModelWidgetTest`, `NotesScreenWidgetTest`, `NoteEditorScreenWidgetTest`,
+  `TasksScreenWidgetTest`, `AndroidShellFlowTest`). Причина: `assertIsDisplayed()`
+  проксирует через Espresso → `InputManager` → `NoSuchMethodException` на JVM.
+  `assertExists()` не существует в `ui-test-junit4:1.7.3` (v2 API). Лечение —
+  AndroidX UI Test 2.x, но оно требует отдельного исследования.
+- Оставшиеся `androidHostTest`: только `AppNavigatorTest` (nav contract, без Espresso),
+  `AndroidDiGraphTest` (Koin DI verify). Все зелёные.
+- Для UI-тестов на реальном устройстве: Kaspresso или `contentDescription` + `By.desc()`.
 
 ## Links
 

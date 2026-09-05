@@ -5,6 +5,11 @@ import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
+import com.singularity.todo.feature.tasks.usecase.BulkCompleteUseCase
+import com.singularity.todo.feature.tasks.usecase.BulkDeleteUseCase
+import com.singularity.todo.feature.tasks.usecase.DeleteTaskUseCase
+import com.singularity.todo.feature.tasks.usecase.TogglePinUseCase
+import com.singularity.todo.feature.tasks.usecase.ToggleTaskUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeCurrentUser
 import com.singularity.todo.test.fakes.FakeSettingsRepository
@@ -53,6 +58,11 @@ class TasksViewModelTest {
         generateChecklist = generateChecklist,
         decomposeTask = decomposeTask,
         pickTime = pickTime,
+        deleteTask = DeleteTaskUseCase(fakeTaskRepo),
+        toggleTask = ToggleTaskUseCase(fakeTaskRepo),
+        togglePinUseCase = TogglePinUseCase(fakeTaskRepo),
+        bulkComplete = BulkCompleteUseCase(fakeTaskRepo),
+        bulkDelete = BulkDeleteUseCase(fakeTaskRepo),
     )
 
     private fun seedTask(

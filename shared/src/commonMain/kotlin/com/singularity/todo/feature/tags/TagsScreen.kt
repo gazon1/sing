@@ -26,11 +26,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.DeleteActionButton
-import com.singularity.todo.core.ui.components.EmptyState
-import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.components.StatefulContent
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,7 +44,7 @@ fun TagsScreen(onNavigateToCreateTag: () -> Unit) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Tags") }) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNavigateToCreateTag) {
+            FloatingActionButton(onClick = onNavigateToCreateTag, modifier = Modifier.testTag(TestTags.TAGS_FAB)) {
                 Icon(Icons.Filled.Create, contentDescription = "Add Tag")
             }
         },
@@ -61,22 +63,30 @@ private fun TagsContent(
     modifier: Modifier = Modifier,
     onDelete: (TagId) -> Unit,
 ) {
-    when (state) {
-        is TagsUiState.Loading -> LoadingIndicator(modifier = modifier)
-        is TagsUiState.Empty -> EmptyState(title = "No tags yet", modifier = modifier)
-        is TagsUiState.Error -> EmptyState(title = "Error: ${state.message}", modifier = modifier)
-        is TagsUiState.Content -> TagList(
-            tags = state.tags,
+    StatefulContent(
+        state = state.toContentState(),
+        emptyTitle = "No tags yet",
+        modifier = modifier,
+    ) { tags ->
+        TagList(
+            tags = tags,
             modifier = modifier,
             onDelete = onDelete,
         )
     }
 }
 
+private fun TagsUiState.toContentState(): ContentState<List<Tag>> = when (this) {
+    is TagsUiState.Loading -> ContentState.Loading
+    is TagsUiState.Empty -> ContentState.Empty
+    is TagsUiState.Error -> ContentState.Error(message)
+    is TagsUiState.Content -> ContentState.Ready(tags)
+}
+
 @Composable
 private fun TagList(tags: List<Tag>, modifier: Modifier = Modifier, onDelete: (TagId) -> Unit) {
     LazyColumn(
-        modifier = modifier,
+        modifier = modifier.testTag(TestTags.TAGS_LIST),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {

@@ -16,10 +16,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.icon
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * Bottom-sheet menu shown when the user taps the "Menu" bottom-bar item.
@@ -46,6 +48,7 @@ fun MenuBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        modifier = Modifier.testTag(TestTags.MENU_SHEET),
     ) {
         Column(
             modifier = Modifier
@@ -61,7 +64,9 @@ fun MenuBottomSheet(
                         selected = false,
                         onClick = { onSelect(item.destination) },
                         icon = item.iconContent(),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag(TestTags.menuItem(item.destination.title.lowercase())),
                     )
                 }
                 HorizontalDivider()

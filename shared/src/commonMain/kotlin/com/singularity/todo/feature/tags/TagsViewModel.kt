@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tags
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.feature.tags.usecase.DeleteTagUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +22,8 @@ sealed interface TagsUiState {
 
 class TagsViewModel(
     private val tagRepo: TagsRepository,
-    private val currentUser: CurrentUser
+    private val currentUser: CurrentUser,
+    private val deleteTag: DeleteTagUseCase,
 ) : ViewModel() {
 
     private val userIdFlow = currentUser.userId
@@ -37,6 +39,6 @@ class TagsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TagsUiState.Loading)
 
     fun delete(id: TagId) = viewModelScope.launch {
-        tagRepo.delete(id)
+        deleteTag(id)
     }
 }

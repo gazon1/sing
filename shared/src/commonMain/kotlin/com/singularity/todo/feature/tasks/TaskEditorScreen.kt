@@ -42,23 +42,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.files.toFilePickerResult
 import com.singularity.todo.core.ui.components.ProjectPickerSheet
-import com.singularity.todo.core.ui.components.ResultDialog
+import com.singularity.todo.core.ui.components.Notification
+import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.TagPickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
-import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.reminders.ReminderPicker
 import com.singularity.todo.feature.settings.ReminderOffset
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import org.koin.core.parameter.parametersOf
 import org.koin.compose.koinInject
+import com.singularity.todo.core.ui.TestTags
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,7 +70,6 @@ fun TaskEditorScreen(
     val vm: TaskEditorViewModel = koinInject { parametersOf(initialDueDate) }
     val state by vm.uiState.collectAsStateWithLifecycle()
 
-    var dialogText by remember { mutableStateOf<String?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var showProjectPicker by remember { mutableStateOf(false) }
@@ -89,14 +89,6 @@ fun TaskEditorScreen(
         }
     }
 
-    CollectEvents(vm.events) { event ->
-        when (event) {
-            is UiEvent.ShowDialog -> dialogText = event.text
-            is UiEvent.ShowError -> dialogText = event.message
-            UiEvent.NavigateBack -> onBack()
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -110,6 +102,7 @@ fun TaskEditorScreen(
                     IconButton(
                         onClick = { vm.onIntent(TaskEditorIntent.Save) },
                         enabled = state.title.isNotBlank() && !state.saving,
+                        modifier = Modifier.testTag(TestTags.TASK_EDITOR_SAVE),
                     ) {
                         Icon(Icons.Filled.Check, contentDescription = "Save")
                     }
@@ -191,7 +184,17 @@ fun TaskEditorScreen(
         )
     }
 
-    ResultDialog(title = "Error", text = dialogText, onDismiss = { dialogText = null })
+    NotificationHost(
+        events = vm.events,
+        mapper = { it.toNotification() },
+        onNavigateBack = onBack,
+        modifier = Modifier.testTag("task_editor_notification_host"),
+    )
+}
+
+private fun TaskEditorUiEvent.toNotification(): Notification = when (this) {
+    is TaskEditorUiEvent.Error -> Notification.Error(message)
+    TaskEditorUiEvent.NavigateBack -> Notification.NavigateBack
 }
 
 @Composable
@@ -226,10 +229,12 @@ private fun TaskEditorBody(
             label = { Text("Title") },
             isError = state.errorMessage != null,
             supportingText = state.errorMessage?.let { msg ->
-                { Text(msg, color = MaterialTheme.colorScheme.error) }
+                { Text(msg, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag(TestTags.TASK_EDITOR_ERROR)) }
             },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.TASK_EDITOR_TITLE_INPUT),
         )
 
         OutlinedTextField(
@@ -237,7 +242,9 @@ private fun TaskEditorBody(
             onValueChange = onDescriptionChange,
             label = { Text("Description (optional)") },
             minLines = 2,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.TASK_EDITOR_DESCRIPTION_INPUT),
         )
 
         // Date & Time row
@@ -249,7 +256,8 @@ private fun TaskEditorBody(
                 modifier = Modifier
                     .weight(1f)
                     .clickable(onClick = onDueDateClick)
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 8.dp)
+                    .testTag(TestTags.TASK_EDITOR_DUE_DATE),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
@@ -269,7 +277,8 @@ private fun TaskEditorBody(
                 modifier = Modifier
                     .weight(1f)
                     .clickable(onClick = onDueTimeClick)
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 8.dp)
+                    .testTag(TestTags.TASK_EDITOR_DUE_TIME),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
@@ -336,7 +345,9 @@ private fun TaskEditorBody(
         Text(
             text = "Checklist",
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .testTag(TestTags.TASK_EDITOR_CHECKLIST),
         )
 
         // Add checklist item
@@ -348,13 +359,18 @@ private fun TaskEditorBody(
                 value = state.newChecklistItem,
                 onValueChange = onNewChecklistItemChange,
                 placeholder = { Text("Add checklist item…") },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag(TestTags.TASK_EDITOR_CHECKLIST_ADD_INPUT),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { onAddChecklistItem() }),
             )
             Spacer(Modifier.width(8.dp))
-            IconButton(onClick = onAddChecklistItem) {
+            IconButton(
+                onClick = onAddChecklistItem,
+                modifier = Modifier.testTag(TestTags.TASK_EDITOR_CHECKLIST_ADD_BUTTON)
+            ) {
                 Icon(Icons.Filled.List, contentDescription = "Add item")
             }
         }
@@ -388,14 +404,17 @@ private fun TaskEditorBody(
         Text(
             text = "Reminder",
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .testTag(TestTags.TASK_EDITOR_REMINDER),
         )
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onReminderClick)
-                .padding(vertical = 12.dp),
+                .padding(vertical = 12.dp)
+                .testTag(TestTags.TASK_EDITOR_REMINDER),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -415,14 +434,17 @@ private fun TaskEditorBody(
         Text(
             text = "Attachments",
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .testTag(TestTags.TASK_EDITOR_ATTACHMENTS),
         )
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onAttachmentClick)
-                .padding(vertical = 12.dp),
+                .padding(vertical = 12.dp)
+                .testTag(TestTags.TASK_EDITOR_ADD_ATTACHMENT),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(

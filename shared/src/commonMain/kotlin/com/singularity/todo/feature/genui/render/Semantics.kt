@@ -4,6 +4,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * Marks a GenUI component so it is discoverable by UI Automator ([android_ui_resolve])
@@ -19,5 +20,5 @@ import androidx.compose.ui.semantics.semantics
  */
 fun Modifier.genuiTag(name: String, description: String): Modifier =
     this
-        .testTag("genui_$name")
+        .testTag(TestTags.genUi(name))
         .semantics { contentDescription = description }

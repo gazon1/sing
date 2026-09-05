@@ -34,13 +34,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.backup.BackupId
 import com.singularity.todo.core.backup.BackupMetadata
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.singularity.todo.core.ui.TestTags
+import kotlinx.datetime.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +67,7 @@ fun BackupScreen(
             TopAppBar(
                 title = { Text("Backup & Restore") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, modifier = Modifier.testTag(TestTags.BACKUP_TOP_BAR_BACK)) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 }
@@ -211,13 +211,5 @@ fun BackupListItem(
     }
 }
 
-private fun formatFileSize(bytes: Long): String = when {
-    bytes < 1024 -> "$bytes B"
-    bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-    else -> "%.1f MB".format(bytes.toDouble() / (1024 * 1024))
-}
-
-private fun formatDate(epochMillis: Long): String {
-    val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-    return sdf.format(Date(epochMillis))
-}
+private fun formatDate(epochMillis: Long): String =
+    formatBackupDate(epochMillis, TimeZone.currentSystemDefault())

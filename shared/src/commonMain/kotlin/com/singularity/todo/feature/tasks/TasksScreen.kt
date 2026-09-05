@@ -19,39 +19,32 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
-import com.singularity.todo.core.ui.components.ResultDialog
-import com.singularity.todo.core.ui.components.UiEvent
+import com.singularity.todo.core.ui.components.Notification
+import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.tasks.components.BulkActionBar
 import com.singularity.todo.feature.tasks.components.FilterChipsRow
 import com.singularity.todo.feature.tasks.components.TaskAiBottomSheet
 import com.singularity.todo.feature.tasks.components.TaskCard
 import com.singularity.todo.feature.tasks.components.TaskCardActions
+import com.singularity.todo.core.ui.TestTags
 import org.koin.compose.koinInject
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(
     entry: TasksScreenEntry = TasksScreenEntry.FromToday,
     onNavigateToTask: (String) -> Unit,
     onNavigateToCreateTask: () -> Unit,
+    viewModel: TasksViewModel = koinInject(),
 ) {
-    val viewModel: TasksViewModel = koinInject()
     val state by viewModel.state.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
 
-    var dialogText by remember { mutableStateOf<String?>(null) }
     var aiSheetTask by remember { mutableStateOf<Task?>(null) }
-
-    CollectEvents(viewModel.events) { event ->
-        if (event is UiEvent.ShowDialog || event is UiEvent.ShowError) {
-            dialogText = event.toDialogText()
-        }
-    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Tasks") }) },
@@ -94,7 +87,11 @@ fun TasksScreen(
         )
     }
 
-    ResultDialog(title = "AI Result", text = dialogText, onDismiss = { dialogText = null })
+    NotificationHost(
+        events = viewModel.events,
+        mapper = { it.toNotification() },
+        modifier = Modifier.testTag("tasks_notification_host"),
+    )
 }
 
 @Composable
@@ -138,7 +135,9 @@ private fun TaskList(
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag(TestTags.TASKS_LIST),
     ) {
         items(tasks, key = { it.id.value }) { task ->
             TaskCard(
@@ -164,8 +163,8 @@ private fun TaskList(
     }
 }
 
-private fun UiEvent.toDialogText(): String = when (this) {
-    is UiEvent.ShowDialog -> text
-    is UiEvent.ShowError -> message
-    UiEvent.NavigateBack -> ""
+private fun TasksUiEvent.toNotification(): Notification = when (this) {
+    is TasksUiEvent.AiResult -> Notification.Text(title = "AI Result", text = text)
+    is TasksUiEvent.Error -> Notification.Error(message)
+    TasksUiEvent.NavigateBack -> Notification.NavigateBack
 }

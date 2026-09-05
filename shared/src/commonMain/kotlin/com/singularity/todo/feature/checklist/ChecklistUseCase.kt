@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.checklist
 
 import com.singularity.todo.core.platform.Clock
+import kotlinx.coroutines.flow.first
 
 class ChecklistUseCase(
     private val repository: ChecklistRepository,
@@ -30,6 +31,25 @@ class ChecklistUseCase(
                 title = currentTitle,
                 isCompleted = !currentlyCompleted,
                 sortOrder = 0,
+            )
+        ).getOrThrow()
+    }
+
+    /**
+     * Toggles a checklist item's completed flag by its ID.
+     * Fetches the current item state from the repository.
+     */
+    suspend fun toggleItem(taskId: String, itemId: ChecklistItemId): Result<Unit> = runCatching {
+        val allItems = repository.watchByTask(taskId).first()
+        val item = allItems.find { it.id == itemId }
+            ?: throw IllegalArgumentException("Checklist item not found: $itemId")
+        repository.upsert(
+            ChecklistItem(
+                id = item.id,
+                taskId = item.taskId,
+                title = item.title,
+                isCompleted = !item.isCompleted,
+                sortOrder = item.sortOrder,
             )
         ).getOrThrow()
     }

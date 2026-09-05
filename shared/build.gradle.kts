@@ -204,8 +204,9 @@ kotlin {
             implementation(libs.androidx.test.core)
             implementation(libs.robolectric)
             // Compose UI test infra — needed for createComposeRule and onNodeWithText.
-            implementation("org.jetbrains.compose.ui:ui-test-junit4:1.11.1")
-            implementation("org.jetbrains.compose.ui:ui-test:1.11.1")
+            // Note: AndroidX version (1.7.3) is used instead of JetBrains (1.11.1) because
+            // JetBrains version depends on Espresso which is incompatible with Robolectric.
+            implementation(libs.composeUiTestJunit4)
         }
     }
 }

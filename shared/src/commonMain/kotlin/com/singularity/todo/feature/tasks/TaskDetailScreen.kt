@@ -28,14 +28,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.FieldMode
+import com.singularity.todo.core.ui.components.draftOr
 import com.singularity.todo.core.ui.components.LoadingIndicator
-import com.singularity.todo.core.ui.components.ResultDialog
-import com.singularity.todo.core.ui.components.UiEvent
+import com.singularity.todo.core.ui.components.Notification
+import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.ui.components.ProjectPickerSheet
 import com.singularity.todo.feature.projects.ProjectId
@@ -50,15 +51,6 @@ fun TaskDetailScreen(
 ) {
     LaunchedEffect(taskId) { viewModel.start(taskId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
-
-    var dialogText by remember { mutableStateOf<String?>(null) }
-    CollectEvents(viewModel.events) { event ->
-        when (event) {
-            is UiEvent.ShowDialog -> dialogText = event.text
-            is UiEvent.ShowError -> dialogText = event.message
-            UiEvent.NavigateBack -> onBack()
-        }
-    }
 
     var showProjectPicker by remember { mutableStateOf(false) }
 
@@ -84,7 +76,18 @@ fun TaskDetailScreen(
         )
     }
 
-    ResultDialog(title = "Task", text = dialogText, onDismiss = { dialogText = null })
+    NotificationHost(
+        events = viewModel.events,
+        mapper = { it.toNotification() },
+        onNavigateBack = onBack,
+        modifier = Modifier.testTag("task_detail_notification_host"),
+    )
+}
+
+private fun TaskDetailUiEvent.toNotification(): Notification = when (this) {
+    is TaskDetailUiEvent.Saved -> Notification.Text(title = "Saved", text = message)
+    is TaskDetailUiEvent.Error -> Notification.Error(message)
+    TaskDetailUiEvent.NavigateBack -> Notification.NavigateBack
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -269,6 +272,3 @@ private fun EditableTextRow(
         }
     }
 }
-
-private fun FieldMode.draftOr(fallback: String): String =
-    if (this is FieldMode.Edit) draft else fallback

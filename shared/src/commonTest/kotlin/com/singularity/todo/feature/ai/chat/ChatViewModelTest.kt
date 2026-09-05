@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.ai.chat
 
+import com.singularity.todo.core.ids.SequenceIdGenerator
 import com.singularity.todo.feature.ai.FakeTextGen
 import com.singularity.todo.feature.ai.TextGenPort
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +36,7 @@ class ChatViewModelTest {
     }
 
     private fun newVm(flow: Flow<String> = flowOf("Hi ", "there!")) =
-        ChatViewModel(ScriptedTextGen(flow))
+        ChatViewModel(ScriptedTextGen(flow), SequenceIdGenerator())
 
     @Test
     fun `send appends user and assistant placeholder`() = runTest {

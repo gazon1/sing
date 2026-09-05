@@ -155,6 +155,7 @@ private fun TasksRoute(entry: TasksScreenEntry, navigator: AppNavigator) {
         )
     } else {
         TasksScreen(
+            viewModel = koinInject(),
             entry = entry,
             onNavigateToTask = { id -> taskDetailId = id },
             onNavigateToCreateTask = {
@@ -175,6 +176,7 @@ private fun NotesRoute(navigator: AppNavigator) {
         )
     } else {
         NotesScreen(
+            viewModel = koinInject(),
             onNavigateToNote = { id -> editingNoteId = id },
             onNavigateToCreateNote = {
                 navigator.navigate(AppDestination.NoteEditor())

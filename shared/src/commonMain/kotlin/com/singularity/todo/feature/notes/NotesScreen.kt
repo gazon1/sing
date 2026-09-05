@@ -24,12 +24,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.components.StatefulContent
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,14 +41,14 @@ import org.koin.compose.koinInject
 fun NotesScreen(
     onNavigateToNote: (String) -> Unit,
     onNavigateToCreateNote: () -> Unit,
+    viewModel: NotesViewModel = koinInject(),
 ) {
-    val viewModel: NotesViewModel = koinInject()
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Notes") }) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNavigateToCreateNote) {
+            FloatingActionButton(onClick = onNavigateToCreateNote, modifier = Modifier.testTag(TestTags.NOTES_FAB)) {
                 Icon(Icons.Filled.Create, contentDescription = "Add Note")
             }
         },
@@ -65,17 +69,25 @@ private fun NotesContent(
     onNavigateToNote: (String) -> Unit,
     onDelete: (NoteId) -> Unit,
 ) {
-    when (state) {
-        is NotesUiState.Loading -> LoadingIndicator(modifier = modifier)
-        is NotesUiState.Empty -> EmptyState(title = "No notes yet", modifier = modifier)
-        is NotesUiState.Error -> EmptyState(title = "Error: ${state.message}", modifier = modifier)
-        is NotesUiState.Content -> NoteList(
-            notes = state.notes,
+    StatefulContent(
+        state = state.toContentState(),
+        emptyTitle = "No notes yet",
+        modifier = modifier,
+    ) { notes ->
+        NoteList(
+            notes = notes,
             modifier = modifier,
             onNavigateToNote = onNavigateToNote,
             onDelete = onDelete,
         )
     }
+}
+
+private fun NotesUiState.toContentState(): ContentState<List<Note>> = when (this) {
+    is NotesUiState.Loading -> ContentState.Loading
+    is NotesUiState.Empty -> ContentState.Empty
+    is NotesUiState.Error -> ContentState.Error(message)
+    is NotesUiState.Content -> ContentState.Ready(notes)
 }
 
 @Composable
@@ -86,7 +98,7 @@ private fun NoteList(
     onDelete: (NoteId) -> Unit,
 ) {
     LazyColumn(
-        modifier = modifier,
+        modifier = modifier.testTag(TestTags.NOTES_LIST),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {

@@ -7,7 +7,6 @@ import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.ChecklistUseCase
@@ -142,8 +141,8 @@ class TaskEditorViewModel(
     private val _uiState = MutableStateFlow(TaskEditorUiState(dueDate = initialDueDate))
     val uiState: StateFlow<TaskEditorUiState> = _uiState.asStateFlow()
 
-    private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<UiEvent> = _events.asSharedFlow()
+    private val _events = MutableSharedFlow<TaskEditorUiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<TaskEditorUiEvent> = _events.asSharedFlow()
 
     fun onIntent(intent: TaskEditorIntent) {
         // Pure reducer first — covers all intents that don't have side effects.
@@ -266,11 +265,11 @@ class TaskEditorViewModel(
                 current.pendingAttachments.forEach { att ->
                     deps.attachmentSaver.save(taskId, att.path, att.mimeType)
                 }
-                _events.emit(UiEvent.NavigateBack)
+                _events.emit(TaskEditorUiEvent.NavigateBack)
             }
             .onFailure {
                 _uiState.update { it -> it.copy(saving = false) }
-                _events.emit(UiEvent.ShowError(it.message ?: "Failed to save"))
+                _events.emit(TaskEditorUiEvent.Error(it.message ?: "Failed to save"))
             }
     }
 }

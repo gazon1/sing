@@ -4,21 +4,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.BackTopAppBar
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import org.koin.compose.koinInject
@@ -42,17 +39,10 @@ fun ProjectDetailScreen(
     LaunchedEffect(projectId) { viewModel.start(projectId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Project") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
+    BackTopAppBar(
+        title = "Project",
+        onBack = onBack,
+        modifier = Modifier.testTag(TestTags.PROJECT_DETAIL_TOP_BAR),
     ) { padding ->
         when (val s = state) {
             ProjectDetailUiState.Loading -> LoadingIndicator(modifier = Modifier.padding(padding))

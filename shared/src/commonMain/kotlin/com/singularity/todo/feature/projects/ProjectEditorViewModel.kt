@@ -3,7 +3,6 @@ package com.singularity.todo.feature.projects
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.auth.CurrentUser
-import com.singularity.todo.core.ui.components.UiEvent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,8 +44,8 @@ class ProjectEditorViewModel(
     private val _state = MutableStateFlow(ProjectEditorUiState())
     val state: StateFlow<ProjectEditorUiState> = _state.asStateFlow()
 
-    private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<UiEvent> = _events.asSharedFlow()
+    private val _events = MutableSharedFlow<ProjectEditorUiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<ProjectEditorUiEvent> = _events.asSharedFlow()
 
     fun processIntent(intent: ProjectEditorIntent) {
         when (intent) {
@@ -81,7 +80,7 @@ class ProjectEditorViewModel(
             )
             val result = createProject(input)
             result.fold(
-                onSuccess = { _events.emit(UiEvent.NavigateBack) },
+                onSuccess = { _events.emit(ProjectEditorUiEvent.NavigateBack) },
                 onFailure = {
                     _state.value = _state.value.copy(
                         saving = false,

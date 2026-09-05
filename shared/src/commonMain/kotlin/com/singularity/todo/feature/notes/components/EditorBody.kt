@@ -15,12 +15,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.mohamedrejeb.richeditor.model.RichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import com.singularity.todo.feature.notes.EditorState
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * Title field + rich text body editor. State owners are the parent — the body
@@ -67,7 +69,8 @@ fun EditorBody(
             placeholder = { Text("Title") },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .testTag(TestTags.NOTE_EDITOR_TITLE_INPUT),
             singleLine = true,
         )
         HorizontalDivider()
@@ -78,7 +81,10 @@ fun EditorBody(
         )
         RichTextEditor(
             state = richTextState,
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+                .testTag(TestTags.NOTE_EDITOR_BODY),
             colors = RichTextEditorDefaults.richTextEditorColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
             ),

@@ -3,7 +3,6 @@ package com.singularity.todo.feature.archive
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.auth.CurrentUser
-import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.TaskFilter
 import com.singularity.todo.feature.tasks.TaskRepository
@@ -35,8 +34,8 @@ class ArchiveViewModel(
 ) : ViewModel() {
 
     private val _refreshing = MutableStateFlow(false)
-    private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<UiEvent> = _events.asSharedFlow()
+    private val _events = MutableSharedFlow<ArchiveUiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<ArchiveUiEvent> = _events.asSharedFlow()
 
     val state: StateFlow<ArchiveUiState> = currentUser.userId
         .flatMapLatest { uid ->
@@ -54,10 +53,10 @@ class ArchiveViewModel(
         _refreshing.value = false
         result
             .onSuccess { count ->
-                if (count > 0) _events.emit(UiEvent.ShowDialog("Archived", "Moved $count tasks to archive"))
+                if (count > 0) _events.emit(ArchiveUiEvent.Archived("Moved $count tasks to archive"))
             }
             .onFailure { e ->
-                _events.emit(UiEvent.ShowError(e.message ?: "Archive failed"))
+                _events.emit(ArchiveUiEvent.Error(e.message ?: "Archive failed"))
             }
     }
 }

@@ -12,17 +12,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
-import com.singularity.todo.core.ui.components.ResultDialog
-import com.singularity.todo.core.ui.components.UiEvent
+import com.singularity.todo.core.ui.components.Notification
+import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.projects.components.ProjectCard
 import com.singularity.todo.feature.projects.components.ProjectCardActions
 import org.koin.compose.koinInject
@@ -35,17 +32,6 @@ fun ProjectsScreen(
 ) {
     val viewModel: ProjectsViewModel = koinInject()
     val state by viewModel.state.collectAsStateWithLifecycle()
-
-    var dialogText by remember { mutableStateOf<String?>(null) }
-
-    CollectEvents(viewModel.events) { event ->
-        val t = when (event) {
-            is UiEvent.ShowDialog -> event.text
-            is UiEvent.ShowError -> event.message
-            UiEvent.NavigateBack -> return@CollectEvents
-        }
-        dialogText = t
-    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Projects") }) },
@@ -61,7 +47,16 @@ fun ProjectsScreen(
         )
     }
 
-    ResultDialog(title = "Project Review", text = dialogText, onDismiss = { dialogText = null })
+    NotificationHost(
+        events = viewModel.events,
+        mapper = { it.toNotification() },
+        modifier = Modifier.testTag("projects_notification_host"),
+    )
+}
+
+private fun ProjectsUiEvent.toNotification(): Notification = when (this) {
+    is ProjectsUiEvent.ProjectReviewResult -> Notification.Text(title = "Project Review", text = text)
+    is ProjectsUiEvent.Error -> Notification.Error(message)
 }
 
 @Composable

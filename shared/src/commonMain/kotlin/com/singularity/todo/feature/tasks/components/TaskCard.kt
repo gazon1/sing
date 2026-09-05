@@ -20,9 +20,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.AiActionButton
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.feature.tasks.Task
@@ -43,6 +45,7 @@ fun TaskCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .testTag(TestTags.taskItem(task.title))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         colors = CardDefaults.cardColors(
             containerColor = if (task.isPinned)
@@ -55,7 +58,7 @@ fun TaskCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ToggleButton(isCompleted = task.isCompleted, onClick = actions::onToggle)
+            ToggleButton(isCompleted = task.isCompleted, onClick = actions::onToggle, taskTitle = task.title)
 
             TaskText(task = task, modifier = Modifier.weight(1f))
 
@@ -69,8 +72,11 @@ fun TaskCard(
 }
 
 @Composable
-private fun ToggleButton(isCompleted: Boolean, onClick: () -> Unit) {
-    IconButton(onClick = onClick) {
+private fun ToggleButton(isCompleted: Boolean, onClick: () -> Unit, taskTitle: String = "") {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.testTag(TestTags.taskCheckbox(taskTitle))
+    ) {
         Icon(
             imageVector = if (isCompleted) Icons.Filled.Check else Icons.Filled.Star,
             contentDescription = "Toggle complete",

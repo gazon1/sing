@@ -33,13 +33,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.components.Notification
+import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
-import com.singularity.todo.core.ui.components.UiEvent
 import org.koin.compose.koinInject
 
 private val PRESET_COLORS = listOf(
@@ -58,13 +59,12 @@ fun ProjectEditorScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    CollectEvents(viewModel.events) { event ->
-        when (event) {
-            is UiEvent.ShowDialog -> { /* no-op for now */ }
-            is UiEvent.ShowError -> { /* handled via state.errorMessage */ }
-            UiEvent.NavigateBack -> onBack()
-        }
-    }
+    NotificationHost(
+        events = viewModel.events,
+        mapper = { it.toNotification() },
+        onNavigateBack = onBack,
+        modifier = Modifier.testTag("project_editor_notification_host"),
+    )
 
     Scaffold(
         topBar = {
@@ -134,6 +134,10 @@ fun ProjectEditorScreen(
             onDismiss = { viewModel.processIntent(ProjectEditorIntent.ErrorShown) }
         )
     }
+}
+
+private fun ProjectEditorUiEvent.toNotification(): Notification = when (this) {
+    ProjectEditorUiEvent.NavigateBack -> Notification.NavigateBack
 }
 
 @Composable

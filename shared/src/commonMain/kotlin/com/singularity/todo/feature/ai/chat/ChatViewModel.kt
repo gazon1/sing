@@ -2,7 +2,7 @@ package com.singularity.todo.feature.ai.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.ui.components.UiEvent
+import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.feature.ai.TextGenPort
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,8 +12,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 /**
  * AI chat state and intents.
@@ -24,6 +22,7 @@ import kotlin.uuid.Uuid
  */
 class ChatViewModel(
     private val agent: TextGenPort,
+    private val idGen: IdGenerator,
 ) : ViewModel() {
 
     data class State(
@@ -40,8 +39,8 @@ class ChatViewModel(
     private val _uiState = MutableStateFlow(State())
     val uiState: StateFlow<State> = _uiState.asStateFlow()
 
-    private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<UiEvent> = _events.asSharedFlow()
+    private val _events = MutableSharedFlow<ChatUiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<ChatUiEvent> = _events.asSharedFlow()
 
     fun onIntent(intent: Intent) {
         when (intent) {
@@ -75,7 +74,7 @@ class ChatViewModel(
                 }
             }
         }.onFailure { error ->
-            _events.emit(UiEvent.ShowError(error.message ?: "AI request failed"))
+            _events.emit(ChatUiEvent.Error(error.message ?: "AI request failed"))
         }
 
         _uiState.update { it.copy(isLoading = false) }
@@ -84,8 +83,7 @@ class ChatViewModel(
     private fun List<ChatMessage>.replaceAssistantContent(id: String, content: String) =
         map { if (it.id == id) it.copy(content = content) else it }
 
-    @OptIn(ExperimentalUuidApi::class)
-    private fun newId(): String = Uuid.random().toString()
+    private fun newId(): String = idGen.next()
 }
 
 enum class ChatRole { User, Assistant }

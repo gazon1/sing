@@ -25,6 +25,7 @@ fun AuthGuard(
     when (session) {
         Session.Loading -> LoadingIndicator()
         Session.SignedOut -> LoginScreen(
+            viewModel = koinInject(),
             onSuccess = { /* AuthRepository.session transitions drive recomposition */ },
             onContinueOffline = { /* LoginScreen calls authRepository.signInAnonymously() */ },
         )

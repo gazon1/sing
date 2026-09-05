@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.notes
 
+import com.singularity.todo.core.ids.SequenceIdGenerator
+import com.singularity.todo.core.clock.DelayAutosaveScheduler
 import com.singularity.todo.feature.tasks.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeCurrentUser
@@ -29,8 +31,10 @@ class NotesViewModelTest {
         repo = repo,
         htmlPort = htmlPort,
         currentUser = FakeCurrentUser(FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId))),
+        idGen = SequenceIdGenerator(),
         improveNote = null,
         scopeOverride = scope,
+        autosaveScheduler = DelayAutosaveScheduler(Long.MAX_VALUE),
     )
 
     // ─── open editor ──────────────────────────────────────────────────────────

@@ -21,36 +21,23 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.ChatInputBar
-import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.MessageBubble
 import com.singularity.todo.core.ui.components.BubbleRole
-import com.singularity.todo.core.ui.components.ResultDialog
-import com.singularity.todo.core.ui.components.UiEvent
+import com.singularity.todo.core.ui.components.Notification
+import com.singularity.todo.core.ui.components.NotificationHost
 import org.koin.compose.koinInject
 
 @Composable
 fun ChatScreen(modifier: Modifier = Modifier) {
     val vm: ChatViewModel = koinInject()
     val state by vm.uiState.collectAsStateWithLifecycle()
-    var dialogText by remember { mutableStateOf<String?>(null) }
-    var dialogTitle by remember { mutableStateOf("AI") }
-
-    CollectEvents(vm.events) { event ->
-        when (event) {
-            is UiEvent.ShowDialog -> { dialogTitle = event.title; dialogText = event.text }
-            is UiEvent.ShowError -> { dialogTitle = "AI error"; dialogText = event.message }
-            UiEvent.NavigateBack -> Unit
-        }
-    }
 
     Scaffold(
         modifier = modifier,
@@ -77,7 +64,15 @@ fun ChatScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    ResultDialog(title = dialogTitle, text = dialogText, onDismiss = { dialogText = null })
+    NotificationHost(
+        events = vm.events,
+        mapper = { it.toNotification() },
+        modifier = Modifier.testTag("chat_notification_host"),
+    )
+}
+
+private fun ChatUiEvent.toNotification(): Notification = when (this) {
+    is ChatUiEvent.Error -> Notification.Error(message)
 }
 
 @Composable

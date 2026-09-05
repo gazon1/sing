@@ -23,11 +23,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AppNavigator
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.MenuButtonTitle
 import com.singularity.todo.feature.nav.icon
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * Android app chrome: Scaffold + bottom navigation bar + per-tab FAB +
@@ -79,14 +81,26 @@ fun AndroidShell(
                     NavigationBarItem(
                         selected = selected,
                         onClick = { navigator.navigateTopLevel(destination) },
-                        icon = { Icon(destination.icon, contentDescription = destination.title) },
+                        icon = {
+                            Icon(
+                                destination.icon,
+                                contentDescription = destination.title,
+                                modifier = Modifier.testTag(TestTags.navTab(destination.title.lowercase()))
+                            )
+                        },
                         label = { Text(destination.title) },
                     )
                 }
                 NavigationBarItem(
                     selected = false,
                     onClick = { menuVisible = true },
-                    icon = { Icon(Icons.Default.Menu, contentDescription = MenuButtonTitle) },
+                    icon = {
+                        Icon(
+                            Icons.Default.Menu,
+                            contentDescription = MenuButtonTitle,
+                            modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON)
+                        )
+                    },
                     label = { Text(MenuButtonTitle) },
                 )
             }
@@ -97,6 +111,7 @@ fun AndroidShell(
                 onClick = action.onClick,
                 icon = { Icon(Icons.Default.Add, contentDescription = action.label) },
                 text = { Text(action.label) },
+                modifier = Modifier.testTag(TestTags.TASKS_FAB),
             )
         },
         contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),

@@ -23,18 +23,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.ui.TestTags
 import org.koin.compose.koinInject
 
 @Composable
 fun LoginScreen(
     onSuccess: () -> Unit,
-    onContinueOffline: () -> Unit
+    onContinueOffline: () -> Unit,
+    viewModel: AuthViewModel = koinInject(),
 ) {
-    val viewModel: AuthViewModel = koinInject()
     val state by viewModel.state.collectAsState()
     val session by viewModel.session.collectAsState()
 
@@ -71,7 +73,9 @@ fun LoginScreen(
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.AUTH_EMAIL_INPUT),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             singleLine = true
         )
@@ -82,7 +86,9 @@ fun LoginScreen(
             value = password,
             onValueChange = { password = it },
             label = { Text("Password") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.AUTH_PASSWORD_INPUT),
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             singleLine = true
@@ -93,21 +99,24 @@ fun LoginScreen(
             Text(
                 text = (state as AuthUiState.Error).message,
                 color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT)
             )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         if (state is AuthUiState.Loading) {
-            ButtonSpinner()
+            ButtonSpinner(modifier = Modifier.testTag(TestTags.AUTH_LOADING))
         } else {
             Button(
                 onClick = {
                     if (isSignUp) viewModel.signUp(email, password)
                     else viewModel.signIn(email, password)
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.AUTH_SIGN_IN_BUTTON)
             ) {
                 Text(if (isSignUp) "Sign Up" else "Sign In")
             }
@@ -116,7 +125,9 @@ fun LoginScreen(
 
             TextButton(
                 onClick = { isSignUp = !isSignUp },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.AUTH_TOGGLE_MODE_BUTTON)
             ) {
                 Text(
                     if (isSignUp) "Already have an account? Sign In"
@@ -128,7 +139,9 @@ fun LoginScreen(
 
             TextButton(
                 onClick = { viewModel.signInAnonymously() },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.AUTH_CONTINUE_OFFLINE_BUTTON)
             ) {
                 Text("Continue Offline")
             }

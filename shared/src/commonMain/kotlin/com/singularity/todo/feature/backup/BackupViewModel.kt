@@ -2,17 +2,16 @@ package com.singularity.todo.feature.backup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.CoroutineScope
 import com.singularity.todo.core.auth.AuthDomain
 import com.singularity.todo.core.auth.AuthRepository
+import com.singularity.todo.core.backup.BackupFileNamer
 import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.backup.importOptions
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.UserId
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +36,8 @@ data class BackupSummary(
 class BackupViewModel(
     private val repository: BackupRepository,
     private val authRepository: AuthRepository,
+    private val backupFileNamer: BackupFileNamer,
+    private val clock: Clock,
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
@@ -87,9 +88,8 @@ class BackupViewModel(
 
     /** Parameterless backup — uses a timestamped default path under the working directory. */
     fun createBackup() {
-        val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        // Store in current working directory; BackupRepositoryImpl.export ensures backupDir exists
-        val path = "singularity_backup_$ts.zip"
+        val ts = clock.now().toEpochMilliseconds()
+        val path = backupFileNamer.nextBackupName(ts)
         export(path)
     }
 

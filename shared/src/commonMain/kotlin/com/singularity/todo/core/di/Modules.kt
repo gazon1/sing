@@ -39,6 +39,13 @@ import com.singularity.todo.feature.tasks.AttachmentsViewModelAttachmentSaver
 import com.singularity.todo.feature.tasks.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.TaskRepositoryImpl
+import com.singularity.todo.feature.tasks.usecase.BulkCompleteUseCase
+import com.singularity.todo.feature.tasks.usecase.BulkDeleteUseCase
+import com.singularity.todo.feature.tasks.usecase.DeleteTaskUseCase
+import com.singularity.todo.feature.tasks.usecase.TogglePinUseCase
+import com.singularity.todo.feature.tasks.usecase.ToggleTaskUseCase
+import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.tags.usecase.DeleteTagUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -160,6 +167,11 @@ internal fun aiToolsCoreModule(): Module = module {
             createTask = get(),
             updateTask = get(),
             currentUser = get(),
+            deleteTask = get(),
+            toggleTask = get(),
+            togglePinUseCase = get(),
+            bulkComplete = get(),
+            bulkDelete = get(),
             refineTask = get(),
             generateDescription = get(),
             generateChecklist = get(),
@@ -174,6 +186,7 @@ internal fun aiToolsCoreModule(): Module = module {
             currentUser = get(),
             taskRepository = get(),
             projectReview = get(),
+            deleteProject = get(),
         )
     }
 }
@@ -272,6 +285,8 @@ fun coreDomainModule(): Module = module {
 
     single<com.singularity.todo.feature.notes.MarkdownHtmlPort> { RichEditorMarkdownHtmlPort() }
 
+    single<com.singularity.todo.core.clock.AutosaveScheduler> { com.singularity.todo.core.clock.DelayAutosaveScheduler() }
+
     single<com.singularity.todo.core.attachments.AttachmentUploadService> { StubAttachmentUploadService() }
 
     single<com.singularity.todo.core.backup.RemoteBackupService> { StubRemoteBackupService() }
@@ -302,15 +317,22 @@ fun coreDomainModule(): Module = module {
 
     factory { CreateTaskUseCase(get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
+    factory { DeleteTaskUseCase(get()) }
+    factory { ToggleTaskUseCase(get()) }
+    factory { TogglePinUseCase(get()) }
+    factory { BulkCompleteUseCase(get()) }
+    factory { BulkDeleteUseCase(get()) }
 
     factory { CreateNoteUseCase(get(), get()) }
     factory { UpdateNoteUseCase(get(), get()) }
 
     factory { CreateProjectUseCase(get(), get()) }
     factory { UpdateProjectUseCase(get(), get()) }
+    factory { DeleteProjectUseCase(get(), get()) }
 
     factory { CreateTagUseCase(get(), get()) }
     factory { UpdateTagUseCase(get(), get()) }
+    factory { DeleteTagUseCase(get()) }
 
     factory { SearchUseCase(get(), get(), get(), get()) }
 
@@ -328,9 +350,9 @@ fun coreDomainModule(): Module = module {
     // TasksViewModel and ProjectsViewModel: registered in aiToolsModule()
     // (AI deps are null on Android; VMs handle null gracefully)
 
-    factory { TagsViewModel(get(), get()) }
+    factory { TagsViewModel(get(), get(), get()) }
 
-    factory { NotesViewModel(get(), get(), get(), get()) }
+    factory { NotesViewModel(get(), get(), get(), get(), get()) }
 
     factory { ProjectEditorViewModel(get(), get()) }
 
@@ -355,7 +377,7 @@ fun coreDomainModule(): Module = module {
     factory {
         com.singularity.todo.feature.tasks.TaskDetailViewModel(
             get(), get(),
-            get(), get(), get(), get(), get(), get(),
+            get(), get(), get<com.singularity.todo.feature.checklist.ChecklistUseCase>(), get(), get(), get(),
         )
     }
 

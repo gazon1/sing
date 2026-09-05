@@ -3,12 +3,16 @@ package com.singularity.todo.feature.tasks
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.auth.CurrentUser
-import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
+import com.singularity.todo.feature.tasks.usecase.BulkCompleteUseCase
+import com.singularity.todo.feature.tasks.usecase.BulkDeleteUseCase
+import com.singularity.todo.feature.tasks.usecase.DeleteTaskUseCase
+import com.singularity.todo.feature.tasks.usecase.TogglePinUseCase
+import com.singularity.todo.feature.tasks.usecase.ToggleTaskUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +60,11 @@ class TasksViewModel(
     private val createTask: CreateTaskUseCase,
     private val updateTask: UpdateTaskUseCase,
     private val currentUser: CurrentUser,
+    private val deleteTask: DeleteTaskUseCase,
+    private val toggleTask: ToggleTaskUseCase,
+    private val togglePinUseCase: TogglePinUseCase,
+    private val bulkComplete: BulkCompleteUseCase,
+    private val bulkDelete: BulkDeleteUseCase,
     // AI use cases are optional — Android doesn't ship with Koog/JVM AI stack,
     // so VMs work with null AI dependencies (AI buttons become no-ops on Android)
     private val refineTask: RefineTaskUseCase? = null,
@@ -74,8 +83,8 @@ class TasksViewModel(
     private val _aiResult = MutableSharedFlow<AiActionResult>()
     val aiResult = _aiResult.asSharedFlow()
 
-    private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<UiEvent> = _events.asSharedFlow()
+    private val _events = MutableSharedFlow<TasksUiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<TasksUiEvent> = _events.asSharedFlow()
 
     private val _selectedIds = MutableStateFlow<Set<TaskId>>(emptySet())
     val selectedIds: StateFlow<Set<TaskId>> = _selectedIds.asStateFlow()
@@ -94,15 +103,15 @@ class TasksViewModel(
     }
 
     fun delete(id: TaskId) = scope.launch {
-        taskRepo.softDelete(id)
+        deleteTask(id)
     }
 
     fun toggle(id: TaskId) = scope.launch {
-        taskRepo.toggleComplete(id)
+        toggleTask(id)
     }
 
     fun togglePin(id: TaskId) = scope.launch {
-        taskRepo.togglePinned(id)
+        togglePinUseCase(id)
     }
 
     fun enterSelectionMode(taskId: TaskId) {
@@ -120,16 +129,12 @@ class TasksViewModel(
     }
 
     fun bulkCompleteSelected() = scope.launch {
-        _selectedIds.value.forEach { id ->
-            taskRepo.toggleComplete(id)
-        }
+        bulkComplete(_selectedIds.value.toList())
         exitSelectionMode()
     }
 
     fun bulkDeleteSelected() = scope.launch {
-        _selectedIds.value.forEach { id ->
-            taskRepo.softDelete(id)
-        }
+        bulkDelete(_selectedIds.value.toList())
         exitSelectionMode()
     }
 
@@ -152,7 +157,7 @@ class TasksViewModel(
                 ?: AiActionResult.Error("AI not available")
         }
         _aiResult.emit(result)
-        _events.emit(UiEvent.ShowDialog(title = "AI Result", text = formatAiResult(result)))
+        _events.emit(TasksUiEvent.AiResult(formatAiResult(result)))
     }
 
     private fun <T> Result<T>.toResult(ok: (T) -> AiActionResult): AiActionResult =
