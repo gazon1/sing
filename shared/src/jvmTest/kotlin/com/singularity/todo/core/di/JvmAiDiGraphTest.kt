@@ -36,22 +36,23 @@ import org.koin.dsl.module
 /**
  * Smoke-test that the JVM-side AI graph wires up correctly.
  *
- * Builds the Koog [PromptExecutorPort] (with empty key, no network call yet) and
- * resolves every tool + use case + TextGenPort binding. Real LLM traffic is
- * NOT exercised — just the fact that the graph is well-formed.
+ * Builds the Koog [PromptExecutorPort] (with empty key, no network call yet)
+ * and resolves every tool + use case + TextGenPort binding. Real LLM traffic
+ * is NOT exercised — just the fact that the graph is well-formed.
  *
- * The production [aiToolsModule] binds `LLModel` to
- * `OpenAIModels.Chat.GPT4oMini`, whose static initialisation NPEs in the JVM-
- * test classpath. We override the binding with a tiny test fixture so the
- * graph can build without touching Koog's static state.
+ * The production [aiToolsModule] binds `LLModel` to [KnownModels.GPT4oMini],
+ * which builds via the public `LLModel` constructor and never touches
+ * `OpenAIModels.<clinit>`. The override below is a safety belt: if someone
+ * later reintroduces an `OpenAIModels.*` reference in the production graph,
+ * this test will fail at graph-build time rather than at first use.
  *
  * Run with: ./gradlew :shared:jvmTest --tests "*JvmAiDiGraphTest"
  */
 class JvmAiDiGraphTest {
 
     /**
-     * Minimal [LLModel] for DI-graph tests. Never used for inference — only
-     * constructed to satisfy the `single<LLModel>` binding.
+     * Minimal [LLModel] override for the test graph. Never used for inference
+     * — only constructed to satisfy the `single<LLModel>` binding.
      */
     private val testLLModel = LLModel(provider = OpenAILLMProvider, id = "test-model")
 
@@ -61,9 +62,8 @@ class JvmAiDiGraphTest {
             modules(
                 coreDomainModule(),
                 platformModule(),
-                // Override the production LLModel binding to avoid touching
-                // OpenAIModels.<clinit> in the JVM-test classpath.
                 aiToolsModule(),
+                // Safety belt override — see class KDoc.
                 module { single<LLModel> { testLLModel } },
             )
         }
