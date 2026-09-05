@@ -8,11 +8,7 @@ import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
-import com.singularity.todo.feature.tasks.usecase.BulkCompleteUseCase
-import com.singularity.todo.feature.tasks.usecase.BulkDeleteUseCase
-import com.singularity.todo.feature.tasks.usecase.DeleteTaskUseCase
-import com.singularity.todo.feature.tasks.usecase.TogglePinUseCase
-import com.singularity.todo.feature.tasks.usecase.ToggleTaskUseCase
+import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,11 +56,7 @@ class TasksViewModel(
     private val createTask: CreateTaskUseCase,
     private val updateTask: UpdateTaskUseCase,
     private val currentUser: CurrentUser,
-    private val deleteTask: DeleteTaskUseCase,
-    private val toggleTask: ToggleTaskUseCase,
-    private val togglePinUseCase: TogglePinUseCase,
-    private val bulkComplete: BulkCompleteUseCase,
-    private val bulkDelete: BulkDeleteUseCase,
+    private val mutations: TaskMutationsUseCase,
     // AI use cases are optional — Android doesn't ship with Koog/JVM AI stack,
     // so VMs work with null AI dependencies (AI buttons become no-ops on Android)
     private val refineTask: RefineTaskUseCase? = null,
@@ -103,15 +95,15 @@ class TasksViewModel(
     }
 
     fun delete(id: TaskId) = scope.launch {
-        deleteTask(id)
+        mutations.delete(id)
     }
 
     fun toggle(id: TaskId) = scope.launch {
-        toggleTask(id)
+        mutations.toggle(id)
     }
 
     fun togglePin(id: TaskId) = scope.launch {
-        togglePinUseCase(id)
+        mutations.togglePin(id)
     }
 
     fun enterSelectionMode(taskId: TaskId) {
@@ -129,12 +121,12 @@ class TasksViewModel(
     }
 
     fun bulkCompleteSelected() = scope.launch {
-        bulkComplete(_selectedIds.value.toList())
+        mutations.bulkComplete(_selectedIds.value.toList())
         exitSelectionMode()
     }
 
     fun bulkDeleteSelected() = scope.launch {
-        bulkDelete(_selectedIds.value.toList())
+        mutations.bulkDelete(_selectedIds.value.toList())
         exitSelectionMode()
     }
 

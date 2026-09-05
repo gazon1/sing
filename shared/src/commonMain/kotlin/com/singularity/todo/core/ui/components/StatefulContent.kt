@@ -12,14 +12,10 @@ import androidx.compose.ui.Modifier
  *
  * ## Usage
  *
- * Each ViewModel maps its sealed state to [ContentState] via an extension:
+ * Each screen provides a thin local extension that delegates to [ContentStateMapper]:
  * ```kotlin
- * private fun TasksUiState.toContentState(): ContentState<List<Task>> = when (this) {
- *     is TasksUiState.Loading -> ContentState.Loading
- *     is TasksUiState.Empty   -> ContentState.Empty
- *     is TasksUiState.Error   -> ContentState.Error(message)
- *     is TasksUiState.Ready   -> ContentState.Ready(tasks)
- * }
+ * private fun NotesUiState.toContentState() =
+ *     ContentStateMapper.contentStateOf(this) { it.notes }
  * ```
  *
  * The screen then simply:

@@ -2,11 +2,7 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.checklist.ChecklistUseCase
-import com.singularity.todo.feature.tasks.usecase.BulkCompleteUseCase
-import com.singularity.todo.feature.tasks.usecase.BulkDeleteUseCase
-import com.singularity.todo.feature.tasks.usecase.DeleteTaskUseCase
-import com.singularity.todo.feature.tasks.usecase.ToggleTaskUseCase
-import com.singularity.todo.feature.tasks.usecase.TogglePinUseCase
+import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeCurrentUser
@@ -57,15 +53,15 @@ class TaskLifecycleIntegrationTest {
         )
     }
 
-    // ─── ToggleTaskUseCase ───────────────────────────────────────────────────
+    // ─── TaskMutationsUseCase toggle ───────────────────────────────────────
 
     @Test
-    fun `ToggleTaskUseCase completes an incomplete task`() = runTest {
+    fun `TaskMutationsUseCase toggle completes an incomplete task`() = runTest {
         val repo = makeTaskRepo()
         seed(repo, "t1", "Buy milk")
-        val useCase = ToggleTaskUseCase(repo)
+        val useCase = TaskMutationsUseCase(repo)
 
-        useCase(TaskId.fromString("t1"))
+        useCase.toggle(TaskId.fromString("t1"))
         advanceUntilIdle()
 
         val task = repo.tasks.value["t1"]
@@ -73,37 +69,37 @@ class TaskLifecycleIntegrationTest {
     }
 
     @Test
-    fun `ToggleTaskUseCase uncompletes a completed task`() = runTest {
+    fun `TaskMutationsUseCase toggle uncompletes a completed task`() = runTest {
         val repo = makeTaskRepo()
         seed(repo, "t1", "Done", completedAt = Clock.now())
-        val useCase = ToggleTaskUseCase(repo)
+        val useCase = TaskMutationsUseCase(repo)
 
-        useCase(TaskId.fromString("t1"))
+        useCase.toggle(TaskId.fromString("t1"))
         advanceUntilIdle()
 
         val task = repo.tasks.value["t1"]
         assertFalse(task?.isCompleted == true)
     }
 
-    // ─── DeleteTaskUseCase ──────────────────────────────────────────────────
+    // ─── TaskMutationsUseCase delete ───────────────────────────────────────
 
     @Test
-    fun `DeleteTaskUseCase soft-deletes by setting archivedAt`() = runTest {
+    fun `TaskMutationsUseCase delete soft-deletes by setting archivedAt`() = runTest {
         val repo = makeTaskRepo()
         seed(repo, "t1", "To delete")
-        val useCase = DeleteTaskUseCase(repo)
+        val useCase = TaskMutationsUseCase(repo)
 
-        useCase(TaskId.fromString("t1"))
+        useCase.delete(TaskId.fromString("t1"))
         advanceUntilIdle()
 
         val task = repo.tasks.value["t1"]
         assertNotNull(task?.archivedAt)
     }
 
-    // ─── BulkCompleteUseCase ───────────────────────────────────────────────
+    // ─── TaskMutationsUseCase bulkComplete ─────────────────────────────────
 
     @Test
-    fun `BulkCompleteUseCase marks all tasks done`() = runTest {
+    fun `TaskMutationsUseCase bulkComplete marks all tasks done`() = runTest {
         val repo = makeTaskRepo()
         val now = Clock.now()
         repo.seed(
@@ -122,9 +118,9 @@ class TaskLifecycleIntegrationTest {
                 updatedAt = now,
             )
         )
-        val useCase = BulkCompleteUseCase(repo)
+        val useCase = TaskMutationsUseCase(repo)
 
-        useCase(listOf(TaskId.fromString("t1"), TaskId.fromString("t2")))
+        useCase.bulkComplete(listOf(TaskId.fromString("t1"), TaskId.fromString("t2")))
         advanceUntilIdle()
 
         val t1 = repo.tasks.value["t1"]
@@ -135,15 +131,15 @@ class TaskLifecycleIntegrationTest {
         assertTrue(t2.isCompleted, "t2.isCompleted=${t2.isCompleted}")
     }
 
-    // ─── TogglePinUseCase ───────────────────────────────────────────────────
+    // ─── TaskMutationsUseCase togglePin ────────────────────────────────────
 
     @Test
-    fun `TogglePinUseCase flips isPinned flag`() = runTest {
+    fun `TaskMutationsUseCase togglePin flips isPinned flag`() = runTest {
         val repo = makeTaskRepo()
         seed(repo, "t1", "Important", isPinned = false)
-        val useCase = TogglePinUseCase(repo)
+        val useCase = TaskMutationsUseCase(repo)
 
-        useCase(TaskId.fromString("t1"))
+        useCase.togglePin(TaskId.fromString("t1"))
         advanceUntilIdle()
 
         val task = repo.tasks.value["t1"]

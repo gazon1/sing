@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ContentState
+import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.StatefulContent
 import org.koin.compose.koinInject
@@ -76,12 +77,8 @@ private fun TagsContent(
     }
 }
 
-private fun TagsUiState.toContentState(): ContentState<List<Tag>> = when (this) {
-    is TagsUiState.Loading -> ContentState.Loading
-    is TagsUiState.Empty -> ContentState.Empty
-    is TagsUiState.Error -> ContentState.Error(message)
-    is TagsUiState.Content -> ContentState.Ready(tags)
-}
+private fun TagsUiState.toContentState() =
+    ContentStateMapper.tags(this)
 
 @Composable
 private fun TagList(tags: List<Tag>, modifier: Modifier = Modifier, onDelete: (TagId) -> Unit) {

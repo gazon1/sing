@@ -32,6 +32,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.StatefulContent
 import org.koin.compose.koinInject
@@ -83,12 +84,8 @@ private fun NotesContent(
     }
 }
 
-private fun NotesUiState.toContentState(): ContentState<List<Note>> = when (this) {
-    is NotesUiState.Loading -> ContentState.Loading
-    is NotesUiState.Empty -> ContentState.Empty
-    is NotesUiState.Error -> ContentState.Error(message)
-    is NotesUiState.Content -> ContentState.Ready(notes)
-}
+private fun NotesUiState.toContentState() =
+    ContentStateMapper.notes(this)
 
 @Composable
 private fun NoteList(

@@ -17,6 +17,7 @@ import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagsRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,7 +74,9 @@ class TaskDetailViewModel(
     private val reminderRepo: ReminderRepository,
     private val attachmentsRepo: AttachmentRepository,
     private val currentUser: CurrentUser,
+    private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
+    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
     private val _taskId = MutableStateFlow<TaskId?>(null)
     private val _events = MutableSharedFlow<TaskDetailUiEvent>(extraBufferCapacity = 4)
@@ -130,13 +133,13 @@ class TaskDetailViewModel(
             }
         }
         .catch { emit(TaskDetailUiState.Error(it.message ?: "Error")) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TaskDetailUiState.Loading)
+        .stateIn(scope, SharingStarted.WhileSubscribed(5000), TaskDetailUiState.Loading)
 
     fun start(taskId: TaskId) {
         _taskId.value = taskId
     }
 
-    fun saveField(current: Task, field: TaskDetailField, draft: String) = viewModelScope.launch {
+    fun saveField(current: Task, field: TaskDetailField, draft: String) = scope.launch {
         val updated = when (field) {
             TaskDetailField.Title -> current.copy(title = draft)
             TaskDetailField.Description -> current.copy(description = draft.ifBlank { null })
@@ -158,20 +161,20 @@ class TaskDetailViewModel(
     }
 
     /** Sets / clears the task's project. Used by ProjectPickerSheet. */
-    fun saveProject(current: Task, projectId: ProjectId?) = viewModelScope.launch {
+    fun saveProject(current: Task, projectId: ProjectId?) = scope.launch {
         updateTask(current.copy(projectId = projectId))
             .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Project updated")) }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
     /** Toggles a checklist item's completed flag in place. */
-    fun toggleChecklistItem(item: com.singularity.todo.feature.checklist.ChecklistItem) = viewModelScope.launch {
+    fun toggleChecklistItem(item: com.singularity.todo.feature.checklist.ChecklistItem) = scope.launch {
         checklistUseCase.toggleItem(item.taskId, item.id)
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Toggle failed")) }
     }
 
     /** Removes a checklist item. */
-    fun deleteChecklistItem(id: ChecklistItemId) = viewModelScope.launch {
+    fun deleteChecklistItem(id: ChecklistItemId) = scope.launch {
         checklistUseCase.deleteItem(id)
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Delete failed")) }
     }

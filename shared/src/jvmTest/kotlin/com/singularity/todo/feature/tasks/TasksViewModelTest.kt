@@ -5,11 +5,7 @@ import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
-import com.singularity.todo.feature.tasks.usecase.BulkCompleteUseCase
-import com.singularity.todo.feature.tasks.usecase.BulkDeleteUseCase
-import com.singularity.todo.feature.tasks.usecase.DeleteTaskUseCase
-import com.singularity.todo.feature.tasks.usecase.TogglePinUseCase
-import com.singularity.todo.feature.tasks.usecase.ToggleTaskUseCase
+import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeCurrentUser
 import com.singularity.todo.test.fakes.FakeSettingsRepository
@@ -30,10 +26,9 @@ import kotlin.test.assertTrue
 /**
  * Tests for TasksViewModel using FakeTaskRepository.
  *
- * Note: VM actions that launch coroutines (togglePin, toggle, delete, bulkComplete, bulkDelete)
+ * VM actions that launch coroutines (togglePin, toggle, delete, bulkComplete, bulkDelete)
  * require the VM's scope to use the test's TestDispatcher for advanceUntilIdle to process them.
- * Currently scopeOverride uses backgroundScope which is controlled differently.
- * These tests verify repository state changes directly where possible.
+ * scopeOverride is used to point at the test scope.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TasksViewModelTest {
@@ -53,16 +48,12 @@ class TasksViewModelTest {
         createTask = CreateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
         updateTask = UpdateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
         currentUser = fakeCurrentUser,
+        mutations = TaskMutationsUseCase(fakeTaskRepo),
         refineTask = refineTask,
         generateDescription = generateDescription,
         generateChecklist = generateChecklist,
         decomposeTask = decomposeTask,
         pickTime = pickTime,
-        deleteTask = DeleteTaskUseCase(fakeTaskRepo),
-        toggleTask = ToggleTaskUseCase(fakeTaskRepo),
-        togglePinUseCase = TogglePinUseCase(fakeTaskRepo),
-        bulkComplete = BulkCompleteUseCase(fakeTaskRepo),
-        bulkDelete = BulkDeleteUseCase(fakeTaskRepo),
     )
 
     private fun seedTask(

@@ -1,0 +1,42 @@
+package com.singularity.todo.core.ui.components
+
+import com.singularity.todo.feature.notes.NotesUiState
+import com.singularity.todo.feature.tags.TagsUiState
+
+/**
+ * Shared `toContentState()` helpers for sealed UI states that follow the
+ * `Loading / Empty / Error / Content(val T)` pattern.
+ *
+ * Each screen provides a thin local extension (2 lines) that delegates here.
+ * Keeping the mapping logic here once avoids copy-paste errors when a new
+ * variant is added to the sealed interface.
+ *
+ * ## Usage
+ *
+ * In your screen file:
+ * ```kotlin
+ * private fun NotesUiState.toContentState() =
+ *     ContentStateMapper.notes(this) { notes }
+ *
+ * private fun TagsUiState.toContentState() =
+ *     ContentStateMapper.tags(this) { tags }
+ * ```
+ */
+object ContentStateMapper {
+
+    fun notes(state: NotesUiState): ContentState<List<com.singularity.todo.feature.notes.Note>> =
+        when (state) {
+            is NotesUiState.Loading -> ContentState.Loading
+            is NotesUiState.Empty -> ContentState.Empty
+            is NotesUiState.Error -> ContentState.Error(state.message)
+            is NotesUiState.Content -> ContentState.Ready(state.notes)
+        }
+
+    fun tags(state: TagsUiState): ContentState<List<com.singularity.todo.feature.tags.Tag>> =
+        when (state) {
+            is TagsUiState.Loading -> ContentState.Loading
+            is TagsUiState.Empty -> ContentState.Empty
+            is TagsUiState.Error -> ContentState.Error(state.message)
+            is TagsUiState.Content -> ContentState.Ready(state.tags)
+        }
+}

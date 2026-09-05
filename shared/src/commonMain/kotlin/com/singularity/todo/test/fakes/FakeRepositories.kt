@@ -164,8 +164,17 @@ class FakeTaskRepository : TaskRepository {
     private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
     override val changes: SharedFlow<Task> = _changes.asSharedFlow()
 
+    /** Seeds tasks by merging into existing state (adds or overwrites by id). */
     fun seed(vararg tasks: Task) {
-        this.tasks.value = tasks.associateBy { it.id.value }
+        this.tasks.value = this.tasks.value + tasks.associate { it.id.value to it }
+    }
+
+    fun add(task: Task) {
+        tasks.value = tasks.value + (task.id.value to task)
+    }
+
+    fun clear() {
+        tasks.value = emptyMap()
     }
 
     override suspend fun create(task: Task): Result<Unit> = runCatching {
@@ -214,6 +223,8 @@ class FakeTaskRepository : TaskRepository {
         }
     }
 
+    override suspend fun exists(id: TaskId): Boolean = tasks.value.containsKey(id.value)
+
     override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
         tasks.value[taskId.value]?.let { task ->
             val updated = task.copy(tags = tagIds)
@@ -240,8 +251,17 @@ class FakeTaskRepository : TaskRepository {
 class FakeChecklistRepository : ChecklistRepository {
     internal val items = MutableStateFlow<Map<String, ChecklistItem>>(emptyMap())
 
+    /** Seeds items by merging into existing state (adds or overwrites by id). */
     fun seed(vararg items: ChecklistItem) {
-        this.items.value = items.associateBy { it.id.value }
+        this.items.value = this.items.value + items.associate { it.id.value to it }
+    }
+
+    fun add(item: ChecklistItem) {
+        items.value = items.value + (item.id.value to item)
+    }
+
+    fun clear() {
+        items.value = emptyMap()
     }
 
     override fun watchByTask(taskId: String): Flow<List<ChecklistItem>> =
@@ -328,6 +348,16 @@ class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRep
         emit()
     }
 
+    fun add(project: com.singularity.todo.feature.projects.Project) {
+        store[project.id.value] = project
+        emit()
+    }
+
+    fun clear() {
+        store.clear()
+        emit()
+    }
+
     private fun emit() { _flow.value = store.values.toList() }
 
     override fun watchProjects(userId: String): Flow<List<com.singularity.todo.feature.projects.Project>> =
@@ -362,6 +392,16 @@ class FakeTagsRepository : com.singularity.todo.feature.tags.TagsRepository {
 
     fun seed(vararg tags: com.singularity.todo.feature.tags.Tag) {
         tags.forEach { store[it.id.value] = it }
+        emit()
+    }
+
+    fun add(tag: com.singularity.todo.feature.tags.Tag) {
+        store[tag.id.value] = tag
+        emit()
+    }
+
+    fun clear() {
+        store.clear()
         emit()
     }
 
@@ -469,6 +509,16 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
         emit()
     }
 
+    fun add(note: com.singularity.todo.feature.notes.Note) {
+        store[note.id.value] = note
+        emit()
+    }
+
+    fun clear() {
+        store.clear()
+        emit()
+    }
+
     private fun emit() {
         _flow.value = store.values.toList()
     }
@@ -481,7 +531,7 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
 
     override fun searchNotes(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
         _flow.map { list ->
-            list.filter { it.userId.value == it.userId.value && it.deletedAt == null && (it.title.contains(query, ignoreCase = true) || (it.bodyMarkdown?.contains(query, ignoreCase = true) == true)) }
+            list.filter { note -> note.deletedAt == null && (note.title.contains(query, ignoreCase = true) || (note.bodyMarkdown?.contains(query, ignoreCase = true) == true)) }
         }
 
     override suspend fun create(note: com.singularity.todo.feature.notes.Note): Result<Unit> = runCatching {

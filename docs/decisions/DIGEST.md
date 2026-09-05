@@ -191,14 +191,20 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **~25 новых файлов**: 4 порта, 7 Page Objects, test infrastructure, integration tests _(from `2026-09-05-ui-tests-ultron`)_
 - 8 экранов мигрированы: Tasks, Notes, TaskDetail, TaskEditor, Projects, ProjectEditor, Chat, Archive _(from `2026-09-05-ui-decomposition`)_
 - Autosave вынесен из `delay()` в VM в отдельный port — теперь тестируем без `advanceTimeBy` _(from `2026-09-05-ui-decomposition`)_
+- Bulk-операции fail-fast при отсутствующих ID _(from `2026-09-05-refactoring-summary`)_
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска _(from `2026-09-05-ui-tests-ultron`)_
+- `ContentStateMapper` — добавлен object с двумя методами _(from `2026-09-05-refactoring-summary`)_
+- DI-граф упрощён: 5 factory → 1 _(from `2026-09-05-refactoring-summary`)_
 - **`koinInject()` в Screen** требует Koin контекст — widget тесты обходят это через Robolectric + `createComposeRule` без Koin _(from `2026-09-05-ui-tests-ultron`)_
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах _(from `2026-09-05-ui-decomposition`)_
 - Per-feature events устранили конфликты имён (до: `ShowDialog` everywhere; после: `TasksUiEvent.AiResult`, `NotesUiEvent.SaveFailed`) _(from `2026-09-05-ui-decomposition`)_
 - **`performTextClear`** не доступен в Robolectric — используется `performTextInput` напрямую _(from `2026-09-05-ui-tests-ultron`)_
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов _(from `2026-09-05-uiautomator-compose-discovery`)_
 - `scopeOverride` добавлен в `ProjectsViewModel` _(from `2026-09-05-ui-decomposition`)_
+- `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика _(from `2026-09-05-refactoring-summary`)_
 - UI Automator тесты **удалены** (`UIAutomatorTest.kt`). _(from `2026-09-05-uiautomator-compose-discovery`)_
+- Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear() _(from `2026-09-05-refactoring-summary`)_
+- Все ViewModel'ы с `scopeOverride` — консистентны в тестах _(from `2026-09-05-refactoring-summary`)_
 - Для UI-тестов на реальном устройстве: Kaspresso или `contentDescription` + `By.desc()`. _(from `2026-09-05-uiautomator-compose-discovery`)_
 - Оставшиеся `androidHostTest`: только `AppNavigatorTest` (nav contract, без Espresso), _(from `2026-09-05-uiautomator-compose-discovery`)_
 
@@ -223,6 +229,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-05-koog-both-platforms` — Wire Koog AI agent for both JVM desktop and Android
 - `2026-09-05-koog-test-workarounds` — Avoid OpenAIModels.Chat.* — use KnownModels; explicit get<>() for SimpleTool<T>
 - `2026-09-05-llm-provider-settings` — LLM provider settings: pure-Kotlin config object + sealed test result
+- `2026-09-05-refactoring-summary` — _(no title)
 - `2026-09-05-robolectric-widget-tests` — Widget tests via Robolectric androidHostTest — no Koin, direct ViewModel construction
 - `2026-09-05-secret-storage-split` — API key lives in SecureStorage only — never in DataStore, never in UI state
 - `2026-09-05-uiautomator-compose-discovery` — _(no title)

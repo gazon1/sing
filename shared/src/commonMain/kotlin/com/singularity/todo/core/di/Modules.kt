@@ -39,11 +39,7 @@ import com.singularity.todo.feature.tasks.AttachmentsViewModelAttachmentSaver
 import com.singularity.todo.feature.tasks.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.TaskRepositoryImpl
-import com.singularity.todo.feature.tasks.usecase.BulkCompleteUseCase
-import com.singularity.todo.feature.tasks.usecase.BulkDeleteUseCase
-import com.singularity.todo.feature.tasks.usecase.DeleteTaskUseCase
-import com.singularity.todo.feature.tasks.usecase.TogglePinUseCase
-import com.singularity.todo.feature.tasks.usecase.ToggleTaskUseCase
+import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tags.usecase.DeleteTagUseCase
 import kotlinx.coroutines.CoroutineScope
@@ -167,11 +163,7 @@ internal fun aiToolsCoreModule(): Module = module {
             createTask = get(),
             updateTask = get(),
             currentUser = get(),
-            deleteTask = get(),
-            toggleTask = get(),
-            togglePinUseCase = get(),
-            bulkComplete = get(),
-            bulkDelete = get(),
+            mutations = get(),
             refineTask = get(),
             generateDescription = get(),
             generateChecklist = get(),
@@ -317,11 +309,7 @@ fun coreDomainModule(): Module = module {
 
     factory { CreateTaskUseCase(get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
-    factory { DeleteTaskUseCase(get()) }
-    factory { ToggleTaskUseCase(get()) }
-    factory { TogglePinUseCase(get()) }
-    factory { BulkCompleteUseCase(get()) }
-    factory { BulkDeleteUseCase(get()) }
+    factory { TaskMutationsUseCase(get()) }
 
     factory { CreateNoteUseCase(get(), get()) }
     factory { UpdateNoteUseCase(get(), get()) }
