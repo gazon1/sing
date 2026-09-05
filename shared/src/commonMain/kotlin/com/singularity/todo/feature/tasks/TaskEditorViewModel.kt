@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
@@ -30,14 +31,27 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 
 /**
- * UI state for the create-task screen.
+ * Whether the editor is creating a new task or editing an existing one.
+ */
+sealed interface TaskEditorMode {
+    data object New : TaskEditorMode
+    data class Edit(val taskId: TaskId) : TaskEditorMode
+}
+
+/**
+ * UI state for the create/edit task screen.
  *
  * The screen is stateless — every field belongs to the VM so it can be tested
  * without Compose and so save/error handling lives in one place.
+ *
+ * @param originalTask When non-null, the editor is in edit mode with this task pre-loaded.
+ *                     Used for dirty tracking and discard.
  */
 data class TaskEditorUiState(
+    val mode: TaskEditorMode = TaskEditorMode.New,
     val title: String = "",
     val description: String = "",
+    val priority: TaskPriority = TaskPriority.None,
     val dueDate: kotlinx.datetime.LocalDate? = null,
     val dueTime: kotlinx.datetime.LocalTime? = null,
     val projectId: String? = null,
@@ -46,9 +60,31 @@ data class TaskEditorUiState(
     val newChecklistItem: String = "",
     val reminderOffset: ReminderOffset? = null,
     val pendingAttachments: List<PendingAttachment> = emptyList(),
+    val loading: Boolean = false,
     val saving: Boolean = false,
     val errorMessage: String? = null,
-)
+    /** Pre-loaded task for edit mode; used for dirty comparison and discard. */
+    val originalTask: Task? = null,
+) {
+    /**
+     * Detects unsaved changes by comparing against the pre-loaded [originalTask].
+     * In New mode, dirty when any field has a non-default value.
+     */
+    val dirty: Boolean
+        get() = when (val o = originalTask) {
+            null -> title.isNotBlank() || description.isNotBlank() ||
+                priority != TaskPriority.None || dueDate != null || dueTime != null ||
+                projectId != null || tagIds.isNotEmpty() ||
+                checklistItems.isNotEmpty() || reminderOffset != null ||
+                pendingAttachments.isNotEmpty()
+            else -> title != o.title || description != (o.description ?: "") ||
+                priority != o.priority ||
+                dueDate != o.dueDate ||
+                dueTime != o.dueTime?.let { parseTime(it) } ||
+                projectId != o.projectId?.value ||
+                tagIds != o.tags.map { it.value }
+        }
+}
 
 data class PendingAttachment(
     val path: String,
@@ -65,8 +101,11 @@ data class ChecklistItemUi(
 sealed interface TaskEditorIntent {
     data class TitleChanged(val text: String) : TaskEditorIntent
     data class DescriptionChanged(val text: String) : TaskEditorIntent
+    data class PriorityChanged(val priority: TaskPriority) : TaskEditorIntent
     data class DueDateChanged(val date: kotlinx.datetime.LocalDate?) : TaskEditorIntent
+    data object ClearDueDate : TaskEditorIntent
     data class DueTimeChanged(val time: kotlinx.datetime.LocalTime?) : TaskEditorIntent
+    data object ClearDueTime : TaskEditorIntent
     data class ProjectChanged(val projectId: String?) : TaskEditorIntent
     data class TagsChanged(val tagIds: List<String>) : TaskEditorIntent
     data class NewChecklistItemChanged(val text: String) : TaskEditorIntent
@@ -75,6 +114,11 @@ sealed interface TaskEditorIntent {
     data class DeleteChecklistItem(val id: String) : TaskEditorIntent
     data class ReminderOffsetChanged(val offset: ReminderOffset?) : TaskEditorIntent
     data class AddAttachment(val path: String, val name: String, val mimeType: String?) : TaskEditorIntent
+    data class RemovePendingAttachment(val path: String) : TaskEditorIntent
+    /** Loads an existing task for editing; switches mode to Edit. */
+    data class LoadTask(val taskId: TaskId) : TaskEditorIntent
+    /** Resets state to the original loaded task (discards changes). */
+    data object DiscardChanges : TaskEditorIntent
     data object Save : TaskEditorIntent
     data object ErrorShown : TaskEditorIntent
 }
@@ -87,8 +131,11 @@ sealed interface TaskEditorIntent {
 internal fun TaskEditorUiState.reduce(intent: TaskEditorIntent): TaskEditorUiState = when (intent) {
     is TaskEditorIntent.TitleChanged -> copy(title = intent.text, errorMessage = null)
     is TaskEditorIntent.DescriptionChanged -> copy(description = intent.text)
+    is TaskEditorIntent.PriorityChanged -> copy(priority = intent.priority)
     is TaskEditorIntent.DueDateChanged -> copy(dueDate = intent.date)
+    TaskEditorIntent.ClearDueDate -> copy(dueDate = null)
     is TaskEditorIntent.DueTimeChanged -> copy(dueTime = intent.time)
+    TaskEditorIntent.ClearDueTime -> copy(dueTime = null)
     is TaskEditorIntent.ProjectChanged -> copy(projectId = intent.projectId)
     is TaskEditorIntent.TagsChanged -> copy(tagIds = intent.tagIds)
     is TaskEditorIntent.NewChecklistItemChanged -> copy(newChecklistItem = intent.text)
@@ -100,12 +147,17 @@ internal fun TaskEditorUiState.reduce(intent: TaskEditorIntent): TaskEditorUiSta
             mimeType = intent.mimeType,
         ),
     )
+    is TaskEditorIntent.RemovePendingAttachment -> copy(
+        pendingAttachments = pendingAttachments.filter { it.path != intent.path },
+    )
     TaskEditorIntent.ErrorShown -> copy(errorMessage = null)
     // Impure intents pass through unchanged — handled separately in the VM.
     TaskEditorIntent.AddChecklistItem,
     is TaskEditorIntent.ToggleChecklistItem,
     is TaskEditorIntent.DeleteChecklistItem,
-    TaskEditorIntent.Save -> this
+    TaskEditorIntent.Save,
+    is TaskEditorIntent.LoadTask,
+    TaskEditorIntent.DiscardChanges -> this
 }
 
 /**
@@ -114,9 +166,11 @@ internal fun TaskEditorUiState.reduce(intent: TaskEditorIntent): TaskEditorUiSta
  */
 data class TaskEditorDeps(
     val createTask: CreateTaskUseCase,
+    val updateTask: UpdateTaskUseCase,
     val clock: Clock,
     val currentUser: CurrentUser,
-    val checklistUseCase: com.singularity.todo.feature.checklist.ChecklistUseCase,
+    val taskRepository: TaskRepository,
+    val checklistUseCase: ChecklistUseCase,
     val reminderRepository: ReminderRepository,
     val attachmentSaver: AttachmentSaver,
     val idGen: IdGenerator,
@@ -124,10 +178,7 @@ data class TaskEditorDeps(
 )
 
 /**
- * Create-task screen VM. The legacy implementation lived entirely inside the
- * Composable (`var title by remember { ... }`, `rememberCoroutineScope`); this
- * refactor moves the state and validation into the VM so the screen is a thin
- * view and `TaskEditorViewModelTest` can exercise the validation path.
+ * Create/edit task screen VM.
  *
  * @param initialDueDate pre-fills the due date field (e.g. when creating from Today tab).
  */
@@ -145,14 +196,14 @@ class TaskEditorViewModel(
     val events: SharedFlow<TaskEditorUiEvent> = _events.asSharedFlow()
 
     fun onIntent(intent: TaskEditorIntent) {
-        // Pure reducer first — covers all intents that don't have side effects.
         _uiState.update { it.reduce(intent) }
-        // Impure branch — handles side effects (IO, list mutations, save).
         when (intent) {
             TaskEditorIntent.AddChecklistItem -> addChecklistItem()
             is TaskEditorIntent.ToggleChecklistItem -> toggleChecklistItem(intent.id)
             is TaskEditorIntent.DeleteChecklistItem -> deleteChecklistItem(intent.id)
             TaskEditorIntent.Save -> save()
+            is TaskEditorIntent.LoadTask -> loadTask(intent.taskId)
+            TaskEditorIntent.DiscardChanges -> discardChanges()
             else -> Unit
         }
     }
@@ -161,7 +212,7 @@ class TaskEditorViewModel(
         val text = _uiState.value.newChecklistItem.trim()
         if (text.isBlank()) return
         _uiState.update { st ->
-                st.copy(
+            st.copy(
                 checklistItems = st.checklistItems + ChecklistItemUi(
                     id = deps.idGen.next(),
                     title = text,
@@ -177,7 +228,7 @@ class TaskEditorViewModel(
             st.copy(
                 checklistItems = st.checklistItems.map { item ->
                     if (item.id == id) item.copy(isCompleted = !item.isCompleted) else item
-                }
+                },
             )
         }
     }
@@ -197,11 +248,11 @@ class TaskEditorViewModel(
         val zone = deps.timeZoneProvider.current()
         val base = when {
             dueDate != null && dueTime != null -> {
-                val ldt = LocalDateTime(dueDate.year, dueDate.monthNumber, dueDate.dayOfMonth, dueTime.hour, dueTime.minute)
+                val ldt = LocalDateTime(dueDate.year, dueDate.month, dueDate.day, dueTime.hour, dueTime.minute)
                 ldt.toInstant(zone).toEpochMilliseconds()
             }
             dueDate != null -> {
-                val ldt = LocalDateTime(dueDate.year, dueDate.monthNumber, dueDate.dayOfMonth, 12, 0)
+                val ldt = LocalDateTime(dueDate.year, dueDate.month, dueDate.day, 12, 0)
                 ldt.toInstant(zone).toEpochMilliseconds()
             }
             else -> nowEpochMs
@@ -215,61 +266,179 @@ class TaskEditorViewModel(
 
         val userId = deps.currentUser.current
 
+        _uiState.update { it.copy(saving = true, errorMessage = null) }
+
+        when (current.mode) {
+            TaskEditorMode.New -> saveNew(current, userId)
+            is TaskEditorMode.Edit -> saveExisting(current, current.mode.taskId, userId)
+        }
+    }
+
+    private suspend fun saveNew(current: TaskEditorUiState, userId: UserId) {
         val input = try {
             TasksDomain.createInput(
                 title = current.title,
                 description = current.description.ifBlank { null },
+                priority = current.priority,
+                projectId = current.projectId?.let { com.singularity.todo.feature.projects.ProjectId.fromString(it) },
+                tagIds = current.tagIds.map { com.singularity.todo.feature.tags.TagId.fromString(it) },
                 dueDate = current.dueDate,
+                dueTime = current.dueTime?.let { "%02d:%02d".format(it.hour, it.minute) },
                 userId = userId,
             )
         } catch (e: AppError.Validation) {
-            _uiState.update { it.copy(errorMessage = e.message) }
-            return@launch
+            _uiState.update { it.copy(saving = false, errorMessage = e.message) }
+            return
         }
 
-        _uiState.update { it.copy(saving = true, errorMessage = null) }
-
-        val taskResult = deps.createTask(input)
-
-        taskResult
+        deps.createTask(input)
             .onSuccess { taskId ->
-                // Save checklist items after task creation
-                if (current.checklistItems.isNotEmpty()) {
-                    val checklistItems = current.checklistItems.map { ui ->
-                        com.singularity.todo.feature.checklist.ChecklistItem(
-                            id = com.singularity.todo.feature.checklist.ChecklistItemId.fromString(ui.id),
-                            taskId = taskId.value,
-                            title = ui.title,
-                            isCompleted = ui.isCompleted,
-                            sortOrder = 0,
-                        )
-                    }
-                    deps.checklistUseCase.createBatch(taskId.value, checklistItems)
-                }
-                // Save reminder if offset was selected
-                current.reminderOffset?.let { offset ->
-                    val now = deps.clock.now().toEpochMilliseconds()
-                    val fireAt = computeFireAt(current.dueDate, current.dueTime, offset, now)
-                    val reminder = Reminder(
-                        id = ReminderId.generate(),
-                        taskId = taskId,
-                        userId = userId,
-                        type = ReminderType.Gentle,
-                        offsetMinutes = -offset.minutes,
-                        fireAt = fireAt,
-                        recurringPattern = null,
-                    )
-                    deps.reminderRepository.upsert(reminder)
-                }
-                // Save pending attachments
-                current.pendingAttachments.forEach { att ->
-                    deps.attachmentSaver.save(taskId, att.path, att.mimeType)
-                }
+                saveSubEntities(taskId, current, userId)
                 _events.emit(TaskEditorUiEvent.NavigateBack)
             }
             .onFailure {
-                _uiState.update { it -> it.copy(saving = false) }
+                _uiState.update { it.copy(saving = false) }
                 _events.emit(TaskEditorUiEvent.Error(it.message ?: "Failed to save"))
             }
     }
+
+    private suspend fun saveExisting(current: TaskEditorUiState, taskId: TaskId, userId: UserId) {
+        val existing = deps.taskRepository.watchTask(taskId).first()
+            ?: run {
+                _uiState.update { it.copy(saving = false) }
+                _events.emit(TaskEditorUiEvent.Error("Task not found"))
+                return
+            }
+
+        val updated = existing.copy(
+            title = current.title,
+            description = current.description.ifBlank { null },
+            priority = current.priority,
+            projectId = current.projectId?.let { com.singularity.todo.feature.projects.ProjectId.fromString(it) },
+            dueDate = current.dueDate,
+            dueTime = current.dueTime?.let { "%02d:%02d".format(it.hour, it.minute) },
+        )
+
+        deps.updateTask(updated)
+            .onSuccess {
+                saveSubEntities(taskId, current, userId)
+                _events.emit(TaskEditorUiEvent.NavigateBack)
+            }
+            .onFailure {
+                _uiState.update { it.copy(saving = false) }
+                _events.emit(TaskEditorUiEvent.Error(it.message ?: "Failed to save"))
+            }
+    }
+
+    private suspend fun saveSubEntities(taskId: TaskId, current: TaskEditorUiState, userId: UserId) {
+        // Checklist
+        if (current.checklistItems.isNotEmpty()) {
+            val items = current.checklistItems.map { ui ->
+                ChecklistItem(
+                    id = ChecklistItemId.fromString(ui.id),
+                    taskId = taskId.value,
+                    title = ui.title,
+                    isCompleted = ui.isCompleted,
+                    sortOrder = 0,
+                )
+            }
+            deps.checklistUseCase.createBatch(taskId.value, items)
+        }
+
+        // Tags — fix: tagIds were stored but never persisted
+        if (current.tagIds.isNotEmpty()) {
+            val tagIds = current.tagIds.map { com.singularity.todo.feature.tags.TagId.fromString(it) }
+            deps.taskRepository.setTags(taskId, tagIds)
+        }
+
+        // Reminder
+        current.reminderOffset?.let { offset ->
+            val now = deps.clock.now().toEpochMilliseconds()
+            val fireAt = computeFireAt(current.dueDate, current.dueTime, offset, now)
+            val reminder = Reminder(
+                id = ReminderId.generate(),
+                taskId = taskId,
+                userId = userId,
+                type = ReminderType.Gentle,
+                offsetMinutes = -offset.minutes,
+                fireAt = fireAt,
+                recurringPattern = null,
+            )
+            deps.reminderRepository.upsert(reminder)
+        }
+
+        // Attachments
+        current.pendingAttachments.forEach { att ->
+            deps.attachmentSaver.save(taskId, att.path, att.mimeType)
+        }
+    }
+
+    private fun loadTask(taskId: TaskId) {
+        scope.launch(Dispatchers.Unconfined) {
+            _uiState.update { it.copy(loading = true) }
+
+            val userId = deps.currentUser.current
+            val task = deps.taskRepository.watchTask(taskId).first()
+
+            if (task != null) {
+                val checklist = deps.checklistUseCase.watchChecklist(taskId.value).first()
+                val reminder = deps.reminderRepository.watchByTask(taskId, userId).first().firstOrNull()
+
+                _uiState.update {
+                    it.copy(
+                        mode = TaskEditorMode.Edit(taskId),
+                        title = task.title,
+                        description = task.description ?: "",
+                        priority = task.priority,
+                        dueDate = task.dueDate,
+                        dueTime = task.dueTime?.let { parseTime(it) },
+                        projectId = task.projectId?.value,
+                        tagIds = task.tags.map { it.value },
+                        checklistItems = checklist.map { item ->
+                            ChecklistItemUi(
+                                id = item.id.value,
+                                title = item.title,
+                                isCompleted = item.isCompleted,
+                            )
+                        },
+                        reminderOffset = reminder?.let { r ->
+                            val abs = (-r.offsetMinutes).coerceAtLeast(0)
+                            ReminderOffset.entries.find { it.minutes == abs }
+                        },
+                        originalTask = task,
+                        loading = false,
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(loading = false) }
+                _events.emit(TaskEditorUiEvent.Error("Task not found"))
+            }
+        }
+    }
+
+    private fun discardChanges() {
+        val original = _uiState.value.originalTask ?: return
+        _uiState.update {
+            it.copy(
+                title = original.title,
+                description = original.description ?: "",
+                priority = original.priority,
+                dueDate = original.dueDate,
+                dueTime = original.dueTime?.let { parseTime(it) },
+                projectId = original.projectId?.value,
+                tagIds = original.tags.map { it.value },
+                checklistItems = emptyList(),
+                reminderOffset = null,
+                pendingAttachments = emptyList(),
+            )
+        }
+    }
+
+}
+
+private fun parseTime(hhmm: String): kotlinx.datetime.LocalTime? {
+    val parts = hhmm.split(":")
+    return if (parts.size == 2) {
+        kotlinx.datetime.LocalTime(parts[0].toIntOrNull() ?: return null, parts[1].toIntOrNull() ?: return null)
+    } else null
 }

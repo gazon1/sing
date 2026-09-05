@@ -5,6 +5,8 @@ import com.singularity.todo.core.ids.SequenceIdGenerator
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.checklist.ChecklistUseCase
+import com.singularity.todo.feature.tasks.TaskEditorDeps
+import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.feature.tasks.FakeAttachmentSaver
 import com.singularity.todo.test.fakes.FakeAuthRepository
@@ -60,6 +62,8 @@ class TaskEditorViewModelTest {
                 attachmentSaver = attachmentSaver,
                 idGen = idGen,
                 timeZoneProvider = timeZoneProvider,
+                updateTask = UpdateTaskUseCase(fakeTaskRepo, clock),
+                taskRepository = fakeTaskRepo,
             ),
             initialDueDate = initialDueDate,
             scopeOverride = scope,

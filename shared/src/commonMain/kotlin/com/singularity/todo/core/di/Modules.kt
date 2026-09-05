@@ -350,8 +350,10 @@ fun coreDomainModule(): Module = module {
         com.singularity.todo.feature.tasks.TaskEditorViewModel(
             deps = com.singularity.todo.feature.tasks.TaskEditorDeps(
                 createTask = get(),
+                updateTask = get(),
                 clock = get(),
                 currentUser = get(),
+                taskRepository = get(),
                 checklistUseCase = get(),
                 reminderRepository = get(),
                 attachmentSaver = get(),

@@ -58,6 +58,7 @@ object TestTags {
     const val TASK_EDITOR_SAVE = "task_editor_save"
     const val TASK_EDITOR_DELETE = "task_editor_delete"
     const val TASK_EDITOR_ERROR = "task_editor_error"
+    const val TASK_EDITOR_NOTIFICATION_HOST = "task_editor_notification_host"
 
     // ─── Notes ───────────────────────────────────────────────────────────────
     const val NOTES_LIST = "notes_list"

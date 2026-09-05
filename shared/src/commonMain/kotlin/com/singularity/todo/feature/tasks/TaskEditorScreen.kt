@@ -1,494 +1,287 @@
 package com.singularity.todo.feature.tasks
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Label
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.files.toFilePickerResult
-import com.singularity.todo.core.ui.components.ProjectPickerSheet
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.ProjectPickerSheet
 import com.singularity.todo.core.ui.components.TagPickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.feature.reminders.ReminderPicker
 import com.singularity.todo.feature.settings.ReminderOffset
-import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
+import com.singularity.todo.feature.tasks.components.TaskEditorContent
+import com.singularity.todo.feature.tasks.components.TaskEditorDiscardDialog
+import com.singularity.todo.feature.tasks.components.TaskEditorPrioritySheet
+import com.singularity.todo.feature.tasks.components.TaskEditorSheetHost
 import io.github.vinceglb.filekit.dialogs.FileKitType
-import org.koin.core.parameter.parametersOf
+import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import org.koin.compose.koinInject
-import com.singularity.todo.core.ui.TestTags
+
+/**
+ * Sealed hierarchy for the currently open bottom sheet.
+ * Lives in the Composable (not VM) because sheet visibility is transient UI state.
+ */
+private sealed interface EditorSheet {
+    data object None : EditorSheet
+    data object Priority : EditorSheet
+    data object Project : EditorSheet
+    data object Date : EditorSheet
+    data object Time : EditorSheet
+    data object Reminder : EditorSheet
+    data object Tags : EditorSheet
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskEditorScreen(
     initialDueDate: kotlinx.datetime.LocalDate? = null,
+    taskId: String? = null,
     onBack: () -> Unit,
 ) {
-    val vm: TaskEditorViewModel = koinInject { parametersOf(initialDueDate) }
+    val vm: TaskEditorViewModel = koinInject()
     val state by vm.uiState.collectAsStateWithLifecycle()
 
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
-    var showProjectPicker by remember { mutableStateOf(false) }
-    var showTagPicker by remember { mutableStateOf(false) }
-    var showReminderPicker by remember { mutableStateOf(false) }
+    // Sheet routing — local UI state, NOT in VM
+    var currentSheet by remember { mutableStateOf<EditorSheet>(EditorSheet.None) }
+    // Dirty-confirmation dialog
+    var showDiscardDialog by remember { mutableStateOf(false) }
+    // Overflow menu
+    var showActionsMenu by remember { mutableStateOf(false) }
 
-    val filePickerLauncher = rememberFilePickerLauncher(
-        type = FileKitType.File(),
-    ) { file ->
-        if (file != null) {
-            val result = file.toFilePickerResult()
-            vm.onIntent(TaskEditorIntent.AddAttachment(
-                path = result.path,
-                name = result.name,
-                mimeType = result.mimeType,
-            ))
+    // Load task if editing
+    LaunchedEffect(taskId) {
+        if (taskId != null) {
+            vm.onIntent(TaskEditorIntent.LoadTask(TaskId.fromString(taskId)))
         }
     }
+
+    val filePickerLauncher = rememberFilePickerLauncher(type = FileKitType.File()) { file ->
+        if (file != null) {
+            val result = file.toFilePickerResult()
+            vm.onIntent(TaskEditorIntent.AddAttachment(result.path, result.name, result.mimeType))
+        }
+    }
+
+    val screenTitle = when (state.mode) {
+        TaskEditorMode.New -> "New Task"
+        is TaskEditorMode.Edit -> "Edit Task"
+    }
+
+    val canSave = state.title.isNotBlank() && !state.saving
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("New Task") },
+                title = { Text(screenTitle) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = {
+                            if (state.dirty) {
+                                showDiscardDialog = true
+                            } else {
+                                onBack()
+                            }
+                        },
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = { vm.onIntent(TaskEditorIntent.Save) },
-                        enabled = state.title.isNotBlank() && !state.saving,
-                        modifier = Modifier.testTag(TestTags.TASK_EDITOR_SAVE),
-                    ) {
-                        Icon(Icons.Filled.Check, contentDescription = "Save")
+                    if (state.saving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        IconButton(
+                            onClick = { vm.onIntent(TaskEditorIntent.Save) },
+                            enabled = canSave,
+                            modifier = Modifier.testTag(TestTags.TASK_EDITOR_SAVE),
+                        ) {
+                            Icon(Icons.Filled.Check, contentDescription = "Save")
+                        }
+                        Box {
+                            IconButton(onClick = { showActionsMenu = true }) {
+                                Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                            }
+                            DropdownMenu(
+                                expanded = showActionsMenu,
+                                onDismissRequest = { showActionsMenu = false },
+                            ) {
+                                if (state.dirty) {
+                                    DropdownMenuItem(
+                                        text = { Text("Discard changes") },
+                                        onClick = {
+                                            showActionsMenu = false
+                                            showDiscardDialog = true
+                                        },
+                                    )
+                                }
+                            }
+                        }
                     }
                 },
             )
         },
     ) { padding ->
-        TaskEditorBody(
+        TaskEditorContent(
             state = state,
             onTitleChange = { vm.onIntent(TaskEditorIntent.TitleChanged(it)) },
             onDescriptionChange = { vm.onIntent(TaskEditorIntent.DescriptionChanged(it)) },
-            onDueDateClick = { showDatePicker = true },
-            onDueTimeClick = { showTimePicker = true },
-            onProjectClick = { showProjectPicker = true },
-            onTagsClick = { showTagPicker = true },
+            onPriorityClick = { currentSheet = EditorSheet.Priority },
+            onDateClick = { currentSheet = EditorSheet.Date },
+            onTimeClick = { currentSheet = EditorSheet.Time },
+            onDatePreset = { date -> vm.onIntent(TaskEditorIntent.DueDateChanged(date)) },
+            onClearDate = { vm.onIntent(TaskEditorIntent.ClearDueDate) },
+            onClearTime = { vm.onIntent(TaskEditorIntent.ClearDueTime) },
+            onProjectClick = { currentSheet = EditorSheet.Project },
+            onTagsClick = { currentSheet = EditorSheet.Tags },
+            onClearProject = { vm.onIntent(TaskEditorIntent.ProjectChanged(null)) },
             onNewChecklistItemChange = { vm.onIntent(TaskEditorIntent.NewChecklistItemChanged(it)) },
             onAddChecklistItem = { vm.onIntent(TaskEditorIntent.AddChecklistItem) },
             onToggleChecklistItem = { vm.onIntent(TaskEditorIntent.ToggleChecklistItem(it)) },
             onDeleteChecklistItem = { vm.onIntent(TaskEditorIntent.DeleteChecklistItem(it)) },
-            onReminderClick = { showReminderPicker = true },
-            onReminderOffsetChange = { vm.onIntent(TaskEditorIntent.ReminderOffsetChanged(it)) },
+            onReminderClick = { currentSheet = EditorSheet.Reminder },
             onAttachmentClick = { filePickerLauncher.launch() },
-            onSave = { vm.onIntent(TaskEditorIntent.Save) },
+            onRemoveAttachment = { path -> vm.onIntent(TaskEditorIntent.RemovePendingAttachment(path)) },
             modifier = Modifier.padding(padding),
         )
     }
 
-    if (showDatePicker) {
-        DatePickerSheet(
-            initialDate = state.dueDate,
-            onDateSelected = { vm.onIntent(TaskEditorIntent.DueDateChanged(it)) },
-            onDismiss = { showDatePicker = false },
-        )
-    }
+    // ─── Bottom Sheets ────────────────────────────────────────────────────────
 
-    if (showTimePicker) {
-        TimePickerSheet(
-            initialTime = state.dueTime,
-            onTimeSelected = { vm.onIntent(TaskEditorIntent.DueTimeChanged(it)) },
-            onDismiss = { showTimePicker = false },
-        )
-    }
+    when (currentSheet) {
+        EditorSheet.None -> {}
 
-    if (showProjectPicker) {
-        ProjectPickerSheet(
-            onProjectSelected = { project ->
-                vm.onIntent(TaskEditorIntent.ProjectChanged(project?.id?.value))
-            },
-            onDismiss = { showProjectPicker = false },
-        )
-    }
+        EditorSheet.Priority -> {
+            TaskEditorSheetHost(
+                title = "Priority",
+                onClose = { currentSheet = EditorSheet.None },
+            ) {
+                TaskEditorPrioritySheet(
+                    selected = state.priority,
+                    onSelect = { priority ->
+                        vm.onIntent(TaskEditorIntent.PriorityChanged(priority))
+                        currentSheet = EditorSheet.None
+                    },
+                )
+            }
+        }
 
-    if (showTagPicker) {
-        TagPickerSheet(
-            selectedTagIds = state.tagIds.toSet(),
-            onTagsSelected = { vm.onIntent(TaskEditorIntent.TagsChanged(it.toList())) },
-            onDismiss = { showTagPicker = false },
-        )
-    }
+        EditorSheet.Date -> {
+            DatePickerSheet(
+                initialDate = state.dueDate,
+                onDateSelected = { date ->
+                    vm.onIntent(TaskEditorIntent.DueDateChanged(date))
+                    currentSheet = EditorSheet.None
+                },
+                onDismiss = { currentSheet = EditorSheet.None },
+            )
+        }
 
-    if (showReminderPicker) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showReminderPicker = false },
-            title = { Text("Remind me") },
-            text = {
+        EditorSheet.Time -> {
+            TimePickerSheet(
+                initialTime = state.dueTime,
+                onTimeSelected = { time ->
+                    vm.onIntent(TaskEditorIntent.DueTimeChanged(time))
+                    currentSheet = EditorSheet.None
+                },
+                onDismiss = { currentSheet = EditorSheet.None },
+            )
+        }
+
+        EditorSheet.Project -> {
+            ProjectPickerSheet(
+                onProjectSelected = { project ->
+                    vm.onIntent(TaskEditorIntent.ProjectChanged(project?.id?.value))
+                    currentSheet = EditorSheet.None
+                },
+                onDismiss = { currentSheet = EditorSheet.None },
+            )
+        }
+
+        EditorSheet.Tags -> {
+            TagPickerSheet(
+                selectedTagIds = state.tagIds.toSet(),
+                onTagsSelected = { tags ->
+                    vm.onIntent(TaskEditorIntent.TagsChanged(tags.toList()))
+                    currentSheet = EditorSheet.None
+                },
+                onDismiss = { currentSheet = EditorSheet.None },
+            )
+        }
+
+        EditorSheet.Reminder -> {
+            TaskEditorSheetHost(
+                title = "Remind me",
+                onClose = { currentSheet = EditorSheet.None },
+            ) {
                 ReminderPicker(
                     selected = state.reminderOffset ?: ReminderOffset.AT_DUE,
                     onSelect = { offset ->
                         vm.onIntent(TaskEditorIntent.ReminderOffsetChanged(offset))
-                        showReminderPicker = false
+                        currentSheet = EditorSheet.None
                     },
+                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
-            },
-            confirmButton = {
-                TextButton(onClick = { showReminderPicker = false }) {
-                    Text("Cancel")
+            }
+        }
+    }
+
+    // ─── Discard Confirmation ────────────────────────────────────────────────
+
+    if (showDiscardDialog) {
+        TaskEditorDiscardDialog(
+            onDiscard = {
+                showDiscardDialog = false
+                if (state.mode is TaskEditorMode.Edit) {
+                    vm.onIntent(TaskEditorIntent.DiscardChanges)
+                } else {
+                    onBack()
                 }
             },
+            onDismiss = { showDiscardDialog = false },
         )
     }
+
+    // ─── Event Handling ─────────────────────────────────────────────────────
 
     NotificationHost(
         events = vm.events,
         mapper = { it.toNotification() },
         onNavigateBack = onBack,
-        modifier = Modifier.testTag("task_editor_notification_host"),
+        modifier = Modifier.testTag(TestTags.TASK_EDITOR_NOTIFICATION_HOST),
     )
 }
 
 private fun TaskEditorUiEvent.toNotification(): Notification = when (this) {
     is TaskEditorUiEvent.Error -> Notification.Error(message)
     TaskEditorUiEvent.NavigateBack -> Notification.NavigateBack
-}
-
-@Composable
-private fun TaskEditorBody(
-    state: TaskEditorUiState,
-    onTitleChange: (String) -> Unit,
-    onDescriptionChange: (String) -> Unit,
-    onDueDateClick: () -> Unit,
-    onDueTimeClick: () -> Unit,
-    onProjectClick: () -> Unit,
-    onTagsClick: () -> Unit,
-    onNewChecklistItemChange: (String) -> Unit,
-    onAddChecklistItem: () -> Unit,
-    onToggleChecklistItem: (String) -> Unit,
-    onDeleteChecklistItem: (String) -> Unit,
-    onReminderClick: () -> Unit,
-    onReminderOffsetChange: (ReminderOffset?) -> Unit,
-    onAttachmentClick: () -> Unit,
-    onSave: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        OutlinedTextField(
-            value = state.title,
-            onValueChange = onTitleChange,
-            label = { Text("Title") },
-            isError = state.errorMessage != null,
-            supportingText = state.errorMessage?.let { msg ->
-                { Text(msg, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag(TestTags.TASK_EDITOR_ERROR)) }
-            },
-            singleLine = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.TASK_EDITOR_TITLE_INPUT),
-        )
-
-        OutlinedTextField(
-            value = state.description,
-            onValueChange = onDescriptionChange,
-            label = { Text("Description (optional)") },
-            minLines = 2,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.TASK_EDITOR_DESCRIPTION_INPUT),
-        )
-
-        // Date & Time row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = onDueDateClick)
-                    .padding(vertical = 8.dp)
-                    .testTag(TestTags.TASK_EDITOR_DUE_DATE),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Filled.CalendarToday,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = state.dueDate?.toString() ?: "Set date",
-                    color = if (state.dueDate != null) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = onDueTimeClick)
-                    .padding(vertical = 8.dp)
-                    .testTag(TestTags.TASK_EDITOR_DUE_TIME),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Filled.AccessTime,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = state.dueTime?.toString() ?: "Set time",
-                    color = if (state.dueTime != null) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        // Project & Tags row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = onProjectClick)
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Filled.Folder,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (state.projectId != null) "Project" else "No project",
-                    color = if (state.projectId != null) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = onTagsClick)
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Filled.Label,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (state.tagIds.isNotEmpty()) "${state.tagIds.size} tag(s)" else "Add tags",
-                    color = if (state.tagIds.isNotEmpty()) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        // Checklist section
-        Text(
-            text = "Checklist",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier
-                .padding(top = 8.dp)
-                .testTag(TestTags.TASK_EDITOR_CHECKLIST),
-        )
-
-        // Add checklist item
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedTextField(
-                value = state.newChecklistItem,
-                onValueChange = onNewChecklistItemChange,
-                placeholder = { Text("Add checklist item…") },
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag(TestTags.TASK_EDITOR_CHECKLIST_ADD_INPUT),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { onAddChecklistItem() }),
-            )
-            Spacer(Modifier.width(8.dp))
-            IconButton(
-                onClick = onAddChecklistItem,
-                modifier = Modifier.testTag(TestTags.TASK_EDITOR_CHECKLIST_ADD_BUTTON)
-            ) {
-                Icon(Icons.Filled.List, contentDescription = "Add item")
-            }
-        }
-
-        // Checklist items
-        state.checklistItems.forEach { item ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(
-                    checked = item.isCompleted,
-                    onCheckedChange = { onToggleChecklistItem(item.id) },
-                )
-                Text(
-                    text = item.title,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                IconButton(onClick = { onDeleteChecklistItem(item.id) }) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-        }
-
-        // Reminder section
-        Text(
-            text = "Reminder",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier
-                .padding(top = 8.dp)
-                .testTag(TestTags.TASK_EDITOR_REMINDER),
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onReminderClick)
-                .padding(vertical = 12.dp)
-                .testTag(TestTags.TASK_EDITOR_REMINDER),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Filled.AccessTime,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = state.reminderOffset?.label ?: "No reminder",
-                color = if (state.reminderOffset != null) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        // Attachments section
-        Text(
-            text = "Attachments",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier
-                .padding(top = 8.dp)
-                .testTag(TestTags.TASK_EDITOR_ATTACHMENTS),
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onAttachmentClick)
-                .padding(vertical = 12.dp)
-                .testTag(TestTags.TASK_EDITOR_ADD_ATTACHMENT),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Filled.AttachFile,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = if (state.pendingAttachments.isEmpty()) "Add attachment"
-                else "${state.pendingAttachments.size} attachment(s)",
-                color = if (state.pendingAttachments.isNotEmpty()) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        // Show pending attachments
-        state.pendingAttachments.forEach { att ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Filled.AttachFile,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-                Text(
-                    text = att.name,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        Button(
-            onClick = onSave,
-            enabled = state.title.isNotBlank() && !state.saving,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(if (state.saving) "Saving…" else "Create task")
-        }
-    }
 }

@@ -108,6 +108,7 @@ fun AppNavHost(
             val route = backStackEntry.toRoute<AppDestination.TaskEditor>()
             TaskEditorScreen(
                 initialDueDate = route.initialDueDate?.let { kotlinx.datetime.LocalDate.parse(it) },
+                taskId = route.taskId,
                 onBack = navigator::popBackStack,
             )
         }

@@ -101,7 +101,11 @@ sealed interface AppDestination {
     }
 
     @Serializable
-    data class TaskEditor(val initialDueDate: String? = null) : AppDestination {
+    data class TaskEditor(
+        val initialDueDate: String? = null,
+        /** When non-null, the editor opens in edit mode for this task ID. */
+        val taskId: String? = null,
+    ) : AppDestination {
         override val title = "New Task"
     }
 

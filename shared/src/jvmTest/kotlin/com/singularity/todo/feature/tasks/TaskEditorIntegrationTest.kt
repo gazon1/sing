@@ -6,6 +6,8 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.platform.systemTimeZone
 import com.singularity.todo.feature.checklist.ChecklistUseCase
+import com.singularity.todo.feature.tasks.TaskEditorDeps
+import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
@@ -60,6 +62,8 @@ class TaskEditorIntegrationTest {
                 attachmentSaver = FakeAttachmentSaver,
                 idGen = idGen,
                 timeZoneProvider = tz,
+                updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
+                taskRepository = fakeTaskRepo,
             ),
             initialDueDate = initialDueDate,
             scopeOverride = scope,
