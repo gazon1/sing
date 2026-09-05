@@ -2,11 +2,11 @@ package com.singularity.todo.feature.genui.transport
 
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.prompt
-import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.utils.time.KoogClock
 import com.singularity.todo.core.di.PromptExecutorPort
+import com.singularity.todo.feature.ai.KnownModels
 import com.singularity.todo.feature.genui.catalog.BasicCatalog
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.flow
  */
 class KoogGenuiTransport(
     private val promptExecutor: PromptExecutorPort,
-    private val model: LLModel = OpenAIModels.Chat.GPT4oMini,
+    private val model: LLModel = KnownModels.GPT4oMini,
 ) : GenuiTransport {
 
     override suspend fun send(prompt: String, systemPrompt: String): Flow<String> = flow {
