@@ -196,28 +196,6 @@ class SessionManager(@Named("session") val session: Session)
 3. **`@IntoSet` only works with `Set<T>`** — declare the target as `Set<TheInterface>` in the consumer.
 4. **Run blocking** in `Modules.kt` (fabricating `UserId.anonymous`): migrate to `@Factory` with a suspend builder, or pass a default `UserId` constant.
 5. **Koin Annotations + KMP**: annotations compile in `commonMain`, KSP processor runs per-target (JVM/Android) separately.
-6. **`get()` with a generic-typed parameter does not auto-upcast.** When a use case constructor takes `SimpleTool<T>` (or any interface type) and only the concrete class is bound, bare `get()` fails with `NoDefinitionFoundException`. Use `get<ConcreteClass>()` explicitly. See `singularity-todo-koog-test-workarounds` for the worked example.
-
-## Bridging suspend into Koin factories
-
-Koin's factory DSL is synchronous. When a binding needs to call a suspend function (read a Flow-backed setting, run a one-shot migration, build an AI client), use the project's standard helper — **never raw `runBlocking`**:
-
-```kotlin
-import com.singularity.todo.core.di.koinBridge
-
-single<PromptExecutorPort> {
-    koinBridge {
-        createKoogPromptExecutor(get<SecureStoragePort>(), get<SettingsRepository>())
-    }
-}
-```
-
-`koinBridge` is `internal inline fun <T> koinBridge(crossinline block: suspend () -> T): T = runBlocking { block() }`. The named helper exists so:
-
-- A grep for `runBlocking` returns **only** `KoinBridge.kt` (sanity check for accidental sync bridges in DI).
-- Future migration to Koin coroutine-aware factories is a one-file change.
-
-For full details, see `singularity-todo-koin-suspend-bridge`.
 
 ## Key Files
 

@@ -158,16 +158,49 @@ sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"
 
 ---
 
-## Ключевые скиллы (загружаются автоматически)
+## 🧠 Decision log — рабочий workflow
+
+Перед началом любой нетривиальной задачи **прочитай `docs/decisions/DIGEST.md`** — это компактная выжимка всех принятых решений и правил проекта. Если задача меняет архитектуру, контракт или обнаруживает неочевидный workaround — **создай новую запись** в `docs/decisions/YYYY-MM-DD-<slug>.md` и пересобери digest:
+
+```bash
+./scripts/refresh-decisions-digest.sh
+```
+
+**Когда писать запись:**
+- Выбор между несколькими разумными вариантами.
+- Обнаружен неочевидный workaround (статическая инициализация, generic-type баг).
+- Изменился контракт между модулями / слоями.
+- Пользователь явно попросил зафиксировать рассуждение.
+
+**Когда НЕ писать:** опечатки, форматирование, новые use case'ы по существующему паттерну (pattern уже покрыт skill-ами).
+
+**Формат записи** — frontmatter + секции `Context / Idea / Decision / Rationale / Consequences / Links`. Подробности в skill `singularity-todo-decisions-workflow`.
+
+### Ключевые скиллы (загружаются автоматически)
+
+Skill-ов немного и они узкие. **Большинство архитектурных знаний теперь живёт в `docs/decisions/DIGEST.md`, а не в skill-ах** — этот файл нужно прочитать перед задачей.
 
 | Skill | Когда нужен |
 |---|---|
-| `singularity-todo-sync` | HLC, ConflictResolver, SyncOutbox, Supabase API |
-| `singularity-todo-koin-di` | Koin Annotations, @Module, @IntoSet |
-| `singularity-todo-feature-scaffold` | Новая CRUD-фича |
-| `singularity-todo-ai-tool` | Новый Koog SimpleTool |
+| `singularity-todo-decisions-workflow` | Создание/обновление записей в `docs/decisions/`. Прочитать один раз для понимания формата. |
+| `singularity-todo-feature-scaffold` | Новая CRUD-фича (Task, Note, Project, Tag, ...) |
+| `singularity-todo-ai-tool` | Новый Koog `SimpleTool<T>` |
 | `singularity-todo-attachments` | Файл-вложения, upload, storage |
-| `singularity-todo-kotlin-idioms` | boilerplate-reduction: reified, sealed interface, KClass.callBy, value class |
 | `singularity-todo-backup` | BackupExporter/Importer, DSL builders, BackupCodec |
-| `singularity-todo-notifications` | NotificationPort, ReminderScheduler |
+| `singularity-todo-koin-di` | Koin `@Module`, `@IntoSet`, `koinBridge` |
+| `singularity-todo-koog-agent` | Koog агент — паттерн (НЕ кросс-платформенная; см. decision `2026-09-05-koog-both-platforms`) |
 | `singularity-todo-secure-storage` | SecureStoragePort, secret-tool, EncryptedSharedPreferences |
+| `singularity-todo-sync` | HLC, ConflictResolver, SyncOutbox, Supabase API |
+| `singularity-todo-notifications` | NotificationPort, ReminderScheduler |
+| `singularity-todo-shared-ui-components` | `SettingsSection`, `ResultDialog`, декомпозиция Composable |
+| `singularity-todo-pure-formatters` | Чистые хелперы формата (тестируются без Compose) |
+| `singularity-todo-rich-editor` | Rich-text WYSIWYG для заметок |
+| `singularity-todo-room-migration` | Миграции Room-схемы |
+| `singularity-todo-ui-event-vs-state` | One-shot события vs continuous state в VM |
+
+**Удалённые skill-ы** (информация переехала в `docs/decisions/`):
+~~`singularity-todo-koin-suspend-bridge`~~ — см. `2026-09-05-koin-suspend-bridge.md`.
+~~`singularity-todo-ai-provider-settings`~~ — см. `2026-09-05-llm-provider-settings.md`.
+~~`singularity-todo-secret-migration`~~ — см. `2026-09-05-secret-storage-split.md`.
+~~`singularity-todo-koog-test-workarounds`~~ — см. `2026-09-05-koog-test-workarounds.md`.
+~~`singularity-todo-koog-both-platforms`~~ — см. `2026-09-05-koog-both-platforms.md`.

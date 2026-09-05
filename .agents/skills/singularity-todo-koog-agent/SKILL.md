@@ -1,118 +1,112 @@
 ---
 name: singularity-todo-koog-agent
-description: KMP-native AI agent pattern using JetBrains Koog 1.1.1 with SimpleTool<T>, suspend `expect/actual createKoogPromptExecutor`, `TextGenPort` abstraction, and `KnownModels` to dodge JVM-test classpath NPEs. Use when building or modifying AI features that integrate with JetBrains Koog across JVM and Android in this project.
+description: KMP-native AI agent pattern using JetBrains Koog 1.1.1 with SimpleTool<T>, expect/actual PromptExecutor, ToolRegistry, and Koin auto-registration. Use when building multi-platform AI features that integrate with JetBrains Koog on JVM/Android.
 ---
 
-# Singularity TODO — Koog AI Agent Pattern (current state)
+# Singularity TODO — Koog AI Agent Pattern
 
-Earlier versions of this skill described Koog as JVM-only with an Android stub. That has changed: Koog now runs on **both** platforms via the OkHttp HTTP backend. The cross-platform wiring details live in `singularity-todo-koog-both-platforms`; this skill covers the agent-level pattern that sits on top.
+This skill documents the AI agent architecture used in the Singularity TODO KMP app: JetBrains Koog 1.1.1 for agent orchestration, `SimpleTool<T>` with `@Serializable` args, a `TextGenPort` abstraction layer, and Koin DI auto-registration.
 
-## Architecture
+## Core Pattern
 
 ```
-TextGenPort (interface, commonMain)
-    ├── KoogAgentService    — production, calls Koog AIAgent
-    └── FakeTextGen         — in-memory placeholder for tests / fallback
+TextGenPort (interface)
+    └── KoogAgentService  ── delegates to Koog AIAgent (JVM only)
+    └── FakeTextGen       ── in-memory placeholder (tests / Android fallback)
 
-createKoogPromptExecutor (expect/actual suspend fun)
-    ├── JvmKoogFactory      — real MultiLLMPromptExecutor + OpenAILLMClient (JVM)
-    └── AndroidKoogFactory  — real MultiLLMPromptExecutor + OpenAILLMClient (Android)
-
-aiToolsCoreModule (commonMain)   — 17 SimpleTool<T>, 9 use cases, GenUI, ChatViewModel
-aiToolsModule (expect/actual)    — adds LLModel + PromptExecutorPort + raw PromptExecutor
+createKoogPromptExecutor() (expect/actual)
+    ├── JvmKoogFactory  ── real MultiLLMPromptExecutor + OpenAILLMClient (JVM)
+    └── AndroidKoogFactory ── error stub (Android)
 ```
 
-## PromptExecutor — suspend `expect/actual`
+The `TextGenPort` interface decouples the UI from the underlying AI provider. All real Koog types are isolated inside `KoogAgentService` and `JvmKoogFactory`; no Koog imports leak into domain or UI layers.
 
-The `PromptExecutor` is JVM-only **as a type in commonMain** if you import it directly. We keep it out of commonMain by wrapping it in a `PromptExecutorPort` interface. The factory itself is `suspend`:
+## PromptExecutor — expect/actual Pattern
 
-```. Runkotlin
-// commonMain
-expect suspend fun createKoogPromptExecutor(
-    secureStorage: SecureStoragePort,
-    settings: SettingsRepository,
-): PromptExecutorPort
+Koog's `PromptExecutor` is JVM-only (requires OkHttp). Use expect/actual to keep `TextGenPort` in `commonMain`:
 
-// jvmMain / androidMain
-actual suspend fun createKoogPromptExecutor(
-    secureStorage: SecureStoragePort,
-    settings: SettingsRepository,
-): PromptExecutorPort {
-    val cfg = OpenAiConfig.resolve(secureStorage, settings)
-    val executor = buildExecutor(cfg)              // local helper
-    return KoogPromptExecutorPort(executor)
+**commonMain** (`KoogPromptExecutorFactory.kt`):
+```kotlin
+expect fun createKoogPromptExecutor(): PromptExecutor
+```
+
+**jvmMain** (`JvmKoogFactory.kt`):
+```kotlin
+actual fun createKoogPromptExecutor(): PromptExecutor {
+    val settings = OpenAIClientSettings()
+    val httpClientFactory = OkHttpKoogHttpClient.Factory()
+    val openAIClient = OpenAILLMClient(
+        apiKey = "",  // overridden per-request from SecureStorage
+        settings = settings,
+        httpClientFactory = httpClientFactory,
+        clock = KoogClock.System
+    )
+    return MultiLLMPromptExecutor(mapOf(OpenAILLMProvider to openAIClient))
 }
 ```
 
-The suspend bridge from Koin's sync DSL is `koinBridge { ... }` — see `singularity-todo-koin-suspend-bridge`.
-
-## `KoogPromptExecutorPort` (commonMain)
-
-Single adapter for both platforms. Replaces the old `JvmPromptExecutorPort` / `AndroidPromptExecutorPort` pair.
-
-```. Runkotlin
-class KoogPromptExecutorPort(
-    val executor: ai.koog.prompt.executor.model.PromptExecutor,
-) : PromptExecutorPort {
-    override suspend fun execute(prompt, model, tools) = executor.execute(prompt, model, tools)
-    override fun executeStreaming(prompt, model, tools) = executor.executeStreaming(prompt, model, tools)
+**androidMain** (`AndroidKoogFactory.kt`):
+```kotlin
+actual fun createKoogPromptExecutor(): PromptExecutor {
+    error("Koog PromptExecutor is not available on Android")
 }
 ```
 
-The `val executor` is exposed publicly so the platform AI module can rebind it as `single<PromptExecutor>` for the AI tool factories.
-
-## `KnownModels` — avoiding `OpenAIModels` in production
-
-Never reference `OpenAIModels.Chat.*` in production code. Use `KnownModels` instead:
-
-```. Runkotlin
-internal object KnownModels {
-    val GPT4o: LLModel = LLModel(OpenAILLMProvider, "gpt-4o")
-    val GPT4oMini: LLModel = LLModel(OpenAILLMProvider, "gpt-4o-mini")
-    // ...
-}
+Required deps in `jvmMain.dependencies`:
+```kotlin
+implementation(libs.koog.http.client.okhttp)
+implementation(libs.koog.prompt.executor.openai.client.jvm)
 ```
 
-Why: `OpenAIModels$Chat.<clinit>` NPEs in the JVM-test classpath. Full details in `singularity-todo-koog-test-workarounds`.
+## KoogAgentService — Real Implementation
 
-## `KoogAgentService` — the production `TextGenPort`
-
-```. Runkotlin
+```kotlin
 class KoogAgentService(
     private val secureStorage: SecureStoragePort,
     private val settings: SettingsRepository,
-    private val promptExecutor: ai.koog.prompt.executor.model.PromptExecutor,
-    private val streamingExecutor: PromptExecutorPort,
-    private val tools: List<Tool<*, *>>,
+    private val promptExecutor: PromptExecutor,
 ) : TextGenPort {
 
-    private val agentTools = ToolRegistry.builder().tools(tools).build()
-
-    private fun createAgent(systemPrompt: String, modelId: String): AIAgent<String, String> =
-        AIAgent.builder()
+    private fun createAgent(systemPrompt: String, model: String): AIAgent<String, String> {
+        val resolvedModel = resolveModel(model)
+        return AIAgent.builder()
             .promptExecutor(promptExecutor)
             .systemPrompt(systemPrompt)
             .toolRegistry(agentTools)
-            .llmModel(resolveModel(modelId))    // Koog 1.1.1: llmModel, not model
             .build()
+    }
+
+    private fun resolveModel(modelId: String): LLModel = when (modelId) {
+        "gpt-4o" -> OpenAIModels.Chat.GPT4o
+        "gpt-4o-mini" -> OpenAIModels.Chat.GPT4oMini
+        else -> OpenAIModels.Chat.GPT4oMini
+    }
 
     override suspend fun generate(prompt, systemPrompt, model): Result<String> = runCatching {
-        val apiKey = secureStorage.read(OpenAiConfig.KEY_OPENAI)?.takeIf { it.isNotBlank() }
-            ?: return@runCatching "(AI unavailable: API key not configured.)"
-        // ...
+        val apiKey = secureStorage.read("ai_key_openai").orEmpty()
+        if (apiKey.isBlank()) return@runCatching "(AI unavailable: API key not configured.)"
+        val effectiveSystemPrompt = systemPrompt ?: Prompts.chatSystem
+        val effectiveModel = model ?: "gpt-4o-mini"
+        val agent = createAgent(effectiveSystemPrompt, effectiveModel)
+        try { agent.run(prompt) } finally { agent.close() }
     }
 }
 ```
 
-Key facts:
+Key Koog 1.1.1 API facts:
+- **Entry point**: `AIAgent.builder()` (not `AIAgentServiceBuilder`)
+- **`promptExecutor.execute(prompt, model, tools)`** returns `Message.Assistant`
+- **Extract text**: `response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }`
+- **`Prompt.Empty`** (capital E, not underscore) — static field on `Prompt` companion
+- **`KoogClock.System`** (capital S) — static field on `KoogClock` companion
+- **prompt DSL**: `prompt(Prompt.Empty, KoogClock.System) { system("..."); user("...") }` (2-arg only)
+- **Model constants**: `ai.koog.prompt.executor.clients.openai.OpenAIModels.Chat.GPT4oMini`
 
-- **API key check first** — never reach the executor without a key. Return a friendly message instead of an exception.
-- **`llmModel()` not `model()`** — Koog 1.1.1's `AIAgentBuilder` exposes `llmModel(LLModel)`. Easy to get wrong.
-- **`resolveModel(modelId)`** lives in `feature/ai/KnownModels.kt` and uses `KnownModels.*` (no `OpenAIModels`).
+## SimpleTool<T> Pattern
 
-## SimpleTool<T> pattern
+Each AI tool is a `SimpleTool<T>` subclass. The tool's `execute` returns a **JSON string** (not a typed value — that's the caller's concern).
 
-```. Runkotlin
+```kotlin
 @Serializable
 data class RefineTaskInput(val currentTitle: String, val description: String? = null)
 
@@ -121,9 +115,12 @@ data class RefineTaskOutput(val newTitle: String)
 
 class RefineTaskTool(
     private val promptExecutor: PromptExecutor,
-    private val model: LLModel,
-) : SimpleTool<RefineTaskInput>(TypeToken.of(RefineTaskInput::class.java), NAME, DESCRIPTION) {
-
+    private val model: LLModel
+) : SimpleTool<RefineTaskInput>(
+    TypeToken.of(RefineTaskInput::class.java),
+    NAME,
+    DESCRIPTION
+) {
     override suspend fun execute(args: RefineTaskInput): String {
         val p = prompt(Prompt.Empty, KoogClock.System) {
             system(Prompts.refineSystem)
@@ -131,6 +128,7 @@ class RefineTaskTool(
         }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
+        // Always return JSON from execute()
         return Json.encodeToString(RefineTaskOutput.serializer(), RefineTaskOutput(text.trim()))
     }
 
@@ -143,87 +141,77 @@ class RefineTaskTool(
 }
 ```
 
-The `factory` wrappers `llmTool(...)` and `dataTool(...)` in `ToolFactories.kt` are the canonical way to build tools without writing one class per tool — see `singularity-todo-ai-tool` for that.
+Use cases decode the JSON returned by `tool.execute()`:
 
-## DI registration
-
-```. Runkotlin
-// commonMain — aiToolsCoreModule
-single<TextGenPort> { KoogAgentService(get(), get(), get(), get(), get()) }
-single<List<Tool<*, *>>> {
-    listOf(get<RefineTaskTool>(), get<SmartRewriteTool>(), /* ... */)
-}
-
-// jvmMain / androidMain — aiToolsModule actual
-includes(aiToolsCoreModule())
-single<LLModel> { KnownModels.GPT4oMini }
-single<PromptExecutorPort> {
-    koinBridge {
-        createKoogPromptExecutor(get<SecureStoragePort>(), get<SettingsRepository>())
-    }
-}
-single<PromptExecutor> {
-    (get<PromptExecutorPort>() as KoogPromptExecutorPort).executor
+```kotlin
+class RefineTaskUseCase(private val tool: RefineTaskTool) {
+    suspend operator fun invoke(currentTitle: String, description: String? = null): Result<String> =
+        runCatching {
+            val json = tool.execute(RefineTaskInput(currentTitle, description))
+            Json.decodeFromString<RefineTaskOutput>(json).newTitle
+        }
 }
 ```
 
-## FakeTextGen — parametrised
+## Prompt DSL — Correct Usage
 
-```. Runkotlin
-class FakeTextGen(
-    private val success: String = "(Placeholder AI response — configure API key ...)",
-    private val failureMessage: String? = null,
-    private val trackGenerateCalls: Boolean = false,
-) : TextGenPort {
-    private val _generateCalls = mutableListOf<Triple<String, String?,?,>>()
-    val generateCalls: List<Triple<String, String?,?,>> get() = _generateCalls
-
-    override suspend fun generate(prompt, systemPrompt, model): Result<String> {
-        if (trackGenerateCalls) _generateCalls += Triple(prompt, systemPrompt, model)
-        return failureMessage?.let { Result.failure(RuntimeException(it)) } ?: Result.success(success)
-    }
-    override fun streamChat(message): Flow<String> = flowOf(success)
+```kotlin
+prompt(Prompt.Empty, KoogClock.System) {
+    system("You are a helpful assistant.")
+    user("Input text here")
 }
 ```
 
-Use `trackGenerateCalls = true` to assert in tests that "no API key" branch never reached the executor.
+**Common mistakes**:
+- `Prompt.EMPTY` → wrong, use `Prompt.Empty` (Kotlin is case-sensitive)
+- `KoogClock.SYSTEM` → wrong, use `KoogClock.System`
+- `prompt { system(); user() }` (1-arg) → doesn't exist; must be 2-arg: `prompt(Prompt.Empty, KoogClock.System) { }`
+- `Prompt.EMPTY` (all-caps) and `KoogClock.SYSTEM` (all-caps) → these fields don't exist
 
-## Prompt DSL
+## Tool Registration via Koin
 
-```. Runkotlin
-val p = prompt(Prompt.Empty, KoogClock.System) {
-    system("...")
-    user("...")
+All `SimpleTool<T>` implementations are auto-registered via Koin's `@ComponentScan`:
+
+```kotlin
+@OptIn(KoinApiExtension::class)
+@ComponentScan("com.singularity.todo.feature.ai.tools")
+class AiToolsModule
+```
+
+The tools are retrieved in `KoogAgentService` via `Koin.getAll<Tool>()` and passed to `ToolRegistry { tool(toolInstance) }`.
+
+## Prompts as Kotlin String Templates
+
+All prompt text lives in `Prompts.kt` as plain strings — no template engine:
+
+```kotlin
+object Prompts {
+    const val refineSystem = "You are a productivity assistant. Rewrite the task title to be clearer..."
+    const val refineUser = "Title: %s\nDescription: %s"
+
+    fun refineUser(currentTitle: String, description: String?): String =
+        "Title: $currentTitle\nDescription: ${description ?: "(none)"}"
 }
 ```
 
-- `Prompt.Empty` (capital E), not `Prompt.EMPTY`.
-- `KoogClock.System` (capital S), not `KoogClock.SYSTEM`.
-- 2-arg form only — there's no 1-arg overload.
+**Rule**: `const val` only for static strings with no runtime interpolation. Everything else is a plain function.
 
-## Adding a new AI feature
+## When to Use This Pattern
 
-See `singularity-todo-koog-both-platforms` for the full checklist. In short:
+- Building AI features in a KMP app targeting JVM and Android
+- Needing type-safe tool definitions via `@Serializable` data classes
+- Using JetBrains Koog as the agent framework (KMP-native)
+- Wanting to test AI logic without network or API keys via `FakeTextGen`
 
-1. `use_cases/MyUseCase.kt`
-2. `tools/MyTool.kt` (`SimpleTool<MyInput>`)
-3. Add `factory` to `aiToolsCoreModule`
-4. Add use case as nullable to the VM (test-friendly), branch in the dispatch
-5. Tests with `FakeTextGen` + `FakeSecureStorage`
+## Key Files
 
-## Common mistakes
-
-- `OpenAIModels.Chat.*` references anywhere — NPEs in tests.
-- `factory { Foo(get()) }` where `Foo`'s parameter is `SimpleTool<T>` — see `singularity-todo-koog-test-workarounds`.
-- `runBlocking { createKoogPromptExecutor(...) }` directly — use `koinBridge { ... }`.
-- `AIAgent.builder().model(...)` — Koog 1.1.1 uses `llmModel(LLModel)`.
-- `baseUrl = ...` passed to `OpenAILLMClient` constructor — pass via `OpenAIClientSettings(baseUrl = ...)` instead.
-
-## Related skills
-
-- `singularity-todo-koog-both-platforms` — cross-platform wiring details (OkHttp, Gradle, build matrix).
-- `singularity-todo-koog-test-workarounds` — `KnownModels` and the Koin generic-type gotcha.
-- `singularity-todo-ai-tool` — `SimpleTool`/`LlmUseTool` factories in `ToolFactories.kt`.
-- `singularity-todo-ai-provider-settings` — the user-facing settings screen + Test connection.
-- `singularity-todo-koin-suspend-bridge` — `koinBridge { ... }` helper.
-- `singularity-todo-koin-di` — Koin conventions.
+| File | Purpose |
+|---|---|
+| `shared/src/commonMain/.../feature/ai/TextGenPort.kt` | Abstraction interface |
+| `shared/src/commonMain/.../feature/ai/KoogAgentService.kt` | Koog wrapper with AIAgent.builder() |
+| `shared/src/commonMain/.../core/di/KoogPromptExecutorFactory.kt` | expect declaration |
+| `shared/src/jvmMain/.../core/di/JvmKoogFactory.kt` | MultiLLMPromptExecutor + OpenAILLMClient |
+| `shared/src/androidMain/.../core/di/AndroidKoogFactory.kt` | Error stub |
+| `shared/src/commonMain/.../feature/ai/prompts/Prompts.kt` | All prompt strings |
+| `shared/src/commonMain/.../feature/ai/tools/` | 16 SimpleTool<T> implementations |
+| `shared/src/commonMain/.../feature/ai/use_cases/` | 8 use case classes |
