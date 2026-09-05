@@ -1,28 +1,39 @@
 package com.singularity.todo.core.di
 
-import ai.koog.http.client.okhttp.OkHttpKoogHttpClient
-import ai.koog.prompt.executor.clients.openai.OpenAIClientSettings
-import ai.koog.prompt.executor.clients.openai.OpenAILLMClient
-import ai.koog.prompt.executor.llms.MultiLLMPromptExecutor
-import ai.koog.prompt.llm.OpenAILLMProvider
-import ai.koog.utils.time.KoogClock
+import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.feature.ai.OpenAiConfig
+import kotlinx.coroutines.runBlocking
 
 /**
  * JVM actual for [createKoogPromptExecutor].
  *
- * Creates a [JvmPromptExecutorPort] wrapping a [MultiLLMPromptExecutor]
- * with OkHttp HTTP backend. The API key is resolved at runtime
- * inside [com.singularity.todo.feature.ai.KoogAgentService] via [SecureStoragePort].
+ * Reads an [OpenAiConfig] from secure storage + settings, builds a Koog
+ * [ai.koog.prompt.executor.model.PromptExecutor] backed by OkHttp, and
+ * wraps it in [KoogPromptExecutorPort]. The HTTP backend and OpenAI client
+ * are wired the same way as the Android side — see [buildExecutor].
  */
-actual fun createKoogPromptExecutor(): PromptExecutorPort {
-    val settings = OpenAIClientSettings()
-    val httpClientFactory = OkHttpKoogHttpClient.Factory()
-    val openAIClient = OpenAILLMClient(
-        apiKey = "", // resolved at runtime via KoogAgentService.secureStorage
-        settings = settings,
-        httpClientFactory = httpClientFactory,
-        clock = KoogClock.System
-    )
-    val executor = MultiLLMPromptExecutor(mapOf(OpenAILLMProvider to openAIClient))
-    return JvmPromptExecutorPort(executor)
+actual fun createKoogPromptExecutor(
+    secureStorage: SecureStoragePort,
+    settings: SettingsRepository,
+): PromptExecutorPort {
+    val cfg = runBlocking { OpenAiConfig.resolve(secureStorage, settings) }
+    val executor = buildExecutor(cfg)
+    return KoogPromptExecutorPort(executor)
 }
+
+/**
+ * Builds a [ai.koog.prompt.executor.llms.MultiLLMPromptExecutor] for an
+ * OpenAI-compatible endpoint. The JVM-side HTTP backend uses OkHttp via
+ * the official Koog adapter.
+ */
+internal fun buildExecutor(cfg: OpenAiConfig) = ai.koog.prompt.executor.llms.MultiLLMPromptExecutor(
+    mapOf(
+        ai.koog.prompt.llm.OpenAILLMProvider to ai.koog.prompt.executor.clients.openai.OpenAILLMClient(
+            apiKey = cfg.apiKey.value,
+            settings = ai.koog.prompt.executor.clients.openai.OpenAIClientSettings(baseUrl = cfg.baseUrl),
+            httpClientFactory = ai.koog.http.client.okhttp.OkHttpKoogHttpClient.Factory(),
+            clock = ai.koog.utils.time.KoogClock.System,
+        ),
+    ),
+)

@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.feature.ai.OpenAiConfig
+import com.singularity.todo.feature.ai.TextGenPort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,13 +17,19 @@ import kotlinx.coroutines.launch
 /**
  * Single ViewModel for all settings screens.
  *
- * Subscribes to 18 individual settings flows via [viewModelScope] (cancelled
+ * Subscribes to individual settings flows via [viewModelScope] (cancelled
  * in [onCleared]). For tests that need a controlled dispatcher, pass an
  * explicit [scopeOverride] — typically the TestScope from `runTest`.
+ *
+ * The API key is intentionally NOT part of [SettingsUiState.Content] — it lives
+ * in [SecureStoragePort] (hardware-backed). The Settings UI holds a local-only
+ * field for the password input and writes through [processIntent].
  */
 class SettingsViewModel(
     private val settings: SettingsRepository,
     private val secureStorage: SecureStoragePort,
+    private val textGen: TextGenPort,
+    private val clock: () -> Long = { System.currentTimeMillis() },
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
 
@@ -31,9 +39,6 @@ class SettingsViewModel(
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
     init {
-        // Dispatchers.Unconfined ensures the initial snapshot + per-flow collectors
-        // start before the first UI subscription — important for tests with
-        // TestScope where the dispatcher's queue is lazy by default.
         scope.launch(Dispatchers.Unconfined) {
             val initial = SettingsUiState.Content(
                 darkTheme = settings.darkTheme.first(),
@@ -43,9 +48,10 @@ class SettingsViewModel(
                 notificationSound = settings.notificationSound.first(),
                 notificationVibration = settings.notificationVibration.first(),
                 reminderDefault = settings.reminderDefault.first(),
-                aiApiKey = settings.aiApiKey.first(),
+                aiProvider = settings.aiProvider.first(),
                 aiBaseUrl = settings.aiBaseUrl.first(),
                 aiModel = settings.aiModel.first(),
+                aiSystemPrompt = settings.aiSystemPrompt.first(),
                 workDayStartMinutes = settings.workDayStartMinutes.first(),
                 workDayEndMinutes = settings.workDayEndMinutes.first(),
                 workLunchStartMinutes = settings.workLunchStartMinutes.first(),
@@ -65,9 +71,10 @@ class SettingsViewModel(
             launchFlow(settings.notificationSound)  { n -> update { it.copy(notificationSound = n) } }
             launchFlow(settings.notificationVibration) { n -> update { it.copy(notificationVibration = n) } }
             launchFlow(settings.reminderDefault)   { r -> update { it.copy(reminderDefault = r) } }
-            launchFlow(settings.aiApiKey)          { a -> update { it.copy(aiApiKey = a) } }
+            launchFlow(settings.aiProvider)        { a -> update { it.copy(aiProvider = a) } }
             launchFlow(settings.aiBaseUrl)         { a -> update { it.copy(aiBaseUrl = a) } }
             launchFlow(settings.aiModel)           { a -> update { it.copy(aiModel = a) } }
+            launchFlow(settings.aiSystemPrompt)    { a -> update { it.copy(aiSystemPrompt = a) } }
             launchFlow(settings.workDayStartMinutes) { w -> update { it.copy(workDayStartMinutes = w) } }
             launchFlow(settings.workDayEndMinutes)   { w -> update { it.copy(workDayEndMinutes = w) } }
             launchFlow(settings.workLunchStartMinutes) { w -> update { it.copy(workLunchStartMinutes = w) } }
@@ -101,15 +108,18 @@ class SettingsViewModel(
                 is SettingsIntent.UpdateNotificationVibration -> settings.setNotificationVibration(intent.value)
                 is SettingsIntent.UpdateReminderDefault -> settings.setReminderDefault(intent.value)
                 is SettingsIntent.UpdateAiApiKey -> {
+                    // The key never appears in UI state — only in SecureStorage.
                     if (intent.value.isNotBlank()) {
-                        secureStorage.write("ai_key_openai", intent.value)
+                        secureStorage.write(OpenAiConfig.KEY_OPENAI, intent.value)
                     } else {
-                        secureStorage.delete("ai_key_openai")
+                        secureStorage.delete(OpenAiConfig.KEY_OPENAI)
                     }
-                    settings.setAiApiKey(intent.value)
                 }
+                is SettingsIntent.UpdateAiProvider -> settings.setAiProvider(intent.value)
                 is SettingsIntent.UpdateAiBaseUrl -> settings.setAiBaseUrl(intent.value)
                 is SettingsIntent.UpdateAiModel -> settings.setAiModel(intent.value)
+                is SettingsIntent.UpdateAiSystemPrompt -> settings.setAiSystemPrompt(intent.value)
+                SettingsIntent.TestAiConnection -> testConnection()
                 is SettingsIntent.UpdateWorkDayStart -> settings.setWorkDayStartMinutes(intent.minutes)
                 is SettingsIntent.UpdateWorkDayEnd -> settings.setWorkDayEndMinutes(intent.minutes)
                 is SettingsIntent.UpdateWorkLunchStart -> settings.setWorkLunchStartMinutes(intent.minutes)
@@ -118,6 +128,32 @@ class SettingsViewModel(
                 is SettingsIntent.UpdateWorkWeekendSun -> settings.setWorkWeekendSun(intent.value)
                 is SettingsIntent.UpdateGreetingMorningEnd -> settings.setGreetingMorningEnd(intent.hour)
                 is SettingsIntent.UpdateGreetingAfternoonEnd -> settings.setGreetingAfternoonEnd(intent.hour)
+            }
+        }
+    }
+
+    private fun testConnection() {
+        scope.launch(Dispatchers.Unconfined) {
+            update { it.copy(aiTestResult = AiTestResult.Testing) }
+            val start = clock()
+            val cfg = OpenAiConfig.resolve(secureStorage, settings)
+            if (!cfg.apiKey.isConfigured) {
+                update { it.copy(aiTestResult = AiTestResult.Error("API key not configured")) }
+                return@launch
+            }
+            val result = textGen.generate(
+                prompt = "ping",
+                systemPrompt = "You are a connectivity probe. Reply with the single word: pong.",
+                model = cfg.defaultModelId,
+            )
+            val latency = clock() - start
+            update {
+                it.copy(
+                    aiTestResult = result.fold(
+                        onSuccess = { AiTestResult.Ok(latency) },
+                        onFailure = { e -> AiTestResult.Error(e.message ?: "Unknown error") },
+                    )
+                )
             }
         }
     }

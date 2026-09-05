@@ -26,7 +26,8 @@ import kotlinx.coroutines.flow.flow
  * - [PromptExecutor] wired to OpenAI via the settings
  * - System prompt from [Prompts.chatSystem]
  *
- * Falls back to [FakeTextGen] when the API key is not configured.
+ * Returns `(AI unavailable: ...)` when the API key is not configured — never
+ * throws, since failures inside the AI loop are surfaced through [Result].
  */
 class KoogAgentService(
     private val secureStorage: SecureStoragePort,
@@ -38,46 +39,29 @@ class KoogAgentService(
 
     private val agentTools: ToolRegistry = ToolRegistry.builder().tools(tools).build()
 
-    /**
-     * Creates a fresh [AIAgent] for each request.
-     * The agent uses a simple loop strategy: call LLM → execute tools → send results → repeat.
-     */
-    private fun createAgent(systemPrompt: String, model: String): AIAgent<String, String> {
-        val resolvedModel = resolveModel(model)
-        return AIAgent.builder()
+    private fun createAgent(systemPrompt: String, modelId: String): AIAgent<String, String> =
+        AIAgent.builder()
             .promptExecutor(promptExecutor)
             .systemPrompt(systemPrompt)
             .toolRegistry(agentTools)
+            .llmModel(resolveModel(modelId))
             .build()
-    }
 
-    private fun resolveModel(modelId: String): LLModel {
-        return when (modelId) {
-            "gpt-4o" -> OpenAIModels.Chat.GPT4o
-            "gpt-4o-mini" -> OpenAIModels.Chat.GPT4oMini
-            "gpt-4.1" -> OpenAIModels.Chat.GPT4_1
-            "gpt-4.1-nano" -> OpenAIModels.Chat.GPT4_1Nano
-            "gpt-4.1-mini" -> OpenAIModels.Chat.GPT4_1Mini
-            "o1" -> OpenAIModels.Chat.O1
-            "o3" -> OpenAIModels.Chat.O3
-            "o3-mini" -> OpenAIModels.Chat.O3Mini
-            "o4-mini" -> OpenAIModels.Chat.O4Mini
-            "gpt-5" -> OpenAIModels.Chat.GPT5
-            "gpt-5-mini" -> OpenAIModels.Chat.GPT5Mini
-            else -> OpenAIModels.Chat.GPT4oMini
-        }
-    }
+    private suspend fun requireApiKey(): String? =
+        secureStorage.read(OpenAiConfig.KEY_OPENAI)?.takeIf { it.isNotBlank() }
 
     override suspend fun generate(
         prompt: String,
         systemPrompt: String?,
-        model: String?
+        model: String?,
     ): Result<String> = runCatching {
-        val apiKey = secureStorage.read("ai_key_openai").orEmpty()
-        if (apiKey.isBlank()) return@runCatching "(AI unavailable: API key not configured.)"
+        val apiKey = requireApiKey()
+            ?: return@runCatching "(AI unavailable: API key not configured.)"
 
-        val effectiveSystemPrompt = systemPrompt ?: settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
-        val effectiveModel = model ?: settings.aiModel.first().ifBlank { "gpt-4o-mini" }
+        val effectiveSystemPrompt = systemPrompt
+            ?: settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
+        val effectiveModel = model
+            ?: settings.aiModel.first().ifBlank { OpenAiConfig.DEFAULT_MODEL }
 
         val agent = createAgent(effectiveSystemPrompt, effectiveModel)
         try {
@@ -91,15 +75,15 @@ class KoogAgentService(
      * Streams chat responses token-by-token using [PromptExecutorPort.executeStreaming].
      */
     override fun streamChat(message: String): Flow<String> = flow {
-        val apiKey = secureStorage.read("ai_key_openai").orEmpty()
-        if (apiKey.isBlank()) {
+        val apiKey = requireApiKey()
+        if (apiKey == null) {
             emit("(AI unavailable: API key not configured. Set it in Settings > AI Provider.)")
             return@flow
         }
 
         val systemPrompt = settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
-        val resolvedModel = settings.aiModel.first().ifBlank { "gpt-4o-mini" }
-        val model = resolveModel(resolvedModel)
+        val modelId = settings.aiModel.first().ifBlank { OpenAiConfig.DEFAULT_MODEL }
+        val model = resolveModel(modelId)
 
         val p = prompt(Prompt.Empty, KoogClock.System) {
             system(systemPrompt)
@@ -121,19 +105,49 @@ class KoogAgentService(
     }
 }
 
+/** Maps a user-supplied model identifier to a Koog [LLModel] constant. */
+internal fun resolveModel(modelId: String): LLModel = when (modelId) {
+    "gpt-4o" -> OpenAIModels.Chat.GPT4o
+    "gpt-4o-mini" -> OpenAIModels.Chat.GPT4oMini
+    "gpt-4.1" -> OpenAIModels.Chat.GPT4_1
+    "gpt-4.1-nano" -> OpenAIModels.Chat.GPT4_1Nano
+    "gpt-4.1-mini" -> OpenAIModels.Chat.GPT4_1Mini
+    "o1" -> OpenAIModels.Chat.O1
+    "o3" -> OpenAIModels.Chat.O3
+    "o3-mini" -> OpenAIModels.Chat.O3Mini
+    "o4-mini" -> OpenAIModels.Chat.O4Mini
+    "gpt-5" -> OpenAIModels.Chat.GPT5
+    "gpt-5-mini" -> OpenAIModels.Chat.GPT5Mini
+    else -> OpenAIModels.Chat.GPT4oMini
+}
+
 /**
- * In-memory fake of [TextGenPort] — always returns a placeholder response.
+ * In-memory fake of [TextGenPort].
+ *
+ * Default behaviour returns a placeholder "AI unavailable" message — used on
+ * platforms where the AI layer is not wired. Tests can override [success],
+ * [failureMessage], or supply a [generateHandler] for full control. Pass
+ * [trackGenerateCalls] = `true` to capture invocations.
  */
-class FakeTextGen : TextGenPort {
+class FakeTextGen(
+    private val success: String = "(Placeholder AI response — configure API key in Settings > AI Provider to enable real AI.)",
+    private val failureMessage: String? = null,
+    private val trackGenerateCalls: Boolean = false,
+) : TextGenPort {
+    private val _generateCalls = mutableListOf<Triple<String, String?, String?>>()
+
+    /** Captured [generate] calls when [trackGenerateCalls] is enabled. */
+    val generateCalls: List<Triple<String, String?, String?>> get() = _generateCalls
+
     override suspend fun generate(
         prompt: String,
         systemPrompt: String?,
-        model: String?
-    ): Result<String> = Result.success(
-        "(Placeholder AI response — configure API key in Settings > AI Provider to enable real AI.)"
-    )
+        model: String?,
+    ): Result<String> {
+        if (trackGenerateCalls) _generateCalls += Triple(prompt, systemPrompt, model)
+        return failureMessage?.let { Result.failure(RuntimeException(it)) } ?: Result.success(success)
+    }
 
-    override fun streamChat(message: String) = kotlinx.coroutines.flow.flowOf(
-        "(AI not available)"
-    )
+    override fun streamChat(message: String): Flow<String> =
+        kotlinx.coroutines.flow.flowOf(success)
 }

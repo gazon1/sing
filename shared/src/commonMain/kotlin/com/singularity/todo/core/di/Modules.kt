@@ -61,6 +61,113 @@ fun domainModule(): Module = module {
 }
 
 /**
+ * Common bindings shared by every AI tool module — use cases, GenUI,
+ * ChatViewModel, and the AI service surface. Platform-specific bindings
+ * (PromptExecutor, LLModel) live in the [aiToolsModule] actuals.
+ */
+internal fun aiToolsCoreModule(): Module = module {
+    // ─── AI Service ───
+    single<com.singularity.todo.feature.ai.TextGenPort> {
+        com.singularity.todo.feature.ai.KoogAgentService(get(), get(), get(), get(), get())
+    }
+
+    factory { com.singularity.todo.feature.ai.chat.ChatViewModel(get()) }
+
+    // ─── GenUI ───
+    single { com.singularity.todo.feature.genui.surface.SurfaceController() }
+    single { com.singularity.todo.feature.genui.parser.A2uiParser() }
+
+    factory<com.singularity.todo.feature.genui.transport.GenuiTransport> {
+        com.singularity.todo.feature.genui.transport.KoogGenuiTransport(get())
+    }
+
+    factory {
+        com.singularity.todo.feature.genui.GenuiEngine(
+            transport = get(),
+            parser = get(),
+            controller = get(),
+        )
+    }
+
+    // ─── AI Use Cases ───
+    factory { com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase(get()) }
+    factory { com.singularity.todo.feature.ai.use_cases.SmartRewriteUseCase(get()) }
+    factory { com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase(get()) }
+    factory { com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase(get()) }
+    factory { com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase(get()) }
+    factory { com.singularity.todo.feature.ai.use_cases.PickTimeUseCase(get()) }
+    factory { com.singularity.todo.feature.ai.use_cases.ClusterTasksUseCase(get()) }
+    factory { com.singularity.todo.feature.ai.use_cases.ClusterNotesUseCase(get()) }
+    factory { com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase(get()) }
+    factory { com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase(get()) }
+
+    // ─── AI Tools ───
+    factory { com.singularity.todo.feature.ai.tools.RefineTaskTool(get(), get()) }
+    factory { com.singularity.todo.feature.ai.tools.SmartRewriteTool(get(), get()) }
+    factory { com.singularity.todo.feature.ai.tools.GenerateDescriptionTool(get(), get()) }
+    factory { com.singularity.todo.feature.ai.tools.DecomposeTaskTool(get(), get()) }
+    factory { com.singularity.todo.feature.ai.tools.GenerateChecklistTool(get(), get()) }
+    factory { com.singularity.todo.feature.ai.tools.PickTimeTool(get(), get()) }
+    factory { com.singularity.todo.feature.ai.tools.ClusterTasksTool(get(), get()) }
+    factory { com.singularity.todo.feature.ai.tools.ClusterNotesTool(get(), get()) }
+    factory { com.singularity.todo.feature.ai.tools.ProjectReviewTool(get(), get()) }
+    factory { com.singularity.todo.feature.ai.tools.WeeklyPlanTool(get(), get()) }
+    factory { com.singularity.todo.feature.ai.tools.ImproveNoteTool(get(), get()) }
+    factory { com.singularity.todo.feature.ai.tools.GetNoteTool(get()) }
+    factory { com.singularity.todo.feature.ai.tools.GetProjectTool(get()) }
+    factory { com.singularity.todo.feature.ai.tools.GetTaskTool(get()) }
+    factory { com.singularity.todo.feature.ai.tools.ListLinkedTasksTool(get()) }
+    factory { com.singularity.todo.feature.ai.tools.ListTasksTool(get()) }
+    factory { com.singularity.todo.feature.ai.tools.SearchTasksTool(get()) }
+
+    // ─── AI tools list for KoogAgentService ───
+    single<List<ai.koog.agents.core.tools.Tool<*, *>>> {
+        listOf(
+            get<com.singularity.todo.feature.ai.tools.RefineTaskTool>(),
+            get<com.singularity.todo.feature.ai.tools.SmartRewriteTool>(),
+            get<com.singularity.todo.feature.ai.tools.GenerateDescriptionTool>(),
+            get<com.singularity.todo.feature.ai.tools.DecomposeTaskTool>(),
+            get<com.singularity.todo.feature.ai.tools.GenerateChecklistTool>(),
+            get<com.singularity.todo.feature.ai.tools.PickTimeTool>(),
+            get<com.singularity.todo.feature.ai.tools.ClusterTasksTool>(),
+            get<com.singularity.todo.feature.ai.tools.ClusterNotesTool>(),
+            get<com.singularity.todo.feature.ai.tools.ProjectReviewTool>(),
+            get<com.singularity.todo.feature.ai.tools.WeeklyPlanTool>(),
+            get<com.singularity.todo.feature.ai.tools.GetNoteTool>(),
+            get<com.singularity.todo.feature.ai.tools.GetProjectTool>(),
+            get<com.singularity.todo.feature.ai.tools.GetTaskTool>(),
+            get<com.singularity.todo.feature.ai.tools.ListLinkedTasksTool>(),
+            get<com.singularity.todo.feature.ai.tools.ListTasksTool>(),
+            get<com.singularity.todo.feature.ai.tools.SearchTasksTool>(),
+        )
+    }
+
+    // ─── ViewModels that depend on AI ───
+    factory {
+        com.singularity.todo.feature.tasks.TasksViewModel(
+            taskRepo = get(),
+            createTask = get(),
+            updateTask = get(),
+            currentUser = get(),
+            refineTask = get(),
+            generateDescription = get(),
+            generateChecklist = get(),
+            decomposeTask = get(),
+            pickTime = get(),
+        )
+    }
+    factory {
+        com.singularity.todo.feature.projects.ProjectsViewModel(
+            projectRepo = get(),
+            createProject = get(),
+            currentUser = get(),
+            taskRepository = get(),
+            projectReview = get(),
+        )
+    }
+}
+
+/**
  * Core domain: repositories, use cases, ViewModels, settings, sync.
  * Does NOT include AI tools (those require a valid OpenAI API key).
  */
@@ -188,7 +295,14 @@ fun coreDomainModule(): Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    factory { SettingsViewModel(get(), get()) }
+    factory {
+        SettingsViewModel(
+            settings = get(),
+            secureStorage = get(),
+            textGen = get(),
+            clock = { com.singularity.todo.core.platform.Clock.now().toEpochMilliseconds() },
+        )
+    }
 
     // TasksViewModel and ProjectsViewModel: registered in aiToolsModule()
     // (AI deps are null on Android; VMs handle null gracefully)

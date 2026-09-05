@@ -73,7 +73,6 @@ class FakeSettingsRepository(
     private val _darkTheme = MutableStateFlow(false)
     private val _accentColor = MutableStateFlow("blue")
     private val _fontSizeScale = MutableStateFlow(1f)
-    private val _aiApiKey = MutableStateFlow("")
     private val _aiProvider = MutableStateFlow("openai")
     private val _aiModel = MutableStateFlow("gpt-4o-mini")
     private val _aiBaseUrl = MutableStateFlow("https://api.openai.com/v1")
@@ -95,7 +94,6 @@ class FakeSettingsRepository(
     override val darkTheme: Flow<Boolean> = _darkTheme
     override val accentColor: Flow<String> = _accentColor
     override val fontSizeScale: Flow<Float> = _fontSizeScale
-    override val aiApiKey: Flow<String> = _aiApiKey
     override val aiProvider: Flow<String> = _aiProvider
     override val aiModel: Flow<String> = _aiModel
     override val aiBaseUrl: Flow<String> = _aiBaseUrl
@@ -117,10 +115,10 @@ class FakeSettingsRepository(
     override suspend fun setDarkTheme(value: Boolean) { _darkTheme.value = value }
     override suspend fun setAccentColor(value: String) { _accentColor.value = value }
     override suspend fun setFontSizeScale(value: Float) { _fontSizeScale.value = value }
-    override suspend fun setAiApiKey(value: String) { _aiApiKey.value = value }
     override suspend fun setAiProvider(value: String) { _aiProvider.value = value }
     override suspend fun setAiModel(value: String) { _aiModel.value = value }
     override suspend fun setAiBaseUrl(value: String) { _aiBaseUrl.value = value }
+    override suspend fun setAiSystemPrompt(value: String) { _aiSystemPrompt.value = value }
     override suspend fun setNotificationsEnabled(value: Boolean) { _notificationsEnabled.value = value }
     override suspend fun setNotificationSound(value: Boolean) { _notificationSound.value = value }
     override suspend fun setNotificationVibration(value: Boolean) { _notificationVibration.value = value }

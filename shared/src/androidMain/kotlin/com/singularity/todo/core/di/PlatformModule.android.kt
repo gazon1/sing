@@ -14,6 +14,8 @@ import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.AndroidSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.feature.settings.AiApiKeyMigration
+import kotlinx.coroutines.runBlocking
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -51,6 +53,12 @@ actual fun platformModule(): Module = module {
 
     single<DataStore<Preferences>> {
         PreferenceDataStoreFactory.create { get<android.content.Context>().filesDir.resolve("settings.preferences_pb") }
+            .also { ds ->
+                // One-shot migration: legacy versions stored the OpenAI key in
+                // DataStore; newer versions only in SecureStorage. Runs at first
+                // DataStore access, no-ops on subsequent launches.
+                runBlocking { AiApiKeyMigration.run(ds, get<SecureStoragePort>()) }
+            }
     }
 
     // ─── Platform Ports ─────────────────────────────────────────────────

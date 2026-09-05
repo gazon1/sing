@@ -1,12 +1,18 @@
 package com.singularity.todo.core.di
 
+import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.settings.SettingsRepository
+
 /**
  * Creates a platform-specific [PromptExecutorPort].
  *
- * - JVM: real Koog executor via [createJvmKoogPromptExecutor]
- * - Android: stub returning a sentinel (AI features disabled on Android)
- *
- * The API key is resolved at runtime inside [com.singularity.todo.feature.ai.KoogAgentService]
- * via [SecureStoragePort], not at executor creation time.
+ * The API key, base URL, provider and model are resolved from
+ * [SecureStoragePort] and [SettingsRepository] via
+ * [com.singularity.todo.feature.ai.OpenAiConfig.resolve] inside the actual.
+ * Implementations are responsible for reading those values; this expect
+ * function exists only to hide Koog types behind a multiplatform port.
  */
-expect fun createKoogPromptExecutor(): PromptExecutorPort
+expect fun createKoogPromptExecutor(
+    secureStorage: SecureStoragePort,
+    settings: SettingsRepository,
+): PromptExecutorPort

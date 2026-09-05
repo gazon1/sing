@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.settings
 
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.settings.SettingsRepository
 
 /**
  * Settings screen UI state.
@@ -19,10 +20,12 @@ sealed interface SettingsUiState {
         val notificationSound: Boolean = true,
         val notificationVibration: Boolean = true,
         val reminderDefault: ReminderOffset = ReminderOffset.AT_DUE,
-        // AI Provider
-        val aiApiKey: String = "",
+        // AI Provider — the API key never enters here, it lives in SecureStorage.
+        val aiProvider: String = "openai",
         val aiBaseUrl: String = "https://api.openai.com/v1",
         val aiModel: String = "gpt-4o-mini",
+        val aiSystemPrompt: String = SettingsRepository.DEFAULT_SYSTEM_PROMPT,
+        val aiTestResult: AiTestResult = AiTestResult.Idle,
         // Work Schedule
         val workDayStartMinutes: Int = 540,   // 09:00
         val workDayEndMinutes: Int = 1080,   // 18:00
@@ -36,6 +39,14 @@ sealed interface SettingsUiState {
         // Account
         val userId: String = "anonymous",
     ) : SettingsUiState
+}
+
+/** Result of the "Test connection" probe from the AI Provider settings screen. */
+sealed interface AiTestResult {
+    data object Idle : AiTestResult
+    data object Testing : AiTestResult
+    data class Ok(val latencyMs: Long) : AiTestResult
+    data class Error(val message: String) : AiTestResult
 }
 
 enum class ReminderOffset(val minutes: Int, val label: String) {
@@ -57,8 +68,11 @@ sealed interface SettingsIntent {
     data class UpdateReminderDefault(val value: ReminderOffset) : SettingsIntent
     // AI Provider
     data class UpdateAiApiKey(val value: String) : SettingsIntent
+    data class UpdateAiProvider(val value: String) : SettingsIntent
     data class UpdateAiBaseUrl(val value: String) : SettingsIntent
     data class UpdateAiModel(val value: String) : SettingsIntent
+    data class UpdateAiSystemPrompt(val value: String) : SettingsIntent
+    data object TestAiConnection : SettingsIntent
     // Work Schedule
     data class UpdateWorkDayStart(val minutes: Int) : SettingsIntent
     data class UpdateWorkDayEnd(val minutes: Int) : SettingsIntent

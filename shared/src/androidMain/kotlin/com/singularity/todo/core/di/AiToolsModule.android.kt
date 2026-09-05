@@ -1,54 +1,33 @@
 package com.singularity.todo.core.di
 
-import com.singularity.todo.feature.ai.FakeTextGen
-import com.singularity.todo.feature.ai.TextGenPort
-import com.singularity.todo.feature.projects.ProjectsViewModel
-import com.singularity.todo.feature.tasks.TasksViewModel
+import ai.koog.prompt.executor.clients.openai.OpenAIModels
+import ai.koog.prompt.llm.LLModel
+import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.settings.SettingsRepository
 import org.koin.dsl.module
 
 /**
- * Android stub for [aiToolsModule].
+ * Android actual for [aiToolsModule].
  *
- * AI features (Koog agent, OpenAI) are JVM-only on desktop.
- * On Android, ChatScreen uses [TextGenPort] which is bound to [FakeTextGen] —
- * AI buttons still work but return "(AI not available)".
- *
- * TasksViewModel and ProjectsViewModel are still required on Android.
- * Their AI dependencies (RefineTaskUseCase, etc.) are passed as null since
- * Koog is JVM-only. VMs handle null AI deps gracefully.
+ * Shares the common bindings (use cases, tools, AI service, GenUI, ChatViewModel,
+ * TasksViewModel, ProjectsViewModel) via [aiToolsCoreModule], then adds the
+ * platform-specific bits: real [PromptExecutorPort] built by
+ * [createKoogPromptExecutor], the default [LLModel], and the raw
+ * [ai.koog.prompt.executor.model.PromptExecutor] for AI tools.
  */
 actual fun aiToolsModule() = module {
-    // PromptExecutorPort → stub (AI features disabled on Android)
-    single<PromptExecutorPort> { createKoogPromptExecutor() }
+    includes(aiToolsCoreModule())
 
-    // TextGenPort → FakeTextGen on Android (Koog is JVM-only)
-    single<TextGenPort> { FakeTextGen() }
+    // Default LLM
+    single<LLModel> { OpenAIModels.Chat.GPT4oMini }
 
-    // TasksViewModel and ProjectsViewModel are required on Android.
-    // AI use cases (last 5 / 1 args) are passed as null since Koog is JVM-only.
-    // The VMs handle null AI deps gracefully (AI buttons show "AI not available").
-    factory {
-        TasksViewModel(
-            taskRepo = get(),
-            createTask = get(),
-            updateTask = get(),
-            currentUser = get(),
-            refineTask = null,
-            generateDescription = null,
-            generateChecklist = null,
-            decomposeTask = null,
-            pickTime = null,
-        )
-    }
-    factory {
-        ProjectsViewModel(
-            projectRepo = get(),
-            createProject = get(),
-            currentUser = get(),
-            taskRepository = get(),
-            projectReview = null,
-        )
+    // Real Koog executor on Android
+    single<PromptExecutorPort> {
+        createKoogPromptExecutor(get<SecureStoragePort>(), get<SettingsRepository>())
     }
 
-    factory { com.singularity.todo.feature.ai.chat.ChatViewModel(get()) }
+    // Raw Koog executor for AI tools
+    single<ai.koog.prompt.executor.model.PromptExecutor> {
+        (get<PromptExecutorPort>() as KoogPromptExecutorPort).executor
+    }
 }

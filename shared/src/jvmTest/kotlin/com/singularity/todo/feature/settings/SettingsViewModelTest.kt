@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.settings
 
 import com.singularity.todo.core.security.FakeSecureStorage
+import com.singularity.todo.feature.ai.FakeTextGen
+import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,8 +22,17 @@ class SettingsViewModelTest {
 
     /** Unconfined dispatcher runs launchFlow collectors synchronously — no
      *  advanceUntilIdle juggling required after the first one. */
-    private fun createVm(scope: CoroutineScope): SettingsViewModel =
-        SettingsViewModel(fakeSettings, fakeStorage, scopeOverride = scope)
+    private fun createVm(
+        scope: CoroutineScope,
+        textGen: TextGenPort = FakeTextGen(),
+    ): SettingsViewModel =
+        SettingsViewModel(
+            settings = fakeSettings,
+            secureStorage = fakeStorage,
+            textGen = textGen,
+            clock = { 0L },
+            scopeOverride = scope,
+        )
 
     // ─── Initial state ─────────────────────────────────────────────────────────
 
@@ -115,13 +126,15 @@ class SettingsViewModelTest {
     // ─── AI intents ────────────────────────────────────────────────────────────
 
     @Test
-    fun `UpdateAiApiKey writes to secureStorage and settings`() = runTest {
+    fun `UpdateAiApiKey writes to secureStorage only — never enters UI state`() = runTest {
         val vm = createVm(backgroundScope)
         advanceUntilIdle()
         vm.processIntent(SettingsIntent.UpdateAiApiKey("sk-test"))
         advanceUntilIdle()
+        // State must not contain the secret
         val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals("sk-test", state.aiApiKey)
+        assertIs<SettingsUiState.Content>(state)
+        // But secure storage holds it
         assertEquals("sk-test", fakeStorage.read("ai_key_openai"))
     }
 
@@ -238,5 +251,64 @@ class SettingsViewModelTest {
         advanceUntilIdle()
         val state = vm.uiState.value as SettingsUiState.Content
         assertEquals(20, state.greetingAfternoonEnd)
+    }
+
+    // ─── AI Provider + Test connection ────────────────────────────────────────
+
+    @Test
+    fun `UpdateAiProvider updates state`() = runTest {
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        vm.processIntent(SettingsIntent.UpdateAiProvider("ollama"))
+        advanceUntilIdle()
+        val state = vm.uiState.value as SettingsUiState.Content
+        assertEquals("ollama", state.aiProvider)
+    }
+
+    @Test
+    fun `UpdateAiSystemPrompt updates state`() = runTest {
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        vm.processIntent(SettingsIntent.UpdateAiSystemPrompt("You are a poet."))
+        advanceUntilIdle()
+        val state = vm.uiState.value as SettingsUiState.Content
+        assertEquals("You are a poet.", state.aiSystemPrompt)
+    }
+
+    @Test
+    fun `TestAiConnection without key reports Error and never calls TextGen`() = runTest {
+        val textGen = FakeTextGen(success = "pong", trackGenerateCalls = true)
+        val vm = createVm(backgroundScope, textGen = textGen)
+        advanceUntilIdle()
+        // No key configured in fakeStorage.
+        vm.processIntent(SettingsIntent.TestAiConnection)
+        advanceUntilIdle()
+        val state = vm.uiState.value as SettingsUiState.Content
+        assertIs<AiTestResult.Error>(state.aiTestResult)
+        assertEquals("API key not configured", state.aiTestResult.message)
+        assertEquals(emptyList(), textGen.generateCalls, "TextGen must not be invoked without a key")
+    }
+
+    @Test
+    fun `TestAiConnection with key on success reports Ok with latency`() = runTest {
+        fakeStorage.write(com.singularity.todo.feature.ai.OpenAiConfig.KEY_OPENAI, "sk-test")
+        val vm = createVm(backgroundScope, textGen = FakeTextGen(success = "pong"))
+        advanceUntilIdle()
+        vm.processIntent(SettingsIntent.TestAiConnection)
+        advanceUntilIdle()
+        val state = vm.uiState.value as SettingsUiState.Content
+        assertIs<AiTestResult.Ok>(state.aiTestResult)
+    }
+
+    @Test
+    fun `TestAiConnection with failing TextGen reports Error with message`() = runTest {
+        fakeStorage.write(com.singularity.todo.feature.ai.OpenAiConfig.KEY_OPENAI, "sk-test")
+        val vm = createVm(backgroundScope, textGen = FakeTextGen(failureMessage = "kaboom"))
+        advanceUntilIdle()
+        vm.processIntent(SettingsIntent.TestAiConnection)
+        advanceUntilIdle()
+        val state = vm.uiState.value as SettingsUiState.Content
+        assertIs<AiTestResult.Error>(state.aiTestResult)
+        assertEquals("kaboom", state.aiTestResult.message)
     }
 }

@@ -160,10 +160,41 @@ class TasksViewModelTest {
         seedTask("t1", "My Task", dueDate = kotlinx.datetime.LocalDate(2024, 1, 15))
         val vm = createVm() // all AI use cases null
 
-        val aiResults = mutableListOf<AiActionResult>()
         vm.aiResult.test {
-            advanceUntilIdle() // ensure collection started
+            advanceUntilIdle()
             vm.runAiAction(fakeTaskRepo.tasks.value["t1"]!!, TaskAiAction.RefineTitle)
+            advanceUntilIdle()
+            val result = awaitItem()
+            assertIs<AiActionResult.Error>(result)
+            assertEquals("AI not available", result.message)
+            cancelAndConsumeRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `runAiAction RefineTitle emits Error when refineTask use case is null`() = runTest {
+        seedTask("t1", "Old title")
+        val vm = createVm(refineTask = null, generateDescription = null, generateChecklist = null, decomposeTask = null, pickTime = null)
+
+        vm.aiResult.test {
+            advanceUntilIdle()
+            vm.runAiAction(fakeTaskRepo.tasks.value["t1"]!!, TaskAiAction.RefineTitle)
+            advanceUntilIdle()
+            val result = awaitItem()
+            assertIs<AiActionResult.Error>(result)
+            assertEquals("AI not available", result.message)
+            cancelAndConsumeRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `runAiAction Decompose emits Error when decomposeTask use case is null`() = runTest {
+        seedTask("t1", "Anything")
+        val vm = createVm()
+
+        vm.aiResult.test {
+            advanceUntilIdle()
+            vm.runAiAction(fakeTaskRepo.tasks.value["t1"]!!, TaskAiAction.Decompose)
             advanceUntilIdle()
             val result = awaitItem()
             assertIs<AiActionResult.Error>(result)

@@ -1,39 +1,40 @@
 package com.singularity.todo.core.di
 
-import ai.koog.agents.core.tools.ToolDescriptor
-import ai.koog.prompt.llm.LLModel
-import ai.koog.prompt.message.Message
-import ai.koog.prompt.streaming.StreamFrame
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
-
-
-/**
- * Android stub for [PromptExecutorPort].
- *
- * On Android, AI features are not available — [KoogAgentService] is never invoked
- * on mobile (no AI Chat tab). This stub exists only so the DI graph stays complete.
- *
- * @throws UnsupportedOperationException always, since AI is unavailable on Android.
- */
-class StubPromptExecutorPort : PromptExecutorPort {
-
-    private val unavailableText = "(AI unavailable on Android. Use the desktop/JVM target.)"
-
-    override suspend fun execute(
-        prompt: ai.koog.prompt.Prompt,
-        model: LLModel,
-        tools: List<ToolDescriptor>,
-    ): Message.Assistant = throw UnsupportedOperationException(unavailableText)
-
-    override fun executeStreaming(
-        prompt: ai.koog.prompt.Prompt,
-        model: LLModel,
-        tools: List<ToolDescriptor>,
-    ): Flow<StreamFrame> = flowOf(StreamFrame.TextDelta(unavailableText))
-}
+import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.feature.ai.OpenAiConfig
+import kotlinx.coroutines.runBlocking
 
 /**
  * Android actual for [createKoogPromptExecutor].
+ *
+ * Reads an [OpenAiConfig] from secure storage + settings, builds a Koog
+ * [ai.koog.prompt.executor.model.PromptExecutor] backed by OkHttp, and
+ * wraps it in [KoogPromptExecutorPort]. The HTTP backend and OpenAI client
+ * are wired the same way as the JVM side — see [buildExecutor].
  */
-actual fun createKoogPromptExecutor(): PromptExecutorPort = StubPromptExecutorPort()
+actual fun createKoogPromptExecutor(
+    secureStorage: SecureStoragePort,
+    settings: SettingsRepository,
+): PromptExecutorPort {
+    val cfg = runBlocking { OpenAiConfig.resolve(secureStorage, settings) }
+    val executor = buildExecutor(cfg)
+    return KoogPromptExecutorPort(executor)
+}
+
+/**
+ * Builds a [ai.koog.prompt.executor.llms.MultiLLMPromptExecutor] for an
+ * OpenAI-compatible endpoint. Lives in androidMain so we can keep the
+ * OkHttp HTTP backend on Android without leaking it into commonMain —
+ * the JVM side has its own copy.
+ */
+internal fun buildExecutor(cfg: OpenAiConfig) = ai.koog.prompt.executor.llms.MultiLLMPromptExecutor(
+    mapOf(
+        ai.koog.prompt.llm.OpenAILLMProvider to ai.koog.prompt.executor.clients.openai.OpenAILLMClient(
+            apiKey = cfg.apiKey.value,
+            settings = ai.koog.prompt.executor.clients.openai.OpenAIClientSettings(baseUrl = cfg.baseUrl),
+            httpClientFactory = ai.koog.http.client.okhttp.OkHttpKoogHttpClient.Factory(),
+            clock = ai.koog.utils.time.KoogClock.System,
+        ),
+    ),
+)

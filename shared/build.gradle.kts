@@ -150,6 +150,9 @@ kotlin {
 
             // Security — EncryptedSharedPreferences
             implementation(libs.android.security.crypto)
+
+            // Koog OkHttp HTTP backend — needed by Android actual of createKoogPromptExecutor
+            implementation(libs.koog.http.client.okhttp)
         }
 
         jvmMain.dependencies {
@@ -181,10 +184,6 @@ kotlin {
 
             // Koog OkHttp HTTP backend — JVM-only
             implementation(libs.koog.http.client.okhttp)
-
-            // Koog OpenAI client — JVM-only (multiplatform artifact resolves to android stub
-            // in KMP context; explicit -jvm dep needed for JVM target compile classpath)
-            implementation(libs.koog.prompt.executor.openai.client.jvm)
         }
 
         commonTest.dependencies {

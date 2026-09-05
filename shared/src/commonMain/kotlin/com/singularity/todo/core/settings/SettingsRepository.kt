@@ -48,8 +48,10 @@ interface SettingsRepository {
     val fontSizeScale: Flow<Float>
 
     // ── AI ───────────────────────────────────────────────────────────────────
+    // The API key is intentionally NOT here — it lives in [SecureStoragePort]
+    // (hardware-backed keychain on Android, libsecret on Linux). Only
+    // non-secret AI settings live in this repository.
 
-    val aiApiKey: Flow<String>
     val aiProvider: Flow<String>
     val aiModel: Flow<String>
     val aiBaseUrl: Flow<String>
@@ -86,10 +88,10 @@ interface SettingsRepository {
     suspend fun setAccentColor(value: String)
     suspend fun setFontSizeScale(value: Float)
 
-    suspend fun setAiApiKey(value: String)
     suspend fun setAiProvider(value: String)
     suspend fun setAiModel(value: String)
     suspend fun setAiBaseUrl(value: String)
+    suspend fun setAiSystemPrompt(value: String)
 
     suspend fun setNotificationsEnabled(value: Boolean)
     suspend fun setNotificationSound(value: Boolean)
@@ -121,7 +123,6 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
         val FONT_SIZE_SCALE = floatPreferencesKey("font_size_scale")
 
         // ── AI ────────────────────────────────────────────────────────────────
-        val AI_API_KEY = stringPreferencesKey("ai_api_key")
         val AI_PROVIDER = stringPreferencesKey("ai_provider")
         val AI_MODEL = stringPreferencesKey("ai_model")
         val AI_BASE_URL = stringPreferencesKey("ai_base_url")
@@ -157,7 +158,6 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
 
     // ── AI ───────────────────────────────────────────────────────────────────
 
-    override val aiApiKey: Flow<String> = dataStore.data.map { it[AI_API_KEY] ?: "" }
     override val aiProvider: Flow<String> = dataStore.data.map { it[AI_PROVIDER] ?: "openai" }
     override val aiModel: Flow<String> = dataStore.data.map { it[AI_MODEL] ?: "gpt-4o-mini" }
     override val aiBaseUrl: Flow<String> = dataStore.data.map { it[AI_BASE_URL] ?: "https://api.openai.com/v1" }
@@ -209,10 +209,10 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
     override suspend fun setAccentColor(value: String) { dataStore.edit { it[ACCENT_COLOR] = value } }
     override suspend fun setFontSizeScale(value: Float) { dataStore.edit { it[FONT_SIZE_SCALE] = value } }
 
-    override suspend fun setAiApiKey(value: String) { dataStore.edit { it[AI_API_KEY] = value } }
     override suspend fun setAiProvider(value: String) { dataStore.edit { it[AI_PROVIDER] = value } }
     override suspend fun setAiModel(value: String) { dataStore.edit { it[AI_MODEL] = value } }
     override suspend fun setAiBaseUrl(value: String) { dataStore.edit { it[AI_BASE_URL] = value } }
+    override suspend fun setAiSystemPrompt(value: String) { dataStore.edit { it[AI_SYSTEM_PROMPT] = value } }
 
     override suspend fun setNotificationsEnabled(value: Boolean) {
         dataStore.edit { it[NOTIFICATIONS_ENABLED] = value }
