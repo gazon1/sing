@@ -2,55 +2,36 @@ package com.singularity.todo.feature.nav
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
+
+/**
+ * Pure tests for the desktop-drawer destination enum.
+ *
+ * The enum is now a flat list of 9 destinations (no `NavGroup` / no icons /
+ * no `grouped` map). These tests assert the basic invariants: every entry
+ * has a non-blank title, and every entry is unique by name.
+ *
+ * Behaviour tests for navigation itself live in `AppNavigatorTest` (widget).
+ */
 class NavigationLabelsTest {
 
     @Test
-    fun `top bar title matches destination title`() {
+    fun `every destination has a non-blank title`() {
         NavDestination.entries.forEach { dest ->
-            assertEquals(dest.title, dest.topBarTitle())
+            assertTrue(dest.title.isNotBlank(), "Destination $dest must have a non-blank title")
         }
     }
 
     @Test
-    fun `all groups have non-blank labels`() {
-        NavGroup.entries.forEach { group ->
-            val label = group.label()
-            assertTrue(label.isNotBlank(), "Group $group label must not be blank")
-        }
+    fun `all destination names are distinct`() {
+        val names = NavDestination.entries.map { it.name }
+        assertEquals(names.size, names.toSet().size, "Destination names must be distinct")
     }
 
     @Test
-    fun `grouped map covers every destination exactly once`() {
-        val grouped = NavDestination.grouped
-        assertEquals(NavDestination.entries.size, grouped.values.sumOf { it.size })
-        NavGroup.entries.forEach { group ->
-            assertTrue(grouped.containsKey(group), "Group $group must be present as key")
-        }
-    }
-
-    @Test
-    fun `at returns destination by ordinal`() {
-        NavDestination.entries.forEachIndexed { index, dest ->
-            assertEquals(dest, NavDestination.at(index))
-        }
-    }
-
-    @Test
-    fun `all destinations belong to exactly one group`() {
-        val grouped = NavDestination.grouped
-        NavDestination.entries.forEach { dest ->
-            val groups = grouped.entries.filter { (_, dests) -> dest in dests }
-            assertEquals(1, groups.size, "Destination ${dest.name} must belong to exactly one group")
-        }
-    }
-
-    @Test
-    fun `group labels are distinct`() {
-        val labels = NavGroup.entries.map { it.label() }
-        assertEquals(labels.size, labels.toSet().size, "Group labels must be distinct")
+    fun `no two destinations share the same title`() {
+        val titles = NavDestination.entries.map { it.title }
+        assertEquals(titles.size, titles.toSet().size, "Destination titles must be distinct")
     }
 }

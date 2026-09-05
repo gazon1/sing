@@ -317,6 +317,8 @@ fun coreDomainModule(): Module = module {
 
     factory { ProjectEditorViewModel(get(), get()) }
 
+    factory { com.singularity.todo.feature.projects.ProjectDetailViewModel(get()) }
+
     factory { (initialDueDate: kotlinx.datetime.LocalDate?) ->
         com.singularity.todo.feature.tasks.TaskEditorViewModel(
             get(), get(), get(), get(), get(),

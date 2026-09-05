@@ -113,11 +113,8 @@ kotlin {
             implementation(libs.coil.compose)
             implementation(libs.coil.core)
 
-            // Voyager
-            implementation(libs.voyager.navigator)
-            implementation(libs.voyager.tab.navigator)
-            implementation(libs.voyager.koin)
-            implementation(libs.voyager.screenmodel)
+            // Navigation Compose (type-safe routes)
+            implementation(libs.androidx.navigation.compose)
 
             // Utils
             implementation(libs.ulid)
@@ -206,6 +203,9 @@ kotlin {
             implementation(libs.androidx.testExt.junit)
             implementation(libs.androidx.test.core)
             implementation(libs.robolectric)
+            // Compose UI test infra — needed for createComposeRule and onNodeWithText.
+            implementation("org.jetbrains.compose.ui:ui-test-junit4:1.11.1")
+            implementation("org.jetbrains.compose.ui:ui-test:1.11.1")
         }
     }
 }

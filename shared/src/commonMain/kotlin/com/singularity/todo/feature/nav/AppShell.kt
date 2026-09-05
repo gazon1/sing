@@ -2,16 +2,12 @@ package com.singularity.todo.feature.nav
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
@@ -25,6 +21,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
+/**
+ * Desktop drawer shell — used by [com.singularity.todo.shell.DesktopShell].
+ *
+ * Two flavours:
+ * - [DrawerStyle.Modal] — hamburger-triggered drawer (mobile-style).
+ * - [DrawerStyle.Permanent] — always-visible side rail (desktop-style).
+ *
+ * Stateless: receives the [NavDestination] selection and an `onSelect`
+ * callback. The caller (`DesktopShell`) decides what each drawer entry
+ * navigates to (it maps `NavDestination` → `AppDestination` and calls
+ * `navigator::navigateTopLevel`).
+ *
+ * After the [AppDestination] refactor, this drawer no longer needs
+ * `NavGroup` — destinations are shown as a flat list. Re-introduce
+ * grouping later if the list grows past ~8 entries.
+ */
 enum class DrawerStyle {
     Modal,
     Permanent,
@@ -61,14 +73,7 @@ private fun ModalShell(
         drawerState = drawerState,
         drawerContent = { AppDrawerContent(current, closeAndSelect) },
     ) {
-        Scaffold(
-            topBar = {
-                AppTopBar(
-                    title = current.topBarTitle(),
-                    onMenuClick = { scope.launch { drawerState.open() } },
-                )
-            },
-        ) { padding ->
+        Scaffold { padding ->
             content(Modifier.padding(padding))
         }
     }
@@ -84,90 +89,28 @@ private fun PermanentShell(
     PermanentNavigationDrawer(
         drawerContent = { AppDrawerContent(current, onSelect) },
     ) {
-        Scaffold(
-            topBar = { AppTopBar(title = current.topBarTitle()) },
-        ) { padding ->
+        Scaffold { padding ->
             content(Modifier.padding(padding))
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AppTopBar(title: String, onMenuClick: (() -> Unit)? = null) {
-    CenterAlignedTopAppBar(
-        title = { Text(title) },
-        navigationIcon = {
-            if (onMenuClick != null) {
-                IconButton(onClick = onMenuClick) {
-                    Icon(Icons.Default.Menu, contentDescription = "Open menu")
-                }
-            }
-        },
-    )
-}
-
 @Composable
 private fun AppDrawerContent(current: NavDestination, onSelect: (NavDestination) -> Unit) {
     val scrollState = rememberScrollState()
-    Column(modifier = Modifier.verticalScroll(scrollState)) {
-        DrawerHeader()
-        NavGroup.entries.forEach { group ->
-            AppDrawerSection(
-                group = group,
-                destinations = NavDestination.grouped.getValue(group),
-                current = current,
-                onSelect = onSelect,
+    Column(modifier = Modifier.verticalScroll(scrollState).padding(8.dp)) {
+        Text(
+            "Singularity Todo",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        Spacer(Modifier.height(8.dp))
+        NavDestination.entries.forEach { dest ->
+            NavigationDrawerItem(
+                label = { Text(dest.title) },
+                selected = dest == current,
+                onClick = { onSelect(dest) },
             )
         }
     }
-}
-
-@Composable
-private fun DrawerHeader() {
-    Icon(
-        Icons.Default.DragHandle,
-        contentDescription = null,
-        modifier = Modifier.padding(8.dp),
-    )
-    Text(
-        "Singularity Todo",
-        style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
-}
-
-@Composable
-private fun AppDrawerSection(
-    group: NavGroup,
-    destinations: List<NavDestination>,
-    current: NavDestination,
-    onSelect: (NavDestination) -> Unit,
-) {
-    Text(
-        text = group.label(),
-        style = MaterialTheme.typography.labelMedium,
-        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
-    )
-    destinations.forEach { dest ->
-        DrawerDestinationItem(
-            destination = dest,
-            selected = dest == current,
-            onSelect = { onSelect(dest) },
-        )
-    }
-}
-
-@Composable
-private fun DrawerDestinationItem(
-    destination: NavDestination,
-    selected: Boolean,
-    onSelect: () -> Unit,
-) {
-    NavigationDrawerItem(
-        label = { Text(destination.title) },
-        selected = selected,
-        onClick = onSelect,
-        icon = { Icon(destination.icon, contentDescription = null) },
-    )
 }

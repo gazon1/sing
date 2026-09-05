@@ -56,8 +56,8 @@ openai-client = "4.1.0"
 # Theme / MaterialKolor
 materialkolor = "4.1.1"
 
-# Navigation / Voyager
-voyager = "1.1.0-beta03"
+# Navigation
+androidx-navigation = "2.9.2"
 
 # Supabase
 supabaseVersion = "3.8.0"
@@ -170,11 +170,9 @@ openai-client = { module = "com.aallam.openai:openai-client", version.ref = "ope
 # MaterialKolor
 materialkolor = { module = "com.materialkolor:material-kolor", version.ref = "materialkolor" }
 
-# Voyager
-voyager-navigator = { module = "cafe.adriel.voyager:voyager-navigator", version.ref = "voyager" }
-voyager-tab-navigator = { module = "cafe.adriel.voyager:voyager-tab-navigator", version.ref = "voyager" }
-voyager-koin = { module = "cafe.adriel.voyager:voyager-koin", version.ref = "voyager" }
-voyager-screenmodel = { module = "cafe.adriel.voyager:voyager-screenmodel", version.ref = "voyager" }
+# Navigation Compose (type-safe routes, multiplatform)
+# TestNavHostController is included in the main artifact — no separate testing dep needed.
+androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "androidx-navigation" }
 
 # Utils
 ulid = { module = "com.github.f4b6a3:ulid-creator", version.ref = "ulid" }

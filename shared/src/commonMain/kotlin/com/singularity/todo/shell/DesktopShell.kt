@@ -1,0 +1,78 @@
+package com.singularity.todo.shell
+
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.AppNavigator
+import com.singularity.todo.feature.nav.AppShell
+import com.singularity.todo.feature.nav.DrawerStyle
+import com.singularity.todo.feature.nav.NavDestination
+
+/**
+ * Desktop (JVM) chrome — reuses the existing [AppShell] drawer layout.
+ *
+ * Why reuse AppShell instead of building a parallel NavigationRail:
+ * - The desktop drawer already groups destinations by [com.singularity.todo.feature.nav.NavGroup]
+ *   (Work / Knowledge / Insights) — visually richer than a flat bar.
+ * - Mouse-driven UX benefits from a wider click target than a 56dp bar.
+ *
+ * The only new responsibility is bridging the new [AppNavigator] (which
+ * drives Android) into the drawer-driven world of [AppShell]:
+ * - `current` is derived from the navigator (one source of truth).
+ * - `onSelect` translates a [NavDestination] (drawer enum) into the
+ *   equivalent [AppDestination] tab and calls `navigateTopLevel`.
+ *
+ * If the two enums ever diverge, the translation belongs in a single
+ * `NavDestination.toAppDestination()` mapper — see [tabDestinationFor].
+ */
+@Composable
+fun DesktopShell(navigator: AppNavigator) {
+    val current = navigator.currentTopLevelDestination()
+    AppShell(
+        current = current.toNavDestination(),
+        drawerStyle = DrawerStyle.Permanent,
+        onSelect = { drawerDest ->
+            tabDestinationFor(drawerDest)?.let(navigator::navigateTopLevel)
+        },
+        content = { modifier ->
+            AppNavHost(navigator = navigator, modifier = modifier)
+        },
+    )
+}
+
+/** Map a navigation-graph destination to the drawer's enum entry. */
+private fun AppDestination.toNavDestination(): NavDestination = when (this) {
+    AppDestination.Inbox -> NavDestination.Tasks
+    AppDestination.Today -> NavDestination.Tasks
+    AppDestination.Plans -> NavDestination.Projects
+    AppDestination.Habits -> NavDestination.Pomodoro
+    AppDestination.Calendar -> NavDestination.Statistics
+    AppDestination.Notes -> NavDestination.Notes
+    AppDestination.AiChat -> NavDestination.Chat
+    AppDestination.Search -> NavDestination.Search
+    AppDestination.Archive -> NavDestination.Archive
+    AppDestination.Settings -> NavDestination.Settings
+    is AppDestination.TaskDetail -> NavDestination.Tasks
+    is AppDestination.TaskEditor -> NavDestination.Tasks
+    is AppDestination.NoteDetail -> NavDestination.Notes
+    is AppDestination.NoteEditor -> NavDestination.Notes
+    is AppDestination.ProjectEditor -> NavDestination.Projects
+    is AppDestination.ProjectDetail -> NavDestination.Projects
+}
+
+/**
+ * Reverse mapping: pick the [AppDestination] tab that should open when
+ * the user taps a drawer entry. Returns `null` for entries that don't
+ * map cleanly (currently none — the drawer covers every tab + menu).
+ */
+private fun tabDestinationFor(drawerDest: NavDestination): AppDestination? = when (drawerDest) {
+    NavDestination.Tasks -> AppDestination.Today
+    NavDestination.Notes -> AppDestination.Notes
+    NavDestination.Projects -> AppDestination.Plans
+    NavDestination.Pomodoro -> AppDestination.Habits
+    NavDestination.Statistics -> AppDestination.Calendar
+    NavDestination.Chat -> AppDestination.AiChat
+    NavDestination.Search -> AppDestination.Search
+    NavDestination.Archive -> AppDestination.Archive
+    NavDestination.Settings -> AppDestination.Settings
+}
