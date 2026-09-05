@@ -83,7 +83,7 @@ coil = "3.6.1"
 
 # Testing
 junit = "4.13.2"
-robolectric = "4.16"
+robolectric = "4.17-beta-4"
 
 # Lint
 

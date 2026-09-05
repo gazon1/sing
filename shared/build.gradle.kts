@@ -246,3 +246,15 @@ configurations.all {
 room3 {
     schemaDirectory("$projectDir/schemas")
 }
+
+// Robolectric JDK 21+ fix — open FileDescriptor reflection internals
+afterEvaluate {
+    project.tasks.withType<Test>().matching { it.name == "testAndroidHostTest" }.configureEach {
+        jvmArgs(
+            "--add-opens=java.base/java.io=ALL-UNNAMED",
+            "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+            "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
+        )
+    }
+}
