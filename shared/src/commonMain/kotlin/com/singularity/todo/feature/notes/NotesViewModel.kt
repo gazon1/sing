@@ -104,6 +104,15 @@ open class NotesViewModel(
 
     fun openEditor(noteId: String) {
         scope.launch(Dispatchers.Unconfined) {
+            // Guard: if the editor is already open for this id with text the
+            // user has been typing, don't clobber it with whatever the repo
+            // currently holds (which may still be the empty pre-save state if
+            // the autosave hasn't propagated yet). This protects the UI from
+            // re-emit races where LaunchedEffect re-triggers openEditor while
+            // the editor is already showing the user's content.
+            val current = _editorState.value
+            if (current is EditorState.Editing && current.id == noteId) return@launch
+
             val note = repo.watchNote(NoteId.fromString(noteId)).filterNotNull().first()
             val html = note.bodyMarkdown?.let { htmlPort.toHtml(it) } ?: ""
             _editorState.value = EditorState.Editing(

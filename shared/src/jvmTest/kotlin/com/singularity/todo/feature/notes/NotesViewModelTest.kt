@@ -78,6 +78,158 @@ class NotesViewModelTest {
         assertFalse(state.isDirty)
     }
 
+    /**
+     * Regression test for the "empty note on open" bug.
+     *
+     * Scenario the user reported: create a note → type a title → close editor →
+     * reopen the same note. The body should still contain the typed text.
+     *
+     * The bug was that `openEditor(id)` re-read from the repo unconditionally
+     * even when the VM still held the in-memory `_editorState` for the same id
+     * with the just-typed text. If the save hadn't fully propagated to the
+     * repository flow, the editor would overwrite the in-memory text with
+     * the empty defaults from the DB.
+     *
+     * The fix: if `_editorState` already holds Editing for this id, keep it.
+     */
+    @Test
+    fun `reopening a saved note shows the previously typed text`() = runTest {
+        val repo = FakeNotesRepository()
+        val htmlPort = object : MarkdownHtmlPort {
+            override fun toHtml(markdown: String) = "<p>$markdown</p>"
+            override fun toMarkdown(html: String) = html.removePrefix("<p>").removeSuffix("</p>")
+        }
+
+        // 1. Create a new note, type title + body, and explicitly save.
+        val vm = createVm(repo = repo, htmlPort = htmlPort, scope = backgroundScope)
+        val id = vm.createNote()
+        vm.editTitle(id, "Shopping list")
+        vm.editBody(id, "<p>Milk, eggs</p>")
+        vm.saveNow()
+        advanceUntilIdle()
+
+        // 2. Reopen the editor on the SAME VM instance.
+        vm.openEditor(id)
+        advanceUntilIdle()
+
+        val state = vm.editorState.value
+        assertIs<EditorState.Editing>(state)
+        assertEquals("Shopping list", state.title)
+        assertEquals("<p>Milk, eggs</p>", state.html)
+    }
+
+    /**
+     * UI race scenario: the user creates a note, types text, and then quickly
+     * taps the same note in the list before the save has propagated. The
+     * `NoteEditorScreen` re-invokes `openEditor(noteId)` via `LaunchedEffect`,
+     * and we must NOT clobber the still-loaded in-memory editor state.
+     *
+     * Without the guard, `openEditor` would await `repo.watchNote(noteId)`
+     * and overwrite `_editorState` with whatever the repo currently holds —
+     * which is the empty defaults if the save didn't propagate yet.
+     */
+    @Test
+    fun `openEditor does not overwrite in-memory text when id matches`() = runTest {
+        val repo = FakeNotesRepository()
+        val htmlPort = object : MarkdownHtmlPort {
+            override fun toHtml(markdown: String) = "<p>$markdown</p>"
+            override fun toMarkdown(html: String) = html.removePrefix("<p>").removeSuffix("</p>")
+        }
+        val vm = createVm(repo = repo, htmlPort = htmlPort, scope = backgroundScope)
+
+        val id = vm.createNote()
+        // Type — but DO NOT save. The repo has empty content; VM has typed text.
+        vm.editTitle(id, "Draft title")
+        vm.editBody(id, "<p>Draft body</p>")
+        advanceUntilIdle()
+
+        // Simulate the user tapping the same note in the list — the Compose
+        // screen calls openEditor(id) again on every LaunchedEffect re-trigger.
+        vm.openEditor(id)
+        advanceUntilIdle()
+
+        val state = vm.editorState.value
+        assertIs<EditorState.Editing>(state)
+        assertEquals("Draft title", state.title)
+        assertEquals("<p>Draft body</p>", state.html)
+    }
+
+    /**
+     * Direct regression test for the guard added to [openEditor]: when the
+     * editor is already open for the same id, a re-invocation of
+     * `openEditor(id)` must NOT clobber the in-memory editor state — the
+     * user's typed text is more recent than whatever the repo currently holds.
+     */
+    @Test
+    fun `openEditor preserves in-memory state when id matches`() = runTest {
+        val repo = FakeNotesRepository()
+        val htmlPort = object : MarkdownHtmlPort {
+            override fun toHtml(md: String) = "<p>$md</p>"
+            override fun toMarkdown(html: String) = html.removePrefix("<p>").removeSuffix("</p>")
+        }
+        val vm = createVm(repo = repo, htmlPort = htmlPort, scope = backgroundScope)
+
+        val id = vm.createNote()
+        vm.editTitle(id, "In-flight title")
+        vm.editBody(id, "<p>In-flight body</p>")
+        // The repo still has empty title/body because we did NOT save.
+        // NoteScreen re-invokes openEditor(id) on every LaunchedEffect re-trigger.
+        vm.openEditor(id)
+        advanceUntilIdle()
+
+        val state = vm.editorState.value
+        assertIs<EditorState.Editing>(state)
+        assertEquals("In-flight title", state.title,
+            "openEditor must NOT clobber in-memory title when id matches")
+        assertEquals("<p>In-flight body</p>", state.html,
+            "openEditor must NOT clobber in-memory body when id matches")
+    }
+
+    /**
+     * Reproduces the user-reported "text is empty when reopening a note" bug.
+     *
+     * The scenario: user opens a freshly-created note, types a title and a body
+     * (passing through htmlPort.toHtml, the same way the UI does via the
+     * RichTextState), and then closes/reopens the editor. The body text
+     * must come back.
+     *
+     * The bug surfaced when the UI flow was: create → edit (UI autosaves
+     * via htmlPort round-trip) → close → reopen. If openEditor reads from the
+     * repo *before* the autosave has propagated through the watchNote flow,
+     * the user sees an empty editor even though the title they just typed
+     * survived in the repo.
+     *
+     * We use a port that round-trips "<p>hello</p>" ↔ "hello" so the test
+     * actually exercises the body field, not just the title.
+     */
+    @Test
+    fun `reopening saved note preserves body markdown via HtmlPort`() = runTest {
+        val repo = FakeNotesRepository()
+        val roundTrip = object : MarkdownHtmlPort {
+            override fun toHtml(md: String) = if (md.isBlank()) "" else "<p>$md</p>"
+            override fun toMarkdown(html: String) =
+                if (html.isBlank()) "" else html.removePrefix("<p>").removeSuffix("</p>")
+        }
+        val vm = createVm(repo = repo, htmlPort = roundTrip, scope = backgroundScope)
+
+        val id = vm.createNote()
+        vm.editTitle(id, "My Note")
+        vm.editBody(id, roundTrip.toHtml("hello body"))
+        vm.saveNow()
+        advanceUntilIdle()
+
+        // Reopen via a fresh openEditor call — the closest to "user closes and
+        // reopens the editor screen". The bug would show here if the watchNote
+        // flow hadn't yet emitted the saved value.
+        vm.openEditor(id)
+        advanceUntilIdle()
+
+        val state = vm.editorState.value
+        assertIs<EditorState.Editing>(state)
+        assertEquals("My Note", state.title)
+        assertEquals("<p>hello body</p>", state.html)
+    }
+
     // ─── editTitle ────────────────────────────────────────────────────────────
 
     @Test
