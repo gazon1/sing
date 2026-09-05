@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -35,14 +33,10 @@ import com.singularity.todo.feature.tasks.components.TaskCard
 import com.singularity.todo.feature.tasks.components.TaskCardActions
 import org.koin.compose.koinInject
 
-sealed interface TasksScreenEntry {
-    data object FromToday : TasksScreenEntry
-    data object FromInbox : TasksScreenEntry
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(
+    entry: TasksScreenEntry = TasksScreenEntry.FromToday,
     onNavigateToTask: (String) -> Unit,
     onNavigateToCreateTask: () -> Unit,
 ) {
@@ -61,15 +55,8 @@ fun TasksScreen(
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Tasks") }) },
-        floatingActionButton = {
-            val currentState = state
-            val hasSelection = currentState is TasksUiState.Content && currentState.selectedIds.isNotEmpty()
-            if (!hasSelection) {
-                FloatingActionButton(onClick = onNavigateToCreateTask) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add Task")
-                }
-            }
-        },
+        // The FAB is provided by [AndroidShell] at the chrome level and adapts
+        // per-tab. Don't render a second one here — see ADR 2026-09-05.
         bottomBar = {
             val currentState = state
             if (currentState is TasksUiState.Content && currentState.selectedIds.isNotEmpty()) {

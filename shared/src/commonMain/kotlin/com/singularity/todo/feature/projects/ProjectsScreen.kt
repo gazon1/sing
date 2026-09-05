@@ -6,11 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -53,11 +49,8 @@ fun ProjectsScreen(
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Projects") }) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onNavigateToCreateProject) {
-                Icon(Icons.Filled.Create, contentDescription = "Add Project")
-            }
-        },
+        // The FAB is provided by [AndroidShell] at the chrome level and adapts
+        // per-tab. Don't render a second one here — see ADR 2026-09-05.
     ) { padding ->
         ProjectsContent(
             state = state,
