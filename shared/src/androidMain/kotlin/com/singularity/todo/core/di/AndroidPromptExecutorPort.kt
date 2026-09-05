@@ -3,21 +3,20 @@ package com.singularity.todo.core.di
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.OpenAiConfig
-import kotlinx.coroutines.runBlocking
 
 /**
  * Android actual for [createKoogPromptExecutor].
  *
  * Reads an [OpenAiConfig] from secure storage + settings, builds a Koog
  * [ai.koog.prompt.executor.model.PromptExecutor] backed by OkHttp, and
- * wraps it in [KoogPromptExecutorPort]. The HTTP backend and OpenAI client
- * are wired the same way as the JVM side — see [buildExecutor].
+ * wraps it in [KoogPromptExecutorPort]. Suspend: the DI layer is
+ * expected to bridge with `runBlocking` (single one-shot read at startup).
  */
-actual fun createKoogPromptExecutor(
+actual suspend fun createKoogPromptExecutor(
     secureStorage: SecureStoragePort,
     settings: SettingsRepository,
 ): PromptExecutorPort {
-    val cfg = runBlocking { OpenAiConfig.resolve(secureStorage, settings) }
+    val cfg = OpenAiConfig.resolve(secureStorage, settings)
     val executor = buildExecutor(cfg)
     return KoogPromptExecutorPort(executor)
 }

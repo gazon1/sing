@@ -6,13 +6,13 @@ import com.singularity.todo.core.settings.SettingsRepository
 /**
  * Creates a platform-specific [PromptExecutorPort].
  *
- * The API key, base URL, provider and model are resolved from
+ * Suspend: the API key, base URL, provider and model are resolved from
  * [SecureStoragePort] and [SettingsRepository] via
- * [com.singularity.todo.feature.ai.OpenAiConfig.resolve] inside the actual.
- * Implementations are responsible for reading those values; this expect
- * function exists only to hide Koog types behind a multiplatform port.
+ * [com.singularity.todo.feature.ai.OpenAiConfig.resolve]. The DI layer is
+ * expected to bridge with `runBlocking` — the call happens once at
+ * Koin-graph construction and the result is cached.
  */
-expect fun createKoogPromptExecutor(
+expect suspend fun createKoogPromptExecutor(
     secureStorage: SecureStoragePort,
     settings: SettingsRepository,
 ): PromptExecutorPort
