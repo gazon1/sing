@@ -2,11 +2,11 @@ package com.singularity.todo.feature.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.ui.components.UiEvent
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
@@ -16,9 +16,8 @@ import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.ReminderType
 import com.singularity.todo.feature.settings.ReminderOffset
-import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -27,6 +26,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 
 /**
  * UI state for the create-task screen.
@@ -108,6 +110,21 @@ internal fun TaskEditorUiState.reduce(intent: TaskEditorIntent): TaskEditorUiSta
 }
 
 /**
+ * Dependencies for [TaskEditorViewModel] — reduces constructor parameter count
+ * and makes DI registration more maintainable.
+ */
+data class TaskEditorDeps(
+    val createTask: CreateTaskUseCase,
+    val clock: Clock,
+    val currentUser: CurrentUser,
+    val checklistUseCase: com.singularity.todo.feature.checklist.ChecklistUseCase,
+    val reminderRepository: ReminderRepository,
+    val attachmentSaver: AttachmentSaver,
+    val idGen: IdGenerator,
+    val timeZoneProvider: TimeZoneProvider,
+)
+
+/**
  * Create-task screen VM. The legacy implementation lived entirely inside the
  * Composable (`var title by remember { ... }`, `rememberCoroutineScope`); this
  * refactor moves the state and validation into the VM so the screen is a thin
@@ -116,12 +133,7 @@ internal fun TaskEditorUiState.reduce(intent: TaskEditorIntent): TaskEditorUiSta
  * @param initialDueDate pre-fills the due date field (e.g. when creating from Today tab).
  */
 class TaskEditorViewModel(
-    private val createTask: CreateTaskUseCase,
-    private val clock: Clock,
-    private val currentUser: CurrentUser,
-    private val checklistUseCase: com.singularity.todo.feature.checklist.ChecklistUseCase,
-    private val reminderRepository: ReminderRepository,
-    private val saveAttachment: (taskId: TaskId, path: String, mimeType: String?) -> Unit,
+    private val deps: TaskEditorDeps,
     initialDueDate: kotlinx.datetime.LocalDate? = null,
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
@@ -150,9 +162,9 @@ class TaskEditorViewModel(
         val text = _uiState.value.newChecklistItem.trim()
         if (text.isBlank()) return
         _uiState.update { st ->
-            st.copy(
+                st.copy(
                 checklistItems = st.checklistItems + ChecklistItemUi(
-                    id = com.singularity.todo.core.ids.nextId(),
+                    id = deps.idGen.next(),
                     title = text,
                     isCompleted = false,
                 ),
@@ -183,7 +195,7 @@ class TaskEditorViewModel(
         offset: ReminderOffset,
         nowEpochMs: Long,
     ): Long {
-        val zone = TimeZone.currentSystemDefault()
+        val zone = deps.timeZoneProvider.current()
         val base = when {
             dueDate != null && dueTime != null -> {
                 val ldt = LocalDateTime(dueDate.year, dueDate.monthNumber, dueDate.dayOfMonth, dueTime.hour, dueTime.minute)
@@ -202,7 +214,7 @@ class TaskEditorViewModel(
         val current = _uiState.value
         if (current.saving) return@launch
 
-        val userId = currentUser.current
+        val userId = deps.currentUser.current
 
         val input = try {
             TasksDomain.createInput(
@@ -218,7 +230,7 @@ class TaskEditorViewModel(
 
         _uiState.update { it.copy(saving = true, errorMessage = null) }
 
-        val taskResult = createTask(input)
+        val taskResult = deps.createTask(input)
 
         taskResult
             .onSuccess { taskId ->
@@ -233,11 +245,11 @@ class TaskEditorViewModel(
                             sortOrder = 0,
                         )
                     }
-                    checklistUseCase.createBatch(taskId.value, checklistItems)
+                    deps.checklistUseCase.createBatch(taskId.value, checklistItems)
                 }
                 // Save reminder if offset was selected
                 current.reminderOffset?.let { offset ->
-                    val now = clock.now().toEpochMilliseconds()
+                    val now = deps.clock.now().toEpochMilliseconds()
                     val fireAt = computeFireAt(current.dueDate, current.dueTime, offset, now)
                     val reminder = Reminder(
                         id = ReminderId.generate(),
@@ -248,11 +260,11 @@ class TaskEditorViewModel(
                         fireAt = fireAt,
                         recurringPattern = null,
                     )
-                    reminderRepository.upsert(reminder)
+                    deps.reminderRepository.upsert(reminder)
                 }
                 // Save pending attachments
                 current.pendingAttachments.forEach { att ->
-                    saveAttachment(taskId, att.path, att.mimeType)
+                    deps.attachmentSaver.save(taskId, att.path, att.mimeType)
                 }
                 _events.emit(UiEvent.NavigateBack)
             }

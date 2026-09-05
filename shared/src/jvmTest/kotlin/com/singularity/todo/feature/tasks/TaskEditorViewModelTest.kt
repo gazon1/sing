@@ -1,26 +1,30 @@
 package com.singularity.todo.feature.tasks
 
+import com.singularity.todo.core.ids.IdGenerator
+import com.singularity.todo.core.ids.SequenceIdGenerator
+import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.checklist.ChecklistUseCase
-import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.settings.ReminderOffset
+import com.singularity.todo.feature.tasks.FakeAttachmentSaver
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeCurrentUser
 import com.singularity.todo.test.fakes.FakeReminderRepository
-import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
-import kotlin.time.Instant
+
+private val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
+    override fun current(): kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.UTC
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskEditorViewModelTest {
@@ -29,23 +33,34 @@ class TaskEditorViewModelTest {
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeChecklistRepo = FakeChecklistRepository()
     private val fakeReminderRepo = FakeReminderRepository()
-    private val fakeCurrentUser = FakeCurrentUser(FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)))
+    private val fakeCurrentUser = FakeCurrentUser(
+        FakeAuthRepository(
+            initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)
+        )
+    )
 
-    private val savedAttachments = mutableListOf<Triple<String, String, String?>>() // taskId, path, mime
+    private val savedAttachments = mutableListOf<Triple<String, String, String?>>()
 
     private fun createVm(
         initialDueDate: kotlinx.datetime.LocalDate? = null,
         scope: CoroutineScope? = null,
+        idGen: IdGenerator = SequenceIdGenerator(),
+        timeZoneProvider: TimeZoneProvider = TEST_TZ,
+        attachmentSaver: AttachmentSaver = FakeAttachmentSaver,
     ): TaskEditorViewModel {
+        // Use the platform Clock singleton directly
+        val clock = Clock
         return TaskEditorViewModel(
-            createTask = CreateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
-            clock = com.singularity.todo.core.platform.Clock,
-            currentUser = fakeCurrentUser,
-            checklistUseCase = ChecklistUseCase(fakeChecklistRepo, com.singularity.todo.core.platform.Clock),
-            reminderRepository = fakeReminderRepo,
-            saveAttachment = { taskId, path, mime ->
-                savedAttachments.add(Triple(taskId.value, path, mime))
-            },
+            deps = TaskEditorDeps(
+                createTask = CreateTaskUseCase(fakeTaskRepo, clock),
+                clock = clock,
+                currentUser = fakeCurrentUser,
+                checklistUseCase = ChecklistUseCase(fakeChecklistRepo, clock),
+                reminderRepository = fakeReminderRepo,
+                attachmentSaver = attachmentSaver,
+                idGen = idGen,
+                timeZoneProvider = timeZoneProvider,
+            ),
             initialDueDate = initialDueDate,
             scopeOverride = scope,
         )
@@ -156,7 +171,7 @@ class TaskEditorViewModelTest {
         assertEquals(ReminderOffset.FIFTEEN_MIN, vm.uiState.value.reminderOffset)
     }
 
-    // ─── Attachment ──────────────────────────────────────────────────────
+    // ─── Attachment ─────────────────────────────────────────────────────
 
     @Test
     fun `AddAttachment adds pending attachment`() = runTest {
@@ -171,7 +186,7 @@ class TaskEditorViewModelTest {
     // ─── Save — success ────────────────────────────────────────────────
 
     @Test
-    fun `Save with valid title creates task and emits NavigateBack`() = runTest {
+    fun `Save with valid title creates task`() = runTest {
         val vm = createVm(scope = backgroundScope)
         vm.onIntent(TaskEditorIntent.TitleChanged("New Task"))
         advanceUntilIdle()
@@ -220,7 +235,13 @@ class TaskEditorViewModelTest {
     @Test
     fun `Save with pending attachments calls saveAttachment`() = runTest {
         savedAttachments.clear()
-        val vm = createVm(scope = backgroundScope)
+        val saver = object : AttachmentSaver {
+            override suspend fun save(taskId: TaskId, sourcePath: String, mimeType: String?): Result<Unit> {
+                savedAttachments.add(Triple(taskId.value, sourcePath, mimeType))
+                return Result.success(Unit)
+            }
+        }
+        val vm = createVm(scope = backgroundScope, attachmentSaver = saver)
         vm.onIntent(TaskEditorIntent.TitleChanged("New Task"))
         vm.onIntent(TaskEditorIntent.AddAttachment("/tmp/file.pdf", "file.pdf", "application/pdf"))
         advanceUntilIdle()

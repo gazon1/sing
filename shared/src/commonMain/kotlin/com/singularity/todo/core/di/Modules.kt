@@ -4,11 +4,16 @@ import com.singularity.todo.core.attachments.AttachmentRepositoryImpl
 import com.singularity.todo.core.attachments.StubAttachmentUploadService
 import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.SupabaseAuthRepository
+import com.singularity.todo.core.backup.BackupFileNamer
+import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.StubRemoteBackupService
 import com.singularity.todo.core.settings.DataStoreSettingsRepository
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.core.ids.IdGenerator
+import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
@@ -29,6 +34,8 @@ import com.singularity.todo.feature.tags.CreateTagUseCase
 import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.tags.TagsRepositoryImpl
 import com.singularity.todo.feature.tags.UpdateTagUseCase
+import com.singularity.todo.feature.tasks.AttachmentSaver
+import com.singularity.todo.feature.tasks.AttachmentsViewModelAttachmentSaver
 import com.singularity.todo.feature.tasks.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.TaskRepositoryImpl
@@ -71,7 +78,7 @@ internal fun aiToolsCoreModule(): Module = module {
         com.singularity.todo.feature.ai.KoogAgentService(get(), get(), get(), get(), get())
     }
 
-    factory { com.singularity.todo.feature.ai.chat.ChatViewModel(get()) }
+    factory { com.singularity.todo.feature.ai.chat.ChatViewModel(get(), get()) }
 
     // ─── GenUI ───
     single { com.singularity.todo.feature.genui.surface.SurfaceController() }
@@ -269,6 +276,16 @@ fun coreDomainModule(): Module = module {
 
     single<com.singularity.todo.core.backup.RemoteBackupService> { StubRemoteBackupService() }
 
+    // ─── UI-test ports ────────────────────────────────────────────────────
+
+    factory<IdGenerator> { UlidIdGenerator }
+
+    single<TimeZoneProvider> { com.singularity.todo.core.platform.systemTimeZone }
+
+    single<BackupFileNamer> { DefaultBackupFileNamer }
+
+    single<AttachmentSaver> { AttachmentsViewModelAttachmentSaver { get<AttachmentsViewModel>() } }
+
     // ─── Sync ───────────────────────────────────────────────────────────
 
     single { HlcFactory(get(), get()) }
@@ -313,7 +330,7 @@ fun coreDomainModule(): Module = module {
 
     factory { TagsViewModel(get(), get()) }
 
-    factory { NotesViewModel(get(), get(), get()) }
+    factory { NotesViewModel(get(), get(), get(), get()) }
 
     factory { ProjectEditorViewModel(get(), get()) }
 
@@ -321,12 +338,17 @@ fun coreDomainModule(): Module = module {
 
     factory { (initialDueDate: kotlinx.datetime.LocalDate?) ->
         com.singularity.todo.feature.tasks.TaskEditorViewModel(
-            get(), get(), get(), get(), get(),
-            saveAttachment = { taskId, path, mime ->
-                get<com.singularity.todo.feature.attachments.AttachmentsViewModel>()
-                    .saveFileAttachment(taskId, path, mime)
-            },
-            initialDueDate,
+            deps = com.singularity.todo.feature.tasks.TaskEditorDeps(
+                createTask = get(),
+                clock = get(),
+                currentUser = get(),
+                checklistUseCase = get(),
+                reminderRepository = get(),
+                attachmentSaver = get(),
+                idGen = get(),
+                timeZoneProvider = get(),
+            ),
+            initialDueDate = initialDueDate,
         )
     }
 
@@ -345,7 +367,7 @@ fun coreDomainModule(): Module = module {
 
     factory { AuthViewModel(get()) }
 
-    factory { BackupViewModel(get(), get()) }
+    factory { BackupViewModel(get(), get(), get(), get()) }
 
     // BackupRepository: full implementation requires backupDir + all DAOs + codecs.
     // Use FakeBackupRepository in coreDomainModule to unblock graph verification;
