@@ -39,7 +39,7 @@ import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 private enum class SettingsTab(val label: String) {
     Interface("Interface"),
@@ -53,7 +53,7 @@ private enum class SettingsTab(val label: String) {
 
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier) {
-    val viewModel: SettingsViewModel = koinInject()
+    val viewModel: SettingsViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableStateOf(SettingsTab.Interface) }
 
@@ -111,7 +111,7 @@ private fun SettingsContent(
 
 @Composable
 private fun BackupScreenWrapper(onBack: () -> Unit) {
-    val backupVm: BackupViewModel = koinInject()
+    val backupVm: BackupViewModel = koinViewModel()
     val backupState by backupVm.state.collectAsState()
     BackupScreen(
         state = backupState,

@@ -28,11 +28,11 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.feature.tasks.components.TaskCard
 import com.singularity.todo.feature.tasks.components.TaskCardActions
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchScreen(viewModel: SearchViewModel = koinInject()) {
+fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsState()
     val query by viewModel.query.collectAsState()
 

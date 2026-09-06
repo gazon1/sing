@@ -203,8 +203,18 @@ fun <Feature>Screen(
 // Keep only real use cases:
 factory { Create<Feature>UseCase(get(), get()) }
 
-// Register VM with direct repo injection:
-factory { <Feature>ViewModel(get(), get(), get()) }
+// Register VM — viewModelOf auto-resolves all constructor dependencies
+viewModelOf(::FeatureViewModel)
+```
+
+If the VM has runtime parameters (e.g. `initialDueDate`), use `viewModel { }`:
+```kotlin
+viewModel { (initialDueDate: LocalDate?) ->
+    TaskEditorViewModel(
+        deps = TaskEditorDeps(...),
+        initialDueDate = initialDueDate,
+    )
+}
 ```
 
 ## Navigation (Navigation.kt)

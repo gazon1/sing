@@ -39,13 +39,14 @@ import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.StatefulContent
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotesScreen(
     onNavigateToNote: (String) -> Unit,
     onNavigateToCreateNote: () -> Unit,
-    viewModel: NotesViewModel = koinInject(),
+    viewModel: NotesViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 

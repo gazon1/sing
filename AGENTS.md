@@ -43,6 +43,19 @@ Ids.kt                    — @JvmInline value class (TaskId, NoteId, ProjectId,
 @ComponentScan("com.myapp.feature")
 ```
 
+**ViewModel scope (2026-09-06):**
+
+| DSL | Когда использовать |
+|---|---|
+| `viewModelOf(::Vm)` | Все VM без runtime-параметров (prefer) |
+| `viewModel { (p) -> Vm(...) }` | VM с runtime-параметрами |
+| `koinViewModel()` | Инъекция VM в Composable (не `koinInject()`) |
+| `koinViewModel { parametersOf(p) }` | Для VM с runtime-параметрами |
+| `factory { Vm(...) }` | **Never** для ViewModel — memory leak |
+| `koinInject()` | Репозитории и сервисы (не VM) |
+
+Подробности: `singularity-todo-vm-koin-scoping` skill и `docs/decisions/2026-09-06-koin-vm-viewmodelof-koinviewmodel.md`.
+
 Весь DI в `shared/src/commonMain/.../core/di/Modules.kt` (domainModule).
 Platform bindings — в `PlatformModule.jvm.kt` / `PlatformModule.android.kt`.
 

@@ -43,13 +43,14 @@ import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.ui.components.ProjectPickerSheet
 import com.singularity.todo.feature.projects.ProjectId
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskDetailScreen(
     taskId: TaskId,
     onBack: () -> Unit,
-    viewModel: TaskDetailViewModel = koinInject(),
+    viewModel: TaskDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(taskId) { viewModel.start(taskId) }
     val state by viewModel.state.collectAsStateWithLifecycle()

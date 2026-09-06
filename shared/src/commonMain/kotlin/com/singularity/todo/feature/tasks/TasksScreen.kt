@@ -35,13 +35,14 @@ import com.singularity.todo.feature.tasks.components.TaskCard
 import com.singularity.todo.feature.tasks.components.TaskCardActions
 import com.singularity.todo.core.ui.TestTags
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(
     entry: TasksScreenEntry = TasksScreenEntry.FromToday,
     onNavigateToTask: (String) -> Unit,
     onNavigateToCreateTask: () -> Unit,
-    viewModel: TasksViewModel = koinInject(),
+    viewModel: TasksViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()

@@ -64,7 +64,7 @@ class TasksViewModel(
     private val generateChecklist: GenerateChecklistUseCase? = null,
     private val decomposeTask: DecomposeTaskUseCase? = null,
     private val pickTime: PickTimeUseCase? = null,
-    private val sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(5000),
+    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
@@ -88,7 +88,7 @@ class TasksViewModel(
             else TasksUiState.Content(_filter.value, tasks, _selectedIds.value)
         }
         .catch { emit(TasksUiState.Error(it.message ?: "Error")) }
-        .stateIn(scope, sharingStarted, TasksUiState.Loading)
+        .stateIn(scope, sharingStarted(), TasksUiState.Loading)
 
     fun setFilter(filter: TaskFilter) {
         _filter.value = filter

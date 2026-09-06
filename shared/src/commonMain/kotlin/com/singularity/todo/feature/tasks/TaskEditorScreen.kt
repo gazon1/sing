@@ -43,6 +43,8 @@ import com.singularity.todo.feature.tasks.components.TaskEditorSheetHost
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * Sealed hierarchy for the currently open bottom sheet.
@@ -65,7 +67,7 @@ fun TaskEditorScreen(
     taskId: String? = null,
     onBack: () -> Unit,
 ) {
-    val vm: TaskEditorViewModel = koinInject()
+    val vm: TaskEditorViewModel = koinViewModel { parametersOf(initialDueDate) }
     val state by vm.uiState.collectAsStateWithLifecycle()
 
     // Sheet routing — local UI state, NOT in VM

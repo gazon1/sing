@@ -24,7 +24,7 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.projects.components.ProjectCard
 import com.singularity.todo.feature.projects.components.ProjectCardActions
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,7 +32,7 @@ fun ProjectsScreen(
     onNavigateToProject: (String) -> Unit,
     onNavigateToCreateProject: () -> Unit,
 ) {
-    val viewModel: ProjectsViewModel = koinInject()
+    val viewModel: ProjectsViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Scaffold(

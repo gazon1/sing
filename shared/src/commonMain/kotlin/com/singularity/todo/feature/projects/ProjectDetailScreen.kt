@@ -20,7 +20,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BackTopAppBar
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Detail screen for a single project. Stateless — driven by
@@ -36,7 +36,7 @@ import org.koin.compose.koinInject
 fun ProjectDetailScreen(
     projectId: ProjectId,
     onBack: () -> Unit,
-    viewModel: ProjectDetailViewModel = koinInject(),
+    viewModel: ProjectDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(projectId) { viewModel.start(projectId) }
     val state by viewModel.state.collectAsStateWithLifecycle()

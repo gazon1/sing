@@ -33,11 +33,11 @@ import com.singularity.todo.core.ui.components.BubbleRole
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun ChatScreen(modifier: Modifier = Modifier) {
-    val vm: ChatViewModel = koinInject()
+    val vm: ChatViewModel = koinViewModel()
     val state by vm.uiState.collectAsStateWithLifecycle()
 
     Scaffold(

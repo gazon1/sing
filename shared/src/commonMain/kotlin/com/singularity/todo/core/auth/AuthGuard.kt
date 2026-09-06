@@ -6,6 +6,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.feature.auth.LoginScreen
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Navigation guard: routes the user to [LoginScreen] when the session is
@@ -25,7 +26,7 @@ fun AuthGuard(
     when (session) {
         Session.Loading -> LoadingIndicator()
         Session.SignedOut -> LoginScreen(
-            viewModel = koinInject(),
+            viewModel = koinViewModel(),
             onSuccess = { /* AuthRepository.session transitions drive recomposition */ },
             onContinueOffline = { /* LoginScreen calls authRepository.signInAnonymously() */ },
         )

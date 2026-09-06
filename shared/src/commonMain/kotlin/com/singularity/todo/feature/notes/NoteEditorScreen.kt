@@ -26,13 +26,14 @@ import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.notes.components.EditorBody
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteEditorScreen(
     noteId: String?,
     onBack: () -> Unit,
-    viewModel: NotesViewModel = koinInject(),
+    viewModel: NotesViewModel = koinViewModel(),
 ) {
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
 

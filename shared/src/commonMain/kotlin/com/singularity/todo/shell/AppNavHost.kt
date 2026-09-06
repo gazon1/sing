@@ -29,6 +29,7 @@ import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.TasksScreen
 import com.singularity.todo.feature.tasks.TasksScreenEntry
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * The single navigation graph for the app.
@@ -145,7 +146,7 @@ fun AppNavHost(
 @Composable
 private fun TasksRoute(entry: TasksScreenEntry, navigator: AppNavigator) {
     TasksScreen(
-        viewModel = koinInject(),
+        viewModel = koinViewModel(),
         entry = entry,
         onNavigateToTask = { id -> navigator.navigate(AppDestination.TaskDetail(id)) },
         onNavigateToCreateTask = {
@@ -157,7 +158,7 @@ private fun TasksRoute(entry: TasksScreenEntry, navigator: AppNavigator) {
 @Composable
 private fun NotesRoute(navigator: AppNavigator) {
     NotesScreen(
-        viewModel = koinInject(),
+        viewModel = koinViewModel(),
         onNavigateToNote = { id -> navigator.navigate(AppDestination.NoteDetail(id)) },
         onNavigateToCreateNote = {
             navigator.navigate(AppDestination.NoteEditor())

@@ -36,12 +36,12 @@ import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.StatefulContent
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TagsScreen(onNavigateToCreateTag: () -> Unit) {
-    val viewModel: TagsViewModel = koinInject()
+    val viewModel: TagsViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Scaffold(

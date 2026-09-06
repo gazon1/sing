@@ -42,7 +42,7 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 private val PRESET_COLORS = listOf(
     0xFF1976D2.toInt(), // blue
@@ -56,7 +56,7 @@ private val PRESET_COLORS = listOf(
 @Composable
 fun ProjectEditorScreen(
     onBack: () -> Unit,
-    viewModel: ProjectEditorViewModel = koinInject(),
+    viewModel: ProjectEditorViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 

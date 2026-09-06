@@ -24,12 +24,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import kotlinx.datetime.Clock
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import java.time.LocalDate
 
 @Composable
 fun StatisticsScreen(
-    viewModel: StatisticsViewModel = koinInject(),
+    viewModel: StatisticsViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 

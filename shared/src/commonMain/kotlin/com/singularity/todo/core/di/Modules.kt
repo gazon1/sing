@@ -3,6 +3,7 @@ package com.singularity.todo.core.di
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.attachments.AttachmentRepositoryImpl
 import com.singularity.todo.core.attachments.StubAttachmentUploadService
+import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.backup.BackupFileNamer
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
@@ -25,8 +26,15 @@ import com.singularity.todo.feature.notes.RoomNotesRepository
 import com.singularity.todo.feature.notes.UpdateNoteUseCase
 import com.singularity.todo.feature.projects.CreateProjectUseCase
 import com.singularity.todo.feature.projects.ProjectEditorViewModel
+import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.projects.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.UpdateProjectUseCase
+import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
+import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
+import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
+import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
+import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
+import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.reminders.RoomReminderRepository
 import com.singularity.todo.feature.search.SearchUseCase
@@ -39,16 +47,28 @@ import com.singularity.todo.feature.tags.UpdateTagUseCase
 import com.singularity.todo.feature.tasks.AttachmentSaver
 import com.singularity.todo.feature.tasks.AttachmentsViewModelAttachmentSaver
 import com.singularity.todo.feature.tasks.CreateTaskUseCase
+import com.singularity.todo.feature.tasks.TaskDetailViewModel
+import com.singularity.todo.feature.tasks.TaskEditorDeps
+import com.singularity.todo.feature.tasks.TaskEditorViewModel
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.TaskRepository
 import com.singularity.todo.feature.tasks.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tags.usecase.DeleteTagUseCase
+import com.singularity.todo.feature.archive.ArchiveViewModel
+import com.singularity.todo.feature.statistics.StatisticsViewModel
+import com.singularity.todo.feature.projects.ProjectDetailViewModel
+import com.singularity.todo.feature.projects.ProjectsViewModel
+import com.singularity.todo.feature.checklist.ChecklistEditorViewModel
+import com.singularity.todo.feature.tasks.TasksViewModel
+import com.singularity.todo.feature.ai.chat.ChatViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
@@ -102,7 +122,7 @@ internal fun aiToolsCoreModule(): Module = module {
         com.singularity.todo.feature.ai.KoogAgentService(get(), get(), get(), get(), get())
     }
 
-    factory { com.singularity.todo.feature.ai.chat.ChatViewModel(Logger.withTag("ChatViewModel"), get(), get()) }
+    viewModelOf(::ChatViewModel)
 
     // ─── GenUI ───
     single { com.singularity.todo.feature.genui.surface.SurfaceController() }
@@ -178,28 +198,28 @@ internal fun aiToolsCoreModule(): Module = module {
     }
 
     // ─── ViewModels that depend on AI ───
-    factory {
-        com.singularity.todo.feature.tasks.TasksViewModel(
-            taskRepo = get(),
-            createTask = get(),
-            updateTask = get(),
-            currentUser = get(),
-            mutations = get(),
-            refineTask = get(),
-            generateDescription = get(),
-            generateChecklist = get(),
-            decomposeTask = get(),
-            pickTime = get(),
+    viewModel {
+        TasksViewModel(
+            taskRepo = get<TaskRepository>(),
+            createTask = get<CreateTaskUseCase>(),
+            updateTask = get<UpdateTaskUseCase>(),
+            currentUser = get<CurrentUser>(),
+            mutations = get<TaskMutationsUseCase>(),
+            refineTask = getOrNull(),
+            generateDescription = getOrNull(),
+            generateChecklist = getOrNull(),
+            decomposeTask = getOrNull(),
+            pickTime = getOrNull(),
         )
     }
-    factory {
-        com.singularity.todo.feature.projects.ProjectsViewModel(
-            projectRepo = get(),
-            createProject = get(),
-            currentUser = get(),
-            taskRepository = get(),
-            projectReview = get(),
-            deleteProject = get(),
+    viewModel {
+        ProjectsViewModel(
+            projectRepo = get<ProjectsRepository>(),
+            createProject = get<CreateProjectUseCase>(),
+            currentUser = get<CurrentUser>(),
+            taskRepository = get<TaskRepository>(),
+            projectReview = getOrNull(),
+            deleteProject = get<DeleteProjectUseCase>(),
         )
     }
 }
@@ -280,9 +300,9 @@ fun coreDomainModule(): Module = module {
 
     factory { com.singularity.todo.feature.checklist.ChecklistUseCase(get(), get()) }
 
-    factory { com.singularity.todo.feature.checklist.ChecklistEditorViewModel(get()) }
+    viewModelOf(::ChecklistEditorViewModel)
 
-    viewModel { com.singularity.todo.feature.archive.ArchiveViewModel(get(), get(), get()) }
+    viewModelOf(::ArchiveViewModel)
 
     factory<com.singularity.todo.feature.pomodoro.PomodoroRepository> {
         com.singularity.todo.feature.pomodoro.InMemoryPomodoroRepository()
@@ -290,7 +310,7 @@ fun coreDomainModule(): Module = module {
 
     factory { com.singularity.todo.feature.pomodoro.PomodoroTimer(get(), get(), get()) }
 
-    viewModel { com.singularity.todo.feature.statistics.StatisticsViewModel(get(), get(), get()) }
+    viewModelOf(::StatisticsViewModel)
 
     // Platform clock singleton — actual implementation is in androidMain/jvmMain
     single { Clock }
@@ -344,33 +364,27 @@ fun coreDomainModule(): Module = module {
     factory { DeleteTagUseCase(get()) }
 
     factory { SearchUseCase(get(), get(), get(), get()) }
-    factory { SearchViewModel(get(), get()) }
+    viewModelOf(::SearchViewModel)
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    factory {
-        SettingsViewModel(
-            settings = get(),
-            secureStorage = get(),
-            textGen = get(),
-            clock = { Clock.now().toEpochMilliseconds() },
-        )
-    }
+    viewModelOf(::SettingsViewModel)
 
     // TasksViewModel and ProjectsViewModel: registered in aiToolsModule()
     // (AI deps are null on Android; VMs handle null gracefully)
 
-    factory { TagsViewModel(get(), get(), get()) }
+    viewModelOf(::TagsViewModel)
 
-    factory { NotesViewModel(get(), get(), get(), get(), get()) }
+    viewModelOf(::NotesViewModel)
 
-    factory { ProjectEditorViewModel(get(), get()) }
+    viewModelOf(::ProjectEditorViewModel)
 
-    factory { com.singularity.todo.feature.projects.ProjectDetailViewModel(get()) }
+    viewModelOf(::ProjectDetailViewModel)
 
+    // TaskEditorViewModel — runtime parameter (initialDueDate), keep factory form
     factory { (initialDueDate: kotlinx.datetime.LocalDate?) ->
-        com.singularity.todo.feature.tasks.TaskEditorViewModel(
-            deps = com.singularity.todo.feature.tasks.TaskEditorDeps(
+        TaskEditorViewModel(
+            deps = TaskEditorDeps(
                 createTask = get(),
                 updateTask = get(),
                 clock = get(),
@@ -386,22 +400,15 @@ fun coreDomainModule(): Module = module {
         )
     }
 
-    factory {
-        com.singularity.todo.feature.tasks.TaskDetailViewModel(
-            get(), get(),
-            get(), get(), get<com.singularity.todo.feature.checklist.ChecklistUseCase>(), get(), get(), get(),
-        )
-    }
+    viewModelOf(::TaskDetailViewModel)
 
     // ChatViewModel requires TextGenPort (AI) — registered in aiToolsModule()
 
-    factory {
-        AttachmentsViewModel(get(), get())
-    }
+    viewModelOf(::AttachmentsViewModel)
 
-    factory { AuthViewModel(get()) }
+    viewModelOf(::AuthViewModel)
 
-    factory { BackupViewModel(get(), get(), get(), get()) }
+    viewModelOf(::BackupViewModel)
 
     // BackupRepository: full implementation requires backupDir + all DAOs + codecs.
     // Use FakeBackupRepository in coreDomainModule to unblock graph verification;

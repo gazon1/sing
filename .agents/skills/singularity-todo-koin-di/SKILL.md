@@ -189,6 +189,18 @@ class AuthScope
 class SessionManager(@Named("session") val session: Session)
 ```
 
+## ViewModel scope (2026-09-06)
+
+**See also:** `singularity-todo-vm-koin-scoping` skill — full details.
+
+- Use `viewModelOf(::VM)` for VMs without runtime parameters (auto-resolves all deps)
+- Use `viewModel { (param) -> VM(param, ...) }` for VMs with runtime parameters
+- Use `koinViewModel()` in Composables (not `koinInject()`)
+- Use `koinViewModel { parametersOf(param) }` for runtime-parameter VMs
+- **Never** use `factory {}` for ViewModel — memory leak (new instance every `get()`)
+- **Never** use `koinInject()` for ViewModel — no lifecycle scoping
+- `koinInject()` is correct for repositories, services, ports
+
 ## Gotchas
 
 1. **Last-wins**: if two modules define the same type, the later-loaded one wins (same in both DSL and annotations).
