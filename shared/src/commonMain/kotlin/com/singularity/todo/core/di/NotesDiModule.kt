@@ -1,0 +1,33 @@
+package com.singularity.todo.core.di
+
+import com.singularity.todo.feature.notes.NotesRepository
+import com.singularity.todo.feature.notes.RoomNotesRepository
+import com.singularity.todo.feature.notes.CreateNoteUseCase
+import com.singularity.todo.feature.notes.UpdateNoteUseCase
+import com.singularity.todo.feature.notes.NotesViewModel
+import com.singularity.todo.feature.notes.RichEditorMarkdownHtmlPort
+import com.singularity.todo.feature.notes.MarkdownHtmlPort
+import org.koin.core.module.dsl.viewModelOf
+import org.koin.dsl.module
+
+/**
+ * Notes feature DI: repositories, use cases, ViewModels, ports.
+ */
+fun notesModule(): org.koin.core.module.Module = module {
+    // ─── Repository ─────────────────────────────────────────────────────
+
+    single<NotesRepository> { RoomNotesRepository(get(), get()) }
+
+    // ─── Use Cases ──────────────────────────────────────────────────────
+
+    factory { CreateNoteUseCase(get(), get()) }
+    factory { UpdateNoteUseCase(get(), get()) }
+
+    // ─── Ports ──────────────────────────────────────────────────────────
+
+    single<MarkdownHtmlPort> { RichEditorMarkdownHtmlPort() }
+
+    // ─── ViewModels ─────────────────────────────────────────────────────
+
+    viewModelOf(::NotesViewModel)
+}

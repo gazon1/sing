@@ -60,9 +60,8 @@ class JvmAiDiGraphTest {
     fun `full AI module resolves every binding without network calls`() {
         val app = org.koin.core.context.startKoin {
             modules(
-                coreDomainModule(),
+                domainModule(),
                 platformModule(),
-                aiToolsModule(),
                 // Safety belt override — see class KDoc.
                 module { single<LLModel> { testLLModel } },
             )

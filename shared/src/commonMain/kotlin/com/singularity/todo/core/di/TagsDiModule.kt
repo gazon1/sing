@@ -1,0 +1,29 @@
+package com.singularity.todo.core.di
+
+import com.singularity.todo.feature.tags.TagsRepository
+import com.singularity.todo.feature.tags.TagsRepositoryImpl
+import com.singularity.todo.feature.tags.CreateTagUseCase
+import com.singularity.todo.feature.tags.UpdateTagUseCase
+import com.singularity.todo.feature.tags.usecase.DeleteTagUseCase
+import com.singularity.todo.feature.tags.TagsViewModel
+import org.koin.core.module.dsl.viewModelOf
+import org.koin.dsl.module
+
+/**
+ * Tags feature DI: repositories, use cases, ViewModels.
+ */
+fun tagsModule(): org.koin.core.module.Module = module {
+    // ─── Repository ─────────────────────────────────────────────────────
+
+    single<TagsRepository> { TagsRepositoryImpl(get(), get()) }
+
+    // ─── Use Cases ──────────────────────────────────────────────────────
+
+    factory { CreateTagUseCase(get(), get()) }
+    factory { UpdateTagUseCase(get(), get()) }
+    factory { DeleteTagUseCase(get()) }
+
+    // ─── ViewModels ─────────────────────────────────────────────────────
+
+    viewModelOf(::TagsViewModel)
+}

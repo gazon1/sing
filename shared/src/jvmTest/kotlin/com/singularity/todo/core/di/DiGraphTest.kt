@@ -12,7 +12,7 @@ import org.junit.Test
 /**
  * Smoke-test the DI graph on JVM.
  *
- * Registers both `coreDomainModule` and `platformModule` so that
+ * Registers both `domainModule` and `platformModule` so that
  * DAO-based repositories (ChecklistRepository, PomodoroRepository) can
  * resolve their database dependencies on JVM.
  *
@@ -23,7 +23,7 @@ class DiGraphTest {
     @Test
     fun `core domain + platform modules register without errors`() {
         val app = org.koin.core.context.startKoin {
-            modules(coreDomainModule(), platformModule())
+            modules(domainModule(), platformModule())
         }
         try {
             app.koin.get<SettingsRepository>()
@@ -37,7 +37,7 @@ class DiGraphTest {
     @Test
     fun `UI ports are registered in DI graph`() {
         val app = org.koin.core.context.startKoin {
-            modules(coreDomainModule(), platformModule())
+            modules(domainModule(), platformModule())
         }
         try {
             app.koin.get<IdGenerator>()
