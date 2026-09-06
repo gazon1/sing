@@ -74,7 +74,9 @@ class ReminderScheduler(
 
             // Remove one-shot reminder after firing
             if (reminder.recurringPattern == null) {
-                reminderRepository.delete(reminder.id, currentUserId)
+                reminderRepository.delete(reminder.id, currentUserId).onFailure {
+                // Best-effort: one-shot reminder cleanup; will be retried on next poll
+            }
             }
         }
     }

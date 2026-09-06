@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Folder
@@ -32,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.feature.backup.BackupScreen
-import com.singularity.todo.feature.backup.BackupUiState
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.settings.screens.AccountSettingsScreen
 import com.singularity.todo.feature.settings.screens.AiProviderSettingsScreen
@@ -81,10 +79,8 @@ private fun SettingsContent(
 ) {
     Row(modifier = modifier) {
         // Navigation rail on wide screens (disabled until WindowSizeClass is wired)
-        if (false) {
-            SettingsNavRail(selectedTab, Modifier.fillMaxHeight(), onSelectTab)
-            VerticalDivider()
-        }
+        SettingsNavRail(selectedTab, Modifier.fillMaxHeight(), onSelectTab)
+        VerticalDivider()
 
         Box(modifier = Modifier.weight(1f)) {
             when (selectedTab) {
@@ -118,12 +114,12 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
     val backupState by backupVm.state.collectAsState()
     BackupScreen(
         state = backupState,
+        events = backupVm.events,
         onBack = onBack,
         onCreateBackup = backupVm::createBackup,
         onRestore = backupVm::restore,
         onDelete = backupVm::delete,
         onPush = backupVm::push,
-        onClearError = backupVm::clearError,
     )
 }
 

@@ -2,7 +2,6 @@ package com.singularity.todo.core.di
 
 import com.singularity.todo.core.attachments.AttachmentRepositoryImpl
 import com.singularity.todo.core.attachments.StubAttachmentUploadService
-import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.backup.BackupFileNamer
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
@@ -29,6 +28,7 @@ import com.singularity.todo.feature.projects.UpdateProjectUseCase
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.reminders.RoomReminderRepository
 import com.singularity.todo.feature.search.SearchUseCase
+import com.singularity.todo.feature.search.SearchViewModel
 import com.singularity.todo.feature.settings.SettingsViewModel
 import com.singularity.todo.feature.tags.CreateTagUseCase
 import com.singularity.todo.feature.tags.TagsViewModel
@@ -73,7 +73,7 @@ fun domainModule(): Module = module {
 /**
  * Common bindings shared by every AI tool module — use cases, GenUI,
  * ChatViewModel, and the AI service surface. Platform-specific bindings
- * (PromptExecutor, LLModel) live in the [aiToolsModule] actuals.
+ * (PromptExecutor, LLModel) live in the [aiToolsModule] actual.
  */
 internal fun aiToolsCoreModule(): Module = module {
     // ─── AI Service ───
@@ -204,7 +204,7 @@ fun coreDomainModule(): Module = module {
     // (real file on Android, in-memory stub on JVM). DataStoreSettingsRepository
     // works on both because androidx.datastore-preferences-core is in commonMain deps.
     single<com.singularity.todo.core.settings.SettingsRepository> {
-        com.singularity.todo.core.settings.DataStoreSettingsRepository(get())
+        DataStoreSettingsRepository(get())
     }
 
     // ─── Session ────────────────────────────────────────────────────────
@@ -246,7 +246,7 @@ fun coreDomainModule(): Module = module {
     factory { com.singularity.todo.core.attachments.AttachmentStorage(get(), "/attachments") }
 
     single<com.singularity.todo.feature.reminders.ReminderRepository> {
-        RoomReminderRepository(get())
+        RoomReminderRepository(get(), get())
     }
 
     single<com.singularity.todo.feature.checklist.ChecklistRepository> {
@@ -323,6 +323,7 @@ fun coreDomainModule(): Module = module {
     factory { DeleteTagUseCase(get()) }
 
     factory { SearchUseCase(get(), get(), get(), get()) }
+    factory { SearchViewModel(get(), get()) }
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
@@ -331,7 +332,7 @@ fun coreDomainModule(): Module = module {
             settings = get(),
             secureStorage = get(),
             textGen = get(),
-            clock = { com.singularity.todo.core.platform.Clock.now().toEpochMilliseconds() },
+            clock = { Clock.now().toEpochMilliseconds() },
         )
     }
 

@@ -300,20 +300,21 @@ class FakeReminderRepository(
     override fun watchDueBefore(nowEpochMs: Long, userId: UserId): Flow<List<Reminder>> =
         reminders.map { map -> map.values.filter { it.fireAt <= nowEpochMs && it.userId == userId }.sortedBy { it.fireAt } }
 
-    override suspend fun upsert(reminder: Reminder) {
+    override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatching {
         reminders.value = reminders.value + (reminder.id.value to reminder)
     }
 
-    override suspend fun delete(reminderId: ReminderId, userId: UserId) {
+    override suspend fun delete(reminderId: ReminderId, userId: UserId): Result<Unit> = runCatching {
         reminders.value = reminders.value.filterKeys { it != reminderId.value }
     }
 
-    override suspend fun deleteByTask(taskId: TaskId, userId: UserId) {
+    override suspend fun deleteByTask(taskId: TaskId, userId: UserId): Result<Unit> = runCatching {
         reminders.value = reminders.value.filterValues { it.taskId != taskId || it.userId != userId }
     }
 
-    override suspend fun getById(reminderId: ReminderId, userId: UserId): Reminder? =
+    override suspend fun getById(reminderId: ReminderId, userId: UserId): Result<Reminder?> = runCatching {
         reminders.value[reminderId.value]
+    }
 }
 
 // ─── AuthRepository ───────────────────────────────────────────────────────────

@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.tags.TagId
 
 // Keep: has domain validation + clock injection
 class CreateTaskUseCase(
@@ -31,9 +30,3 @@ class UpdateTaskUseCase(
     }
 }
 
-// Keep: has multi-step repository logic (clear + re-add cross-refs)
-class SetTagsUseCase(private val repo: TaskRepository) {
-    suspend operator fun invoke(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatchingResult {
-        repo.setTags(taskId, tagIds).getOrThrow()
-    }
-}

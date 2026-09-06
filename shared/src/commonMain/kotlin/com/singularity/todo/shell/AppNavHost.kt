@@ -2,9 +2,6 @@ package com.singularity.todo.shell
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
@@ -147,43 +144,25 @@ fun AppNavHost(
 
 @Composable
 private fun TasksRoute(entry: TasksScreenEntry, navigator: AppNavigator) {
-    var taskDetailId by rememberSaveable { mutableStateOf<String?>(null) }
-
-    if (taskDetailId != null) {
-        TaskDetailScreen(
-            taskId = TaskId.fromString(taskDetailId!!),
-            onBack = { taskDetailId = null },
-        )
-    } else {
-        TasksScreen(
-            viewModel = koinInject(),
-            entry = entry,
-            onNavigateToTask = { id -> taskDetailId = id },
-            onNavigateToCreateTask = {
-                navigator.navigate(AppDestination.TaskEditor(entry.toInitialDueDateString()))
-            },
-        )
-    }
+    TasksScreen(
+        viewModel = koinInject(),
+        entry = entry,
+        onNavigateToTask = { id -> navigator.navigate(AppDestination.TaskDetail(id)) },
+        onNavigateToCreateTask = {
+            navigator.navigate(AppDestination.TaskEditor(entry.toInitialDueDateString()))
+        },
+    )
 }
 
 @Composable
 private fun NotesRoute(navigator: AppNavigator) {
-    var editingNoteId by rememberSaveable { mutableStateOf<String?>(null) }
-
-    if (editingNoteId != null) {
-        NoteEditorScreen(
-            noteId = editingNoteId,
-            onBack = { editingNoteId = null },
-        )
-    } else {
-        NotesScreen(
-            viewModel = koinInject(),
-            onNavigateToNote = { id -> editingNoteId = id },
-            onNavigateToCreateNote = {
-                navigator.navigate(AppDestination.NoteEditor())
-            },
-        )
-    }
+    NotesScreen(
+        viewModel = koinInject(),
+        onNavigateToNote = { id -> navigator.navigate(AppDestination.NoteDetail(id)) },
+        onNavigateToCreateNote = {
+            navigator.navigate(AppDestination.NoteEditor())
+        },
+    )
 }
 
 /** Translate a tab entry into the suggested initial due date (string for serializable Route). */

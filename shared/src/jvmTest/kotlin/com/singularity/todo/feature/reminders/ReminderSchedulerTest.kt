@@ -55,7 +55,7 @@ class ReminderSchedulerTest {
 
         scheduler.poll()
 
-        assertTrue(repo.getById(ReminderId("r2"), userId) == null)
+        assertTrue(repo.getById(ReminderId("r2"), userId).getOrNull() == null)
     }
 
     @Test
@@ -77,7 +77,7 @@ class ReminderSchedulerTest {
 
         scheduler.poll()
 
-        assertTrue(repo.getById(ReminderId("r3"), userId) != null)
+        assertTrue(repo.getById(ReminderId("r3"), userId).getOrNull() != null)
     }
 
     @Test

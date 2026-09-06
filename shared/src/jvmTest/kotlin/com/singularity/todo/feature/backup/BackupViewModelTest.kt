@@ -17,15 +17,15 @@ import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** Test double for [BackupRepository] that records calls and returns configurable results. */
@@ -95,7 +95,7 @@ class BackupViewModelTest {
     private fun createVm(
         repo: RecordingBackupRepository,
         auth: FakeAuthRepository,
-        scope: CoroutineScope? = null,
+        scope: CoroutineScope,
     ): BackupViewModel {
         val namer: BackupFileNamer = object : BackupFileNamer {
             override fun nextBackupName(timestampMs: Long): String = "test_backup.zip"
@@ -109,8 +109,8 @@ class BackupViewModelTest {
     fun `init subscribes to backups flow`() = runTest {
         val repo = RecordingBackupRepository()
         repo.addBackup(BackupMetadata(BackupId("b1"), "path/b1.zip", 0L, 1024L, null))
-        val vm = createVm(repo, fakeAuth())
-        advanceUntilIdle()
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
+        advanceUntilIdle(); testScheduler.runCurrent(); testScheduler.runCurrent()
         assertEquals(1, vm.state.value.backups.size)
     }
 
@@ -122,11 +122,11 @@ class BackupViewModelTest {
         repo.exportResult = Result.success(
             BackupResult(testManifest, "test.zip", 1024L)
         )
-        val vm = createVm(repo, fakeAuth())
-        advanceUntilIdle()
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
+        advanceUntilIdle(); testScheduler.runCurrent(); testScheduler.runCurrent()
 
         vm.createBackup()
-        advanceUntilIdle()
+        advanceUntilIdle(); testScheduler.runCurrent(); testScheduler.runCurrent()
 
         assertNotNull(repo.lastExportOptions)
         assertEquals(testUserId, repo.lastExportOptions?.userId)
@@ -138,11 +138,11 @@ class BackupViewModelTest {
         repo.exportResult = Result.success(
             BackupResult(testManifest.copy(entityCounts = testEntityCounts), "test.zip", 2048L)
         )
-        val vm = createVm(repo, fakeAuth())
-        advanceUntilIdle()
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
+        advanceUntilIdle(); testScheduler.runCurrent()
 
         vm.createBackup()
-        advanceUntilIdle()
+        advanceUntilIdle(); testScheduler.runCurrent()
 
         assertNotNull(vm.state.value.lastBackup)
         assertEquals(2048L, vm.state.value.lastBackup?.byteSize)
@@ -150,17 +150,21 @@ class BackupViewModelTest {
     }
 
     @Test
-    fun `createBackup sets error on failure`() = runTest {
+    fun `createBackup emits error event on failure`() = runTest {
         val repo = RecordingBackupRepository()
         repo.exportResult = Result.failure(RuntimeException("disk full"))
-        val vm = createVm(repo, fakeAuth())
-        advanceUntilIdle()
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
+        advanceUntilIdle(); testScheduler.runCurrent()
+
+        // Collect events in background so emit() has an active collector
+        var errorMessage: String? = null
+        backgroundScope.launch { vm.events.collect { e -> if (e is BackupUiEvent.Error) errorMessage = e.message } }
+        advanceUntilIdle(); testScheduler.runCurrent()
 
         vm.createBackup()
-        advanceUntilIdle()
+        advanceUntilIdle(); testScheduler.runCurrent(); testScheduler.runCurrent()
 
-        assertEquals("disk full", vm.state.value.error)
-        assertTrue(vm.state.value.showError)
+        assertEquals("disk full", errorMessage)
     }
 
     // ─── import ───────────────────────────────────────────────────────────────
@@ -171,11 +175,11 @@ class BackupViewModelTest {
         repo.importResult = Result.success(
             RestoreResult(testManifest, testEntityCounts, 0, emptyList())
         )
-        val vm = createVm(repo, fakeAuth())
-        advanceUntilIdle()
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
+        advanceUntilIdle(); testScheduler.runCurrent()
 
         vm.import("/path/to/backup.zip")
-        advanceUntilIdle()
+        advanceUntilIdle(); testScheduler.runCurrent()
 
         assertNotNull(repo.lastImportOptions)
         assertEquals("/path/to/backup.zip", repo.lastImportOptions?.sourcePath)
@@ -187,11 +191,11 @@ class BackupViewModelTest {
     fun `delete calls repository delete`() = runTest {
         val repo = RecordingBackupRepository()
         repo.addBackup(BackupMetadata(BackupId("b1"), "path/b1.zip", 0L, 512L, null))
-        val vm = createVm(repo, fakeAuth())
-        advanceUntilIdle()
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
+        advanceUntilIdle(); testScheduler.runCurrent()
 
         vm.delete(BackupId("b1"))
-        advanceUntilIdle()
+        advanceUntilIdle(); testScheduler.runCurrent()
 
         assertEquals(BackupId("b1"), repo.lastDeletedId)
         assertEquals(0, vm.state.value.backups.size)
@@ -203,30 +207,12 @@ class BackupViewModelTest {
     fun `push calls repository push`() = runTest {
         val repo = RecordingBackupRepository()
         repo.addBackup(BackupMetadata(BackupId("b1"), "path/b1.zip", 0L, 512L, null))
-        val vm = createVm(repo, fakeAuth())
-        advanceUntilIdle()
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
+        advanceUntilIdle(); testScheduler.runCurrent()
 
         vm.push(BackupId("b1"))
-        advanceUntilIdle()
+        advanceUntilIdle(); testScheduler.runCurrent()
 
         assertEquals(BackupId("b1"), repo.lastPushedId)
-    }
-
-    // ─── clearError ───────────────────────────────────────────────────────────
-
-    @Test
-    fun `clearError resets error state`() = runTest {
-        val repo = RecordingBackupRepository()
-        repo.exportResult = Result.failure(RuntimeException("fail"))
-        val vm = createVm(repo, fakeAuth())
-        advanceUntilIdle()
-
-        vm.createBackup()
-        advanceUntilIdle()
-        assertNotNull(vm.state.value.error)
-
-        vm.clearError()
-        assertNull(vm.state.value.error)
-        assertFalse(vm.state.value.showError)
     }
 }

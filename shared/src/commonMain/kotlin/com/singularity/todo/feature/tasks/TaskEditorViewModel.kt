@@ -364,7 +364,9 @@ class TaskEditorViewModel(
                 fireAt = fireAt,
                 recurringPattern = null,
             )
-            deps.reminderRepository.upsert(reminder)
+            deps.reminderRepository.upsert(reminder).onFailure {
+                // Best-effort: reminder is non-critical; task is already saved
+            }
         }
 
         // Attachments

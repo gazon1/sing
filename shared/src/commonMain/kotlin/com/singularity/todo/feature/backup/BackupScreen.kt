@@ -30,8 +30,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -40,25 +40,28 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.backup.BackupId
 import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.CollectEvents
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackupScreen(
     state: BackupUiState,
+    events: SharedFlow<BackupUiEvent>,
     onBack: () -> Unit,
     onCreateBackup: () -> Unit,
     onRestore: () -> Unit,
     onDelete: (BackupId) -> Unit,
     onPush: (BackupId) -> Unit,
-    onClearError: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
 
-    LaunchedEffect(state.showError, state.error) {
-        if (state.showError && state.error != null) {
-            snackbarHostState.showSnackbar(state.error)
-            onClearError()
+    CollectEvents(events) { event ->
+        when (event) {
+            is BackupUiEvent.Error -> snackbarScope.launch { snackbarHostState.showSnackbar(event.message) }
         }
     }
 

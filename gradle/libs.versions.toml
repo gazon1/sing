@@ -18,8 +18,8 @@ androidx-lifecycle = "2.8.0"
 androidx-testExt = "1.3.0"
 
 # Compose
-composeMultiplatform = "1.11.1"
-material3 = "1.11.0-alpha07"
+composeMultiplatform = "1.12.0"
+material3 = "1.12.0-alpha03"
 
 # Coroutines / DateTime
 coroutines = "1.11.0"
@@ -123,6 +123,8 @@ compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMul
 # AndroidX Compose testing — used in Robolectric tests (androidHostTest) instead of
 # JetBrains version which depends on Espresso incompatible with Robolectric.
 composeUiTestJunit4 = { module = "androidx.compose.ui:ui-test-junit4", version = "1.7.3" }
+# Compose Multiplatform desktop test — provides runDesktopComposeUiTest
+composeUiTest = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "composeMultiplatform" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 compose-runtime-liveedit = { module = "org.jetbrains.compose.runtime:runtime-liveedit", version.ref = "composeMultiplatform" }
 kotlinx-coroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }

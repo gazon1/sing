@@ -95,15 +95,15 @@ class TasksViewModel(
     }
 
     fun delete(id: TaskId) = scope.launch {
-        mutations.delete(id)
+        taskRepo.softDelete(id)
     }
 
     fun toggle(id: TaskId) = scope.launch {
-        mutations.toggle(id)
+        taskRepo.toggleComplete(id)
     }
 
     fun togglePin(id: TaskId) = scope.launch {
-        mutations.togglePin(id)
+        taskRepo.togglePinned(id)
     }
 
     fun enterSelectionMode(taskId: TaskId) {

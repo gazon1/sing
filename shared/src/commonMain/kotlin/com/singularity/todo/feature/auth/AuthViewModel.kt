@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
@@ -16,15 +19,23 @@ class AuthViewModel(
     private val _state = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
 
+    private val _events = MutableSharedFlow<AuthUiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<AuthUiEvent> = _events.asSharedFlow()
+
     val session: StateFlow<Session> = authRepository.session
 
     fun signIn(email: String, password: String) {
         viewModelScope.launch {
             _state.value = AuthUiState.Loading
             val result = authRepository.signIn(email, password)
-            _state.value = result.fold(
-                onSuccess = { AuthUiState.Success },
-                onFailure = { AuthUiState.Error(it.message ?: "Sign in failed") }
+            result.fold(
+                onSuccess = {
+                    _state.value = AuthUiState.Success
+                    _events.emit(AuthUiEvent.NavigateToHome)
+                },
+                onFailure = {
+                    _state.value = AuthUiState.Error(it.message ?: "Sign in failed")
+                }
             )
         }
     }
@@ -33,9 +44,14 @@ class AuthViewModel(
         viewModelScope.launch {
             _state.value = AuthUiState.Loading
             val result = authRepository.signUp(email, password)
-            _state.value = result.fold(
-                onSuccess = { AuthUiState.Success },
-                onFailure = { AuthUiState.Error(it.message ?: "Sign up failed") }
+            result.fold(
+                onSuccess = {
+                    _state.value = AuthUiState.Success
+                    _events.emit(AuthUiEvent.NavigateToHome)
+                },
+                onFailure = {
+                    _state.value = AuthUiState.Error(it.message ?: "Sign up failed")
+                }
             )
         }
     }
@@ -44,9 +60,14 @@ class AuthViewModel(
         viewModelScope.launch {
             _state.value = AuthUiState.Loading
             val result = authRepository.signInAnonymously()
-            _state.value = result.fold(
-                onSuccess = { AuthUiState.Success },
-                onFailure = { AuthUiState.Error(it.message ?: "Failed") }
+            result.fold(
+                onSuccess = {
+                    _state.value = AuthUiState.Success
+                    _events.emit(AuthUiEvent.NavigateToHome)
+                },
+                onFailure = {
+                    _state.value = AuthUiState.Error(it.message ?: "Failed")
+                }
             )
         }
     }

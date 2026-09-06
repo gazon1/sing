@@ -6,8 +6,11 @@ import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.feature.tasks.TaskId
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -15,7 +18,6 @@ import kotlinx.coroutines.launch
 data class AttachmentsUiState(
     val attachments: List<Attachment> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null,
     val showSheet: Boolean = false
 )
 
@@ -26,6 +28,9 @@ class AttachmentsViewModel(
 
     private val _state = MutableStateFlow(AttachmentsUiState())
     val state: StateFlow<AttachmentsUiState> = _state.asStateFlow()
+
+    private val _events = MutableSharedFlow<AttachmentsUiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<AttachmentsUiEvent> = _events.asSharedFlow()
 
     private val currentUserId get() = currentUser.current
 
@@ -44,7 +49,7 @@ class AttachmentsViewModel(
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
             repository.addUrlAttachment(taskId, currentUserId, url, title)
-                .onFailure { e -> _state.update { it.copy(error = e.message, isLoading = false) } }
+                .onFailure { e -> _events.emit(AttachmentsUiEvent.Error(e.message ?: "Failed to add link")) }
                 .onSuccess { _state.update { it.copy(isLoading = false) } }
         }
     }
@@ -53,7 +58,7 @@ class AttachmentsViewModel(
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
             repository.saveFileAttachment(taskId, currentUserId, sourcePath, mimeType)
-                .onFailure { e -> _state.update { it.copy(error = e.message, isLoading = false) } }
+                .onFailure { e -> _events.emit(AttachmentsUiEvent.Error(e.message ?: "Failed to save file")) }
                 .onSuccess { _state.update { it.copy(isLoading = false) } }
         }
     }
@@ -61,9 +66,7 @@ class AttachmentsViewModel(
     fun delete(attachmentId: com.singularity.todo.core.attachments.AttachmentId) {
         viewModelScope.launch {
             repository.delete(attachmentId)
-                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+                .onFailure { e -> _events.emit(AttachmentsUiEvent.Error(e.message ?: "Delete failed")) }
         }
     }
-
-    fun clearError() { _state.update { it.copy(error = null) } }
 }

@@ -5,6 +5,7 @@ import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.notifications.JvmNotificationPort
@@ -26,6 +27,10 @@ actual fun platformModule(): Module = module {
     single<AppDatabase> {
         val dbPath = System.getProperty("user.home") + "/.singularity-todo/singularity-todo.db"
         java.io.File(dbPath).parentFile?.mkdirs()
+        // On the JVM the path may contain a pre-Room hand-rolled SQLite file
+        // (user_version=0, wrong column set). Wipe it before Room opens the connection
+        // so fallbackToDestructiveMigration can recreate the schema cleanly.
+        wipeIfNotRoomManaged(dbPath)
         AppDatabaseFactory.build(createSqlDriver(), dbPath)
     }
 

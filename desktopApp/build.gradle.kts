@@ -6,6 +6,21 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
+sourceSets {
+    test {
+        java.srcDirs("src/jvmTest")
+        dependencies {
+            implementation("org.jetbrains.compose.ui:ui-test:1.12.0")
+            implementation(libs.compose.uiToolingPreview)
+            implementation(compose.desktop.currentOs)
+            implementation(libs.kotlinx.coroutinesSwing)
+            implementation(libs.koin.test)
+            implementation(libs.koin.core)
+            implementation(libs.junit)
+        }
+    }
+}
+
 dependencies {
     implementation(project(":shared"))
 

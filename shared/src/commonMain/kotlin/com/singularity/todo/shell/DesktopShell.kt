@@ -11,13 +11,12 @@ import com.singularity.todo.feature.nav.NavDestination
 /**
  * Desktop (JVM) chrome — reuses the existing [AppShell] drawer layout.
  *
- * Why reuse AppShell instead of building a parallel NavigationRail:
- * - The desktop drawer already groups destinations by [com.singularity.todo.feature.nav.NavGroup]
- *   (Work / Knowledge / Insights) — visually richer than a flat bar.
- * - Mouse-driven UX benefits from a wider click target than a 56dp bar.
+ * Desktop chrome is a 240 dp left rail (VSCode/JetBrains-style) implemented
+ * in [AppShell.PermanentShell]. [ModalShell] exists for future use but is
+ * not wired to any platform.
  *
- * The only new responsibility is bridging the new [AppNavigator] (which
- * drives Android) into the drawer-driven world of [AppShell]:
+ * The only new responsibility is bridging the [AppNavigator] (which drives
+ * Android) into the drawer-driven world of [AppShell]:
  * - `current` is derived from the navigator (one source of truth).
  * - `onSelect` translates a [NavDestination] (drawer enum) into the
  *   equivalent [AppDestination] tab and calls `navigateTopLevel`.

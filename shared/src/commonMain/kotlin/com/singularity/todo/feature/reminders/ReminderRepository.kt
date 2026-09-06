@@ -12,8 +12,8 @@ interface ReminderRepository {
     fun watchAll(userId: UserId): Flow<List<Reminder>>
     fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Reminder>>
     fun watchDueBefore(nowEpochMs: Long, userId: UserId): Flow<List<Reminder>>
-    suspend fun upsert(reminder: Reminder)
-    suspend fun delete(reminderId: ReminderId, userId: UserId)
-    suspend fun deleteByTask(taskId: TaskId, userId: UserId)
-    suspend fun getById(reminderId: ReminderId, userId: UserId): Reminder?
+    suspend fun upsert(reminder: Reminder): Result<Unit>
+    suspend fun delete(reminderId: ReminderId, userId: UserId): Result<Unit>
+    suspend fun deleteByTask(taskId: TaskId, userId: UserId): Result<Unit>
+    suspend fun getById(reminderId: ReminderId, userId: UserId): Result<Reminder?>
 }

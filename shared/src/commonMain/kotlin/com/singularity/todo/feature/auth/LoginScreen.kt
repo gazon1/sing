@@ -15,7 +15,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,8 +26,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.CollectEvents
 import org.koin.compose.koinInject
 
 @Composable
@@ -38,20 +37,14 @@ fun LoginScreen(
     viewModel: AuthViewModel = koinInject(),
 ) {
     val state by viewModel.state.collectAsState()
-    val session by viewModel.session.collectAsState()
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isSignUp by remember { mutableStateOf(false) }
 
-    LaunchedEffect(state, session) {
-        when {
-            state is AuthUiState.Success -> {
-                onSuccess()
-            }
-            session is Session.SignedIn || session is Session.Anonymous -> {
-                onSuccess()
-            }
+    CollectEvents(viewModel.events) { event ->
+        when (event) {
+            is AuthUiEvent.NavigateToHome -> onSuccess()
         }
     }
 

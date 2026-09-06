@@ -127,7 +127,7 @@ open class NotesViewModel(
 
     fun createNote(): String {
         val id = NoteId.fromString(idGen.next())
-        scope.launch {
+        scope.launch(Dispatchers.Unconfined) {
             val uid = userId.value
             repo.createWithContent(uid, id, "", "").getOrThrow()
         }
@@ -170,7 +170,7 @@ open class NotesViewModel(
 
     private fun scheduleAutosave(id: String) {
         autosaveJob?.cancel()
-        autosaveJob = scope.launch {
+        autosaveJob = scope.launch(Dispatchers.Unconfined) {
             autosaveScheduler.awaitTick()
             val current = _editorState.value as? EditorState.Editing ?: return@launch
             try {
@@ -185,7 +185,7 @@ open class NotesViewModel(
 
     fun improveNote() {
         val tool = improveNote ?: return
-        scope.launch {
+        scope.launch(Dispatchers.Unconfined) {
             val current = _editorState.value as? EditorState.Editing ?: return@launch
             tool(current.title, current.html)
                 .onSuccess { result ->

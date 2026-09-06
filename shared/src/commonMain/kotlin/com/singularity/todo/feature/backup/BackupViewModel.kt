@@ -13,8 +13,11 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -23,8 +26,6 @@ data class BackupUiState(
     val isWorking: Boolean = false,
     val backups: List<BackupMetadata> = emptyList(),
     val lastBackup: BackupSummary? = null,
-    val error: String? = null,
-    val showError: Boolean = false
 )
 
 data class BackupSummary(
@@ -45,12 +46,14 @@ class BackupViewModel(
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
 
+    private val _events = MutableSharedFlow<BackupUiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<BackupUiEvent> = _events.asSharedFlow()
+
     private val effectiveUserId: UserId
         get() = AuthDomain.effectiveUserId(authRepository.session.value)
 
     init {
-        // Unconfined makes the flow collection synchronous so state is ready before init returns
-        scope.launch(Dispatchers.Unconfined) {
+        scope.launch {
             repository.backups.collect { backups ->
                 _state.update { it.copy(backups = backups) }
             }
@@ -58,8 +61,8 @@ class BackupViewModel(
     }
 
     fun export(destPath: String) {
-        scope.launch(Dispatchers.Unconfined) {
-            _state.update { it.copy(isWorking = true, error = null) }
+        scope.launch {
+            _state.update { it.copy(isWorking = true) }
             val result = repository.export(exportOptions {
                 userId = effectiveUserId
                 this.destPath = destPath
@@ -81,7 +84,8 @@ class BackupViewModel(
                     }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isWorking = false, error = e.message, showError = true) }
+                    _state.update { it.copy(isWorking = false) }
+                    _events.emit(BackupUiEvent.Error(e.message ?: "Export failed"))
                 }
         }
     }
@@ -104,8 +108,8 @@ class BackupViewModel(
     }
 
     fun import(sourcePath: String) {
-        scope.launch(Dispatchers.Unconfined) {
-            _state.update { it.copy(isWorking = true, error = null) }
+        scope.launch {
+            _state.update { it.copy(isWorking = true) }
             val opts = importOptions {
                 this.sourcePath = sourcePath
                 this.targetUserId = effectiveUserId
@@ -116,34 +120,32 @@ class BackupViewModel(
                     _state.update { it.copy(isWorking = false) }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isWorking = false, error = e.message, showError = true) }
+                    _state.update { it.copy(isWorking = false) }
+                    _events.emit(BackupUiEvent.Error(e.message ?: "Import failed"))
                 }
         }
     }
 
     fun delete(backupId: com.singularity.todo.core.backup.BackupId) {
-        scope.launch(Dispatchers.Unconfined) {
+        scope.launch {
             repository.delete(backupId)
                 .onFailure { e ->
-                    _state.update { it.copy(error = e.message, showError = true) }
+                    _events.emit(BackupUiEvent.Error(e.message ?: "Delete failed"))
                 }
         }
     }
 
     fun push(backupId: com.singularity.todo.core.backup.BackupId) {
-        scope.launch(Dispatchers.Unconfined) {
+        scope.launch {
             _state.update { it.copy(isWorking = true) }
             repository.push(backupId)
                 .onFailure { e ->
-                    _state.update { it.copy(isWorking = false, error = e.message, showError = true) }
+                    _state.update { it.copy(isWorking = false) }
+                    _events.emit(BackupUiEvent.Error(e.message ?: "Push failed"))
                 }
                 .onSuccess {
                     _state.update { it.copy(isWorking = false) }
                 }
         }
-    }
-
-    fun clearError() {
-        _state.update { it.copy(error = null, showError = false) }
     }
 }

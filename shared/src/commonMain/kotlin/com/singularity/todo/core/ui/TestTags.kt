@@ -25,6 +25,7 @@ object TestTags {
     // ─── Navigation ──────────────────────────────────────────────────────────
     const val NAV_MENU_BUTTON = "nav_menu_button"
     const val MENU_SHEET = "menu_sheet"
+    const val DESKTOP_SIDEBAR = "desktop_sidebar"
 
     /** Dynamic: nav_tab_<lowercase title> */
     fun navTab(title: String) = "nav_tab_${title.lowercase()}"
