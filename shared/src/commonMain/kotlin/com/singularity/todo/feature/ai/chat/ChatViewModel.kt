@@ -2,6 +2,7 @@ package com.singularity.todo.feature.ai.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.feature.ai.TextGenPort
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -21,6 +22,7 @@ import kotlinx.coroutines.launch
  * ViewModel is the single source of truth for messages, input, and loading.
  */
 class ChatViewModel(
+    private val log: Logger,
     private val agent: TextGenPort,
     private val idGen: IdGenerator,
 ) : ViewModel() {
@@ -74,6 +76,7 @@ class ChatViewModel(
                 }
             }
         }.onFailure { error ->
+            log.e(error) { "AI stream failed [msg=${text.take(50)}]" }
             _events.emit(ChatUiEvent.Error(error.message ?: "AI request failed"))
         }
 

@@ -1,11 +1,13 @@
 package com.singularity.todo.core.di
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.attachments.AttachmentRepositoryImpl
 import com.singularity.todo.core.attachments.StubAttachmentUploadService
 import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.backup.BackupFileNamer
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.StubRemoteBackupService
+import com.singularity.todo.core.log.LoggerHolder
 import com.singularity.todo.core.settings.DataStoreSettingsRepository
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
@@ -50,6 +52,25 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
+ * Logging module — Kermit + Koin integration.
+ *
+ * - Provides `Logger` via `Logger.withTag("Tag")` factory.
+ * - [LoggerHolder] wraps a global `Logger` with tag `"App"` for ad-hoc use cases
+ *   (root composables, top-level helpers).
+ *
+ * Usage:
+ * ```
+ * modules(coreLoggingModule(), domainModule(), platformModule())
+ * ```
+ */
+fun coreLoggingModule(): Module = module {
+    // Simple factory: creates a tagged Logger on each injection.
+    // Use Logger.withTag("ClassName") directly in bindings.
+    factory { Logger.withTag("App") }
+    single { LoggerHolder(get<Logger>()) }
+}
+
+/**
  * Returns all domain-level bindings as a KOIN [Module].
  *
  * Platform-specific bindings come from [platformModule]:
@@ -63,7 +84,7 @@ import org.koin.dsl.module
  *
  * Usage:
  * ```
- * modules(domainModule(), platformModule())
+ * modules(coreLoggingModule(), domainModule(), platformModule())
  * ```
  */
 fun domainModule(): Module = module {
@@ -81,7 +102,7 @@ internal fun aiToolsCoreModule(): Module = module {
         com.singularity.todo.feature.ai.KoogAgentService(get(), get(), get(), get(), get())
     }
 
-    factory { com.singularity.todo.feature.ai.chat.ChatViewModel(get(), get()) }
+    factory { com.singularity.todo.feature.ai.chat.ChatViewModel(Logger.withTag("ChatViewModel"), get(), get()) }
 
     // ─── GenUI ───
     single { com.singularity.todo.feature.genui.surface.SurfaceController() }
@@ -116,7 +137,7 @@ internal fun aiToolsCoreModule(): Module = module {
     factory { com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase(get()) }
 
     // ─── AI Tools ───
-    factory { com.singularity.todo.feature.ai.tools.RefineTaskTool(get(), get()) }
+    factory { com.singularity.todo.feature.ai.tools.RefineTaskTool(Logger.withTag("RefineTaskTool"), get(), get()) }
     factory { com.singularity.todo.feature.ai.tools.SmartRewriteTool(get(), get()) }
     factory { com.singularity.todo.feature.ai.tools.GenerateDescriptionTool(get(), get()) }
     factory { com.singularity.todo.feature.ai.tools.DecomposeTaskTool(get(), get()) }
@@ -215,7 +236,7 @@ fun coreDomainModule(): Module = module {
     }
 
     single<com.singularity.todo.core.auth.AuthRepository> {
-        SupabaseAuthRepository(get(), Dispatchers.IO)
+        SupabaseAuthRepository(Logger.withTag("AuthRepository"), get(), Dispatchers.IO)
     }
 
     single { com.singularity.todo.core.auth.CurrentUser(get()) }
@@ -299,11 +320,11 @@ fun coreDomainModule(): Module = module {
 
     single<com.singularity.todo.core.sync.SyncApiClient> { SupabaseSyncApiClient() }
 
-    single { com.singularity.todo.core.sync.SyncEngine(get(), get(), get(), get(), get()) }
+    single { com.singularity.todo.core.sync.SyncEngine(Logger.withTag("SyncEngine"), get(), get(), get(), get(), get()) }
 
     // ─── Reminders ──────────────────────────────────────────────────────
 
-    factory { ReminderScheduler(get(), get()) }
+    factory { ReminderScheduler(Logger.withTag("ReminderScheduler"), get(), get()) }
 
     // ─── Use Cases ──────────────────────────────────────────────────────
 

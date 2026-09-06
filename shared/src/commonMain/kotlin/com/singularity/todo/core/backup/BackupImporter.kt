@@ -1,5 +1,6 @@
 package com.singularity.todo.core.backup
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.database.NoteDao
@@ -12,6 +13,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
 class BackupImporter(
+    private val log: Logger,
     private val taskDao: TaskDao,
     private val noteDao: NoteDao,
     private val projectDao: ProjectDao,
@@ -91,6 +93,7 @@ class BackupImporter(
                     attachmentStorage.saveBytes(att.taskId, att.id, bytes, ext)
                     restoredCount++
                 } catch (e: Exception) {
+                    log.w(e) { "Attachment restore failed [id=${att.id}]" }
                     missingIds.add(att.id)
                 }
             } else {

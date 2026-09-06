@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.reminders
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.notifications.FakeNotificationPort
 import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.UserId
@@ -12,12 +13,13 @@ import kotlin.test.assertTrue
 class ReminderSchedulerTest {
 
     private val userId = UserId("test-user")
+    private val testLog = Logger.withTag("ReminderSchedulerTest")
 
     @Test
     fun `poll fires notification for due reminder`() = runTest {
         val fakePort = FakeNotificationPort()
         val repo = FakeReminderRepository(userId)
-        val scheduler = ReminderScheduler(fakePort, repo, userId)
+        val scheduler = ReminderScheduler(testLog, fakePort, repo, userId)
 
         val reminder = Reminder(
             id = ReminderId("r1"),
@@ -40,7 +42,7 @@ class ReminderSchedulerTest {
     fun `poll deletes one-shot reminder after firing`() = runTest {
         val fakePort = FakeNotificationPort()
         val repo = FakeReminderRepository(userId)
-        val scheduler = ReminderScheduler(fakePort, repo, userId)
+        val scheduler = ReminderScheduler(testLog, fakePort, repo, userId)
 
         val reminder = Reminder(
             id = ReminderId("r2"),
@@ -62,7 +64,7 @@ class ReminderSchedulerTest {
     fun `poll does not delete recurring reminder`() = runTest {
         val fakePort = FakeNotificationPort()
         val repo = FakeReminderRepository(userId)
-        val scheduler = ReminderScheduler(fakePort, repo, userId)
+        val scheduler = ReminderScheduler(testLog, fakePort, repo, userId)
 
         val reminder = Reminder(
             id = ReminderId("r3"),
@@ -84,7 +86,7 @@ class ReminderSchedulerTest {
     fun `poll skips future reminders`() = runTest {
         val fakePort = FakeNotificationPort()
         val repo = FakeReminderRepository(userId)
-        val scheduler = ReminderScheduler(fakePort, repo, userId)
+        val scheduler = ReminderScheduler(testLog, fakePort, repo, userId)
 
         val futureReminder = Reminder(
             id = ReminderId("r4"),

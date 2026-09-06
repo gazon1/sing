@@ -166,6 +166,7 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 
 # Kermit
 kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
+kermit-koin = { module = "co.touchlab:kermit-koin", version.ref = "kermit" }
 
 # Markdown
 markdown-renderer = { module = "com.mikepenz:multiplatform-markdown-renderer", version.ref = "markdown-renderer" }

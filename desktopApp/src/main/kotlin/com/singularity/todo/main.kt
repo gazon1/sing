@@ -2,8 +2,10 @@ package com.singularity.todo
 
 import androidx.compose.material3.Surface
 import androidx.compose.ui.window.singleWindowApplication
+import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
+import com.singularity.todo.core.log.initLogging
 import org.koin.core.context.startKoin
 import java.io.File
 
@@ -16,9 +18,11 @@ fun main() = singleWindowApplication(
     File("$dataDir/attachments").mkdirs()
     File("$dataDir/backups").mkdirs()
 
+    initLogging(System.getProperty("singularity.debug") == "true", version = "0.1.0")
     startKoin {
         modules(
             platformModule(),
+            coreLoggingModule(),
             domainModule()
         )
     }

@@ -1,5 +1,6 @@
 package com.singularity.todo.core.sync
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +37,7 @@ data class PullResult(
  * and a new job is started when session becomes SignedIn again.
  */
 class SyncEngine(
+    private val log: Logger,
     private val api: SyncApiClient,
     private val authRepository: AuthRepository,
     private val outboxDao: SyncOutboxDao,
@@ -66,6 +68,7 @@ class SyncEngine(
                                     try {
                                         push()
                                     } catch (e: Exception) {
+                                        log.e(e) { "Push loop failed" }
                                         _status.value = SyncEngineStatus.Error(e.message ?: "Push failed")
                                     }
                                     delay(30_000.milliseconds)
@@ -156,6 +159,7 @@ class SyncEngine(
         } catch (e: Exception) {
             val result = PushResult(0, pending.size, listOf(e.message ?: "Push failed"))
             _lastPushResult.value = result
+            log.e(e) { "Batch push failed [count=${pending.size}]" }
             _status.value = SyncEngineStatus.Error(e.message ?: "Push failed")
             result
         }
@@ -187,6 +191,7 @@ class SyncEngine(
         } catch (e: Exception) {
             val result = PullResult(0, listOf(e.message ?: "Pull failed"))
             _lastPullResult.value = result
+            log.e(e) { "Pull failed [sinceLsn=$sinceLsn]" }
             _status.value = SyncEngineStatus.Error(e.message ?: "Pull failed")
             result
         }

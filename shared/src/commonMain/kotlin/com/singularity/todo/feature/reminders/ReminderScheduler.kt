@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.reminders
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +23,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * Cancel [job] to stop polling.
  */
 class ReminderScheduler(
+    private val log: Logger,
     private val notificationPort: NotificationPort,
     private val reminderRepository: ReminderRepository,
     private val currentUserId: UserId = UserId("current_user"),
@@ -74,9 +76,10 @@ class ReminderScheduler(
 
             // Remove one-shot reminder after firing
             if (reminder.recurringPattern == null) {
-                reminderRepository.delete(reminder.id, currentUserId).onFailure {
-                // Best-effort: one-shot reminder cleanup; will be retried on next poll
-            }
+                reminderRepository.delete(reminder.id, currentUserId).onFailure { e ->
+                    // Best-effort: one-shot reminder cleanup; will be retried on next poll
+                    log.w(e) { "Reminder delete failed [id=${reminder.id.value}]" }
+                }
             }
         }
     }

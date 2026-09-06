@@ -1,5 +1,6 @@
 package com.singularity.todo.core.auth
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +30,7 @@ interface AuthRepository {
  * TODO: Replace with actual Supabase implementation once SDK is properly integrated.
  */
 class SupabaseAuthRepository(
+    private val log: Logger,
     private val sessionStore: SessionStore,
     sessionCoroutineContext: CoroutineContext
 ) : AuthRepository {
@@ -48,30 +50,29 @@ class SupabaseAuthRepository(
         }
     }
 
-    override suspend fun signUp(email: String, password: String): Result<Unit> = runCatchingResult {
-        AuthDomain.validateEmail(email)
-        AuthDomain.validatePassword(password)
+    override suspend fun signUp(email: String, password: String): Result<Unit> {
         _isLoading.value = true
-        try {
+        val result = runCatchingResult {
+            AuthDomain.validateEmail(email)
+            AuthDomain.validatePassword(password)
             // TODO: Implement with Supabase SDK
             _isLoading.value = false
-        } catch (e: Exception) {
-            _isLoading.value = false
-            throw e
         }
+        result.onFailure { e -> log.e(e) { "signUp failed [email=${email.take(3)}***]" } }
+        return result
     }
 
-    override suspend fun signIn(email: String, password: String): Result<Unit> = runCatchingResult {
-        AuthDomain.validateEmail(email)
-        AuthDomain.validatePassword(password)
+    override suspend fun signIn(email: String, password: String): Result<Unit> {
         _isLoading.value = true
-        try {
+        val result = runCatchingResult {
+            AuthDomain.validateEmail(email)
+            AuthDomain.validatePassword(password)
             // TODO: Implement with Supabase SDK
             _isLoading.value = false
-        } catch (e: Exception) {
-            _isLoading.value = false
-            throw e
         }
+        result.onFailure { e -> log.e(e) { "signIn failed [email=${email.take(3)}***]" } }
+        if (result.isFailure) _isLoading.value = false
+        return result
     }
 
     override suspend fun signInAnonymously(): Result<Unit> = runCatchingResult {
@@ -79,16 +80,15 @@ class SupabaseAuthRepository(
         _session.value = Session.Anonymous(UserId.fromString(deviceId))
     }
 
-    override suspend fun signOut(): Result<Unit> = runCatchingResult {
+    override suspend fun signOut(): Result<Unit> {
         _isLoading.value = true
-        try {
+        val result = runCatchingResult {
             sessionStore.clear()
             _session.value = Session.SignedOut
-            _isLoading.value = false
-        } catch (e: Exception) {
-            _isLoading.value = false
-            throw e
         }
+        _isLoading.value = false
+        result.onFailure { e -> log.e(e) { "signOut failed" } }
+        return result
     }
 
     override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> = runCatchingResult {

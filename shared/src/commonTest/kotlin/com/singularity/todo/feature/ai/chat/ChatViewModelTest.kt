@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.ai.chat
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.ids.SequenceIdGenerator
 import com.singularity.todo.feature.ai.FakeTextGen
 import com.singularity.todo.feature.ai.TextGenPort
@@ -24,6 +25,7 @@ import kotlin.test.assertTrue
 class ChatViewModelTest {
 
     private val dispatcher = UnconfinedTestDispatcher()
+    private val testLog = Logger.withTag("ChatViewModelTest")
 
     @BeforeTest
     fun setUp() {
@@ -36,7 +38,7 @@ class ChatViewModelTest {
     }
 
     private fun newVm(flow: Flow<String> = flowOf("Hi ", "there!")) =
-        ChatViewModel(ScriptedTextGen(flow), SequenceIdGenerator())
+        ChatViewModel(testLog, ScriptedTextGen(flow), SequenceIdGenerator())
 
     @Test
     fun `send appends user and assistant placeholder`() = runTest {

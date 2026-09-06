@@ -20,6 +20,7 @@ data class RefineTaskInput(val currentTitle: String, val description: String? = 
 data class RefineTaskOutput(val newTitle: String)
 
 class RefineTaskTool(
+    private val log: co.touchlab.kermit.Logger,
     private val promptExecutor: PromptExecutor,
     private val model: LLModel
 ) : SimpleTool<RefineTaskInput>(TypeToken.of(RefineTaskInput::class.java), NAME, DESCRIPTION) {
@@ -33,7 +34,9 @@ class RefineTaskTool(
         val text = extractText(response)
         return try {
             Json.encodeToString(RefineTaskOutput.serializer(), RefineTaskOutput(text.trim()))
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            // TODO: investigate copy-paste bug — try and catch branches are identical
+            log.w(e) { "RefineTaskTool encode failed [text=${text.take(50)}]" }
             Json.encodeToString(RefineTaskOutput.serializer(), RefineTaskOutput(text.trim()))
         }
     }

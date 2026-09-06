@@ -160,6 +160,9 @@ kotlin {
             implementation(libs.androidx.room3.runtime)
             implementation(libs.androidx.sqlite)
 
+            // Kermit Koin integration (JVM-only)
+            implementation(libs.kermit.koin)
+
             // Koin
             implementation(libs.koin.core)
 
