@@ -59,4 +59,4 @@ build-deb:
 install-deb:
     #!/bin/bash
     set -euo pipefail
-    sudo dpkg -i {{DEB_FILE}}
+    sudo dpkg -i "${PWD}/{{DEB_FILE}}"

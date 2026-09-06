@@ -13,7 +13,7 @@ install serial="":
         exit 1
     fi
     ./gradlew :androidApp:installDebug
-    adb -s {{serial}} install -r androidApp/build/outputs/apk/debug/app-debug.apk
+    adb -s {{serial}} install -r "${PWD}/androidApp/build/outputs/apk/debug/app-debug.apk"
 
 [group('install')]
 [doc('assembleDebug + install + launch MainActivity on SERIAL')]
@@ -26,7 +26,7 @@ run serial="":
         exit 1
     fi
     ./gradlew :androidApp:assembleDebug
-    adb -s {{serial}} install -r androidApp/build/outputs/apk/debug/app-debug.apk
+    adb -s {{serial}} install -r "${PWD}/androidApp/build/outputs/apk/debug/app-debug.apk"
     adb -s {{serial}} shell am start -n com.singularity.todo/.MainActivity
 
 [group('install')]
