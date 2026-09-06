@@ -11,11 +11,11 @@ build VARIANT="debug":
     case "{{VARIANT}}" in
         debug)
             ./gradlew :androidApp:assembleDebug
-            echo "✅ androidApp/build/outputs/apk/debug/app-debug.apk"
+            echo "✅ androidApp/build/outputs/apk/debug/androidApp-debug.apk"
             ;;
         release)
             ./gradlew :androidApp:assembleRelease
-            echo "✅ androidApp/build/outputs/apk/release/app-release.apk"
+            echo "✅ androidApp/build/outputs/apk/release/androidApp-release.apk"
             ;;
         *)
             echo "❌ Unknown variant: {{VARIANT}} (use debug | release)"
