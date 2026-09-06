@@ -1,6 +1,9 @@
 package com.singularity.todo.core.ui.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,5 +54,40 @@ fun BackTopAppBar(
         },
     ) { paddingValues ->
         content(paddingValues)
+    }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun BackTopAppBarLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    BackTopAppBar(
+        title = "Task Detail",
+        onBack = {},
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {}
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun BackTopAppBarDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    BackTopAppBar(
+        title = "Project",
+        onBack = {},
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {}
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun BackTopAppBarPurpleDarkPreview() = PreviewThemed(darkTheme = true, accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple, useSurface = false) {
+    BackTopAppBar(
+        title = "Settings",
+        onBack = {},
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {}
     }
 }

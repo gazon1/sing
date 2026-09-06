@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,4 +27,24 @@ fun EmptyState(
             }
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun EmptyStateLightPreview() = PreviewThemed(darkTheme = false) {
+    EmptyState(title = "No tasks yet", subtitle = "Tap + to create one")
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun EmptyStateDarkPreview() = PreviewThemed(darkTheme = true) {
+    EmptyState(title = "No results", subtitle = "Try a different search")
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun EmptyStateNoSubtitlePreview() = PreviewThemed(darkTheme = false) {
+    EmptyState(title = "Nothing here")
 }

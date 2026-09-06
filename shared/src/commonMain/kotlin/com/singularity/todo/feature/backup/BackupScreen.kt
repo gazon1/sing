@@ -41,6 +41,7 @@ import com.singularity.todo.core.backup.BackupId
 import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
@@ -216,3 +217,171 @@ fun BackupListItem(
 
 private fun formatDate(epochMillis: Long): String =
     formatBackupDate(epochMillis, TimeZone.currentSystemDefault())
+
+// ===== Preview =====
+
+@Composable
+private fun BackupScreenContentPreview(state: BackupUiState) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Backup & Restore") },
+                navigationIcon = {
+                    IconButton(onClick = {}) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                }
+            )
+        },
+        snackbarHost = { SnackbarHost(androidx.compose.material3.SnackbarHostState()) }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {},
+                    modifier = Modifier.weight(1f),
+                    enabled = !state.isWorking
+                ) {
+                    Text("Create backup")
+                }
+                Button(
+                    onClick = {},
+                    modifier = Modifier.weight(1f),
+                    enabled = !state.isWorking
+                ) {
+                    Text("Restore...")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (state.isWorking) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ButtonSpinner()
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Working...", style = MaterialTheme.typography.bodyMedium)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            state.lastBackup?.let { summary ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("Last backup created", style = MaterialTheme.typography.labelMedium)
+                        Text(formatFileSize(summary.byteSize), style = MaterialTheme.typography.bodyMedium)
+                        Text("${summary.entityCount} items", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            Text(
+                "Local backups",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            if (state.backups.isEmpty()) {
+                Text(
+                    "No backups yet",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(state.backups, key = { it.id.value }) { backup ->
+                        BackupListItem(
+                            backup = backup,
+                            onRestore = {},
+                            onPush = {},
+                            onDelete = {}
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun BackupScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    BackupScreenContentPreview(
+        state = BackupUiState(
+            isWorking = false,
+            backups = listOf(
+                BackupMetadata(
+                    id = BackupId("backup_2026-09-05_14-30-00.zip"),
+                    path = "/backups/backup_2026-09-05_14-30-00.zip",
+                    createdAtEpochMillis = System.currentTimeMillis() - 86400000,
+                    sizeBytes = 1_234_567,
+                    entityCounts = com.singularity.todo.core.backup.EntityCounts(
+                        tasks = 10,
+                        notes = 5,
+                        projects = 3,
+                    ),
+                ),
+                BackupMetadata(
+                    id = BackupId("backup_2026-09-04_10-15-00.zip"),
+                    path = "/backups/backup_2026-09-04_10-15-00.zip",
+                    createdAtEpochMillis = System.currentTimeMillis() - 172800000,
+                    sizeBytes = 2_345_678,
+                    entityCounts = com.singularity.todo.core.backup.EntityCounts(
+                        tasks = 15,
+                        notes = 8,
+                        projects = 4,
+                    ),
+                ),
+            ),
+            lastBackup = BackupSummary(
+                destPath = "/backups/backup_2026-09-05_14-30-00.zip",
+                byteSize = 1_234_567,
+                entityCount = 18,
+            ),
+        ),
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun BackupScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    BackupScreenContentPreview(
+        state = BackupUiState(
+            isWorking = false,
+            backups = emptyList(),
+            lastBackup = null,
+        ),
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun BackupScreenWorkingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    BackupScreenContentPreview(
+        state = BackupUiState(
+            isWorking = true,
+            backups = emptyList(),
+            lastBackup = null,
+        ),
+    )
+}

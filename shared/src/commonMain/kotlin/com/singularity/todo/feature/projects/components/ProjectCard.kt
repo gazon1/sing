@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.projects.components
 
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -84,4 +86,42 @@ private fun ProjectText(project: Project, modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectCardLightPreview() = PreviewThemed(darkTheme = false) {
+    ProjectCard(
+        project = PreviewSamples.project(),
+        onClick = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectCardWithDescriptionDarkPreview() = PreviewThemed(darkTheme = true) {
+    ProjectCard(
+        project = PreviewSamples.project(
+            name = "Work Projects",
+            description = "All tasks related to work and office",
+        ),
+        onClick = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectCardPurpleDarkPreview() = PreviewThemed(
+    darkTheme = true,
+    accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
+) {
+    ProjectCard(
+        project = PreviewSamples.project(
+            name = "Personal",
+            color = 0xFF9C27B0.toInt(),
+        ),
+        onClick = {},
+    )
 }

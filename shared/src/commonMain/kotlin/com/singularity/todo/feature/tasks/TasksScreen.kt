@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.tasks
 
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -167,4 +169,60 @@ private fun TasksUiEvent.toNotification(): Notification = when (this) {
     is TasksUiEvent.AiResult -> Notification.Text(title = "AI Result", text = text)
     is TasksUiEvent.Error -> Notification.Error(message)
     TasksUiEvent.NavigateBack -> Notification.NavigateBack
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TasksScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    TasksContent(
+        state = TasksUiState.Content(
+            filter = TaskFilter.Today,
+            tasks = listOf(
+                PreviewSamples.task("t1", "Buy groceries", TaskPriority.High),
+                PreviewSamples.task("t2", "Read documentation", TaskPriority.Low, completed = true),
+                PreviewSamples.task("t3", "Send emails", TaskPriority.Medium, pinned = true),
+            ),
+        ),
+        onNavigateToTask = {},
+        onToggle = {},
+        onPin = {},
+        onDelete = {},
+        onAiClick = {},
+        onToggleSelection = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TasksScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    TasksContent(
+        state = TasksUiState.Empty(filter = TaskFilter.Today),
+        onNavigateToTask = {},
+        onToggle = {},
+        onPin = {},
+        onDelete = {},
+        onAiClick = {},
+        onToggleSelection = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TasksScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    TasksContent(
+        state = TasksUiState.Content(
+            filter = TaskFilter.Upcoming,
+            tasks = listOf(
+                PreviewSamples.task("t1", "Finish project", TaskPriority.Urgent),
+            ),
+        ),
+        onNavigateToTask = {},
+        onToggle = {},
+        onPin = {},
+        onDelete = {},
+        onAiClick = {},
+        onToggleSelection = {},
+    )
 }

@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.feature.settings.SettingsIntent
 import com.singularity.todo.feature.settings.SettingsUiState
@@ -95,4 +96,31 @@ private fun ReminderRadioRow(label: String, selected: Boolean, onClick: () -> Un
             Text(text = label, style = MaterialTheme.typography.bodyMedium)
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun NotificationSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    NotificationSettingsScreen(
+        state = SettingsUiState.Content(
+            notificationsEnabled = true,
+            notificationSound = true,
+            notificationVibration = true,
+            reminderDefault = ReminderOffset.AT_DUE,
+        ),
+        onIntent = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun NotificationSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    NotificationSettingsScreen(
+        state = SettingsUiState.Content(
+            notificationsEnabled = false,
+        ),
+        onIntent = {},
+    )
 }

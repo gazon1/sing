@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
@@ -34,4 +35,30 @@ fun DeleteActionButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
             tint = MaterialTheme.colorScheme.error,
         )
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AiActionButtonLightPreview() = PreviewThemed(darkTheme = false) {
+    AiActionButton(onClick = {})
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AiActionButtonDarkPreview() = PreviewThemed(darkTheme = true) {
+    AiActionButton(onClick = {})
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun DeleteActionButtonLightPreview() = PreviewThemed(darkTheme = false) {
+    DeleteActionButton(onClick = {})
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun DeleteActionButtonDarkPreview() = PreviewThemed(darkTheme = true) {
+    DeleteActionButton(onClick = {})
 }

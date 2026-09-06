@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -64,4 +65,28 @@ fun BulkActionBar(
             }
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun BulkActionBarLightPreview() = PreviewThemed(darkTheme = false) {
+    BulkActionBar(
+        selectedCount = 3,
+        onComplete = {},
+        onDelete = {},
+        onCancel = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun BulkActionBarOneSelectedDarkPreview() = PreviewThemed(darkTheme = true) {
+    BulkActionBar(
+        selectedCount = 1,
+        onComplete = {},
+        onDelete = {},
+        onCancel = {},
+    )
 }

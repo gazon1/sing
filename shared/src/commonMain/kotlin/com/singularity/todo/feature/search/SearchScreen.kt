@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.search
 
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.tasks.TaskPriority
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -103,4 +106,42 @@ private fun SimpleResultCard(title: String, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) { Text(text = title, modifier = Modifier.padding(12.dp)) }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SearchResultsListWithResultsPreview() = PreviewThemed(darkTheme = false) {
+    SearchResultsList(
+        results = SearchResults(
+            tasks = listOf(
+                PreviewSamples.task("t1", "Buy groceries", TaskPriority.High),
+                PreviewSamples.task("t2", "Read book"),
+            ),
+            notes = listOf(
+                PreviewSamples.note("n1", "Meeting notes"),
+            ),
+            projects = listOf(
+                PreviewSamples.project("p1", "Work"),
+            ),
+            tags = listOf(
+                PreviewSamples.tag("tg1", "urgent", 0xFFF44336.toInt()),
+            ),
+        ),
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SearchResultsListEmptyDarkPreview() = PreviewThemed(darkTheme = true) {
+    SearchResultsList(
+        results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SimpleResultCardPreview() = PreviewThemed(darkTheme = false) {
+    SimpleResultCard(title = "Sample result item", onClick = {})
 }

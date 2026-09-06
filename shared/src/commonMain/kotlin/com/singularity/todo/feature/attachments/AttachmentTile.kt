@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.attachments
 
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -82,4 +84,45 @@ fun AttachmentTile(
             )
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AttachmentTileFileLightPreview() = PreviewThemed(darkTheme = false) {
+    AttachmentTile(
+        attachment = PreviewSamples.attachment(
+            type = com.singularity.todo.core.attachments.AttachmentType.File,
+            title = "quarterly-report.pdf",
+        ),
+        onDelete = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AttachmentTileUrlDarkPreview() = PreviewThemed(darkTheme = true) {
+    AttachmentTile(
+        attachment = PreviewSamples.attachment(
+            type = com.singularity.todo.core.attachments.AttachmentType.Url,
+            title = "https://example.com/article",
+        ),
+        onDelete = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AttachmentTileImagePurpleDarkPreview() = PreviewThemed(
+    darkTheme = true,
+    accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
+) {
+    AttachmentTile(
+        attachment = PreviewSamples.attachment(
+            type = com.singularity.todo.core.attachments.AttachmentType.Image,
+            title = "screenshot.png",
+        ),
+        onDelete = {},
+    )
 }

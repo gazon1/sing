@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.ai.LlmProvider
 import com.singularity.todo.feature.ai.OpenAiConfig
 import com.singularity.todo.feature.settings.AiTestResult
@@ -215,4 +216,54 @@ private fun AiTestResultBanner(result: AiTestResult, modifier: Modifier = Modifi
             }
         }
     }
+}
+
+// ===== Preview =====
+
+@OptIn(ExperimentalMaterial3Api::class)
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AiProviderSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    AiProviderSettingsScreen(
+        state = SettingsUiState.Content(
+            aiProvider = "openai",
+            aiBaseUrl = "https://api.openai.com/v1",
+            aiModel = "gpt-4o-mini",
+            aiSystemPrompt = "You are a helpful assistant.",
+            aiTestResult = AiTestResult.Idle,
+        ),
+        onIntent = {},
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AiProviderSettingsScreenConnectedPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    AiProviderSettingsScreen(
+        state = SettingsUiState.Content(
+            aiProvider = "openai",
+            aiBaseUrl = "https://api.openai.com/v1",
+            aiModel = "gpt-4o-mini",
+            aiSystemPrompt = "You are a helpful assistant.",
+            aiTestResult = AiTestResult.Ok(latencyMs = 234),
+        ),
+        onIntent = {},
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AiProviderSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    AiProviderSettingsScreen(
+        state = SettingsUiState.Content(
+            aiProvider = "anthropic",
+            aiBaseUrl = "https://api.anthropic.com/v1",
+            aiModel = "claude-sonnet-4-20250514",
+            aiSystemPrompt = "You are Claude.",
+            aiTestResult = AiTestResult.Error(message = "Connection timeout"),
+        ),
+        onIntent = {},
+    )
 }

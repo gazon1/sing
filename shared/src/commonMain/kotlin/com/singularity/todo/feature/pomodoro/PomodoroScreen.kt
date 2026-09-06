@@ -38,7 +38,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.TaskId
+import kotlinx.datetime.Clock
 import org.koin.compose.koinInject
 
 @Composable
@@ -197,4 +199,199 @@ fun PomodoroScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+// ===== Preview =====
+
+@Composable
+private fun PomodoroContentPreview(
+    pomodoroState: PomodoroState,
+    tasks: List<com.singularity.todo.feature.tasks.Task> = emptyList(),
+) {
+    val phaseColor = when (pomodoroState.phase) {
+        PomodoroPhase.Work -> MaterialTheme.colorScheme.error
+        PomodoroPhase.ShortBreak -> MaterialTheme.colorScheme.primary
+        PomodoroPhase.LongBreak -> MaterialTheme.colorScheme.tertiary
+    }
+
+    val totalSeconds = when (pomodoroState.phase) {
+        PomodoroPhase.Work -> 25 * 60
+        PomodoroPhase.ShortBreak -> 5 * 60
+        PomodoroPhase.LongBreak -> 15 * 60
+    }
+    val progress = pomodoroState.remainingSeconds.toFloat() / totalSeconds.toFloat()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        if (tasks.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                tasks.forEach { task ->
+                    FilterChip(
+                        selected = pomodoroState.taskId == task.id.value,
+                        onClick = { },
+                        label = {
+                            Text(
+                                task.title,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                    )
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+
+        val selectedTask = tasks.find { it.id.value == pomodoroState.taskId }
+        if (selectedTask != null) {
+            Text(
+                text = "Focus: ${selectedTask.title}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+
+        Text(
+            text = pomodoroState.phase.name.replace(Regex("([A-Z])"), " $1").trim(),
+            style = MaterialTheme.typography.titleLarge,
+            color = phaseColor,
+        )
+
+        Spacer(Modifier.height(32.dp))
+
+        Box(
+            modifier = Modifier.size(240.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(modifier = Modifier.size(240.dp)) {
+                val strokeWidth = 12.dp.toPx()
+                val radius = (size.minDimension - strokeWidth) / 2
+
+                drawArc(
+                    color = Color.Gray.copy(alpha = 0.3f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    topLeft = Offset(strokeWidth / 2, strokeWidth / 2),
+                    size = Size(radius * 2, radius * 2),
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                )
+                drawArc(
+                    color = phaseColor,
+                    startAngle = -90f,
+                    sweepAngle = 360f * progress,
+                    useCenter = false,
+                    topLeft = Offset(strokeWidth / 2, strokeWidth / 2),
+                    size = Size(radius * 2, radius * 2),
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                )
+            }
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val minutes = pomodoroState.remainingSeconds / 60
+                val seconds = pomodoroState.remainingSeconds % 60
+                Text(
+                    text = "%02d:%02d".format(minutes, seconds),
+                    style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+                )
+                Text(
+                    text = "Cycle ${pomodoroState.completedCycles + 1}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(48.dp))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = { }) {
+                Icon(Icons.Filled.Stop, contentDescription = "Stop")
+            }
+
+            FilledIconButton(
+                onClick = { },
+                modifier = Modifier.size(72.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = phaseColor,
+                ),
+            ) {
+                Icon(
+                    if (pomodoroState.isRunning) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = if (pomodoroState.isRunning) "Pause" else "Resume",
+                    modifier = Modifier.size(36.dp),
+                )
+            }
+
+            IconButton(onClick = { }) {
+                Icon(Icons.Filled.SkipNext, contentDescription = "Skip")
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Text(
+            text = "Pomodoro: ${pomodoroState.completedCycles} completed",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun PomodoroScreenWorkPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    PomodoroContentPreview(
+        pomodoroState = PomodoroState(
+            phase = PomodoroPhase.Work,
+            remainingSeconds = 15 * 60, // 15 minutes remaining
+            completedCycles = 2,
+            isRunning = true,
+            taskId = "t1",
+        ),
+        tasks = listOf(
+            com.singularity.todo.feature.tasks.Task(
+                id = com.singularity.todo.feature.tasks.TaskId("t1"),
+                title = "Write documentation",
+                createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
+                updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
+                userId = com.singularity.todo.feature.tasks.UserId.anonymous,
+            ),
+            com.singularity.todo.feature.tasks.Task(
+                id = com.singularity.todo.feature.tasks.TaskId("t2"),
+                title = "Review PRs",
+                createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
+                updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
+                userId = com.singularity.todo.feature.tasks.UserId.anonymous,
+            ),
+        ),
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun PomodoroScreenBreakPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    PomodoroContentPreview(
+        pomodoroState = PomodoroState(
+            phase = PomodoroPhase.ShortBreak,
+            remainingSeconds = 4 * 60, // 4 minutes remaining
+            completedCycles = 1,
+            isRunning = false,
+        ),
+        tasks = emptyList(),
+    )
 }

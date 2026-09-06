@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
+import com.singularity.todo.core.ui.preview.PreviewThemed
 
 /**
  * Files settings — shows storage location and attachment management info.
@@ -84,4 +85,18 @@ private fun SettingsInfoRow(
             }
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun FilesSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    FilesSettingsScreen()
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun FilesSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    FilesSettingsScreen()
 }

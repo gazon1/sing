@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -30,4 +31,24 @@ fun PriorityChip(priority: TaskPriority, modifier: Modifier = Modifier) {
             color = color,
         )
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun PriorityChipMediumPreview() = PreviewThemed(darkTheme = false) {
+    PriorityChip(priority = TaskPriority.Medium)
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun PriorityChipHighDarkPreview() = PreviewThemed(darkTheme = true) {
+    PriorityChip(priority = TaskPriority.High)
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun PriorityChipUrgentPreview() = PreviewThemed(darkTheme = false) {
+    PriorityChip(priority = TaskPriority.Urgent)
 }

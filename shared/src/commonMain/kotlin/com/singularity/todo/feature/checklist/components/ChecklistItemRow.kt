@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.checklist.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -76,4 +77,28 @@ fun ChecklistItemRow(
             }
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ChecklistItemRowLightPreview() = PreviewThemed(darkTheme = false) {
+    ChecklistItemRow(
+        text = "Buy groceries",
+        checked = false,
+        onToggle = {},
+        onDelete = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ChecklistItemRowDoneDarkPreview() = PreviewThemed(darkTheme = true) {
+    ChecklistItemRow(
+        text = "Read documentation",
+        checked = true,
+        onToggle = {},
+        onDelete = {},
+    )
 }

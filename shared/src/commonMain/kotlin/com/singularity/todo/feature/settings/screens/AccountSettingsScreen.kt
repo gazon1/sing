@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.settings.SettingsUiState
 
 @Composable
@@ -66,4 +67,22 @@ private fun DataActionRow(
             Text(dangerLabel)
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AccountSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    AccountSettingsScreen(
+        state = SettingsUiState.Content(userId = "user_abc123"),
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AccountSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    AccountSettingsScreen(
+        state = SettingsUiState.Content(userId = "user_xyz789"),
+    )
 }

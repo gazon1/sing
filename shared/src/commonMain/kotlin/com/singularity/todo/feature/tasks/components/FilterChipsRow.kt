@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -58,4 +59,36 @@ private fun TaskFilter.label(): String = when (this) {
     is TaskFilter.ByProject -> "Project"
     is TaskFilter.ByTag -> "Tag"
     is TaskFilter.Search -> "Search"
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun FilterChipsRowTodaySelectedPreview() = PreviewThemed(darkTheme = false) {
+    FilterChipsRow(
+        selected = TaskFilter.Today,
+        onSelect = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun FilterChipsRowUpcomingSelectedDarkPreview() = PreviewThemed(darkTheme = true) {
+    FilterChipsRow(
+        selected = TaskFilter.Upcoming,
+        onSelect = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun FilterChipsRowPinnedSelectedPurpleDarkPreview() = PreviewThemed(
+    darkTheme = true,
+    accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
+) {
+    FilterChipsRow(
+        selected = TaskFilter.Pinned,
+        onSelect = {},
+    )
 }

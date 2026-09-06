@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,4 +63,28 @@ fun <T> NotificationHost(
         }
         null -> { /* nothing to show */ }
     }
+}
+
+// ===== Preview =====
+// NotificationHost itself requires a Flow<T> and CollectEvents, so we preview
+// the individual dialog outcomes that it can produce via ResultDialog.
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun NotificationHostTextDialogPreview() = PreviewThemed(darkTheme = false) {
+    ResultDialog(
+        title = "Task saved",
+        text = "Your changes have been saved successfully.",
+        onDismiss = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun NotificationHostErrorDialogDarkPreview() = PreviewThemed(darkTheme = true) {
+    ResultDialog(
+        title = "Error",
+        text = "Failed to save task. Please try again.",
+        onDismiss = {},
+    )
 }

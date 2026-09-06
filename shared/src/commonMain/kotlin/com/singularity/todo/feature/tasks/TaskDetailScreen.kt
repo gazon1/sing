@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.tasks
 
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -271,4 +273,54 @@ private fun EditableTextRow(
             }
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskDetailContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    TaskDetailContent(
+        ui = TaskDetailUi(
+            task = PreviewSamples.task(
+                id = "t1",
+                title = "Complete project proposal",
+                priority = TaskPriority.High,
+                dueDate = PreviewSamples.today,
+            ),
+            project = PreviewSamples.project(name = "Work"),
+            tags = listOf(
+                PreviewSamples.tag("tg1", "urgent", 0xFFF44336.toInt()),
+                PreviewSamples.tag("tg2", "client", 0xFF2196F3.toInt()),
+            ),
+            checklist = listOf(
+                PreviewSamples.checklistItem("Research phase", done = true),
+                PreviewSamples.checklistItem("Draft outline", done = true),
+                PreviewSamples.checklistItem("Final review", done = false),
+            ),
+        ),
+        onSaveField = { _, _ -> },
+        onEditProject = {},
+        onToggleChecklist = {},
+        onBack = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskDetailContentDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    TaskDetailContent(
+        ui = TaskDetailUi(
+            task = PreviewSamples.task(
+                id = "t2",
+                title = "Buy groceries",
+                priority = TaskPriority.Medium,
+                completed = true,
+            ),
+        ),
+        onSaveField = { _, _ -> },
+        onEditProject = {},
+        onToggleChecklist = {},
+        onBack = {},
+    )
 }

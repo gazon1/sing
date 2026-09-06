@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.feature.settings.SettingsIntent
 import com.singularity.todo.feature.settings.SettingsUiState
@@ -111,4 +112,32 @@ private fun FontSizeSlider(value: Float, onValueChange: (Float) -> Unit) {
             modifier = Modifier.fillMaxWidth(),
         )
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun InterfaceSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    InterfaceSettingsScreen(
+        state = SettingsUiState.Content(
+            darkTheme = false,
+            accentColor = "blue",
+            fontSizeScale = 1.0f,
+        ),
+        onIntent = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun InterfaceSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    InterfaceSettingsScreen(
+        state = SettingsUiState.Content(
+            darkTheme = true,
+            accentColor = "purple",
+            fontSizeScale = 1.25f,
+        ),
+        onIntent = {},
+    )
 }

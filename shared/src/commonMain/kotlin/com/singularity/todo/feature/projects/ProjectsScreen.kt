@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.projects
 
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -107,4 +109,49 @@ private fun ProjectList(
             )
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectsScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    ProjectsContent(
+        state = ProjectsUiState.Content(
+            projects = listOf(
+                PreviewSamples.project("p1", "Inbox", 0xFF2196F3.toInt()),
+                PreviewSamples.project("p2", "Work", 0xFFF44336.toInt()),
+                PreviewSamples.project("p3", "Personal", 0xFF9C27B0.toInt(), "Long-term goals"),
+            ),
+        ),
+        onNavigateToProject = {},
+        onDelete = {},
+        onReviewClick = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectsScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    ProjectsContent(
+        state = ProjectsUiState.Empty(userId = "anonymous"),
+        onNavigateToProject = {},
+        onDelete = {},
+        onReviewClick = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    ProjectsContent(
+        state = ProjectsUiState.Content(
+            projects = listOf(
+                PreviewSamples.project("p1", "Archived", 0xFF607D8B.toInt()),
+            ),
+        ),
+        onNavigateToProject = {},
+        onDelete = {},
+        onReviewClick = {},
+    )
 }

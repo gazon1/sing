@@ -1,10 +1,15 @@
 package com.singularity.todo.core.ui.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,6 +62,27 @@ fun IconPickerRow(
             text = label,
             color = labelColor,
             style = MaterialTheme.typography.bodyLarge,
+        )
+    }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun IconPickerRowLightPreview() = PreviewThemed(darkTheme = false) {
+    Column {
+        IconPickerRow(
+            icon = { Icon(Icons.Filled.DateRange, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            label = "Due date",
+            hasValue = true,
+            onClick = {},
+        )
+        IconPickerRow(
+            icon = { Icon(Icons.Filled.DateRange, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            label = "Due date",
+            hasValue = false,
+            onClick = {},
         )
     }
 }

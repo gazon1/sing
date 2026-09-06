@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.components
 
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.tasks.TaskPriority
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -116,4 +119,39 @@ private fun PinButton(isPinned: Boolean, onClick: () -> Unit) {
             else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskCardLightPreview() = PreviewThemed(darkTheme = false) {
+    TaskCard(
+        task = PreviewSamples.task(),
+        onClick = {},
+        onLongClick = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskCardCompletedDarkPreview() = PreviewThemed(darkTheme = true) {
+    TaskCard(
+        task = PreviewSamples.task(completed = true),
+        onClick = {},
+        onLongClick = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskCardPinnedPurpleDarkPreview() = PreviewThemed(
+    darkTheme = true,
+    accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
+) {
+    TaskCard(
+        task = PreviewSamples.task(pinned = true, priority = TaskPriority.High),
+        onClick = {},
+        onLongClick = {},
+    )
 }

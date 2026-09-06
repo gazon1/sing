@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.tags
 
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -119,4 +121,43 @@ fun TagCard(tag: Tag, onDelete: () -> Unit) {
             DeleteActionButton(onClick = onDelete)
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TagsScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    TagsContent(
+        state = TagsUiState.Content(
+            tags = listOf(
+                PreviewSamples.tag("tg1", "work", 0xFFE91E63.toInt()),
+                PreviewSamples.tag("tg2", "home", 0xFF2196F3.toInt()),
+                PreviewSamples.tag("tg3", "urgent", 0xFFF44336.toInt()),
+            ),
+        ),
+        onDelete = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TagsScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    TagsContent(
+        state = TagsUiState.Empty(userId = "anonymous"),
+        onDelete = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TagsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    TagsContent(
+        state = TagsUiState.Content(
+            tags = listOf(
+                PreviewSamples.tag("tg1", "personal", 0xFF9C27B0.toInt()),
+            ),
+        ),
+        onDelete = {},
+    )
 }

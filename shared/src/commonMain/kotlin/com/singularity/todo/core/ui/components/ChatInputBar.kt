@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,4 +50,37 @@ fun ChatInputBar(
             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ChatInputBarLightPreview() = PreviewThemed(darkTheme = false) {
+    ChatInputBar(
+        value = "",
+        onValueChange = {},
+        onSend = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ChatInputBarWithTextDarkPreview() = PreviewThemed(darkTheme = true) {
+    ChatInputBar(
+        value = "What should I work on today?",
+        onValueChange = {},
+        onSend = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ChatInputBarDisabledPreview() = PreviewThemed(darkTheme = false) {
+    ChatInputBar(
+        value = "Thinking...",
+        onValueChange = {},
+        onSend = {},
+        enabled = false,
+    )
 }

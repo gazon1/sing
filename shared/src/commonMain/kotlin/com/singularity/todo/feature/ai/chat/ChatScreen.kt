@@ -32,6 +32,7 @@ import com.singularity.todo.core.ui.components.MessageBubble
 import com.singularity.todo.core.ui.components.BubbleRole
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import org.koin.compose.koinInject
 
 @Composable
@@ -106,5 +107,95 @@ private fun ThinkingIndicator() {
     ) {
         CircularProgressIndicator(modifier = Modifier.size(16.dp))
         Text("Thinking...", style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+// ===== Preview =====
+
+@Composable
+private fun ChatContentPreview(
+    messages: List<ChatMessage>,
+    input: String = "",
+    isLoading: Boolean = false,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(androidx.compose.foundation.layout.PaddingValues(0.dp)),
+    ) {
+        ChatMessagesList(
+            messages = messages,
+            isLoading = isLoading,
+            modifier = Modifier.weight(1f),
+        )
+        HorizontalDivider()
+        ChatInputBar(
+            value = input,
+            onValueChange = {},
+            onSend = {},
+            enabled = !isLoading,
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ChatScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("AI Assistant") }) },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            ChatMessagesList(
+                messages = listOf(
+                    ChatMessage("m1", ChatRole.User, "Hello, what can you help me with?"),
+                    ChatMessage("m2", ChatRole.Assistant, "Hi! I can help you manage your tasks, take notes, and organize your projects."),
+                    ChatMessage("m3", ChatRole.User, "Can you show me my tasks for today?"),
+                    ChatMessage("m4", ChatRole.Assistant, "You have 3 tasks due today: Buy groceries, Finish project report, and Send follow-up emails."),
+                ),
+                isLoading = false,
+                modifier = Modifier.weight(1f),
+            )
+            HorizontalDivider()
+            ChatInputBar(
+                value = "",
+                onValueChange = {},
+                onSend = {},
+                enabled = true,
+            )
+        }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ChatScreenLoadingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("AI Assistant") }) },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            ChatMessagesList(
+                messages = listOf(
+                    ChatMessage("m1", ChatRole.User, "Can you explain Kotlin coroutines?"),
+                    ChatMessage("m2", ChatRole.Assistant, "Kotlin Coroutines are a way to handle asynchronous programming in a sequential manner. They allow you to write code that looks synchronous but can pause and resume without blocking."),
+                ),
+                isLoading = true,
+                modifier = Modifier.weight(1f),
+            )
+            HorizontalDivider()
+            ChatInputBar(
+                value = "",
+                onValueChange = {},
+                onSend = {},
+                enabled = false,
+            )
+        }
     }
 }

@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.notes
 
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.tasks.UserId
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -143,4 +146,51 @@ fun NoteCard(note: Note, onClick: () -> Unit, onDelete: () -> Unit) {
             DeleteActionButton(onClick = onDelete)
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun NotesScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    NotesContent(
+        state = NotesUiState.Content(
+            notes = listOf(
+                PreviewSamples.note("n1", "Ideas", "Meeting notes and **brainstorming**"),
+                PreviewSamples.note("n2", "Shopping list"),
+            ),
+        ),
+        onNavigateToNote = {},
+        onDelete = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun NotesScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    NotesContent(
+        state = NotesUiState.Empty(userId = UserId.anonymous),
+        onNavigateToNote = {},
+        onDelete = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun NoteCardPreview() = PreviewThemed(darkTheme = false) {
+    NoteCard(
+        note = PreviewSamples.note("n1", "Meeting notes", "Discussed **Q4 goals** with the team"),
+        onClick = {},
+        onDelete = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun NoteCardDarkPreview() = PreviewThemed(darkTheme = true) {
+    NoteCard(
+        note = PreviewSamples.note("n2", "Untitled"),
+        onClick = {},
+        onDelete = {},
+    )
 }

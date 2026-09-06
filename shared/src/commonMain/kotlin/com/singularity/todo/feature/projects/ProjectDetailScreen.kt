@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.projects
 
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -59,6 +61,45 @@ fun ProjectDetailScreen(
                 Text(s.project.name, style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
                 s.project.description?.let { Text(it) }
             }
+        }
+    }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectDetailUiContentPreview() = PreviewThemed(darkTheme = false) {
+    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "Work Projects",
+                style = androidx.compose.material3.MaterialTheme.typography.headlineSmall
+            )
+            Text(
+                text = "All tasks related to office and client work",
+                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectDetailUiContentDarkPreview() = PreviewThemed(darkTheme = true) {
+    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "Personal",
+                style = androidx.compose.material3.MaterialTheme.typography.headlineSmall
+            )
         }
     }
 }

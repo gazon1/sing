@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -66,5 +67,44 @@ fun SettingsSwitchRow(
             }
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SettingsSectionLightPreview() = PreviewThemed(darkTheme = false) {
+    SettingsSection(title = "Appearance") {
+        SettingsSwitchRow(
+            title = "Dark theme",
+            subtitle = "Use dark color scheme",
+            checked = false,
+            onCheckedChange = {},
+        )
+        SettingsSwitchRow(
+            title = "Notifications",
+            subtitle = "Show reminders",
+            checked = true,
+            onCheckedChange = {},
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SettingsSectionDarkPreview() = PreviewThemed(darkTheme = true) {
+    SettingsSection(title = "Account") {
+        SettingsSwitchRow(
+            title = "Auto-sync",
+            subtitle = "Sync data automatically",
+            checked = true,
+            onCheckedChange = {},
+        )
+        SettingsSwitchRow(
+            title = "Offline mode",
+            checked = false,
+            onCheckedChange = {},
+        )
     }
 }

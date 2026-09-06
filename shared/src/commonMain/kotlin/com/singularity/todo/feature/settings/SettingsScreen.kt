@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.backup.BackupScreen
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.settings.screens.AccountSettingsScreen
@@ -155,4 +156,63 @@ private fun SettingsNavRail(
             }
         }
     }
+}
+
+// ===== Preview =====
+
+@Composable
+private fun SettingsContentPreview(
+    state: SettingsUiState.Content,
+    selectedTab: SettingsTab,
+    onSelectTab: (SettingsTab) -> Unit = {},
+) {
+    Row(modifier = Modifier.fillMaxHeight()) {
+        SettingsNavRail(selectedTab, Modifier.fillMaxHeight(), onSelectTab)
+        VerticalDivider()
+
+        Box(modifier = Modifier.weight(1f)) {
+            when (selectedTab) {
+                SettingsTab.Interface -> InterfaceSettingsScreen(
+                    state = state,
+                    onIntent = {},
+                )
+                SettingsTab.Notifications -> NotificationSettingsScreen(
+                    state = state,
+                    onIntent = {},
+                )
+                SettingsTab.AIProvider -> AiProviderSettingsScreen(
+                    state = state,
+                    onIntent = {},
+                )
+                SettingsTab.WorkSchedule -> WorkScheduleSettingsScreen(
+                    state = state,
+                    onIntent = {},
+                )
+                SettingsTab.Files -> FilesSettingsScreen()
+                SettingsTab.Backup -> {
+                    // BackupScreen requires BackupViewModel - show placeholder in preview
+                    androidx.compose.material3.Text("Backup", modifier = Modifier.padding(16.dp))
+                }
+                SettingsTab.Account -> AccountSettingsScreen(state = state)
+            }
+        }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    SettingsContentPreview(
+        state = SettingsUiState.Content(),
+        selectedTab = SettingsTab.Interface,
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    SettingsContentPreview(
+        state = SettingsUiState.Content(),
+        selectedTab = SettingsTab.Account,
+    )
 }

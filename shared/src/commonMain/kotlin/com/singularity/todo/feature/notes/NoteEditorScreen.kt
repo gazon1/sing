@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.notes
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -105,4 +106,42 @@ fun NoteEditorScreenContent(
             )
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun NoteEditorScreenEditingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    NoteEditorScreenContent(
+        editorState = EditorState.Editing(
+            id = "n1",
+            title = "Meeting Notes",
+            html = "<p>Discussed <b>Q4 goals</b> with the team.</p>",
+            isDirty = false,
+        ),
+        onTitleChange = { _, _ -> },
+        onBodyChange = { _, _ -> },
+        onSaveNow = {},
+        onBack = {},
+        onAiClick = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun NoteEditorScreenDirtyPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    NoteEditorScreenContent(
+        editorState = EditorState.Editing(
+            id = "n2",
+            title = "Draft",
+            html = "<p>Work in progress...</p>",
+            isDirty = true,
+        ),
+        onTitleChange = { _, _ -> },
+        onBodyChange = { _, _ -> },
+        onSaveNow = {},
+        onBack = {},
+        onAiClick = {},
+    )
 }

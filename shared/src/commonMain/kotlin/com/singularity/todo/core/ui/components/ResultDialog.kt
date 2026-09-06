@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,5 +24,27 @@ fun ResultDialog(
         title = { Text(title) },
         text = { Text(text) },
         confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+    )
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ResultDialogSuccessPreview() = PreviewThemed(darkTheme = false) {
+    ResultDialog(
+        title = "Success",
+        text = "Your data has been exported successfully.",
+        onDismiss = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ResultDialogErrorPreview() = PreviewThemed(darkTheme = true) {
+    ResultDialog(
+        title = "Error",
+        text = "Failed to connect to the server. Please check your internet connection.",
+        onDismiss = {},
     )
 }

@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -51,4 +52,30 @@ fun MessageBubble(
             )
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun MessageBubbleUserLightPreview() = PreviewThemed(darkTheme = false) {
+    MessageBubble(role = BubbleRole.User, content = "Can you help me organize my tasks?")
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun MessageBubbleAssistantDarkPreview() = PreviewThemed(darkTheme = true) {
+    MessageBubble(role = BubbleRole.Assistant, content = "Sure! I can help you prioritize your tasks based on due dates and priority levels.")
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun MessageBubbleUserDarkPreview() = PreviewThemed(darkTheme = true) {
+    MessageBubble(role = BubbleRole.User, content = "What about my project tasks?")
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun MessageBubbleAssistantPurpleDarkPreview() = PreviewThemed(darkTheme = true, accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple) {
+    MessageBubble(role = BubbleRole.Assistant, content = "I've organized them by priority. Check your Inbox!")
 }

@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import org.koin.compose.koinInject
 
 private val PRESET_COLORS = listOf(
@@ -170,4 +171,110 @@ private fun ColorChip(
             )
         }
     }
+}
+
+// ===== Preview =====
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun ProjectEditorContentPreview(
+    state: ProjectEditorUiState,
+    onNameChange: (String) -> Unit = {},
+    onColorChange: (Int) -> Unit = {},
+    onDescriptionChange: (String) -> Unit = {},
+    onSave: () -> Unit = {},
+    onErrorDismiss: () -> Unit = {},
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("New Project") },
+                navigationIcon = {
+                    IconButton(onClick = {}) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = onSave,
+                        enabled = state.name.isNotBlank() && !state.saving,
+                    ) {
+                        Icon(Icons.Filled.Check, contentDescription = "Save")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            OutlinedTextField(
+                value = state.name,
+                onValueChange = onNameChange,
+                label = { Text("Project name") },
+                isError = state.errorMessage != null,
+                supportingText = state.errorMessage?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Text("Color", style = MaterialTheme.typography.titleSmall)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                PRESET_COLORS.forEach { color ->
+                    ColorChip(
+                        color = Color(color),
+                        selected = state.color == color,
+                        onClick = { onColorChange(color) }
+                    )
+                }
+            }
+
+            OutlinedTextField(
+                value = state.description,
+                onValueChange = onDescriptionChange,
+                label = { Text("Description (optional)") },
+                minLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+
+    if (state.errorMessage != null && !state.saving) {
+        ResultDialog(
+            title = "Error",
+            text = state.errorMessage ?: "",
+            onDismiss = onErrorDismiss
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectEditorScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    ProjectEditorContentPreview(
+        state = ProjectEditorUiState(
+            name = "My Project",
+            color = 0xFF1976D2.toInt(),
+            description = "A great project description",
+        ),
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectEditorScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    ProjectEditorContentPreview(
+        state = ProjectEditorUiState(
+            name = "My Project",
+            color = 0xFF388E3C.toInt(),
+            description = "A great project description",
+        ),
+    )
 }

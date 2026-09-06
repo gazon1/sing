@@ -1,5 +1,10 @@
 package com.singularity.todo.core.ui.components
 
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
@@ -60,6 +65,49 @@ fun <T> StatefulContent(
         }
         is ContentState.Ready -> {
             content(state.value)
+        }
+    }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun StatefulContentLoadingPreview() = PreviewThemed(darkTheme = false) {
+    StatefulContent<String>(
+        state = ContentState.Loading,
+        emptyTitle = "No items",
+    ) {}
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun StatefulContentEmptyPreview() = PreviewThemed(darkTheme = false) {
+    StatefulContent<String>(
+        state = ContentState.Empty,
+        emptyTitle = "No tasks yet",
+        emptySubtitle = "Create your first task",
+    ) {}
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun StatefulContentErrorPreview() = PreviewThemed(darkTheme = true) {
+    StatefulContent<String>(
+        state = ContentState.Error("Failed to load tasks"),
+        emptyTitle = "No tasks",
+    ) {}
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun StatefulContentReadyPreview() = PreviewThemed(darkTheme = false) {
+    StatefulContent(
+        state = ContentState.Ready("Sample task content"),
+        emptyTitle = "No tasks",
+    ) { value ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            Text(text = value)
         }
     }
 }
