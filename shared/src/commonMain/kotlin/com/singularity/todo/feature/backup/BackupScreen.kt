@@ -233,7 +233,7 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
                 }
             )
         },
-        snackbarHost = { SnackbarHost(androidx.compose.material3.SnackbarHostState()) }
+        snackbarHost = { SnackbarHost(SnackbarHostState()) }
     ) { padding ->
         Column(
             modifier = Modifier

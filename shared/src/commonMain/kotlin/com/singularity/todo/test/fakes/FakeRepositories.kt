@@ -33,8 +33,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.datetime.Instant
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -48,7 +46,7 @@ class FakeSessionStore(
     override val userEmail = MutableStateFlow<String?>(null)
     override val deviceId = MutableStateFlow(initialUserId)
 
-    override suspend fun save(session: com.singularity.todo.core.auth.Session.SignedIn) {
+    override suspend fun save(session: Session.SignedIn) {
         accessToken.value = session.accessToken
         refreshToken.value = session.refreshToken
         userEmail.value = session.email
@@ -166,11 +164,11 @@ class FakeTaskRepository : TaskRepository {
 
     /** Seeds tasks by merging into existing state (adds or overwrites by id). */
     fun seed(vararg tasks: Task) {
-        this.tasks.value = this.tasks.value + tasks.associate { it.id.value to it }
+        this.tasks.value += tasks.associateBy { it.id.value }
     }
 
     fun add(task: Task) {
-        tasks.value = tasks.value + (task.id.value to task)
+        tasks.value += (task.id.value to task)
     }
 
     fun clear() {
@@ -178,19 +176,19 @@ class FakeTaskRepository : TaskRepository {
     }
 
     override suspend fun create(task: Task): Result<Unit> = runCatching {
-        tasks.value = tasks.value + (task.id.value to task)
+        tasks.value += (task.id.value to task)
         _changes.emit(task)
     }
 
     override suspend fun update(task: Task): Result<Unit> = runCatching {
-        tasks.value = tasks.value + (task.id.value to task)
+        tasks.value += (task.id.value to task)
         _changes.emit(task)
     }
 
     override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
         tasks.value[id.value]?.let { task ->
             val deleted = task.copy(archivedAt = Clock.now())
-            tasks.value = tasks.value + (id.value to deleted)
+            tasks.value += (id.value to deleted)
             _changes.emit(deleted)
         }
     }
@@ -198,7 +196,7 @@ class FakeTaskRepository : TaskRepository {
     override suspend fun restore(id: TaskId): Result<Unit> = runCatching {
         tasks.value[id.value]?.let { task ->
             val restored = task.copy(archivedAt = null)
-            tasks.value = tasks.value + (id.value to restored)
+            tasks.value += (id.value to restored)
             _changes.emit(restored)
         }
     }
@@ -210,7 +208,7 @@ class FakeTaskRepository : TaskRepository {
             } else {
                 task.copy(completedAt = Clock.now())
             }
-            tasks.value = tasks.value + (id.value to toggled)
+            tasks.value += (id.value to toggled)
             _changes.emit(toggled)
         }
     }
@@ -218,7 +216,7 @@ class FakeTaskRepository : TaskRepository {
     override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatching {
         tasks.value[id.value]?.let { task ->
             val toggled = task.copy(isPinned = !task.isPinned)
-            tasks.value = tasks.value + (id.value to toggled)
+            tasks.value += (id.value to toggled)
             _changes.emit(toggled)
         }
     }
@@ -228,7 +226,7 @@ class FakeTaskRepository : TaskRepository {
     override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
         tasks.value[taskId.value]?.let { task ->
             val updated = task.copy(tags = tagIds)
-            tasks.value = tasks.value + (taskId.value to updated)
+            tasks.value += (taskId.value to updated)
         }
     }
 
@@ -236,7 +234,7 @@ class FakeTaskRepository : TaskRepository {
         tasks.map { map ->
             map.values
                 .filter { it.userId == userId }
-                .filter { TasksDomain.matchesFilter(it, filter, kotlinx.datetime.Instant.fromEpochMilliseconds(Clock.now().toEpochMilliseconds()).toLocalDateTime(TimeZone.currentSystemDefault()).date) }
+                .filter { TasksDomain.matchesFilter(it, filter, kotlin.time.Instant.fromEpochMilliseconds(Clock.now().toEpochMilliseconds()).toLocalDateTime(TimeZone.currentSystemDefault()).date) }
                 .sortedWith(compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }))
         }
 
@@ -253,11 +251,11 @@ class FakeChecklistRepository : ChecklistRepository {
 
     /** Seeds items by merging into existing state (adds or overwrites by id). */
     fun seed(vararg items: ChecklistItem) {
-        this.items.value = this.items.value + items.associate { it.id.value to it }
+        this.items.value += items.associateBy { it.id.value }
     }
 
     fun add(item: ChecklistItem) {
-        items.value = items.value + (item.id.value to item)
+        items.value += (item.id.value to item)
     }
 
     fun clear() {
@@ -268,7 +266,7 @@ class FakeChecklistRepository : ChecklistRepository {
         items.map { map -> map.values.filter { it.taskId == taskId }.sortedBy { it.sortOrder } }
 
     override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatching {
-        items.value = items.value + (item.id.value to item)
+        items.value += (item.id.value to item)
     }
 
     override suspend fun delete(id: ChecklistItemId): Result<Unit> = runCatching {
@@ -276,7 +274,7 @@ class FakeChecklistRepository : ChecklistRepository {
     }
 
     override suspend fun createBatch(taskId: String, items: List<ChecklistItem>): Result<Unit> = runCatching {
-        this.items.value = this.items.value + items.associate { it.id.value to it }
+        this.items.value += items.associateBy { it.id.value }
     }
 }
 
@@ -301,7 +299,7 @@ class FakeReminderRepository(
         reminders.map { map -> map.values.filter { it.fireAt <= nowEpochMs && it.userId == userId }.sortedBy { it.fireAt } }
 
     override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatching {
-        reminders.value = reminders.value + (reminder.id.value to reminder)
+        reminders.value += (reminder.id.value to reminder)
     }
 
     override suspend fun delete(reminderId: ReminderId, userId: UserId): Result<Unit> = runCatching {
@@ -411,7 +409,7 @@ class FakeTagsRepository : com.singularity.todo.feature.tags.TagsRepository {
     override fun watchTags(userId: String): Flow<List<com.singularity.todo.feature.tags.Tag>> =
         _flow.map { list -> list.filter { it.userId == userId } }
 
-    override fun watchTag(id: com.singularity.todo.feature.tags.TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
+    override fun watchTag(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
         _flow.map { list -> list.firstOrNull { it.id == id } }
 
     override suspend fun create(tag: com.singularity.todo.feature.tags.Tag): Result<Unit> = runCatching {
@@ -424,7 +422,7 @@ class FakeTagsRepository : com.singularity.todo.feature.tags.TagsRepository {
         emit()
     }
 
-    override suspend fun delete(id: com.singularity.todo.feature.tags.TagId): Result<Unit> = runCatching {
+    override suspend fun delete(id: TagId): Result<Unit> = runCatching {
         store.remove(id.value)
         emit()
     }
@@ -443,7 +441,7 @@ class FakeAttachmentRepository : com.singularity.todo.core.attachments.Attachmen
 
     private fun emit() { _flow.value = store.values.toList() }
 
-    override fun watchByTask(taskId: com.singularity.todo.feature.tasks.TaskId, userId: UserId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
+    override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
         _flow.map { list -> list.filter { it.taskId == taskId && it.userId == userId } }
 
     override suspend fun create(attachment: com.singularity.todo.core.attachments.Attachment): Result<Unit> = runCatching {
@@ -457,7 +455,7 @@ class FakeAttachmentRepository : com.singularity.todo.core.attachments.Attachmen
     }
 
     override suspend fun saveFileAttachment(
-        taskId: com.singularity.todo.feature.tasks.TaskId,
+        taskId: TaskId,
         userId: UserId,
         sourcePath: String,
         mimeType: String?,
@@ -478,7 +476,7 @@ class FakeAttachmentRepository : com.singularity.todo.core.attachments.Attachmen
     }
 
     override suspend fun addUrlAttachment(
-        taskId: com.singularity.todo.feature.tasks.TaskId,
+        taskId: TaskId,
         userId: UserId,
         url: String,
         title: String?,

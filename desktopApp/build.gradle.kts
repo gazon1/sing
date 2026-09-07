@@ -10,7 +10,7 @@ sourceSets {
     test {
         java.srcDirs("src/jvmTest")
         dependencies {
-            implementation("org.jetbrains.compose.ui:ui-test:1.12.0")
+            implementation(libs.composeUiTest)
             implementation(libs.compose.uiToolingPreview)
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)

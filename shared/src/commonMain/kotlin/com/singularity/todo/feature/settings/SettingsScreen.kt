@@ -191,7 +191,7 @@ private fun SettingsContentPreview(
                 SettingsTab.Files -> FilesSettingsScreen()
                 SettingsTab.Backup -> {
                     // BackupScreen requires BackupViewModel - show placeholder in preview
-                    androidx.compose.material3.Text("Backup", modifier = Modifier.padding(16.dp))
+                    Text("Backup", modifier = Modifier.padding(16.dp))
                 }
                 SettingsTab.Account -> AccountSettingsScreen(state = state)
             }
