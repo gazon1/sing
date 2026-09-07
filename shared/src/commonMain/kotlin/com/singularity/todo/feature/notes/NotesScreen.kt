@@ -32,13 +32,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.DeleteActionButton
-import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.ContentStateMapper
-import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.StatefulContent
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
