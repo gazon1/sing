@@ -12,13 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -41,18 +37,12 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun NotesScreen(
     onNavigateToNote: (String) -> Unit,
-    onNavigateToCreateNote: () -> Unit,
     viewModel: NotesViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Notes") }) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onNavigateToCreateNote, modifier = Modifier.testTag(TestTags.NOTES_FAB)) {
-                Icon(Icons.Filled.Create, contentDescription = "Add Note")
-            }
-        },
     ) { padding ->
         NotesContent(
             state = state,

@@ -141,6 +141,9 @@ private fun fabActionFor(current: AppDestination, navigator: AppNavigator): FabA
     AppDestination.Plans -> FabAction("Add project") {
         navigator.navigate(AppDestination.ProjectEditor())
     }
-    AppDestination.Habits, AppDestination.Calendar -> null
+    AppDestination.Notes -> FabAction("Add note") {
+        navigator.navigate(AppDestination.NoteEditor())
+    }
+    AppDestination.Habits, AppDestination.Calendar, AppDestination.Archive -> null
     else -> null
 }

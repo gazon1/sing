@@ -12,8 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
@@ -51,17 +54,23 @@ enum class DrawerStyle {
     Permanent,
 }
 
+/**
+ * Action + label for a FAB shown at the chrome level.
+ */
+data class FabAction(val label: String, val onClick: () -> Unit)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppShell(
     current: NavDestination,
     drawerStyle: DrawerStyle,
     onSelect: (NavDestination) -> Unit,
+    fabAction: FabAction? = null,
     content: @Composable (Modifier) -> Unit,
 ) {
     when (drawerStyle) {
-        DrawerStyle.Modal -> ModalShell(current, onSelect, content)
-        DrawerStyle.Permanent -> PermanentShell(current, onSelect, content)
+        DrawerStyle.Modal -> ModalShell(current, onSelect, fabAction, content)
+        DrawerStyle.Permanent -> PermanentShell(current, onSelect, fabAction, content)
     }
 }
 
@@ -70,6 +79,7 @@ fun AppShell(
 private fun ModalShell(
     current: NavDestination,
     onSelect: (NavDestination) -> Unit,
+    fabAction: FabAction?,
     content: @Composable (Modifier) -> Unit,
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -82,7 +92,17 @@ private fun ModalShell(
         drawerState = drawerState,
         drawerContent = { DesktopSidebar(current, closeAndSelect, modifier = Modifier) },
     ) {
-        Scaffold { padding ->
+        Scaffold(
+            floatingActionButton = {
+                fabAction?.let { action ->
+                    ExtendedFloatingActionButton(
+                        onClick = action.onClick,
+                        icon = { Icon(Icons.Default.Add, contentDescription = action.label) },
+                        text = { Text(action.label) },
+                    )
+                }
+            },
+        ) { padding ->
             content(Modifier.padding(padding))
         }
     }
@@ -92,6 +112,7 @@ private fun ModalShell(
 private fun PermanentShell(
     current: NavDestination,
     onSelect: (NavDestination) -> Unit,
+    fabAction: FabAction?,
     content: @Composable (Modifier) -> Unit,
 ) {
     Row(modifier = Modifier.fillMaxSize()) {

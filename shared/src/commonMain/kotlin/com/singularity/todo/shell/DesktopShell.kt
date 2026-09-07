@@ -6,6 +6,7 @@ import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AppNavigator
 import com.singularity.todo.feature.nav.AppShell
 import com.singularity.todo.feature.nav.DrawerStyle
+import com.singularity.todo.feature.nav.FabAction
 import com.singularity.todo.feature.nav.NavDestination
 
 /**
@@ -20,9 +21,7 @@ import com.singularity.todo.feature.nav.NavDestination
  * - `current` is derived from the navigator (one source of truth).
  * - `onSelect` translates a [NavDestination] (drawer enum) into the
  *   equivalent [AppDestination] tab and calls `navigateTopLevel`.
- *
- * If the two enums ever diverge, the translation belongs in a single
- * `NavDestination.toAppDestination()` mapper — see [tabDestinationFor].
+ * - `fabAction` is derived from the current top-level destination (mirrors AndroidShell).
  */
 @Composable
 fun DesktopShell(navigator: AppNavigator) {
@@ -33,10 +32,26 @@ fun DesktopShell(navigator: AppNavigator) {
         onSelect = { drawerDest ->
             tabDestinationFor(drawerDest)?.let(navigator::navigateTopLevel)
         },
+        fabAction = fabActionForDesktop(current, navigator),
         content = { modifier ->
             AppNavHost(navigator = navigator, modifier = modifier)
         },
     )
+}
+
+/** Desktop equivalent of [AndroidShell.fabActionFor]. Returns FAB action per tab. */
+private fun fabActionForDesktop(current: AppDestination, navigator: AppNavigator): FabAction? = when (current) {
+    AppDestination.Inbox, AppDestination.Today -> FabAction("Add task") {
+        navigator.navigate(AppDestination.TaskEditor())
+    }
+    AppDestination.Plans -> FabAction("Add project") {
+        navigator.navigate(AppDestination.ProjectEditor())
+    }
+    AppDestination.Notes -> FabAction("Add note") {
+        navigator.navigate(AppDestination.NoteEditor())
+    }
+    AppDestination.Habits, AppDestination.Calendar, AppDestination.Archive -> null
+    else -> null
 }
 
 /** Map a navigation-graph destination to the drawer's enum entry. */

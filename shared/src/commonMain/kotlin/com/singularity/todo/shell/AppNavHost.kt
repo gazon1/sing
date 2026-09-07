@@ -160,9 +160,6 @@ private fun NotesRoute(navigator: AppNavigator) {
     NotesScreen(
         viewModel = koinViewModel(),
         onNavigateToNote = { id -> navigator.navigate(AppDestination.NoteDetail(id)) },
-        onNavigateToCreateNote = {
-            navigator.navigate(AppDestination.NoteEditor())
-        },
     )
 }
 
