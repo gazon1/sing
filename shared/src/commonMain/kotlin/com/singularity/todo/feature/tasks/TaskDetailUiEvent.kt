@@ -22,4 +22,5 @@ sealed interface TaskDetailUiEvent {
     data object OpenReminderSheet : TaskDetailUiEvent
     data object OpenAttachmentSheet : TaskDetailUiEvent
     data object ConfirmDelete : TaskDetailUiEvent
+    data object ConfirmArchive : TaskDetailUiEvent
 }

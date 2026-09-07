@@ -28,7 +28,11 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
@@ -120,6 +124,7 @@ fun TaskDetailScreen(
     val attachmentsState by attachmentsVm.state.collectAsStateWithLifecycle()
 
     var activeSheet by remember { mutableStateOf<ActiveSheet?>(null) }
+    var showActionsMenu by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
     val filePickerLauncher = rememberFilePickerLauncher(type = FileKitType.File()) { file ->
@@ -170,6 +175,9 @@ fun TaskDetailScreen(
             onDeleteReminder = { task -> viewModel.deleteReminder(task) },
             onDismissSheet = { activeSheet = null },
             onBack = onBack,
+            showActionsMenu = showActionsMenu,
+            onShowActionsMenuChange = { showActionsMenu = it },
+            onArchive = viewModel::confirmArchive,
         )
     }
 
@@ -261,6 +269,15 @@ fun TaskDetailScreen(
                 onDismiss = { activeSheet = null },
             )
         }
+        ActiveSheet.ConfirmArchive -> {
+            ConfirmArchiveDialog(
+                onConfirm = {
+                    loaded?.let { viewModel.archiveTask(it.task) }
+                    activeSheet = null
+                },
+                onDismiss = { activeSheet = null },
+            )
+        }
         null -> {}
     }
 
@@ -269,6 +286,23 @@ fun TaskDetailScreen(
         mapper = { it.toNotification() },
         onNavigateBack = onBack,
         modifier = Modifier,
+    )
+}
+
+@Composable
+private fun ConfirmArchiveDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Archive task?") },
+        text = { Text("This will move it to the Archive and remove it from your active lists.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Archive", color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
     )
 }
 
@@ -385,6 +419,9 @@ private fun TaskDetailContent(
     onDeleteReminder: DeleteReminder,
     onDismissSheet: () -> Unit,
     onBack: () -> Unit,
+    showActionsMenu: Boolean = false,
+    onShowActionsMenuChange: (Boolean) -> Unit = {},
+    onArchive: () -> Unit = {},
 ) {
     val today = todayInSystemZone()
     val scrollState = rememberScrollState()
@@ -396,6 +433,26 @@ private fun TaskDetailContent(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { onShowActionsMenuChange(true) }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                        }
+                        DropdownMenu(
+                            expanded = showActionsMenu,
+                            onDismissRequest = { onShowActionsMenuChange(false) },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Archive") },
+                                leadingIcon = { Icon(Icons.Filled.Inbox, contentDescription = null) },
+                                onClick = {
+                                    onShowActionsMenuChange(false)
+                                    onArchive()
+                                },
+                            )
+                        }
                     }
                 },
             )

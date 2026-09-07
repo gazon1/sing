@@ -127,7 +127,19 @@ private fun PermanentShell(
         )
         VerticalDivider()
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-            content(Modifier)
+            Scaffold(
+                floatingActionButton = {
+                    fabAction?.let { action ->
+                        ExtendedFloatingActionButton(
+                            onClick = action.onClick,
+                            icon = { Icon(Icons.Default.Add, contentDescription = action.label) },
+                            text = { Text(action.label) },
+                        )
+                    }
+                },
+            ) { padding ->
+                content(Modifier.padding(padding))
+            }
         }
     }
 }

@@ -13,6 +13,7 @@ sealed interface ActiveSheet {
     data object Reminder : ActiveSheet
     data object Attachment : ActiveSheet
     data object ConfirmDelete : ActiveSheet
+    data object ConfirmArchive : ActiveSheet
 }
 
 /**
@@ -27,5 +28,6 @@ fun TaskDetailUiEvent.toActiveSheet(): ActiveSheet? = when {
     this is TaskDetailUiEvent.OpenReminderSheet -> ActiveSheet.Reminder
     this is TaskDetailUiEvent.OpenAttachmentSheet -> ActiveSheet.Attachment
     this is TaskDetailUiEvent.ConfirmDelete -> ActiveSheet.ConfirmDelete
+    this is TaskDetailUiEvent.ConfirmArchive -> ActiveSheet.ConfirmArchive
     else -> null
 }

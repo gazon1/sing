@@ -325,6 +325,19 @@ class TaskDetailViewModel(
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Delete failed")) }
     }
 
+    // ─── Archive ───────────────────────────────────────────────────────────────
+
+    fun confirmArchive() = scope.launch { _events.emit(TaskDetailUiEvent.ConfirmArchive) }
+
+    fun archiveTask(current: Task) = scope.launch {
+        taskRepo.softDelete(current.id)
+            .onSuccess {
+                _events.emit(TaskDetailUiEvent.Saved("Task archived"))
+                _events.emit(TaskDetailUiEvent.NavigateBack)
+            }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Archive failed")) }
+    }
+
     // ─── Sheet / dialog triggers ────────────────────────────────────────────────
 
     fun openDatePicker() = scope.launch { _events.emit(TaskDetailUiEvent.OpenDatePicker) }
