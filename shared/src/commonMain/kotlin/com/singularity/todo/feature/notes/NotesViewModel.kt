@@ -115,7 +115,10 @@ open class NotesViewModel(
             if (current is EditorState.Editing && current.id == noteId) return@launch
 
             val note = repo.watchNote(NoteId.fromString(noteId)).filterNotNull().first()
-            val html = note.bodyMarkdown?.let { htmlPort.toHtml(it) } ?: ""
+            // Prefer stored HTML (lossless). Fall back to markdown→HTML for legacy notes.
+            val html = note.bodyHtml
+                ?: note.bodyMarkdown?.let { htmlPort.toHtml(it) }
+                ?: ""
             _editorState.value = EditorState.Editing(
                 id = note.id.value,
                 title = note.title,
@@ -129,7 +132,7 @@ open class NotesViewModel(
         val id = NoteId.fromString(idGen.next())
         scope.launch(Dispatchers.Unconfined) {
             val uid = userId.value
-            repo.createWithContent(uid, id, "", "").getOrThrow()
+            repo.createWithContent(uid, id, "", "", "").getOrThrow()
         }
         _editorState.value = EditorState.Editing(
             id = id.value,
@@ -158,8 +161,9 @@ open class NotesViewModel(
         autosaveJob?.cancel()
         scope.launch(Dispatchers.Unconfined) {
             try {
-                val markdown = htmlPort.toMarkdown(current.html)
-                repo.updateContent(NoteId.fromString(current.id), current.title, markdown).getOrThrow()
+                val html = current.html
+                val markdown = htmlPort.toMarkdown(html)
+                repo.updateContent(NoteId.fromString(current.id), current.title, markdown, html).getOrThrow()
                 _editorState.value = current.copy(isDirty = false)
                 _events.emit(NotesUiEvent.NavigateBack)
             } catch (e: Exception) {
@@ -174,8 +178,9 @@ open class NotesViewModel(
             autosaveScheduler.awaitTick()
             val current = _editorState.value as? EditorState.Editing ?: return@launch
             try {
-                val markdown = htmlPort.toMarkdown(current.html)
-                repo.updateContent(NoteId.fromString(id), current.title, markdown).getOrThrow()
+                val html = current.html
+                val markdown = htmlPort.toMarkdown(html)
+                repo.updateContent(NoteId.fromString(id), current.title, markdown, html).getOrThrow()
                 _editorState.value = current.copy(isDirty = false)
             } catch (e: Exception) {
                 _events.emit(NotesUiEvent.SaveFailed(e.message ?: "Save failed"))

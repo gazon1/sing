@@ -89,8 +89,8 @@ interface NoteDao {
     suspend fun upsert(note: NoteEntity)
 
     /** Atomic update — does NOT require a prior read. */
-    @Query("UPDATE notes SET title = :title, body_markdown = :markdown, updated_at = :updatedAt WHERE id = :id")
-    suspend fun updateContent(id: String, title: String, markdown: String, updatedAt: Long)
+    @Query("UPDATE notes SET title = :title, body_markdown = :markdown, body_html = :html, updated_at = :updatedAt WHERE id = :id")
+    suspend fun updateContent(id: String, title: String, markdown: String, html: String, updatedAt: Long)
 
     @Query("UPDATE notes SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
     suspend fun softDelete(id: String, ts: Long)

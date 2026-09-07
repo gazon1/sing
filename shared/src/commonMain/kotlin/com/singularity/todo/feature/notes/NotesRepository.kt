@@ -29,8 +29,8 @@ interface NotesRepository {
     suspend fun update(note: Note): Result<Unit>
 
     // ─── Editor mutations (id + fields — autosave path) ─────────────────────
-    suspend fun createWithContent(userId: UserId, id: NoteId, title: String, bodyMarkdown: String): Result<NoteId>
-    suspend fun updateContent(id: NoteId, title: String, bodyMarkdown: String): Result<Unit>
+    suspend fun createWithContent(userId: UserId, id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<NoteId>
+    suspend fun updateContent(id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<Unit>
 
     // ─── Lifecycle ─────────────────────────────────────────────────────────
     suspend fun softDelete(id: NoteId): Result<Unit>
@@ -67,6 +67,7 @@ class RoomNotesRepository(
         id: NoteId,
         title: String,
         bodyMarkdown: String,
+        bodyHtml: String,
     ): Result<NoteId> = runCatching {
         val now = clock.now().toEpochMilliseconds()
         noteDao.upsert(
@@ -75,7 +76,7 @@ class RoomNotesRepository(
                 userId = userId.value,
                 title = title,
                 bodyMarkdown = bodyMarkdown,
-                bodyHtml = null,
+                bodyHtml = bodyHtml,
                 parentNoteId = null,
                 createdAt = now,
                 updatedAt = now,
@@ -90,8 +91,9 @@ class RoomNotesRepository(
         id: NoteId,
         title: String,
         bodyMarkdown: String,
+        bodyHtml: String,
     ): Result<Unit> = runCatching {
-        noteDao.updateContent(id.value, title, bodyMarkdown, clock.now().toEpochMilliseconds())
+        noteDao.updateContent(id.value, title, bodyMarkdown, bodyHtml, clock.now().toEpochMilliseconds())
     }
 
     override suspend fun softDelete(id: NoteId): Result<Unit> = runCatching {

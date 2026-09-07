@@ -190,10 +190,10 @@ private class FakeNoteDao(
     override suspend fun upsert(note: NoteEntity) { store.update { it + (note.id to note) } }
     override suspend fun softDelete(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
     override suspend fun restore(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = null, updatedAt = ts) }
-    override suspend fun updateContent(id: String, title: String, markdown: String, updatedAt: Long) {
+    override suspend fun updateContent(id: String, title: String, markdown: String, html: String, updatedAt: Long) {
         store.update { current ->
             val existing = current[id] ?: return@update current
-            current + (id to existing.copy(title = title, bodyMarkdown = markdown, updatedAt = updatedAt))
+            current + (id to existing.copy(title = title, bodyMarkdown = markdown, bodyHtml = html, updatedAt = updatedAt))
         }
     }
     override suspend fun listAllForUser(userId: String): List<NoteEntity> =

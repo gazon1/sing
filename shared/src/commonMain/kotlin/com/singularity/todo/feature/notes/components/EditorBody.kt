@@ -44,15 +44,23 @@ fun EditorBody(
     onAiClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val richTextState = remember(state.id) { RichTextState() }
+    val richTextState = remember(state.id) { RichTextState().also { it.setHtml(state.html) } }
     var titleFieldValue by remember(state.id) { mutableStateOf(TextFieldValue(state.title)) }
-    var lastDispatchedHtml by remember(state.id) { mutableStateOf("") }
+    var lastDispatchedHtml by remember(state.id) { mutableStateOf(state.html) }
+
+    // Skip the first emission — setHtml(state.html) itself triggers a toHtml() change
+    // that we don't want to treat as user edits (false-positive autosave).
+    var firstLoadSkipped by remember(state.id) { mutableStateOf(false) }
 
     // Dispatch body changes to the ViewModel whenever the rich text state changes.
     // This is the key fix: EditorToolbar.onHtmlChange only fires on toolbar button
     // clicks, but this LaunchedEffect fires on every text mutation.
     LaunchedEffect(state.id, richTextState) {
         val html = richTextState.toHtml()
+        if (!firstLoadSkipped) {
+            firstLoadSkipped = true
+            return@LaunchedEffect
+        }
         if (html != lastDispatchedHtml) {
             lastDispatchedHtml = html
             onBodyChange(state.id, html)

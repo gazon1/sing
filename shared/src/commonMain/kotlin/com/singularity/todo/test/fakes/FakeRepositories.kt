@@ -548,6 +548,7 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
         id: com.singularity.todo.feature.notes.NoteId,
         title: String,
         bodyMarkdown: String,
+        bodyHtml: String,
     ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
         val now = Clock.now()
         store[id.value] = com.singularity.todo.feature.notes.Note(
@@ -555,6 +556,7 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
             userId = userId,
             title = title,
             bodyMarkdown = bodyMarkdown,
+            bodyHtml = bodyHtml,
             createdAt = now,
             updatedAt = now,
         )
@@ -566,11 +568,13 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
         id: com.singularity.todo.feature.notes.NoteId,
         title: String,
         bodyMarkdown: String,
+        bodyHtml: String,
     ): Result<Unit> = runCatching {
         store[id.value]?.let { existing ->
             store[id.value] = existing.copy(
                 title = title,
                 bodyMarkdown = bodyMarkdown,
+                bodyHtml = bodyHtml,
                 updatedAt = Clock.now(),
             )
             emit()
