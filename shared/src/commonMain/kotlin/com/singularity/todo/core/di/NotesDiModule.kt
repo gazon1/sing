@@ -7,7 +7,9 @@ import com.singularity.todo.feature.notes.UpdateNoteUseCase
 import com.singularity.todo.feature.notes.NotesViewModel
 import com.singularity.todo.feature.notes.RichEditorMarkdownHtmlPort
 import com.singularity.todo.feature.notes.MarkdownHtmlPort
-import org.koin.core.module.dsl.viewModelOf
+import com.singularity.todo.feature.search.InternalLinkRepository
+import com.singularity.todo.feature.search.InternalLinkRepositoryImpl
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
@@ -17,6 +19,7 @@ fun notesModule(): org.koin.core.module.Module = module {
     // ─── Repository ─────────────────────────────────────────────────────
 
     single<NotesRepository> { RoomNotesRepository(get(), get()) }
+    single<InternalLinkRepository> { InternalLinkRepositoryImpl(get(), get()) }
 
     // ─── Use Cases ──────────────────────────────────────────────────────
 
@@ -29,5 +32,18 @@ fun notesModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModelOf(::NotesViewModel)
+    // Explicit viewModel { } required because NotesViewModel has optional
+    // nullable deps (improveNote, logger) resolved via getOrNull().
+    viewModel {
+        NotesViewModel(
+            repo = get(),
+            htmlPort = get(),
+            currentUser = get(),
+            idGen = get(),
+            autosaveScheduler = get(),
+            improveNote = getOrNull(),
+            logger = null,  // Logger created directly in constructor via Logger.withTag()
+            scopeOverride = null,
+        )
+    }
 }

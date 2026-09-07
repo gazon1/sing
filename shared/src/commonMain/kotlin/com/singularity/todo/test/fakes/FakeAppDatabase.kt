@@ -156,6 +156,10 @@ private class FakeTaskDao(
     override suspend fun listAllForUser(userId: String): List<TaskEntity> =
         store.value.values.filter { it.userId == userId }
 
+    override suspend fun searchByTitle(q: String): List<TaskEntity> =
+        store.value.values.filter { it.archivedAt == null && it.title.contains(q, ignoreCase = true) }
+            .sortedByDescending { it.updatedAt }.take(20)
+
     private suspend fun mutateTask(id: String, fn: (TaskEntity) -> TaskEntity) {
         store.update { current ->
             val existing = current[id] ?: return@update current
@@ -172,14 +176,26 @@ private class FakeNoteDao(
 
     override fun watchAll(userId: String): Flow<List<NoteEntity>> =
         store.map { it.values.filter { n -> n.userId == userId && n.deletedAt == null }
-            .sortedByDescending { it.updatedAt } }
+            .sortedWith(compareBy({ !it.isPinned }, { it.sortOrder }, { -it.updatedAt })) }
+
+    override fun watchPinned(userId: String): Flow<List<NoteEntity>> =
+        store.map { it.values.filter { n -> n.userId == userId && n.isPinned && n.deletedAt == null }
+            .sortedByDescending { it.pinnedAt } }
+
+    override fun watchArchived(userId: String): Flow<List<NoteEntity>> =
+        store.map { it.values.filter { n -> n.userId == userId && n.archivedAt != null && n.deletedAt == null }
+            .sortedByDescending { it.archivedAt } }
+
+    override fun watchRootNotes(userId: String): Flow<List<NoteEntity>> =
+        store.map { it.values.filter { n -> n.userId == userId && n.parentNoteId == null && !n.isFolder && n.deletedAt == null }
+            .sortedWith(compareBy({ it.sortOrder }, { -it.updatedAt })) }
 
     override fun watchById(id: String): Flow<NoteEntity?> = store.map { it[id] }
     override suspend fun getById(id: String): NoteEntity? = store.value[id]
 
     override fun watchChildren(parentId: String): Flow<List<NoteEntity>> =
         store.map { it.values.filter { n -> n.parentNoteId == parentId && n.deletedAt == null }
-            .sortedBy { it.title } }
+            .sortedWith(compareBy({ it.sortOrder }, { it.title })) }
 
     override fun search(q: String): Flow<List<NoteEntity>> =
         store.map { it.values.filter { n ->
@@ -190,14 +206,34 @@ private class FakeNoteDao(
     override suspend fun upsert(note: NoteEntity) { store.update { it + (note.id to note) } }
     override suspend fun softDelete(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
     override suspend fun restore(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = null, updatedAt = ts) }
-    override suspend fun updateContent(id: String, title: String, markdown: String, html: String, updatedAt: Long) {
+    override suspend fun archive(id: String, ts: Long) = mutate(id) { it.copy(archivedAt = ts, updatedAt = ts) }
+    override suspend fun unarchive(id: String, ts: Long) = mutate(id) { it.copy(archivedAt = null, updatedAt = ts) }
+    override suspend fun updateContent(id: String, title: String, markdown: String, html: String, wordCount: Int, charCount: Int, updatedAt: Long) {
         store.update { current ->
             val existing = current[id] ?: return@update current
-            current + (id to existing.copy(title = title, bodyMarkdown = markdown, bodyHtml = html, updatedAt = updatedAt))
+            current + (id to existing.copy(title = title, bodyMarkdown = markdown, bodyHtml = html, wordCount = wordCount, charCount = charCount, updatedAt = updatedAt))
         }
     }
+    override suspend fun setPinned(id: String, pinned: Boolean, pinnedAt: Long?, ts: Long) =
+        mutate(id) { it.copy(isPinned = pinned, pinnedAt = pinnedAt, updatedAt = ts) }
+    override suspend fun setColor(id: String, color: Int?, ts: Long) =
+        mutate(id) { it.copy(color = color, updatedAt = ts) }
+    override suspend fun setSortOrder(id: String, sortOrder: Int, ts: Long) =
+        mutate(id) { it.copy(sortOrder = sortOrder, updatedAt = ts) }
     override suspend fun listAllForUser(userId: String): List<NoteEntity> =
         store.value.values.filter { it.userId == userId }
+
+    override suspend fun searchByTitle(userId: String, q: String): List<NoteEntity> =
+        store.value.values.filter { it.userId == userId && it.deletedAt == null && it.title.contains(q, ignoreCase = true) }
+            .sortedByDescending { it.updatedAt }.take(20)
+
+    override suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long) =
+        mutate(id) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
+
+    override suspend fun getBacklinkNotes(noteId: String): List<NoteEntity> =
+        store.value.values.filter { n ->
+            n.deletedAt == null && n.outgoingLinks.contains("note://$noteId")
+        }.take(20)
 
     private suspend fun mutate(id: String, fn: (NoteEntity) -> NoteEntity) {
         store.update { current ->

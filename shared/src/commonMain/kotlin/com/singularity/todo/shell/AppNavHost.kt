@@ -115,6 +115,8 @@ fun AppNavHost(
             NoteEditorScreen(
                 noteId = route.noteId,
                 onBack = navigator::popBackStack,
+                onNavigateToNote = { id -> navigator.navigate(AppDestination.NoteDetail(id)) },
+                onNavigateToTask = { id -> navigator.navigate(AppDestination.TaskDetail(id)) },
             )
         }
         composable<AppDestination.NoteEditor> { backStackEntry ->
@@ -122,6 +124,8 @@ fun AppNavHost(
             NoteEditorScreen(
                 noteId = route.noteId,
                 onBack = navigator::popBackStack,
+                onNavigateToNote = { id -> navigator.navigate(AppDestination.NoteDetail(id)) },
+                onNavigateToTask = { id -> navigator.navigate(AppDestination.TaskDetail(id)) },
             )
         }
         composable<AppDestination.ProjectEditor> {

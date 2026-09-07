@@ -133,8 +133,41 @@ internal object PreviewSamples {
         userId = userId,
         title = title,
         bodyMarkdown = body,
+        bodyHtml = "<p>Hello <strong>markdown</strong></p>",
         createdAt = now,
         updatedAt = now,
+    )
+
+    /** Note in a folder (non-leaf). */
+    fun folderNote(
+        id: String = "n2",
+        title: String = "Work",
+    ): Note = Note(
+        id = NoteId(id),
+        userId = userId,
+        title = title,
+        bodyMarkdown = null,
+        bodyHtml = null,
+        isFolder = true,
+        parentNoteId = null,
+        createdAt = now,
+        updatedAt = now,
+    )
+
+    /** Archived note (soft-deleted, visible in archive). */
+    fun archivedNote(
+        id: String = "n3",
+        title: String = "Old Note",
+        body: String = "This note was archived.",
+    ): Note = Note(
+        id = NoteId(id),
+        userId = userId,
+        title = title,
+        bodyMarkdown = body,
+        bodyHtml = "<p>This note was archived.</p>",
+        createdAt = now,
+        updatedAt = now,
+        archivedAt = now,
     )
 
     fun reminder(offsetMinutes: Int = 15): Reminder = Reminder(

@@ -1,12 +1,18 @@
 package com.singularity.todo.feature.notes
 
+import java.net.URLEncoder
+import java.net.URLDecoder
+
 /**
  * Production [MarkdownHtmlPort] using simple regex-based conversion.
+ * Supports standard markdown plus Obsidian-style wikilinks: [[Note Title]].
  *
- * toHtml: basic markdown → HTML
- * toMarkdown: basic HTML → markdown
+ * toHtml: markdown (+ wikilinks) → HTML
+ * toMarkdown: HTML → markdown (+ wikilinks)
  */
 class RichEditorMarkdownHtmlPort : MarkdownHtmlPort {
+
+    // ─── toHtml ────────────────────────────────────────────────────────────────
 
     override fun toHtml(markdown: String): String {
         if (markdown.isBlank()) return ""
@@ -52,21 +58,37 @@ class RichEditorMarkdownHtmlPort : MarkdownHtmlPort {
         var i = 0
         while (i < text.length) {
             when {
+                // Wikilink [[Title]] — check before generic bracket handling
+                text.startsWith("[[", i) -> {
+                    val end = text.indexOf("]]", i + 2)
+                    if (end != -1) {
+                        val title = text.substring(i + 2, end)
+                        val encoded = URLEncoder.encode(title, "UTF-8")
+                        append("<a href=\"note://").append(encoded).append("\">").append(title).append("</a>")
+                        i = end + 2
+                    } else {
+                        append(text[i]); i++
+                    }
+                }
+                // Bold **text**
                 text.startsWith("**", i) -> {
                     val end = text.indexOf("**", i + 2)
                     if (end != -1) { append("<strong>").append(text.substring(i + 2, end)).append("</strong>"); i = end + 2 }
                     else { append(text[i]); i++ }
                 }
+                // Inline code `text`
                 text[i] == '`' -> {
                     val end = text.indexOf('`', i + 1)
                     if (end != -1) { append("<code>").append(text.substring(i + 1, end)).append("</code>"); i = end + 1 }
                     else { append(text[i]); i++ }
                 }
+                // Italic *text* or _text_
                 text[i] == '*' || (text[i] == '_' && !text.startsWith("__", i)) -> {
                     val end = text.indexOf(text[i], i + 1)
                     if (end != -1) { append("<em>").append(text.substring(i + 1, end)).append("</em>"); i = end + 1 }
                     else { append(text[i]); i++ }
                 }
+                // Standard markdown link [text](url)
                 text.startsWith("[", i) -> {
                     val closeBracket = text.indexOf(']', i)
                     val openParen = text.indexOf('(', closeBracket + 1)
@@ -87,9 +109,12 @@ class RichEditorMarkdownHtmlPort : MarkdownHtmlPort {
         }
     }
 
+    // ─── toMarkdown ────────────────────────────────────────────────────────────
+
     override fun toMarkdown(html: String): String {
         if (html.isBlank()) return ""
         return html
+            // Standard replacements first
             .replace("<strong>", "**").replace("</strong>", "**")
             .replace("<b>", "**").replace("</b>", "**")
             .replace("<em>", "*").replace("</em>", "*")
@@ -105,8 +130,19 @@ class RichEditorMarkdownHtmlPort : MarkdownHtmlPort {
             .replace("<code>", "`").replace("</code>", "`")
             .replace("<pre><code>", "```\n").replace("</code></pre>", "\n```")
             .replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&").replace("&quot;", "\"")
-            .let { val linkRegex = Regex("<a href=\"([^\"]+)\">([^<]+)</a>")
-                linkRegex.replace(it) { m -> "[${m.groupValues[2]}](${m.groupValues[1]})" }
+            // Wikilinks: <a href="note://...">Title</a> → [[Title]]
+            .let { text ->
+                val noteLinkRegex = Regex("""<a href="note://([^"]+)">([^<]+)</a>""")
+                noteLinkRegex.replace(text) { m ->
+                    val encodedTitle = m.groupValues[1]
+                    val title = try { URLDecoder.decode(encodedTitle, "UTF-8") } catch (e: Exception) { encodedTitle }
+                    "[[${m.groupValues[2]}]]"
+                }
+            }
+            // Standard markdown links
+            .let { text ->
+                val linkRegex = Regex("""<a href="([^"]+)">([^<]+)</a>""")
+                linkRegex.replace(text) { m -> "[${m.groupValues[2]}](${m.groupValues[1]})" }
             }
             .replace(Regex("\n{3,}"), "\n\n")
             .trim()

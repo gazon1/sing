@@ -134,7 +134,7 @@ class TaskRepositoryImpl(
     }
 }
 
-private fun TaskEntity.toTask(): Task = Task(
+internal fun TaskEntity.toTask(): Task = Task(
     id = id.toId(),
     title = title,
     description = description,

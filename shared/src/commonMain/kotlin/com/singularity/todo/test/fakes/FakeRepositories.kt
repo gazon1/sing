@@ -525,6 +525,15 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
     override fun watchNotes(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
         _flow.map { list -> list.filter { it.userId == userId && it.deletedAt == null } }
 
+    override fun watchPinned(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        _flow.map { list -> list.filter { it.userId == userId && it.isPinned && it.deletedAt == null } }
+
+    override fun watchArchived(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        _flow.map { list -> list.filter { it.userId == userId && it.archivedAt != null && it.deletedAt == null } }
+
+    override fun watchRootNotes(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        _flow.map { list -> list.filter { it.userId == userId && it.parentNoteId == null && !it.isFolder && it.deletedAt == null } }
+
     override fun watchNote(id: com.singularity.todo.feature.notes.NoteId): Flow<com.singularity.todo.feature.notes.Note?> =
         _flow.map { list -> list.firstOrNull { it.id == id } }
 
@@ -557,6 +566,8 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
             title = title,
             bodyMarkdown = bodyMarkdown,
             bodyHtml = bodyHtml,
+            wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
+            charCount = bodyMarkdown.length,
             createdAt = now,
             updatedAt = now,
         )
@@ -575,6 +586,8 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
                 title = title,
                 bodyMarkdown = bodyMarkdown,
                 bodyHtml = bodyHtml,
+                wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
+                charCount = bodyMarkdown.length,
                 updatedAt = Clock.now(),
             )
             emit()
@@ -591,6 +604,41 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
     override suspend fun restore(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
         store[id.value]?.let { existing ->
             store[id.value] = existing.copy(deletedAt = null)
+            emit()
+        }
+    }
+
+    override suspend fun archive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(archivedAt = Clock.now())
+            emit()
+        }
+    }
+
+    override suspend fun unarchive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(archivedAt = null)
+            emit()
+        }
+    }
+
+    override suspend fun setPinned(id: com.singularity.todo.feature.notes.NoteId, pinned: Boolean): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(isPinned = pinned, pinnedAt = if (pinned) Clock.now() else null)
+            emit()
+        }
+    }
+
+    override suspend fun setColor(id: com.singularity.todo.feature.notes.NoteId, color: com.singularity.todo.feature.notes.NoteColor?): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(color = color)
+            emit()
+        }
+    }
+
+    override suspend fun setSortOrder(id: com.singularity.todo.feature.notes.NoteId, sortOrder: Int): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(sortOrder = sortOrder)
             emit()
         }
     }

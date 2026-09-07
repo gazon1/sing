@@ -29,7 +29,7 @@ object ContentStateMapper {
             is NotesUiState.Loading -> ContentState.Loading
             is NotesUiState.Empty -> ContentState.Empty
             is NotesUiState.Error -> ContentState.Error(state.message)
-            is NotesUiState.Content -> ContentState.Ready(state.notes)
+            is NotesUiState.Content -> ContentState.Ready(state.list.pinned + state.list.unpinned)
         }
 
     fun tags(state: TagsUiState): ContentState<List<com.singularity.todo.feature.tags.Tag>> =

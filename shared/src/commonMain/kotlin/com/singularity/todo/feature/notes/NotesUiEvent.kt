@@ -12,4 +12,10 @@ sealed interface NotesUiEvent {
 
     /** Navigate back. */
     data object NavigateBack : NotesUiEvent
+
+    /**
+     * Autosave or manual save succeeded — triggers the "Saved" pill animation
+     * in [NoteEditorScreen]. One-shot signal with no replay.
+     */
+    data object SavedPulse : NotesUiEvent
 }

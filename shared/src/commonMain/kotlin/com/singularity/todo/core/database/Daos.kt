@@ -37,6 +37,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE title LIKE '%' || :q || '%' OR description LIKE '%' || :q || '%'")
     fun search(q: String): Flow<List<TaskEntity>>
 
+    @Query("SELECT * FROM tasks WHERE archived_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20")
+    suspend fun searchByTitle(q: String): List<TaskEntity>
+
     @Upsert
     suspend fun upsert(task: TaskEntity)
 
@@ -70,8 +73,20 @@ interface TaskDao {
 
 @Dao
 interface NoteDao {
-    @Query("SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL ORDER BY updated_at DESC")
+    @Query("SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL ORDER BY is_pinned DESC, sort_order ASC, updated_at DESC")
     fun watchAll(userId: String): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE user_id = :userId AND is_pinned = 1 AND deleted_at IS NULL ORDER BY pinned_at DESC")
+    fun watchPinned(userId: String): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE user_id = :userId AND archived_at IS NOT NULL AND deleted_at IS NULL ORDER BY archived_at DESC")
+    fun watchArchived(userId: String): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE user_id = :userId AND parent_note_id IS NULL AND is_folder = 0 AND deleted_at IS NULL ORDER BY sort_order ASC, updated_at DESC")
+    fun watchRootNotes(userId: String): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE parent_note_id = :parentId AND deleted_at IS NULL ORDER BY sort_order ASC, title ASC")
+    fun watchChildren(parentId: String): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE id = :id")
     fun watchById(id: String): Flow<NoteEntity?>
@@ -79,18 +94,33 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE id = :id")
     suspend fun getById(id: String): NoteEntity?
 
-    @Query("SELECT * FROM notes WHERE parent_note_id = :parentId AND deleted_at IS NULL ORDER BY title ASC")
-    fun watchChildren(parentId: String): Flow<List<NoteEntity>>
-
     @Query("SELECT * FROM notes WHERE title LIKE '%' || :q || '%' OR body_markdown LIKE '%' || :q || '%'")
     fun search(q: String): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20")
+    suspend fun searchByTitle(userId: String, q: String): List<NoteEntity>
 
     @Upsert
     suspend fun upsert(note: NoteEntity)
 
     /** Atomic update — does NOT require a prior read. */
-    @Query("UPDATE notes SET title = :title, body_markdown = :markdown, body_html = :html, updated_at = :updatedAt WHERE id = :id")
-    suspend fun updateContent(id: String, title: String, markdown: String, html: String, updatedAt: Long)
+    @Query("UPDATE notes SET title = :title, body_markdown = :markdown, body_html = :html, word_count = :wordCount, char_count = :charCount, updated_at = :updatedAt WHERE id = :id")
+    suspend fun updateContent(id: String, title: String, markdown: String, html: String, wordCount: Int, charCount: Int, updatedAt: Long)
+
+    @Query("UPDATE notes SET is_pinned = :pinned, pinned_at = :pinnedAt, updated_at = :ts WHERE id = :id")
+    suspend fun setPinned(id: String, pinned: Boolean, pinnedAt: Long?, ts: Long)
+
+    @Query("UPDATE notes SET archived_at = :ts, updated_at = :ts WHERE id = :id")
+    suspend fun archive(id: String, ts: Long)
+
+    @Query("UPDATE notes SET archived_at = NULL, updated_at = :ts WHERE id = :id")
+    suspend fun unarchive(id: String, ts: Long)
+
+    @Query("UPDATE notes SET color = :color, updated_at = :ts WHERE id = :id")
+    suspend fun setColor(id: String, color: Int?, ts: Long)
+
+    @Query("UPDATE notes SET sort_order = :sortOrder, updated_at = :ts WHERE id = :id")
+    suspend fun setSortOrder(id: String, sortOrder: Int, ts: Long)
 
     @Query("UPDATE notes SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
     suspend fun softDelete(id: String, ts: Long)
@@ -100,6 +130,18 @@ interface NoteDao {
 
     @Query("SELECT * FROM notes WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<NoteEntity>
+
+    @Query("UPDATE notes SET outgoing_links = :linksJson, updated_at = :updatedAt WHERE id = :id")
+    suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long)
+
+    /** Notes that link TO the given noteId via note:// URL scheme. */
+    @Query("""
+        SELECT * FROM notes
+        WHERE deleted_at IS NULL
+        AND outgoing_links LIKE '%note://' || :noteId || '%'
+        LIMIT 20
+    """)
+    suspend fun getBacklinkNotes(noteId: String): List<NoteEntity>
 }
 
 @Dao

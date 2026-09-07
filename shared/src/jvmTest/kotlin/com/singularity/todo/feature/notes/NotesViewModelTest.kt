@@ -341,7 +341,7 @@ class NotesViewModelTest {
 
         val state = vm.state.value
         assertIs<NotesUiState.Content>(state)
-        assertEquals(1, state.notes.size)
+        assertEquals(1, state.list.pinned.size + state.list.unpinned.size)
     }
 
     @Test

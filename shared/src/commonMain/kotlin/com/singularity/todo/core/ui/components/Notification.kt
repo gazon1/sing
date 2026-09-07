@@ -24,4 +24,7 @@ sealed interface Notification {
 
     /** Request to dismiss / clear any active notification. */
     data object Dismiss : Notification
+
+    /** No notification — event is handled via other UI (e.g. animation). */
+    data object None : Notification
 }

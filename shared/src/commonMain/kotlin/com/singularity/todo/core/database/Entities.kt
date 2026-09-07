@@ -58,7 +58,14 @@ data class TaskTagCrossRef(
 
 @Entity(
     tableName = "notes",
-    indices = [Index("user_id"), Index("deleted_at"), Index("parent_note_id")]
+    indices = [
+        Index("user_id"),
+        Index("deleted_at"),
+        Index("parent_note_id"),
+        Index("is_pinned"),
+        Index("archived_at"),
+        Index("sort_order"),
+    ]
 )
 data class NoteEntity(
     @PrimaryKey val id: String,
@@ -68,6 +75,13 @@ data class NoteEntity(
     @ColumnInfo("body_html") val bodyHtml: String?,
     @ColumnInfo("is_folder") val isFolder: Boolean = false,
     @ColumnInfo("parent_note_id") val parentNoteId: String?,
+    @ColumnInfo("is_pinned", defaultValue = "0") val isPinned: Boolean = false,
+    @ColumnInfo("pinned_at") val pinnedAt: Long? = null,
+    @ColumnInfo("color") val color: Int? = null,
+    @ColumnInfo("sort_order", defaultValue = "0") val sortOrder: Int = 0,
+    @ColumnInfo("word_count", defaultValue = "0") val wordCount: Int = 0,
+    @ColumnInfo("char_count", defaultValue = "0") val charCount: Int = 0,
+    @ColumnInfo("outgoing_links", defaultValue = "[]") val outgoingLinks: String = "[]",
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("deleted_at") val deletedAt: Long?,

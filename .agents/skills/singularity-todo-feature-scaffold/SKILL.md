@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-feature-scaffold
-description: Feature scaffold pattern for the Singularity Todo KMP app. Use when adding a new CRUD feature (tasks, notes, projects, tags, reminders, etc.). Documents the 7-file template (Ids.kt, *Domain.kt, *Repository.kt, *UseCase.kt, *ViewModel.kt, *Screen.kt, Ids.kt), DI registration in Modules.kt, navigation in Navigation.kt, and co-located Fake + ViewModel test. Follows the canonical flow: pure domain validation → repository (Result<T>) → use case (only real logic) → ViewModel (StateFlow + sealed Intent) → Screen.
+description: Feature scaffold pattern for the Singularity Todo KMP app. Use when adding a new CRUD feature (tasks, notes, projects, tags, reminders, etc.) or when extending an existing feature with a sub-repository (e.g. NoteTagRepository). Documents the 7-file template (Ids.kt, *Domain.kt, *Repository.kt, *UseCase.kt, *ViewModel.kt, *Screen.kt), DI registration in Modules.kt, navigation in AppDestination, and co-located Fake + ViewModel test. Follows the canonical flow: pure domain validation → repository (Result<T>) → use case (only real logic) → ViewModel (StateFlow + sealed Intent) → Screen. Also covers the Subinterface pattern for feature extensions.
 ---
 
 # Feature Scaffold — Adding a New CRUD Feature
@@ -11,8 +11,8 @@ For a feature named `<Feature>` (e.g., `Task`, `Note`, `Project`):
 
 ```
 feature/<feature>/
-├── Ids.kt                  — @JvmInline value class IDs
-├── <Feature>Domain.kt      — pure domain logic, validation, domain model
+├── Ids.kt                  — @JvmInline value class IDs + domain model
+├── <Feature>Domain.kt      — pure domain logic, validation (optional)
 ├── <Feature>Repository.kt  — interface: suspend CRUD + Flow reads
 ├── <Feature>RepositoryImpl.kt — Room implementation
 ├── <Feature>UseCase.kt     — ONLY real logic (validation, clock.now(), build)
@@ -22,58 +22,29 @@ feature/<feature>/
 
 > **Pass-through use cases are anti-pattern.** `Get<Feature>UseCase`, `Delete<Feature>UseCase`, `ToggleCompleteUseCase` that just delegate to `repo.X()` are boilerplate. Inject the repository directly into the ViewModel.
 
-## 1. Ids.kt — Typed ID wrappers
+## 1. Ids.kt — Typed ID wrappers + domain model
 
 ```kotlin
 package com.singularity.todo.feature.<feature>
-
-import com.singularity.todo.core.error.AppError
 
 @JvmInline
 value class <Feature>Id private constructor(val value: String) {
     companion object {
-        fun fromString(s: String): <Feature>Id {
-            require(s.isNotBlank()) { AppError.Validation("Invalid ID") }
-            return <Feature>Id(s)
-        }
-        fun generate(): <Feature>Id = <Feature>Id(ulid())
+        fun fromString(s: String): <Feature>Id = <Feature>Id(s)
+        fun generate(): <Feature>Id = <Feature>Id(nextId())
     }
 }
 
-fun String.to<Feature>Id(): <Feature>Id = <Feature>Id.fromString(this)
-```
-
-## 2. *Domain.kt — Pure domain logic
-
-```kotlin
-package com.singularity.todo.feature.<feature>
-
 data class <Feature>(
     val id: <Feature>Id,
-    val name: String,
+    val userId: UserId,
     val createdAt: Instant,
     val updatedAt: Instant,
-    val userId: UserId,
     // ... feature-specific fields
 )
-
-// Input DTO (for creation)
-data class Create<Feature>Input(
-    val name: String,
-    val userId: UserId,
-    // ... feature-specific fields
-)
-
-// Pure validation (no side effects, no database)
-fun Create<Feature>Input.validate(): List<AppError.Validation> {
-    val errors = mutableListOf<AppError.Validation>()
-    if (name.isBlank()) errors.add(AppError.Validation("Name cannot be blank"))
-    if (name.length > 100) errors.add(AppError.Validation("Name too long"))
-    return errors
-}
 ```
 
-## 3. *Repository.kt — Interface
+## 2. *Repository.kt — Interface
 
 ```kotlin
 package com.singularity.todo.feature.<feature>
@@ -87,60 +58,33 @@ interface <Feature>Repository {
 }
 ```
 
-**Rules**:
+**Rules:**
 - All mutators return `Result<Unit>` / `Result<T>`.
 - All mutators are `suspend`.
 - Reads return `Flow<T>` (never `List<T>` — so the UI updates reactively).
 - No `*Blocking()` methods.
 
-## 4. *RepositoryImpl.kt — Room implementation
-
-```kotlin
-class <Feature>RepositoryImpl(
-    private val dao: <Feature>Dao,
-    private val clock: Clock,
-) : <Feature>Repository {
-
-    override fun watchAll(userId: UserId): Flow<List<<Feature>>> =
-        dao.watchAll(userId.value).map { list -> list.map { it.to<Feature>() } }
-
-    override suspend fun create(<Feature>: <Feature>): Result<Unit> = runCatching {
-        dao.upsert(<Feature>.toEntity())
-    }
-
-    // ... use Mappers.kt helpers for entity ↔ domain conversion
-}
-```
-
-## 5. *UseCase.kt — ONLY real logic
+## 3. *UseCase.kt — ONLY real logic
 
 **Keep only these use cases** (if they add real value beyond delegation):
 
 ```kotlin
-// VALID: has domain logic + clock
 class Create<Feature>UseCase(private val repo: <Feature>Repository, private val clock: Clock) {
     suspend operator fun invoke(input: Create<Feature>Input): Result<<Feature>Id> = runCatchingResult {
-        input.validate().firstOrNull()?.let { throw it }
         val now = clock.now()
-        val <feature> = <Feature>(
-            id = <Feature>Id.generate(),
-            name = input.name.trim(),
-            createdAt = now,
-            updatedAt = now,
-            userId = input.userId,
-        )
+        val <feature> = <Feature>(id = <Feature>Id.generate(), ..., createdAt = now, updatedAt = now)
         repo.create(<feature>).getOrThrow()
         <feature>.id
     }
 }
 ```
 
-**DELETE these** (they are pure pass-through, not use cases):
+**DELETE these** (pure pass-through, not use cases):
 - `Get<Feature>UseCase` → VM injects `Repo` directly
 - `Delete<Feature>UseCase` → VM calls `repo.delete(id).getOrThrow()`
 - `Update<Feature>UseCase` → VM calls `repo.update(entity).getOrThrow()`
 
-## 6. *ViewModel.kt — State + Intent
+## 4. *ViewModel.kt — State + Intent
 
 ```kotlin
 sealed interface <Feature>UiState {
@@ -155,12 +99,12 @@ sealed interface <Feature>Intent {
 }
 
 class <Feature>ViewModel(
-    private val repo: <Feature>Repository,    // direct repo injection (not pass-through UC)
+    private val repo: <Feature>Repository,
     private val create<Feature>: Create<Feature>UseCase,
-    private val settings: SettingsRepository,
+    settings: SettingsRepository,  // for userId
 ) : ViewModel() {
 
-    private val userId: Flow<UserId> = settings.userId.map { UserId.fromString(it) }
+    private val userId = settings.userId.map { UserId.fromString(it) }
 
     val state: StateFlow<<Feature>UiState> = userId
         .flatMapLatest { repo.watchAll(it) }
@@ -177,16 +121,16 @@ class <Feature>ViewModel(
 }
 ```
 
-## 7. *Screen.kt — Compose UI
+## 5. *Screen.kt — Compose UI
 
 ```kotlin
 @Composable
 fun <Feature>Screen(
     viewModel: <Feature>ViewModel = koinViewModel(),
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
-        is <Feature>UiState.Loading -> CircularProgressIndicator()
+        is <Feature>UiState.Loading -> LoadingIndicator()
         is <Feature>UiState.Content -> <Feature>List(items = s.items)
         is <Feature>UiState.Error -> ErrorMessage(s.message)
     }
@@ -196,40 +140,88 @@ fun <Feature>Screen(
 ## DI Registration (Modules.kt)
 
 ```kotlin
-// Delete the pass-through use case factories:
-// factory { Get<Feature>UseCase(get()) }       ← DELETE
-// factory { Delete<Feature>UseCase(get()) }     ← DELETE
-
-// Keep only real use cases:
+// Modules.kt
 factory { Create<Feature>UseCase(get(), get()) }
-
-// Register VM — viewModelOf auto-resolves all constructor dependencies
 viewModelOf(::FeatureViewModel)
 ```
 
-If the VM has runtime parameters (e.g. `initialDueDate`), use `viewModel { }`:
+## Navigation (AppDestination.kt + AppNavHost.kt)
+
 ```kotlin
-viewModel { (initialDueDate: LocalDate?) ->
-    TaskEditorViewModel(
-        deps = TaskEditorDeps(...),
-        initialDueDate = initialDueDate,
+// AppDestination.kt
+sealed interface AppDestination {
+    // ...
+    data object <Feature> : AppDestination
+}
+
+// AppNavHost.kt
+composable<AppDestination.<Feature>> {
+    <Feature>Screen(
+        onNavigateTo<Feature> = { id -> navigator.navigate(AppDestination.<Feature>Detail(id)) }
     )
 }
 ```
 
-## Navigation (Navigation.kt)
+## Subinterface Pattern — when to split a Repository
 
-Add to the bottom nav items in `HomeTab()`:
+When a feature grows to encompass multiple bounded contexts, split the repository into sub-interfaces registered separately in DI.
+
+**Example: NoteTagRepository** (Phase 3)
+
+Notes and tags have a many-to-many relationship. Instead of bloating `NotesRepository` with tag-specific methods, create a dedicated sub-interface:
 
 ```kotlin
-sealed class BottomNavItem(val route: String, val title: String, val icon: String) {
-    // ...
-    data object <Feature> : BottomNavItem("feature", "<Feature>", Icons.Default.Folder)
+// NoteTagRepository is a SEPARATE interface from NotesRepository
+interface NoteTagRepository {
+    fun watchTags(noteId: NoteId): Flow<List<Tag>>
+    fun watchNotesForTag(tagId: TagId): Flow<List<Note>>
+    suspend fun setTags(noteId: NoteId, tagIds: Set<TagId>): Result<Unit>
 }
 
-// In the NavHost / when-based routing:
-is BottomNavItem.<Feature> -> <Feature>Screen()
+// NotesRepository stays focused on note CRUD:
+interface NotesRepository {
+    fun watchAll(userId: UserId): Flow<List<Note>>
+    fun watchNote(id: NoteId): Flow<Note?>
+    suspend fun createWithContent(...): Result<NoteId>
+    suspend fun updateContent(...): Result<Unit>
+    suspend fun softDelete(id: NoteId): Result<Unit>
+    // Note: tag operations are NOT here — they live in NoteTagRepository
+}
 ```
+
+**Why separate?**
+- `NoteTagRepository` has a different data access pattern (many-to-many cross-ref)
+- Adding tag methods to `NotesRepository` would bloat it with cross-cutting concerns
+- `FakeNoteTagRepository` can be tested independently
+- DI bindings are cleaner: `single<NoteTagRepository> { RoomNoteTagRepository(get(), get()) }`
+
+**DI registration:**
+```kotlin
+// NotesTagDiModule.kt (separate module for clarity)
+fun notesTagModule(): Module = module {
+    single<NoteTagRepository> { RoomNoteTagRepository(get(), get()) }
+}
+```
+
+**Using both in a ViewModel:**
+```kotlin
+class NotesViewModel(
+    private val notesRepo: NotesRepository,
+    private val tagRepo: NoteTagRepository,
+    // ...
+) : ViewModel() {
+    // tag operations via tagRepo, note operations via notesRepo
+}
+```
+
+## When to use Subinterface vs extending the main Repository
+
+| Situation | Pattern |
+|---|---|
+| Many-to-many relationship (notes ↔ tags) | Subinterface (`NoteTagRepository`) |
+| Plugin-like extensibility (AI tools) | `@IntoSet` on individual tool classes |
+| Read vs write concerns (watchAll vs mutate) | Keep in same repo, different method families |
+| Different storage backends | Subinterface with different implementations |
 
 ## Co-located Tests
 
@@ -239,8 +231,7 @@ class <Feature>ViewModelTest {
     private fun createVm(
         repo: <Feature>Repository = Fake<Feature>Repository(),
         createUseCase: Create<Feature>UseCase = Create<Feature>UseCase(repo, FixedClock()),
-        settings: SettingsRepository = FakeSettingsRepository("user-1"),
-    ) = <Feature>ViewModel(repo, createUseCase, settings)
+    ) = <Feature>ViewModel(repo, createUseCase, FakeSettingsRepository("user-1"))
 
     @Test fun `deletes item`() = runTest {
         val vm = createVm()
@@ -250,10 +241,11 @@ class <Feature>ViewModelTest {
 }
 ```
 
-## Anti-patterns to avoid
+## Anti-patterns to Avoid
 
 1. **`runBlocking` in VM constructor** — use `userIdFlow: Flow<UserId>` + `combine(filter, userId) { ... }`
 2. **Pass-through use cases** — `GetX`, `DeleteX`, `ToggleX` that do `repo.X().getOrThrow()`
 3. **`require { throw ... }` inside the `require` lambda** — `require` itself throws; the lambda body never runs
 4. **`java.io.File` directly** — use the `FileSystem` port
 5. **MockK / Mockito** — use `Fake<Feature>Repository()`
+6. **Adding tag/attachment operations to the main repository** — use subinterface instead

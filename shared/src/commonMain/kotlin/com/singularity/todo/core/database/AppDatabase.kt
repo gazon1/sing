@@ -2,6 +2,7 @@ package com.singularity.todo.core.database
 
 import androidx.room3.Database
 import androidx.room3.RoomDatabase
+import androidx.room3.AutoMigration
 import androidx.room3.ColumnTypeConverters
 import com.singularity.todo.core.attachments.AttachmentConverters
 import com.singularity.todo.core.attachments.AttachmentDao
@@ -25,7 +26,11 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         TaskReminderEntity::class,
         ChecklistItemEntity::class
     ],
-    version = 5,
+    version = 7,
+    autoMigrations = [
+        AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
+        AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
+    ],
     exportSchema = true
 )
 @ColumnTypeConverters(AttachmentConverters::class)

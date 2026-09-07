@@ -61,6 +61,7 @@ fun <T> NotificationHost(
         Notification.Dismiss -> {
             notification = null
         }
+        Notification.None -> { /* handled via other UI (e.g. animation) */ }
         null -> { /* nothing to show */ }
     }
 }
