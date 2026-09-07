@@ -29,6 +29,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ## Per-tag
 
+### `agent`
+
+- AI-агенты получают нативный доступ к данным без UI _(from `2026-09-07-dogfooding-mcp-server`)_
+- Dogfooding-профиль "AI Agent" (🤖) изолирует агентские задачи от пользовательских _(from `2026-09-07-dogfooding-mcp-server`)_
+- ZCode подключается через `mcpServers.singularity-todo` в настройках _(from `2026-09-07-dogfooding-mcp-server`)_
+- Все token usage пишется в `llm_usage` с `profile_id=ai-agent` _(from `2026-09-07-dogfooding-mcp-server`)_
+- Новый Gradle-модуль `:mcp-server` с dependency на shared _(from `2026-09-07-dogfooding-mcp-server`)_
+
 ### `ai`
 
 - A passing `:androidApp:assembleDebug` is the cross-platform smoke test (it would have failed under the old stub). _(from `2026-09-05-koog-both-platforms`)_
@@ -156,6 +164,26 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - When the script's grep is broken (a stray `runBlocking` appears), fix it immediately; the helper exists specifically so this is detectable. _(from `2026-09-05-koin-suspend-bridge`)_
 - **Правило подтверждено:** `koinBridge` только для one-shot startup suspend reads _(from `2026-09-06-koin-bridge-audit`)_
 
+### `dogfooding`
+
+- 4 ADR entries created + DIGEST.md refreshed _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- AI Usage screen в Settings _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- AI-агенты получают нативный доступ к данным без UI _(from `2026-09-07-dogfooding-mcp-server`)_
+- Dogfooding-профиль "AI Agent" (🤖) изолирует агентские задачи от пользовательских _(from `2026-09-07-dogfooding-mcp-server`)_
+- `ProfileAwareCurrentUser` инжектится во все write-tools _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- Room schema v8 с `llm_usage` table + `profiles` table _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- ZCode подключается с `--profile=ai-agent` → все операции в профиле ai-agent _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- ZCode подключается через `mcpServers.singularity-todo` в настройках _(from `2026-09-07-dogfooding-mcp-server`)_
+- Все token usage пишется в `llm_usage` с `profile_id=ai-agent` _(from `2026-09-07-dogfooding-mcp-server`)_
+- Новый Gradle-модуль `:mcp-server` с dependency на shared _(from `2026-09-07-dogfooding-mcp-server`)_
+
+### `error-handling`
+
+- AI-агент парсит `isError: true` из result text для business errors _(from `2026-09-07-mcp-tool-error-model`)_
+- `ErrorMapper.kt` преобразует `Result<T>` в `JsonRpcError` _(from `2026-09-07-mcp-tool-error-model`)_
+- `McpToolError.kt` в `feature/ai/mcp/errors/` _(from `2026-09-07-mcp-tool-error-model`)_
+- Все write-tools используют `Result<T>` и `mapCatching` для internal errors _(from `2026-09-07-mcp-tool-error-model`)_
+
 ### `events`
 
 - **8 экранов мигрируют одновременно** — невозможно сделать постепенную миграцию из-за смены типа `_events` _(from `2026-09-05-ui-event-per-feature`)_
@@ -169,6 +197,20 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - All JetBrains compose library versions MUST track `version.ref = "composeMultiplatform"`. Split-version declarations are forbidden unless the artifact is an AndroidX (not JetBrains) group. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 - The `checkJvmMainComposeLibrariesCompatibility` task must pass silently on every PR. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 - When adding a new third-party Compose dependency, verify its JetBrains compose `requires:` constraint in the Gradle module metadata (`.module` file in cache) before adding — if it demands a version newer than the current pin, either bump or find an alternative. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
+
+### `idempotency`
+
+- Auto-migration v9 добавляет unique index на `(idempotency_key, user_id)` where not null _(from `2026-09-07-write-tools-in-koog-registry`)_
+- `TaskEntity` получает `@ColumnInfo("idempotency_key") val idempotencyKey: String?` _(from `2026-09-07-write-tools-in-koog-registry`)_
+- `TaskRepository` получает `findByIdempotencyKey(key, userId)` метод _(from `2026-09-07-write-tools-in-koog-registry`)_
+- Все 17+ tools следуют этому контракту _(from `2026-09-07-write-tools-in-koog-registry`)_
+
+### `json-rpc`
+
+- AI-агент парсит `isError: true` из result text для business errors _(from `2026-09-07-mcp-tool-error-model`)_
+- `ErrorMapper.kt` преобразует `Result<T>` в `JsonRpcError` _(from `2026-09-07-mcp-tool-error-model`)_
+- `McpToolError.kt` в `feature/ai/mcp/errors/` _(from `2026-09-07-mcp-tool-error-model`)_
+- Все write-tools используют `Result<T>` и `mapCatching` для internal errors _(from `2026-09-07-mcp-tool-error-model`)_
 
 ### `kermit`
 
@@ -236,11 +278,28 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `koog`
 
+- AI-агенты получают нативный доступ к данным без UI _(from `2026-09-07-dogfooding-mcp-server`)_
 - A passing `:androidApp:assembleDebug` is the cross-platform smoke test (it would have failed under the old stub). _(from `2026-09-05-koog-both-platforms`)_
+- Auto-migration v9 добавляет unique index на `(idempotency_key, user_id)` where not null _(from `2026-09-07-write-tools-in-koog-registry`)_
+- Dogfooding-профиль "AI Agent" (🤖) изолирует агентские задачи от пользовательских _(from `2026-09-07-dogfooding-mcp-server`)_
 - `JvmAiDiGraphTest` keeps its `LLModel` override as a safety belt — if someone reintroduces `OpenAIModels.*`, this test fails at graph-build time. _(from `2026-09-05-koog-test-workarounds`)_
+- `TaskEntity` получает `@ColumnInfo("idempotency_key") val idempotencyKey: String?` _(from `2026-09-07-write-tools-in-koog-registry`)_
+- `TaskRepository` получает `findByIdempotencyKey(key, userId)` метод _(from `2026-09-07-write-tools-in-koog-registry`)_
 - The old `JvmPromptExecutorPort` and `AndroidPromptExecutorPort` files are deleted. _(from `2026-09-05-koog-both-platforms`)_
 - The unified `KoogPromptExecutorPort` lives in `commonMain` and exposes `val executor: PromptExecutor` publicly for the platform `single<PromptExecutor>` binding. _(from `2026-09-05-koog-both-platforms`)_
 - When adding a new AI tool, **always** bind its use case with **explicit `get<ConcreteTool>()`** if the use case's parameter is `SimpleTool<T>`: _(from `2026-09-05-koog-test-workarounds`)_
+- ZCode подключается через `mcpServers.singularity-todo` в настройках _(from `2026-09-07-dogfooding-mcp-server`)_
+- Все 17+ tools следуют этому контракту _(from `2026-09-07-write-tools-in-koog-registry`)_
+- Все token usage пишется в `llm_usage` с `profile_id=ai-agent` _(from `2026-09-07-dogfooding-mcp-server`)_
+- Новый Gradle-модуль `:mcp-server` с dependency на shared _(from `2026-09-07-dogfooding-mcp-server`)_
+
+### `llm-usage`
+
+- 4 ADR entries created + DIGEST.md refreshed _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- AI Usage screen в Settings _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- `ProfileAwareCurrentUser` инжектится во все write-tools _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- Room schema v8 с `llm_usage` table + `profiles` table _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- ZCode подключается с `--profile=ai-agent` → все операции в профиле ai-agent _(from `2026-09-07-multi-profile-and-usage-tracking`)_
 
 ### `logging`
 
@@ -250,6 +309,30 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Koin logs (`NoDefinitionFoundException`, etc.) now appear in Kermit's output via `KermitKoinLogger`. _(from `2026-09-06-kermit-logging-setup`)_
 - On JVM, `ColorizedWriter` uses `\u001B` ANSI escapes. Older Windows terminals (pre-10) will print escape sequences literally. `NO_COLOR` env var is respected. _(from `2026-09-06-kermit-logging-setup`)_
 - `RefineTaskTool.kt:34-38` has identical try and catch branches (copy-paste bug) — not fixed in this PR. _(from `2026-09-06-kermit-logging-setup`)_
+
+### `mcp`
+
+- AI-агент парсит `isError: true` из result text для business errors _(from `2026-09-07-mcp-tool-error-model`)_
+- AI-агенты получают нативный доступ к данным без UI _(from `2026-09-07-dogfooding-mcp-server`)_
+- Auto-migration v9 добавляет unique index на `(idempotency_key, user_id)` where not null _(from `2026-09-07-write-tools-in-koog-registry`)_
+- Dogfooding-профиль "AI Agent" (🤖) изолирует агентские задачи от пользовательских _(from `2026-09-07-dogfooding-mcp-server`)_
+- `ErrorMapper.kt` преобразует `Result<T>` в `JsonRpcError` _(from `2026-09-07-mcp-tool-error-model`)_
+- `McpToolError.kt` в `feature/ai/mcp/errors/` _(from `2026-09-07-mcp-tool-error-model`)_
+- `TaskEntity` получает `@ColumnInfo("idempotency_key") val idempotencyKey: String?` _(from `2026-09-07-write-tools-in-koog-registry`)_
+- `TaskRepository` получает `findByIdempotencyKey(key, userId)` метод _(from `2026-09-07-write-tools-in-koog-registry`)_
+- ZCode подключается через `mcpServers.singularity-todo` в настройках _(from `2026-09-07-dogfooding-mcp-server`)_
+- Все 17+ tools следуют этому контракту _(from `2026-09-07-write-tools-in-koog-registry`)_
+- Все token usage пишется в `llm_usage` с `profile_id=ai-agent` _(from `2026-09-07-dogfooding-mcp-server`)_
+- Все write-tools используют `Result<T>` и `mapCatching` для internal errors _(from `2026-09-07-mcp-tool-error-model`)_
+- Новый Gradle-модуль `:mcp-server` с dependency на shared _(from `2026-09-07-dogfooding-mcp-server`)_
+
+### `multi-profile`
+
+- 4 ADR entries created + DIGEST.md refreshed _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- AI Usage screen в Settings _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- `ProfileAwareCurrentUser` инжектится во все write-tools _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- Room schema v8 с `llm_usage` table + `profiles` table _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- ZCode подключается с `--profile=ai-agent` → все операции в профиле ai-agent _(from `2026-09-07-multi-profile-and-usage-tracking`)_
 
 ### `navigation`
 
@@ -274,6 +357,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `NotesRepository.createWithContent` и `updateContent` сигнатуры изменились: добавлен параметр `bodyHtml: String`. _(from `2026-09-07-note-editor-body-load`)_
 - Все существующие тесты проходят — никаких изменений в тестовых вызовах не потребовалось (jvmTest зелёный). _(from `2026-09-07-note-editor-body-load`)_
 - При первом открытии старой заметки (без `bodyHtml`) — форматирование может отличаться от исходного (round-trip через markdown). Это accepted trade-off для legacy data. _(from `2026-09-07-note-editor-body-load`)_
+
+### `observability`
+
+- 4 ADR entries created + DIGEST.md refreshed _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- AI Usage screen в Settings _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- `ProfileAwareCurrentUser` инжектится во все write-tools _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- Room schema v8 с `llm_usage` table + `profiles` table _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+- ZCode подключается с `--profile=ai-agent` → все операции в профиле ai-agent _(from `2026-09-07-multi-profile-and-usage-tracking`)_
 
 ### `platform-module`
 
@@ -364,6 +455,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Use `UserId` from `feature.tasks`** — it's defined in `Ids.kt` there, imported explicitly. _(from `2026-09-05-robolectric-widget-tests`)_
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly. _(from `2026-09-05-robolectric-widget-tests`)_
 - When adding a new AI tool, **always** bind its use case with **explicit `get<ConcreteTool>()`** if the use case's parameter is `SimpleTool<T>`: _(from `2026-09-05-koog-test-workarounds`)_
+
+### `tools`
+
+- Auto-migration v9 добавляет unique index на `(idempotency_key, user_id)` where not null _(from `2026-09-07-write-tools-in-koog-registry`)_
+- `TaskEntity` получает `@ColumnInfo("idempotency_key") val idempotencyKey: String?` _(from `2026-09-07-write-tools-in-koog-registry`)_
+- `TaskRepository` получает `findByIdempotencyKey(key, userId)` метод _(from `2026-09-07-write-tools-in-koog-registry`)_
+- Все 17+ tools следуют этому контракту _(from `2026-09-07-write-tools-in-koog-registry`)_
 
 ### `ui`
 
@@ -492,10 +590,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-06-koin-bridge-audit` — koin  di  coroutines
 - `2026-09-06-koin-vm-viewmodelof-koinviewmodel` — koin  di  vm
 - `2026-09-07-backup-directory-via-koin-string` — koin  di  backup  platform-module
+- `2026-09-07-dogfooding-mcp-server` — mcp  dogfooding  koog  agent
 - `2026-09-07-fab-chrome-level` — ui  navigation  architecture
+- `2026-09-07-mcp-tool-error-model` — mcp  error-handling  json-rpc
+- `2026-09-07-multi-profile-and-usage-tracking` — multi-profile  llm-usage  observability  dogfooding
 - `2026-09-07-note-editor-body-load` — notes  room  rich-editor  di-graph
 - `2026-09-07-settings-fixes` — settings  ui  di-graph
 - `2026-09-07-settings-ux-improvements` — settings  ux  compose  koin
+- `2026-09-07-write-tools-in-koog-registry` — mcp  tools  koog  idempotency
 
 ## Active entries
 
@@ -523,10 +625,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-06-koin-vm-viewmodelof-koinviewmodel` — ViewModel DI: viewModelOf + koinViewModel() instead of factory + koinInject()
 - `2026-09-06-modular-justfile` — Modular justfile with .just/ submodules
 - `2026-09-07-backup-directory-via-koin-string` — Delete throwing backupDirectoryPath; resolve backup directory via Koin get<String>()
+- `2026-09-07-dogfooding-mcp-server` — Dogfooding MCP Server — ZCode Agent управляет задачами через stdio
 - `2026-09-07-fab-chrome-level` — FAB at chrome level — single source of truth in shells
+- `2026-09-07-mcp-tool-error-model` — MCP Tool Error Model — two-tier, JSON-RPC compatible
+- `2026-09-07-multi-profile-and-usage-tracking` — Multi-Profile and LLM Usage Tracking
 - `2026-09-07-note-editor-body-load` — NoteEditor body load — store HTML directly, fix RichTextState init
 - `2026-09-07-notes-internal-links-backlinks` — _(no title)
 - `2026-09-07-settings-fixes` — Settings layout fixes, reactive dark theme, LLM providers
 - `2026-09-07-settings-ux-improvements` — Settings UX improvements: swatches, time picker, connection badge, debounce, confirm dialogs
 - `2026-09-07-task-detail-archive-overflow` — _(no title)
 - `2026-09-07-task-detail-document-style` — _(no title)
+- `2026-09-07-write-tools-in-koog-registry` — Write Tools — idempotent контракт, dryRun, error model

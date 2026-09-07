@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,7 +44,7 @@ class SupabaseAuthRepository(
 
     init {
         sessionScope.launch {
-            val deviceId = sessionStore.deviceId.first()
+            val deviceId = sessionStore.getOrInitDeviceId()
             _session.value = Session.Anonymous(UserId.fromString(deviceId))
         }
     }
@@ -76,7 +75,7 @@ class SupabaseAuthRepository(
     }
 
     override suspend fun signInAnonymously(): Result<Unit> = runCatchingResult {
-        val deviceId = sessionStore.deviceId.first()
+        val deviceId = sessionStore.getOrInitDeviceId()
         _session.value = Session.Anonymous(UserId.fromString(deviceId))
     }
 

@@ -218,3 +218,100 @@ interface ChecklistDao {
     @Query("DELETE FROM checklist_items WHERE task_id = :taskId")
     suspend fun deleteByTask(taskId: String)
 }
+
+@Dao
+interface LlmUsageDao {
+    @androidx.room3.Upsert
+    suspend fun upsert(entity: LlmUsageEntity)
+
+    @Query("SELECT * FROM llm_usage WHERE profile_id = :profileId ORDER BY created_at DESC LIMIT :limit")
+    fun observeRecent(profileId: String, limit: Int): Flow<List<LlmUsageEntity>>
+
+    @Query("""
+        SELECT date(created_at / 1000, 'unixepoch') as date,
+               SUM(total_tokens) as totalTokens,
+               SUM(cost_usd_micros) as totalCostMicros,
+               COUNT(*) as callCount
+        FROM llm_usage
+        WHERE profile_id = :profileId
+          AND created_at >= :sinceEpochMs
+        GROUP BY date(created_at / 1000, 'unixepoch')
+        ORDER BY date DESC
+    """)
+    fun observeByDay(profileId: String, sinceEpochMs: Long): Flow<List<DailyUsageRow>>
+
+    @Query("""
+        SELECT tool_name as toolName,
+               SUM(total_tokens) as totalTokens,
+               SUM(cost_usd_micros) as totalCostMicros,
+               COUNT(*) as callCount
+        FROM llm_usage
+        WHERE profile_id = :profileId
+        GROUP BY tool_name
+        ORDER BY SUM(total_tokens) DESC
+    """)
+    fun observeByTool(profileId: String): Flow<List<ToolUsageRow>>
+
+    @Query("""
+        SELECT model_id as modelId,
+               SUM(total_tokens) as totalTokens,
+               SUM(cost_usd_micros) as totalCostMicros,
+               COUNT(*) as callCount
+        FROM llm_usage
+        WHERE profile_id = :profileId
+        GROUP BY model_id
+        ORDER BY SUM(total_tokens) DESC
+    """)
+    fun observeByModel(profileId: String): Flow<List<ModelUsageRow>>
+
+    @Query("DELETE FROM llm_usage WHERE created_at < :cutoffEpochMs")
+    suspend fun pruneOlderThan(cutoffEpochMs: Long)
+}
+
+/** Row type returned by observeByDay */
+data class DailyUsageRow(
+    val date: String,
+    val totalTokens: Long,
+    val totalCostMicros: Long?,
+    val callCount: Long,
+)
+
+/** Row type returned by observeByTool */
+data class ToolUsageRow(
+    val toolName: String,
+    val totalTokens: Long,
+    val totalCostMicros: Long?,
+    val callCount: Long,
+)
+
+/** Row type returned by observeByModel */
+data class ModelUsageRow(
+    val modelId: String,
+    val totalTokens: Long,
+    val totalCostMicros: Long?,
+    val callCount: Long,
+)
+
+// ─── Profile DAO ───────────────────────────────────────────────────────────────
+
+@Dao
+interface ProfileDao {
+
+    @Query("SELECT * FROM profiles ORDER BY created_at ASC")
+    fun all(): Flow<List<ProfileEntity>>
+
+    @Query("SELECT * FROM profiles WHERE id = :id")
+    suspend fun getById(id: String): ProfileEntity?
+
+    @Query("SELECT * FROM profiles WHERE is_default = 1 LIMIT 1")
+    suspend fun getDefault(): ProfileEntity?
+
+    @Upsert
+    suspend fun upsert(profile: ProfileEntity)
+
+    @Query("DELETE FROM profiles WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("SELECT COUNT(*) FROM profiles")
+    suspend fun count(): Int
+}

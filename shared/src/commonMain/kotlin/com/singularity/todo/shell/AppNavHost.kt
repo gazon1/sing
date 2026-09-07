@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.ai.chat.ChatScreen
+import com.singularity.todo.feature.ai.usage.AiUsageScreen
 import com.singularity.todo.feature.archive.ArchiveScreen
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AppNavigator
@@ -16,6 +17,7 @@ import com.singularity.todo.feature.notes.NoteEditorScreen
 import com.singularity.todo.feature.notes.NotesScreen
 import com.singularity.todo.feature.pomodoro.PomodoroScreen
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
+import com.singularity.todo.feature.profile.ProfileSwitcherScreen
 import com.singularity.todo.feature.projects.ProjectDetailScreen
 import com.singularity.todo.feature.projects.ProjectEditorScreen
 import com.singularity.todo.feature.projects.ProjectId
@@ -92,6 +94,12 @@ fun AppNavHost(
         }
         composable<AppDestination.Settings> {
             SettingsScreen()
+        }
+        composable<AppDestination.AiUsage> {
+            AiUsageScreen()
+        }
+        composable<AppDestination.ProfileSwitcher> {
+            ProfileSwitcherScreen(onBack = navigator::popBackStack)
         }
 
         // ─── Sub-routes (push on top of a tab) ──────────────────────────────

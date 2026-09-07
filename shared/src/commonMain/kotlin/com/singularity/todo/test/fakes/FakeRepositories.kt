@@ -1,6 +1,7 @@
 package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.auth.AuthRepository
+import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.backup.BackupId
@@ -24,6 +25,10 @@ import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.TaskRepository
 import com.singularity.todo.feature.tasks.TasksDomain
 import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.profile.Profile
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.profile.ProfileId
+import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -45,6 +50,8 @@ class FakeSessionStore(
     override val refreshToken = MutableStateFlow<String?>(null)
     override val userEmail = MutableStateFlow<String?>(null)
     override val deviceId = MutableStateFlow(initialUserId)
+
+    override suspend fun getOrInitDeviceId(): String = deviceId.value
 
     override suspend fun save(session: Session.SignedIn) {
         accessToken.value = session.accessToken
@@ -643,3 +650,86 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
         }
     }
 }
+
+// ─── ProfileRepository ──────────────────────────────────────────────────────────
+
+/**
+ * In-memory [ProfileRepository] for tests.
+ * Provides a default "Personal" profile so the app works without a real DataStore.
+ */
+class FakeProfileRepository : ProfileRepository {
+
+    private val _profiles = MutableStateFlow(
+        listOf(
+            Profile(
+                id = ProfileId.default,
+                name = "Personal",
+                emoji = "🏠",
+                colorIdx = 0,
+                isDefault = true,
+                createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            )
+        )
+    )
+
+    private val _activeProfileId = MutableStateFlow(ProfileId.default)
+
+    override fun all(): Flow<List<Profile>> = _profiles
+
+    override fun activeProfile(): Flow<Profile> = _activeProfileId.map { id ->
+        _profiles.value.find { it.id == id } ?: _profiles.value.first()
+    }
+
+    override val activeProfileId: StateFlow<ProfileId> = _activeProfileId
+
+    override suspend fun create(name: String, emoji: String, colorIdx: Int): ProfileId {
+        val id = ProfileId.generate()
+        _profiles.value = _profiles.value + Profile(
+            id = id,
+            name = name,
+            emoji = emoji,
+            colorIdx = colorIdx,
+            isDefault = false,
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+        )
+        return id
+    }
+
+    override suspend fun update(id: ProfileId, name: String, emoji: String, colorIdx: Int) {
+        _profiles.value = _profiles.value.map {
+            if (it.id == id) it.copy(name = name, emoji = emoji, colorIdx = colorIdx)
+            else it
+        }
+    }
+
+    override suspend fun delete(id: ProfileId): Result<Unit> {
+        if (_profiles.value.size <= 1) {
+            return Result.failure(IllegalStateException("Cannot delete the last remaining profile"))
+        }
+        _profiles.value = _profiles.value.filter { it.id != id }
+        if (_activeProfileId.value == id) {
+            _activeProfileId.value = _profiles.value.first().id
+        }
+        return Result.success(Unit)
+    }
+
+    override suspend fun switchTo(id: ProfileId) {
+        _activeProfileId.value = id
+    }
+
+    override suspend fun getById(id: ProfileId): Profile? =
+        _profiles.value.find { it.id == id }
+}
+
+/**
+ * Builds a [ProfileAwareCurrentUser] from a [FakeAuthRepository] + [FakeProfileRepository].
+ */
+fun FakeProfileAwareCurrentUser(
+    authRepository: AuthRepository = FakeAuthRepository(),
+    profileRepository: ProfileRepository = FakeProfileRepository(),
+): ProfileAwareCurrentUser = ProfileAwareCurrentUser(
+    currentUser = CurrentUser(authRepository),
+    profileRepository = profileRepository,
+)

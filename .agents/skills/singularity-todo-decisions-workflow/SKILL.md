@@ -107,6 +107,155 @@ The script is idempotent — running it on an already-fresh tree is a no-op that
   If you prefer not to use it, `grep` and `awk` work fine against the raw files.
   If you run `mdq` ad-hoc, the digest is pre-filtered for critical rules — start there.
 
+## ADR Tools — Automated Writing and Reading via AI
+
+The AI agent can create, list, and read ADR files directly through MCP tools. This automates the workflow: instead of manually creating `.md` files, the agent calls `write_adr`, `list_adrs`, and `read_adr` tools.
+
+### Template
+
+ADR files are created from this template (same as the human workflow):
+
+```kotlin
+// shared/src/commonMain/.../core/adr/AdrTemplate.kt
+object AdrTemplate {
+    private const val FRONTMATTER = """
+        |---
+        |title: "%s"
+        |date: %s
+        |tags: [%s]
+        |---
+        |
+        |## Context
+        |
+        |%s
+        |
+        |## Decision
+        |
+        |%s
+        |
+        |## Rationale
+        |
+        |%s
+        |
+        |## Consequences
+        |
+        |%s
+    """.trimMargin()
+
+    fun render(
+        title: String,
+        date: String,          // "YYYY-MM-DD"
+        tags: List<String>,
+        context: String,
+        decision: String,
+        rationale: String,
+        consequences: String,
+    ): String = FRONTMATTER.format(
+        title,
+        date,
+        tags.joinToString(", "),
+        context,
+        decision,
+        rationale,
+        consequences,
+    )
+}
+```
+
+### WriteAdrTool
+
+```kotlin
+// shared/src/commonMain/.../feature/ai/tools/WriteAdrTool.kt
+class WriteAdrTool(
+    private val notesRepo: NotesRepository,
+    private val markdownHtmlPort: MarkdownHtmlPort,
+    private val currentUser: CurrentUser,
+) : SimpleTool<WriteAdrInput>(...) {
+
+    override suspend fun execute(args: WriteAdrInput): String {
+        val content = AdrTemplate.render(
+            title = args.title,
+            date = LocalDate.now().toString(),
+            tags = listOf("adr"),
+            context = args.context,
+            decision = args.decision,
+            rationale = args.rationale,
+            consequences = args.consequences ?: "—",
+        )
+
+        // Write to docs/decisions/<date>-<slug>.md
+        val fileName = "${LocalDate.now()}-${args.slug}.md"
+        val filePath = docsDir.resolve(fileName)
+        filePath.writeText(content)
+
+        // Optionally create a linked note
+        val noteId = if (args.createNote) {
+            val html = markdownHtmlPort.toHtml(content)
+            notesRepo.createWithContent(
+                userId = currentUser.userId,
+                id = NoteId.fromString(UUID.randomUUID().toString()),
+                title = "ADR: ${args.title}",
+                bodyMarkdown = content,
+                bodyHtml = html,
+            ).getOrNull()?.value
+        } else null
+
+        return WriteAdrOutput(filePath = filePath.absolutePath, noteId = noteId).toJson()
+    }
+
+    companion object {
+        const val NAME = "adr.write"
+        const val DESCRIPTION = "Write a new ADR file to docs/decisions/. Optionally creates a linked note."
+    }
+}
+```
+
+### ListAdrsTool and ReadAdrTool
+
+```kotlin
+// shared/src/commonMain/.../feature/ai/tools/ListAdrsTool.kt
+class ListAdrsTool(private val docsDir: Path) : SimpleTool<ListAdrsInput>(...) {
+    override suspend fun execute(args: ListAdrsInput): String {
+        val files = docsDir.listDirectoryEntries("*.md")
+            .sortedDescending()
+            .map { it.nameWithoutExtension }
+        return ListAdrsOutput(slugs = files).toJson()
+    }
+    companion object { const val NAME = "adr.list" }
+}
+
+// shared/src/commonMain/.../feature/ai/tools/ReadAdrTool.kt
+class ReadAdrTool(private val docsDir: Path) : SimpleTool<ReadAdrInput>(...) {
+    override suspend fun execute(args: ReadAdrInput): String {
+        val file = docsDir.resolve("${args.slug}.md")
+        if (!file.exists()) {
+            return McpToolError.NotFound("ADR", args.slug).format(isError = true)
+        }
+        return ReadAdrOutput(content = file.readText(), slug = args.slug).toJson()
+    }
+    companion object { const val NAME = "adr.read" }
+}
+```
+
+### MCP Tool Annotations
+
+| Tool | Annotation |
+|---|---|
+| `adr.write` | `openWorldHint = true` (creates external file) |
+| `adr.list` | `readOnlyHint = true` |
+| `adr.read` | `readOnlyHint = true` |
+
+### Workflow Example
+
+An AI agent can now:
+1. Call `adr.list` → see all existing ADRs
+2. Call `adr.read("2026-09-05-koog-both-platforms")` → read the full content
+3. Call `adr.write(context="...", decision="...", ...)` → create a new ADR file
+
+This closes the loop: the agent decides architecturally AND records the decision automatically, in the same format humans use.
+
+See `singularity-todo-cli-tool-surface` for the tool contract (error mapping, authorization).
+
 #### Why this beats per-skill docs
 
 Per-skill docs accumulate. After six months you have 20 narrow skills, each 100 lines, each describing a different facet of the same system. The agent picks one based on the description, misses the others, and gets a partial picture. The digest is **one file**, fetched at session start, that consolidates rules. Per-decision entries are human-facing, the digest is agent-facing.

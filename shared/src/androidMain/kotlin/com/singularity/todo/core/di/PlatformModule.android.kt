@@ -49,6 +49,8 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().attachmentDao() }
     single { get<AppDatabase>().reminderDao() }
     single { get<AppDatabase>().checklistDao() }
+    single { get<AppDatabase>().llmUsageDao() }
+    single { get<AppDatabase>().profileDao() }
 
     // ─── DataStore ────────────────────────────────────────────────────────
 

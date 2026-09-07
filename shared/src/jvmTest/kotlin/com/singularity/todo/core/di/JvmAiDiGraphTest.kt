@@ -30,6 +30,20 @@ import com.singularity.todo.feature.ai.tools.GetTaskTool
 import com.singularity.todo.feature.ai.tools.ListLinkedTasksTool
 import com.singularity.todo.feature.ai.tools.ListTasksTool
 import com.singularity.todo.feature.ai.tools.SearchTasksTool
+import com.singularity.todo.feature.ai.tools.CreateTaskTool
+import com.singularity.todo.feature.ai.tools.UpdateTaskTool
+import com.singularity.todo.feature.ai.tools.DeleteTaskTool
+import com.singularity.todo.feature.ai.tools.CreateNoteTool
+import com.singularity.todo.feature.ai.tools.UpdateNoteTool
+import com.singularity.todo.feature.ai.tools.DeleteNoteTool
+import com.singularity.todo.feature.ai.tools.CreateProjectTool
+import com.singularity.todo.feature.ai.tools.UpdateProjectTool
+import com.singularity.todo.feature.ai.tools.CreateTagTool
+import com.singularity.todo.feature.ai.tools.DeleteTagTool
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.profile.ProfileRepository
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeProfileRepository
 import org.junit.Test
 import org.koin.dsl.module
 
@@ -40,11 +54,8 @@ import org.koin.dsl.module
  * and resolves every tool + use case + TextGenPort binding. Real LLM traffic
  * is NOT exercised — just the fact that the graph is well-formed.
  *
- * The production [aiToolsModule] binds `LLModel` to [KnownModels.GPT4oMini],
- * which builds via the public `LLModel` constructor and never touches
- * `OpenAIModels.<clinit>`. The override below is a safety belt: if someone
- * later reintroduces an `OpenAIModels.*` reference in the production graph,
- * this test will fail at graph-build time rather than at first use.
+ * Uses [FakeProfileRepository] and [FakeProfileAwareCurrentUser] to avoid
+ * needing a real DataStore in tests.
  *
  * Run with: ./gradlew :shared:jvmTest --tests "*JvmAiDiGraphTest"
  */
@@ -62,8 +73,13 @@ class JvmAiDiGraphTest {
             modules(
                 domainModule(),
                 platformModule(),
-                // Safety belt override — see class KDoc.
-                module { single<LLModel> { testLLModel } },
+                // Safety belt overrides — see class KDoc.
+                module {
+                    single<LLModel> { testLLModel }
+                    // Use fakes to avoid needing real DataStore
+                    single<ProfileRepository> { FakeProfileRepository() }
+                    single<ProfileAwareCurrentUser> { FakeProfileAwareCurrentUser() }
+                },
             )
         }
         try {
@@ -102,6 +118,17 @@ class JvmAiDiGraphTest {
             koin.get<ListLinkedTasksTool>()
             koin.get<ListTasksTool>()
             koin.get<SearchTasksTool>()
+            // Write tools
+            koin.get<CreateTaskTool>()
+            koin.get<UpdateTaskTool>()
+            koin.get<DeleteTaskTool>()
+            koin.get<CreateNoteTool>()
+            koin.get<UpdateNoteTool>()
+            koin.get<DeleteNoteTool>()
+            koin.get<CreateProjectTool>()
+            koin.get<UpdateProjectTool>()
+            koin.get<CreateTagTool>()
+            koin.get<DeleteTagTool>()
         } finally {
             org.koin.core.context.stopKoin()
         }

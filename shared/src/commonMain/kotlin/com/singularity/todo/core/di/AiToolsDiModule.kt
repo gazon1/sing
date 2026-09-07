@@ -30,6 +30,22 @@ import com.singularity.todo.feature.ai.tools.GetTaskTool
 import com.singularity.todo.feature.ai.tools.ListLinkedTasksTool
 import com.singularity.todo.feature.ai.tools.ListTasksTool
 import com.singularity.todo.feature.ai.tools.SearchTasksTool
+import com.singularity.todo.feature.ai.tools.CreateTaskTool
+import com.singularity.todo.feature.ai.tools.UpdateTaskTool
+import com.singularity.todo.feature.ai.tools.DeleteTaskTool
+import com.singularity.todo.feature.ai.tools.CreateNoteTool
+import com.singularity.todo.feature.ai.tools.UpdateNoteTool
+import com.singularity.todo.feature.ai.tools.DeleteNoteTool
+import com.singularity.todo.feature.ai.tools.CreateProjectTool
+import com.singularity.todo.feature.ai.tools.UpdateProjectTool
+import com.singularity.todo.feature.ai.tools.CreateTagTool
+import com.singularity.todo.feature.ai.tools.DeleteTagTool
+import com.singularity.todo.feature.ai.tools.ListAdrsTool
+import com.singularity.todo.feature.ai.tools.ReadAdrTool
+import com.singularity.todo.feature.ai.tools.WriteAdrTool
+import com.singularity.todo.feature.ai.usage.AiUsageViewModel
+import com.singularity.todo.feature.profile.ProfileSwitcherViewModel
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.ai.chat.ChatViewModel
 import com.singularity.todo.feature.tasks.TasksViewModel
 import com.singularity.todo.feature.projects.ProjectsViewModel
@@ -46,6 +62,9 @@ import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.projects.CreateProjectUseCase
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.core.observability.RoomUsageRecorder
+import com.singularity.todo.core.observability.UsageRecorder
+import com.singularity.todo.core.platform.Clock
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -62,7 +81,13 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
 
     single<TextGenPort> { KoogAgentService(get(), get(), get(), get(), get()) }
 
+    // ─── Token Usage Tracking ───
+
+    single<UsageRecorder> { RoomUsageRecorder(get(), get<Clock>()) }
+
     viewModelOf(::ChatViewModel)
+    viewModelOf(::AiUsageViewModel)
+    viewModelOf(::ProfileSwitcherViewModel)
 
     // ─── GenUI ───
 
@@ -111,6 +136,19 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
     factory { ListLinkedTasksTool(get()) }
     factory { ListTasksTool(get()) }
     factory { SearchTasksTool(get()) }
+    factory { CreateTaskTool(get(), get(), get()) }
+    factory { UpdateTaskTool(get(), get()) }
+    factory { DeleteTaskTool(get()) }
+    factory { CreateNoteTool(get(), get(), get()) }
+    factory { UpdateNoteTool(get(), get()) }
+    factory { DeleteNoteTool(get()) }
+    factory { CreateProjectTool(get(), get(), get()) }
+    factory { UpdateProjectTool(get(), get()) }
+    factory { CreateTagTool(get(), get(), get()) }
+    factory { DeleteTagTool(get()) }
+    factory { ListAdrsTool() }
+    factory { ReadAdrTool() }
+    factory { WriteAdrTool() }
 
     // ─── AI tools list for KoogAgentService ───
 
@@ -133,6 +171,19 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
             get<ListLinkedTasksTool>(),
             get<ListTasksTool>(),
             get<SearchTasksTool>(),
+            get<CreateTaskTool>(),
+            get<UpdateTaskTool>(),
+            get<DeleteTaskTool>(),
+            get<CreateNoteTool>(),
+            get<UpdateNoteTool>(),
+            get<DeleteNoteTool>(),
+            get<CreateProjectTool>(),
+            get<UpdateProjectTool>(),
+            get<CreateTagTool>(),
+            get<DeleteTagTool>(),
+            get<ListAdrsTool>(),
+            get<ReadAdrTool>(),
+            get<WriteAdrTool>(),
         )
     }
 

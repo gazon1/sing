@@ -24,7 +24,7 @@ class HlcFactory(
     private val nodeIdDeferred: Deferred<String> = CoroutineScope(Dispatchers.IO + SupervisorJob()).let { scope ->
         kotlinx.coroutines.CompletableDeferred<String>().also { deferred ->
             scope.launch {
-                deferred.complete(sessionStore.deviceId.first())
+                deferred.complete(sessionStore.getOrInitDeviceId())
             }
         }
     }

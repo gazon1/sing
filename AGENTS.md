@@ -118,6 +118,82 @@ runTest {
 
 ---
 
+## 🤖 Dogfooding: MCP Server + ZCode Agent
+
+ZCode / Claude Code / Cursor подключается к `:mcp-server` через stdio и управляет задачами, проектами, заметками, тегами и ADR напрямую.
+
+### Структура MCP сервера
+
+```
+mcp-server/src/main/kotlin/com/singularity/todo/mcp/
+  Main.kt                  — точка входа, stdio transport
+  ToolRegistrar.kt         — Koog SimpleTool → MCP Tool adapter
+  ToolAnnotations.kt       — readOnly/destructive/idempotent/openWorld
+  errors/
+    McpToolError.kt       — Validation/NotFound/Conflict/Unauthorized/Internal
+    ErrorMapper.kt         — → isError:true или -32603 JSON-RPC
+  pagination/
+    CursorCodec.kt        — URL-safe Base64 cursor для list-пагинации
+```
+
+### Доступные MCP tools
+
+**Write tools (idempotent, destructive где нужно):**
+`create_task`, `update_task`, `delete_task`, `create_note`, `update_note`, `delete_note`, `create_project`, `update_project`, `create_tag`, `delete_tag`, `write_adr`
+
+**Read/List tools:**
+`get_task`, `list_tasks`, `search_tasks`, `list_linked_tasks`, `get_note`, `get_project`, `list_adrs`, `read_adr`
+
+**AI Gen tools:**
+`refine_task`, `smart_rewrite`, `generate_description`, `decompose_task`, `generate_checklist`, `pick_time`, `cluster_tasks`, `cluster_notes`, `project_review`, `weekly_plan`, `improve_note`
+
+### Подключение в ZCode
+
+```bash
+# В ZCode config (.zcode/settings.json или MCP servers):
+{
+  "mcpServers": {
+    "singularity-todo": {
+      "command": "java",
+      "args": ["-jar", "build/libs/mcp-server-jvm.jar", "--profile=ai-agent"]
+    }
+  }
+}
+```
+
+### Запуск вручную
+
+```bash
+./gradlew :mcp-server:build
+java -jar mcp-server/build/libs/mcp-server-jvm-*.jar
+```
+
+### Token observability
+
+Каждый вызов AI tool записывается в `llm_usage` (Room v8):
+- `input_tokens`, `output_tokens`, `total_tokens`
+- `cost_usd_micros` (по pricing table)
+- `duration_ms`
+- `profile_id` (из `ProfileAwareCurrentUser`)
+
+Просмотр: **Settings → AI Usage** или `/run-android` → UI Automation.
+
+### Multi-profile
+
+Профили изолируют данные. ZCode подключается с `--profile=ai-agent`:
+- Профиль "AI Agent" (🤖) — для dogfooding
+- Профиль "Personal" (🏠) — для своих задач
+- Переключение: Settings → Profiles
+
+### Важные ограничения
+
+- MCP tools **не меняют** state напрямую — только через репозитории (как обычные VMs)
+- `write_adr` создаёт `.md` файлы в `docs/decisions/`
+- Все timestamps — `kotlin.time.Instant` (проектный `Clock.now()`)
+- Ошибки: business errors → `isError:true`, internal → `-32603`
+
+---
+
 ## 🔧 Run-loop для агента (UI-верификация)
 
 ### Android (UI Automator через MCP)
@@ -198,9 +274,12 @@ Skill-ов немного и они узкие. **Большинство арх�
 | `singularity-todo-decisions-workflow` | Создание/обновление записей в `docs/decisions/`. Прочитать один раз для понимания формата. |
 | `singularity-todo-feature-scaffold` | Новая CRUD-фича (Task, Note, Project, Tag, ...) |
 | `singularity-todo-ai-tool` | Новый Koog `SimpleTool<T>` |
+| `singularity-todo-mcp-server` | MCP-сервер, Koog→MCP adapter, ToolRegistrar |
+| `singularity-todo-multi-profile` | Profile domain, ProfileRepository, ProfileAwareCurrentUser |
+| `singularity-todo-llm-usage-tracking` | UsageRecorder, LlmUsageEntity, pricing table, AI Usage screen |
 | `singularity-todo-attachments` | Файл-вложения, upload, storage |
 | `singularity-todo-backup` | BackupExporter/Importer, DSL builders, BackupCodec |
-| `singularity-todo-koin-di` | Koin `@Module`, `@IntoSet`, `koinBridge` |
+| `singularity-todo-koin-di` | Koin '@Module', '@IntoSet', `koinBridge` |
 | `singularity-todo-koog-agent` | Koog агент — паттерн (НЕ кросс-платформенная; см. decision `2026-09-05-koog-both-platforms`) |
 | `singularity-todo-secure-storage` | SecureStoragePort, secret-tool, EncryptedSharedPreferences |
 | `singularity-todo-sync` | HLC, ConflictResolver, SyncOutbox, Supabase API |

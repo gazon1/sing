@@ -50,7 +50,8 @@ private fun fabActionForDesktop(current: AppDestination, navigator: AppNavigator
     AppDestination.Notes -> FabAction("Add note") {
         navigator.navigate(AppDestination.NoteEditor())
     }
-    AppDestination.Habits, AppDestination.Calendar, AppDestination.Archive -> null
+    AppDestination.Habits, AppDestination.Calendar, AppDestination.Archive,
+    AppDestination.AiUsage, AppDestination.ProfileSwitcher -> null
     else -> null
 }
 
@@ -66,6 +67,8 @@ private fun AppDestination.toNavDestination(): NavDestination = when (this) {
     AppDestination.Search -> NavDestination.Search
     AppDestination.Archive -> NavDestination.Archive
     AppDestination.Settings -> NavDestination.Settings
+    AppDestination.AiUsage -> NavDestination.Settings
+    AppDestination.ProfileSwitcher -> NavDestination.Settings
     is AppDestination.TaskDetail -> NavDestination.Tasks
     is AppDestination.TaskEditor -> NavDestination.Tasks
     is AppDestination.NoteDetail -> NavDestination.Notes

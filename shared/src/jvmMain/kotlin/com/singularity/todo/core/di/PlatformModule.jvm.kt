@@ -44,17 +44,16 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().attachmentDao() }
     single { get<AppDatabase>().reminderDao() }
     single { get<AppDatabase>().checklistDao() }
+    single { get<AppDatabase>().llmUsageDao() }
+    single { get<AppDatabase>().profileDao() }
 
     // ─── DataStore ──────────────────────────────────────────────────────
 
     single<androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>> {
-        object : androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> {
-            private val prefs = androidx.datastore.preferences.core.emptyPreferences()
-            override val data: kotlinx.coroutines.flow.Flow<androidx.datastore.preferences.core.Preferences> =
-                kotlinx.coroutines.flow.flowOf(prefs)
-            override suspend fun updateData(
-                transform: suspend (androidx.datastore.preferences.core.Preferences) -> androidx.datastore.preferences.core.Preferences
-            ): androidx.datastore.preferences.core.Preferences = transform(prefs)
+        androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
+            java.io.File(System.getProperty("user.home") + "/.singularity-todo/settings.preferences_pb").also {
+                it.parentFile?.mkdirs()
+            }
         }
     }
 

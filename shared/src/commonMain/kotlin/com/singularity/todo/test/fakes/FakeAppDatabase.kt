@@ -15,6 +15,10 @@ import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
+import com.singularity.todo.core.database.LlmUsageDao
+import com.singularity.todo.core.database.LlmUsageEntity
+import com.singularity.todo.core.database.ProfileDao
+import com.singularity.todo.core.database.ProfileEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +46,8 @@ class FakeAppDatabase : AppDatabase() {
     private val _attachments = MutableStateFlow<Map<String, AttachmentEntity>>(emptyMap())
     private val _reminders = MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>(emptyMap())
     private val _checklist = MutableStateFlow<Map<String, ChecklistItemEntity>>(emptyMap())
+    private val _llmUsage = MutableStateFlow<Map<String, LlmUsageEntity>>(emptyMap())
+    private val _profiles = MutableStateFlow<Map<String, ProfileEntity>>(emptyMap())
 
     override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
@@ -51,6 +57,8 @@ class FakeAppDatabase : AppDatabase() {
     override fun attachmentDao(): AttachmentDao = FakeAttachmentDao(_attachments)
     override fun reminderDao(): ReminderDao = FakeReminderDao(_reminders)
     override fun checklistDao(): ChecklistDao = FakeChecklistDao(_checklist)
+    override fun llmUsageDao(): LlmUsageDao = FakeLlmUsageDao(_llmUsage)
+    override fun profileDao(): ProfileDao = FakeProfileDao(_profiles)
 
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
@@ -62,6 +70,8 @@ class FakeAppDatabase : AppDatabase() {
         _attachments.value = emptyMap()
         _reminders.value = emptyMap()
         _checklist.value = emptyMap()
+        _llmUsage.value = emptyMap()
+        _profiles.value = emptyMap()
     }
 
     // ─── Seed helpers ────────────────────────────────────────────────────────
@@ -77,6 +87,8 @@ class FakeAppDatabase : AppDatabase() {
         _reminders.value = items.associateBy { it.userId to it.id }
     }
     fun seedChecklist(items: List<ChecklistItemEntity>) { _checklist.value = items.associateBy { it.id } }
+    fun seedLlUsage(items: List<LlmUsageEntity>) { _llmUsage.value = items.associateBy { it.id } }
+    fun seedProfiles(items: List<ProfileEntity>) { _profiles.value = items.associateBy { it.id } }
 }
 
 // ─── TaskDao ─────────────────────────────────────────────────────────────────
@@ -400,4 +412,95 @@ private class FakeChecklistDao(
     override suspend fun deleteByTask(taskId: String) {
         store.update { current -> current.filterValues { c -> c.taskId != taskId } }
     }
+}
+
+// ─── LlmUsageDao ────────────────────────────────────────────────────────────────
+
+private class FakeLlmUsageDao(
+    private val store: MutableStateFlow<Map<String, LlmUsageEntity>>,
+) : LlmUsageDao {
+
+    override suspend fun upsert(entity: LlmUsageEntity) {
+        store.update { it + (entity.id to entity) }
+    }
+
+    override fun observeRecent(profileId: String, limit: Int): kotlinx.coroutines.flow.Flow<List<LlmUsageEntity>> =
+        store.map { it.values.filter { e -> e.profileId == profileId }.sortedByDescending { it.createdAt }.take(limit) }
+
+    override fun observeByDay(profileId: String, sinceEpochMs: Long): kotlinx.coroutines.flow.Flow<List<com.singularity.todo.core.database.DailyUsageRow>> =
+        store.map { rows ->
+            rows.values
+                .filter { it.profileId == profileId && it.createdAt >= sinceEpochMs }
+                .groupBy { java.time.Instant.ofEpochMilli(it.createdAt).toString().take(10) }
+                .map { (date, items) ->
+                    com.singularity.todo.core.database.DailyUsageRow(
+                        date = date,
+                        totalTokens = items.sumOf { it.totalTokens }.toLong(),
+                        totalCostMicros = items.mapNotNull { it.costUsdMicros }.takeIf { it.isNotEmpty() }?.sum(),
+                        callCount = items.size.toLong(),
+                    )
+                }
+                .sortedByDescending { it.date }
+        }
+
+    override fun observeByTool(profileId: String): kotlinx.coroutines.flow.Flow<List<com.singularity.todo.core.database.ToolUsageRow>> =
+        store.map { rows ->
+            rows.values
+                .filter { it.profileId == profileId }
+                .groupBy { it.toolName }
+                .map { (tool, items) ->
+                    com.singularity.todo.core.database.ToolUsageRow(
+                        toolName = tool,
+                        totalTokens = items.sumOf { it.totalTokens }.toLong(),
+                        totalCostMicros = items.mapNotNull { it.costUsdMicros }.takeIf { it.isNotEmpty() }?.sum(),
+                        callCount = items.size.toLong(),
+                    )
+                }
+                .sortedByDescending { it.totalTokens }
+        }
+
+    override fun observeByModel(profileId: String): kotlinx.coroutines.flow.Flow<List<com.singularity.todo.core.database.ModelUsageRow>> =
+        store.map { rows ->
+            rows.values
+                .filter { it.profileId == profileId }
+                .groupBy { it.modelId }
+                .map { (model, items) ->
+                    com.singularity.todo.core.database.ModelUsageRow(
+                        modelId = model,
+                        totalTokens = items.sumOf { it.totalTokens }.toLong(),
+                        totalCostMicros = items.mapNotNull { it.costUsdMicros }.takeIf { it.isNotEmpty() }?.sum(),
+                        callCount = items.size.toLong(),
+                    )
+                }
+                .sortedByDescending { it.totalTokens }
+        }
+
+    override suspend fun pruneOlderThan(cutoffEpochMs: Long) {
+        store.update { it.filterValues { e -> e.createdAt >= cutoffEpochMs } }
+    }
+}
+
+// ─── ProfileDao ─────────────────────────────────────────────────────────────────
+
+private class FakeProfileDao(
+    private val store: MutableStateFlow<Map<String, ProfileEntity>>,
+) : ProfileDao {
+
+    override fun all(): Flow<List<ProfileEntity>> =
+        store.map { it.values.sortedBy { p -> p.createdAt } }
+
+    override suspend fun getById(id: String): ProfileEntity? = store.value[id]
+
+    override suspend fun getDefault(): ProfileEntity? =
+        store.value.values.find { it.isDefault }
+
+    override suspend fun upsert(profile: ProfileEntity) {
+        store.update { it + (profile.id to profile) }
+    }
+
+    override suspend fun deleteById(id: String) {
+        store.update { it - id }
+    }
+
+    override suspend fun count(): Int = store.value.size
 }

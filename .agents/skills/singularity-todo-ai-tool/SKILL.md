@@ -214,3 +214,195 @@ prompt(Prompt.Empty, KoogClock.System) { system("..."); user("...") }
 | `ListTasksTool` | filters | — (KoogAgentService internal) |
 | `ListLinkedTasksTool` | noteId | — (KoogAgentService internal) |
 | `SearchTasksTool` | query | — (KoogAgentService internal) |
+
+## Write Tools — Contract for State-Modifying Tools
+
+**Read tools** (get/list/search) follow the pattern above. **Write tools** (create/update/delete) have additional requirements:
+
+For full contract (idempotency, authorization, dry-run, error mapping, usage recording), see `singularity-todo-cli-tool-surface`.
+
+### Write Tool Files
+
+After adding all write tools, the complete tool list will be:
+
+| Tool | Input | Notes |
+|---|---|---|
+| `CreateTaskTool` | title, description?, priority?, projectId?, tagIds?, dueDate? | Creates via CreateTaskUseCase |
+| `UpdateTaskTool` | taskId, title?, description?, priority?, projectId?, dueDate? | Auth check: task.userId == currentUser |
+| `CompleteTaskTool` | taskId, completed: Boolean | toggleComplete |
+| `DeleteTaskTool` | taskId, dryRun: Boolean = true | softDelete, destructiveHint=true |
+| `RestoreTaskTool` | taskId | restore |
+| `PinTaskTool` | taskId, pinned: Boolean | togglePinned |
+| `SetTaskPriorityTool` | taskId, priority: Int (0-4) | update with priority |
+| `SetTaskDueDateTool` | taskId, dueDate: String? (ISO-8601) | update with dueDate |
+| `MoveTaskToProjectTool` | taskId, projectId: String? | update with projectId |
+| `CreateProjectTool` | name, description?, color?, icon? | Creates via CreateProjectUseCase |
+| `DeleteProjectTool` | projectId | soft delete, destructiveHint=true |
+| `CreateNoteTool` | title, bodyMarkdown, color?, folder? | Converts markdown→html via MarkdownHtmlPort |
+| `ArchiveNoteTool` | noteId | archive, destructiveHint=true |
+| `PinNoteTool` | noteId, pinned: Boolean | setPinned |
+| `CreateTagTool` | name, color? | Creates via TagsRepository |
+| `AssignTagTool` | taskId, tagId | setTags |
+| `DecomposeAndCreateTool` | taskId | DecomposeTaskUseCase + ChecklistRepository.createBatch |
+| `CompleteChecklistItemTool` | itemId, completed: Boolean | upsert checklist item |
+| `WriteAdrTool` | title, slug, context, decision, rationale, consequences?, createNote: Boolean | Writes file to docs/decisions/ |
+| `ListAdrsTool` | — | Lists .md files from docs/decisions/ |
+| `ReadAdrTool` | slug | Reads single .md file from docs/decisions/ |
+
+### Minimal Write Tool Pattern
+
+```kotlin
+package com.singularity.todo.feature.ai.tools
+
+import ai.koog.agents.core.tools.SimpleTool
+import ai.koog.serialization.TypeToken
+import com.singularity.todo.feature.tasks.CreateTaskUseCase
+import com.singularity.todo.core.auth.CurrentUser
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class CreateTaskInput(
+    val title: String,
+    val description: String? = null,
+    val priority: Int? = null,
+    val projectId: String? = null,
+    val idempotencyKey: String? = null,
+    val dryRun: Boolean = false,
+)
+
+@Serializable
+data class CreateTaskOutput(
+    val taskId: String,
+    val status: String,
+    val dryRunSkipped: Boolean = false,
+    val cached: Boolean = false,
+)
+
+class CreateTaskTool(
+    private val createTask: CreateTaskUseCase,
+    private val currentUser: CurrentUser,
+) : SimpleTool<CreateTaskInput>(TypeToken.of(CreateTaskInput::class.java), NAME, DESCRIPTION) {
+
+    override suspend fun execute(args: CreateTaskInput): String {
+        if (args.dryRun) {
+            return kotlinx.serialization.json.Json.encodeToString(
+                CreateTaskOutput.serializer(),
+                CreateTaskOutput(taskId = "(dry-run)", status = "validated", dryRunSkipped = true)
+            )
+        }
+
+        val input = CreateTaskInput(
+            title = args.title,
+            description = args.description,
+            priority = args.priority,
+            projectId = args.projectId,
+        )
+
+        return createTask(input).fold(
+            onSuccess = { id ->
+                kotlinx.serialization.json.Json.encodeToString(
+                    CreateTaskOutput.serializer(),
+                    CreateTaskOutput(taskId = id.value, status = "created")
+                )
+            },
+            onFailure = { error ->
+                // Return error as JSON string — MCP server layer maps to isError=true
+                """{"error": "${error.message}"}"""
+            }
+        )
+    }
+
+    companion object {
+        const val NAME = "tasks.create"
+        const val DESCRIPTION = "Create a new task. Returns the taskId."
+    }
+}
+```
+
+### Usage Recording in Write Tools
+
+Every write tool should record token usage via `UsageRecorder`:
+
+```kotlin
+class CreateTaskTool(
+    private val createTask: CreateTaskUseCase,
+    private val currentUser: CurrentUser,
+    private val usageRecorder: UsageRecorder,    // ← new dependency
+) : SimpleTool<CreateTaskInput>(...) {
+
+    override suspend fun execute(args: CreateTaskInput): String {
+        val start = kotlin.time.Clock.System.now()
+        return createTask(args).fold(
+            onSuccess = { id ->
+                usageRecorder.record(ToolUsageEvent(
+                    toolName = NAME,
+                    modelId = "n/a",         // data tool, no LLM
+                    inputTokens = 0,
+                    outputTokens = 0,
+                    totalTokens = 0,
+                    costUsdMicros = null,
+                    durationMs = (kotlin.time.Clock.System.now() - start).inWholeMilliseconds,
+                    profileId = currentUser.profileId,
+                    error = null,
+                ))
+                CreateTaskOutput(taskId = id.value, status = "created").toJson()
+            },
+            onFailure = { ... }
+        )
+    }
+}
+```
+
+See `singularity-todo-llm-usage-tracking` for the full `UsageRecorder` pattern.
+
+### Tool Annotations
+
+Every tool registered in `AiToolsDiModule.kt` must specify its annotation for MCP exposure:
+
+```kotlin
+// In ToolAnnotations.kt (mcp-server module):
+val TOOL_ANNOTATIONS = mapOf(
+    "tasks.create" to ToolAnnotations(idempotentHint = true),
+    "tasks.delete" to ToolAnnotations(destructiveHint = true),
+    "tasks.list" to ToolAnnotations(readOnlyHint = true),
+    // ...
+)
+```
+
+See `singularity-todo-cli-tool-surface` for the complete annotation table.
+
+### Required Unit Tests
+
+Every write tool must have a test in `commonTest`:
+
+```kotlin
+class CreateTaskToolTest() {
+    @Test
+    fun `creates task and returns taskId`() = runTest {
+        val tool = CreateTaskTool(FakeCreateTaskUseCase(), FakeCurrentUser("user-1"))
+        val result = tool.execute(CreateTaskInput(title = "Test task"))
+        val output = Json.decodeFromString<CreateTaskOutput>(result)
+        assertEquals("created", output.status)
+        assertTrue(output.taskId.startsWith("task-"))
+    }
+
+    @Test
+    fun `dryRun returns validated without persisting`() = runTest {
+        val fakeUseCase = FakeCreateTaskUseCase()
+        val tool = CreateTaskTool(fakeUseCase, FakeCurrentUser("user-1"))
+        val result = tool.execute(CreateTaskInput(title = "Test", dryRun = true))
+        val output = Json.decodeFromString<CreateTaskOutput>(result)
+        assertTrue(output.dryRunSkipped)
+        assertEquals(0, fakeUseCase.callCount)
+    }
+
+    @Test
+    fun `returns error JSON on failure`() = runTest {
+        val tool = CreateTaskTool(FailingCreateTaskUseCase(), FakeCurrentUser("user-1"))
+        val result = tool.execute(CreateTaskInput(title = "Test"))
+        assertTrue(result.contains("\"error\""))
+    }
+}
+```
+
+See `FakeTaskRepository`, `FakeNotesRepository`, `FakeProjectsRepository`, `FakeTagsRepository` in `test/fakes/FakeRepositories.kt` — all already implement the repository interfaces with in-memory `MutableStateFlow`.

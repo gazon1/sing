@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.backup.BackupExporter
@@ -35,7 +36,7 @@ import com.singularity.todo.feature.settings.SettingsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
-import com.singularity.todo.test.fakes.FakeSessionStore
+import com.singularity.todo.feature.profile.profileModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -47,6 +48,8 @@ import org.koin.dsl.module
  * Does NOT include feature use cases or ViewModels — those live in feature modules.
  */
 fun coreModule(): org.koin.core.module.Module = module {
+    includes(profileModule())
+
     // ─── Scopes ───────────────────────────────────────────────────────────
 
     single { { CoroutineScope(SupervisorJob() + Dispatchers.Unconfined) } }
@@ -61,7 +64,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Session / Auth ─────────────────────────────────────────────────
 
-    single<SessionStore> { FakeSessionStore() }
+    single<SessionStore> { DataStoreSessionStore(get()) }
 
     single<AuthRepository> {
         SupabaseAuthRepository(Logger.withTag("AuthRepository"), get(), Dispatchers.IO)

@@ -27,3 +27,13 @@ class Migration5To6 : AutoMigrationSpec
  * Migration from v6 to v7 — adds outgoing_links column to notes for wikilink backlinks.
  */
 class Migration6To7 : AutoMigrationSpec
+
+/**
+ * Migration from v7 to v8 — adds llm_usage table for token observability.
+ */
+class Migration7To8 : AutoMigrationSpec
+
+/**
+ * Migration from v8 to v9 — adds profiles table for multi-profile support.
+ */
+class Migration8To9 : AutoMigrationSpec

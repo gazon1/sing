@@ -2,10 +2,12 @@ package com.singularity.todo.feature.nav
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -93,6 +95,16 @@ sealed interface AppDestination {
         override val title = "Settings"
     }
 
+    @Serializable
+    data object AiUsage : AppDestination {
+        override val title = "AI Usage"
+    }
+
+    @Serializable
+    data object ProfileSwitcher : AppDestination {
+        override val title = "Profiles"
+    }
+
     // ─── Sub-routes (push on top of a top-level destination) ────────────────
 
     @Serializable
@@ -143,6 +155,8 @@ val AppDestination.icon: ImageVector
         AppDestination.Search -> Icons.Filled.Search
         AppDestination.Archive -> Icons.Filled.Inbox
         AppDestination.Settings -> Icons.Filled.Settings
+        AppDestination.AiUsage -> Icons.Filled.BarChart
+        AppDestination.ProfileSwitcher -> Icons.Filled.Person
         is AppDestination.TaskDetail -> Icons.Filled.Check
         is AppDestination.TaskEditor -> Icons.Filled.Check
         is AppDestination.NoteDetail -> Icons.Filled.Create

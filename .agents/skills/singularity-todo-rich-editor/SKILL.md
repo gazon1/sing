@@ -354,6 +354,93 @@ For editable editor: tap handling is planned but not yet wired. The link URLs (`
 | `Ids.kt` | NoteId, Note, NoteColor value classes |
 | `NotesDiModule.kt` | DI: `single<InternalLinkRepository> { InternalLinkRepositoryImpl(...) }` |
 
+## MarkdownHtmlPort for CreateNoteTool (CLI/MCP)
+
+When creating a note via `CreateNoteTool` (from the MCP server or CLI), the input is plain markdown. It must be converted to HTML before storage in `NoteEntity.bodyHtml`.
+
+The `MarkdownHtmlPort` interface handles this:
+
+```kotlin
+// shared/src/commonMain/.../feature/notes/MarkdownHtmlPort.kt
+interface MarkdownHtmlPort {
+    suspend fun toHtml(markdown: String): String
+    suspend fun toMarkdown(html: String): String
+}
+```
+
+**Implementation** in `ComposingMarkdownHtmlPort.kt` handles wikilinks and formatting:
+
+```kotlin
+class ComposingMarkdownHtmlPort : MarkdownHtmlPort {
+    override suspend fun toHtml(markdown: String): String {
+        // [[Title]] → <a href="note://URL-encoded-title">Title</a>
+        // **bold**, *italic*, etc. → HTML equivalents
+        return markdownToHtml(markdown)
+    }
+}
+```
+
+**CreateNoteTool usage:**
+
+```kotlin
+class CreateNoteTool(
+    private val notesRepo: NotesRepository,
+    private val markdownHtmlPort: MarkdownHtmlPort,
+    private val currentUser: CurrentUser,
+) : SimpleTool<CreateNoteInput>(...) {
+
+    override suspend fun execute(args: CreateNoteInput): String {
+        // Convert markdown → HTML (wikilinks, bold, italic, etc.)
+        val html = markdownHtmlPort.toHtml(args.bodyMarkdown)
+
+        val noteId = NoteId.fromString(UUID.randomUUID().toString())
+        notesRepo.createWithContent(
+            userId = currentUser.userId,
+            id = noteId,
+            title = args.title,
+            bodyMarkdown = args.bodyMarkdown,
+            bodyHtml = html,
+        ).getOrThrow()
+
+        return CreateNoteOutput(noteId = noteId.value).toJson()
+    }
+}
+```
+
+**Wikilink round-trip:**
+- `[[Note Title]]` → stored as `<a href="note://Note%20Title">Note Title</a>` in bodyHtml
+- `toMarkdown()` reverses: regex extracts `href` and reconstructs `[[display text]]`
+- Both CLI and UI use the same `toHtml()` — wikilinks look identical everywhere
+
+**DI registration** (same as existing):
+```kotlin
+// NotesDiModule.kt or AiToolsDiModule.kt
+factory<MarkdownHtmlPort> { ComposingMarkdownHtmlPort() }
+```
+
+## Limitations
+
+- **Quote/blockquote**: `richeditor-compose 1.2.0` has no `toggleBlockquote()` or `isBlockquote` — `EditorAction.Quote` is a no-op
+- **Tables/Images**: HTML↔Markdown round-trip is lossy
+- **Keyboard shortcuts**: `RichTextEditor` lacks `onKeyEvent` — undo/redo buttons are used instead
+- **Link tap navigation**: not yet wired (requires `pointerInput` overlay on `RichTextEditor`)
+- **Backlinks for tasks**: only notes supported; `outgoing_links` JSON column tracks both `note://` and `task://` URLs
+
+## Files Reference
+
+| File | Purpose |
+|---|---|
+| `NoteEditorScreen.kt` | Screen, EditorSession, EditorTitleAndBody, LinkUrlDialog, BacklinksSheet |
+| `EditorAction.kt` | Sealed interface (Bold, Italic, H1-H3, Bullet, Ordered, Quote, Align*, ExternalLink, InternalLink) |
+| `EditorToolbar.kt` | Sticky bottom toolbar; pure `apply()`/`isActive()` extensions |
+| `InternalLinkPickerSheet.kt` | Notes/Tasks tab picker bottom sheet |
+| `InternalLinkRepository.kt` | Interface |
+| `InternalLinkRepositoryImpl.kt` | DAO-based implementation |
+| `ComposingMarkdownHtmlPort.kt` | toHtml/toMarkdown + wikilink round-trip |
+| `MarkdownHtmlPort.kt` | Fun interface: toHtml / toMarkdown |
+| `Ids.kt` | NoteId, Note, NoteColor value classes |
+| `NotesDiModule.kt` | DI: `single<InternalLinkRepository> { InternalLinkRepositoryImpl(...) }` |
+
 **Deleted (dead code):**
 - `ToolbarState.kt` — DSL builder, never referenced
 - `EditorBody.kt` — replaced by `EditorTitleAndBody` in `NoteEditorScreen.kt`

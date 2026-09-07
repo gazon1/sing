@@ -24,12 +24,16 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         SyncOutboxEntity::class,
         AttachmentEntity::class,
         TaskReminderEntity::class,
-        ChecklistItemEntity::class
+        ChecklistItemEntity::class,
+        LlmUsageEntity::class,
+        ProfileEntity::class,
     ],
-    version = 7,
+    version = 9,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
+        AutoMigration(from = 7, to = 8, spec = Migration7To8::class),
+        AutoMigration(from = 8, to = 9, spec = Migration8To9::class),
     ],
     exportSchema = true
 )
@@ -43,4 +47,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun attachmentDao(): AttachmentDao
     abstract fun reminderDao(): ReminderDao
     abstract fun checklistDao(): ChecklistDao
+    abstract fun llmUsageDao(): LlmUsageDao
+    abstract fun profileDao(): ProfileDao
 }

@@ -172,3 +172,50 @@ data class ChecklistItemEntity(
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
 )
+
+/**
+ * Records each AI tool call's token usage for observability and cost tracking.
+ * One row per tool invocation, keyed by (profileId, toolName, timestamp).
+ */
+@Entity(
+    tableName = "llm_usage",
+    indices = [
+        Index(value = ["created_at"]),
+        Index(value = ["profile_id"]),
+        Index(value = ["tool_name"]),
+        Index(value = ["model_id"]),
+    ]
+)
+data class LlmUsageEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo("profile_id") val profileId: String,
+    @ColumnInfo("tool_name") val toolName: String,
+    @ColumnInfo("model_id") val modelId: String,
+    @ColumnInfo("input_tokens") val inputTokens: Int,
+    @ColumnInfo("output_tokens") val outputTokens: Int,
+    @ColumnInfo("total_tokens") val totalTokens: Int,
+    @ColumnInfo("cost_usd_micros") val costUsdMicros: Long?, // null if model unknown
+    @ColumnInfo("duration_ms") val durationMs: Long,
+    @ColumnInfo("created_at") val createdAt: Long, // epoch millis
+    @ColumnInfo("error") val error: String?, // null on success
+)
+
+// ─── Profile ─────────────────────────────────────────────────────────────────
+
+/**
+ * Persisted user profile. Each profile owns its own tasks, notes, projects, tags,
+ * and LLM usage records. Stored in Room for durability and future sync support.
+ */
+@Entity(
+    tableName = "profiles",
+    indices = [Index(value = ["name"])],
+)
+data class ProfileEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo("name") val name: String,
+    @ColumnInfo("emoji") val emoji: String,
+    @ColumnInfo("color_idx") val colorIdx: Int,
+    @ColumnInfo("is_default") val isDefault: Boolean,
+    @ColumnInfo("created_at") val createdAt: Long, // epoch millis
+    @ColumnInfo("updated_at") val updatedAt: Long, // epoch millis
+)

@@ -184,6 +184,89 @@ When "DB won't open" on device:
 3. **Check `version` vs schema files** — `AppDatabase_Impl.kt` generation requires JSON schema at `schemas/<db-class>/<version>.json`
 4. **Check `addMigrations(...)` vs `autoMigrations`** — for dev, drop both and use `fallbackToDestructiveMigration()`
 
+## Cross-Process Concurrent Access (CLI + Android)
+
+When the same SQLite file is opened by both the Android app and the MCP-server JVM CLI, additional setup is required. See `singularity-todo-room-multi-instance` for the full pattern.
+
+Key points:
+
+### enableMultiInstanceInvalidation() on Android
+
+```kotlin
+// shared/src/androidMain/.../core/di/PlatformModule.android.kt
+Room.databaseBuilder<AppDatabase>(name = dbPath)
+    .setDriver(BundledSQLiteDriver())
+    .setSQLiteDatabaseConfigurationParameters(
+        openInMemory = false,
+        journalMode = OpenHelper.JOURNAL_MODE_WRITE_AHEAD_LOGGING,
+    )
+    .enableMultiInstanceInvalidation()   // ← CRITICAL for CLI ↔ Android cross-process
+    .build()
+```
+
+**Requirement:** SQLite ≥ 3.38.0 (Android API 21+ uses bundled SQLite 3.38.2+). Android Room handles this automatically via `BundledSQLiteDriver`.
+
+**What it does:** Room registers cross-process invalidation hooks. When the CLI writes to the same DB file, Android Room's `InvalidationTracker` wakes up and marks in-memory caches as stale. The next query fetches fresh data.
+
+**Limitation:** works between Room instances on **Android only**. For JVM CLI → Android, use polling fallback (see `singularity-todo-room-multi-instance`).
+
+### RowVersion — Cheap Insurance for Future Sync
+
+Add `RowVersion` to Task and Note entities for optimistic locking (future use):
+
+```kotlin
+// In TaskEntity:
+@ColumnInfo("row_version") val rowVersion: Int = 0,
+
+// In NoteEntity:
+@ColumnInfo("row_version") val rowVersion: Int = 0,
+```
+
+```kotlin
+// Usage in UpdateTaskUseCase:
+val updated = task.copy(
+    updatedAt = clock.now(),
+    rowVersion = task.rowVersion + 1,
+)
+repo.update(updated).getOrThrow()
+```
+
+**Rule:** always increment `rowVersion` on update. This enables optimistic locking: if two processes update the same entity, the second update can detect the version mismatch and retry or merge.
+
+### LlmUsageEntity — Token Usage Tracking Table
+
+Add `LlmUsageEntity` to AppDatabase for token observability:
+
+```kotlin
+// shared/src/commonMain/.../core/database/Entities.kt
+@Entity(
+    tableName = "llm_usage",
+    indices = [
+        Index(value = ["created_at"]),
+        Index(value = ["profile_id"]),
+        Index(value = ["tool_name"]),
+        Index(value = ["model_id"]),
+    ]
+)
+data class LlmUsageEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo("profile_id") val profileId: String,
+    @ColumnInfo("tool_name") val toolName: String,
+    @ColumnInfo("model_id") val modelId: String,
+    @ColumnInfo("input_tokens") val inputTokens: Int,
+    @ColumnInfo("output_tokens") val outputTokens: Int,
+    @ColumnInfo("total_tokens") val totalTokens: Int,
+    @ColumnInfo("cost_usd_micros") val costUsdMicros: Long?,
+    @ColumnInfo("duration_ms") val durationMs: Long,
+    @ColumnInfo("created_at") val createdAt: Long,
+    @ColumnInfo("error") val error: String?,
+)
+```
+
+Migration v7→v8 is **additive** — adds `llm_usage` table only. No schema changes to existing tables.
+
+See `singularity-todo-llm-usage-tracking` for the full usage tracking pattern.
+
 ## Files
 
 | File | Role |
@@ -194,5 +277,5 @@ When "DB won't open" on device:
 | `shared/src/commonMain/.../core/database/Entities.kt` | `@Entity` classes with `@ColumnInfo` everywhere |
 | `shared/src/commonMain/.../core/database/Migrations.kt` | `AutoMigrationSpec` objects (unused until prod) |
 | `shared/schemas/<db-class>/<version>.json` | Auto-exported by Room 3 KSP plugin |
-| `shared/src/androidMain/.../core/di/PlatformModule.android.kt` | Use `Context.getDatabasePath` |
+| `shared/src/androidMain/.../core/di/PlatformModule.android.kt` | Use `Context.getDatabasePath`, `enableMultiInstanceInvalidation()` |
 | `shared/src/jvmMain/.../core/di/PlatformModule.jvm.kt` | Uses `JdbcNotesStore` (raw JDBC, no Room) |
