@@ -69,4 +69,6 @@ actual fun platformModule(): Module = module {
     single<FileRevealer> { JvmFileRevealer() }
 
     single<BackupCodec> { JvmBackupCodec() }
+
+    single<String> { System.getProperty("user.home") + "/.singularity-todo/backups" }
 }

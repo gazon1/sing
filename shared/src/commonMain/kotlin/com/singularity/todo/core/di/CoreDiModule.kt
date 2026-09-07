@@ -5,11 +5,16 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.SessionStore
+import com.singularity.todo.core.backup.BackupCodec
+import com.singularity.todo.core.backup.BackupExporter
 import com.singularity.todo.core.backup.BackupFileNamer
+import com.singularity.todo.core.backup.BackupImporter
 import com.singularity.todo.core.backup.BackupRepository
+import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.RemoteBackupService
 import com.singularity.todo.core.backup.StubRemoteBackupService
+import com.singularity.todo.core.backup.backupDirectoryPath
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.platform.Clock
@@ -31,7 +36,6 @@ import com.singularity.todo.feature.settings.SettingsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
-import com.singularity.todo.test.fakes.FakeBackupRepository
 import com.singularity.todo.test.fakes.FakeSessionStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -100,10 +104,20 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Backup ─────────────────────────────────────────────────────────
 
-    // BackupRepository: full implementation requires backupDir + all DAOs + codecs.
-    // Use FakeBackupRepository in coreModule to unblock graph verification;
-    // real BackupRepositoryImpl is registered in desktopApp DI setup.
-    single<BackupRepository> { FakeBackupRepository() }
+    single { BackupExporter(get(), get(), get(), get(), get(), get(), get(), get()) }
+    single { BackupImporter(Logger.withTag("BackupImporter"), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single<RemoteBackupService> { StubRemoteBackupService() }
+    single<BackupRepository> {
+        BackupRepositoryImpl(
+            exporter = get(),
+            importer = get(),
+            remoteService = get(),
+            fs = get(),
+            backupDir = backupDirectoryPath,
+            clock = get(),
+        )
+    }
+    single<BackupFileNamer> { DefaultBackupFileNamer }
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 

@@ -119,7 +119,10 @@ private fun SettingsContent(
                         scope.launch { fileRevealer.revealAttachmentsFolder(attachmentsPath) }
                     },
                 )
-                SettingsTab.Backup -> BackupScreenWrapper(onBack = { onSelectTab(SettingsTab.Interface) })
+                SettingsTab.Backup -> BackupScreenWrapper(
+                    onBack = { onSelectTab(SettingsTab.Interface) },
+                    onSelectRestoreFile = { /* Platform shell provides file picker on Android */ },
+                )
                 SettingsTab.Account -> AccountSettingsScreen(state = state)
             }
         }
@@ -127,7 +130,10 @@ private fun SettingsContent(
 }
 
 @Composable
-private fun BackupScreenWrapper(onBack: () -> Unit) {
+private fun BackupScreenWrapper(
+    onBack: () -> Unit,
+    onSelectRestoreFile: () -> Unit,
+) {
     val backupVm: BackupViewModel = koinViewModel()
     val backupState by backupVm.state.collectAsState()
     BackupScreen(
@@ -135,7 +141,8 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
         events = backupVm.events,
         onBack = onBack,
         onCreateBackup = backupVm::createBackup,
-        onRestore = backupVm::restore,
+        onSelectRestoreFile = onSelectRestoreFile,
+        onRestore = { path -> backupVm.import(path) },
         onDelete = backupVm::delete,
         onPush = backupVm::push,
     )

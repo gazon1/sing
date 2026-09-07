@@ -73,4 +73,6 @@ actual fun platformModule(): Module = module {
     single<FileRevealer> { AndroidFileRevealer(get()) }
 
     single<BackupCodec> { AndroidBackupCodec() }
+
+    single<String> { get<android.content.Context>().filesDir.absolutePath + "/backups" }
 }

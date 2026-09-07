@@ -53,7 +53,9 @@ fun BackupScreen(
     events: SharedFlow<BackupUiEvent>,
     onBack: () -> Unit,
     onCreateBackup: () -> Unit,
-    onRestore: () -> Unit,
+    /** Called when user wants to restore — platform shell should open file picker and call [onRestore]. */
+    onSelectRestoreFile: () -> Unit,
+    onRestore: (sourcePath: String) -> Unit,
     onDelete: (BackupId) -> Unit,
     onPush: (BackupId) -> Unit,
 ) {
@@ -98,7 +100,7 @@ fun BackupScreen(
                     Text("Create backup")
                 }
                 Button(
-                    onClick = onRestore,
+                    onClick = onSelectRestoreFile,
                     modifier = Modifier.weight(1f),
                     enabled = !state.isWorking
                 ) {
