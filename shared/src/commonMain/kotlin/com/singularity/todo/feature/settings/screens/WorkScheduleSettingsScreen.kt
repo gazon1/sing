@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.settings.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,10 +8,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
@@ -96,6 +107,7 @@ fun WorkScheduleSettingsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TimeSlider(
     label: String,
@@ -103,19 +115,69 @@ private fun TimeSlider(
     onValueChange: (Int) -> Unit,
     formatter: (Int) -> String,
 ) {
+    var showDialog by remember { mutableStateOf(false) }
+    val hour = value / 60
+    val minute = value % 60
+
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(label, style = MaterialTheme.typography.bodyMedium)
-            Text(formatter(value), style = MaterialTheme.typography.bodyMedium)
         }
+        OutlinedTextField(
+            value = formatter(value),
+            onValueChange = {},
+            readOnly = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showDialog = true },
+            trailingIcon = {
+                Text(
+                    text = formatter(value),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(end = 8.dp),
+                )
+            },
+            label = { Text(label) },
+        )
+        // Slider as fallback — step 15 minutes
         Slider(
             value = value.toFloat(),
             onValueChange = { onValueChange(it.toInt()) },
             valueRange = 0f..1439f,
+            steps = (1439 / 15) - 1,
             modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    if (showDialog) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = hour,
+            initialMinute = minute,
+            is24Hour = true,
+        )
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onValueChange(timePickerState.hour * 60 + timePickerState.minute)
+                        showDialog = false
+                    },
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+            text = {
+                TimePicker(state = timePickerState)
+            },
         )
     }
 }

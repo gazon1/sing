@@ -51,6 +51,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально _(from `2026-09-05-ui-event-per-feature`)_
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)` _(from `2026-09-05-ui-event-per-feature`)_
 
+### `backup`
+
+- `BackupRepository` resolves correctly in all environments (JVM desktop, Android). _(from `2026-09-07-backup-directory-via-koin-string`)_
+- Settings → Backup tab no longer crashes during composition. _(from `2026-09-07-backup-directory-via-koin-string`)_
+- The `desktopApp/build.gradle.kts` change (adding `implementation(project(":shared"))` with kotlinJvmTask) was also part of the desktop build fix. _(from `2026-09-07-backup-directory-via-koin-string`)_
+
 ### `build`
 
 - All JetBrains compose library versions MUST track `version.ref = "composeMultiplatform"`. Split-version declarations are forbidden unless the artifact is an AndroidX (not JetBrains) group. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
@@ -59,10 +65,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `compose`
 
+- All changes are additive; no existing behavior is removed. _(from `2026-09-07-settings-ux-improvements`)_
 - All JetBrains compose library versions MUST track `version.ref = "composeMultiplatform"`. Split-version declarations are forbidden unless the artifact is an AndroidX (not JetBrains) group. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
+- Backup confirm dialogs prevent accidental data loss. _(from `2026-09-07-settings-ux-improvements`)_
 - **BottomBar taps** now have a single source of truth: `navigator.navigateTopLevel(dest)` — no `selectedIndex` to keep in sync. _(from `2026-09-05-android-bottom-nav`)_
 - `Clock.System.now()` must not appear in preview code — use _(from `2026-09-06-compose-previews`)_
 - `compose-ui-test:1.12.0` added to `libs.versions.toml` as `composeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
+- Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
@@ -78,6 +87,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Smoke test now passes: `./gradlew :desktopApp:test` → BUILD SUCCESSFUL _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - `sourceSets { test { java.srcDirs("src/jvmTest") ... } }` added to `desktopApp/build.gradle.kts` to wire the `jvmTest` source set to the `test` task _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - **`TasksScreen`** unchanged — it already takes `onNavigateToTask` / `onNavigateToCreateTask` callbacks; the per-tab sub-navigation state now lives in `TasksRoute` inside `AppNavHost` via `rememberSaveable`. _(from `2026-09-05-android-bottom-nav`)_
+- Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
 - The `checkJvmMainComposeLibrariesCompatibility` task must pass silently on every PR. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 - `useSurface = false` when the preview root already contains a `Scaffold` _(from `2026-09-06-compose-previews`)_
 - When adding a new third-party Compose dependency, verify its JetBrains compose `requires:` constraint in the Gradle module metadata (`.module` file in cache) before adding — if it demands a version newer than the current pin, either bump or find an alternative. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
@@ -112,6 +122,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `di`
 
+- `BackupRepository` resolves correctly in all environments (JVM desktop, Android). _(from `2026-09-07-backup-directory-via-koin-string`)_
 - **Breaking:** `coreDomainModule()` удалён; заменён на `domainModule()` (includes everything). Test files обновлены. _(from `2026-09-06-di-module-split`)_
 - **Existing tests:** `DiGraphTest`, `JvmAiDiGraphTest`, `AppSmokeTest` обновлены и проходят. _(from `2026-09-06-di-module-split`)_
 
@@ -135,9 +146,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **New file count:** 8 новых файлов (7 модулей + decision). _(from `2026-09-06-di-module-split`)_
 - **@Preview и widget-тесты не затрагиваются** — все preview используют `*Content` helpers (stateless) _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - **Raw `runBlocking` в модулях** — не допускается, `koinBridge` как единая точка входа _(from `2026-09-06-koin-bridge-audit`)_
+- Settings → Backup tab no longer crashes during composition. _(from `2026-09-07-backup-directory-via-koin-string`)_
 - **`singleOf` для репозиториев** — architectural limitation; сложные конструкторы не поддерживают constructor-reference форму _(from `2026-09-06-koin-bridge-audit`)_
 - **`singularity-todo-vm-koin-scoping` skill** — создан как single source of truth _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - **`TaskEditorViewModel` special case** — `viewModel { (initialDueDate) -> ... }` + `koinViewModel { parametersOf(initialDueDate) }` _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
+- The `desktopApp/build.gradle.kts` change (adding `implementation(project(":shared"))` with kotlinJvmTask) was also part of the desktop build fix. _(from `2026-09-07-backup-directory-via-koin-string`)_
 - **`viewModelOf(::VM)` для VM без nullable dep** — предпочтительный паттерн _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - **`viewModel { Vm(get(), get(), ...) }`** — для VM с nullable dep + getOrNull() (TasksViewModel, ProjectsViewModel) _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - When the script's grep is broken (a stray `runBlocking` appears), fix it immediately; the helper exists specifically so this is detectable. _(from `2026-09-05-koin-suspend-bridge`)_
@@ -175,12 +188,16 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `koin`
 
 - **8 экранов мигрируют одновременно** — невозможно сделать постепенную миграцию из-за смены типа `_events` _(from `2026-09-05-ui-event-per-feature`)_
+- All changes are additive; no existing behavior is removed. _(from `2026-09-07-settings-ux-improvements`)_
 - All new `catch` blocks in ViewModels, repositories, and use cases should inject `Logger` and call `log.e(e) { "..." }` or use `runCatchingLogged`. _(from `2026-09-06-kermit-logging-setup`)_
+- Backup confirm dialogs prevent accidental data loss. _(from `2026-09-07-settings-ux-improvements`)_
+- `BackupRepository` resolves correctly in all environments (JVM desktop, Android). _(from `2026-09-07-backup-directory-via-koin-string`)_
 - **Breaking:** `coreDomainModule()` удалён; заменён на `domainModule()` (includes everything). Test files обновлены. _(from `2026-09-06-di-module-split`)_
 - `BuildConfig.DEBUG` requires `buildConfig = true` in `androidApp/build.gradle.kts`. No BuildConfig is available in `shared` jvm target. _(from `2026-09-06-kermit-logging-setup`)_
 - **`Clock` must be passed to `CreateTaskUseCase` / `UpdateTaskUseCase`** — use the singleton `Clock` from `core.platform`. _(from `2026-09-05-robolectric-widget-tests`)_
 - **CollectEvents** в виджетах принимает `Flow<T : UiEvent>` — generic call site остаётся тем же _(from `2026-09-05-ui-event-per-feature`)_
 - `compose-ui-test:1.12.0` added to `libs.versions.toml` as `composeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
+- Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
 - Existing silent `catch (_: Exception)` (e.g., in `ToolFactories.kt` lines 58, 126, 181) remain unfixed — these require separate investigation (some appear to be copy-paste bugs, not intentional suppression). _(from `2026-09-06-kermit-logging-setup`)_
 - **Existing tests:** `DiGraphTest`, `JvmAiDiGraphTest`, `AppSmokeTest` обновлены и проходят. _(from `2026-09-06-di-module-split`)_
 - **Fake repo returns empty by default** — widget tests that check `LazyColumn` with `testTag` will fail when repo is empty (state = `Empty`). Test the `EmptyState` text instead, or seed data via `fakeNotesRepo.seed(note)`. _(from `2026-09-05-robolectric-widget-tests`)_
@@ -199,11 +216,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `RefineTaskTool.kt:34-38` has identical try and catch branches (copy-paste bug) — not fixed in this PR. _(from `2026-09-06-kermit-logging-setup`)_
 - **Robolectric 4.17-beta-4** — `4.16` maxes at SDK 36; `compileSdk=37` requires the beta. The beta is already cached. _(from `2026-09-05-robolectric-widget-tests`)_
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`. _(from `2026-09-05-robolectric-widget-tests`)_
+- Settings → Backup tab no longer crashes during composition. _(from `2026-09-07-backup-directory-via-koin-string`)_
 - **`singleOf` для репозиториев** — architectural limitation; сложные конструкторы не поддерживают constructor-reference форму _(from `2026-09-06-koin-bridge-audit`)_
 - **`singularity-todo-vm-koin-scoping` skill** — создан как single source of truth _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - Smoke test now passes: `./gradlew :desktopApp:test` → BUILD SUCCESSFUL _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - `sourceSets { test { java.srcDirs("src/jvmTest") ... } }` added to `desktopApp/build.gradle.kts` to wire the `jvmTest` source set to the `test` task _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - **`TaskEditorViewModel` special case** — `viewModel { (initialDueDate) -> ... }` + `koinViewModel { parametersOf(initialDueDate) }` _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
+- Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
+- The `desktopApp/build.gradle.kts` change (adding `implementation(project(":shared"))` with kotlinJvmTask) was also part of the desktop build fix. _(from `2026-09-07-backup-directory-via-koin-string`)_
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально _(from `2026-09-05-ui-event-per-feature`)_
 - **Use `UserId` from `feature.tasks`** — it's defined in `Ids.kt` there, imported explicitly. _(from `2026-09-05-robolectric-widget-tests`)_
 - **`viewModelOf(::VM)` для VM без nullable dep** — предпочтительный паттерн _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
@@ -255,6 +275,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Все существующие тесты проходят — никаких изменений в тестовых вызовах не потребовалось (jvmTest зелёный). _(from `2026-09-07-note-editor-body-load`)_
 - При первом открытии старой заметки (без `bodyHtml`) — форматирование может отличаться от исходного (round-trip через markdown). Это accepted trade-off для legacy data. _(from `2026-09-07-note-editor-body-load`)_
 
+### `platform-module`
+
+- `BackupRepository` resolves correctly in all environments (JVM desktop, Android). _(from `2026-09-07-backup-directory-via-koin-string`)_
+- Settings → Backup tab no longer crashes during composition. _(from `2026-09-07-backup-directory-via-koin-string`)_
+- The `desktopApp/build.gradle.kts` change (adding `implementation(project(":shared"))` with kotlinJvmTask) was also part of the desktop build fix. _(from `2026-09-07-backup-directory-via-koin-string`)_
+
 ### `preview`
 
 - `Clock.System.now()` must not appear in preview code — use _(from `2026-09-06-compose-previews`)_
@@ -303,9 +329,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - Adding a new secret (e.g. another provider's API key) **always** follows the same pattern: new `KEY_*` constant, new config object, migration on first DataStore access, no DataStore copy. _(from `2026-09-05-secret-storage-split`)_
 - `AiApiKeyMigration` is wired through `koinBridge { ... }` inside the DataStore factory's `.also { ds -> ... }` block. See `koin-suspend-bridge` decision. _(from `2026-09-05-secret-storage-split`)_
+- All changes are additive; no existing behavior is removed. _(from `2026-09-07-settings-ux-improvements`)_
 - `App.kt` инжектит `SettingsRepository` через Koin — это нормально, Koin доступен в Common startup. _(from `2026-09-07-settings-fixes`)_
+- Backup confirm dialogs prevent accidental data loss. _(from `2026-09-07-settings-ux-improvements`)_
+- Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor. _(from `2026-09-07-settings-fixes`)_
 - `SettingsViewModel.testConnection()` **always** short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`. _(from `2026-09-05-llm-provider-settings`)_
+- Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
 - `TextGenPort.listModels` — добавлен в интерфейс, реализация в `KoogAgentService` и `FakeTextGen`. _(from `2026-09-07-settings-fixes`)_
 - The Test connection "probe" prompt is hard-coded: `"Reply with the single word: pong."` — change together with the system prompt if needed. _(from `2026-09-05-llm-provider-settings`)_
 - Все 6 sub-screens имеют `verticalScroll` — контент больше не обрезается. _(from `2026-09-07-settings-fixes`)_
@@ -417,6 +447,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Для UI-тестов на реальном устройстве: Kaspresso или `contentDescription` + `By.desc()`. _(from `2026-09-05-uiautomator-compose-discovery`)_
 - Оставшиеся `androidHostTest`: только `AppNavigatorTest` (nav contract, без Espresso), _(from `2026-09-05-uiautomator-compose-discovery`)_
 
+### `ux`
+
+- All changes are additive; no existing behavior is removed. _(from `2026-09-07-settings-ux-improvements`)_
+- Backup confirm dialogs prevent accidental data loss. _(from `2026-09-07-settings-ux-improvements`)_
+- Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
+- Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
+
 ### `vm`
 
 - **`koinInject()` для репозиториев/сервисов остаётся** — не VM _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
@@ -447,9 +484,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-06-kermit-logging-setup` — logging  koin  kermit  debugging
 - `2026-09-06-koin-bridge-audit` — koin  di  coroutines
 - `2026-09-06-koin-vm-viewmodelof-koinviewmodel` — koin  di  vm
+- `2026-09-07-backup-directory-via-koin-string` — koin  di  backup  platform-module
 - `2026-09-07-fab-chrome-level` — ui  navigation  architecture
 - `2026-09-07-note-editor-body-load` — notes  room  rich-editor  di-graph
 - `2026-09-07-settings-fixes` — settings  ui  di-graph
+- `2026-09-07-settings-ux-improvements` — settings  ux  compose  koin
 
 ## Active entries
 
@@ -476,7 +515,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-06-koin-bridge-audit` — Koin bridge audit: all usages correct, no raw runBlocking in module blocks
 - `2026-09-06-koin-vm-viewmodelof-koinviewmodel` — ViewModel DI: viewModelOf + koinViewModel() instead of factory + koinInject()
 - `2026-09-06-modular-justfile` — Modular justfile with .just/ submodules
+- `2026-09-07-backup-directory-via-koin-string` — Delete throwing backupDirectoryPath; resolve backup directory via Koin get<String>()
 - `2026-09-07-fab-chrome-level` — FAB at chrome level — single source of truth in shells
 - `2026-09-07-note-editor-body-load` — NoteEditor body load — store HTML directly, fix RichTextState init
 - `2026-09-07-settings-fixes` — Settings layout fixes, reactive dark theme, LLM providers
+- `2026-09-07-settings-ux-improvements` — Settings UX improvements: swatches, time picker, connection badge, debounce, confirm dialogs
 - `2026-09-07-task-detail-document-style` — _(no title)

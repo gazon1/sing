@@ -1,6 +1,7 @@
 package com.singularity.todo.core.di
 
 import com.singularity.todo.core.backup.BackupFileNamer
+import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.settings.SettingsRepository
@@ -29,6 +30,7 @@ class DiGraphTest {
             app.koin.get<SettingsRepository>()
             app.koin.get<ChecklistRepository>()
             app.koin.get<PomodoroRepository>()
+            app.koin.get<BackupRepository>()
         } finally {
             org.koin.core.context.stopKoin()
         }

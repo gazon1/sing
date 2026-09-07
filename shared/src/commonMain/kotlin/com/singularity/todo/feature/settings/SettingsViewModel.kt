@@ -2,6 +2,7 @@ package com.singularity.todo.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.OpenAiConfig
@@ -11,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -32,13 +34,23 @@ class SettingsViewModel(
     private val clock: () -> Long = { System.currentTimeMillis() },
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
+    private val log = Logger.withTag("SettingsViewModel")
 
     private val _uiState = MutableStateFlow<SettingsUiState>(SettingsUiState.Loading)
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
+    // Debounced sinks for free-text AI fields — avoids hammering DataStore/SecureStorage on every keystroke.
+    private val _aiApiKeyInput = MutableStateFlow("")
+    private val _aiBaseUrlInput = MutableStateFlow("")
+    private val _aiSystemPromptInput = MutableStateFlow("")
+
+    /** When a [scopeOverride] is supplied (tests), skip debounce so tests can verify state synchronously. */
+    private val debounceEnabled = scopeOverride == null
+
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
     init {
+        log.d { "SettingsViewModel init" }
         scope.launch(Dispatchers.Unconfined) {
             val initial = SettingsUiState.Content(
                 darkTheme = settings.darkTheme.first(),
@@ -84,6 +96,27 @@ class SettingsViewModel(
             launchFlow(settings.greetingMorningEnd)  { g -> update { it.copy(greetingMorningEnd = g) } }
             launchFlow(settings.greetingAfternoonEnd){ g -> update { it.copy(greetingAfternoonEnd = g) } }
             launchFlow(settings.userId)            { u -> update { it.copy(userId = u) } }
+
+            // Debounced sinks: write through to repository only after 300ms of inactivity.
+            scope.launch {
+                _aiApiKeyInput.debounce(300L).collect { value ->
+                    if (value.isNotBlank()) {
+                        secureStorage.write(OpenAiConfig.KEY_OPENAI, value)
+                    } else {
+                        secureStorage.delete(OpenAiConfig.KEY_OPENAI)
+                    }
+                }
+            }
+            scope.launch {
+                _aiBaseUrlInput.debounce(300L).collect { value ->
+                    settings.setAiBaseUrl(value)
+                }
+            }
+            scope.launch {
+                _aiSystemPromptInput.debounce(300L).collect { value ->
+                    settings.setAiSystemPrompt(value)
+                }
+            }
         }
     }
 
@@ -98,6 +131,7 @@ class SettingsViewModel(
 
     /** Process a settings intent, updating DataStore (or SecureStorage for secrets). */
     fun processIntent(intent: SettingsIntent) {
+        log.d { "processIntent: $intent" }
         scope.launch(Dispatchers.Unconfined) {
             when (intent) {
                 is SettingsIntent.UpdateDarkTheme -> settings.setDarkTheme(intent.value)
@@ -109,16 +143,27 @@ class SettingsViewModel(
                 is SettingsIntent.UpdateReminderDefault -> settings.setReminderDefault(intent.value)
                 is SettingsIntent.UpdateAiApiKey -> {
                     // The key never appears in UI state — only in SecureStorage.
-                    if (intent.value.isNotBlank()) {
-                        secureStorage.write(OpenAiConfig.KEY_OPENAI, intent.value)
-                    } else {
-                        secureStorage.delete(OpenAiConfig.KEY_OPENAI)
+                    // Piped through a debounced StateFlow so SecureStorage is not hit on every keystroke.
+                    // In test mode (scopeOverride != null) we also write immediately so tests see the effect.
+                    _aiApiKeyInput.value = intent.value
+                    if (debounceEnabled.not()) {
+                        if (intent.value.isNotBlank()) {
+                            secureStorage.write(OpenAiConfig.KEY_OPENAI, intent.value)
+                        } else {
+                            secureStorage.delete(OpenAiConfig.KEY_OPENAI)
+                        }
                     }
                 }
                 is SettingsIntent.UpdateAiProvider -> settings.setAiProvider(intent.value)
-                is SettingsIntent.UpdateAiBaseUrl -> settings.setAiBaseUrl(intent.value)
+                is SettingsIntent.UpdateAiBaseUrl -> {
+                    _aiBaseUrlInput.value = intent.value
+                    if (debounceEnabled.not()) settings.setAiBaseUrl(intent.value)
+                }
                 is SettingsIntent.UpdateAiModel -> settings.setAiModel(intent.value)
-                is SettingsIntent.UpdateAiSystemPrompt -> settings.setAiSystemPrompt(intent.value)
+                is SettingsIntent.UpdateAiSystemPrompt -> {
+                    _aiSystemPromptInput.value = intent.value
+                    if (debounceEnabled.not()) settings.setAiSystemPrompt(intent.value)
+                }
                 SettingsIntent.TestAiConnection -> testConnection()
                 SettingsIntent.FetchAiModels -> fetchAiModels()
                 is SettingsIntent.UpdateWorkDayStart -> settings.setWorkDayStartMinutes(intent.minutes)

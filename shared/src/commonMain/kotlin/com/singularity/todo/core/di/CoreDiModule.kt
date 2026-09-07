@@ -14,7 +14,6 @@ import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.RemoteBackupService
 import com.singularity.todo.core.backup.StubRemoteBackupService
-import com.singularity.todo.core.backup.backupDirectoryPath
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.platform.Clock
@@ -113,12 +112,10 @@ fun coreModule(): org.koin.core.module.Module = module {
             importer = get(),
             remoteService = get(),
             fs = get(),
-            backupDir = backupDirectoryPath,
+            backupDir = get<String>(),
             clock = get(),
         )
     }
-    single<BackupFileNamer> { DefaultBackupFileNamer }
-
     // ─── ViewModels ─────────────────────────────────────────────────────
 
     viewModelOf(::SettingsViewModel)

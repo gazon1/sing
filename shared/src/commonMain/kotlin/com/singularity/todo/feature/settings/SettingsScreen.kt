@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,6 +34,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
@@ -92,7 +94,12 @@ private fun SettingsContent(
 
     Row(modifier = modifier.fillMaxSize()) {
         // Navigation rail on wide screens (disabled until WindowSizeClass is wired)
-        SettingsNavRail(selectedTab, Modifier.fillMaxHeight(), onSelectTab)
+        SettingsNavRail(
+            selectedTab = selectedTab,
+            aiTestResult = state.aiTestResult,
+            modifier = Modifier.fillMaxHeight(),
+            onSelect = onSelectTab,
+        )
         VerticalDivider()
 
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
@@ -151,6 +158,7 @@ private fun BackupScreenWrapper(
 @Composable
 private fun SettingsNavRail(
     selectedTab: SettingsTab,
+    aiTestResult: AiTestResult,
     modifier: Modifier = Modifier,
     onSelect: (SettingsTab) -> Unit,
 ) {
@@ -182,6 +190,21 @@ private fun SettingsNavRail(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(icon, contentDescription = tab.label)
+                    // AI connection status badge on AI Provider tab
+                    if (tab == SettingsTab.AIProvider) {
+                        val badgeColor = when (aiTestResult) {
+                            is AiTestResult.Ok -> Color(0xFF4CAF50) // green
+                            is AiTestResult.Error -> Color(0xFFF44336) // red
+                            else -> Color(0xFF9E9E9E) // grey
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .align(Alignment.TopEnd)
+                                .offset(x = 2.dp, y = (-2).dp)
+                                .background(badgeColor, CircleShape),
+                        )
+                    }
                 }
                 Text(
                     tab.label,
@@ -202,7 +225,12 @@ private fun SettingsContentPreview(
     onSelectTab: (SettingsTab) -> Unit = {},
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
-        SettingsNavRail(selectedTab, Modifier.fillMaxHeight(), onSelectTab)
+        SettingsNavRail(
+            selectedTab = selectedTab,
+            aiTestResult = state.aiTestResult,
+            modifier = Modifier.fillMaxHeight(),
+            onSelect = onSelectTab,
+        )
         VerticalDivider()
 
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
