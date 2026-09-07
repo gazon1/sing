@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.Flow
  * as a singleton for AI tool factories that need the raw Koog API.
  */
 class KoogPromptExecutorPort(
-    val executor: ai.koog.prompt.executor.model.PromptExecutor,
+    override val executor: ai.koog.prompt.executor.model.PromptExecutor,
 ) : PromptExecutorPort {
 
     override suspend fun execute(

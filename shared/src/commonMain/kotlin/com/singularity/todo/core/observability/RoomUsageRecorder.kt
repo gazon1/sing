@@ -8,7 +8,7 @@ import com.singularity.todo.core.database.ToolUsageRow
 import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Room-based [UsageRecorder] implementation.
@@ -30,7 +30,7 @@ class RoomUsageRecorder(
             totalTokens = event.totalTokens,
             costUsdMicros = event.costUsdMicros,
             durationMs = event.durationMs,
-            createdAt = instantToEpochMillis(event.timestamp),
+            createdAt = event.timestamp.toEpochMilliseconds(),
             error = event.error,
         )
         llmUsageDao.upsert(entity)
@@ -43,8 +43,7 @@ class RoomUsageRecorder(
     }
 
     override fun observeByDay(profileId: String, days: Int): Flow<List<DailyUsage>> {
-        val sinceEpochMs = instantToEpochMillis(clock.now())
-            .minus(days.toLong() * 86_400_000)
+        val sinceEpochMs = clock.now().toEpochMilliseconds() - (days.toLong() * 86_400_000)
         return llmUsageDao.observeByDay(profileId, sinceEpochMs).map { rows ->
             rows.map { it.toDailyUsage() }
         }
@@ -63,8 +62,7 @@ class RoomUsageRecorder(
     }
 
     override suspend fun prune(olderThanDays: Int) {
-        val cutoff = instantToEpochMillis(clock.now())
-            .minus(olderThanDays.toLong() * 86_400_000)
+        val cutoff = clock.now().toEpochMilliseconds() - (olderThanDays.toLong() * 86_400_000)
         llmUsageDao.pruneOlderThan(cutoff)
     }
 
@@ -104,7 +102,3 @@ class RoomUsageRecorder(
         callCount = callCount,
     )
 }
-
-/** Converts a kotlinx-datetime [Instant] to epoch milliseconds. */
-private fun instantToEpochMillis(instant: kotlinx.datetime.Instant): Long =
-    instant.toEpochMilliseconds()

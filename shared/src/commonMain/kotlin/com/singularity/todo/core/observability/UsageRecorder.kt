@@ -1,23 +1,23 @@
 package com.singularity.todo.core.observability
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * One-shot event emitted after each AI tool call (successful or failed).
  * Carries token counts, latency, model, and cost.
  */
 data class ToolUsageEvent(
-    val toolName: String, // e.g., "decompose_and_create"
-    val modelId: String, // e.g., "gpt-4o-mini"
+    val toolName: String, // e.g. "decompose_and_create"
+    val modelId: String, // e.g. "gpt-4o-mini"
     val inputTokens: Int,
     val outputTokens: Int,
     val totalTokens: Int,
     val costUsdMicros: Long?, // null if model not in pricing table
     val durationMs: Long,
-    val profileId: String, // from CurrentUser.profileId
+    val profileId: String, // from ProfileAwareCurrentUser
     val error: String?, // null on success
-    val timestamp: Instant,
+    val timestamp: Instant, // from Clock.now()
 )
 
 /** Daily aggregated usage. */
@@ -49,6 +49,13 @@ data class ModelUsage(
  *
  * Implementations persist to Room ([LlmUsageEntity]) or an external observability backend.
  * Call [record] after every AI tool execution, and query via observe* flows.
+ *
+ * ## Clock contract
+ * All timestamps use [kotlin.time.Instant] (from [com.singularity.todo.core.platform.Clock.now]).
+ * Room stores epoch-milliseconds (Long). On the boundary, convert via
+ * [kotlin.time.Instant.toEpochMilliseconds] and [kotlin.time.Instant.fromEpochMilliseconds].
+ * **Do not use [kotlinx.datetime.Instant]** — it is used only for date arithmetic
+ * in `todayInSystemZone()` and will eventually be removed from the codebase.
  */
 interface UsageRecorder {
     /** Record a single tool invocation event. */

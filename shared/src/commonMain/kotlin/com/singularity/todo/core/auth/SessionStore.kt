@@ -6,12 +6,11 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 /**
  * Contract for session token persistence.
@@ -31,7 +30,11 @@ interface SessionStore {
 
 /**
  * Production [SessionStore] backed by DataStore.
- * Device ID is lazily initialized on first access and persisted immediately.
+ *
+ * Device ID is initialized once on first construction by reading from DataStore.
+ * If absent, a UUID is generated, persisted, and returned.
+ * Using [runBlocking] here is acceptable — this is a one-time startup cost,
+ * not a hot path, and avoids the complexity of mutex/coron scope juggling.
  */
 class DataStoreSessionStore(private val dataStore: DataStore<Preferences>) : SessionStore {
 
@@ -46,33 +49,19 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>) : Ses
     override val refreshToken: Flow<String?> = dataStore.data.map { it[REFRESH_TOKEN] }
     override val userEmail: Flow<String?> = dataStore.data.map { it[USER_EMAIL] }
 
-    private val _deviceId = MutableStateFlow("")
-    override val deviceId: StateFlow<String> = _deviceId.asStateFlow()
-
-    private val initMutex = Mutex()
-
-    /** Must be called (and awaited) before reading [deviceId] for the first time. */
-    private suspend fun ensureInitialized() {
-        if (_deviceId.value.isNotEmpty()) return
-        initMutex.withLock {
-            if (_deviceId.value.isNotEmpty()) return // another coroutine won the race
-            val prefs = dataStore.data.first()
-            val stored = prefs[DEVICE_ID]
-            val id = stored ?: generateDeviceId().also { newId ->
-                dataStore.edit { it[DEVICE_ID] = newId }
-            }
-            _deviceId.value = id
+    // Initialized once at construction — see class KDoc above
+    private val _deviceId: String = runBlocking {
+        val prefs = dataStore.data.first()
+        val stored = prefs[DEVICE_ID]
+        stored ?: generateDeviceId().also { newId ->
+            dataStore.edit { it[DEVICE_ID] = newId }
         }
     }
 
-    /**
-     * Returns the device ID, initializing it if necessary.
-     * Safe to call from [CurrentUser] or [AuthRepository] initialization.
-     */
-    override suspend fun getOrInitDeviceId(): String {
-        ensureInitialized()
-        return _deviceId.value
-    }
+    private val _deviceIdFlow = MutableStateFlow(_deviceId)
+    override val deviceId: StateFlow<String> = _deviceIdFlow.asStateFlow()
+
+    override suspend fun getOrInitDeviceId(): String = _deviceId
 
     override suspend fun save(session: Session.SignedIn) {
         dataStore.edit { prefs ->
@@ -84,7 +73,7 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>) : Ses
 
     override suspend fun saveDeviceId(id: String) {
         dataStore.edit { it[DEVICE_ID] = id }
-        _deviceId.value = id
+        _deviceIdFlow.value = id
     }
 
     override suspend fun clear() {

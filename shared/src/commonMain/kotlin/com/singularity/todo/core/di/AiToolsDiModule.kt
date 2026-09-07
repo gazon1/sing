@@ -1,6 +1,8 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.security.ProfileAwareSecureStorage
+import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.ai.KoogAgentService
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
@@ -77,9 +79,24 @@ import org.koin.dsl.module
  * (TaskRepository, ProjectsRepository, CreateTaskUseCase, etc.).
  */
 internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
+    // ─── Profile-aware secure storage for AI ────────────────────────────────
+    // All AI tools (KoogAgentService, AI gen tools) read API keys from the
+    // active profile's namespace: profiles/{profileId}/ai_key_openai
+    factory<ProfileAwareSecureStorage> {
+        ProfileAwareSecureStorage(get(), get())
+    }
+
     // ─── AI Service ───
 
-    single<TextGenPort> { KoogAgentService(get(), get(), get(), get(), get()) }
+    single<TextGenPort> {
+        KoogAgentService(
+            secureStorage = get<ProfileAwareSecureStorage>(),
+            settings = get(),
+            promptExecutor = get<PromptExecutorPort>().executor,
+            streamingExecutor = get(),
+            tools = get(),
+        )
+    }
 
     // ─── Token Usage Tracking ───
 

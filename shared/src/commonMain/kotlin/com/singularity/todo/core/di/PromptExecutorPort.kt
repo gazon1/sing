@@ -16,6 +16,13 @@ import kotlinx.coroutines.flow.Flow
  */
 interface PromptExecutorPort {
     /**
+     * The underlying Koog [ai.koog.prompt.executor.model.PromptExecutor].
+     * Used by [com.singularity.todo.feature.ai.KoogAgentService] for internal
+     * model resolution and direct execution.
+     */
+    val executor: ai.koog.prompt.executor.model.PromptExecutor
+
+    /**
      * Executes a prompt and returns a complete response.
      */
     suspend fun execute(

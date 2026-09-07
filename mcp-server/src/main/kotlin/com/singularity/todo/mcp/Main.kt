@@ -22,6 +22,7 @@ import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.dsl.module
 import java.io.File
+import java.io.OutputStreamWriter
 
 /**
  * MCP server entry point for the Singularity Todo CLI.
@@ -35,20 +36,43 @@ import java.io.File
  *                                       ├─ startKoin { platformModule() + domainModule() }
  *                                       ├─ Server.createSession(transport) → handles MCP protocol
  *                                       └─ Room KMP driver (same SQLite file as Android/Desktop)
+ *
+ * Error handling:
+ *   Startup errors (Koin, DB) are reported as JSON-RPC error responses to stdout
+ *   so the agent knows why the server failed to initialize.
  */
 fun main(args: Array<String>): Unit = runBlocking {
     // 1. Parse --profile=NAME argument (profile isolation)
     val profileId = args.parseProfileArg()
 
     // 2. Bootstrap Koin — same domainModule as Android/Desktop
-    startKoin {
-        modules(platformModule(profileId), domainModule())
+    try {
+        startKoin {
+            modules(platformModule(profileId), domainModule())
+        }
+    } catch (e: Throwable) {
+        System.err.println("singularity-todo MCP server: Koin initialization failed: ${e.message}")
+        e.printStackTrace(System.err)
+        writeJsonRpcError(code = -32000, message = "Koin initialization failed: ${e.message}")
+        return@runBlocking
     }
 
-    // 3. Log startup info
-    System.err.println("singularity-todo MCP server starting")
+    // 3. Verify database is accessible
+    try {
+        val db: AppDatabase = GlobalContext.get().get()
+        // A simple query to verify the DB opens without corruption
+        db.profileDao().count()
+    } catch (e: Throwable) {
+        System.err.println("singularity-todo MCP server: Database initialization failed: ${e.message}")
+        e.printStackTrace(System.err)
+        writeJsonRpcError(code = -32001, message = "Database initialization failed: ${e.message}")
+        return@runBlocking
+    }
 
-    // 4. Build MCP server
+    // 4. Log startup info
+    System.err.println("singularity-todo MCP server started")
+
+    // 5. Build MCP server
     val server = Server(
         serverInfo = Implementation(
             name = "singularity-todo",
@@ -65,10 +89,10 @@ fun main(args: Array<String>): Unit = runBlocking {
         instructions = "Singularity Todo MCP server. Use tools to read/write tasks, notes, projects, tags, and ADR entries.",
     ) { /* session initialization callback */ }
 
-    // 5. Register every Koog SimpleTool<T> as an MCP tool
+    // 6. Register every Koog SimpleTool<T> as an MCP tool
     ToolRegistrar(server).registerAll()
 
-    // 6. Graceful shutdown — close server (WAL checkpoint happens automatically on close)
+    // 7. Graceful shutdown — close server (WAL checkpoint happens automatically on close)
     Runtime.getRuntime().addShutdownHook(Thread {
         runBlocking {
             server.close()
@@ -76,9 +100,7 @@ fun main(args: Array<String>): Unit = runBlocking {
         stopKoin()
     })
 
-    // 7. Block on stdio transport — NO println, only System.err for logs
-    // Bridge: System.in → ByteReadChannel (Ktor) → RawSource → Source (buffered)
-    //         System.out ← ByteWriteChannel (Ktor) ← RawSink ← Sink (buffered)
+    // 8. Block on stdio transport — NO println, only System.err for logs
     val transport = StdioServerTransport(
         input = System.`in`.toByteReadChannel().asSource().buffered(),
         output = System.out.asByteWriteChannel().asSink().buffered()
@@ -86,6 +108,18 @@ fun main(args: Array<String>): Unit = runBlocking {
 
     // Create session and block — this starts the MCP protocol loop
     server.createSession(transport)
+}
+
+// ─── JSON-RPC error response for startup failures ─────────────────────────────
+
+/**
+ * Writes a JSON-RPC 2.0 error response to stdout for early startup failures
+ * (before the MCP protocol loop begins). This lets the connecting agent
+ * receive a structured error instead of silence.
+ */
+private fun writeJsonRpcError(code: Int, message: String) {
+    val error = """{"jsonrpc":"2.0","id":null,"error":{"code":$code,"message":"$message"}}"""
+    OutputStreamWriter(System.out, Charsets.UTF_8).use { it.write(error + "\n") }
 }
 
 // ─── Profile argument parsing ─────────────────────────────────────────────────

@@ -10,7 +10,7 @@ import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.utils.time.KoogClock
 import com.singularity.todo.core.di.PromptExecutorPort
-import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.coroutines.flow.Flow
@@ -35,7 +35,7 @@ import java.net.URL
  * throws, since failures inside the AI loop are surfaced through [Result].
  */
 class KoogAgentService(
-    private val secureStorage: SecureStoragePort,
+    private val secureStorage: ProfileAwareSecureStorage,
     private val settings: SettingsRepository,
     private val promptExecutor: ai.koog.prompt.executor.model.PromptExecutor,
     private val streamingExecutor: PromptExecutorPort,

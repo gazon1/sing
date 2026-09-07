@@ -36,6 +36,6 @@ actual fun aiToolsModule() = module {
 
     // Raw Koog executor for AI tools
     single<ai.koog.prompt.executor.model.PromptExecutor> {
-        (get<PromptExecutorPort>() as KoogPromptExecutorPort).executor
+        get<PromptExecutorPort>().executor
     }
 }

@@ -507,6 +507,7 @@ class FakeAttachmentRepository : com.singularity.todo.core.attachments.Attachmen
 // ─── NotesRepository ─────────────────────────────────────────────────────────
 
 class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
+    val notes: Map<String, com.singularity.todo.feature.notes.Note> get() = store
     private val store = mutableMapOf<String, com.singularity.todo.feature.notes.Note>()
     private val _flow = MutableStateFlow<List<com.singularity.todo.feature.notes.Note>>(emptyList())
 

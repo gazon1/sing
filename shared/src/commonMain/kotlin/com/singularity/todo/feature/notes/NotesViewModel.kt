@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -142,14 +143,15 @@ open class NotesViewModel(
     init {
         scope.launch(Dispatchers.Unconfined) {
             // Watch notes based on current filter, then split into pinned/unpinned.
-            _filter.flatMapLatest { f ->
-                val flow = when (f) {
-                    NoteFilter.All -> repo.watchNotes(userId.value)
-                    NoteFilter.Pinned -> repo.watchPinned(userId.value)
-                    NoteFilter.Archived -> repo.watchArchived(userId.value)
-                }
-                flow.map { notes -> f to notes }
-            }.catch { emit(NoteFilter.All to emptyList()) }
+            combine(_filter, userId) { f, uid -> f to uid }
+                .flatMapLatest { (f, uid) ->
+                    val flow = when (f) {
+                        NoteFilter.All -> repo.watchNotes(uid)
+                        NoteFilter.Pinned -> repo.watchPinned(uid)
+                        NoteFilter.Archived -> repo.watchArchived(uid)
+                    }
+                    flow.map { notes -> f to notes }
+                }.catch { emit(NoteFilter.All to emptyList()) }
                 .collect { (filter, allNotes) ->
                     val uid = userId.value
                     if (allNotes.isEmpty() && filter == NoteFilter.All) {

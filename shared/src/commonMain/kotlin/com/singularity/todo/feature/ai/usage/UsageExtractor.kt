@@ -2,7 +2,7 @@ package com.singularity.todo.feature.ai.usage
 
 import ai.koog.prompt.message.ResponseMetaInfo
 import com.singularity.todo.core.observability.ToolUsageEvent
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Extracts token usage from Koog's [ResponseMetaInfo].
