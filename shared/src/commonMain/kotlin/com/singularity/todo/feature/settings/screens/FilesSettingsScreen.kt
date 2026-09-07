@@ -1,13 +1,16 @@
 package com.singularity.todo.feature.settings.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,9 +24,14 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 /**
  * Files settings — shows storage location and attachment management info.
  * Attachments are stored under the app's internal files directory.
+ *
+ * @param attachmentsPath absolute path to the attachments folder (used to reveal it in file manager).
+ * @param onOpenAttachmentsFolder called when the user taps "Attachments location" — should open the file manager.
  */
 @Composable
 fun FilesSettingsScreen(
+    attachmentsPath: String,
+    onOpenAttachmentsFolder: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -33,11 +41,38 @@ fun FilesSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SettingsSection(title = "Storage") {
-            SettingsInfoRow(
-                icon = Icons.Filled.Folder,
-                title = "Attachments location",
-                subtitle = "App internal storage",
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenAttachmentsFolder)
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.Start,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Folder,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(end = 12.dp),
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Attachments location",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        text = attachmentsPath,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Filled.OpenInNew,
+                    contentDescription = "Open folder",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
         }
 
         SettingsSection(title = "Attachment Limits") {
@@ -58,49 +93,22 @@ fun FilesSettingsScreen(
     }
 }
 
-@Composable
-private fun SettingsInfoRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        androidx.compose.foundation.layout.Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(end = 12.dp),
-            )
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
 // ===== Preview =====
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun FilesSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    FilesSettingsScreen()
+    FilesSettingsScreen(
+        attachmentsPath = "/data/user/0/com.singularity.todo/files/attachments",
+        onOpenAttachmentsFolder = {},
+    )
 }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun FilesSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    FilesSettingsScreen()
+    FilesSettingsScreen(
+        attachmentsPath = "/data/user/0/com.singularity.todo/files/attachments",
+        onOpenAttachmentsFolder = {},
+    )
 }

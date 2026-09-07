@@ -28,7 +28,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -43,6 +45,8 @@ import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
+import com.singularity.todo.core.files.FileRevealer
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 private enum class SettingsTab(val label: String) {
@@ -82,6 +86,10 @@ private fun SettingsContent(
     viewModel: SettingsViewModel,
     modifier: Modifier = Modifier,
 ) {
+    val fileRevealer: FileRevealer = koinInject()
+    val attachmentsPath = fileRevealer.attachmentsBasePath()
+    val scope = rememberCoroutineScope()
+
     Row(modifier = modifier.fillMaxSize()) {
         // Navigation rail on wide screens (disabled until WindowSizeClass is wired)
         SettingsNavRail(selectedTab, Modifier.fillMaxHeight(), onSelectTab)
@@ -105,7 +113,12 @@ private fun SettingsContent(
                     state = state,
                     onIntent = viewModel::processIntent,
                 )
-                SettingsTab.Files -> FilesSettingsScreen()
+                SettingsTab.Files -> FilesSettingsScreen(
+                    attachmentsPath = attachmentsPath,
+                    onOpenAttachmentsFolder = {
+                        scope.launch { fileRevealer.revealAttachmentsFolder(attachmentsPath) }
+                    },
+                )
                 SettingsTab.Backup -> BackupScreenWrapper(onBack = { onSelectTab(SettingsTab.Interface) })
                 SettingsTab.Account -> AccountSettingsScreen(state = state)
             }
@@ -203,7 +216,10 @@ private fun SettingsContentPreview(
                     state = state,
                     onIntent = {},
                 )
-                SettingsTab.Files -> FilesSettingsScreen()
+                SettingsTab.Files -> FilesSettingsScreen(
+                    attachmentsPath = "/data/user/0/com.singularity.todo/files/attachments",
+                    onOpenAttachmentsFolder = {},
+                )
                 SettingsTab.Backup -> {
                     // BackupScreen requires BackupViewModel - show placeholder in preview
                     Text("Backup", modifier = Modifier.padding(16.dp))
