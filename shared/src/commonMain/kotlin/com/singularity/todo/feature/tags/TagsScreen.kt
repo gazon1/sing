@@ -13,11 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -40,17 +36,12 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TagsScreen(onNavigateToCreateTag: () -> Unit) {
+fun TagsScreen() {
     val viewModel: TagsViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Tags") }) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onNavigateToCreateTag, modifier = Modifier.testTag(TestTags.TAGS_FAB)) {
-                Icon(Icons.Filled.Create, contentDescription = "Add Tag")
-            }
-        },
     ) { padding ->
         TagsContent(
             state = state,
