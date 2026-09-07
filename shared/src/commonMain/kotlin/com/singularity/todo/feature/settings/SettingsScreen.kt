@@ -1,12 +1,16 @@
 package com.singularity.todo.feature.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CloudUpload
@@ -78,12 +82,12 @@ private fun SettingsContent(
     viewModel: SettingsViewModel,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier) {
+    Row(modifier = modifier.fillMaxSize()) {
         // Navigation rail on wide screens (disabled until WindowSizeClass is wired)
         SettingsNavRail(selectedTab, Modifier.fillMaxHeight(), onSelectTab)
         VerticalDivider()
 
-        Box(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
             when (selectedTab) {
                 SettingsTab.Interface -> InterfaceSettingsScreen(
                     state = state,
@@ -147,7 +151,18 @@ private fun SettingsNavRail(
                     .padding(vertical = 12.dp, horizontal = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(icon, contentDescription = tab.label)
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            shape = CircleShape,
+                            color = if (tab == selectedTab) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surface,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(icon, contentDescription = tab.label)
+                }
                 Text(
                     tab.label,
                     style = MaterialTheme.typography.labelSmall,
@@ -166,11 +181,11 @@ private fun SettingsContentPreview(
     selectedTab: SettingsTab,
     onSelectTab: (SettingsTab) -> Unit = {},
 ) {
-    Row(modifier = Modifier.fillMaxHeight()) {
+    Row(modifier = Modifier.fillMaxSize()) {
         SettingsNavRail(selectedTab, Modifier.fillMaxHeight(), onSelectTab)
         VerticalDivider()
 
-        Box(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
             when (selectedTab) {
                 SettingsTab.Interface -> InterfaceSettingsScreen(
                     state = state,

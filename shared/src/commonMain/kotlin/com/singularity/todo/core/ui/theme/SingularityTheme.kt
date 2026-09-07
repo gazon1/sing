@@ -30,13 +30,17 @@ val LocalAccentColor = compositionLocalOf { SingularityAccents.Blue }
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFF90CAF9),
     secondary = Color(0xFFCE93D8),
-    tertiary = Color(0xFF80CBC4)
+    tertiary = Color(0xFF80CBC4),
+    background = Color(0xFF121212),
+    surface = Color(0xFF1E1E1E),
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = Color(0xFF1976D2),
     secondary = Color(0xFF7B1FA2),
-    tertiary = Color(0xFF00796B)
+    tertiary = Color(0xFF00796B),
+    background = Color(0xFFFFFBFE),
+    surface = Color(0xFFFFFBFE),
 )
 
 @Composable

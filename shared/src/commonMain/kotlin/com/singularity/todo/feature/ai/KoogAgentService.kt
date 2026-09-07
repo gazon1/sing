@@ -16,6 +16,12 @@ import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * Production [TextGenPort] backed by JetBrains Koog [AIAgent].
@@ -102,6 +108,26 @@ class KoogAgentService(
                 }
             }
     }
+
+    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> =
+        runCatching {
+            val url = URL("$baseUrl/models")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Authorization", "Bearer $apiKey")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 15_000
+            try {
+                val response = conn.inputStream.bufferedReader().readText()
+                val parsed = Json.parseToJsonElement(response)
+                parsed.jsonArray
+                    .map { it.jsonObject["id"]?.jsonPrimitive?.content }
+                    .filterNotNull()
+            } finally {
+                conn.disconnect()
+            }
+        }
 }
 
 /** Maps a user-supplied model identifier to a Koog [LLModel] constant. */
@@ -149,4 +175,7 @@ class FakeTextGen(
 
     override fun streamChat(message: String): Flow<String> =
         kotlinx.coroutines.flow.flowOf(success)
+
+    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> =
+        Result.success(emptyList())
 }

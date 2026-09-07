@@ -4,7 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -13,6 +18,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -44,9 +51,12 @@ fun AiProviderSettingsScreen(
     // the ViewModel via SettingsIntent.UpdateAiApiKey as the user types, and lives in
     // SecureStorage on the VM side.
     var apiKeyField by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
 
     Column(
-        modifier = modifier.padding(16.dp),
+        modifier = modifier
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // ─── Provider ───────────────────────────────────────────────────────────
@@ -119,8 +129,20 @@ fun AiProviderSettingsScreen(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 label = { Text("OpenAI API Key") },
                 singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (passwordVisible) {
+                    androidx.compose.ui.text.input.VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                            contentDescription = if (passwordVisible) "Hide API key" else "Show API key",
+                        )
+                    }
+                },
             )
         }
 
@@ -143,13 +165,62 @@ fun AiProviderSettingsScreen(
 
         // ─── Model ──────────────────────────────────────────────────────────────
         SettingsSection(title = "Model") {
-            OutlinedTextField(
-                value = state.aiModel,
-                onValueChange = { onIntent(SettingsIntent.UpdateAiModel(it)) },
+            if (state.aiModels.isNotEmpty()) {
+                var modelExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = modelExpanded,
+                    onExpandedChange = { modelExpanded = it },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = state.aiModel,
+                        onValueChange = { onIntent(SettingsIntent.UpdateAiModel(it)) },
+                        readOnly = true,
+                        label = { Text("Model") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelExpanded) },
+                        modifier = Modifier
+                            .menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth(),
+                    )
+                    ExposedDropdownMenu(
+                        expanded = modelExpanded,
+                        onDismissRequest = { modelExpanded = false },
+                    ) {
+                        state.aiModels.forEach { model ->
+                            DropdownMenuItem(
+                                text = { Text(model) },
+                                onClick = {
+                                    onIntent(SettingsIntent.UpdateAiModel(model))
+                                    modelExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+            } else {
+                OutlinedTextField(
+                    value = state.aiModel,
+                    onValueChange = { onIntent(SettingsIntent.UpdateAiModel(it)) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    label = { Text("Model name") },
+                    singleLine = true,
+                )
+            }
+            if (state.fetchAiModelsError != null) {
+                Text(
+                    text = "Fetch error: ${state.fetchAiModelsError}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+            Button(
+                onClick = { onIntent(SettingsIntent.FetchAiModels) },
+                enabled = !state.isFetchingAiModels,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                label = { Text("Model name") },
-                singleLine = true,
-            )
+            ) {
+                Text(if (state.isFetchingAiModels) "Fetching…" else "Fetch models")
+            }
         }
 
         // ─── System Prompt ─────────────────────────────────────────────────────

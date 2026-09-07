@@ -26,4 +26,11 @@ interface TextGenPort {
      * Returns a [Flow] of string chunks. Default impl delegates to [generate].
      */
     fun streamChat(message: String): Flow<String>
+
+    /**
+     * Fetches available models from the configured API endpoint.
+     * Calls `GET <baseUrl>/models` with Bearer auth.
+     * Returns a list of model IDs on success.
+     */
+    suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>>
 }

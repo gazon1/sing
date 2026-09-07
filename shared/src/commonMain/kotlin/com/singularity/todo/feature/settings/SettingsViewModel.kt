@@ -120,6 +120,7 @@ class SettingsViewModel(
                 is SettingsIntent.UpdateAiModel -> settings.setAiModel(intent.value)
                 is SettingsIntent.UpdateAiSystemPrompt -> settings.setAiSystemPrompt(intent.value)
                 SettingsIntent.TestAiConnection -> testConnection()
+                SettingsIntent.FetchAiModels -> fetchAiModels()
                 is SettingsIntent.UpdateWorkDayStart -> settings.setWorkDayStartMinutes(intent.minutes)
                 is SettingsIntent.UpdateWorkDayEnd -> settings.setWorkDayEndMinutes(intent.minutes)
                 is SettingsIntent.UpdateWorkLunchStart -> settings.setWorkLunchStartMinutes(intent.minutes)
@@ -153,6 +154,25 @@ class SettingsViewModel(
                         onSuccess = { AiTestResult.Ok(latency) },
                         onFailure = { e -> AiTestResult.Error(e.message ?: "Unknown error") },
                     )
+                )
+            }
+        }
+    }
+
+    private fun fetchAiModels() {
+        scope.launch(Dispatchers.Unconfined) {
+            update { it.copy(isFetchingAiModels = true, fetchAiModelsError = null) }
+            val cfg = OpenAiConfig.resolve(secureStorage, settings)
+            if (!cfg.apiKey.isConfigured) {
+                update { it.copy(isFetchingAiModels = false, fetchAiModelsError = "API key not configured") }
+                return@launch
+            }
+            val result = textGen.listModels(cfg.baseUrl, cfg.apiKey.value)
+            update {
+                it.copy(
+                    isFetchingAiModels = false,
+                    aiModels = result.getOrDefault(emptyList()),
+                    fetchAiModelsError = result.exceptionOrNull()?.message,
                 )
             }
         }

@@ -26,6 +26,9 @@ sealed interface SettingsUiState {
         val aiModel: String = "gpt-4o-mini",
         val aiSystemPrompt: String = SettingsRepository.DEFAULT_SYSTEM_PROMPT,
         val aiTestResult: AiTestResult = AiTestResult.Idle,
+        val aiModels: List<String> = emptyList(),
+        val isFetchingAiModels: Boolean = false,
+        val fetchAiModelsError: String? = null,
         // Work Schedule
         val workDayStartMinutes: Int = 540,   // 09:00
         val workDayEndMinutes: Int = 1080,   // 18:00
@@ -73,6 +76,7 @@ sealed interface SettingsIntent {
     data class UpdateAiModel(val value: String) : SettingsIntent
     data class UpdateAiSystemPrompt(val value: String) : SettingsIntent
     data object TestAiConnection : SettingsIntent
+    data object FetchAiModels : SettingsIntent
     // Work Schedule
     data class UpdateWorkDayStart(val minutes: Int) : SettingsIntent
     data class UpdateWorkDayEnd(val minutes: Int) : SettingsIntent

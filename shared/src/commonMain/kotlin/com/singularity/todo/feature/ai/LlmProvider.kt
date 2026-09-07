@@ -11,6 +11,7 @@ package com.singularity.todo.feature.ai
 enum class LlmProvider(val id: String, val defaultBaseUrl: String) {
     OPENAI("openai", "https://api.openai.com/v1"),
     OPENAI_COMPATIBLE("openai-compatible", "https://api.openai.com/v1"),
+    ANTHROPIC_COMPATIBLE("anthropic-compatible", "https://api.anthropic.com/v1"),
     OLLAMA("ollama", "http://localhost:11434/v1"),
     CUSTOM("custom", "");
 
