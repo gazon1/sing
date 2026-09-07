@@ -5,19 +5,22 @@ import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.auth.CurrentUser
-import com.singularity.todo.core.ui.components.FieldMode
-import com.singularity.todo.feature.checklist.ChecklistItemId
-import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.checklist.ChecklistItem
-import com.singularity.todo.feature.checklist.ChecklistRepository
+import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.projects.Project
+import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.reminders.Reminder
+import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.reminders.ReminderType
+import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.feature.tags.Tag
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.datetime.LocalDate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,11 +30,21 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.platform.TimeZoneProvider
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 
 /** Combined read model for [TaskDetailScreen]. */
 data class TaskDetailUi(
@@ -41,12 +54,8 @@ data class TaskDetailUi(
     val checklist: List<ChecklistItem> = emptyList(),
     val reminders: List<Reminder> = emptyList(),
     val attachments: List<Attachment> = emptyList(),
-    val titleField: FieldMode = FieldMode.View,
-    val descriptionField: FieldMode = FieldMode.View,
-    val dueDateField: FieldMode = FieldMode.View,
-    val dueTimeField: FieldMode = FieldMode.View,
-    val priorityField: FieldMode = FieldMode.View,
-    val projectField: FieldMode = FieldMode.View,
+    /** Continuous draft for the inline checklist add-field. */
+    val checklistDraft: String = "",
 )
 
 sealed interface TaskDetailUiState {
@@ -55,16 +64,7 @@ sealed interface TaskDetailUiState {
     data class Error(val message: String) : TaskDetailUiState
 }
 
-sealed interface TaskDetailField {
-    data object Title : TaskDetailField
-    data object Description : TaskDetailField
-    data object DueDate : TaskDetailField
-    data object DueTime : TaskDetailField
-    data object Priority : TaskDetailField
-    data object Project : TaskDetailField
-}
-
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
 class TaskDetailViewModel(
     private val taskRepo: TaskRepository,
     private val updateTask: UpdateTaskUseCase,
@@ -74,6 +74,7 @@ class TaskDetailViewModel(
     private val reminderRepo: ReminderRepository,
     private val attachmentsRepo: AttachmentRepository,
     private val currentUser: CurrentUser,
+    private val timeZoneProvider: TimeZoneProvider,
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
@@ -82,20 +83,49 @@ class TaskDetailViewModel(
     private val _events = MutableSharedFlow<TaskDetailUiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<TaskDetailUiEvent> = _events.asSharedFlow()
 
+    /** Draft flows for inline-edit fields — debounced before hitting the repository. */
+    private val titleDraft = MutableStateFlow<String?>(null)
+    private val descriptionDraft = MutableStateFlow<String?>(null)
+
+    /** Collectors for debounced drafts. Each fires after 300 ms of inactivity. */
+    init {
+        scope.launch {
+            titleDraft
+                .debounce(300)
+                .filterNotNull()
+                .collect { title ->
+                    val taskId = _taskId.value ?: return@collect
+                    val current = taskRepo.watchTask(taskId).filterNotNull().first()
+                    updateTask(current.copy(title = title))
+                        .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Title updated")) }
+                        .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+                }
+        }
+        scope.launch {
+            descriptionDraft
+                .debounce(300)
+                .filterNotNull()
+                .collect { desc ->
+                    val taskId = _taskId.value ?: return@collect
+                    val current = taskRepo.watchTask(taskId).filterNotNull().first()
+                    updateTask(current.copy(description = desc.ifBlank { null }))
+                        .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+                }
+        }
+    }
+
     val state: StateFlow<TaskDetailUiState> = _taskId
         .flatMapLatest { id ->
             if (id == null) {
                 flowOf<TaskDetailUiState>(TaskDetailUiState.Loading)
             } else {
                 val taskFlow = taskRepo.watchTask(id)
-                // Project is reactive on the task's projectId; resolves to null if absent.
                 val projectFlow = taskFlow.map { task ->
                     val projectId = task?.projectId
                     if (projectId == null) flowOf<Project?>(null)
                     else projectsRepo.watchProject(projectId)
                 }.flatMapLatest { it }
 
-                // Tags: load all user tags, filter by task.tags on the consumer side.
                 val tagsFlow = tagsRepo.watchTags(currentUser.current.value)
                 val checklistFlow = checklistUseCase.watchChecklist(id.value)
                 val reminderFlow = reminderRepo.watchByTask(id, currentUser.current)
@@ -126,6 +156,7 @@ class TaskDetailViewModel(
                                 checklist = checklist,
                                 reminders = reminders,
                                 attachments = attachments,
+                                checklistDraft = "",
                             )
                         )
                     }
@@ -139,43 +170,169 @@ class TaskDetailViewModel(
         _taskId.value = taskId
     }
 
-    fun saveField(current: Task, field: TaskDetailField, draft: String) = scope.launch {
-        val updated = when (field) {
-            TaskDetailField.Title -> current.copy(title = draft)
-            TaskDetailField.Description -> current.copy(description = draft.ifBlank { null })
-            TaskDetailField.DueDate -> {
-                val newDate = draft.takeIf { it.isNotBlank() }
-                    ?.let { runCatching { kotlinx.datetime.LocalDate.parse(it) }.getOrNull() }
-                current.copy(dueDate = newDate)
-            }
-            TaskDetailField.DueTime -> current.copy(dueTime = draft.takeIf { it.isNotBlank() })
-            TaskDetailField.Priority -> {
-                val parsed = runCatching { TaskPriority.valueOf(draft) }.getOrNull() ?: current.priority
-                current.copy(priority = parsed)
-            }
-            TaskDetailField.Project -> current // project editing goes via saveProject, not saveField
-        }
-        updateTask(updated)
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Field updated")) }
+    // ─── Inline-edit callbacks ──────────────────────────────────────────────────
+
+    fun onTitleChange(value: String) {
+        titleDraft.value = value
+    }
+
+    fun onDescriptionChange(value: String) {
+        descriptionDraft.value = value
+    }
+
+    // ─── Field setters ─────────────────────────────────────────────────────────
+
+    fun setTitle(current: Task, value: String) = scope.launch {
+        updateTask(current.copy(title = value.takeIf { it.isNotBlank() } ?: current.title))
+            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Title updated")) }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
-    /** Sets / clears the task's project. Used by ProjectPickerSheet. */
-    fun saveProject(current: Task, projectId: ProjectId?) = scope.launch {
+    fun setDescription(current: Task, value: String) = scope.launch {
+        updateTask(current.copy(description = value.ifBlank { null }))
+            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Description updated")) }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+    }
+
+    fun setDueDate(current: Task, date: kotlinx.datetime.LocalDate?) = scope.launch {
+        updateTask(current.copy(dueDate = date))
+            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Date updated")) }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+    }
+
+    fun setDueTime(current: Task, time: String?) = scope.launch {
+        updateTask(current.copy(dueTime = time?.takeIf { it.isNotBlank() }))
+            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Time updated")) }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+    }
+
+    fun setPriority(current: Task, priority: TaskPriority) = scope.launch {
+        updateTask(current.copy(priority = priority))
+            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Priority updated")) }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+    }
+
+    fun setProject(current: Task, projectId: ProjectId?) = scope.launch {
         updateTask(current.copy(projectId = projectId))
             .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Project updated")) }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
-    /** Toggles a checklist item's completed flag in place. */
-    fun toggleChecklistItem(item: com.singularity.todo.feature.checklist.ChecklistItem) = scope.launch {
+    fun setPinned(current: Task, pinned: Boolean) = scope.launch {
+        updateTask(current.copy(isPinned = pinned))
+            .onSuccess { _events.emit(TaskDetailUiEvent.Saved(if (pinned) "Task pinned" else "Task unpinned")) }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+    }
+
+    fun setCompleted(current: Task, completed: Boolean) = scope.launch {
+        val completedAt = if (completed) {
+            Clock.now()
+        } else {
+            null
+        }
+        updateTask(current.copy(completedAt = completedAt))
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+    }
+
+    fun setTags(current: Task, tagIds: List<TagId>) = scope.launch {
+        updateTask(current.copy(tags = tagIds))
+            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Tags updated")) }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+    }
+
+    fun removeTag(current: Task, tagId: TagId) = scope.launch {
+        val newTags = current.tags - tagId
+        updateTask(current.copy(tags = newTags))
+            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Tag removed")) }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+    }
+
+    // ─── Checklist ─────────────────────────────────────────────────────────────
+
+    fun toggleChecklistItem(item: ChecklistItem) = scope.launch {
         checklistUseCase.toggleItem(item.taskId, item.id)
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Toggle failed")) }
     }
 
-    /** Removes a checklist item. */
+    fun addChecklistItem(taskId: TaskId, title: String) = scope.launch {
+        if (title.isBlank()) return@launch
+        checklistUseCase.addItem(taskId.value, title.trim())
+            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Item added")) }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Add failed")) }
+    }
+
     fun deleteChecklistItem(id: ChecklistItemId) = scope.launch {
         checklistUseCase.deleteItem(id)
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Delete failed")) }
     }
+
+    // ─── Reminders ──────────────────────────────────────────────────────────────
+
+    fun setReminder(current: Task, offset: ReminderOffset) = scope.launch {
+        if (offset == ReminderOffset.AT_DUE) {
+            // Remove the reminder entirely
+            reminderRepo.deleteByTask(current.id, currentUser.current)
+            return@launch
+        }
+        val now = Clock.now().toEpochMilliseconds()
+        val fireAt = computeFireAt(current.dueDate, current.dueTime, offset, now)
+        val reminder = Reminder(
+            id = ReminderId.generate(),
+            taskId = current.id,
+            userId = currentUser.current,
+            type = ReminderType.Gentle,
+            offsetMinutes = -offset.minutes,
+            fireAt = fireAt,
+            recurringPattern = null,
+        )
+        reminderRepo.upsert(reminder)
+            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Reminder set")) }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Failed to set reminder")) }
+    }
+
+    fun deleteReminder(current: Task) = scope.launch {
+        reminderRepo.deleteByTask(current.id, currentUser.current)
+            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Reminder removed")) }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Failed to remove reminder")) }
+    }
+
+    private fun computeFireAt(
+        dueDate: kotlinx.datetime.LocalDate?,
+        dueTime: String?,
+        offset: ReminderOffset,
+        nowEpochMs: Long,
+    ): Long {
+        if (dueDate == null) return nowEpochMs
+        val zone = timeZoneProvider.current()
+        val hourMinute = dueTime?.split(":")?.map { it.toIntOrNull() }
+            ?.takeIf { it.size == 2 && it.all { v -> v != null } }
+            ?.let { (h, m) -> h!! to m!! }
+        val hour = hourMinute?.first ?: 12
+        val minute = hourMinute?.second ?: 0
+        val ldt = kotlinx.datetime.LocalDateTime(dueDate.year, dueDate.month, dueDate.day, hour, minute)
+        val base = ldt.toInstant(zone).toEpochMilliseconds()
+        return base - offset.minutes * 60_000L
+    }
+
+    // ─── Delete ────────────────────────────────────────────────────────────────
+
+    fun deleteTask(current: Task) = scope.launch {
+        taskRepo.softDelete(current.id)
+            .onSuccess {
+                _events.emit(TaskDetailUiEvent.Saved("Task deleted"))
+                _events.emit(TaskDetailUiEvent.NavigateBack)
+            }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Delete failed")) }
+    }
+
+    // ─── Sheet / dialog triggers ────────────────────────────────────────────────
+
+    fun openDatePicker() = scope.launch { _events.emit(TaskDetailUiEvent.OpenDatePicker) }
+    fun openTimePicker() = scope.launch { _events.emit(TaskDetailUiEvent.OpenTimePicker) }
+    fun openPrioritySheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenPrioritySheet) }
+    fun openProjectSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenProjectSheet) }
+    fun openTagSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenTagSheet) }
+    fun openReminderSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenReminderSheet) }
+    fun openAttachmentSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenAttachmentSheet) }
+    fun confirmDelete() = scope.launch { _events.emit(TaskDetailUiEvent.ConfirmDelete) }
 }

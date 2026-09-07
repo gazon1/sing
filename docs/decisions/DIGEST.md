@@ -479,3 +479,4 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-07-fab-chrome-level` — FAB at chrome level — single source of truth in shells
 - `2026-09-07-note-editor-body-load` — NoteEditor body load — store HTML directly, fix RichTextState init
 - `2026-09-07-settings-fixes` — Settings layout fixes, reactive dark theme, LLM providers
+- `2026-09-07-task-detail-document-style` — _(no title)

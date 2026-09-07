@@ -12,4 +12,14 @@ sealed interface TaskDetailUiEvent {
 
     /** Navigate back. */
     data object NavigateBack : TaskDetailUiEvent
+
+    // Sheet / dialog triggers
+    data object OpenDatePicker : TaskDetailUiEvent
+    data object OpenTimePicker : TaskDetailUiEvent
+    data object OpenPrioritySheet : TaskDetailUiEvent
+    data object OpenProjectSheet : TaskDetailUiEvent
+    data object OpenTagSheet : TaskDetailUiEvent
+    data object OpenReminderSheet : TaskDetailUiEvent
+    data object OpenAttachmentSheet : TaskDetailUiEvent
+    data object ConfirmDelete : TaskDetailUiEvent
 }

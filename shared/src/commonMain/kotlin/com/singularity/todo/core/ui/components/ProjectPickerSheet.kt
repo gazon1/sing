@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,13 +22,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.feature.projects.Project
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.core.settings.SettingsRepository
 import kotlinx.coroutines.flow.first
 import org.koin.compose.koinInject
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectPickerSheet(
     onProjectSelected: (Project?) -> Unit,
@@ -34,6 +36,7 @@ fun ProjectPickerSheet(
 ) {
     val projectsRepo: ProjectsRepository = koinInject()
     val settingsRepo: SettingsRepository = koinInject()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var projects by remember { mutableStateOf<List<Project>>(emptyList()) }
 
@@ -42,36 +45,48 @@ fun ProjectPickerSheet(
         projects = projectsRepo.watchProjects(userId).first()
     }
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("Select Project") },
-        text = {
-            LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                item {
-                    TextButton(
-                        onClick = { onProjectSelected(null); onDismiss() },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("No Project (Inbox)")
-                    }
-                }
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 32.dp),
+        ) {
+            Text(
+                text = "Select Project",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+            )
+
+            // No Project (Inbox) option
+            Text(
+                text = "No Project (Inbox)",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onProjectSelected(null); onDismiss() }
+                    .padding(horizontal = 24.dp, vertical = 14.dp),
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            LazyColumn {
                 items(projects, key = { it.id.value }) { project ->
                     Text(
                         text = project.name,
+                        style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onProjectSelected(project); onDismiss() }
-                            .padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.onSurface,
+                            .padding(horizontal = 24.dp, vertical = 14.dp),
                     )
                 }
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
+
+            Spacer(modifier = Modifier.height(8.dp))
         }
-    )
+    }
 }
