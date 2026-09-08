@@ -4,28 +4,28 @@ import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolParameterDescriptor
 import ai.koog.agents.core.tools.ToolParameterType
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
- * Converts a Koog [ToolDescriptor] into an MCP [ToolSchema] (JSON Schema 2020-12).
+ * Converts a Koog [ToolDescriptor] into an MCP [ToolSchema].
  *
  * Required and optional [ToolParameterDescriptor]s become schema `properties`, with the
  * required ones gathered into the top-level `required` array.
  *
  * Recursive descent is required because `ToolParameterType.Object`, `List`, and `AnyOf`
  * can each contain nested parameter types. Descriptions are propagated through.
+ *
+ * NOTE: we deliberately leave [ToolSchema.schema] null — the SDK sample
+ * (samples/weather-stdio-server) does not populate it, and the MCP spec treats
+ * `schema` as the JSON Schema 2020-12 dialect URI. If we embedded the schema JSON
+ * as the value (the previous implementation), MCP clients like Fred Perry's Todo
+ * List interpreted it as a dialect URI and rejected the tool with:
+ *   "JSON Schema declares an unsupported dialect"
  */
 object KoogJsonSchemaBuilder {
-
-    private val json = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-        prettyPrint = false
-    }
 
     fun build(descriptor: ToolDescriptor): ToolSchema {
         val properties = mutableMapOf<String, JsonElement>()
@@ -40,24 +40,13 @@ object KoogJsonSchemaBuilder {
             properties[param.name] = param.toJsonSchema()
         }
 
-        val schemaJson = JsonObject(
-            buildMap {
-                put("type", JsonPrimitive("object"))
-                put("properties", JsonObject(properties))
-                if (required.isNotEmpty()) {
-                    put("required", JsonArray(required.map { JsonPrimitive(it) }))
-                }
-            },
-        )
+        val propertiesObj = JsonObject(properties)
 
-        // NOTE: Do NOT embed "$schema" as a property inside schemaJson — the MCP client
-        // will interpret it as a JSON Schema dialect URI reference and fail validation.
-        // The schema string is carried solely by the ToolSchema.schema field.
         return ToolSchema(
-            schema = json.encodeToString(JsonElement.serializer(), schemaJson),
-            properties = schemaJson,
-            required = required,
-            defs = JsonObject(emptyMap()),
+            schema = null,
+            properties = propertiesObj,
+            required = required.takeIf { it.isNotEmpty() },
+            defs = null,
         )
     }
 

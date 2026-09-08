@@ -73,6 +73,25 @@ class McpServerEndToEndTest {
             }
             assertTrue(toolNames.isNotEmpty(), "Expected at least one registered tool, got $toolNames")
 
+            // Regression: every tool's inputSchema must NOT carry a `$schema` key whose
+            // value is the schema JSON serialized as a string. Some MCP clients (Fred Perry
+            // Todo List, Claude Code) interpret `$schema` as the JSON Schema dialect URI
+            // and reject the tool with "JSON Schema declares an unsupported dialect" if
+            // the value is not a valid URI.
+            runBlocking {
+                withTimeout(timeMillis = 5_000) {
+                    val listed = client.listTools().tools
+                    for (tool in listed) {
+                        val schemaProp = tool.inputSchema.schema
+                        assertEquals(
+                            expected = null,
+                            actual = schemaProp,
+                            message = "Tool ${tool.name} inputSchema still carries \$schema = $schemaProp",
+                        )
+                    }
+                }
+            }
+
             runBlocking { client.close() }
         } catch (t: Throwable) {
             val stderr = runCatching { process.errorStream.bufferedReader().readText() }.getOrDefault("")
