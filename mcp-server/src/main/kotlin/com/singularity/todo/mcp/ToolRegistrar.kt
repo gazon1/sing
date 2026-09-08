@@ -4,6 +4,8 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.Tool
 import ai.koog.serialization.JSONObject
 import ai.koog.serialization.kotlinx.KotlinxSerializer
+import com.singularity.todo.mcp.errors.ErrorMapper
+import com.singularity.todo.mcp.errors.McpToolError
 import com.singularity.todo.mcp.schema.KoogJsonSchemaBuilder
 import com.singularity.todo.mcp.schema.toKoog
 import io.modelcontextprotocol.kotlin.sdk.server.Server
@@ -90,11 +92,13 @@ class ToolRegistrar(private val server: Server) {
                 structuredContent = structuredContent,
                 isError = false,
             )
+        } catch (e: McpToolError) {
+            // Two-tier error model: business errors surface as isError=true text
+            // (LLM can read & self-correct); Internal errors become JSON-RPC -32603
+            // (server-side log only — never leak stack traces to the LLM).
+            ErrorMapper.toResult(e)
         } catch (e: Exception) {
-            CallToolResult(
-                content = listOf(TextContent(text = "[InternalError] ${e.message ?: "unknown"}")),
-                isError = true,
-            )
+            ErrorMapper.toResult(McpToolError.Internal(e.message ?: "unknown", e))
         }
     }
 }

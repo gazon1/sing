@@ -245,28 +245,41 @@ fun dataGetProjectTool(projectsRepository: com.singularity.todo.feature.projects
     },
 )
 
-fun dataListTasksTool(taskRepository: com.singularity.todo.feature.tasks.TaskRepository) = dataTool<ListTasksInput, ListTasksOutput>(
+fun dataListTasksTool(
+    taskRepository: com.singularity.todo.feature.tasks.TaskRepository,
+    currentUser: com.singularity.todo.feature.profile.ProfileAwareCurrentUser,
+) = dataTool<ListTasksInput, ListTasksOutput>(
     name = "list_tasks",
     description = "List tasks, optionally filtered by project.",
     block = { args ->
-        val userId = com.singularity.todo.feature.tasks.UserId(args.userId.ifBlank { "local-user" })
+        val effectiveUserId = if (args.userId.isNotBlank()) {
+            com.singularity.todo.feature.tasks.UserId(args.userId)
+        } else {
+            currentUser.scopedUserId.value
+        }
         val filter = args.projectId?.let {
             com.singularity.todo.feature.tasks.TaskFilter.ByProject(com.singularity.todo.feature.projects.ProjectId(it))
         } ?: com.singularity.todo.feature.tasks.TaskFilter.All
-        val tasks = taskRepository.watchTasks(userId, filter).first().take(args.limit)
+        val tasks = taskRepository.watchTasks(effectiveUserId, filter).first().take(args.limit)
             .map { TaskSummary(it.id.value, it.title, it.isCompleted, it.projectId?.value) }
         Json.encodeToString(ListTasksOutput.serializer(), ListTasksOutput(tasks))
     },
 )
 
-fun dataSearchTasksTool(taskRepository: com.singularity.todo.feature.tasks.TaskRepository) = dataTool<SearchTasksInput, SearchTasksOutput>(
+fun dataSearchTasksTool(
+    taskRepository: com.singularity.todo.feature.tasks.TaskRepository,
+    currentUser: com.singularity.todo.feature.profile.ProfileAwareCurrentUser,
+) = dataTool<SearchTasksInput, SearchTasksOutput>(
     name = "search_tasks",
     description = "Search tasks by title (case-insensitive).",
     block = { args ->
-        val tasks = taskRepository.watchTasks(
-            com.singularity.todo.feature.tasks.UserId(args.userId),
-            com.singularity.todo.feature.tasks.TaskFilter.All
-        ).first()
+        val effectiveUserId = if (args.userId.isNotBlank()) {
+            com.singularity.todo.feature.tasks.UserId(args.userId)
+        } else {
+            currentUser.scopedUserId.value
+        }
+        val tasks = taskRepository.watchTasks(effectiveUserId, com.singularity.todo.feature.tasks.TaskFilter.All)
+            .first()
             .filter { it.title.contains(args.query, ignoreCase = true) }
             .take(args.limit)
             .map { TaskSummary(it.id.value, it.title, it.isCompleted, it.projectId?.value) }
@@ -274,13 +287,23 @@ fun dataSearchTasksTool(taskRepository: com.singularity.todo.feature.tasks.TaskR
     },
 )
 
-fun dataListLinkedTasksTool(taskRepository: com.singularity.todo.feature.tasks.TaskRepository) = dataTool<ListLinkedTasksInput, ListLinkedTasksOutput>(
+fun dataListLinkedTasksTool(
+    taskRepository: com.singularity.todo.feature.tasks.TaskRepository,
+    currentUser: com.singularity.todo.feature.profile.ProfileAwareCurrentUser,
+) = dataTool<ListLinkedTasksInput, ListLinkedTasksOutput>(
     name = "list_linked_tasks",
     description = "List all tasks linked to a specific project.",
     block = { args ->
+        val effectiveUserId = if (args.userId.isNotBlank()) {
+            com.singularity.todo.feature.tasks.UserId(args.userId)
+        } else {
+            currentUser.scopedUserId.value
+        }
         val tasks = taskRepository.watchTasks(
-            com.singularity.todo.feature.tasks.UserId(args.userId),
-            com.singularity.todo.feature.tasks.TaskFilter.ByProject(com.singularity.todo.feature.projects.ProjectId(args.projectId))
+            effectiveUserId,
+            com.singularity.todo.feature.tasks.TaskFilter.ByProject(
+                com.singularity.todo.feature.projects.ProjectId(args.projectId),
+            ),
         ).first()
             .map { TaskSummary(it.id.value, it.title, it.isCompleted, it.projectId?.value) }
         Json.encodeToString(ListLinkedTasksOutput.serializer(), ListLinkedTasksOutput(tasks))

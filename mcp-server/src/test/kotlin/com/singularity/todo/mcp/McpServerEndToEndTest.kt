@@ -2,12 +2,16 @@ package com.singularity.todo.mcp
 
 import io.modelcontextprotocol.kotlin.sdk.client.Client
 import io.modelcontextprotocol.kotlin.sdk.client.StdioClientTransport
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.Implementation
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.asSink
 import kotlinx.io.asSource
 import kotlinx.io.buffered
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assume
 import java.io.File
 import kotlin.test.Test
@@ -126,7 +130,94 @@ class McpServerEndToEndTest {
                 message = "Server exited prematurely — done.join() likely returned without a client",
             )
         } finally {
-            process.destroyForcibly()
+            if (process.isAlive) process.destroyForcibly()
+        }
+    }
+
+    @Test
+    fun create_task_then_read_task_returns_same_title() {
+        Assume.assumeTrue(
+            "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
+            jar.exists(),
+        )
+
+        val process = ProcessBuilder(
+            "java",
+            "-jar",
+            jar.absolutePath,
+            "--profile=e2e-${System.currentTimeMillis()}",
+        ).redirectError(ProcessBuilder.Redirect.PIPE)
+            .start()
+
+        try {
+            val transport = StdioClientTransport(
+                input = process.inputStream.asSource().buffered(),
+                output = process.outputStream.asSink().buffered(),
+            )
+
+            val client = Client(
+                clientInfo = Implementation(name = "singularity-e2e-test", version = "0.0.1"),
+            )
+
+            runBlocking {
+                withTimeout(timeMillis = 15_000) {
+                    client.connect(transport)
+                }
+            }
+
+            // Step 1: create a task
+            val createArgs = mapOf(
+                "title" to "E2E roundtrip task ${System.currentTimeMillis()}",
+                "priority" to "High",
+            )
+            val createResult: CallToolResult = runBlocking {
+                withTimeout(timeMillis = 5_000) {
+                    client.callTool("tasks.create", createArgs)
+                }
+            }
+
+            assertTrue(
+                createResult.isError == false,
+                "tasks.create returned isError=true: ${createResult.content}",
+            )
+
+            // Extract taskId from structured JSON: {"taskId":"...","title":"...","description":null}
+            val createJson = Json.parseToJsonElement(
+                (createResult.content.first() as io.modelcontextprotocol.kotlin.sdk.types.TextContent).text,
+            ).jsonObject
+            val taskId = createJson["taskId"]?.jsonPrimitive?.content
+                ?: fail("tasks.create response missing taskId: ${createResult.content}")
+
+            // Step 2: read it back
+            val getResult: CallToolResult = runBlocking {
+                withTimeout(timeMillis = 5_000) {
+                    client.callTool("tasks.get", mapOf("taskId" to taskId))
+                }
+            }
+
+            assertTrue(
+                getResult.isError == false,
+                "tasks.get returned isError=true: ${getResult.content}",
+            )
+
+            val getJson = Json.parseToJsonElement(
+                (getResult.content.first() as io.modelcontextprotocol.kotlin.sdk.types.TextContent).text,
+            ).jsonObject
+            val gotTitle = getJson["title"]?.jsonPrimitive?.content
+                ?: fail("tasks.get response missing title: ${getResult.content}")
+
+            assertEquals(
+                (createArgs["title"] as String),
+                gotTitle,
+                "tasks.get should return the same title that was created",
+            )
+
+            runBlocking { client.close() }
+        } catch (t: Throwable) {
+            val stderr = runCatching { process.errorStream.bufferedReader().readText() }.getOrDefault("")
+            fail("MCP e2e roundtrip failed: ${t.message}\n--- server stderr ---\n$stderr")
+        } finally {
+            if (process.isAlive) process.destroyForcibly()
         }
     }
 }
