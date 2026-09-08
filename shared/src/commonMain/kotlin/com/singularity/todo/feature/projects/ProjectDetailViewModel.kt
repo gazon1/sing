@@ -9,7 +9,6 @@ import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.TaskFilter
 import com.singularity.todo.feature.tasks.TaskRepository
-import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -64,7 +63,7 @@ class ProjectDetailViewModel(
         projectFlow.flatMapLatest { project ->
             if (project == null) flowOf(emptyList())
             else taskRepo.watchTasks(
-                UserId(project.userId),
+                currentUser.scopedUserId.value,
                 TaskFilter.ByProject(projectId)
             )
         },

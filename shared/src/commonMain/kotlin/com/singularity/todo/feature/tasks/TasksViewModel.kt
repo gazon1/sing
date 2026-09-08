@@ -26,12 +26,22 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/** Groups tasks by parent relationship for hierarchical display. */
+sealed interface TaskGroup {
+    data class TopLevel(
+        val parent: Task,
+        val children: List<Task>,
+        val isExpanded: Boolean,
+    ) : TaskGroup
+    data class Child(val task: Task) : TaskGroup
+}
+
 sealed interface TasksUiState {
     data object Loading : TasksUiState
     data class Empty(val filter: TaskFilter) : TasksUiState
     data class Content(
         val filter: TaskFilter,
-        val tasks: List<Task>,
+        val taskGroups: List<TaskGroup>,
         val selectedIds: Set<TaskId> = emptySet(),
     ) : TasksUiState
     data class Error(val message: String) : TasksUiState
@@ -81,14 +91,30 @@ class TasksViewModel(
     private val _selectedIds = MutableStateFlow<Set<TaskId>>(emptySet())
     val selectedIds: StateFlow<Set<TaskId>> = _selectedIds.asStateFlow()
 
-    val state: StateFlow<TasksUiState> = combine(_filter, currentUser.scopedUserId) { f, uid -> f to uid }
-        .flatMapLatest { (filter, uid) -> taskRepo.watchTasks(uid, filter) }
-        .map { tasks ->
-            if (tasks.isEmpty()) TasksUiState.Empty(_filter.value)
-            else TasksUiState.Content(_filter.value, tasks, _selectedIds.value)
-        }
+    private val _expandedParentIds = MutableStateFlow<Set<TaskId>>(emptySet())
+    val expandedParentIds: StateFlow<Set<TaskId>> = _expandedParentIds.asStateFlow()
+
+    val state: StateFlow<TasksUiState> = combine(
+        combine(_filter, currentUser.scopedUserId) { f, uid -> f to uid }
+            .flatMapLatest { (filter, uid) -> taskRepo.watchTasks(uid, filter) },
+        _expandedParentIds,
+        _selectedIds,
+    ) { tasks, expandedIds, selectedIds ->
+        val groups = deriveTaskGroups(tasks, expandedIds)
+        if (groups.isEmpty()) TasksUiState.Empty(_filter.value)
+        else TasksUiState.Content(_filter.value, groups, selectedIds)
+    }
         .catch { emit(TasksUiState.Error(it.message ?: "Error")) }
         .stateIn(scope, sharingStarted(), TasksUiState.Loading)
+
+    /** Groups flat task list into parent/child hierarchy. */
+    private fun deriveTaskGroups(tasks: List<Task>, expandedIds: Set<TaskId>): List<TaskGroup> {
+        val topLevel = tasks.filter { it.parentTaskId == null }
+        return topLevel.map { parent ->
+            val children = tasks.filter { it.parentTaskId == parent.id }
+            TaskGroup.TopLevel(parent, children, isExpanded = parent.id in expandedIds)
+        }
+    }
 
     fun setFilter(filter: TaskFilter) {
         _filter.value = filter
@@ -118,6 +144,12 @@ class TasksViewModel(
 
     fun exitSelectionMode() {
         _selectedIds.value = emptySet()
+    }
+
+    fun toggleExpand(taskId: TaskId) {
+        _expandedParentIds.update { current ->
+            if (taskId in current) current - taskId else current + taskId
+        }
     }
 
     fun bulkCompleteSelected() = scope.launch {

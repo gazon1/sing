@@ -8,12 +8,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -44,6 +48,7 @@ fun TaskCard(
     onLongClick: () -> Unit = {},
     actions: TaskCardActions = TaskCardActions.Empty,
     modifier: Modifier = Modifier,
+    trailing: @Composable (RowScope.() -> Unit)? = null,
 ) {
     Card(
         modifier = modifier
@@ -65,11 +70,19 @@ fun TaskCard(
 
             TaskText(task = task, modifier = Modifier.weight(1f))
 
+            if (task.parentTaskId != null) {
+                SubtaskChip()
+            }
+
             PriorityChip(priority = task.priority)
 
             PinButton(isPinned = task.isPinned, onClick = actions::onPin)
             AiActionButton(onClick = actions::onAiClick)
             DeleteActionButton(onClick = actions::onDelete)
+            if (trailing != null) {
+                Spacer(modifier = Modifier.padding(start = 4.dp))
+                Row { trailing() }
+            }
         }
     }
 }
@@ -119,6 +132,25 @@ private fun PinButton(isPinned: Boolean, onClick: () -> Unit) {
             else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/** Chip shown on tasks that are sub-tasks (have a parentTaskId). */
+@Composable
+private fun SubtaskChip(modifier: Modifier = Modifier) {
+    AssistChip(
+        onClick = {},
+        label = {
+            Text(
+                text = "Sub-task",
+                style = MaterialTheme.typography.labelSmall,
+            )
+        },
+        modifier = modifier,
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ),
+    )
 }
 
 // ===== Preview =====
