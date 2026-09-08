@@ -48,8 +48,6 @@ import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
 import com.singularity.todo.core.files.FileRevealer
-import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.rememberAppNavigator
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -64,7 +62,10 @@ private enum class SettingsTab(val label: String) {
 }
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    onNavigateToProfileSwitcher: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val viewModel: SettingsViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableStateOf(SettingsTab.Interface) }
@@ -72,33 +73,15 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     when (val state = uiState) {
         is SettingsUiState.Loading -> LoadingIndicator(modifier = modifier)
         is SettingsUiState.Error -> EmptyState(title = "Error", subtitle = state.cause.toString(), modifier = modifier)
-        is SettingsUiState.Content -> SettingsContentWithNavigation(
+        is SettingsUiState.Content -> SettingsContent(
             state = state,
             selectedTab = selectedTab,
             onSelectTab = { selectedTab = it },
             viewModel = viewModel,
+            onNavigateToProfileSwitcher = onNavigateToProfileSwitcher,
             modifier = modifier,
         )
     }
-}
-
-@Composable
-private fun SettingsContentWithNavigation(
-    state: SettingsUiState.Content,
-    selectedTab: SettingsTab,
-    onSelectTab: (SettingsTab) -> Unit,
-    viewModel: SettingsViewModel,
-    modifier: Modifier = Modifier,
-) {
-    val navigator = rememberAppNavigator()
-    SettingsContent(
-        state = state,
-        selectedTab = selectedTab,
-        onSelectTab = onSelectTab,
-        viewModel = viewModel,
-        onNavigateToProfileSwitcher = { navigator.navigate(AppDestination.ProfileSwitcher) },
-        modifier = modifier,
-    )
 }
 
 @Composable

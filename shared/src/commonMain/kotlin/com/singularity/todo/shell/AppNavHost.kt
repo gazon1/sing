@@ -93,7 +93,11 @@ fun AppNavHost(
             ArchiveScreen()
         }
         composable<AppDestination.Settings> {
-            SettingsScreen()
+            SettingsScreen(
+                onNavigateToProfileSwitcher = {
+                    navigator.navigate(AppDestination.ProfileSwitcher)
+                },
+            )
         }
         composable<AppDestination.AiUsage> {
             AiUsageScreen()
