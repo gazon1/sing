@@ -28,12 +28,13 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         LlmUsageEntity::class,
         ProfileEntity::class,
     ],
-    version = 9,
+    version = 10,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
         AutoMigration(from = 7, to = 8, spec = Migration7To8::class),
         AutoMigration(from = 8, to = 9, spec = Migration8To9::class),
+        AutoMigration(from = 9, to = 10, spec = Migration9To10::class),
     ],
     exportSchema = true
 )

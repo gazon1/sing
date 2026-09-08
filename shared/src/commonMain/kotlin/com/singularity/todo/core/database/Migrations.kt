@@ -37,3 +37,13 @@ class Migration7To8 : AutoMigrationSpec
  * Migration from v8 to v9 — adds profiles table for multi-profile support.
  */
 class Migration8To9 : AutoMigrationSpec
+
+/**
+ * Migration from v9 to v10 — adds parent_task_id column to the tasks table for
+ * MCP-driven decompose-and-create workflows.
+ *
+ * Adding a nullable column with no default is a safe auto-migration: existing
+ * rows continue to read back with `parentTaskId == null`. Sub-task creation
+ * writes the value explicitly.
+ */
+class Migration9To10 : AutoMigrationSpec

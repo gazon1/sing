@@ -50,6 +50,7 @@ data class Task(
     val priority: TaskPriority = TaskPriority.None,
     val kind: TaskKind = TaskKind.Task,
     val projectId: ProjectId? = null,
+    val parentTaskId: TaskId? = null,
     val tags: List<TagId> = emptyList(),
     val dueDate: kotlinx.datetime.LocalDate? = null,
     val dueTime: String? = null, // "HH:mm"

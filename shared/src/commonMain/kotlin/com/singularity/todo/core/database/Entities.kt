@@ -34,6 +34,7 @@ data class TaskEntity(
     @ColumnInfo("priority") val priority: TaskPriority = TaskPriority.None,
     @ColumnInfo("kind") val kind: TaskKind = TaskKind.Task,
     @ColumnInfo("project_id") val projectId: String?,
+    @ColumnInfo("parent_task_id") val parentTaskId: String? = null,
     @ColumnInfo("due_date") val dueDate: String?, // ISO LocalDate
     @ColumnInfo("due_time") val dueTime: String?, // "HH:mm"
     @ColumnInfo("completed_at") val completedAt: Long?, // epoch millis

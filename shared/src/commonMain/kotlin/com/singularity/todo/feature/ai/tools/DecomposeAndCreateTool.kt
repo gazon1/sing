@@ -106,6 +106,7 @@ class DecomposeAndCreateTool(
                     priority = runCatching { TaskPriority.valueOf(args.priority) }.getOrDefault(TaskPriority.Medium),
                     kind = TaskKind.Task,
                     projectId = args.projectId?.let { ProjectId.fromString(it) },
+                    parentTaskId = args.parentTaskId?.let { TaskId.fromString(it) },
                     tags = args.tagIds.map { TagId.fromString(it) },
                     dueDate = null,
                     dueTime = null,

@@ -23,6 +23,7 @@ data class CreateTaskInput(
     val priority: String = "None",
     val kind: String = "Task",
     val projectId: String? = null,
+    val parentTaskId: String? = null,
     val tagIds: List<String> = emptyList(),
     val dueDate: String? = null, // "YYYY-MM-DD"
     val dueTime: String? = null, // "HH:mm"
@@ -53,6 +54,7 @@ class CreateTaskTool(
             priority = runCatching { TaskPriority.valueOf(args.priority) }.getOrDefault(TaskPriority.None),
             kind = runCatching { TaskKind.valueOf(args.kind) }.getOrDefault(TaskKind.Task),
             projectId = args.projectId?.let { ProjectId.fromString(it) },
+            parentTaskId = args.parentTaskId?.let { TaskId.fromString(it) },
             tags = args.tagIds.map { TagId.fromString(it) },
             dueDate = args.dueDate?.let { LocalDate.parse(it) },
             dueTime = args.dueTime,
