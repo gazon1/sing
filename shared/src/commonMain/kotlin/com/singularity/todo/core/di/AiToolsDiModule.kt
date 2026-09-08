@@ -19,6 +19,7 @@ import com.singularity.todo.feature.ai.tools.RefineTaskTool
 import com.singularity.todo.feature.ai.tools.SmartRewriteTool
 import com.singularity.todo.feature.ai.tools.GenerateDescriptionTool
 import com.singularity.todo.feature.ai.tools.DecomposeTaskTool
+import com.singularity.todo.feature.ai.tools.DecomposeAndCreateTool
 import com.singularity.todo.feature.ai.tools.GenerateChecklistTool
 import com.singularity.todo.feature.ai.tools.PickTimeTool
 import com.singularity.todo.feature.ai.tools.ClusterTasksTool
@@ -73,15 +74,11 @@ import org.koin.dsl.module
 
 /**
  * AI tools, GenUI, and AI use cases — shared between JVM and Android.
- * Included by the platform [aiToolsModule] actuals via [includes].
- *
- * Depends on [tasksModule] and [projectsModule] for non-AI bindings
- * (TaskRepository, ProjectsRepository, CreateTaskUseCase, etc.).
+ * Platform-specific [aiToolsModule] actuals include these bindings plus their
+ * platform executor / LLM bindings.
  */
 internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
     // ─── Profile-aware secure storage for AI ────────────────────────────────
-    // All AI tools (KoogAgentService, AI gen tools) read API keys from the
-    // active profile's namespace: profiles/{profileId}/ai_key_openai
     factory<ProfileAwareSecureStorage> {
         ProfileAwareSecureStorage(get(), get())
     }
@@ -140,6 +137,7 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
     factory { SmartRewriteTool(get(), get()) }
     factory { GenerateDescriptionTool(get(), get()) }
     factory { DecomposeTaskTool(get(), get()) }
+    factory { DecomposeAndCreateTool(get(), get(), get(), get(), get()) }
     factory { GenerateChecklistTool(get(), get()) }
     factory { PickTimeTool(get(), get()) }
     factory { ClusterTasksTool(get(), get()) }
@@ -201,6 +199,7 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
             get<ListAdrsTool>(),
             get<ReadAdrTool>(),
             get<WriteAdrTool>(),
+            get<DecomposeAndCreateTool>(),
         )
     }
 
