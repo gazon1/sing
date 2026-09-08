@@ -172,6 +172,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `dogfooding`
 
 - 4 ADR entries created + DIGEST.md refreshed _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+
+### `"dogfooding"`
+
+- ADR пишется в `docs/decisions/{YYYY-MM-DD}-{slug}.md` (server-side date). _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
+
+### `dogfooding`
+
 - AI Usage screen в Settings _(from `2026-09-07-multi-profile-and-usage-tracking`)_
 - AI-агенты получают нативный доступ к данным без UI _(from `2026-09-07-dogfooding-mcp-server`)_
 - Dogfooding-профиль "AI Agent" (🤖) изолирует агентские задачи от пользовательских _(from `2026-09-07-dogfooding-mcp-server`)_
@@ -181,6 +188,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - ZCode подключается через `mcpServers.singularity-todo` в настройках _(from `2026-09-07-dogfooding-mcp-server`)_
 - Все token usage пишется в `llm_usage` с `profile_id=ai-agent` _(from `2026-09-07-dogfooding-mcp-server`)_
 - Новый Gradle-модуль `:mcp-server` с dependency на shared _(from `2026-09-07-dogfooding-mcp-server`)_
+
+### `"dogfooding"`
+
+- Один прогон драйвера = реальная multi-step демонстрация MCP. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
+- При недоступности LLM в драйвере зашит fallback sub-task'ов. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
 
 ### `error-handling`
 
@@ -331,6 +343,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - On JVM, `ColorizedWriter` uses `\u001B` ANSI escapes. Older Windows terminals (pre-10) will print escape sequences literally. `NO_COLOR` env var is respected. _(from `2026-09-06-kermit-logging-setup`)_
 - `RefineTaskTool.kt:34-38` has identical try and catch branches (copy-paste bug) — not fixed in this PR. _(from `2026-09-06-kermit-logging-setup`)_
 
+### `"mcp"`
+
+- ADR пишется в `docs/decisions/{YYYY-MM-DD}-{slug}.md` (server-side date). _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
+
 ### `mcp`
 
 - AI-агент парсит `isError: true` из `result` для business errors и ловит `-32603` из `error` для internal _(from `2026-09-07-mcp-tool-error-model`)_
@@ -351,6 +367,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Все token usage пишется в `llm_usage` с `profile_id=ai-agent` _(from `2026-09-07-dogfooding-mcp-server`)_
 - Все write-tools используют `Result<T>` + `mapCatching` для differentiation `Internal` от `Validation`/etc. _(from `2026-09-07-mcp-tool-error-model`)_
 - Новый Gradle-модуль `:mcp-server` с dependency на shared _(from `2026-09-07-dogfooding-mcp-server`)_
+
+### `"mcp"`
+
+- Один прогон драйвера = реальная multi-step демонстрация MCP. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
+- При недоступности LLM в драйвере зашит fallback sub-task'ов. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
 
 ### `multi-profile`
 
@@ -391,6 +412,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `ProfileAwareCurrentUser` инжектится во все write-tools _(from `2026-09-07-multi-profile-and-usage-tracking`)_
 - Room schema v8 с `llm_usage` table + `profiles` table _(from `2026-09-07-multi-profile-and-usage-tracking`)_
 - ZCode подключается с `--profile=ai-agent` → все операции в профиле ai-agent _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+
+### `"plan-tracking"`
+
+- ADR пишется в `docs/decisions/{YYYY-MM-DD}-{slug}.md` (server-side date). _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
+- Один прогон драйвера = реальная multi-step демонстрация MCP. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
+- При недоступности LLM в драйвере зашит fallback sub-task'ов. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
 
 ### `platform-module`
 
@@ -634,6 +661,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-07-settings-fixes` — settings  ui  di-graph
 - `2026-09-07-settings-ux-improvements` — settings  ux  compose  koin
 - `2026-09-07-write-tools-in-koog-registry` — mcp  tools  koog  idempotency
+- `2026-09-08-mcp-plan-tracking-via-mcp` — "mcp"  "dogfooding"  "plan-tracking"
 
 ## Active entries
 
@@ -674,3 +702,4 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-07-task-detail-archive-overflow` — _(no title)
 - `2026-09-07-task-detail-document-style` — _(no title)
 - `2026-09-07-write-tools-in-koog-registry` — Write Tools — idempotent контракт, dryRun, error model
+- `2026-09-08-mcp-plan-tracking-via-mcp` — MCP plan tracking end-to-end
