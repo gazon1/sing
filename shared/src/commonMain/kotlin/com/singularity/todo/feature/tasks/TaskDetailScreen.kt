@@ -64,6 +64,7 @@ import com.singularity.todo.feature.reminders.ReminderPicker
 import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.feature.tasks.components.TaskDetailActions
 import com.singularity.todo.feature.tasks.components.TaskEditorPrioritySheet
+import com.singularity.todo.feature.tasks.toActiveSheet
 import com.singularity.todo.feature.tasks.sections.TaskBottomActionBar
 import com.singularity.todo.feature.tasks.sections.TaskChecklistSection
 import com.singularity.todo.feature.tasks.sections.TaskHeroSection
@@ -71,6 +72,7 @@ import com.singularity.todo.feature.tasks.sections.TaskMetaChipsRow
 import com.singularity.todo.feature.tasks.sections.TagsRow
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.reminders.ReminderPicker
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import com.singularity.todo.core.files.toFilePickerResult
