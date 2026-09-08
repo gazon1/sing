@@ -6,6 +6,7 @@ import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import com.singularity.todo.core.di.domainModule
+import com.singularity.todo.feature.profile.ProfileBootstrapper
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
 import io.modelcontextprotocol.kotlin.sdk.server.StdioServerTransport
@@ -16,6 +17,7 @@ import io.ktor.utils.io.asSource
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.streams.asByteWriteChannel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.buffered
 import org.koin.core.context.GlobalContext
@@ -54,6 +56,11 @@ fun main(args: Array<String>): Unit = runBlocking {
 
     if (!bootstrapKoin(profileId)) return@runBlocking
     if (!verifyDatabase()) return@runBlocking
+    // After Koin is up and DB is reachable, ensure default + agent profiles exist
+    // and point DataStore at the agent profile when --profile=ai-agent (or any
+    // other agent-like flag) was passed. This makes subsequent tool calls write
+    // under the AI Agent's UUID instead of Personal's.
+    bootstrapProfiles(profileId)
 
     System.err.println("singularity-todo MCP server started")
 
@@ -101,6 +108,90 @@ private suspend fun verifyDatabase(): Boolean = try {
     e.printStackTrace(System.err)
     writeJsonRpcError(code = -32001, message = "Database initialization failed: ${e.message}")
     false
+}
+
+/**
+ * Seeds default profiles (Personal + AI Agent) and switches the active profile
+ * to one matching the host's `--profile=NAME` argument, when reasonable.
+ *
+ * Mapping rule:
+ *  - null / "default" / "personal" → leave whatever DataStore had (usually Personal)
+ *  - "ai-agent" / "agent" → seed & activate "AI Agent"
+ *  - any other name → don't activate (the user opted into a custom profile that
+ *    the bootstrapper is unaware of)
+ *
+ * If activating AI Agent and the DB already has rows owned by the un-scoped
+ * local userId (from earlier dogfooding runs before profiles existed), retro-migrate
+ * them under the AI Agent's scoped userId so they become visible after switching
+ * in the UI. Safe to run repeatedly: only touches rows owned by `user_id = LOCAL_UID`.
+ */
+private suspend fun bootstrapProfiles(profileCliArg: String?) {
+    try {
+        val bootstrapper: ProfileBootstrapper = GlobalContext.get().get()
+        val activateName = when (profileCliArg?.lowercase()) {
+            "ai-agent", "agent" -> "AI Agent"
+            "default", "personal", null -> null
+            else -> null
+        }
+        bootstrapper.run(
+            seedExtras = listOf(com.singularity.todo.feature.profile.ProfileBootstrapper.SeedProfile.AI_AGENT),
+            activateName = activateName,
+        )
+        if (activateName == "AI Agent") {
+            // Retro-migrate rows from the unscoped local user id.
+            val agentId = (GlobalContext.get().get<com.singularity.todo.feature.profile.ProfileRepository>()
+                .all().first().first { it.name == "AI Agent" }).id.value
+            val localUserId: String = GlobalContext.get().get<com.singularity.todo.feature.profile.ProfileAwareCurrentUser>()
+                .current.value
+            retromigrateRowsToAgentScope(
+                profileId = profileCliArg ?: "ai-agent",
+                localUserId = localUserId,
+                newUserId = "$agentId/$localUserId",
+            )
+        }
+    } catch (e: Throwable) {
+        System.err.println("singularity-todo MCP server: profile bootstrap failed: ${e.message}")
+        // Non-fatal: the rest of the server can still operate against the
+        // personal/default profile.
+    }
+}
+
+/**
+ * Move rows whose user_id equals the un-scoped local user into the AI Agent
+ * scoped user_id (`"{AI Agent id}/{local user id}"`). Idempotent: no-op if
+ * no rows match or if the sqlite3 CLI is unavailable.
+ *
+ * Done via shell `sqlite3` because this is a one-off bootstrap migration
+ * touching DB rows that pre-date the profile model.
+ */
+private fun retromigrateRowsToAgentScope(profileId: String, localUserId: String, newUserId: String) {
+    // Always use the default DB path — Desktop, Android, and MCP all share it now.
+    @Suppress("UNUSED_PARAMETER") val unused = profileId
+    val dbPath = System.getProperty("user.home") + "/.singularity-todo/singularity-todo.db"
+    val file = java.io.File(dbPath)
+    if (!file.exists()) return
+    val sql = buildString {
+        for (table in listOf("tasks", "notes", "projects", "tags")) {
+            append("UPDATE $table SET user_id='").append(newUserId).append("' WHERE user_id='").append(localUserId).append("';")
+        }
+    }
+    try {
+        val proc = ProcessBuilder("sqlite3", dbPath).redirectErrorStream(true).start()
+        proc.outputStream.use { it.write(sql.toByteArray()) }
+        val out = proc.inputStream.bufferedReader().readText()
+        proc.waitFor()
+        // sqlite3 prints affected row counts to stdout when group statements
+        // use "--changes" (we'll skip that for portability). Better: count
+        // before/after by another route, but for the bootstrap we just trust
+        // the operation succeeded if exit was 0.
+        if (proc.exitValue() == 0) {
+            System.err.println("singularity-todo MCP server: retro-migrated rows to AI Agent scope ($dbPath)")
+        } else {
+            System.err.println("singularity-todo MCP server: retro-migrate failed: $out")
+        }
+    } catch (e: Throwable) {
+        System.err.println("singularity-todo MCP server: sqlite3 unavailable for retro-migration: ${e.message}")
+    }
 }
 
 private fun buildServer(): Server {
@@ -162,17 +253,16 @@ private fun Array<String>.parseProfileArg(): String? = find { it.startsWith("--p
  * which uses ~/.singularity-todo/ as the base directory.
  */
 private fun platformModule(profileId: String?): org.koin.core.module.Module = module {
-    val dbPath = if (profileId != null) {
-        val baseDir = File(System.getProperty("user.home"), ".singularity-todo")
-        val profileDir = File(baseDir, "profiles/$profileId")
-        profileDir.mkdirs()
-        File(profileDir, "singularity-todo.db").absolutePath
-    } else {
-        System.getProperty("user.home") + "/.singularity-todo/singularity-todo.db"
-    }
+    // Always use the default DB path so Desktop, Android, and MCP share data.
+    // The CLI `--profile=NAME` argument is now a **label** (Personal vs AI Agent),
+    // not a directory suffix — profiles are isolated by their `user_id` scope, not
+    // by a separate SQLite file. The ProfileBootstrapper handles seed + switchTo.
+    val dbPath = System.getProperty("user.home") + "/.singularity-todo/singularity-todo.db"
     File(dbPath).parentFile?.mkdirs()
     wipeIfNotRoomManaged(dbPath)
     single<AppDatabase> { AppDatabaseFactory.build(createSqlDriver(), dbPath) }
+
+    @Suppress("UNUSED_PARAMETER") val unused = profileId // preserved for backwards-compat
 
     single { get<AppDatabase>().taskDao() }
     single { get<AppDatabase>().noteDao() }

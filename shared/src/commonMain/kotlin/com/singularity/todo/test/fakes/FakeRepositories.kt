@@ -722,6 +722,23 @@ class FakeProfileRepository : ProfileRepository {
 
     override suspend fun getById(id: ProfileId): Profile? =
         _profiles.value.find { it.id == id }
+
+    override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
+        // In-memory fake: just append any missing extras; default already present
+        // by the initial value of [_profiles].
+        for ((name, emoji, colorIdx) in extraProfiles) {
+            if (_profiles.value.any { it.name == name }) continue
+            _profiles.value = _profiles.value + Profile(
+                id = ProfileId.generate(),
+                name = name,
+                emoji = emoji,
+                colorIdx = colorIdx,
+                isDefault = false,
+                createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            )
+        }
+    }
 }
 
 /**

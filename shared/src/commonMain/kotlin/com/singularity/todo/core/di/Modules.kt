@@ -2,6 +2,9 @@ package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.log.LoggerHolder
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.profile.ProfileRepository
+import com.singularity.todo.feature.profile.ProfileRepositoryImpl
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -14,22 +17,36 @@ fun coreLoggingModule(): Module = module {
 }
 
 /**
- * Returns all domain-level bindings as a KOIN [Module].
+ * Returns all domain-level bindings as a flat list of KOIN [Module]s.
+ *
+ * IMPORTANT: each call to this function returns a *list* so that every module
+ * is passed directly to `modules()` at the root Koin scope. Using `includes()`
+ * inside a `module {}` block creates child scopes whose bindings are NOT visible
+ * to sibling modules at the parent level (Koin 4 scope isolation).
+ *
+ * Profile bindings (ProfileRepository, ProfileAwareCurrentUser) are inlined here
+ * as direct `single {}` calls rather than via a separate `profileModule()` to
+ * ensure they are registered at root scope.
  */
-fun domainModule(): Module = module {
-    includes(
-        tasksModule(),
-        projectsModule(),
-        notesModule(),
-        tagsModule(),
-        coreModule(),
-        aiToolsModule(),
-    )
+fun domainModule(): List<Module> = buildList {
+    add(tasksModule())
+    add(projectsModule())
+    add(notesModule())
+    add(tagsModule())
+    // Profile bindings — inlined here (NOT via profileModule()) so they land at root scope.
+    // profileModule() wrapped its bindings in module {} which created a child scope.
+    add(module {
+        single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get()) }
+        single { ProfileAwareCurrentUser(get(), get()) }
+        factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
+    })
+    add(coreModule())
+    add(aiToolsModule())
 }
 
 /**
  * AI tools, GenUI, and AI use cases — platform-specific.
- * JVM: [jvmAiToolsModule] (uses Koog with real OpenAI).
+ * JVM: real Koog executor + all AI tools.
  * Android: stub (AI features disabled).
  */
 expect fun aiToolsModule(): Module

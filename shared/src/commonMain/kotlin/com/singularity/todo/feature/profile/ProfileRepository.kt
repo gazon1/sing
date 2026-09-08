@@ -34,4 +34,11 @@ interface ProfileRepository {
 
     /** Returns the Profile with [id], or null if not found. */
     suspend fun getById(id: ProfileId): Profile?
+
+    /**
+     * Idempotent first-run seed. If the profiles table is empty, inserts the
+     * default 'Personal' profile (and on CLI/MCP hosts also the 'AI Agent'
+     * profile used by `--profile=ai-agent`). Safe to call repeatedly.
+     */
+    suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>> = emptyList())
 }

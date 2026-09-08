@@ -494,6 +494,8 @@ private class FakeProfileDao(
     override suspend fun getDefault(): ProfileEntity? =
         store.value.values.find { it.isDefault }
 
+    override suspend fun allNames(): List<String> = store.value.keys.toList()
+
     override suspend fun upsert(profile: ProfileEntity) {
         store.update { it + (profile.id to profile) }
     }

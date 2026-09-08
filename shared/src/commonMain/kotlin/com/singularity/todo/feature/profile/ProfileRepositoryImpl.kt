@@ -106,6 +106,43 @@ class ProfileRepositoryImpl(
 
     override suspend fun getById(id: ProfileId): Profile? =
         profileDao.getById(id.value)?.toDomain()
+
+    override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
+        // Idempotent: if a default profile already exists, leave it.
+        if (profileDao.getDefault() == null) {
+            val now = instantToEpochMillis(clock.now())
+            profileDao.upsert(
+                ProfileEntity(
+                    id = ProfileId.default.value,
+                    name = "Personal",
+                    emoji = "🏠",
+                    colorIdx = 0,
+                    isDefault = true,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            )
+        }
+        // Avoid duplicates for extra profiles — match names that already exist.
+        val wantedNames = extraProfiles.map { it.first }.toSet()
+        if (wantedNames.isEmpty()) return
+        val existingNames = profileDao.allNames().filter { it in wantedNames }.toSet()
+        for ((name, emoji, colorIdx) in extraProfiles) {
+            if (name in existingNames) continue
+            val now = instantToEpochMillis(clock.now())
+            profileDao.upsert(
+                ProfileEntity(
+                    id = ProfileId.generate().value,
+                    name = name,
+                    emoji = emoji,
+                    colorIdx = colorIdx,
+                    isDefault = false,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            )
+        }
+    }
 }
 
 // ─── Mapping ───────────────────────────────────────────────────────────────────

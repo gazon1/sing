@@ -306,6 +306,9 @@ interface ProfileDao {
     @Query("SELECT * FROM profiles WHERE is_default = 1 LIMIT 1")
     suspend fun getDefault(): ProfileEntity?
 
+    @Query("SELECT name FROM profiles")
+    suspend fun allNames(): List<String>
+
     @Upsert
     suspend fun upsert(profile: ProfileEntity)
 
