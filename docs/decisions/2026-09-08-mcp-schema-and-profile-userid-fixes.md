@@ -25,33 +25,49 @@ related read tools to fail validation or return empty results:
 
 ## Decision
 
-### Fix 1: Remove `$schema` embedding from KoogJsonSchemaBuilder
+### Fix 1: Stop passing the schema JSON as the `$schema` field
 
-The `ToolSchema` type carries the schema string in its `schema` field. Embedding
-it *again* inside `properties` as a `$schema` property is redundant and breaks clients
-that interpret `$schema` as a normative dialect URI.
+The MCP SDK defines `ToolSchema.schema: String?` (serialized as `$schema`) as
+**the JSON Schema dialect URI** (e.g. `"https://json-schema.org/draft/2020-12/schema"`).
+When absent, the SDK sample `samples/weather-stdio-server/McpWeatherServer.kt:90`
+demonstrates the correct pattern: omit `schema` entirely and the client falls
+back to the default (2020-12).
 
-**Change:** `KoogJsonSchemaBuilder.build()` no longer injects `$schema` into the
-schema object. The schema string is carried solely by `ToolSchema.schema`.
+Previous implementation passed `json.encodeToString(JsonElement.serializer(), schemaJson)`
+into that field, so the literal schema JSON became the value of `$schema`. MCP
+clients (Fred Perry Todo List, Claude Code) interpreted this as a dialect URI and
+rejected every tool with:
+
+```
+JSON Schema declares an unsupported dialect ("$schema": "{...}")
+The default validator supports JSON Schema 2020-12, 2019-09, draft-07, and draft-06
+```
+
+**Change:** `KoogJsonSchemaBuilder.build()` now passes `schema = null` to
+`ToolSchema`, exactly like the SDK sample does. Only `properties`, `required`,
+and `defs` are populated.
 
 ```kotlin
 // KoogJsonSchemaBuilder.kt
-val schemaJson = JsonObject(
-    buildMap {
-        put("type", JsonPrimitive("object"))
-        put("properties", JsonObject(properties))
-        if (required.isNotEmpty()) {
-            put("required", JsonArray(required.map { JsonPrimitive(it) }))
-        }
-        // NOTE: Do NOT embed "$schema" as a property inside schemaJson
-    },
-)
 return ToolSchema(
-    schema = json.encodeToString(JsonElement.serializer(), schemaJson),
-    properties = schemaJson,
-    required = required,
-    defs = JsonObject(emptyMap()),
+    schema = null,                                    // <-- was: schemaJsonStringified
+    properties = JsonObject(properties),
+    required = required.takeIf { it.isNotEmpty() },
+    defs = null,                                      // <-- was: JsonObject(emptyMap())
 )
+```
+
+### Regression test
+
+`McpServerEndToEndTest.server_handles_initialize_and_lists_tools` was extended
+to assert that no tool's `inputSchema.schema` field is set:
+
+```kotlin
+for (tool in listed) {
+    val schemaProp = tool.inputSchema.schema
+    assertEquals(expected = null, actual = schemaProp,
+        message = "Tool ${tool.name} inputSchema still carries \$schema = $schemaProp")
+}
 ```
 
 ### Fix 2: ProfileAwareCurrentUser as default in read tools
@@ -78,12 +94,16 @@ with the correct scoped identifier.
 
 ## Rationale
 
-- The `$schema` property in JSON Schema has a specific meaning: it declares the
-  dialect (e.g. `https://json-schema.org/draft/2020-12/schema`). Putting a JSON
-  string literal there causes URI resolution to fail.
-- `ProfileAwareCurrentUser.scopedUserId` is a `StateFlow<UserId>` derived from the
-  active profile's `profileId` + the raw `userId`. Using `.value` extracts the
-  `UserId` inline value class underlying `String`.
+- The `$schema` field in JSON Schema has a specific meaning: it declares the
+  dialect URI (e.g. `https://json-schema.org/draft/2020-12/schema`). The MCP SDK
+  serializes `ToolSchema.schema: String?` as `$schema`, so passing anything other
+  than a dialect URI (or null) will be rejected by strict clients.
+- The official SDK sample `samples/weather-stdio-server/McpWeatherServer.kt:90`
+  demonstrates the canonical pattern: leave `schema` null and populate only
+  `properties`, `required`, `defs`. We adopt that exact pattern.
+- `ProfileAwareCurrentUser.scopedUserId` is a `StateFlow<UserId>` derived from
+  the active profile's `profileId` + the raw `userId`. Using `.value` extracts
+  the `UserId` inline value class underlying `String`.
 - `CreateTaskTool`, `DecomposeAndCreateTool`, and all write tools already used
   `ProfileAwareCurrentUser` correctly — only read-side tools were missed.
 
