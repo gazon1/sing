@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentRepository
-import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.ChecklistUseCase
@@ -73,7 +73,7 @@ class TaskDetailViewModel(
     private val checklistUseCase: ChecklistUseCase,
     private val reminderRepo: ReminderRepository,
     private val attachmentsRepo: AttachmentRepository,
-    private val currentUser: CurrentUser,
+    private val currentUser: ProfileAwareCurrentUser,
     private val timeZoneProvider: TimeZoneProvider,
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {

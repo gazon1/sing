@@ -2,7 +2,7 @@ package com.singularity.todo.feature.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
@@ -55,7 +55,7 @@ class TasksViewModel(
     private val taskRepo: TaskRepository,
     private val createTask: CreateTaskUseCase,
     private val updateTask: UpdateTaskUseCase,
-    private val currentUser: CurrentUser,
+    private val currentUser: ProfileAwareCurrentUser,
     private val mutations: TaskMutationsUseCase,
     // AI use cases are optional — Android doesn't ship with Koog/JVM AI stack,
     // so VMs work with null AI dependencies (AI buttons become no-ops on Android)
@@ -69,7 +69,7 @@ class TasksViewModel(
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
-    private val _filter = MutableStateFlow<TaskFilter>(TaskFilter.Today)
+    private val _filter = MutableStateFlow<TaskFilter>(TaskFilter.All)
     val filter: StateFlow<TaskFilter> = _filter.asStateFlow()
 
     private val _aiResult = MutableSharedFlow<AiActionResult>()
@@ -81,7 +81,7 @@ class TasksViewModel(
     private val _selectedIds = MutableStateFlow<Set<TaskId>>(emptySet())
     val selectedIds: StateFlow<Set<TaskId>> = _selectedIds.asStateFlow()
 
-    val state: StateFlow<TasksUiState> = combine(_filter, currentUser.userId) { f, uid -> f to uid }
+    val state: StateFlow<TasksUiState> = combine(_filter, currentUser.scopedUserId) { f, uid -> f to uid }
         .flatMapLatest { (filter, uid) -> taskRepo.watchTasks(uid, filter) }
         .map { tasks ->
             if (tasks.isEmpty()) TasksUiState.Empty(_filter.value)

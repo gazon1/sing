@@ -2,7 +2,7 @@ package com.singularity.todo.feature.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,7 +32,7 @@ sealed interface SearchUiEvent {
 @OptIn(ExperimentalCoroutinesApi::class)
 class SearchViewModel(
     private val searchUseCase: SearchUseCase,
-    private val currentUser: CurrentUser,
+    private val currentUser: ProfileAwareCurrentUser,
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
@@ -46,7 +46,7 @@ class SearchViewModel(
     private val _state = MutableStateFlow(SearchUiState())
     val state: StateFlow<SearchUiState> = _state.asStateFlow()
 
-    private val userId: UserId get() = currentUser.userId.value
+    private val userId: UserId get() = currentUser.scopedUserId.value
 
     private val results: StateFlow<SearchResults> = _query
         .flatMapLatest { q ->

@@ -2,7 +2,7 @@ package com.singularity.todo.feature.projects
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.TaskFilter
@@ -31,7 +31,7 @@ sealed interface ProjectsUiState {
 class ProjectsViewModel(
     private val projectRepo: ProjectsRepository,
     private val createProject: CreateProjectUseCase,
-    private val currentUser: CurrentUser,
+    private val currentUser: ProfileAwareCurrentUser,
     private val taskRepository: TaskRepository,
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
@@ -39,7 +39,7 @@ class ProjectsViewModel(
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
-    private val userIdFlow = currentUser.userId
+    private val userIdFlow = currentUser.scopedUserId
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val state: StateFlow<ProjectsUiState> = userIdFlow

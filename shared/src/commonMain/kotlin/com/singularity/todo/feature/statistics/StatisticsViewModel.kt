@@ -2,7 +2,7 @@ package com.singularity.todo.feature.statistics
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.TaskFilter
 import com.singularity.todo.feature.tasks.TaskRepository
@@ -22,11 +22,11 @@ data class StatisticsUiState(
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatisticsViewModel(
     private val taskRepository: TaskRepository,
-    private val currentUser: CurrentUser,
+    private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : ViewModel() {
 
-    val state: StateFlow<StatisticsUiState> = currentUser.userId
+    val state: StateFlow<StatisticsUiState> = currentUser.scopedUserId
         .flatMapLatest { uid ->
             taskRepository.watchTasks(uid, TaskFilter.All)
                 .map { tasks ->

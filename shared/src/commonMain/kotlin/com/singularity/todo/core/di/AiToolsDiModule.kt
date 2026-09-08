@@ -210,7 +210,7 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
             taskRepo = get<TaskRepository>(),
             createTask = get<CreateTaskUseCase>(),
             updateTask = get<UpdateTaskUseCase>(),
-            currentUser = get<CurrentUser>(),
+            currentUser = get<ProfileAwareCurrentUser>(),
             mutations = get<TaskMutationsUseCase>(),
             refineTask = getOrNull(),
             generateDescription = getOrNull(),
@@ -224,7 +224,7 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
         ProjectsViewModel(
             projectRepo = get<ProjectsRepository>(),
             createProject = get<CreateProjectUseCase>(),
-            currentUser = get<CurrentUser>(),
+            currentUser = get<ProfileAwareCurrentUser>(),
             taskRepository = get<TaskRepository>(),
             projectReview = getOrNull(),
             deleteProject = get<DeleteProjectUseCase>(),

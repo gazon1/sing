@@ -2,7 +2,7 @@ package com.singularity.todo.feature.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.IdGenerator
@@ -169,7 +169,7 @@ data class TaskEditorDeps(
     val createTask: CreateTaskUseCase,
     val updateTask: UpdateTaskUseCase,
     val clock: Clock,
-    val currentUser: CurrentUser,
+    val currentUser: ProfileAwareCurrentUser,
     val taskRepository: TaskRepository,
     val checklistUseCase: ChecklistUseCase,
     val reminderRepository: ReminderRepository,

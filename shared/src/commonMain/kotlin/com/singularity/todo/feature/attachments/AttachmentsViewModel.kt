@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentRepository
-import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.TaskId
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +23,7 @@ data class AttachmentsUiState(
 
 class AttachmentsViewModel(
     private val repository: AttachmentRepository,
-    private val currentUser: CurrentUser,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AttachmentsUiState())

@@ -2,7 +2,7 @@ package com.singularity.todo.feature.archive
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.TaskFilter
 import com.singularity.todo.feature.tasks.TaskRepository
@@ -30,14 +30,14 @@ sealed interface ArchiveUiState {
 class ArchiveViewModel(
     private val archiveRepo: ArchiveRepository,
     private val taskRepo: TaskRepository,
-    private val currentUser: CurrentUser,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : ViewModel() {
 
     private val _refreshing = MutableStateFlow(false)
     private val _events = MutableSharedFlow<ArchiveUiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<ArchiveUiEvent> = _events.asSharedFlow()
 
-    val state: StateFlow<ArchiveUiState> = currentUser.userId
+    val state: StateFlow<ArchiveUiState> = currentUser.scopedUserId
         .flatMapLatest { uid ->
             taskRepo.watchTasks(uid, TaskFilter.Trash)
                 .map<List<Task>, ArchiveUiState> { tasks ->

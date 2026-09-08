@@ -3,7 +3,7 @@ package com.singularity.todo.feature.notes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
@@ -92,7 +92,7 @@ sealed interface NoteAiResult {
 open class NotesViewModel(
     private val repo: NotesRepository,
     private val htmlPort: MarkdownHtmlPort,
-    currentUser: CurrentUser,
+    currentUser: ProfileAwareCurrentUser,
     private val idGen: IdGenerator,
     private val autosaveScheduler: AutosaveScheduler,
     private val improveNote: ImproveNoteUseCase? = null,
@@ -104,7 +104,7 @@ open class NotesViewModel(
     private val log: Logger = logger ?: Logger.withTag("Notes")
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
-    private val userId = currentUser.userId
+    private val userId = currentUser.scopedUserId
 
     private val _notes = MutableStateFlow<NotesUiState>(NotesUiState.Loading)
     val state: StateFlow<NotesUiState> = _notes.asStateFlow()
