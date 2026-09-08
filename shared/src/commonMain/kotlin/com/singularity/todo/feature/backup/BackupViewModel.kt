@@ -97,16 +97,6 @@ class BackupViewModel(
         export(path)
     }
 
-    /**
-     * Restore from a local backup file.
-     * Currently opens a file picker in the UI to select the file.
-     * TODO: wire file picker to call import(selectedPath) when file is selected.
-     */
-    fun restore() {
-        // No-op stub: the UI file picker integration requires platform-specific
-        // file picker wiring that is pending implementation.
-    }
-
     fun import(sourcePath: String) {
         scope.launch {
             _state.update { it.copy(isWorking = true) }

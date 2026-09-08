@@ -1,14 +1,15 @@
 package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.Either
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.time.Instant
 
 /**
@@ -20,40 +21,41 @@ class TasksDomainTest {
     // ===== validateTitle =====
 
     @Test
-    fun `validateTitle - blank string throws Validation`() {
-        assertFailsWith<AppError.Validation> {
-            TasksDomain.validateTitle("")
-        }
+    fun `validateTitle - blank string returns Left`() {
+        val result = TasksDomain.validateTitle("")
+        assertIs<Either.Left<AppError.Validation>>(result)
+        assertEquals("Title cannot be blank", result.error.message)
     }
 
     @Test
-    fun `validateTitle - whitespace only throws Validation`() {
-        assertFailsWith<AppError.Validation> {
-            TasksDomain.validateTitle("   \t\n")
-        }
+    fun `validateTitle - whitespace only returns Left`() {
+        val result = TasksDomain.validateTitle("   \t\n")
+        assertIs<Either.Left<AppError.Validation>>(result)
     }
 
     @Test
-    fun `validateTitle - valid string does not throw`() {
-        TasksDomain.validateTitle("Buy groceries")
+    fun `validateTitle - valid string returns Right with trimmed title`() {
+        val result = TasksDomain.validateTitle("  Buy groceries  ")
+        assertIs<Either.Right<String>>(result)
+        assertEquals("Buy groceries", result.value)
     }
 
     // ===== createInput =====
 
     @Test
-    fun `createInput - blank title throws Validation`() {
-        assertFailsWith<AppError.Validation> {
-            TasksDomain.createInput(title = "", userId = UserId.anonymous)
-        }
+    fun `createInput - blank title returns Left`() {
+        val result = TasksDomain.createInput(title = "", userId = UserId.anonymous)
+        assertIs<Either.Left<AppError.Validation>>(result)
     }
 
     @Test
-    fun `createInput - valid input returns trimmed title`() {
-        val input = TasksDomain.createInput(
+    fun `createInput - valid input returns Right with trimmed title`() {
+        val result = TasksDomain.createInput(
             title = "  Buy groceries  ",
             userId = UserId.anonymous
         )
-        assertEquals("Buy groceries", input.title)
+        assertIs<Either.Right<CreateTaskInput>>(result)
+        assertEquals("Buy groceries", result.value.title)
     }
 
     @Test
@@ -62,7 +64,7 @@ class TasksDomainTest {
         val tagIds = listOf(TagId.fromString("tag-1"), TagId.fromString("tag-2"))
         val dueDate = LocalDate(2024, 1, 15)
 
-        val input = TasksDomain.createInput(
+        val result = TasksDomain.createInput(
             title = "Task",
             description = "Description",
             priority = TaskPriority.High,
@@ -75,6 +77,8 @@ class TasksDomainTest {
             userId = UserId.anonymous
         )
 
+        assertIs<Either.Right<CreateTaskInput>>(result)
+        val input = result.value
         assertEquals("Task", input.title)
         assertEquals("Description", input.description)
         assertEquals(TaskPriority.High, input.priority)
@@ -192,11 +196,11 @@ class TasksDomainTest {
     @Test
     fun `matchesFilter - Trash`() {
         val today = LocalDate(2024, 1, 15)
-        val trashedTask = taskWith(archivedAt = Instant.fromEpochMilliseconds(1))
-        assertTrue(TasksDomain.matchesFilter(trashedTask, TaskFilter.Trash, today))
-
         val activeTask = taskWith()
+        val trashedTask = taskWith(archivedAt = Instant.fromEpochMilliseconds(1))
+        // Trash filter shows only trashed tasks
         assertFalse(TasksDomain.matchesFilter(activeTask, TaskFilter.Trash, today))
+        assertTrue(TasksDomain.matchesFilter(trashedTask, TaskFilter.Trash, today))
     }
 
     @Test

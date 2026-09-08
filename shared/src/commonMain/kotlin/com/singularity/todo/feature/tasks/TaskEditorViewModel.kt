@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
@@ -275,23 +276,24 @@ class TaskEditorViewModel(
     }
 
     private suspend fun saveNew(current: TaskEditorUiState, userId: UserId) {
-        val input = try {
-            TasksDomain.createInput(
-                title = current.title,
-                description = current.description.ifBlank { null },
-                priority = current.priority,
-                projectId = current.projectId?.let { com.singularity.todo.feature.projects.ProjectId.fromString(it) },
-                tagIds = current.tagIds.map { com.singularity.todo.feature.tags.TagId.fromString(it) },
-                dueDate = current.dueDate,
-                dueTime = current.dueTime?.let { "%02d:%02d".format(it.hour, it.minute) },
-                userId = userId,
-            )
-        } catch (e: AppError.Validation) {
-            _uiState.update { it.copy(saving = false, errorMessage = e.message) }
+        _uiState.update { it.copy(saving = true, errorMessage = null) }
+
+        val input: Either<AppError.Validation, CreateTaskInput> = TasksDomain.createInput(
+            title = current.title,
+            description = current.description.ifBlank { null },
+            priority = current.priority,
+            projectId = current.projectId?.let { com.singularity.todo.feature.projects.ProjectId.fromString(it) },
+            tagIds = current.tagIds.map { com.singularity.todo.feature.tags.TagId.fromString(it) },
+            dueDate = current.dueDate,
+            dueTime = current.dueTime?.let { "%02d:%02d".format(it.hour, it.minute) },
+            userId = userId,
+        )
+        if (input is Either.Left) {
+            _uiState.update { it.copy(saving = false, errorMessage = input.error.message) }
             return
         }
 
-        deps.createTask(input)
+        deps.createTask((input as Either.Right).value)
             .onSuccess { taskId ->
                 saveSubEntities(taskId, current, userId)
                 _events.emit(TaskEditorUiEvent.NavigateBack)

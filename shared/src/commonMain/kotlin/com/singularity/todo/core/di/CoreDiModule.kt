@@ -94,7 +94,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     single<SyncApiClient> { SupabaseSyncApiClient() }
 
-    single { SyncEngine(Logger.withTag("SyncEngine"), get(), get(), get(), get(), get()) }
+    single { SyncEngine(Logger.withTag("SyncEngine"), get(), get(), get(), get(), get(), get()) }
 
     // ─── IDs / Clock ────────────────────────────────────────────────────
 

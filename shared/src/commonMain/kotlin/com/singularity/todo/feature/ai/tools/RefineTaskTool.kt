@@ -32,13 +32,7 @@ class RefineTaskTool(
         }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
-        return try {
-            Json.encodeToString(RefineTaskOutput.serializer(), RefineTaskOutput(text.trim()))
-        } catch (e: Exception) {
-            // TODO: investigate copy-paste bug — try and catch branches are identical
-            log.w(e) { "RefineTaskTool encode failed [text=${text.take(50)}]" }
-            Json.encodeToString(RefineTaskOutput.serializer(), RefineTaskOutput(text.trim()))
-        }
+        return Json.encodeToString(RefineTaskOutput.serializer(), RefineTaskOutput(text.trim()))
     }
 
     companion object {

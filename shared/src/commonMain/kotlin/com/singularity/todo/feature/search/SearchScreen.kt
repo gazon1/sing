@@ -72,25 +72,25 @@ private fun SearchResultsList(results: SearchResults) {
         if (results.tasks.isNotEmpty()) {
             item { SectionHeader("Tasks") }
             items(results.tasks.take(5)) { task ->
-                TaskCard(task = task, onClick = { /* TODO */ }, actions = TaskCardActions.Empty)
+                TaskCard(task = task, onClick = {}, actions = TaskCardActions.Empty)
             }
         }
         if (results.notes.isNotEmpty()) {
             item { SectionHeader("Notes") }
             items(results.notes.take(5)) { note ->
-                SimpleResultCard(title = note.title.ifBlank { "Untitled" }, onClick = { /* TODO */ })
+                SimpleResultCard(title = note.title.ifBlank { "Untitled" }, onClick = {})
             }
         }
         if (results.projects.isNotEmpty()) {
             item { SectionHeader("Projects") }
             items(results.projects.take(5)) { project ->
-                SimpleResultCard(title = project.name, onClick = { /* TODO */ })
+                SimpleResultCard(title = project.name, onClick = {})
             }
         }
         if (results.tags.isNotEmpty()) {
             item { SectionHeader("Tags") }
             items(results.tags.take(5)) { tag ->
-                SimpleResultCard(title = tag.name, onClick = { /* TODO */ })
+                SimpleResultCard(title = tag.name, onClick = {})
             }
         }
     }

@@ -3,13 +3,13 @@ package com.singularity.todo.core.sync
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.ids.IdGenerator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -42,6 +42,7 @@ class SyncEngine(
     private val authRepository: AuthRepository,
     private val outboxDao: SyncOutboxDao,
     private val hlcFactory: HlcFactory,
+    private val idGenerator: IdGenerator,
     syncCoroutineScope: CoroutineScope
 ) {
     private val scope = syncCoroutineScope
@@ -127,7 +128,7 @@ class SyncEngine(
         }
 
         val request = BatchPushRequest(
-            deviceId = UUID.randomUUID().toString(),
+            deviceId = idGenerator.next(),
             patches = patches
         )
 
@@ -205,7 +206,7 @@ class SyncEngine(
         val checksum = ConflictResolver.checksum(state)
 
         return DeltaPatch(
-            patchId = UUID.randomUUID().toString(),
+            patchId = idGenerator.next(),
             entityId = entity.id,
             entityType = entity.docType,
             baseVersion = entity.serverVersion,

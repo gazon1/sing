@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.Either
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import kotlin.time.Instant
@@ -13,10 +14,11 @@ object TasksDomain {
 
     /**
      * Validates task title.
-     * @throws AppError.Validation if title is blank
+     * @return [Either.Right] with trimmed title on success, [Either.Left] with [AppError.Validation] on failure.
      */
-    fun validateTitle(title: String) {
-        require(title.isNotBlank()) { throw AppError.Validation("Title cannot be blank") }
+    fun validateTitle(title: String): Either<AppError.Validation, String> {
+        return if (title.isNotBlank()) Either.Right(title.trim())
+        else Either.Left(AppError.Validation("Title cannot be blank"))
     }
 
     /**
@@ -26,7 +28,7 @@ object TasksDomain {
 
     /**
      * Creates a CreateTaskInput with validation.
-     * @throws AppError.Validation if title is blank
+     * @return [Either.Right] with input on success, [Either.Left] with [AppError.Validation] on failure.
      */
     fun createInput(
         title: String,
@@ -39,19 +41,24 @@ object TasksDomain {
         dueTime: String? = null,
         someday: Boolean = false,
         userId: UserId
-    ): CreateTaskInput {
-        validateTitle(title)
-        return CreateTaskInput(
-            title = title.trim(),
-            description = description?.trim(),
-            priority = priority,
-            kind = kind,
-            projectId = projectId,
-            tagIds = tagIds,
-            dueDate = dueDate,
-            dueTime = dueTime,
-            someday = someday,
-            userId = userId
+    ): Either<AppError.Validation, CreateTaskInput> {
+        val trimmed: String = when (val v = validateTitle(title)) {
+            is Either.Left -> return v
+            is Either.Right -> v.value
+        }
+        return Either.Right(
+            CreateTaskInput(
+                title = trimmed,
+                description = description?.trim(),
+                priority = priority,
+                kind = kind,
+                projectId = projectId,
+                tagIds = tagIds,
+                dueDate = dueDate,
+                dueTime = dueTime,
+                someday = someday,
+                userId = userId,
+            )
         )
     }
 

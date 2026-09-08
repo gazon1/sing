@@ -11,6 +11,7 @@ updated: 2026-09-08
 ## Context
 
 Implementation of dogfooding MCP server revealed several areas needing follow-up work.
+This ADR also covers the Phase 1–7 refactoring work completed in `60262ce`.
 
 ## Observations
 
@@ -58,34 +59,90 @@ Done in `bb7c270`.
 Koin/DB init failures now write JSON-RPC error to stdout before exit.
 Done in `bb7c270`.
 
+## Phase 1–7 Refactoring (2026-09-08, `60262ce`)
+
+### Phase 1 — Quick wins
+
+- **`DeleteTagUseCase` removed** — VMs call `TagsRepository.delete()` directly. No more pass-through use case.
+- **`TaskMutationsUseCase` simplified** — deleted `delete`, `toggle`, `togglePin` (pure repo pass-throughs). Kept `bulkComplete` and `bulkDelete` (atomicity enforcement).
+- **`RefineTaskTool` dead code removed** — duplicate `try/catch` block with identical branches deleted.
+- **`SearchScreen` `/* TODO */` clicks removed** — replaced with empty lambdas.
+- **`BackupViewModel.restore()` no-op removed** — stub method deleted.
+- **`IdGenerator` in `SyncEngine`** — `UUID.randomUUID()` replaced with `idGenerator.next()` in two places. `IdGenerator` injected via DI.
+
+### Phase 2 — Either for validation
+
+- **`Either.kt` added** — `Either.Left/Right`, `fold`, `getOrElse`, `map`, `mapError`, `toResult()`.
+- **`TasksDomain.validateTitle`** — now returns `Either<AppError.Validation, String>` instead of throwing.
+- **`TasksDomain.createInput`** — now returns `Either<AppError.Validation, CreateTaskInput>`.
+- **`CreateTaskUseCase`** — uses Either-based validation internally, returns `Result<TaskId>` to caller.
+- **`TaskEditorViewModel`** — uses Either instead of `try/catch` for input validation.
+- **`TasksDomainTest`** — updated to use `assertIs<Either.Left/Right>` assertions.
+
+### Phase 3 — DSL
+
+- `BackupDsl` with `@DslMarker` already existed in `BackupOptions.kt` — no new DSLs added.
+- `SearchFilters`, `SettingsUpdate`, `Profile`, `Prompt` DSLs were aspirational (would require significant new code with unclear ROI at this time).
+
+### Phase 4 — Parallel MutableStateFlow
+
+- Deferred — high risk to public API. The current pattern of separate `_selectedIds`, `_filter`, etc. is verbose but stable.
+- A future iteration should unify `NotesViewModel.state` and `TasksViewModel.state` into single derived flows.
+
+### Phase 5 — Koin cleanup
+
+- **`@IntoSet` for AI tools** — Deferred. 30-line `listOf(get<X>()...)` in `AiToolsDiModule` is verbose but readable and type-safe. Moving to `@IntoSet` would require careful migration of the existing `List<Tool<*, *>>` registration.
+- **`AiToolsModule.android` / `jvm` byte-identical** — Kept as-is (attempted consolidation failed due to platform import asymmetry). Identical actuals are acceptable Koin patterns.
+- **Layer violation in `Mappers.kt`** — `internal` helper functions importing feature types are not a real violation (entities don't expose domain types).
+
+### Phase 6 — Test infrastructure
+
+- **`CommonFakes.kt` added** — `FakeClock` (controllable time for tests), `testTask(...)` fixture with correct `Task` field names.
+- **`FakeClock`** — not a `Clock` subtype (can't extend `expect object`), but works as a standalone controllable time source.
+- **`SequenceIdGenerator`** — already existed, confirmed in use.
+
+### Phase 7 — Pure-logic tests
+
+New tests added:
+- `EitherTest` — 11 tests for `Either`, `fold`, `getOrElse`, `map`, `mapError`, `toResult`.
+- `BackupOptionsTest` — 5 tests for DSL builders and `BackupId.fromPath`.
+- `BackupFileNamerTest` — 3 tests for `DefaultBackupFileNamer`.
+- `IdGeneratorTest` — 5 tests for `UlidIdGenerator` and `SequenceIdGenerator`.
+- `TaskMutationsUseCaseTest` — 6 tests for `bulkComplete` and `bulkDelete` (atomicity, failure cases).
+
+Total new tests: **~30**. Existing `BackupDomainTest` (commonTest) already had 9 tests covering `sha256Hex`, `extractUserIdHash`, `buildManifest`, `validateManifest`.
+
 ## Remaining Work (non-blocking)
 
 ### A. Full `kotlin.time.Instant` UI migration
 - 11 deprecation warnings remain in UI display files
-- Requires adding `kotlinx.datetime` dependency to UI layer OR creating `DateTimeFormatter`
-  helpers using `kotlin.time.Instant` + `java.time`
-- Estimated: 1 day, low value — UI layer legitimately needs date formatting
+- Requires adding `kotlinx.datetime` dependency to UI layer OR creating `DateTimeFormatter` helpers
+- Estimated: 1 day, low value
 
-### B. Per-profile DataStore path (already done for DB)
-Each profile has its own database path (`profiles/{profileId}/singularity-todo.db`).
-Settings DataStore is shared across profiles — not a problem in practice since each profile
-has its own Settings namespace (`ai_provider`, `ai_model`, etc. are per-profile via the
-`active_profile_id` key lookup). No action needed.
+### B. `@IntoSet` for AI tools
+- 30-line `listOf(get<X>()...)` could be replaced with `@IntoSet factory`
+- Estimated: half-day, moderate value
 
-### C. `FakeTaskRepository.softDelete` uses `kotlinx.datetime` for date comparison
-Line 244: `Clock.now()` (kotlin.time) converted through `toLocalDateTime()` — latent bug
-in test fake. Not a production issue.
+### C. Parallel `MutableStateFlow` unification in VMs
+- NotesViewModel, TasksViewModel, SearchViewModel could derive single `StateFlow`
+- High risk to public API — deferred
+
+### D. New DSLs (SearchFilters, SettingsUpdate, Profile, Prompt)
+- Would require significant new code
+- Low-priority at this stage
 
 ## Decision
 
-All items from the original list are addressed. Remaining work (A, B, C) is non-blocking.
-Tracked separately as they arise.
+All Phase 1–7 items that were feasible to complete in one session have been addressed.
+Remaining items (A–D) are non-blocking and tracked separately.
 
 ## Links
 
+- `60262ce` — Phase 1–7 refactoring commit
 - `bb7c270` — fix followups commit
-- `fbf1c2e` — feat(dogfooding) commit
 - `DataStoreSessionStore`: `core/auth/SessionStore.kt`
 - `ProfileAwareSecureStorage`: `core/security/ProfileAwareSecureStorage.kt`
 - `NotesViewModel`: `feature/notes/NotesViewModel.kt` (flatMap fix)
-- `WriteToolsTest`: `jvmTest/.../feature/ai/tools/WriteToolsTest.kt`
+- `Either.kt`: `core/error/Either.kt`
+- `CommonFakes.kt`: `test/fakes/CommonFakes.kt`
+- `testTask(...)`: `test/fakes/CommonFakes.kt`

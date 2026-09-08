@@ -4,21 +4,13 @@ import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.TaskRepository
 
 /**
- * Single injection point for all task mutation operations.
- * Replaces [DeleteTaskUseCase], [ToggleTaskUseCase], [TogglePinUseCase],
- * [BulkCompleteUseCase], and [BulkDeleteUseCase].
+ * Single injection point for bulk task mutation operations.
+ * Individual mutations (delete/toggle/togglePin) are called directly on [TaskRepository].
  *
- * Each method delegates to the corresponding [TaskRepository] method.
- * Keeping mutations behind a use case allows future extensions
- * (outbox events, audit logging, cascade effects) without touching VMs.
+ * Bulk operations enforce atomicity: fail-fast if any ID doesn't exist,
+ * before mutating anything. This lives here so VMs stay thin.
  */
 class TaskMutationsUseCase(private val repo: TaskRepository) {
-
-    suspend fun delete(id: TaskId): Result<Unit> = repo.softDelete(id)
-
-    suspend fun toggle(id: TaskId): Result<Unit> = repo.toggleComplete(id)
-
-    suspend fun togglePin(id: TaskId): Result<Unit> = repo.togglePinned(id)
 
     suspend fun bulkComplete(ids: List<TaskId>): Result<Unit> = runCatching {
         // Atomic: fail-fast if any ID doesn't exist, before mutating anything.
