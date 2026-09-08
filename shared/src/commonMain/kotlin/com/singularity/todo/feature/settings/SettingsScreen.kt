@@ -48,6 +48,8 @@ import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.rememberAppNavigator
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -70,7 +72,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     when (val state = uiState) {
         is SettingsUiState.Loading -> LoadingIndicator(modifier = modifier)
         is SettingsUiState.Error -> EmptyState(title = "Error", subtitle = state.cause.toString(), modifier = modifier)
-        is SettingsUiState.Content -> SettingsContent(
+        is SettingsUiState.Content -> SettingsContentWithNavigation(
             state = state,
             selectedTab = selectedTab,
             onSelectTab = { selectedTab = it },
@@ -81,11 +83,31 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun SettingsContentWithNavigation(
+    state: SettingsUiState.Content,
+    selectedTab: SettingsTab,
+    onSelectTab: (SettingsTab) -> Unit,
+    viewModel: SettingsViewModel,
+    modifier: Modifier = Modifier,
+) {
+    val navigator = rememberAppNavigator()
+    SettingsContent(
+        state = state,
+        selectedTab = selectedTab,
+        onSelectTab = onSelectTab,
+        viewModel = viewModel,
+        onNavigateToProfileSwitcher = { navigator.navigate(AppDestination.ProfileSwitcher) },
+        modifier = modifier,
+    )
+}
+
+@Composable
 private fun SettingsContent(
     state: SettingsUiState.Content,
     selectedTab: SettingsTab,
     onSelectTab: (SettingsTab) -> Unit,
     viewModel: SettingsViewModel,
+    onNavigateToProfileSwitcher: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val fileRevealer: FileRevealer = koinInject()
@@ -130,7 +152,10 @@ private fun SettingsContent(
                     onBack = { onSelectTab(SettingsTab.Interface) },
                     onSelectRestoreFile = { /* Platform shell provides file picker on Android */ },
                 )
-                SettingsTab.Account -> AccountSettingsScreen(state = state)
+                SettingsTab.Account -> AccountSettingsScreen(
+                    state = state,
+                    onNavigateToProfileSwitcher = onNavigateToProfileSwitcher,
+                )
             }
         }
     }
@@ -259,7 +284,10 @@ private fun SettingsContentPreview(
                     // BackupScreen requires BackupViewModel - show placeholder in preview
                     Text("Backup", modifier = Modifier.padding(16.dp))
                 }
-                SettingsTab.Account -> AccountSettingsScreen(state = state)
+                SettingsTab.Account -> AccountSettingsScreen(
+                    state = state,
+                    onNavigateToProfileSwitcher = {},
+                )
             }
         }
     }
