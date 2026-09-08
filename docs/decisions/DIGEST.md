@@ -184,9 +184,30 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Dogfooding-профиль "AI Agent" (🤖) изолирует агентские задачи от пользовательских _(from `2026-09-07-dogfooding-mcp-server`)_
 - `ProfileAwareCurrentUser` инжектится во все write-tools _(from `2026-09-07-multi-profile-and-usage-tracking`)_
 - Room schema v8 с `llm_usage` table + `profiles` table _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+
+### `"dogfooding"`
+
+- tag 'mcp-ux'/'ui-subtask'/'ai-tooling'/'mcp-policy'/'refactor' — 5 persistent categories для фильтрации. _(from `2026-09-08-mcp-dogfooding-round-2`)_
+
+### `dogfooding`
+
 - ZCode подключается с `--profile=ai-agent` → все операции в профиле ai-agent _(from `2026-09-07-multi-profile-and-usage-tracking`)_
 - ZCode подключается через `mcpServers.singularity-todo` в настройках _(from `2026-09-07-dogfooding-mcp-server`)_
+
+### `"dogfooding"`
+
+- В профиле ai-agent теперь 5 top-level plans × ~6 sub-tasks = ~30 новых rows. _(from `2026-09-08-mcp-dogfooding-round-2`)_
+
+### `dogfooding`
+
 - Все token usage пишется в `llm_usage` с `profile_id=ai-agent` _(from `2026-09-07-dogfooding-mcp-server`)_
+
+### `"dogfooding"`
+
+- Каждый plan имеет parentTaskId = top-task; UI должен теперь уметь их показать (см. plan 'ui-subtask'). _(from `2026-09-08-mcp-dogfooding-round-2`)_
+
+### `dogfooding`
+
 - Новый Gradle-модуль `:mcp-server` с dependency на shared _(from `2026-09-07-dogfooding-mcp-server`)_
 
 ### `"dogfooding"`
@@ -208,6 +229,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **NotificationHost** — финальный widget для всех экранов, заменяет ~64 строк ручного glue кода _(from `2026-09-05-ui-event-per-feature`)_
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально _(from `2026-09-05-ui-event-per-feature`)_
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)` _(from `2026-09-05-ui-event-per-feature`)_
+
+### `"followups"`
+
+- tag 'mcp-ux'/'ui-subtask'/'ai-tooling'/'mcp-policy'/'refactor' — 5 persistent categories для фильтрации. _(from `2026-09-08-mcp-dogfooding-round-2`)_
+- В профиле ai-agent теперь 5 top-level plans × ~6 sub-tasks = ~30 новых rows. _(from `2026-09-08-mcp-dogfooding-round-2`)_
+- Каждый plan имеет parentTaskId = top-task; UI должен теперь уметь их показать (см. plan 'ui-subtask'). _(from `2026-09-08-mcp-dogfooding-round-2`)_
 
 ### `gradle`
 
@@ -359,13 +386,34 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `McpToolError.kt` в `mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/` _(from `2026-09-07-mcp-tool-error-model`)_
 - Process exit semantics change from "instant" to "on stdin EOF or session error". A passing test asserts the process stays alive ≥3s with empty stdin. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - `Runtime.getRuntime().addShutdownHook { server.close() }` becomes redundant for normal EOF exits — `onClose → done.complete() → done.join() returns → runBlocking exits → JVM exits cleanly`. We keep the shutdown hook only as a backstop for SIGTERM. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+
+### `"mcp"`
+
+- tag 'mcp-ux'/'ui-subtask'/'ai-tooling'/'mcp-policy'/'refactor' — 5 persistent categories для фильтрации. _(from `2026-09-08-mcp-dogfooding-round-2`)_
+
+### `mcp`
+
 - `TaskEntity` получает `@ColumnInfo("idempotency_key") val idempotencyKey: String?` _(from `2026-09-07-write-tools-in-koog-registry`)_
 - `TaskRepository` получает `findByIdempotencyKey(key, userId)` метод _(from `2026-09-07-write-tools-in-koog-registry`)_
 - The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - ZCode подключается через `mcpServers.singularity-todo` в настройках _(from `2026-09-07-dogfooding-mcp-server`)_
+
+### `"mcp"`
+
+- В профиле ai-agent теперь 5 top-level plans × ~6 sub-tasks = ~30 новых rows. _(from `2026-09-08-mcp-dogfooding-round-2`)_
+
+### `mcp`
+
 - Все 17+ tools следуют этому контракту _(from `2026-09-07-write-tools-in-koog-registry`)_
 - Все token usage пишется в `llm_usage` с `profile_id=ai-agent` _(from `2026-09-07-dogfooding-mcp-server`)_
 - Все write-tools используют `Result<T>` + `mapCatching` для differentiation `Internal` от `Validation`/etc. _(from `2026-09-07-mcp-tool-error-model`)_
+
+### `"mcp"`
+
+- Каждый plan имеет parentTaskId = top-task; UI должен теперь уметь их показать (см. plan 'ui-subtask'). _(from `2026-09-08-mcp-dogfooding-round-2`)_
+
+### `mcp`
+
 - Новый Gradle-модуль `:mcp-server` с dependency на shared _(from `2026-09-07-dogfooding-mcp-server`)_
 
 ### `"mcp"`
@@ -458,6 +506,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `NotesRepository.createWithContent` и `updateContent` сигнатуры изменились: добавлен параметр `bodyHtml: String`. _(from `2026-09-07-note-editor-body-load`)_
 - Все существующие тесты проходят — никаких изменений в тестовых вызовах не потребовалось (jvmTest зелёный). _(from `2026-09-07-note-editor-body-load`)_
 - При первом открытии старой заметки (без `bodyHtml`) — форматирование может отличаться от исходного (round-trip через markdown). Это accepted trade-off для legacy data. _(from `2026-09-07-note-editor-body-load`)_
+
+### `"round-2"`
+
+- tag 'mcp-ux'/'ui-subtask'/'ai-tooling'/'mcp-policy'/'refactor' — 5 persistent categories для фильтрации. _(from `2026-09-08-mcp-dogfooding-round-2`)_
+- В профиле ai-agent теперь 5 top-level plans × ~6 sub-tasks = ~30 новых rows. _(from `2026-09-08-mcp-dogfooding-round-2`)_
+- Каждый plan имеет parentTaskId = top-task; UI должен теперь уметь их показать (см. plan 'ui-subtask'). _(from `2026-09-08-mcp-dogfooding-round-2`)_
 
 ### `secure-storage`
 
@@ -661,6 +715,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-07-settings-fixes` — settings  ui  di-graph
 - `2026-09-07-settings-ux-improvements` — settings  ux  compose  koin
 - `2026-09-07-write-tools-in-koog-registry` — mcp  tools  koog  idempotency
+- `2026-09-08-mcp-dogfooding-round-2` — "mcp"  "dogfooding"  "round-2"  "followups"
 - `2026-09-08-mcp-plan-tracking-via-mcp` — "mcp"  "dogfooding"  "plan-tracking"
 
 ## Active entries
@@ -702,4 +757,5 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-07-task-detail-archive-overflow` — _(no title)
 - `2026-09-07-task-detail-document-style` — _(no title)
 - `2026-09-07-write-tools-in-koog-registry` — Write Tools — idempotent контракт, dryRun, error model
+- `2026-09-08-mcp-dogfooding-round-2` — MCP dogfooding — round 2 plan index
 - `2026-09-08-mcp-plan-tracking-via-mcp` — MCP plan tracking end-to-end
