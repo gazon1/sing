@@ -13,7 +13,16 @@ import kotlinx.serialization.json.Json
 @Serializable
 data class CreateTagInput(
     val name: String,
+    /** ARGB integer color. Prefer [colorHex] for cross-client MCP callers. */
     val color: Int = 0xFF9E9E9E.toInt(), // ARGB grey default
+    /**
+     * Optional hex-string override for [color]. Accepted forms:
+     *  - `"#RRGGBB"` (alpha assumed 0xFF)
+     *  - `"#AARRGGBB"`
+     *  - 6 / 8 hex digits without leading `#`
+     * If provided, takes precedence over [color].
+     */
+    val colorHex: String? = null,
 )
 
 @Serializable
@@ -32,10 +41,11 @@ class CreateTagTool(
         val now = clock.now()
         val tagId = TagId.generate()
         val userId = profileAwareCurrentUser.scopedUserId.value.value
+        val finalColor = parseColor(args.colorHex, defaultColor = args.color)
         val tag = Tag(
             id = tagId,
             name = args.name,
-            color = args.color,
+            color = finalColor,
             createdAt = now,
             updatedAt = now,
             userId = userId,
