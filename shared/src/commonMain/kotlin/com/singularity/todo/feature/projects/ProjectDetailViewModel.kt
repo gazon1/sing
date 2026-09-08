@@ -3,6 +3,7 @@ package com.singularity.todo.feature.projects
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.Task
@@ -25,7 +26,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**

@@ -156,9 +156,9 @@ actual fun aiToolsModule(): Module = module {
     factory { GetNoteTool(get()) }
     factory { GetProjectTool(get()) }
     factory { GetTaskTool(get()) }
-    factory { ListLinkedTasksTool(get()) }
-    factory { ListTasksTool(get()) }
-    factory { SearchTasksTool(get()) }
+    factory { ListLinkedTasksTool(get<TaskRepository>(), get<ProfileAwareCurrentUser>()) }
+    factory { ListTasksTool(get<TaskRepository>(), get<ProfileAwareCurrentUser>()) }
+    factory { SearchTasksTool(get<TaskRepository>(), get<ProfileAwareCurrentUser>()) }
     factory { CreateTaskTool(get(), get(), get()) }
     factory { UpdateTaskTool(get(), get()) }
     factory { DeleteTaskTool(get()) }

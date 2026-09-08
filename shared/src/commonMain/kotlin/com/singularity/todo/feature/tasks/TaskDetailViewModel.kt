@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlin.time.Instant
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -87,6 +88,13 @@ class TaskDetailViewModel(
     private val titleDraft = MutableStateFlow<String?>(null)
     private val descriptionDraft = MutableStateFlow<String?>(null)
 
+    /**
+     * Silent timestamp for debounced inline edits — does NOT emit Saved.
+     * Exposed as [lastEditedAt] for the UI to render "Saved X ago" via [formatSavedRelative].
+     */
+    private val _lastEditedAt = MutableStateFlow<Instant?>(null)
+    val lastEditedAt: StateFlow<Instant?> = _lastEditedAt
+
     /** Collectors for debounced drafts. Each fires after 300 ms of inactivity. */
     init {
         scope.launch {
@@ -97,7 +105,7 @@ class TaskDetailViewModel(
                     val taskId = _taskId.value ?: return@collect
                     val current = taskRepo.watchTask(taskId).filterNotNull().first()
                     updateTask(current.copy(title = title))
-                        .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Title updated")) }
+                        .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
                         .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
                 }
         }
@@ -109,6 +117,7 @@ class TaskDetailViewModel(
                     val taskId = _taskId.value ?: return@collect
                     val current = taskRepo.watchTask(taskId).filterNotNull().first()
                     updateTask(current.copy(description = desc.ifBlank { null }))
+                        .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
                         .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
                 }
         }

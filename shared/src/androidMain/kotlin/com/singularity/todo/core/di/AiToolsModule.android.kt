@@ -154,9 +154,9 @@ actual fun aiToolsModule(): Module = module {
     factory { GetNoteTool(get()) }
     factory { GetProjectTool(get()) }
     factory { GetTaskTool(get()) }
-    factory { ListLinkedTasksTool(get()) }
-    factory { ListTasksTool(get()) }
-    factory { SearchTasksTool(get()) }
+    factory { ListLinkedTasksTool(get(), get()) }
+    factory { ListTasksTool(get(), get()) }
+    factory { SearchTasksTool(get(), get()) }
     factory { CreateTaskTool(get(), get(), get()) }
     factory { UpdateTaskTool(get(), get()) }
     factory { DeleteTaskTool(get()) }

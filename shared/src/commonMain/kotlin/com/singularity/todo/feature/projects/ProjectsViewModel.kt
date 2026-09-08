@@ -44,6 +44,7 @@ class ProjectsViewModel(
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
     private val scopeOverride: CoroutineScope? = null,
+    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
@@ -82,7 +83,7 @@ class ProjectsViewModel(
         }
     }.catch { cause ->
         emit(ProjectsUiState.Error(cause.message ?: "Error"))
-    }.stateIn(scope, SharingStarted.WhileSubscribed(5000), ProjectsUiState.Loading)
+    }.stateIn(scope, sharingStarted(), ProjectsUiState.Loading)
 
     private val _aiResult = MutableSharedFlow<String>()
     val aiResult = _aiResult.asSharedFlow()

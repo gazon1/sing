@@ -2,6 +2,7 @@ package com.singularity.todo.feature.ai.tools
 
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.TaskFilter
 import com.singularity.todo.feature.tasks.TaskRepository
 import com.singularity.todo.feature.tasks.UserId
@@ -9,16 +10,19 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class SearchTasksInput(val query: String, val userId: String = "local-user", val limit: Int = 20)
+data class SearchTasksInput(val query: String, val userId: String = "", val limit: Int = 20)
 
 @Serializable
 data class SearchTasksOutput(val tasks: List<TaskSummary>)
 
-class SearchTasksTool(private val taskRepository: TaskRepository) :
-    SimpleTool<SearchTasksInput>(TypeToken.of(SearchTasksInput::class.java), NAME, DESCRIPTION) {
+class SearchTasksTool(
+    private val taskRepository: TaskRepository,
+    private val currentUser: ProfileAwareCurrentUser,
+) : SimpleTool<SearchTasksInput>(TypeToken.of(SearchTasksInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: SearchTasksInput): String {
-        val tasks = taskRepository.watchTasks(UserId(args.userId), TaskFilter.All).first()
+        val effectiveUserId = if (args.userId.isNotBlank()) UserId(args.userId) else currentUser.scopedUserId.value
+        val tasks = taskRepository.watchTasks(effectiveUserId, TaskFilter.All).first()
             .filter { it.title.contains(args.query, ignoreCase = true) }
             .take(args.limit)
             .map { TaskSummary(it.id.value, it.title, it.isCompleted, it.projectId?.value) }

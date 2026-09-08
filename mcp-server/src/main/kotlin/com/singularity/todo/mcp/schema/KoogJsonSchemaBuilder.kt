@@ -50,6 +50,9 @@ object KoogJsonSchemaBuilder {
             },
         )
 
+        // NOTE: Do NOT embed "$schema" as a property inside schemaJson — the MCP client
+        // will interpret it as a JSON Schema dialect URI reference and fail validation.
+        // The schema string is carried solely by the ToolSchema.schema field.
         return ToolSchema(
             schema = json.encodeToString(JsonElement.serializer(), schemaJson),
             properties = schemaJson,
