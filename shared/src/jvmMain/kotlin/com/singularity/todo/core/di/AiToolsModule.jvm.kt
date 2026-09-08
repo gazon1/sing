@@ -16,6 +16,8 @@ import com.singularity.todo.feature.ai.tools.ClusterNotesTool
 import com.singularity.todo.feature.ai.tools.ClusterTasksTool
 import com.singularity.todo.feature.ai.tools.CreateNoteTool
 import com.singularity.todo.feature.ai.tools.CreateProjectTool
+import com.singularity.todo.feature.ai.tools.DeleteProjectTool
+import com.singularity.todo.feature.ai.tools.ListProjectsTool
 import com.singularity.todo.feature.ai.tools.CreateTagTool
 import com.singularity.todo.feature.ai.tools.CreateTaskTool
 import com.singularity.todo.feature.ai.tools.DecomposeTaskTool
@@ -165,6 +167,8 @@ actual fun aiToolsModule(): Module = module {
     factory { DeleteNoteTool(get()) }
     factory { CreateProjectTool(get(), get(), get()) }
     factory { UpdateProjectTool(get(), get()) }
+    factory { DeleteProjectTool(get(), get()) }
+    factory { ListProjectsTool(get(), get()) }
     factory { CreateTagTool(get(), get(), get()) }
     factory { DeleteTagTool(get()) }
     factory { ListAdrsTool() }
@@ -200,6 +204,8 @@ actual fun aiToolsModule(): Module = module {
             get<DeleteNoteTool>(),
             get<CreateProjectTool>(),
             get<UpdateProjectTool>(),
+            get<DeleteProjectTool>(),
+            get<ListProjectsTool>(),
             get<CreateTagTool>(),
             get<DeleteTagTool>(),
             get<ListAdrsTool>(),

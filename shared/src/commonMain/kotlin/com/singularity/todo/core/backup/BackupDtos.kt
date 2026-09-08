@@ -100,7 +100,7 @@ data class ProjectDto(
     val deletedAt: Long? = null,
     val parentId: String? = null,
     val sortOrder: Int = 0,
-    val isNotebook: Boolean = false,
+    val idempotencyKey: String? = null,
     val externalId: String? = null
 )
 
@@ -109,7 +109,7 @@ fun ProjectEntity.toDto(): ProjectDto = ProjectDto(
     description = description, createdAt = createdAt, updatedAt = updatedAt,
     isDefault = isDefault, dueDate = dueDate, team = team,
     isDeleted = isDeleted, deletedAt = deletedAt, parentId = parentId,
-    sortOrder = sortOrder, isNotebook = isNotebook, externalId = externalId
+    sortOrder = sortOrder, idempotencyKey = idempotencyKey, externalId = externalId
 )
 
 fun ProjectDto.toEntity(userId: String): ProjectEntity = ProjectEntity(
@@ -118,7 +118,7 @@ fun ProjectDto.toEntity(userId: String): ProjectEntity = ProjectEntity(
     createdAt = createdAt, updatedAt = updatedAt,
     isDefault = isDefault, dueDate = dueDate, team = team,
     isDeleted = isDeleted, deletedAt = deletedAt, parentId = parentId,
-    sortOrder = sortOrder, isNotebook = isNotebook, externalId = externalId,
+    sortOrder = sortOrder, idempotencyKey = idempotencyKey, externalId = externalId,
     sync = SyncColumns()
 )
 

@@ -10,8 +10,8 @@ import com.singularity.todo.feature.tasks.TaskEditorDeps
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.test.fakes.FakeAuthRepository
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeChecklistRepository
-import com.singularity.todo.test.fakes.FakeCurrentUser
 import com.singularity.todo.test.fakes.FakeReminderRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -42,7 +42,7 @@ class TaskEditorIntegrationTest {
     private val fakeAuth = FakeAuthRepository(
         com.singularity.todo.core.auth.Session.Anonymous(testUserId)
     )
-    private val fakeCurrentUser = FakeCurrentUser(fakeAuth)
+    private val fakeCurrentUser = FakeProfileAwareCurrentUser(fakeAuth)
     private val idGen: IdGenerator = SequenceIdGenerator()
     private val tz: TimeZoneProvider = object : TimeZoneProvider {
         override fun current() = kotlinx.datetime.TimeZone.UTC

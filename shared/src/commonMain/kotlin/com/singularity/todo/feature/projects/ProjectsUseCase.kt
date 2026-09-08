@@ -17,6 +17,7 @@ class CreateProjectUseCase(private val repo: ProjectsRepository, private val clo
             color = input.color,
             icon = input.icon,
             description = input.description,
+            parentId = input.parentId,
             createdAt = now,
             updatedAt = now,
             userId = input.userId
@@ -28,7 +29,20 @@ class CreateProjectUseCase(private val repo: ProjectsRepository, private val clo
 
 // Keep: has domain timestamp update
 class UpdateProjectUseCase(private val repo: ProjectsRepository, private val clock: Clock) {
+    /** Full-entity update. */
     suspend operator fun invoke(project: Project): Result<Unit> = runCatchingResult {
         repo.update(project.copy(updatedAt = clock.now())).getOrThrow()
     }
+
+    /**
+     * Read-modify-write update.
+     * Enables atomic partial updates without a prior read in the caller.
+     */
+    suspend operator fun invoke(id: ProjectId, transform: (Project) -> Project): Result<Unit> =
+        runCatchingResult {
+            val current = repo.getById(id)
+                ?: throw AppError.NotFound("Project $id not found")
+            val updated = transform(current).copy(updatedAt = clock.now())
+            repo.update(updated).getOrThrow()
+        }
 }

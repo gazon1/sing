@@ -139,6 +139,7 @@ private class FakeTaskDao(
     override suspend fun upsert(task: TaskEntity) { store.update { it + (task.id to task) } }
     override suspend fun softDelete(id: String, ts: Long) = mutateTask(id) { it.copy(archivedAt = ts, updatedAt = ts) }
     override suspend fun restore(id: String, ts: Long) = mutateTask(id) { it.copy(archivedAt = null, updatedAt = ts) }
+    override suspend fun getById(id: String): TaskEntity? = store.value[id]
     override suspend fun markComplete(id: String, ts: Long) = mutateTask(id) { it.copy(completedAt = ts, updatedAt = ts) }
     override suspend fun archiveCompleted(ts: Long): Int {
         var count = 0
@@ -266,6 +267,29 @@ private class FakeProjectDao(
             .sortedWith(compareBy({ it.sortOrder }, { it.name })) }
 
     override fun watchById(id: String): Flow<ProjectEntity?> = store.map { it[id] }
+    override suspend fun getById(id: String): ProjectEntity? = store.value[id]
+    override fun watchAllWithCounts(userId: String): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
+        store.map { map ->
+            map.values.filter { it.userId == userId && !it.isDeleted }
+                .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+                .map { entity ->
+                    com.singularity.todo.core.database.ProjectWithCountRow(
+                        project = entity,
+                        totalCount = 0,
+                        completedCount = 0,
+                    )
+                }
+        }
+    override fun watchByParent(parentId: String): Flow<List<ProjectEntity>> =
+        store.map { it.values.filter { it.parentId == parentId && !it.isDeleted } }
+    override suspend fun setParent(id: String, parentId: String?, ts: Long) =
+        mutate(id) { it.copy(parentId = parentId, updatedAt = ts) }
+    override suspend fun setSortOrder(id: String, sortOrder: Int, ts: Long) =
+        mutate(id) { it.copy(sortOrder = sortOrder, updatedAt = ts) }
+    override suspend fun restore(id: String, ts: Long) =
+        mutate(id) { it.copy(isDeleted = false, deletedAt = null, updatedAt = ts) }
+    override suspend fun findByIdempotencyKey(key: String): ProjectEntity? =
+        store.value.values.firstOrNull { it.idempotencyKey == key }
     override suspend fun upsert(project: ProjectEntity) { store.update { it + (project.id to project) } }
     override suspend fun softDelete(id: String, ts: Long) = mutate(id) { it.copy(isDeleted = true, deletedAt = ts, updatedAt = ts) }
     override suspend fun listAllForUser(userId: String): List<ProjectEntity> =

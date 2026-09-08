@@ -7,7 +7,7 @@ import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
-import com.singularity.todo.test.fakes.FakeCurrentUser
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -35,7 +35,7 @@ class TasksViewModelTest {
 
     private val testUserId = UserId("test-user")
     private val fakeTaskRepo = FakeTaskRepository()
-    private val fakeCurrentUser = FakeCurrentUser(FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)))
+    private val fakeCurrentUser = FakeProfileAwareCurrentUser(FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)))
 
     private fun createVm(
         refineTask: RefineTaskUseCase? = null,

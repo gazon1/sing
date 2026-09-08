@@ -28,6 +28,7 @@ import com.singularity.todo.feature.statistics.StatisticsScreen
 import com.singularity.todo.feature.tasks.TaskDetailScreen
 import com.singularity.todo.feature.tasks.TaskEditorScreen
 import com.singularity.todo.feature.tasks.TaskId
+import com.singularity.todo.feature.tasks.TasksByProjectScreen
 import com.singularity.todo.feature.tasks.TasksScreen
 import com.singularity.todo.feature.tasks.TasksScreenEntry
 import org.koin.compose.koinInject
@@ -112,6 +113,9 @@ fun AppNavHost(
             TaskDetailScreen(
                 taskId = TaskId.fromString(route.taskId),
                 onBack = navigator::popBackStack,
+                onNavigateToProject = { projectId ->
+                    navigator.navigate(AppDestination.ProjectDetail(projectId.value))
+                },
             )
         }
         composable<AppDestination.TaskEditor> { backStackEntry ->
@@ -140,14 +144,31 @@ fun AppNavHost(
                 onNavigateToTask = { id -> navigator.navigate(AppDestination.TaskDetail(id)) },
             )
         }
-        composable<AppDestination.ProjectEditor> {
-            ProjectEditorScreen(onBack = navigator::popBackStack)
+        composable<AppDestination.ProjectEditor> { backStackEntry ->
+            val route = backStackEntry.toRoute<AppDestination.ProjectEditor>()
+            ProjectEditorScreen(
+                projectId = route.projectId?.let { ProjectId.fromString(it) },
+                onBack = navigator::popBackStack,
+            )
         }
         composable<AppDestination.ProjectDetail> { backStackEntry ->
             val route = backStackEntry.toRoute<AppDestination.ProjectDetail>()
             ProjectDetailScreen(
                 projectId = ProjectId.fromString(route.projectId),
                 onBack = navigator::popBackStack,
+                onNavigateToTasks = { projectId ->
+                    navigator.navigate(AppDestination.TasksByProject(projectId.value))
+                },
+            )
+        }
+        composable<AppDestination.TasksByProject> { backStackEntry ->
+            val route = backStackEntry.toRoute<AppDestination.TasksByProject>()
+            TasksByProjectScreen(
+                projectId = ProjectId.fromString(route.projectId),
+                onBack = navigator::popBackStack,
+                onNavigateToTask = { taskId ->
+                    navigator.navigate(AppDestination.TaskDetail(taskId.value))
+                },
             )
         }
     }

@@ -200,6 +200,8 @@ class FakeTaskRepository : TaskRepository {
         }
     }
 
+    override suspend fun getById(id: TaskId): Task? = tasks.value[id.value]
+
     override suspend fun restore(id: TaskId): Result<Unit> = runCatching {
         tasks.value[id.value]?.let { task ->
             val restored = task.copy(archivedAt = null)
@@ -371,6 +373,58 @@ class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRep
 
     override fun watchProject(id: com.singularity.todo.feature.projects.ProjectId): Flow<com.singularity.todo.feature.projects.Project?> =
         _flow.map { list -> list.firstOrNull { it.id == id } }
+
+    override suspend fun getById(id: com.singularity.todo.feature.projects.ProjectId): com.singularity.todo.feature.projects.Project? =
+        store[id.value]
+
+    override fun changes(id: com.singularity.todo.feature.projects.ProjectId): Flow<com.singularity.todo.feature.projects.Project?> =
+        _flow.map { list -> list.firstOrNull { it.id == id } }
+
+    override fun watchProjectsWithCounts(userId: String): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
+        _flow.map { list ->
+            list.filter { it.userId == userId && !it.isDeleted }
+                .map { p ->
+                    com.singularity.todo.core.database.ProjectWithCountRow(
+                        project = p.let {
+                            com.singularity.todo.core.database.ProjectEntity(
+                                id = it.id.value, userId = it.userId, name = it.name, color = it.color,
+                                icon = it.icon, description = it.description, createdAt = it.createdAt.toEpochMilliseconds(),
+                                updatedAt = it.updatedAt.toEpochMilliseconds(), isDefault = it.isDefault,
+                                dueDate = it.dueDate?.toString(), team = it.team, isDeleted = it.isDeleted,
+                                deletedAt = it.deletedAt?.toEpochMilliseconds(), parentId = it.parentId?.value,
+                                sortOrder = it.sortOrder, idempotencyKey = it.idempotencyKey, externalId = it.externalId,
+                                sync = com.singularity.todo.core.database.SyncColumns()
+                            )
+                        },
+                        totalCount = 0,
+                        completedCount = 0,
+                    )
+                }
+        }
+
+    override fun watchByParent(parentId: com.singularity.todo.feature.projects.ProjectId): Flow<List<com.singularity.todo.feature.projects.Project>> =
+        _flow.map { list -> list.filter { it.parentId == parentId && !it.isDeleted } }
+
+    override suspend fun setParent(id: com.singularity.todo.feature.projects.ProjectId, parentId: com.singularity.todo.feature.projects.ProjectId?, updatedAt: Long) {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(parentId = parentId, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt))
+        }
+    }
+
+    override suspend fun setSortOrder(id: com.singularity.todo.feature.projects.ProjectId, sortOrder: Int, updatedAt: Long) {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(sortOrder = sortOrder, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt))
+        }
+    }
+
+    override suspend fun restore(id: com.singularity.todo.feature.projects.ProjectId): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(isDeleted = false, deletedAt = null)
+        }
+    }
+
+    override suspend fun findByIdempotencyKey(key: String): com.singularity.todo.feature.projects.Project? =
+        store.values.firstOrNull { it.idempotencyKey == key }
 
     override suspend fun create(project: com.singularity.todo.feature.projects.Project): Result<Unit> = runCatching {
         store[project.id.value] = project

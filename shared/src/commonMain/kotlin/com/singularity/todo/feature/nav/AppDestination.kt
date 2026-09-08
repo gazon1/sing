@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Repeat
@@ -140,6 +141,11 @@ sealed interface AppDestination {
     data class ProjectDetail(val projectId: String) : AppDestination {
         override val title = "Project"
     }
+
+    @Serializable
+    data class TasksByProject(val projectId: String) : AppDestination {
+        override val title = "Project Tasks"
+    }
 }
 
 /** UI metadata for [AppDestination]. Kept separate so the route stays pure-data. */
@@ -163,6 +169,7 @@ val AppDestination.icon: ImageVector
         is AppDestination.NoteEditor -> Icons.Filled.Create
         is AppDestination.ProjectEditor -> Icons.Filled.Check
         is AppDestination.ProjectDetail -> Icons.Filled.Check
+        is AppDestination.TasksByProject -> Icons.Filled.Folder
     }
 
 /** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */

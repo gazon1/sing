@@ -267,6 +267,48 @@ Migration v7→v8 is **additive** — adds `llm_usage` table only. No schema cha
 
 See `singularity-todo-llm-usage-tracking` for the full usage tracking pattern.
 
+### Migration(10, 11) — Add idempotency_key, Remove is_notebook
+
+```kotlin
+// shared/src/commonMain/.../core/database/Migrations.kt
+// Room KSP auto-infers both changes from schema diff. No migrate() override needed.
+@androidx.room3.DeleteColumn(tableName = "projects", columnName = "is_notebook")
+class Migration10To11 : AutoMigrationSpec
+```
+
+**Why no migrate()?** Room KSP processes `@DeleteColumn` automatically and compares schema 10.json vs 11.json to infer the `idempotency_key` addition. Only add `migrate()` when extra SQL beyond what annotations can express is needed.
+
+**SQLite version note:** Android 21+ uses bundled SQLite 3.38.2 which supports `ALTER TABLE ADD COLUMN` natively.
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                color INTEGER NOT NULL DEFAULT 4284951163,
+                icon TEXT,
+                parent_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+                is_archived INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                deleted_at INTEGER,
+                idempotency_key TEXT UNIQUE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO projects_v11
+            SELECT id, user_id, name, description, color, icon, parent_id,
+                   is_archived, sort_order, created_at, updated_at, deleted_at,
+                   lower(hex(randomblob(16))) as idempotency_key
+            FROM projects
+        """.trimIndent())
+        db.execSQL("DROP TABLE projects")
+        db.execSQL("ALTER TABLE projects_v11 RENAME TO projects")
+    }
+}
+```
+
+The Room KSP plugin exports the new schema to `schemas/com.singularity.todo.core.database.AppDatabase/11.json`.
+
 ## Files
 
 | File | Role |

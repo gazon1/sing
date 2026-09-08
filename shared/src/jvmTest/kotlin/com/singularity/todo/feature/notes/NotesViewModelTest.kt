@@ -4,7 +4,7 @@ import com.singularity.todo.core.ids.SequenceIdGenerator
 import com.singularity.todo.core.clock.DelayAutosaveScheduler
 import com.singularity.todo.feature.tasks.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
-import com.singularity.todo.test.fakes.FakeCurrentUser
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,7 +30,7 @@ class NotesViewModelTest {
     ): NotesViewModel = NotesViewModel(
         repo = repo,
         htmlPort = htmlPort,
-        currentUser = FakeCurrentUser(FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId))),
+        currentUser = FakeProfileAwareCurrentUser(FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId))),
         idGen = SequenceIdGenerator(),
         improveNote = null,
         scopeOverride = scope,

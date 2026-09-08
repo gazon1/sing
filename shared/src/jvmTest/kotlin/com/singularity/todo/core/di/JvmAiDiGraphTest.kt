@@ -37,6 +37,8 @@ import com.singularity.todo.feature.ai.tools.CreateNoteTool
 import com.singularity.todo.feature.ai.tools.UpdateNoteTool
 import com.singularity.todo.feature.ai.tools.DeleteNoteTool
 import com.singularity.todo.feature.ai.tools.CreateProjectTool
+import com.singularity.todo.feature.ai.tools.DeleteProjectTool
+import com.singularity.todo.feature.ai.tools.ListProjectsTool
 import com.singularity.todo.feature.ai.tools.UpdateProjectTool
 import com.singularity.todo.feature.ai.tools.CreateTagTool
 import com.singularity.todo.feature.ai.tools.DeleteTagTool
@@ -71,8 +73,9 @@ class JvmAiDiGraphTest {
     fun `full AI module resolves every binding without network calls`() {
         val app = org.koin.core.context.startKoin {
             modules(
-                domainModule(),
                 platformModule(),
+                *domainModule().toTypedArray(),
+                aiToolsModule(),
                 // Safety belt overrides — see class KDoc.
                 module {
                     single<LLModel> { testLLModel }
@@ -127,6 +130,8 @@ class JvmAiDiGraphTest {
             koin.get<DeleteNoteTool>()
             koin.get<CreateProjectTool>()
             koin.get<UpdateProjectTool>()
+            koin.get<DeleteProjectTool>()
+            koin.get<ListProjectsTool>()
             koin.get<CreateTagTool>()
             koin.get<DeleteTagTool>()
         } finally {

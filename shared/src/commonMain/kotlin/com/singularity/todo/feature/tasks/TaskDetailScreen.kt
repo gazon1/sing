@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -113,6 +114,7 @@ private typealias DeleteReminder = (Task) -> Unit
 fun TaskDetailScreen(
     taskId: TaskId,
     onBack: () -> Unit,
+    onNavigateToProject: (ProjectId) -> Unit,
     viewModel: TaskDetailViewModel = koinViewModel(),
     attachmentsVm: AttachmentsViewModel = koinViewModel(),
 ) {
@@ -156,6 +158,7 @@ fun TaskDetailScreen(
             onOpenTimePicker = viewModel::openTimePicker,
             onOpenPrioritySheet = viewModel::openPrioritySheet,
             onOpenProjectSheet = viewModel::openProjectSheet,
+            onNavigateToProject = onNavigateToProject,
             onOpenTagSheet = viewModel::openTagSheet,
             onOpenReminderSheet = viewModel::openReminderSheet,
             onOpenAttachmentSheet = viewModel::openAttachmentSheet,
@@ -400,6 +403,7 @@ private fun TaskDetailContent(
     onOpenTimePicker: () -> Unit,
     onOpenPrioritySheet: () -> Unit,
     onOpenProjectSheet: () -> Unit,
+    onNavigateToProject: (ProjectId) -> Unit,
     onOpenTagSheet: () -> Unit,
     onOpenReminderSheet: () -> Unit,
     onOpenAttachmentSheet: () -> Unit,
@@ -492,11 +496,12 @@ private fun TaskDetailContent(
                 dueChip = formatDueChip(ui.task.dueDate, ui.task.dueTime, today),
                 isCompleted = ui.task.isCompleted,
                 priority = ui.task.priority,
-                projectName = ui.project?.name,
+                project = ui.project,
                 onPickDate = onOpenDatePicker,
                 onPickTime = onOpenTimePicker,
                 onPickPriority = onOpenPrioritySheet,
                 onPickProject = onOpenProjectSheet,
+                onNavigateToProject = onNavigateToProject,
             )
 
             // ── Tags ─────────────────────────────────────────────────────────
@@ -602,11 +607,12 @@ private fun MetaChipsRow(
     dueChip: com.singularity.todo.core.ui.components.DueChipModel?,
     isCompleted: Boolean,
     priority: TaskPriority,
-    projectName: String?,
+    project: com.singularity.todo.feature.projects.Project?,
     onPickDate: () -> Unit,
     onPickTime: () -> Unit,
     onPickPriority: () -> Unit,
     onPickProject: () -> Unit,
+    onNavigateToProject: (com.singularity.todo.feature.projects.ProjectId) -> Unit,
 ) {
     val chipColors = dueChip?.let { chip ->
         when (chip.state) {
@@ -673,19 +679,41 @@ private fun MetaChipsRow(
         )
 
         // Project chip
-        FilterChip(
-            selected = projectName != null,
-            onClick = onPickProject,
-            label = {
-                Text(
-                    projectName ?: "Project",
-                    style = MaterialTheme.typography.labelMedium,
+        if (project != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(
+                    selected = true,
+                    onClick = onPickProject,
+                    label = {
+                        Text(project.name, style = MaterialTheme.typography.labelMedium)
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                    },
                 )
-            },
-            leadingIcon = {
-                Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
-            },
-        )
+                IconButton(
+                    onClick = { onNavigateToProject(project.id) },
+                    modifier = Modifier.size(24.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.ChevronRight,
+                        contentDescription = "Open project",
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        } else {
+            FilterChip(
+                selected = false,
+                onClick = onPickProject,
+                label = {
+                    Text("Project", style = MaterialTheme.typography.labelMedium)
+                },
+                leadingIcon = {
+                    Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                },
+            )
+        }
     }
 }
 
@@ -935,6 +963,7 @@ private fun TaskDetailContentPreview() = PreviewThemed(darkTheme = false, useSur
         onDeleteReminder = { _ -> },
         onDismissSheet = {},
         onBack = {},
+        onNavigateToProject = {},
     )
 }
 
@@ -977,5 +1006,6 @@ private fun TaskDetailContentDarkPreview() = PreviewThemed(darkTheme = true, use
         onDeleteReminder = { _ -> },
         onDismissSheet = {},
         onBack = {},
+        onNavigateToProject = {},
     )
 }

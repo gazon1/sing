@@ -249,3 +249,61 @@ class <Feature>ViewModelTest {
 4. **`java.io.File` directly** — use the `FileSystem` port
 5. **MockK / Mockito** — use `Fake<Feature>Repository()`
 6. **Adding tag/attachment operations to the main repository** — use subinterface instead
+
+---
+
+## 1-Level Hierarchy Invariant
+
+Projects support a **1-level parent hierarchy**: a project may have a `parentId` pointing to another project, but that parent **must not have its own parent** (`parent.parentId == null`). This is a deliberate simplification: 1-level hierarchy makes cycle-prevention structurally impossible (no chain can form), keeps indentation in lists to a single level, and matches the scope agreed in ADR decisions.
+
+### What is allowed
+
+```kotlin
+// A root project (parentId == null) — valid
+val work = Project(id, name = "Work", parentId = null, ...)
+
+// A child project with a root parent — valid
+val workClient = Project(id, name = "Client A", parentId = work.id, ...)
+```
+
+### What is NOT allowed (enforced by domain validation)
+
+```kotlin
+// A child-of-child — structurally impossible because parent already has a parent
+val invalid = Project(
+    name = "Task",
+    parentId = workClient.id,  // workClient already has parentId = work.id
+    // This would create a chain: invalid → workClient → work
+    // 1-level rule forbids this at creation time
+)
+```
+
+### Domain enforcement
+
+```kotlin
+// In CreateProjectUseCase or UpdateProjectUseCase:
+if (input.parentId != null) {
+    val parent = repo.findById(input.parentId).getOrNull()
+        ?: return Result.failure(AppError.Validation("Parent project not found"))
+    check(parent.parentId == null) {
+        AppError.Validation("Only root projects can be parents. Nested sub-projects are not supported.")
+    }
+}
+```
+
+### DAO enforcement (belt-and-suspenders)
+
+```kotlin
+// ProjectDao.setParent — reject if it would create a 2-level chain
+@Query("UPDATE projects SET parent_id = :parentId WHERE id = :id")
+suspend fun setParent(id: String, parentId: String?): Int
+
+// The SQL itself doesn't need cycle prevention because:
+// 1. We only allow setting parent to a root project (parent.parentId IS NULL)
+// 2. A project that is already a child cannot become a parent
+// This is checked in the UseCase before calling setParent.
+```
+
+### No cycle-prevention code needed
+
+Because the hierarchy is strictly 1-level, there is **no need for recursive cycle-detection** (no `hasDescendant`, no visited-set traversal). If you find yourself writing cycle-prevention logic for projects, that is a sign the hierarchy rule has been violated.

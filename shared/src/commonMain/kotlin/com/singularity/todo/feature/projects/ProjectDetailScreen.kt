@@ -1,105 +1,698 @@
 package com.singularity.todo.feature.projects
 
-import com.singularity.todo.core.ui.preview.PreviewSamples
-import com.singularity.todo.core.ui.preview.PreviewThemed
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.BackTopAppBar
+import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.tasks.Task
+import com.singularity.todo.feature.tasks.components.TaskCard
+import com.singularity.todo.feature.tasks.components.TaskCardActions
+import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 /**
- * Detail screen for a single project. Stateless — driven by
- * [ProjectDetailViewModel] which is started in [LaunchedEffect].
+ * TickTick-style project detail screen with 4 sections:
+ * 1. [ProjectHeroSection]     — color circle + icon + inline-edit name/desc + progress bar
+ * 2. [ProjectMetaChipsRow]   — date, parent, child-count chips
+ * 3. [ProjectBodySection]    — quick-add input + task list (≤5) + "See all" link
+ * 4. [ProjectBottomActionBar] — remind/attach/more icon buttons
  *
- * Visual states:
- * - [ProjectDetailUiState.Loading] → spinner
- * - [ProjectDetailUiState.Empty] / [NotFound] → empty state
- * - [Content] → project name + description
+ * All pickers/confirms are routed through [ActiveSheet].
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalTime::class)
 @Composable
 fun ProjectDetailScreen(
     projectId: ProjectId,
     onBack: () -> Unit,
-    viewModel: ProjectDetailViewModel = koinViewModel(),
+    onNavigateToTasks: (ProjectId) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    LaunchedEffect(projectId) { viewModel.start(projectId) }
+    val viewModel: ProjectDetailViewModel = koinViewModel { parametersOf(projectId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
+    val hideCompleted by viewModel.hideCompleted.collectAsStateWithLifecycle()
+    var sheetState by remember { mutableStateOf<ActiveSheet?>(null) }
+    val sheetScope = rememberCoroutineScope()
 
-    BackTopAppBar(
-        title = "Project",
-        onBack = onBack,
-        modifier = Modifier.testTag(TestTags.PROJECT_DETAIL_TOP_BAR),
+    CollectEvents(viewModel.events) { event ->
+        when (event) {
+            ProjectDetailUiEvent.NavigateBack -> onBack()
+            ProjectDetailUiEvent.NavigateToTasks -> onNavigateToTasks(projectId)
+            ProjectDetailUiEvent.AddTask -> { /* quick-add handled inline */ }
+            is ProjectDetailUiEvent.ShowError -> { /* TODO: show snackbar */ }
+            ProjectDetailUiEvent.Saved -> { /* silent — lastEditedAt drives UI */ }
+        }
+    }
+
+    val contentState = state
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text(state.title()) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { sheetState = ActiveSheet.Edit }) {
+                        Icon(Icons.Filled.Edit, "Edit project")
+                    }
+                    IconButton(onClick = { sheetState = ActiveSheet.MoreMenu }) {
+                        Icon(Icons.Filled.MoreVert, "More")
+                    }
+                }
+            )
+        },
+        bottomBar = {
+            if (contentState is ProjectDetailUiState.Content) {
+                ProjectBottomActionBar(
+                    isArchived = contentState.ui.project.isDeleted,
+                    onRemind = { /* TODO */ },
+                    onAttach = { /* TODO */ },
+                    onMoreClick = { sheetState = ActiveSheet.MoreMenu },
+                )
+            }
+        }
     ) { padding ->
         when (val s = state) {
-            ProjectDetailUiState.Loading -> LoadingIndicator(modifier = Modifier.padding(padding))
-            ProjectDetailUiState.Empty,
+            ProjectDetailUiState.Loading -> LoadingIndicator(Modifier.padding(padding))
             ProjectDetailUiState.NotFound -> EmptyState(
                 title = "Project not found",
                 modifier = Modifier.padding(padding),
             )
             is ProjectDetailUiState.Content -> Column(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.Start,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .imePadding(),
             ) {
-                Text(s.project.name, style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
-                s.project.description?.let { Text(it) }
+                ProjectHeroSection(
+                    ui = s.ui,
+                    lastEditedAt = lastEditedAt,
+                    now = clock.now(),
+                    onNameChange = viewModel::updateName,
+                    onDescriptionChange = viewModel::updateDescription,
+                    onColorClick = { sheetState = ActiveSheet.PickColor },
+                    onIconClick = { sheetState = ActiveSheet.PickIcon },
+                )
+                ProjectMetaChipsRow(
+                    ui = s.ui,
+                    onParentClick = { sheetState = ActiveSheet.PickParent(s.ui.project.parentId) },
+                )
+                ProjectBodySection(
+                    ui = s.ui,
+                    hideCompleted = hideCompleted,
+                    onToggleHideCompleted = viewModel::toggleHideCompleted,
+                    onSeeAllClick = onNavigateToTasks,
+                    onTaskClick = { /* TODO: navigate to task detail */ },
+                )
+            }
+        }
+    }
+
+    // ─── Sheets ───────────────────────────────────────────────────────────────
+
+    if (sheetState != null) {
+        ModalBottomSheet(
+            onDismissRequest = { sheetState = null },
+            sheetState = rememberModalBottomSheetState(),
+        ) {
+            when (val sheet = sheetState) {
+                null -> Unit
+                is ActiveSheet.PickColor -> ColorPickerSheet(
+                    currentColor = (state as? ProjectDetailUiState.Content)?.ui?.project?.color
+                        ?: ProjectColorPalette.default,
+                    onPick = { color ->
+                        viewModel.updateColor(color)
+                        sheetState = null
+                    },
+                    onDismiss = { sheetState = null },
+                )
+                is ActiveSheet.PickIcon -> IconPickerSheet(
+                    currentIcon = (state as? ProjectDetailUiState.Content)?.ui?.project?.icon,
+                    onPick = { icon ->
+                        viewModel.updateIcon(icon)
+                        sheetState = null
+                    },
+                    onDismiss = { sheetState = null },
+                )
+                is ActiveSheet.PickParent -> ParentPickerSheet(
+                    currentParentId = (state as? ProjectDetailUiState.Content)?.ui?.project?.parentId,
+                    onPick = { parentId ->
+                        viewModel.updateParent(parentId)
+                        sheetState = null
+                    },
+                    onDismiss = { sheetState = null },
+                )
+                is ActiveSheet.ConfirmDelete -> ConfirmDeleteSheet(
+                    projectName = (state as? ProjectDetailUiState.Content)?.ui?.project?.name ?: "",
+                    onConfirm = {
+                        viewModel.delete()
+                        sheetState = null
+                    },
+                    onDismiss = { sheetState = null },
+                )
+                is ActiveSheet.ConfirmArchive -> ConfirmArchiveSheet(
+                    isArchived = (state as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true,
+                    onConfirm = {
+                        viewModel.toggleArchive()
+                        sheetState = null
+                    },
+                    onDismiss = { sheetState = null },
+                )
+                is ActiveSheet.Edit -> { /* edit handled via top bar nav */ sheetState = null }
+                is ActiveSheet.MoreMenu -> { /* rendered as dropdown in top bar */ sheetState = null }
             }
         }
     }
 }
 
-// ===== Preview =====
+// ─── 4 Sections ─────────────────────────────────────────────────────────────
 
-@androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ProjectDetailUiContentPreview() = PreviewThemed(darkTheme = false) {
-    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
-        androidx.compose.foundation.layout.Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+private fun ProjectDetailUiState.title(): String = when (this) {
+    ProjectDetailUiState.Loading -> "Project"
+    ProjectDetailUiState.NotFound -> "Not found"
+    is ProjectDetailUiState.Content -> ui.project.name
+}
+
+@OptIn(ExperimentalTime::class)
+@Composable
+private fun ProjectHeroSection(
+    ui: ProjectDetailUi,
+    lastEditedAt: kotlin.time.Instant?,
+    now: kotlin.time.Instant,
+    onNameChange: (String) -> Unit,
+    onDescriptionChange: (String?) -> Unit,
+    onColorClick: () -> Unit,
+    onIconClick: () -> Unit,
+) {
+    var draftName by remember(ui.project.name) { mutableStateOf(ui.project.name) }
+    var draftDesc by remember(ui.project.description) { mutableStateOf(ui.project.description ?: "") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "Work Projects",
-                style = androidx.compose.material3.MaterialTheme.typography.headlineSmall
+            // Color circle with icon
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(Color(ui.project.color))
+                    .clickable(onClick = onColorClick),
+                contentAlignment = Alignment.Center,
+            ) {
+                val icon = ProjectIconRegistry.iconByKey(ui.project.icon) ?: Icons.Filled.Folder
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+
+            Spacer(Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                BasicTextField(
+                    value = draftName,
+                    onValueChange = { draftName = it },
+                    textStyle = MaterialTheme.typography.headlineSmall.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (lastEditedAt != null) {
+                    Text(
+                        text = formatSavedRelative(now, lastEditedAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Progress bar
+        if (ui.totalCount > 0) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                LinearProgressIndicator(
+                    progress = { ui.progressFraction },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
+                    color = Color(ui.project.color),
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "${ui.completedCount}/${ui.totalCount}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
+        // Description
+        BasicTextField(
+            value = draftDesc,
+            onValueChange = { draftDesc = it },
+            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                color = if (draftDesc.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant
+                else MaterialTheme.colorScheme.onSurface,
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ProjectMetaChipsRow(
+    ui: ProjectDetailUi,
+    onParentClick: () -> Unit,
+) {
+    FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        ui.project.dueDate?.let { date ->
+            FilterChip(
+                selected = false,
+                onClick = { /* open date picker */ },
+                label = { Text(date.toString()) },
+                leadingIcon = {
+                    Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                },
             )
-            Text(
-                text = "All tasks related to office and client work",
-                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+        }
+
+        ui.parent?.let { parent ->
+            FilterChip(
+                selected = false,
+                onClick = onParentClick,
+                label = { Text(parent.name) },
+                leadingIcon = {
+                    Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                },
+                trailingIcon = {
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp))
+                },
+            )
+        }
+
+        if (ui.childProjects.isNotEmpty()) {
+            FilterChip(
+                selected = false,
+                onClick = { /* show child projects */ },
+                label = { Text("${ui.childProjects.size} sub-projects") },
+                leadingIcon = {
+                    Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                },
             )
         }
     }
 }
 
-@androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ProjectDetailUiContentDarkPreview() = PreviewThemed(darkTheme = true) {
-    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
-        androidx.compose.foundation.layout.Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+private fun ProjectBodySection(
+    ui: ProjectDetailUi,
+    hideCompleted: Boolean,
+    onToggleHideCompleted: () -> Unit,
+    onSeeAllClick: (ProjectId) -> Unit,
+    onTaskClick: (Task) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Quick-add input
+        ProjectDetailQuickAddInput(
+            projectId = ui.project.id,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+
+        // Task list header with hide toggle
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Personal",
-                style = androidx.compose.material3.MaterialTheme.typography.headlineSmall
+                text = "Tasks",
+                style = MaterialTheme.typography.titleMedium,
             )
+            if (ui.totalCount > 0) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (hideCompleted) "Show completed" else "Hide completed",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable(onClick = onToggleHideCompleted),
+                    )
+                }
+            }
+        }
+
+        // Task list (≤5)
+        if (ui.tasks.isEmpty()) {
+            EmptyState(
+                title = "No tasks yet",
+                modifier = Modifier.padding(32.dp),
+            )
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                items(ui.tasks, key = { it.id.value }) { task ->
+                    TaskCard(
+                        task = task,
+                        onClick = { onTaskClick(task) },
+                        actions = TaskCardActions.Empty,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+            }
+        }
+
+        // "See all" link
+        if (ui.totalCount > 5) {
+            TextButton(
+                onClick = { onSeeAllClick(ui.project.id) },
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) {
+                Text("See all ${ui.totalCount} tasks")
+                Icon(Icons.Filled.ChevronRight, contentDescription = null)
+            }
         }
     }
+}
+
+@Composable
+private fun ProjectBottomActionBar(
+    isArchived: Boolean,
+    onRemind: () -> Unit,
+    onAttach: () -> Unit,
+    onMoreClick: () -> Unit,
+) {
+    BottomAppBar(modifier = Modifier.fillMaxWidth()) {
+        IconButton(onClick = onRemind) {
+            Icon(Icons.Filled.Notifications, "Remind")
+        }
+        IconButton(onClick = onAttach) {
+            Icon(Icons.Filled.Folder, "Attach")
+        }
+        Spacer(Modifier.weight(1f))
+        if (isArchived) {
+            IconButton(onClick = { /* unarchive */ }) {
+                Icon(Icons.Filled.PushPin, "Unarchive")
+            }
+        }
+        IconButton(onClick = onMoreClick) {
+            Icon(Icons.Filled.MoreVert, "More")
+        }
+    }
+}
+
+// ─── Quick Add ────────────────────────────────────────────────────────────────
+
+@Composable
+private fun ProjectDetailQuickAddInput(
+    projectId: ProjectId,
+    modifier: Modifier = Modifier,
+) {
+    var text by remember { mutableStateOf("") }
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(8.dp))
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            placeholder = { Text("Add a task...") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+    }
+}
+
+// ─── Sheets ──────────────────────────────────────────────────────────────────
+
+private sealed interface ActiveSheet {
+    data object PickColor : ActiveSheet
+    data object PickIcon : ActiveSheet
+    data class PickParent(val current: ProjectId?) : ActiveSheet
+    data object ConfirmDelete : ActiveSheet
+    data object ConfirmArchive : ActiveSheet
+    data object Edit : ActiveSheet
+    data object MoreMenu : ActiveSheet
+}
+
+@Composable
+private fun ColorPickerSheet(
+    currentColor: Int,
+    onPick: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column(modifier = Modifier.padding(24.dp)) {
+        Text("Color", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(16.dp))
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            ProjectColorPalette.all.forEach { color ->
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color(color))
+                        .clickable { onPick(color) },
+                ) {
+                    if (color == currentColor) {
+                        Icon(
+                            Icons.Filled.Folder, // check icon placeholder
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .padding(8.dp),
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun IconPickerSheet(
+    currentIcon: String?,
+    onPick: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column(modifier = Modifier.padding(24.dp)) {
+        Text("Icon", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(16.dp))
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ProjectIconRegistry.all.forEach { (key, icon) ->
+                Icon(
+                    icon,
+                    contentDescription = key,
+                    tint = if (key == currentIcon) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable { onPick(key) }
+                        .background(
+                            if (key == currentIcon) MaterialTheme.colorScheme.primaryContainer
+                            else Color.Transparent,
+                            CircleShape,
+                        )
+                        .padding(8.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun ParentPickerSheet(
+    currentParentId: ProjectId?,
+    onPick: (ProjectId?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // TODO: list all root projects as options
+    Column(modifier = Modifier.padding(24.dp)) {
+        Text("Parent project", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+        DropdownMenuItem(
+            text = { Text("None (root)") },
+            onClick = { onPick(null) },
+            modifier = Modifier.clickable { onPick(null) },
+        )
+    }
+}
+
+@Composable
+private fun ConfirmDeleteSheet(
+    projectName: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete project?") },
+        text = { Text("\"$projectName\" will be deleted. This cannot be undone.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Delete", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+@Composable
+private fun ConfirmArchiveSheet(
+    isArchived: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isArchived) "Unarchive project?" else "Archive project?") },
+        text = { Text(if (isArchived) "This will restore the project." else "Archived projects are hidden from the list.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(if (isArchived) "Unarchive" else "Archive")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+// ─── Pure formatter ───────────────────────────────────────────────────────────
+
+/** Formats a "Saved X ago" relative timestamp. Must be testable without Compose. */
+@OptIn(ExperimentalTime::class)
+fun formatSavedRelative(now: Instant, lastEdited: Instant): String {
+    val diffMs = now.toEpochMilliseconds() - lastEdited.toEpochMilliseconds()
+    return when {
+        diffMs < 60_000 -> "Saved just now"
+        diffMs < 3_600_000 -> "Saved ${diffMs / 60_000}m ago"
+        else -> "Saved ${diffMs / 3_600_000}h ago"
+    }
+}
+
+private val clock: Clock get() = Clock.System
+
+// ─── Previews ────────────────────────────────────────────────────────────────
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectDetailContentPreview() = PreviewThemed(darkTheme = false) {
+    val sample = PreviewSamples.project()
+    ProjectDetailScreen(
+        projectId = sample.id,
+        onBack = {},
+        onNavigateToTasks = {},
+    )
 }

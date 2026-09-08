@@ -1,0 +1,182 @@
+---
+name: singularity-todo-document-style-detail
+description: Generic document-style UX pattern for any read-only detail screen (Task, Project, Note, etc.). Covers the 4-section anatomy (Hero + MetaChips + Body + BottomBar), the 4-section decomposition rule, ActiveSheet sealed routing, inline-edit via debounced MutableStateFlow, and the critical lesson that debounced edits must NOT emit Saved events (Saved-spam regression).
+---
+
+# Document-Style Detail Screen — Generic Pattern
+
+This skill generalises the TickTick/Todoist document-style UX from `singularity-todo-task-detail-ux` to **any entity detail screen** (Project, Note, Tag, etc.). Use this when building or rewriting a detail screen for any entity that has metadata fields, inline-editable content, and action buttons.
+
+See `singularity-todo-task-detail-ux` for the Task-specific version and the full TickTick reference screenshots.
+
+## The 4-Section Anatomy
+
+Every document-style detail screen follows this vertical structure:
+
+```
+┌────────────────────────────────────────┐
+│  ←  Entity name (inline-edit)     ⋮    │  ← BackTopAppBar (no title in bar)
+├────────────────────────────────────────┤
+│  HERO BLOCK                            │  ← Section 1: color/icon + name + desc + progress
+│  [🟦]  Entity name (inline-edit)       │
+│        Description (inline-edit)        │
+│        ● 3/12 done  ▓▓▓░░░░░░░░ 25%  │
+├────────────────────────────────────────┤
+│  META CHIPS ROW                        │  ← Section 2: date / priority / status chips
+│  [📅 Due] [🚩 High] [📁 Project]       │
+├────────────────────────────────────────┤
+│  BODY SECTION                          │  ← Section 3: entity-specific content
+│  Tasks / Checklist / Attachments / ...  │
+│  [Sub-list with items]                 │
+├────────────────────────────────────────┤
+│  BOTTOM ACTION BAR                     │  ← Section 4: 4 icon buttons with badge counts
+│  [🔔 1] [📎 2] [✏️] [🗑]           │
+└────────────────────────────────────────┘
+```
+
+**Naming convention for sub-composables:**
+- `XxxHeroSection` — Section 1
+- `XxxMetaChipsRow` — Section 2
+- `XxxBodySection` — Section 3 (or more specific: `XxxTasksList`, `XxxChecklistSection`, etc.)
+- `XxxBottomActionBar` — Section 4
+
+## The 4-Section Decomposition Rule
+
+**Maximum 4 sub-components per detail screen.** If you find yourself writing more, consolidate:
+- Icon + color → `XxxAppearanceSection`
+- Parent + due date → `XxxOrganizationSection`
+- See `singularity-todo-shared-ui-components` for the full rule.
+
+**Anti-pattern:** splitting a detail screen into 6+ sub-composables. Only do this when each section genuinely has 3+ distinct data types / picker integrations. For most entities (Project, Tag), 4 is sufficient.
+
+## ActiveSheet Sealed Interface
+
+All bottom sheets and dialogs are routed through a single `ActiveSheet` sealed interface in the ViewModel — **never** local `remember { mutableStateOf<Sheet?>(null) }` in the Composable.
+
+```kotlin
+// ViewModel
+sealed interface ActiveSheet {
+    data object ColorPicker : ActiveSheet
+    data object IconPicker : ActiveSheet
+    data object DatePicker : ActiveSheet
+    data object ConfirmDelete : ActiveSheet
+    // ...
+}
+
+private val _activeSheet = MutableStateFlow<ActiveSheet?>(null)
+val activeSheet: StateFlow<ActiveSheet?> = _activeSheet.asStateFlow()
+
+// Screen
+val sheet by viewModel.activeSheet.collectAsStateWithLifecycle()
+when (sheet) {
+    is ActiveSheet.ColorPicker -> ColorPickerSheet(onSelect = { ... }, onDismiss = { _activeSheet.value = null })
+    is ActiveSheet.IconPicker -> IconPickerSheet(onSelect = { ... }, onDismiss = { ... })
+    // ...
+    null -> { /* no sheet */ }
+}
+```
+
+This replaces the pattern of one `remember { mutableStateOf<Sheet?>(null) }` per sheet, which is a well-known source of stale-cast bugs when casting `state as? Loaded`.
+
+See `singularity-todo-task-detail-ux` for the full `ActiveSheet` example in `feature/tasks/ActiveSheet.kt`.
+
+## Inline Edit Pattern (Debounced)
+
+### The correct pattern
+
+```kotlin
+// ViewModel
+private val _titleDraft = MutableStateFlow<String?>(null)
+val titleDraft: StateFlow<String?> = _titleDraft.asStateFlow()
+
+// In init block or onIntent:
+viewModelScope.launch {
+    _titleDraft
+        .filterNotNull()
+        .debounce(300)
+        .collect { newTitle ->
+            val current = state.value.contentOrNull()?.entity ?: return@collect
+            updateEntity(current.copy(title = newTitle))
+            // DO NOT emit Saved event here — silent save
+        }
+}
+```
+
+### The critical anti-pattern: Saved-spam
+
+**NEVER emit `Saved` events from a debounced collector.** This was the `TaskDetailViewModel` Regression 5 bug (`TaskDetailViewModel.kt:100`):
+
+```kotlin
+// ❌ WRONG — debounced collector emitting Saved on every keystroke
+.onSuccess { _events.emit(TaskDetailUiEvent.Saved("Title updated")) } // SPAMS USER
+
+// ✅ CORRECT — silent update, continuous state only
+updateEntity(current.copy(title = newTitle))
+_lastEditedAt.value = clock.now() // continuous state, formatted by UI
+```
+
+### Silent save + relative-time feedback
+
+Use a continuous `StateFlow<Instant?>` for last-edit timestamp, formatted by a pure helper:
+
+```kotlin
+// ViewModel
+private val _lastEditedAt = MutableStateFlow<Instant?>(null)
+val lastEditedAt: StateFlow<Instant?> = _lastEditedAt.asStateFlow()
+
+private fun updateEntity(transform: (Entity) -> Entity) {
+    viewModelScope.launch {
+        runCatching { updateUseCase(current.id, transform) }
+            .onSuccess { _lastEditedAt.value = clock.now() }
+            .onFailure { _events.emit(UiEvent.Error(it.message)) }
+    }
+}
+```
+
+```kotlin
+// Pure formatter (no Compose dependency)
+fun formatSavedRelative(now: Instant, lastEditedAt: Instant?): String = when {
+    lastEditedAt == null -> ""
+    Duration.diff(now, lastEditedAt).inWholeSeconds < 5 -> "Saved just now"
+    Duration.diff(now, lastEditedAt).inWholeMinutes < 1 -> "Saved ${Duration.diff(now, lastEditedAt).inWholeSeconds}s ago"
+    Duration.diff(now, lastEditedAt).inWholeMinutes < 60 -> "Saved ${Duration.diff(now, lastEditedAt).inWholeMinutes}m ago"
+    else -> ""
+}
+```
+
+### When to emit Saved events
+
+Emit `Saved` events **only** for:
+- Explicit user action (Save button click, Delete confirmation, Archive toggle)
+- Non-debounced operations
+
+Never emit for:
+- Debounced inline edits (title, description)
+- Auto-save operations
+
+## Cross-Feature Navigation
+
+When a detail screen has a reference to another entity (e.g., a Task's project chip → opens ProjectDetail), see `singularity-todo-cross-feature-navigation` for the correct UX pattern. TL;DR: use an explicit `IconButton(Icons.AutoMirrored.Filled.ChevronRight, "Open $entity")` adjacent to the chip, not `combinedClickable` on the chip itself.
+
+## Worked Examples
+
+- **Task:** `feature/tasks/TaskDetailScreen.kt` + `TaskDetailViewModel.kt` (reference implementation)
+- **Project:** `feature/projects/ProjectDetailScreen.kt` (target after rework)
+
+## Relationship to Other Skills
+
+| Skill | What it contributes |
+|---|---|
+| `singularity-todo-task-detail-ux` | Task-specific worked example with full TickTick screenshots |
+| `singularity-todo-shared-ui-components` | 4-section decomposition rule, shared widget catalogue |
+| `singularity-todo-ui-event-vs-state` | Continuous vs one-shot event semantics |
+| `singularity-todo-inline-edit-saved-feedback` | Debounced edit + Saved-spam prevention (deep dive) |
+| `singularity-todo-cross-feature-navigation` | Chip → detail navigation UX |
+
+## Anti-Patterns
+
+1. **`combinedClickable` on a chip for navigation** — breaks the generic-widget contract; use explicit `IconButton` adjacent to chip.
+2. **Saved events from debounced collectors** — spams users; use silent `_lastEditedAt` continuous state.
+3. **>4 sub-composables** — consolidate into 4 sections; each sub-component should be ≥30 lines to justify a file.
+4. **`remember { mutableStateOf<Sheet?>(null) }` per sheet** — use a single `ActiveSheet` sealed interface in the VM.
+5. **Emoji icons instead of Material Icons** — `Icons.Filled.*` only in production UI.

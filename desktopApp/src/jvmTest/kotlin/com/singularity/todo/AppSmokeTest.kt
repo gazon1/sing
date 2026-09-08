@@ -33,7 +33,7 @@ class AppSmokeTest {
             org.koin.core.context.startKoin {
                 modules(
                     platformModule(),
-                    domainModule(),
+                    *domainModule().toTypedArray(),
                     // Override AuthRepository so AuthGuard renders the real app
                     // instead of LoginScreen (real SupabaseAuthRepository → SignedOut).
                     module { single<AuthRepository> { FakeAuthRepository() } },

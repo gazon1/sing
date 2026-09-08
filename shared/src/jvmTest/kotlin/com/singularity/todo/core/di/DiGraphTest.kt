@@ -24,7 +24,7 @@ class DiGraphTest {
     @Test
     fun `core domain + platform modules register without errors`() {
         val app = org.koin.core.context.startKoin {
-            modules(domainModule(), platformModule())
+            modules(platformModule(), *domainModule().toTypedArray())
         }
         try {
             app.koin.get<SettingsRepository>()
@@ -39,7 +39,7 @@ class DiGraphTest {
     @Test
     fun `UI ports are registered in DI graph`() {
         val app = org.koin.core.context.startKoin {
-            modules(domainModule(), platformModule())
+            modules(platformModule(), *domainModule().toTypedArray())
         }
         try {
             app.koin.get<IdGenerator>()

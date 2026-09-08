@@ -107,7 +107,7 @@ class BackupDtoTest {
             deletedAt = null,
             parentId = null,
             sortOrder = 0,
-            isNotebook = false,
+            idempotencyKey = null,
             externalId = null,
             sync = SyncColumns()
         )

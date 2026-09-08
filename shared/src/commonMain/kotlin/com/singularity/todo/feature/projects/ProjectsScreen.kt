@@ -85,7 +85,7 @@ private fun ProjectsContent(
 
 @Composable
 private fun ProjectList(
-    projects: List<Project>,
+    projects: List<ProjectWithCounts>,
     modifier: Modifier = Modifier,
     onNavigateToProject: (String) -> Unit,
     onDelete: (ProjectId) -> Unit,
@@ -96,14 +96,16 @@ private fun ProjectList(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(projects, key = { it.id.value }) { project ->
+        items(projects, key = { it.project.id.value }) { row ->
             ProjectCard(
-                project = project,
-                onClick = { onNavigateToProject(project.id.value) },
+                project = row.project,
+                totalCount = row.totalCount,
+                completedCount = row.completedCount,
+                onClick = { onNavigateToProject(row.project.id.value) },
                 actions = ProjectCardActions { action ->
                     when (action) {
-                        ProjectCardActions.Action.Delete -> onDelete(project.id)
-                        ProjectCardActions.Action.Review -> onReviewClick(project)
+                        ProjectCardActions.Action.Delete -> onDelete(row.project.id)
+                        ProjectCardActions.Action.Review -> onReviewClick(row.project)
                     }
                 },
             )
@@ -119,9 +121,9 @@ private fun ProjectsScreenContentPreview() = PreviewThemed(darkTheme = false, us
     ProjectsContent(
         state = ProjectsUiState.Content(
             projects = listOf(
-                PreviewSamples.project("p1", "Inbox", 0xFF2196F3.toInt()),
-                PreviewSamples.project("p2", "Work", 0xFFF44336.toInt()),
-                PreviewSamples.project("p3", "Personal", 0xFF9C27B0.toInt(), "Long-term goals"),
+                ProjectWithCounts(PreviewSamples.project("p1", "Inbox", 0xFF2196F3.toInt()), 5, 2),
+                ProjectWithCounts(PreviewSamples.project("p2", "Work", 0xFFF44336.toInt()), 12, 8),
+                ProjectWithCounts(PreviewSamples.project("p3", "Personal", 0xFF9C27B0.toInt()), 0, 0),
             ),
         ),
         onNavigateToProject = {},
@@ -147,7 +149,7 @@ private fun ProjectsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSur
     ProjectsContent(
         state = ProjectsUiState.Content(
             projects = listOf(
-                PreviewSamples.project("p1", "Archived", 0xFF607D8B.toInt()),
+                ProjectWithCounts(PreviewSamples.project("p1", "Archived", 0xFF607D8B.toInt()), 3, 1),
             ),
         ),
         onNavigateToProject = {},

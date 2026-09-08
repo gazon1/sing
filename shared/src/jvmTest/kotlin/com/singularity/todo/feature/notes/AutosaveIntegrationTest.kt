@@ -4,7 +4,7 @@ import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.ids.SequenceIdGenerator
 import com.singularity.todo.feature.tasks.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
-import com.singularity.todo.test.fakes.FakeCurrentUser
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -29,7 +29,7 @@ class AutosaveIntegrationTest {
     ): NotesViewModel = NotesViewModel(
         repo,
         FakeMarkdownHtmlPort(),
-        FakeCurrentUser(FakeAuthRepository(
+        FakeProfileAwareCurrentUser(FakeAuthRepository(
             com.singularity.todo.core.auth.Session.Anonymous(testUserId)
         )),
         idGen = SequenceIdGenerator(),

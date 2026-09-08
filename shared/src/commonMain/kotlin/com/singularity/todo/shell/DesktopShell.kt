@@ -75,6 +75,7 @@ private fun AppDestination.toNavDestination(): NavDestination = when (this) {
     is AppDestination.NoteEditor -> NavDestination.Notes
     is AppDestination.ProjectEditor -> NavDestination.Projects
     is AppDestination.ProjectDetail -> NavDestination.Projects
+    is AppDestination.TasksByProject -> NavDestination.Projects
 }
 
 /**

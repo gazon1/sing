@@ -8,57 +8,65 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
-private val PRESET_COLORS = listOf(
-    0xFF1976D2.toInt(), // blue
-    0xFF388E3C.toInt(), // green
-    0xFFF57C00.toInt(), // orange
-    0xFFD32F2F.toInt(), // red
-    0xFF7B1FA2.toInt(), // purple
-)
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProjectEditorScreen(
+    projectId: ProjectId?,
     onBack: () -> Unit,
-    viewModel: ProjectEditorViewModel = koinViewModel(),
+    modifier: Modifier = Modifier,
 ) {
+    val viewModel: ProjectEditorViewModel = koinViewModel { parametersOf(projectId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var showIconPicker by remember { mutableStateOf(false) }
+    var showParentPicker by remember { mutableStateOf(false) }
 
     NotificationHost(
         events = viewModel.events,
@@ -67,10 +75,16 @@ fun ProjectEditorScreen(
         modifier = Modifier.testTag("project_editor_notification_host"),
     )
 
+    if (state.loading) {
+        LoadingIndicator()
+        return
+    }
+
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("New Project") },
+                title = { Text(if (state.isEditMode) "Edit Project" else "New Project") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -91,9 +105,11 @@ fun ProjectEditorScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            // ── Identity: name + description ──────────────────────────────
             OutlinedTextField(
                 value = state.name,
                 onValueChange = { viewModel.processIntent(ProjectEditorIntent.NameChanged(it)) },
@@ -104,26 +120,79 @@ fun ProjectEditorScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Text("Color", style = MaterialTheme.typography.titleSmall)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                PRESET_COLORS.forEach { color ->
-                    ColorChip(
-                        color = Color(color),
-                        selected = state.color == color,
-                        onClick = { viewModel.processIntent(ProjectEditorIntent.ColorChanged(color)) }
-                    )
-                }
-            }
-
             OutlinedTextField(
                 value = state.description,
                 onValueChange = { viewModel.processIntent(ProjectEditorIntent.DescriptionChanged(it)) },
                 label = { Text("Description (optional)") },
                 minLines = 3,
                 modifier = Modifier.fillMaxWidth(),
+            )
+
+            // ── Appearance: icon + color (consolidated) ──────────────────
+            Text("Appearance", style = MaterialTheme.typography.titleSmall)
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                // Color selector
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ProjectColorPalette.all.forEach { color ->
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(color))
+                                .then(
+                                    if (state.color == color) {
+                                        Modifier.border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                                    } else Modifier
+                                )
+                                .clickable { viewModel.processIntent(ProjectEditorIntent.ColorChanged(color)) },
+                        ) {
+                            if (state.color == color) {
+                                Icon(
+                                    Icons.Filled.Check,
+                                    contentDescription = "Selected",
+                                    tint = Color.White,
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .padding(6.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.width(8.dp))
+
+                // Icon selector
+                FilterChip(
+                    selected = state.icon != null,
+                    onClick = { showIconPicker = true },
+                    label = {
+                        Text(state.icon?.let { ProjectIconRegistry.iconByKey(it)?.name } ?: "Icon")
+                    },
+                    leadingIcon = {
+                        state.icon?.let { key ->
+                            val icon = ProjectIconRegistry.iconByKey(key)
+                            icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        } ?: Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                    },
+                )
+            }
+
+            // ── Organization: parent project ─────────────────────────────
+            Text("Organization", style = MaterialTheme.typography.titleSmall)
+
+            FilterChip(
+                selected = state.parentId != null,
+                onClick = { showParentPicker = true },
+                label = { Text("Parent project") },
+                leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) },
             )
         }
     }
@@ -135,146 +204,92 @@ fun ProjectEditorScreen(
             onDismiss = { viewModel.processIntent(ProjectEditorIntent.ErrorShown) }
         )
     }
+
+    // ── Icon Picker Sheet ─────────────────────────────────────────────────
+    if (showIconPicker) {
+        ModalBottomSheet(
+            onDismissRequest = { showIconPicker = false },
+            sheetState = rememberModalBottomSheetState(),
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text("Choose icon", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(16.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ProjectIconRegistry.all.forEach { (key, icon) ->
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    viewModel.processIntent(ProjectEditorIntent.IconChanged(key))
+                                    showIconPicker = false
+                                }
+                                .background(
+                                    if (key == state.icon) MaterialTheme.colorScheme.primaryContainer
+                                    else Color.Transparent,
+                                    CircleShape,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(icon, contentDescription = key, modifier = Modifier.size(24.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+            }
+        }
+    }
+
+    // ── Parent Picker Sheet ───────────────────────────────────────────────
+    if (showParentPicker) {
+        ModalBottomSheet(
+            onDismissRequest = { showParentPicker = false },
+            sheetState = rememberModalBottomSheetState(),
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text("Parent project", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                // "None" option
+                FilterChip(
+                    selected = state.parentId == null,
+                    onClick = {
+                        viewModel.processIntent(ProjectEditorIntent.ParentChanged(null))
+                        showParentPicker = false
+                    },
+                    label = { Text("None (root project)") },
+                    leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                )
+                Spacer(Modifier.height(24.dp))
+            }
+        }
+    }
 }
+
+// ─── Notification mapper ────────────────────────────────────────────────────────
 
 private fun ProjectEditorUiEvent.toNotification(): Notification = when (this) {
     ProjectEditorUiEvent.NavigateBack -> Notification.NavigateBack
 }
 
+// ─── Previews ─────────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ColorChip(
-    color: Color,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(color)
-            .then(
-                if (selected) {
-                    Modifier.border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                } else {
-                    Modifier
-                }
-            )
-            .clickable(onClick = onClick),
-        contentAlignment = androidx.compose.ui.Alignment.Center,
-    ) {
-        if (selected) {
-            Icon(
-                Icons.Filled.Check,
-                contentDescription = "Selected",
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
-
-// ===== Preview =====
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Composable
-private fun ProjectEditorContentPreview(
-    state: ProjectEditorUiState,
-    onNameChange: (String) -> Unit = {},
-    onColorChange: (Int) -> Unit = {},
-    onDescriptionChange: (String) -> Unit = {},
-    onSave: () -> Unit = {},
-    onErrorDismiss: () -> Unit = {},
-) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("New Project") },
-                navigationIcon = {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = onSave,
-                        enabled = state.name.isNotBlank() && !state.saving,
-                    ) {
-                        Icon(Icons.Filled.Check, contentDescription = "Save")
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            OutlinedTextField(
-                value = state.name,
-                onValueChange = onNameChange,
-                label = { Text("Project name") },
-                isError = state.errorMessage != null,
-                supportingText = state.errorMessage?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Text("Color", style = MaterialTheme.typography.titleSmall)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                PRESET_COLORS.forEach { color ->
-                    ColorChip(
-                        color = Color(color),
-                        selected = state.color == color,
-                        onClick = { onColorChange(color) }
-                    )
-                }
-            }
-
-            OutlinedTextField(
-                value = state.description,
-                onValueChange = onDescriptionChange,
-                label = { Text("Description (optional)") },
-                minLines = 3,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-
-    if (state.errorMessage != null && !state.saving) {
-        ResultDialog(
-            title = "Error",
-            text = state.errorMessage ?: "",
-            onDismiss = onErrorDismiss
-        )
-    }
-}
-
-@androidx.compose.ui.tooling.preview.Preview
-@Composable
-private fun ProjectEditorScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    ProjectEditorContentPreview(
-        state = ProjectEditorUiState(
-            name = "My Project",
-            color = 0xFF1976D2.toInt(),
-            description = "A great project description",
-        ),
+private fun ProjectEditorCreatePreview() = PreviewThemed(darkTheme = false) {
+    ProjectEditorScreen(
+        projectId = null,
+        onBack = {},
     )
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProjectEditorScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    ProjectEditorContentPreview(
-        state = ProjectEditorUiState(
-            name = "My Project",
-            color = 0xFF388E3C.toInt(),
-            description = "A great project description",
-        ),
+private fun ProjectEditorEditPreview() = PreviewThemed(darkTheme = false) {
+    ProjectEditorScreen(
+        projectId = ProjectId.fromString("p1"),
+        onBack = {},
     )
 }

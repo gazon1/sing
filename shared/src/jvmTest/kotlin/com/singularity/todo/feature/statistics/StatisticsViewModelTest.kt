@@ -4,7 +4,7 @@ import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
-import com.singularity.todo.test.fakes.FakeCurrentUser
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -40,7 +40,7 @@ class StatisticsViewModelTest {
 
         val vm = StatisticsViewModel(
             taskRepository = repo,
-            currentUser = FakeCurrentUser(
+            currentUser = FakeProfileAwareCurrentUser(
                 FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId))
             ),
             clock = Clock,
@@ -59,7 +59,7 @@ class StatisticsViewModelTest {
     fun `state exposes StateFlow shape`() = runTest {
         val vm = StatisticsViewModel(
             taskRepository = FakeTaskRepository(),
-            currentUser = FakeCurrentUser(
+            currentUser = FakeProfileAwareCurrentUser(
                 FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId))
             ),
             clock = Clock,

@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-task-detail-ux
-description: Document-style vs form-style UX pattern for read-only task detail screens. Covers the hero block (checkbox + title + description), meta-chips row (date/time/priority/project), inline-edit tap-to-edit, bottom action bar, and the TickTick/Todoist reference. Documents 4 known regressions: AlertDialog-to-ModalBottomSheet migration trap, dead FieldMode state, emoji-icon usage, and empty-section noise.
+description: Document-style vs form-style UX pattern for read-only task detail screens. Covers the hero block (checkbox + title + description), meta-chips row (date/time/priority/project), inline-edit tap-to-edit, bottom action bar, and the TickTick/Todoist reference. Documents 5 known regressions: AlertDialog-to-ModalBottomSheet migration trap, dead FieldMode state, emoji-icon usage, empty-section noise, and Saved-spam from debounced inline edits.
 ---
 
 # Task Detail UX — Document-Style vs Form-Style
@@ -109,7 +109,7 @@ Three chip types:
 - `PushPin` — tinted `primary` when `isPinned`, else `onSurfaceVariant`
 - `DeleteOutline` — always `error` tint, tap → `AlertDialog` confirmation
 
-## 4 known regressions (anti-patterns to avoid)
+## 5 known regressions (anti-patterns to avoid)
 
 ### Regression 1: AlertDialog → ModalBottomSheet migration trap
 
@@ -126,6 +126,18 @@ Three chip types:
 ### Regression 4: Empty section noise
 
 Sections like `Reminders (0)` and `Attachments (0)` are always rendered with an `"(none)"` placeholder, occupying 2–3 lines of vertical space for a state that conveys zero information. Fix: remove these sections from the body entirely when count == 0. Show the count via badge on the bottom action bar icon instead.
+
+### Regression 5: Saved-spam from debounced inline edits
+
+**Root cause:** `TaskDetailViewModel.kt` has a debounced collector at line ~100 that emits `Saved("Title updated")` on every debounced keystroke — not just on explicit save actions. This produces a "Saved" pulse on every character typed, which is annoying UX and floods the event channel.
+
+**The correct pattern (per `singularity-todo-inline-edit-saved-feedback` skill):**
+- Inline edits use a **silent debounce**: `_lastEditedAt: MutableStateFlow<Instant?>` — written on every debounced keystroke, never exposed as a `Saved` event.
+- Only **explicit actions** (checkbox toggle, date pick confirmed, sheet dismissed with explicit save) emit `SavedUiEvent` / `SavedPulse`.
+- The top bar shows `formatSavedRelative(now, lastEditedAt)` as a **continuous** `Text` composable derived from `_lastEditedAt`, NOT as a one-shot pulse animation on every keystroke.
+- The `SavedUiEvent` / `SavedPulse` event is reserved for cases where the user explicitly expects confirmation: completing a task, applying an AI suggestion, bulk operations.
+
+**Do not replicate this bug in any new screen.** When adding document-style inline edit to `ProjectDetailScreen` or any other screen, follow `singularity-todo-inline-edit-saved-feedback` skill exactly.
 
 ## Reference apps
 

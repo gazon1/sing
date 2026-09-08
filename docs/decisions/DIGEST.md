@@ -759,3 +759,4 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-07-write-tools-in-koog-registry` — Write Tools — idempotent контракт, dryRun, error model
 - `2026-09-08-mcp-dogfooding-round-2` — MCP dogfooding — round 2 plan index
 - `2026-09-08-mcp-plan-tracking-via-mcp` — MCP plan tracking end-to-end
+- `2026-09-08-projects-ux-rework` — _(no title)

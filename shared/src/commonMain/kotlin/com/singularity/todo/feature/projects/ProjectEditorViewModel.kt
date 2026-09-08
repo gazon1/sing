@@ -2,7 +2,7 @@ package com.singularity.todo.feature.projects
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,42 +10,81 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 /**
  * UI state for the project editor screen.
+ * When [projectId] is null, the screen operates in create mode.
+ * When [projectId] is non-null, it operates in edit mode (loads existing project).
  */
 data class ProjectEditorUiState(
+    val projectId: ProjectId? = null,
     val name: String = "",
-    val color: Int = DEFAULT_COLOR,
     val description: String = "",
+    val color: Int = DEFAULT_COLOR,
+    val icon: String? = null,
+    val parentId: ProjectId? = null,
     val saving: Boolean = false,
+    val loading: Boolean = false,
     val errorMessage: String? = null,
 ) {
     companion object {
         val DEFAULT_COLOR = 0xFF1976D2.toInt() // blue
     }
+
+    val isEditMode: Boolean get() = projectId != null
 }
 
 sealed interface ProjectEditorIntent {
     data class NameChanged(val name: String) : ProjectEditorIntent
     data class ColorChanged(val color: Int) : ProjectEditorIntent
+    data class IconChanged(val icon: String?) : ProjectEditorIntent
     data class DescriptionChanged(val description: String) : ProjectEditorIntent
+    data class ParentChanged(val parentId: ProjectId?) : ProjectEditorIntent
     data object Save : ProjectEditorIntent
     data object ErrorShown : ProjectEditorIntent
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProjectEditorViewModel(
+    private val projectId: ProjectId?,
     private val createProject: CreateProjectUseCase,
-    private val currentUser: CurrentUser,
+    private val updateProject: UpdateProjectUseCase,
+    private val projectsRepo: ProjectsRepository,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(ProjectEditorUiState())
+    private val _state = MutableStateFlow(ProjectEditorUiState(projectId = projectId))
     val state: StateFlow<ProjectEditorUiState> = _state.asStateFlow()
 
     private val _events = MutableSharedFlow<ProjectEditorUiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<ProjectEditorUiEvent> = _events.asSharedFlow()
+
+    init {
+        if (projectId != null) {
+            loadProject(projectId)
+        }
+    }
+
+    private fun loadProject(id: ProjectId) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(loading = true)
+            val project = projectsRepo.watchProject(id).firstOrNull()
+            if (project != null) {
+                _state.value = _state.value.copy(
+                    loading = false,
+                    name = project.name,
+                    description = project.description ?: "",
+                    color = project.color,
+                    icon = project.icon,
+                    parentId = project.parentId,
+                )
+            } else {
+                _state.value = _state.value.copy(loading = false, errorMessage = "Project not found")
+            }
+        }
+    }
 
     fun processIntent(intent: ProjectEditorIntent) {
         when (intent) {
@@ -53,8 +92,12 @@ class ProjectEditorViewModel(
                 _state.value = _state.value.copy(name = intent.name, errorMessage = null)
             is ProjectEditorIntent.ColorChanged ->
                 _state.value = _state.value.copy(color = intent.color)
+            is ProjectEditorIntent.IconChanged ->
+                _state.value = _state.value.copy(icon = intent.icon)
             is ProjectEditorIntent.DescriptionChanged ->
                 _state.value = _state.value.copy(description = intent.description)
+            is ProjectEditorIntent.ParentChanged ->
+                _state.value = _state.value.copy(parentId = intent.parentId)
             ProjectEditorIntent.ErrorShown ->
                 _state.value = _state.value.copy(errorMessage = null)
             ProjectEditorIntent.Save -> save()
@@ -71,23 +114,46 @@ class ProjectEditorViewModel(
 
         _state.value = current.copy(saving = true, errorMessage = null)
         viewModelScope.launch {
-            val userId = currentUser.current.value
-            val input = CreateProjectInput(
-                name = current.name.trim(),
-                color = current.color,
-                description = current.description.ifBlank { null },
-                userId = userId,
-            )
-            val result = createProject(input)
-            result.fold(
-                onSuccess = { _events.emit(ProjectEditorUiEvent.NavigateBack) },
-                onFailure = {
-                    _state.value = _state.value.copy(
-                        saving = false,
-                        errorMessage = it.message ?: "Failed to create project"
+            val userId = currentUser.scopedUserId.value.value
+            if (current.projectId == null) {
+                // Create mode
+                val input = CreateProjectInput(
+                    name = current.name.trim(),
+                    color = current.color,
+                    description = current.description.ifBlank { null },
+                    icon = current.icon,
+                    parentId = current.parentId,
+                    userId = userId,
+                )
+                createProject(input).fold(
+                    onSuccess = { _events.emit(ProjectEditorUiEvent.NavigateBack) },
+                    onFailure = {
+                        _state.value = _state.value.copy(
+                            saving = false,
+                            errorMessage = it.message ?: "Failed to create project"
+                        )
+                    }
+                )
+            } else {
+                // Edit mode
+                updateProject(current.projectId) { existing ->
+                    existing.copy(
+                        name = current.name.trim(),
+                        description = current.description.ifBlank { null },
+                        color = current.color,
+                        icon = current.icon,
+                        parentId = current.parentId,
                     )
-                }
-            )
+                }.fold(
+                    onSuccess = { _events.emit(ProjectEditorUiEvent.NavigateBack) },
+                    onFailure = {
+                        _state.value = _state.value.copy(
+                            saving = false,
+                            errorMessage = it.message ?: "Failed to update project"
+                        )
+                    }
+                )
+            }
         }
     }
 

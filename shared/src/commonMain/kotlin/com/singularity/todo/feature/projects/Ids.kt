@@ -26,9 +26,16 @@ data class Project(
     val deletedAt: Instant? = null,
     val parentId: ProjectId? = null,
     val sortOrder: Int = 0,
-    val isNotebook: Boolean = false,
+    val idempotencyKey: String? = null,
     val externalId: String? = null,
     val userId: String
+)
+
+/** Domain projection of [Project] with task counts, used by [ProjectsViewModel] UI state. */
+data class ProjectWithCounts(
+    val project: Project,
+    val totalCount: Int,
+    val completedCount: Int,
 )
 
 data class CreateProjectInput(
@@ -36,5 +43,6 @@ data class CreateProjectInput(
     val color: Int,
     val icon: String? = null,
     val description: String? = null,
-    val userId: String
+    val parentId: ProjectId? = null,
+    val userId: String,
 )

@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.ProjectEntity
+import com.singularity.todo.core.database.ProjectWithCountRow
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toEpochMillisOrNull
 import com.singularity.todo.core.database.toInstant
@@ -17,6 +18,17 @@ import kotlinx.coroutines.flow.map
 interface ProjectsRepository {
     fun watchProjects(userId: String): Flow<List<Project>>
     fun watchProject(id: ProjectId): Flow<Project?>
+    /** Suspend version for one-shot reads (e.g. in use cases). */
+    suspend fun getById(id: ProjectId): Project?
+    /** Emits a new value whenever the project changes (used for inline-edit debounce). */
+    fun changes(id: ProjectId): Flow<Project?>
+    /** Projects with task counts (total + completed), for list screens. */
+    fun watchProjectsWithCounts(userId: String): Flow<List<ProjectWithCountRow>>
+    fun watchByParent(parentId: ProjectId): Flow<List<Project>>
+    suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long)
+    suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long)
+    suspend fun restore(id: ProjectId): Result<Unit>
+    suspend fun findByIdempotencyKey(key: String): Project?
     suspend fun create(project: Project): Result<Unit>
     suspend fun update(project: Project): Result<Unit>
     suspend fun delete(id: ProjectId): Result<Unit>
@@ -37,6 +49,39 @@ class ProjectsRepositoryImpl(
         return projectDao.watchById(id.value).map { it?.toProject() }
     }
 
+    override suspend fun getById(id: ProjectId): Project? {
+        return projectDao.getById(id.value)?.toProject()
+    }
+
+    override fun changes(id: ProjectId): Flow<Project?> {
+        return projectDao.watchById(id.value).map { it?.toProject() }
+    }
+
+    override fun watchProjectsWithCounts(userId: String): Flow<List<ProjectWithCountRow>> {
+        return projectDao.watchAllWithCounts(userId)
+    }
+
+    override fun watchByParent(parentId: ProjectId): Flow<List<Project>> {
+        return projectDao.watchByParent(parentId.value).map { list -> list.map { it.toProject() } }
+    }
+
+    override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {
+        projectDao.setParent(id.value, parentId?.value, updatedAt)
+    }
+
+    override suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long) {
+        projectDao.setSortOrder(id.value, sortOrder, updatedAt)
+    }
+
+    override suspend fun restore(id: ProjectId): Result<Unit> = runCatching {
+        val ts = clock.now().toEpochMilliseconds()
+        projectDao.restore(id.value, ts)
+    }
+
+    override suspend fun findByIdempotencyKey(key: String): Project? {
+        return projectDao.findByIdempotencyKey(key)?.toProject()
+    }
+
     override suspend fun create(project: Project): Result<Unit> = runCatching {
         projectDao.upsert(project.toEntity())
     }
@@ -51,7 +96,7 @@ class ProjectsRepositoryImpl(
     }
 }
 
-private fun ProjectEntity.toProject(): Project = Project(
+internal fun ProjectEntity.toProject(): Project = Project(
     id = ProjectId.fromString(id),
     name = name,
     color = color,
@@ -66,7 +111,7 @@ private fun ProjectEntity.toProject(): Project = Project(
     deletedAt = deletedAt.toInstantOrNull(),
     parentId = parentId?.let { ProjectId.fromString(it) },
     sortOrder = sortOrder,
-    isNotebook = isNotebook,
+    idempotencyKey = idempotencyKey,
     externalId = externalId,
     userId = userId
 )
@@ -87,6 +132,6 @@ fun Project.toEntity(): ProjectEntity = ProjectEntity(
     deletedAt = deletedAt?.toEpochMillisOrNull(),
     parentId = parentId?.value,
     sortOrder = sortOrder,
-    isNotebook = isNotebook,
+    idempotencyKey = idempotencyKey,
     externalId = externalId
 )

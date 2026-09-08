@@ -2,49 +2,195 @@ package com.singularity.todo.feature.projects
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.singularity.todo.core.error.AppError
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.tasks.Task
+import com.singularity.todo.feature.tasks.TaskFilter
+import com.singularity.todo.feature.tasks.TaskRepository
+import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
- * Minimal ViewModel for the project-detail screen.
+ * ViewModel for [ProjectDetailScreen].
  *
- * Watches a single project (by id) and exposes [ProjectDetailUiState].
+ * Combines the project, its tasks, and aggregate counts into a single [ProjectDetailUi].
+ * Inline edits (name, description) use silent debounce — they update [_lastEditedAt]
+ * but do NOT emit [ProjectDetailUiEvent.Saved].
  *
- * Why a separate ViewModel: the existing [ProjectsViewModel] lists ALL
- * projects and watches tasks in parallel; this one only watches ONE
- * project. Different lifecycle, different state shape.
+ * [_lastEditedAt] is a continuous state exposed as [lastEditedAt] for the screen
+ * to render "Saved X ago" via [formatSavedRelative].
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class ProjectDetailViewModel(
+    private val projectId: ProjectId,
     private val projectRepo: ProjectsRepository,
+    private val taskRepo: TaskRepository,
+    private val deleteProject: DeleteProjectUseCase,
+    private val updateProject: UpdateProjectUseCase,
+    private val currentUser: ProfileAwareCurrentUser,
+    private val clock: Clock,
 ) : ViewModel() {
 
-    private val projectId = MutableStateFlow<ProjectId?>(null)
+    // ─── UI State ───────────────────────────────────────────────────────────────
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<ProjectDetailUiState> = projectId
-        .flatMapLatest { id ->
-            if (id == null) flowOf(ProjectDetailUiState.Empty)
-            else projectRepo.watchProject(id).map { project ->
-                if (project == null) ProjectDetailUiState.NotFound
-                else ProjectDetailUiState.Content(project)
+    private val _hideCompleted = MutableStateFlow(false)
+    val hideCompleted: StateFlow<Boolean> = _hideCompleted
+
+    /** Emits null on start (loading placeholder), then the project flow. */
+    private val projectFlow: StateFlow<Project?> = projectRepo.watchProject(projectId)
+        .onStart { emit(null) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val state: StateFlow<ProjectDetailUiState> = combine(
+        projectFlow,
+        projectFlow.flatMapLatest { project ->
+            if (project == null) flowOf(emptyList())
+            else taskRepo.watchTasks(
+                UserId(project.userId),
+                TaskFilter.ByProject(projectId)
+            )
+        },
+        projectFlow.flatMapLatest { project ->
+            if (project == null) flowOf(emptyList())
+            else projectRepo.watchByParent(projectId)
+        },
+        _hideCompleted,
+    ) { project, tasks, childProjects, hideCompleted ->
+        when {
+            project == null -> ProjectDetailUiState.Loading
+            project.isDeleted -> ProjectDetailUiState.NotFound
+            else -> {
+                val visibleTasks = if (hideCompleted) tasks.filter { it.completedAt == null } else tasks
+                ProjectDetailUiState.Content(
+                    ProjectDetailUi(
+                        project = project,
+                        tasks = visibleTasks.take(5),
+                        totalCount = tasks.size,
+                        completedCount = tasks.count { it.completedAt != null },
+                        childProjects = childProjects,
+                        parent = null, // loaded separately if needed
+                    )
+                )
             }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ProjectDetailUiState.Loading)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ProjectDetailUiState.Loading)
 
-    fun start(projectId: ProjectId) {
-        this.projectId.value = projectId
+    // ─── Silent debounce for inline edits ───────────────────────────────────────
+
+    private val _lastEditedAt = MutableStateFlow<Instant?>(null)
+    val lastEditedAt: StateFlow<Instant?> = _lastEditedAt
+
+    private var debounceNameJob: Job? = null
+    private var debounceDescJob: Job? = null
+
+    // ─── One-shot events ─────────────────────────────────────────────────────────
+
+    private val _events = MutableSharedFlow<ProjectDetailUiEvent>(extraBufferCapacity = 8)
+    val events: SharedFlow<ProjectDetailUiEvent> = _events.asSharedFlow()
+
+    // ─── Intents ─────────────────────────────────────────────────────────────────
+
+    fun toggleHideCompleted() {
+        _hideCompleted.value = !_hideCompleted.value
+    }
+
+    /** Silently debounced — updates [_lastEditedAt] but does NOT emit Saved. */
+    fun updateName(name: String) {
+        debounceNameJob?.cancel()
+        debounceNameJob = viewModelScope.launch {
+            delay(300)
+            updateProject(projectId) { it.copy(name = name) }
+            _lastEditedAt.value = clock.now()
+        }
+    }
+
+    /** Silently debounced — updates [_lastEditedAt] but does NOT emit Saved. */
+    fun updateDescription(description: String?) {
+        debounceDescJob?.cancel()
+        debounceDescJob = viewModelScope.launch {
+            delay(300)
+            updateProject(projectId) { it.copy(description = description) }
+            _lastEditedAt.value = clock.now()
+        }
+    }
+
+    fun updateColor(color: Int) = viewModelScope.launch {
+        updateProject(projectId) { it.copy(color = color) }
+        _events.emit(ProjectDetailUiEvent.Saved)
+    }
+
+    fun updateIcon(icon: String?) = viewModelScope.launch {
+        updateProject(projectId) { it.copy(icon = icon) }
+        _events.emit(ProjectDetailUiEvent.Saved)
+    }
+
+    fun updateParent(parentId: ProjectId?) = viewModelScope.launch {
+        updateProject(projectId) { it.copy(parentId = parentId) }
+        _events.emit(ProjectDetailUiEvent.Saved)
+    }
+
+    fun updateDueDate(dueDate: kotlinx.datetime.LocalDate?) = viewModelScope.launch {
+        updateProject(projectId) { it.copy(dueDate = dueDate) }
+        _events.emit(ProjectDetailUiEvent.Saved)
+    }
+
+    fun toggleArchive() = viewModelScope.launch {
+        val current = (state.value as? ProjectDetailUiState.Content)?.ui?.project ?: return@launch
+        updateProject(projectId) { it.copy(isDeleted = !current.isDeleted) }
+        _events.emit(ProjectDetailUiEvent.Saved)
+    }
+
+    fun delete() = viewModelScope.launch {
+        deleteProject(projectId, currentUser.scopedUserId.value.value)
+            .onSuccess {
+                _events.emit(ProjectDetailUiEvent.NavigateBack)
+            }
+            .onFailure { error ->
+                _events.emit(ProjectDetailUiEvent.ShowError(
+                    (error as? AppError)?.message ?: error.message ?: "Delete failed"
+                ))
+            }
+    }
+
+    fun duplicate() = viewModelScope.launch {
+        val current = (state.value as? ProjectDetailUiState.Content)?.ui?.project ?: return@launch
+        // Triggers Saved event for explicit duplicate action
+        _events.emit(ProjectDetailUiEvent.Saved)
     }
 }
 
+// ─── UI State ─────────────────────────────────────────────────────────────────
+
 sealed interface ProjectDetailUiState {
     data object Loading : ProjectDetailUiState
-    data object Empty : ProjectDetailUiState
     data object NotFound : ProjectDetailUiState
-    data class Content(val project: Project) : ProjectDetailUiState
+    data class Content(val ui: ProjectDetailUi) : ProjectDetailUiState
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+
+sealed interface ProjectDetailUiEvent {
+    data object Saved : ProjectDetailUiEvent            // explicit action
+    data object NavigateBack : ProjectDetailUiEvent      // after successful delete
+    data object NavigateToTasks : ProjectDetailUiEvent   // "See all N tasks"
+    data object AddTask : ProjectDetailUiEvent          // quick-add submitted
+    data class ShowError(val message: String) : ProjectDetailUiEvent
 }

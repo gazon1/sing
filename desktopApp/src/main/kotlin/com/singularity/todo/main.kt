@@ -20,11 +20,11 @@ fun main() = singleWindowApplication(
 
     initLogging(System.getProperty("singularity.debug") == "true", version = "0.1.0")
     startKoin {
-        modules(
-            platformModule(),
-            coreLoggingModule(),
-            domainModule()
-        )
+            modules(
+                platformModule(),
+                coreLoggingModule(),
+                *domainModule().toTypedArray(),
+            )
     }
 
     // SingularityTheme (inside App()) already wraps MaterialTheme.

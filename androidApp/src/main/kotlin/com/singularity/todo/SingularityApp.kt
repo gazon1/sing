@@ -23,7 +23,7 @@ class SingularityApp : Application() {
             modules(
                 platformModule(),
                 coreLoggingModule(),
-                domainModule(),
+                *domainModule().toTypedArray(),
             )
         }
     }

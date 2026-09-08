@@ -47,3 +47,16 @@ class Migration8To9 : AutoMigrationSpec
  * writes the value explicitly.
  */
 class Migration9To10 : AutoMigrationSpec
+
+/**
+ * Migration from v10 to v11 — projects table schema changes:
+ * 1. Adds `idempotency_key TEXT UNIQUE` (random UUID, for MCP idempotent create)
+ * 2. Removes `is_notebook` (legacy dead column, replaced by kind-based differentiation)
+ *
+ * Room KSP auto-infers both changes from the schema diff (10.json → 11.json):
+ * - @DeleteColumn drops is_notebook
+ * - new idempotency_key column is auto-detected as ADD COLUMN
+ * No migrate() override needed.
+ */
+@androidx.room3.DeleteColumn(tableName = "projects", columnName = "is_notebook")
+class Migration10To11 : AutoMigrationSpec

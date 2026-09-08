@@ -11,7 +11,7 @@ import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.feature.tasks.FakeAttachmentSaver
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
-import com.singularity.todo.test.fakes.FakeCurrentUser
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeReminderRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
@@ -35,7 +35,7 @@ class TaskEditorViewModelTest {
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeChecklistRepo = FakeChecklistRepository()
     private val fakeReminderRepo = FakeReminderRepository()
-    private val fakeCurrentUser = FakeCurrentUser(
+    private val fakeCurrentUser = FakeProfileAwareCurrentUser(
         FakeAuthRepository(
             initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)
         )

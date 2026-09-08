@@ -92,7 +92,7 @@ data class NoteEntity(
 
 @Entity(
     tableName = "projects",
-    indices = [Index("user_id"), Index("deleted_at")]
+    indices = [Index("user_id"), Index("deleted_at"), Index(value = ["idempotency_key"], unique = true)]
 )
 data class ProjectEntity(
     @PrimaryKey val id: String,
@@ -110,7 +110,7 @@ data class ProjectEntity(
     @ColumnInfo("deleted_at") val deletedAt: Long?,
     @ColumnInfo("parent_id") val parentId: String?,
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
-    @ColumnInfo("is_notebook") val isNotebook: Boolean = false,
+    @ColumnInfo("idempotency_key") val idempotencyKey: String? = null,
     @ColumnInfo("external_id") val externalId: String?,
     @Embedded val sync: SyncColumns = SyncColumns()
 )
@@ -130,6 +130,13 @@ data class TagEntity(
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
     @ColumnInfo("deleted_at") val deletedAt: Long?,
     @Embedded val sync: SyncColumns = SyncColumns()
+)
+
+/** Row type returned by ProjectDao.watchAllWithCounts — embeds ProjectEntity with aggregate counts. */
+data class ProjectWithCountRow(
+    @Embedded val project: ProjectEntity,
+    @ColumnInfo("total_count") val totalCount: Int,
+    @ColumnInfo("completed_count") val completedCount: Int,
 )
 
 /**

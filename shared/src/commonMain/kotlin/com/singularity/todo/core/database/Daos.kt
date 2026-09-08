@@ -34,6 +34,9 @@ interface TaskDao {
     @Query("UPDATE tasks SET is_pinned = :pinned, updated_at = :ts WHERE id = :id")
     suspend fun setPinned(id: String, pinned: Boolean, ts: Long)
 
+    @Query("SELECT * FROM tasks WHERE id = :id")
+    suspend fun getById(id: String): TaskEntity?
+
     @Query("SELECT * FROM tasks WHERE title LIKE '%' || :q || '%' OR description LIKE '%' || :q || '%'")
     fun search(q: String): Flow<List<TaskEntity>>
 
@@ -151,6 +154,36 @@ interface ProjectDao {
 
     @Query("SELECT * FROM projects WHERE id = :id")
     fun watchById(id: String): Flow<ProjectEntity?>
+
+    @Query("SELECT * FROM projects WHERE id = :id")
+    suspend fun getById(id: String): ProjectEntity?
+
+    @Query("""
+        SELECT p.*,
+               COUNT(t.id) AS total_count,
+               SUM(CASE WHEN t.completed_at IS NOT NULL THEN 1 ELSE 0 END) AS completed_count
+        FROM projects p
+        LEFT JOIN tasks t ON t.project_id = p.id AND t.archived_at IS NULL
+        WHERE p.user_id = :userId AND p.is_deleted = 0
+        GROUP BY p.id
+        ORDER BY p.sort_order ASC, p.name ASC
+    """)
+    fun watchAllWithCounts(userId: String): Flow<List<ProjectWithCountRow>>
+
+    @Query("SELECT * FROM projects WHERE parent_id = :parentId AND is_deleted = 0 ORDER BY sort_order ASC, name ASC")
+    fun watchByParent(parentId: String): Flow<List<ProjectEntity>>
+
+    @Query("UPDATE projects SET parent_id = :parentId, updated_at = :ts WHERE id = :id")
+    suspend fun setParent(id: String, parentId: String?, ts: Long)
+
+    @Query("UPDATE projects SET sort_order = :sortOrder, updated_at = :ts WHERE id = :id")
+    suspend fun setSortOrder(id: String, sortOrder: Int, ts: Long)
+
+    @Query("UPDATE projects SET is_deleted = 0, deleted_at = NULL, updated_at = :ts WHERE id = :id")
+    suspend fun restore(id: String, ts: Long)
+
+    @Query("SELECT * FROM projects WHERE idempotency_key = :key LIMIT 1")
+    suspend fun findByIdempotencyKey(key: String): ProjectEntity?
 
     @Upsert
     suspend fun upsert(project: ProjectEntity)

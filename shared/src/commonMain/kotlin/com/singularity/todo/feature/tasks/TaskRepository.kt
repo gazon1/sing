@@ -38,6 +38,7 @@ interface TaskRepository {
     fun watchTask(id: TaskId): Flow<Task?>
     fun getTagIds(taskId: TaskId): Flow<List<TagId>>
     suspend fun exists(id: TaskId): Boolean
+    suspend fun getById(id: TaskId): Task?
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -120,6 +121,9 @@ class TaskRepositoryImpl(
 
     override suspend fun exists(id: TaskId): Boolean =
         taskDao.watchById(id.value).first() != null
+
+    override suspend fun getById(id: TaskId): Task? =
+        taskDao.getById(id.value)?.toTask()
 
     override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
         // Clear existing tags

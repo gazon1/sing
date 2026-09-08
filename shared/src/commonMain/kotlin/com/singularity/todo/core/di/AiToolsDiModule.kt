@@ -41,6 +41,8 @@ import com.singularity.todo.feature.ai.tools.UpdateNoteTool
 import com.singularity.todo.feature.ai.tools.DeleteNoteTool
 import com.singularity.todo.feature.ai.tools.CreateProjectTool
 import com.singularity.todo.feature.ai.tools.UpdateProjectTool
+import com.singularity.todo.feature.ai.tools.DeleteProjectTool
+import com.singularity.todo.feature.ai.tools.ListProjectsTool
 import com.singularity.todo.feature.ai.tools.CreateTagTool
 import com.singularity.todo.feature.ai.tools.DeleteTagTool
 import com.singularity.todo.feature.ai.tools.ListAdrsTool
@@ -159,6 +161,8 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
     factory { DeleteNoteTool(get()) }
     factory { CreateProjectTool(get(), get(), get()) }
     factory { UpdateProjectTool(get(), get()) }
+    factory { DeleteProjectTool(get(), get()) }
+    factory { ListProjectsTool(get(), get()) }
     factory { CreateTagTool(get(), get(), get()) }
     factory { DeleteTagTool(get()) }
     factory { ListAdrsTool() }
@@ -194,6 +198,8 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
             get<DeleteNoteTool>(),
             get<CreateProjectTool>(),
             get<UpdateProjectTool>(),
+            get<DeleteProjectTool>(),
+            get<ListProjectsTool>(),
             get<CreateTagTool>(),
             get<DeleteTagTool>(),
             get<ListAdrsTool>(),
