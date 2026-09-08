@@ -56,15 +56,28 @@ class ToolRegistrar(private val server: Server) {
         val descriptor = tool.descriptor
         val name = descriptor.name
         val description = descriptor.description
-        val toolSchema: ToolSchema = KoogJsonSchemaBuilder.build(descriptor)
+        val inputSchema: ToolSchema = KoogJsonSchemaBuilder.build(descriptor)
         val annotations = TOOL_ANNOTATIONS[name]
+
+        // Output schema: we pass an empty schema so the MCP client does not
+        // validate structuredContent against the input schema. Koog does not
+        // expose a separate output schema descriptor, and passing inputSchema
+        // here (previous bug) caused Fred Perry's client to reject responses
+        // whose JSON lacked required input fields (e.g. write_adr returning
+        // {slug,path,title} but the client expected {slug,title,body}).
+        val emptyOutputSchema = ToolSchema(
+            schema = null as String?,
+            properties = JsonObject(emptyMap()),
+            required = emptyList<String>(),
+            defs = null as JsonObject?,
+        )
 
         server.addTool(
             name,
             description,
-            toolSchema,
+            inputSchema,
             "",
-            toolSchema,
+            emptyOutputSchema,
             annotations?.toMcpAnnotations(),
             ToolExecution(TaskSupport.Optional),
             JsonObject(emptyMap()),
