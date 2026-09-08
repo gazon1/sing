@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-task-detail-ux
-description: Document-style vs form-style UX pattern for read-only task detail screens. Covers the hero block (checkbox + title + description), meta-chips row (date/time/priority/project), inline-edit tap-to-edit, bottom action bar, and the TickTick/Todoist reference. Documents 5 known regressions: AlertDialog-to-ModalBottomSheet migration trap, dead FieldMode state, emoji-icon usage, empty-section noise, and Saved-spam from debounced inline edits.
+description: Document-style vs form-style UX pattern for task detail screens. Covers the hero block (checkbox + title + description), meta-chips row (date/time/priority/project), inline-edit tap-to-edit, bottom action bar, and the TickTick/Todoist reference. Documents 7 known regressions: AlertDialog-to-ModalBottomSheet migration trap, dead FieldMode state, emoji-icon usage, empty-section noise, Saved-spam from debounced inline edits, TOCTOU race in debounced collectors, and ReminderPicker always resetting to 15 min.
 ---
 
 # Task Detail UX — Document-Style vs Form-Style
@@ -109,7 +109,7 @@ Three chip types:
 - `PushPin` — tinted `primary` when `isPinned`, else `onSurfaceVariant`
 - `DeleteOutline` — always `error` tint, tap → `AlertDialog` confirmation
 
-## 5 known regressions (anti-patterns to avoid)
+## 6 known regressions (anti-patterns to avoid)
 
 ### Regression 1: AlertDialog → ModalBottomSheet migration trap
 
@@ -138,6 +138,40 @@ Sections like `Reminders (0)` and `Attachments (0)` are always rendered with an 
 - The `SavedUiEvent` / `SavedPulse` event is reserved for cases where the user explicitly expects confirmation: completing a task, applying an AI suggestion, bulk operations.
 
 **Do not replicate this bug in any new screen.** When adding document-style inline edit to `ProjectDetailScreen` or any other screen, follow `singularity-todo-inline-edit-saved-feedback` skill exactly.
+
+### Regression 6: TOCTOU race in debounced collectors
+
+**Root cause:** `TaskDetailViewModel` used `taskRepo.watchTask(taskId).filterNotNull().first()` inside a debounced collector (lines ~106, ~118). Between the debounce delay (300 ms) and the `.first()` call, a concurrent remote edit could update the task. Calling `.first()` after the debounce fetches a fresh copy, discards any changes made during the debounce window, and overwrites them with the stale draft.
+
+**The correct pattern:** Cache the latest task value in a `MutableStateFlow<Task?>(_latestTask)` that is updated synchronously inside the `combine` block that assembles the UI state. The debounced collector reads from `_latestTask.value` instead of calling `.first()`:
+
+```kotlin
+// ✅ CORRECT — use cached latest, updated on every state emission
+private val _latestTask = MutableStateFlow<Task?>(null)
+
+val state: StateFlow<UiState> = _taskId.flatMapLatest { id ->
+    combine(taskFlow, ...) { task, ... ->
+        _latestTask.value = task  // update cache synchronously
+        UiState(...)
+    }
+}
+
+// Debounced collector reads from cache, not a new fetch
+scope.launch {
+    titleDraft.debounce(300).filterNotNull().collect { title ->
+        val current = _latestTask.value ?: return@collect  // TOCTOU-safe
+        updateTask(current.copy(title = title))            // no Saved event
+    }
+}
+```
+
+**Also affects:** Any other detail ViewModel that uses `repo.watchX(id).first()` inside a debounced collector. Fix by adding a `_latestEntity` cache and updating it in the `combine` block.
+
+### Regression 7: ReminderPicker always resets to 15 min before
+
+**Root cause:** `ReminderPickerSheetContent` at `TaskDetailScreen.kt:336–393` is a local duplicate of `TaskEditorSheetHost`. Unlike `TaskEditorSheetHost` (which accepts `existingReminder: Reminder?` and pre-selects the correct offset), `ReminderPickerSheetContent` always initialises the selection to `ReminderOffset.FIFTEEN_MIN` regardless of what reminder is actually set on the task.
+
+**The fix:** `TaskDetailScreen` should use `TaskEditorSheetHost` directly, passing the existing reminder for pre-selection — not a local duplicate. This was fixed in PR 1a by removing the duplicate and routing through `TaskEditorSheetHost` with the correct pre-select state.
 
 ## Reference apps
 

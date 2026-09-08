@@ -26,6 +26,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Never** add an `aiApiKey` (or any secret) field back to `SettingsRepository`. Adding one is a regression. _(from `2026-09-05-secret-storage-split`)_
 - `SettingsViewModel.processIntent(UpdateAiKey)` **always** writes only to `secureStorage`. **Never** call `settings.setAiKey(...)`. _(from `2026-09-05-secret-storage-split`)_
 - The password field on `AiProviderSettingsScreen` is a local `mutableStateOf`. **Never** lift it to the VM. _(from `2026-09-05-secret-storage-split`)_
+- **Always** validate `parentTaskId` in `CreateTaskUseCase` and `UpdateTaskUseCase` via `assertNoNesting`. _(from `2026-09-08-task-1-level-subtasks`)_
+- **Never** allow a task with `parentTaskId != null` to become a parent — enforce in domain, not just UI. _(from `2026-09-08-task-1-level-subtasks`)_
+- **Always** `combine` the debounced draft flow with the entity's source `StateFlow` — **never** use `.first()` re-fetch inside a debounced collector. _(from `2026-09-08-task-detail-critical-fixes`)_
+- **Always** silent saves for inline edits — `Saved` event is reserved for explicit user actions only. _(from `2026-09-08-task-detail-critical-fixes`)_
+- **Never** leave `|| true` or other tautological conditions in UI conditionals. _(from `2026-09-08-task-detail-critical-fixes`)_
+- **Always** use `SnackbarHost` + `SnackbarHostState` for undo, not `AlertDialog`. _(from `2026-09-08-task-restore-undo`)_
+- **Never** store more than one recently-deleted task in memory — the most recent overwrite. _(from `2026-09-08-task-restore-undo`)_
 
 ## Per-tag
 
@@ -51,19 +58,53 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует. _(from `2026-09-07-fab-chrome-level`)_
 - `AppShell` — minor change: добавлен `FabAction` parameter. _(from `2026-09-07-fab-chrome-level`)_
 - **Breaking:** `coreDomainModule()` удалён; заменён на `domainModule()` (includes everything). Test files обновлены. _(from `2026-09-06-di-module-split`)_
+
+### `"architecture"`
+
+- Checklist items can be promoted to sub-tasks via "Convert to task" overflow action. _(from `2026-09-08-task-1-level-subtasks`)_
+
+### `architecture`
+
 - **CollectEvents** в виджетах принимает `Flow<T : UiEvent>` — generic call site остаётся тем же _(from `2026-09-05-ui-event-per-feature`)_
 - **Existing tests:** `DiGraphTest`, `JvmAiDiGraphTest`, `AppSmokeTest` обновлены и проходят. _(from `2026-09-06-di-module-split`)_
 - **New file count:** 8 новых файлов (7 модулей + decision). _(from `2026-09-06-di-module-split`)_
 - **NotificationHost** — финальный widget для всех экранов, заменяет ~64 строк ручного glue кода _(from `2026-09-05-ui-event-per-feature`)_
+
+### `"architecture"`
+
+- Sub-task count is denormalized via `TaskFilter.ByParent` query — no need for recursive count. _(from `2026-09-08-task-1-level-subtasks`)_
+
+### `architecture`
+
 - `TagsScreen` больше не принимает callback — экран не подключён к навигации (menu destination `Tags` отсутствует в `AppDestination`). _(from `2026-09-07-fab-chrome-level`)_
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально _(from `2026-09-05-ui-event-per-feature`)_
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)` _(from `2026-09-05-ui-event-per-feature`)_
+
+### `"archive"`
+
+- Archive and Delete have distinct storage semantics — future "Trash" filter can distinguish intentional archive from accidental delete. _(from `2026-09-08-task-archive-restore-contract`)_
+- `_recentlyDeleted` in TaskDetailViewModel holds the full task before delete/archive for undo. _(from `2026-09-08-task-archive-restore-contract`)_
+- `restore()` is idempotent — calling restore on a non-archived task is a no-op (or returns Result.success if the row simply re-inserted). _(from `2026-09-08-task-archive-restore-contract`)_
+
+### `audit`
+
+- One new e2e test in `mcp-server` (`McpToolRoundTripTest`). _(from `2026-09-08-mcp-server-health-audit`)_
+- One new unit test file in `mcp-server` (`KoogJsonSchemaBuilderTest`). _(from `2026-09-08-mcp-server-health-audit`)_
+- Three new unit test files in `shared/commonTest` for the read tools. _(from `2026-09-08-mcp-server-health-audit`)_
+- `ToolFactories.kt` gets the profile-aware default applied (small diff, _(from `2026-09-08-mcp-server-health-audit`)_
+- `ToolRegistrar` catches `McpToolError` first (small diff). _(from `2026-09-08-mcp-server-health-audit`)_
 
 ### `backup`
 
 - `BackupRepository` resolves correctly in all environments (JVM desktop, Android). _(from `2026-09-07-backup-directory-via-koin-string`)_
 - Settings → Backup tab no longer crashes during composition. _(from `2026-09-07-backup-directory-via-koin-string`)_
 - The `desktopApp/build.gradle.kts` change (adding `implementation(project(":shared"))` with kotlinJvmTask) was also part of the desktop build fix. _(from `2026-09-07-backup-directory-via-koin-string`)_
+
+### `bugfix`
+
+- All 3 tools now require `ProfileAwareCurrentUser` in DI — tested via _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
+- `list_tasks`, `list_linked_tasks`, and `search_tasks` now return correct results _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
+- MCP clients that validate `$schema` as a URI will no longer reject tool schemas. _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
 
 ### `build`
 
@@ -112,6 +153,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - When the script's grep is broken (a stray `runBlocking` appears), fix it immediately; the helper exists specifically so this is detectable. _(from `2026-09-05-koin-suspend-bridge`)_
 - **Правило подтверждено:** `koinBridge` только для one-shot startup suspend reads _(from `2026-09-06-koin-bridge-audit`)_
+
+### `dead-code`
+
+- One new e2e test in `mcp-server` (`McpToolRoundTripTest`). _(from `2026-09-08-mcp-server-health-audit`)_
+- One new unit test file in `mcp-server` (`KoogJsonSchemaBuilderTest`). _(from `2026-09-08-mcp-server-health-audit`)_
+- Three new unit test files in `shared/commonTest` for the read tools. _(from `2026-09-08-mcp-server-health-audit`)_
+- `ToolFactories.kt` gets the profile-aware default applied (small diff, _(from `2026-09-08-mcp-server-health-audit`)_
+- `ToolRegistrar` catches `McpToolError` first (small diff). _(from `2026-09-08-mcp-server-health-audit`)_
 
 ### `debugging`
 
@@ -323,10 +372,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `koog`
 
 - AI-агенты получают нативный доступ к данным без UI _(from `2026-09-07-dogfooding-mcp-server`)_
+- All 3 tools now require `ProfileAwareCurrentUser` in DI — tested via _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
 - A passing `:androidApp:assembleDebug` is the cross-platform smoke test (it would have failed under the old stub). _(from `2026-09-05-koog-both-platforms`)_
 - Auto-migration v9 добавляет unique index на `(idempotency_key, user_id)` where not null _(from `2026-09-07-write-tools-in-koog-registry`)_
 - Dogfooding-профиль "AI Agent" (🤖) изолирует агентские задачи от пользовательских _(from `2026-09-07-dogfooding-mcp-server`)_
 - `JvmAiDiGraphTest` keeps its `LLModel` override as a safety belt — if someone reintroduces `OpenAIModels.*`, this test fails at graph-build time. _(from `2026-09-05-koog-test-workarounds`)_
+- `list_tasks`, `list_linked_tasks`, and `search_tasks` now return correct results _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
+- MCP clients that validate `$schema` as a URI will no longer reject tool schemas. _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
 - `TaskEntity` получает `@ColumnInfo("idempotency_key") val idempotencyKey: String?` _(from `2026-09-07-write-tools-in-koog-registry`)_
 - `TaskRepository` получает `findByIdempotencyKey(key, userId)` метод _(from `2026-09-07-write-tools-in-koog-registry`)_
 - The old `JvmPromptExecutorPort` and `AndroidPromptExecutorPort` files are deleted. _(from `2026-09-05-koog-both-platforms`)_
@@ -378,12 +430,17 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - AI-агент парсит `isError: true` из `result` для business errors и ловит `-32603` из `error` для internal _(from `2026-09-07-mcp-tool-error-model`)_
 - AI-агенты получают нативный доступ к данным без UI _(from `2026-09-07-dogfooding-mcp-server`)_
+- All 3 tools now require `ProfileAwareCurrentUser` in DI — tested via _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
 - Auto-migration v9 добавляет unique index на `(idempotency_key, user_id)` where not null _(from `2026-09-07-write-tools-in-koog-registry`)_
 - Dogfooding-профиль "AI Agent" (🤖) изолирует агентские задачи от пользовательских _(from `2026-09-07-dogfooding-mcp-server`)_
 - `ErrorMapper.kt` маппит `McpToolError` в `CallToolResult` или бросает `McpException` _(from `2026-09-07-mcp-tool-error-model`)_
 - `./gradlew :mcp-server:test` now includes a regression test (`McpServerEndToEndTest.server_blocks_until_stdin_closes`) that asserts `process.isAlive` after 3s of empty stdin. If anyone removes the blocking primitive, this test fails. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- `list_tasks`, `list_linked_tasks`, and `search_tasks` now return correct results _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
+- MCP clients that validate `$schema` as a URI will no longer reject tool schemas. _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
 - MCP client (ZCode CLI) now sees the `initialize` roundtrip succeed and can list/call tools. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - `McpToolError.kt` в `mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/` _(from `2026-09-07-mcp-tool-error-model`)_
+- One new e2e test in `mcp-server` (`McpToolRoundTripTest`). _(from `2026-09-08-mcp-server-health-audit`)_
+- One new unit test file in `mcp-server` (`KoogJsonSchemaBuilderTest`). _(from `2026-09-08-mcp-server-health-audit`)_
 - Process exit semantics change from "instant" to "on stdin EOF or session error". A passing test asserts the process stays alive ≥3s with empty stdin. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - `Runtime.getRuntime().addShutdownHook { server.close() }` becomes redundant for normal EOF exits — `onClose → done.complete() → done.join() returns → runBlocking exits → JVM exits cleanly`. We keep the shutdown hook only as a backstop for SIGTERM. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 
@@ -396,6 +453,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskEntity` получает `@ColumnInfo("idempotency_key") val idempotencyKey: String?` _(from `2026-09-07-write-tools-in-koog-registry`)_
 - `TaskRepository` получает `findByIdempotencyKey(key, userId)` метод _(from `2026-09-07-write-tools-in-koog-registry`)_
 - The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- Three new unit test files in `shared/commonTest` for the read tools. _(from `2026-09-08-mcp-server-health-audit`)_
+- `ToolFactories.kt` gets the profile-aware default applied (small diff, _(from `2026-09-08-mcp-server-health-audit`)_
+- `ToolRegistrar` catches `McpToolError` first (small diff). _(from `2026-09-08-mcp-server-health-audit`)_
 - ZCode подключается через `mcpServers.singularity-todo` в настройках _(from `2026-09-07-dogfooding-mcp-server`)_
 
 ### `"mcp"`
@@ -481,6 +541,32 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `PreviewParameterProvider` is avoided — individual preview functions used instead _(from `2026-09-06-compose-previews`)_
 - `useSurface = false` when the preview root already contains a `Scaffold` _(from `2026-09-06-compose-previews`)_
 
+### `profiles`
+
+- All 3 tools now require `ProfileAwareCurrentUser` in DI — tested via _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
+- `list_tasks`, `list_linked_tasks`, and `search_tasks` now return correct results _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
+- MCP clients that validate `$schema` as a URI will no longer reject tool schemas. _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
+
+### `"quality"`
+
+- 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+- Baseline images stored in `shared/src/commonTest/resources/roborazzi/`. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+- Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+
+### `refactor`
+
+- One new e2e test in `mcp-server` (`McpToolRoundTripTest`). _(from `2026-09-08-mcp-server-health-audit`)_
+- One new unit test file in `mcp-server` (`KoogJsonSchemaBuilderTest`). _(from `2026-09-08-mcp-server-health-audit`)_
+- Three new unit test files in `shared/commonTest` for the read tools. _(from `2026-09-08-mcp-server-health-audit`)_
+- `ToolFactories.kt` gets the profile-aware default applied (small diff, _(from `2026-09-08-mcp-server-health-audit`)_
+- `ToolRegistrar` catches `McpToolError` first (small diff). _(from `2026-09-08-mcp-server-health-audit`)_
+
+### `"repository"`
+
+- Archive and Delete have distinct storage semantics — future "Trash" filter can distinguish intentional archive from accidental delete. _(from `2026-09-08-task-archive-restore-contract`)_
+- `_recentlyDeleted` in TaskDetailViewModel holds the full task before delete/archive for undo. _(from `2026-09-08-task-archive-restore-contract`)_
+- `restore()` is idempotent — calling restore on a non-archived task is a no-op (or returns Result.success if the row simply re-inserted). _(from `2026-09-08-task-archive-restore-contract`)_
+
 ### `rich-editor`
 
 - `FakeNotesRepository` и `FakeNoteDao` обновлены同步. _(from `2026-09-07-note-editor-body-load`)_
@@ -499,6 +585,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Use `UserId` from `feature.tasks`** — it's defined in `Ids.kt` there, imported explicitly. _(from `2026-09-05-robolectric-widget-tests`)_
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly. _(from `2026-09-05-robolectric-widget-tests`)_
 
+### `"roborazzi"`
+
+- 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+- Baseline images stored in `shared/src/commonTest/resources/roborazzi/`. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+- Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+
 ### `room`
 
 - `FakeNotesRepository` и `FakeNoteDao` обновлены同步. _(from `2026-09-07-note-editor-body-load`)_
@@ -512,6 +604,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - tag 'mcp-ux'/'ui-subtask'/'ai-tooling'/'mcp-policy'/'refactor' — 5 persistent categories для фильтрации. _(from `2026-09-08-mcp-dogfooding-round-2`)_
 - В профиле ai-agent теперь 5 top-level plans × ~6 sub-tasks = ~30 новых rows. _(from `2026-09-08-mcp-dogfooding-round-2`)_
 - Каждый plan имеет parentTaskId = top-task; UI должен теперь уметь их показать (см. plan 'ui-subtask'). _(from `2026-09-08-mcp-dogfooding-round-2`)_
+
+### `schema`
+
+- All 3 tools now require `ProfileAwareCurrentUser` in DI — tested via _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
+- `list_tasks`, `list_linked_tasks`, and `search_tasks` now return correct results _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
+- MCP clients that validate `$schema` as a URI will no longer reject tool schemas. _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
 
 ### `secure-storage`
 
@@ -547,6 +645,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Per-tab backstacks** work as expected: open TaskDetail on Today, switch to Plans, switch back to Today → TaskDetail is restored. _(from `2026-09-05-android-bottom-nav`)_
 - **`TasksScreen`** unchanged — it already takes `onNavigateToTask` / `onNavigateToCreateTask` callbacks; the per-tab sub-navigation state now lives in `TasksRoute` inside `AppNavHost` via `rememberSaveable`. _(from `2026-09-05-android-bottom-nav`)_
 
+### `"snapshot"`
+
+- 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+- Baseline images stored in `shared/src/commonTest/resources/roborazzi/`. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+- Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+
 ### `stdio`
 
 - `./gradlew :mcp-server:test` now includes a regression test (`McpServerEndToEndTest.server_blocks_until_stdin_closes`) that asserts `process.isAlive` after 3s of empty stdin. If anyone removes the blocking primitive, this test fails. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
@@ -555,10 +659,37 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `Runtime.getRuntime().addShutdownHook { server.close() }` becomes redundant for normal EOF exits — `onClose → done.complete() → done.join() returns → runBlocking exits → JVM exits cleanly`. We keep the shutdown hook only as a backstop for SIGTERM. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 
+### `"subtasks"`
+
+- Checklist items can be promoted to sub-tasks via "Convert to task" overflow action. _(from `2026-09-08-task-1-level-subtasks`)_
+- Sub-task count is denormalized via `TaskFilter.ByParent` query — no need for recursive count. _(from `2026-09-08-task-1-level-subtasks`)_
+
+### `"task-detail"`
+
+- Archive and Delete have distinct storage semantics — future "Trash" filter can distinguish intentional archive from accidental delete. _(from `2026-09-08-task-archive-restore-contract`)_
+- Checklist items can be promoted to sub-tasks via "Convert to task" overflow action. _(from `2026-09-08-task-1-level-subtasks`)_
+- `_recentlyDeleted` in TaskDetailViewModel holds the full task before delete/archive for undo. _(from `2026-09-08-task-archive-restore-contract`)_
+- `_recentlyDeleted` must be cleared in `onCleared()` to avoid leaking task data on configuration change. _(from `2026-09-08-task-restore-undo`)_
+- `restore()` is idempotent — calling restore on a non-archived task is a no-op (or returns Result.success if the row simply re-inserted). _(from `2026-09-08-task-archive-restore-contract`)_
+- `restore()` re-uses the original `id` — idempotent by design. _(from `2026-09-08-task-restore-undo`)_
+- Sub-task count is denormalized via `TaskFilter.ByParent` query — no need for recursive count. _(from `2026-09-08-task-1-level-subtasks`)_
+
+### `"testing"`
+
+- 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+- Baseline images stored in `shared/src/commonTest/resources/roborazzi/`. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+
 ### `testing`
 
 - **`Clock` must be passed to `CreateTaskUseCase` / `UpdateTaskUseCase`** — use the singleton `Clock` from `core.platform`. _(from `2026-09-05-robolectric-widget-tests`)_
 - `compose-ui-test:1.12.0` added to `libs.versions.toml` as `composeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
+
+### `"testing"`
+
+- Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+
+### `testing`
+
 - **Fake repo returns empty by default** — widget tests that check `LazyColumn` with `testTag` will fail when repo is empty (state = `Empty`). Test the `EmptyState` text instead, or seed data via `fakeNotesRepo.seed(note)`. _(from `2026-09-05-robolectric-widget-tests`)_
 - `JvmAiDiGraphTest` keeps its `LLModel` override as a safety belt — if someone reintroduces `OpenAIModels.*`, this test fails at graph-build time. _(from `2026-09-05-koog-test-workarounds`)_
 - **JVM args for JDK 21+** — add `--add-opens=java.base/jdk.internal.access=ALL-UNNAMED` to `gradle.properties` (`org.gradle.jvmargs`) AND to `shared/build.gradle.kts` via `afterEvaluate` + `tasks.withType<Test>()` for the test worker process. _(from `2026-09-05-robolectric-widget-tests`)_
@@ -570,6 +701,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Use `UserId` from `feature.tasks`** — it's defined in `Ids.kt` there, imported explicitly. _(from `2026-09-05-robolectric-widget-tests`)_
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly. _(from `2026-09-05-robolectric-widget-tests`)_
 - When adding a new AI tool, **always** bind its use case with **explicit `get<ConcreteTool>()`** if the use case's parameter is `SimpleTool<T>`: _(from `2026-09-05-koog-test-workarounds`)_
+
+### `tests`
+
+- One new e2e test in `mcp-server` (`McpToolRoundTripTest`). _(from `2026-09-08-mcp-server-health-audit`)_
+- One new unit test file in `mcp-server` (`KoogJsonSchemaBuilderTest`). _(from `2026-09-08-mcp-server-health-audit`)_
+- Three new unit test files in `shared/commonTest` for the read tools. _(from `2026-09-08-mcp-server-health-audit`)_
+- `ToolFactories.kt` gets the profile-aware default applied (small diff, _(from `2026-09-08-mcp-server-health-audit`)_
+- `ToolRegistrar` catches `McpToolError` first (small diff). _(from `2026-09-08-mcp-server-health-audit`)_
 
 ### `tools`
 
@@ -627,6 +766,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Все 6 sub-screens имеют `verticalScroll` — контент больше не обрезается. _(from `2026-09-07-settings-fixes`)_
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)` _(from `2026-09-05-ui-event-per-feature`)_
 
+### `"undo"`
+
+- `_recentlyDeleted` must be cleared in `onCleared()` to avoid leaking task data on configuration change. _(from `2026-09-08-task-restore-undo`)_
+- `restore()` re-uses the original `id` — idempotent by design. _(from `2026-09-08-task-restore-undo`)_
+
 ### `_untagged_`
 
 - **~14 изменённых файлов**: Screen.kt + testTag, VM constructors, DI module _(from `2026-09-05-ui-tests-ultron`)_
@@ -672,6 +816,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - All changes are additive; no existing behavior is removed. _(from `2026-09-07-settings-ux-improvements`)_
 - Backup confirm dialogs prevent accidental data loss. _(from `2026-09-07-settings-ux-improvements`)_
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
+
+### `"ux"`
+
+- `_recentlyDeleted` must be cleared in `onCleared()` to avoid leaking task data on configuration change. _(from `2026-09-08-task-restore-undo`)_
+- `restore()` re-uses the original `id` — idempotent by design. _(from `2026-09-08-task-restore-undo`)_
+
+### `ux`
+
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
 
 ### `vm`
@@ -717,6 +869,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-07-write-tools-in-koog-registry` — mcp  tools  koog  idempotency
 - `2026-09-08-mcp-dogfooding-round-2` — "mcp"  "dogfooding"  "round-2"  "followups"
 - `2026-09-08-mcp-plan-tracking-via-mcp` — "mcp"  "dogfooding"  "plan-tracking"
+- `2026-09-08-mcp-schema-and-profile-userid-fixes` — mcp  koog  schema  profiles  bugfix
+- `2026-09-08-mcp-server-health-audit` — mcp  audit  refactor  tests  dead-code
+- `2026-09-08-roboazzi-snapshot-tests` — "testing"  "snapshot"  "roborazzi"  "quality"
+- `2026-09-08-task-1-level-subtasks` — "task-detail"  "subtasks"  "architecture"
+- `2026-09-08-task-archive-restore-contract` — "task-detail"  "archive"  "repository"
+- `2026-09-08-task-detail-critical-fixes` — "task-detail"  "critical-fix"  "ux"
+- `2026-09-08-task-restore-undo` — "task-detail"  "undo"  "ux"
 
 ## Active entries
 
@@ -759,4 +918,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-07-write-tools-in-koog-registry` — Write Tools — idempotent контракт, dryRun, error model
 - `2026-09-08-mcp-dogfooding-round-2` — MCP dogfooding — round 2 plan index
 - `2026-09-08-mcp-plan-tracking-via-mcp` — MCP plan tracking end-to-end
+- `2026-09-08-mcp-schema-and-profile-userid-fixes` — MCP schema dialect bug + profile-aware userId defaults
+- `2026-09-08-mcp-server-health-audit` — MCP server health audit — dead code, missing tests, contract hazards
 - `2026-09-08-projects-ux-rework` — _(no title)
+- `2026-09-08-roboazzi-snapshot-tests` — Snapshot tests via Roborazzi for all detail screen sections
+- `2026-09-08-task-1-level-subtasks` — Sub-task 1-level hierarchy (like projects)
+- `2026-09-08-task-archive-restore-contract` — Task archive vs delete: separate contracts via archiveAt
+- `2026-09-08-task-detail-critical-fixes` — TaskDetail critical fixes: TOCTOU race, Saved-spam, dead condition
+- `2026-09-08-task-restore-undo` — TaskRepository.restore + UndoDelete via SnackbarHost

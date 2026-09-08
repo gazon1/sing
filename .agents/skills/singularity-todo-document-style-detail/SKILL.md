@@ -102,9 +102,11 @@ viewModelScope.launch {
 }
 ```
 
-### The critical anti-pattern: Saved-spam
+### The critical anti-pattern: Saved-spam (two flavours)
 
-**NEVER emit `Saved` events from a debounced collector.** This was the `TaskDetailViewModel` Regression 5 bug (`TaskDetailViewModel.kt:100`):
+**NEVER emit `Saved` events from a debounced collector, and NEVER emit them from chip-setters either.**
+
+**Flavour 1 — debounced collector** (the `TaskDetailViewModel` Regression 5 bug at `TaskDetailViewModel.kt:100`):
 
 ```kotlin
 // ❌ WRONG — debounced collector emitting Saved on every keystroke
@@ -114,6 +116,30 @@ viewModelScope.launch {
 updateEntity(current.copy(title = newTitle))
 _lastEditedAt.value = clock.now() // continuous state, formatted by UI
 ```
+
+**Flavour 2 — chip-setters (setPriority, setProject, setTags, etc.):**
+
+`TaskDetailViewModel` had 9 setter methods (`setTitle`, `setDescription`, `setDueDate`, `setDueTime`, `setPriority`, `setProject`, `setPinned`, `setTags`, `removeTag`) that ALL emitted `Saved` on every chip tap — not just on debounced keystrokes. This means every time a user tapped the Priority chip to change it, they got a "Saved" pulse.
+
+The correct pattern for ALL setters in a detail ViewModel:
+
+```kotlin
+// ❌ WRONG — chip-setter emitting Saved on every tap
+fun setPriority(current: Task, priority: TaskPriority) = scope.launch {
+    updateTask(current.copy(priority = priority))
+        .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Priority updated")) } // SPAM!
+        .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+}
+
+// ✅ CORRECT — chip-setters are silent, like debounced edits
+fun setPriority(current: Task, priority: TaskPriority) = scope.launch {
+    updateTask(current.copy(priority = priority))
+        .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
+        .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+}
+```
+
+`Saved` events should only be emitted for: explicit user confirmations (complete toggle, delete, archive), AI operations, and bulk actions.
 
 ### Silent save + relative-time feedback
 
@@ -177,6 +203,7 @@ When a detail screen has a reference to another entity (e.g., a Task's project c
 
 1. **`combinedClickable` on a chip for navigation** — breaks the generic-widget contract; use explicit `IconButton` adjacent to chip.
 2. **Saved events from debounced collectors** — spams users; use silent `_lastEditedAt` continuous state.
-3. **>4 sub-composables** — consolidate into 4 sections; each sub-component should be ≥30 lines to justify a file.
-4. **`remember { mutableStateOf<Sheet?>(null) }` per sheet** — use a single `ActiveSheet` sealed interface in the VM.
-5. **Emoji icons instead of Material Icons** — `Icons.Filled.*` only in production UI.
+3. **Saved events from chip-setters** — spams users on every priority/project/tag chip tap; chip-setters must be silent too.
+4. **>4 sub-composables** — consolidate into 4 sections; each sub-component should be ≥30 lines to justify a file.
+5. **`remember { mutableStateOf<Sheet?>(null) }` per sheet** — use a single `ActiveSheet` sealed interface in the VM.
+6. **Emoji icons instead of Material Icons** — `Icons.Filled.*` only in production UI.

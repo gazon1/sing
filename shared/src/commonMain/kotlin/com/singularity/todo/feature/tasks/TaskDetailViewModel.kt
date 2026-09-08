@@ -89,6 +89,13 @@ class TaskDetailViewModel(
     private val descriptionDraft = MutableStateFlow<String?>(null)
 
     /**
+     * Cached latest task — avoids TOCTOU race when using `.first()` after debounce.
+     * Updated whenever the combined state emits a new value.
+     */
+    private val _latestTask = MutableStateFlow<Task?>(null)
+    val latestTask: StateFlow<Task?> = _latestTask
+
+    /**
      * Silent timestamp for debounced inline edits — does NOT emit Saved.
      * Exposed as [lastEditedAt] for the UI to render "Saved X ago" via [formatSavedRelative].
      */
@@ -103,7 +110,7 @@ class TaskDetailViewModel(
                 .filterNotNull()
                 .collect { title ->
                     val taskId = _taskId.value ?: return@collect
-                    val current = taskRepo.watchTask(taskId).filterNotNull().first()
+                    val current = _latestTask.value ?: return@collect
                     updateTask(current.copy(title = title))
                         .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
                         .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
@@ -115,7 +122,7 @@ class TaskDetailViewModel(
                 .filterNotNull()
                 .collect { desc ->
                     val taskId = _taskId.value ?: return@collect
-                    val current = taskRepo.watchTask(taskId).filterNotNull().first()
+                    val current = _latestTask.value ?: return@collect
                     updateTask(current.copy(description = desc.ifBlank { null }))
                         .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
                         .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
@@ -154,6 +161,7 @@ class TaskDetailViewModel(
                     @Suppress("UNCHECKED_CAST")
                     val attachments = values[5] as List<Attachment>
 
+                    _latestTask.value = task
                     if (task == null) {
                         TaskDetailUiState.Error("Not found")
                     } else {
@@ -193,43 +201,43 @@ class TaskDetailViewModel(
 
     fun setTitle(current: Task, value: String) = scope.launch {
         updateTask(current.copy(title = value.takeIf { it.isNotBlank() } ?: current.title))
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Title updated")) }
+            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
     fun setDescription(current: Task, value: String) = scope.launch {
         updateTask(current.copy(description = value.ifBlank { null }))
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Description updated")) }
+            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
     fun setDueDate(current: Task, date: kotlinx.datetime.LocalDate?) = scope.launch {
         updateTask(current.copy(dueDate = date))
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Date updated")) }
+            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
     fun setDueTime(current: Task, time: String?) = scope.launch {
         updateTask(current.copy(dueTime = time?.takeIf { it.isNotBlank() }))
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Time updated")) }
+            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
     fun setPriority(current: Task, priority: TaskPriority) = scope.launch {
         updateTask(current.copy(priority = priority))
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Priority updated")) }
+            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
     fun setProject(current: Task, projectId: ProjectId?) = scope.launch {
         updateTask(current.copy(projectId = projectId))
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Project updated")) }
+            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
     fun setPinned(current: Task, pinned: Boolean) = scope.launch {
         updateTask(current.copy(isPinned = pinned))
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved(if (pinned) "Task pinned" else "Task unpinned")) }
+            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
@@ -245,14 +253,14 @@ class TaskDetailViewModel(
 
     fun setTags(current: Task, tagIds: List<TagId>) = scope.launch {
         updateTask(current.copy(tags = tagIds))
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Tags updated")) }
+            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
     fun removeTag(current: Task, tagId: TagId) = scope.launch {
         val newTags = current.tags - tagId
         updateTask(current.copy(tags = newTags))
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Tag removed")) }
+            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
@@ -295,13 +303,11 @@ class TaskDetailViewModel(
             recurringPattern = null,
         )
         reminderRepo.upsert(reminder)
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Reminder set")) }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Failed to set reminder")) }
     }
 
     fun deleteReminder(current: Task) = scope.launch {
         reminderRepo.deleteByTask(current.id, currentUser.current)
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Reminder removed")) }
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Failed to remove reminder")) }
     }
 
