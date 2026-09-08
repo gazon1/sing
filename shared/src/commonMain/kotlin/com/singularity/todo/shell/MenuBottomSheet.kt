@@ -117,6 +117,11 @@ private val MenuSections: List<MenuSection> = listOf(
         title = "Account",
         items = listOf(
             MenuItem(label = "Profile & sync", destination = AppDestination.Settings),
+            MenuItem(
+                label = AppDestination.ProfileSwitcher.title,
+                destination = AppDestination.ProfileSwitcher,
+                icon = AppDestination.ProfileSwitcher.icon,
+            ),
         ),
     ),
     MenuSection(
