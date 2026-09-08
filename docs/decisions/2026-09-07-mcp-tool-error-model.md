@@ -20,50 +20,74 @@ MCP-сервер должен возвращать ошибки в формат�
 
 **Two-tier error model:**
 
-**Tier 1 — Business errors** (agent-readable, `isError: true` в JSON-RPC `tool result`):
+**Tier 1 — Business errors** (agent-readable, returned as `CallToolResult(isError = true)`):
 ```kotlin
-sealed class McpToolError {
-    data class Validation(val field: String, val message: String)    // -42001
-    data class NotFound(val entity: String, val id: String)          // -42002
-    data class Conflict(val entity: String, val id: String, val reason: String) // -42003
-    data class Unauthorized(val reason: String)                       // -42004
-    data class Forbidden(val reason: String)                         // -42005
-    data class ValidationResult(val errors: List<FieldError>)       // -42006, many errors
+// mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/McpToolError.kt
+sealed interface McpToolError {
+    data class Validation(val field: String, val message: String) : McpToolError
+    data class NotFound(val resource: String, val id: String) : McpToolError
+    data class Conflict(val reason: String) : McpToolError
+    data class Unauthorized(val resource: String) : McpToolError
 }
 ```
 
-**Tier 2 — Internal errors** (agent should stop and report, `-32603`):
+The case classes contain exactly the fields the agent needs to self-correct: which field failed, which resource was missing, what the duplicate was about, or which resource is off-limits.
+
+**Tier 2 — Internal errors** (agent should stop and report, JSON-RPC `-32603`):
 ```kotlin
-data class InternalError(val cause: String, val stackTrace: String? = null)
+sealed interface McpToolError {
+    data class Internal(val message: String, val cause: Throwable? = null) : McpToolError
+}
 ```
 
-**Error mapper** — преобразует Result<T> в JSON-RPC response:
+**Error mapper** — maps the sealed `McpToolError` to a `CallToolResult` or throws:
 ```kotlin
+// mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/ErrorMapper.kt
 object ErrorMapper {
-    fun toJsonRpcError(result: Result<*>): JsonRpcError {
-        return when (val e = result.exceptionOrNull()) {
-            is McpToolError.Validation     -> JsonRpcError(-42001, "Validation failed: ${e.message}", e.toMap())
-            is McpToolError.NotFound       -> JsonRpcError(-42002, "${e.entity} not found: ${e.id}", e.toMap())
-            is McpToolError.Conflict       -> JsonRpcError(-42003, "Conflict: ${e.reason}", e.toMap())
-            is McpToolError.Unauthorized   -> JsonRpcError(-42004, e.reason, e.toMap())
-            is McpToolError.Forbidden      -> JsonRpcError(-42005, e.reason, e.toMap())
-            is McpToolError.ValidationResult -> JsonRpcError(-42006, "Validation failed", e.toMap())
-            is McpToolError.Internal      -> JsonRpcError(-32603, "Internal error", e.toMap())
-            else -> JsonRpcError(-32603, "Unknown error", null)
+    private const val INTERNAL_ERROR_CODE = -32603
+
+    fun toResult(error: McpToolError): CallToolResult {
+        return when (error) {
+            is McpToolError.Internal -> throw McpException(
+                code = INTERNAL_ERROR_CODE,
+                message = error.format(),
+                data = JsonNull,
+                cause = error.cause,
+            )
+            is McpToolError.Validation,
+            is McpToolError.NotFound,
+            is McpToolError.Conflict,
+            is McpToolError.Unauthorized -> CallToolResult(
+                content = listOf(TextContent(text = error.format())),
+                isError = true,
+            )
         }
     }
 }
 ```
 
-**MCP JSON-RPC response for tools:**
+**MCP tool result for business errors** (Tier 1):
 ```json
 {
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
+    "isError": true,
     "content": [
-      { "type": "text", "text": "{\"isError\": true, \"error\": {\"code\": -42002, \"entity\": \"Task\", \"id\": \"t123\"}}" }
+      { "type": "text", "text": "[NotFound] Task 't123' not found" }
     ]
+  }
+}
+```
+
+**MCP error response for internal errors** (Tier 2):
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32603,
+    "message": "[InternalError] <human-readable>"
   }
 }
 ```
@@ -72,15 +96,16 @@ object ErrorMapper {
 
 - **Business errors как `isError: true`** — агенты могут retry или fallback для 4xx
 - **Internal errors как `-32603`** — стандарт JSON-RPC, агенты останавливаются и репортают
-- **Negative codes <-32000** — зарезервированы для tool errors, не конфликтуют с std JSON-RPC codes
-- **Error data в `content[0].text`** — MCP tool result всегда `text`, error details сериализуются в JSON
+- **Tier 1 маппится на `CallToolResult` с `isError = true`** — это родная механика MCP SDK, не требует кастомного JSON-RPC error object
+- **Tier 2 (Internal) бросает `McpException`** — SDK сериализует его в JSON-RPC error response автоматически
+- **Tagged strings `[NotFound]`, `[Validation]`, ...** в `TextContent.text` — дают агенту моментальный grep-signal без парсинга JSON
 
 ## Consequences
 
-- `McpToolError.kt` в `feature/ai/mcp/errors/`
-- `ErrorMapper.kt` преобразует `Result<T>` в `JsonRpcError`
-- Все write-tools используют `Result<T>` и `mapCatching` для internal errors
-- AI-агент парсит `isError: true` из result text для business errors
+- `McpToolError.kt` в `mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/`
+- `ErrorMapper.kt` маппит `McpToolError` в `CallToolResult` или бросает `McpException`
+- Все write-tools используют `Result<T>` + `mapCatching` для differentiation `Internal` от `Validation`/etc.
+- AI-агент парсит `isError: true` из `result` для business errors и ловит `-32603` из `error` для internal
 
 ## Links
 

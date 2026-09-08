@@ -102,9 +102,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `coroutines`
 
+- `./gradlew :mcp-server:test` now includes a regression test (`McpServerEndToEndTest.server_blocks_until_stdin_closes`) that asserts `process.isAlive` after 3s of empty stdin. If anyone removes the blocking primitive, this test fails. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - `koinBridge` is for one-shot startup reads only — **not for** hot-path code, **not for** long-running operations. _(from `2026-09-05-koin-suspend-bridge`)_
+- MCP client (ZCode CLI) now sees the `initialize` roundtrip succeed and can list/call tools. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- Process exit semantics change from "instant" to "on stdin EOF or session error". A passing test asserts the process stays alive ≥3s with empty stdin. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - **Raw `runBlocking` в модулях** — не допускается, `koinBridge` как единая точка входа _(from `2026-09-06-koin-bridge-audit`)_
+- `Runtime.getRuntime().addShutdownHook { server.close() }` becomes redundant for normal EOF exits — `onClose → done.complete() → done.join() returns → runBlocking exits → JVM exits cleanly`. We keep the shutdown hook only as a backstop for SIGTERM. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - **`singleOf` для репозиториев** — architectural limitation; сложные конструкторы не поддерживают constructor-reference форму _(from `2026-09-06-koin-bridge-audit`)_
+- The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - When the script's grep is broken (a stray `runBlocking` appears), fix it immediately; the helper exists specifically so this is detectable. _(from `2026-09-05-koin-suspend-bridge`)_
 - **Правило подтверждено:** `koinBridge` только для one-shot startup suspend reads _(from `2026-09-06-koin-bridge-audit`)_
 
@@ -179,10 +184,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `error-handling`
 
-- AI-агент парсит `isError: true` из result text для business errors _(from `2026-09-07-mcp-tool-error-model`)_
-- `ErrorMapper.kt` преобразует `Result<T>` в `JsonRpcError` _(from `2026-09-07-mcp-tool-error-model`)_
-- `McpToolError.kt` в `feature/ai/mcp/errors/` _(from `2026-09-07-mcp-tool-error-model`)_
-- Все write-tools используют `Result<T>` и `mapCatching` для internal errors _(from `2026-09-07-mcp-tool-error-model`)_
+- AI-агент парсит `isError: true` из `result` для business errors и ловит `-32603` из `error` для internal _(from `2026-09-07-mcp-tool-error-model`)_
+- `ErrorMapper.kt` маппит `McpToolError` в `CallToolResult` или бросает `McpException` _(from `2026-09-07-mcp-tool-error-model`)_
+- `McpToolError.kt` в `mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/` _(from `2026-09-07-mcp-tool-error-model`)_
+- Все write-tools используют `Result<T>` + `mapCatching` для differentiation `Internal` от `Validation`/etc. _(from `2026-09-07-mcp-tool-error-model`)_
 
 ### `events`
 
@@ -207,10 +212,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `json-rpc`
 
-- AI-агент парсит `isError: true` из result text для business errors _(from `2026-09-07-mcp-tool-error-model`)_
-- `ErrorMapper.kt` преобразует `Result<T>` в `JsonRpcError` _(from `2026-09-07-mcp-tool-error-model`)_
-- `McpToolError.kt` в `feature/ai/mcp/errors/` _(from `2026-09-07-mcp-tool-error-model`)_
-- Все write-tools используют `Result<T>` и `mapCatching` для internal errors _(from `2026-09-07-mcp-tool-error-model`)_
+- AI-агент парсит `isError: true` из `result` для business errors и ловит `-32603` из `error` для internal _(from `2026-09-07-mcp-tool-error-model`)_
+- `ErrorMapper.kt` маппит `McpToolError` в `CallToolResult` или бросает `McpException` _(from `2026-09-07-mcp-tool-error-model`)_
+- `McpToolError.kt` в `mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/` _(from `2026-09-07-mcp-tool-error-model`)_
+- Все write-tools используют `Result<T>` + `mapCatching` для differentiation `Internal` от `Validation`/etc. _(from `2026-09-07-mcp-tool-error-model`)_
 
 ### `kermit`
 
@@ -293,6 +298,22 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Все token usage пишется в `llm_usage` с `profile_id=ai-agent` _(from `2026-09-07-dogfooding-mcp-server`)_
 - Новый Gradle-модуль `:mcp-server` с dependency на shared _(from `2026-09-07-dogfooding-mcp-server`)_
 
+### `kotlin-sdk`
+
+- `./gradlew :mcp-server:test` now includes a regression test (`McpServerEndToEndTest.server_blocks_until_stdin_closes`) that asserts `process.isAlive` after 3s of empty stdin. If anyone removes the blocking primitive, this test fails. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- MCP client (ZCode CLI) now sees the `initialize` roundtrip succeed and can list/call tools. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- Process exit semantics change from "instant" to "on stdin EOF or session error". A passing test asserts the process stays alive ≥3s with empty stdin. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- `Runtime.getRuntime().addShutdownHook { server.close() }` becomes redundant for normal EOF exits — `onClose → done.complete() → done.join() returns → runBlocking exits → JVM exits cleanly`. We keep the shutdown hook only as a backstop for SIGTERM. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+
+### `lifecycle`
+
+- `./gradlew :mcp-server:test` now includes a regression test (`McpServerEndToEndTest.server_blocks_until_stdin_closes`) that asserts `process.isAlive` after 3s of empty stdin. If anyone removes the blocking primitive, this test fails. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- MCP client (ZCode CLI) now sees the `initialize` roundtrip succeed and can list/call tools. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- Process exit semantics change from "instant" to "on stdin EOF or session error". A passing test asserts the process stays alive ≥3s with empty stdin. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- `Runtime.getRuntime().addShutdownHook { server.close() }` becomes redundant for normal EOF exits — `onClose → done.complete() → done.join() returns → runBlocking exits → JVM exits cleanly`. We keep the shutdown hook only as a backstop for SIGTERM. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+
 ### `llm-usage`
 
 - 4 ADR entries created + DIGEST.md refreshed _(from `2026-09-07-multi-profile-and-usage-tracking`)_
@@ -312,18 +333,23 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `mcp`
 
-- AI-агент парсит `isError: true` из result text для business errors _(from `2026-09-07-mcp-tool-error-model`)_
+- AI-агент парсит `isError: true` из `result` для business errors и ловит `-32603` из `error` для internal _(from `2026-09-07-mcp-tool-error-model`)_
 - AI-агенты получают нативный доступ к данным без UI _(from `2026-09-07-dogfooding-mcp-server`)_
 - Auto-migration v9 добавляет unique index на `(idempotency_key, user_id)` where not null _(from `2026-09-07-write-tools-in-koog-registry`)_
 - Dogfooding-профиль "AI Agent" (🤖) изолирует агентские задачи от пользовательских _(from `2026-09-07-dogfooding-mcp-server`)_
-- `ErrorMapper.kt` преобразует `Result<T>` в `JsonRpcError` _(from `2026-09-07-mcp-tool-error-model`)_
-- `McpToolError.kt` в `feature/ai/mcp/errors/` _(from `2026-09-07-mcp-tool-error-model`)_
+- `ErrorMapper.kt` маппит `McpToolError` в `CallToolResult` или бросает `McpException` _(from `2026-09-07-mcp-tool-error-model`)_
+- `./gradlew :mcp-server:test` now includes a regression test (`McpServerEndToEndTest.server_blocks_until_stdin_closes`) that asserts `process.isAlive` after 3s of empty stdin. If anyone removes the blocking primitive, this test fails. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- MCP client (ZCode CLI) now sees the `initialize` roundtrip succeed and can list/call tools. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- `McpToolError.kt` в `mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/` _(from `2026-09-07-mcp-tool-error-model`)_
+- Process exit semantics change from "instant" to "on stdin EOF or session error". A passing test asserts the process stays alive ≥3s with empty stdin. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- `Runtime.getRuntime().addShutdownHook { server.close() }` becomes redundant for normal EOF exits — `onClose → done.complete() → done.join() returns → runBlocking exits → JVM exits cleanly`. We keep the shutdown hook only as a backstop for SIGTERM. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - `TaskEntity` получает `@ColumnInfo("idempotency_key") val idempotencyKey: String?` _(from `2026-09-07-write-tools-in-koog-registry`)_
 - `TaskRepository` получает `findByIdempotencyKey(key, userId)` метод _(from `2026-09-07-write-tools-in-koog-registry`)_
+- The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - ZCode подключается через `mcpServers.singularity-todo` в настройках _(from `2026-09-07-dogfooding-mcp-server`)_
 - Все 17+ tools следуют этому контракту _(from `2026-09-07-write-tools-in-koog-registry`)_
 - Все token usage пишется в `llm_usage` с `profile_id=ai-agent` _(from `2026-09-07-dogfooding-mcp-server`)_
-- Все write-tools используют `Result<T>` и `mapCatching` для internal errors _(from `2026-09-07-mcp-tool-error-model`)_
+- Все write-tools используют `Result<T>` + `mapCatching` для differentiation `Internal` от `Validation`/etc. _(from `2026-09-07-mcp-tool-error-model`)_
 - Новый Gradle-модуль `:mcp-server` с dependency на shared _(from `2026-09-07-dogfooding-mcp-server`)_
 
 ### `multi-profile`
@@ -439,6 +465,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`NavDestination` (drawer enum)** remains for the desktop drawer's grouping by `NavGroup` — not removed, just no longer wired to mobile. _(from `2026-09-05-android-bottom-nav`)_
 - **Per-tab backstacks** work as expected: open TaskDetail on Today, switch to Plans, switch back to Today → TaskDetail is restored. _(from `2026-09-05-android-bottom-nav`)_
 - **`TasksScreen`** unchanged — it already takes `onNavigateToTask` / `onNavigateToCreateTask` callbacks; the per-tab sub-navigation state now lives in `TasksRoute` inside `AppNavHost` via `rememberSaveable`. _(from `2026-09-05-android-bottom-nav`)_
+
+### `stdio`
+
+- `./gradlew :mcp-server:test` now includes a regression test (`McpServerEndToEndTest.server_blocks_until_stdin_closes`) that asserts `process.isAlive` after 3s of empty stdin. If anyone removes the blocking primitive, this test fails. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- MCP client (ZCode CLI) now sees the `initialize` roundtrip succeed and can list/call tools. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- Process exit semantics change from "instant" to "on stdin EOF or session error". A passing test asserts the process stays alive ≥3s with empty stdin. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- `Runtime.getRuntime().addShutdownHook { server.close() }` becomes redundant for normal EOF exits — `onClose → done.complete() → done.join() returns → runBlocking exits → JVM exits cleanly`. We keep the shutdown hook only as a backstop for SIGTERM. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+- The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 
 ### `testing`
 
@@ -590,8 +624,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-06-koin-bridge-audit` — koin  di  coroutines
 - `2026-09-06-koin-vm-viewmodelof-koinviewmodel` — koin  di  vm
 - `2026-09-07-backup-directory-via-koin-string` — koin  di  backup  platform-module
+- `2026-09-07-dogfooding-followups` — dogfooding  followups  technical-debt
 - `2026-09-07-dogfooding-mcp-server` — mcp  dogfooding  koog  agent
 - `2026-09-07-fab-chrome-level` — ui  navigation  architecture
+- `2026-09-07-mcp-stdio-blocking-lifecycle` — mcp  kotlin-sdk  stdio  coroutines  lifecycle
 - `2026-09-07-mcp-tool-error-model` — mcp  error-handling  json-rpc
 - `2026-09-07-multi-profile-and-usage-tracking` — multi-profile  llm-usage  observability  dogfooding
 - `2026-09-07-note-editor-body-load` — notes  room  rich-editor  di-graph
@@ -625,8 +661,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-06-koin-vm-viewmodelof-koinviewmodel` — ViewModel DI: viewModelOf + koinViewModel() instead of factory + koinInject()
 - `2026-09-06-modular-justfile` — Modular justfile with .just/ submodules
 - `2026-09-07-backup-directory-via-koin-string` — Delete throwing backupDirectoryPath; resolve backup directory via Koin get<String>()
+- `2026-09-07-dogfooding-followups` — Dogfooding follow-ups — observed during implementation
 - `2026-09-07-dogfooding-mcp-server` — Dogfooding MCP Server — ZCode Agent управляет задачами через stdio
 - `2026-09-07-fab-chrome-level` — FAB at chrome level — single source of truth in shells
+- `2026-09-07-mcp-stdio-blocking-lifecycle` — MCP stdio server blocking lifecycle — session.onClose + Job.join
 - `2026-09-07-mcp-tool-error-model` — MCP Tool Error Model — two-tier, JSON-RPC compatible
 - `2026-09-07-multi-profile-and-usage-tracking` — Multi-Profile and LLM Usage Tracking
 - `2026-09-07-note-editor-body-load` — NoteEditor body load — store HTML directly, fix RichTextState init

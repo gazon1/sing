@@ -67,61 +67,53 @@ dependencies {
 package com.singularity.todo.mcp
 
 import com.singularity.todo.core.di.domainModule
-import com.singularity.todo.core.di.platformModule
-import io.modelcontextprotocol.kotlin.sdk.Server
-import io.modelcontextprotocol.kotlin.sdk.ServerOptions
-import io.modelcontextprotocol.kotlin.sdk.server.ServerCapabilities
-import io.modelcontextprotocol.kotlin.sdk.server.stdio.StdioServerTransport
+import io.modelcontextprotocol.kotlin.sdk.server.Server
+import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
+import io.modelcontextprotocol.kotlin.sdk.server.StdioServerTransport
+import io.modelcontextprotocol.kotlin.sdk.types.Implementation
+import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
-import org.koin.core.context.startKoin
-import org.koin.core.context.stopKoin
 
 fun main(args: Array<String>): Unit = runBlocking {
-    // 1. Parse --profile=NAME argument (see singularity-todo-multi-profile)
     val profileId = args.parseProfileArg()
+    if (!bootstrapKoin(profileId)) return@runBlocking
+    if (!verifyDatabase()) return@runBlocking
 
-    // 2. Bootstrap Koin — same domainModule as Android/Desktop
-    startKoin {
-        modules(platformModule(profileId), domainModule(profileId))
-    }
+    System.err.println("singularity-todo MCP server started")
 
-    // 3. Build MCP server
-    val server = Server(
-        serverInfo = ServerInfo(name = "singularity-todo", version = "0.1.0"),
-        options = ServerOptions(
-            capabilities = ServerCapabilities(
-                tools = ServerCapabilities.Tools(
-                    listChanged = true   // allow dynamic tool list updates
-                )
-            )
-        )
+    val server = buildServer()
+    installShutdownHook(server)
+
+    val transport = StdioServerTransport(
+        input = System.`in`.toByteReadChannel().asSource().buffered(),
+        output = System.out.asByteWriteChannel().asSink().buffered(),
     )
 
-    // 4. Register every Koog SimpleTool<T> as an MCP tool
-    ToolRegistrar(server).registerAll()
-
-    // 5. Graceful shutdown — flush WAL, close server
-    Runtime.getRuntime().addShutdownHook(Thread {
-        runBlocking {
-            flushWalCheckpoint()
-            server.close()
-        }
-        stopKoin()
-    })
-
-    // 6. Block on stdio transport — NO println, only System.err for logs
-    server.connect(StdioServerTransport(System.`in`, System.out))
+    // session.onClose + Job.join() is what holds the JVM up.
+    // SDK 0.15.0 — Server.createSession only wires the session and returns;
+    // without an external blocking primitive, main() exits and the
+    // internal reader/processor/writer coroutines die with it.
+    val session = server.createSession(transport)
+    val done = Job()
+    session.onClose { done.complete() }
+    done.join()
 }
 ```
 
 **Critical details:**
-- `addShutdownHook` — without it, SIGINT leaves SQLite WAL uncheckpointed and the next Android open sees stale data.
+- **`session.onClose + Job.join()` is mandatory.** The SDK does not block on its own — this is the canonical pattern from the upstream `samples/weather-stdio-server/.../McpWeatherServer.kt:55-62`. See ADR `2026-09-07-mcp-stdio-blocking-lifecycle` for the full rationale and regression test.
+- `installShutdownHook(server)` — backstop for SIGTERM; normal EOF exits flow through `session.onClose → done.complete() → done.join() returns → JVM exits cleanly`.
 - `runBlocking` at top level is **acceptable** here — this is a CLI main, not a hot path. Same reasoning as `koinBridge` (see ADR `2026-09-05-koin-suspend-bridge`).
 - `System.in` / `System.out` — stdio transport. **Never** `println` for logs (corrupts the JSON-RPC stream). Use `System.err` or kermit Logger.
 
 ## ToolRegistrar — Koog → MCP Adapter
 
-Each Koog `SimpleTool<T>` becomes one MCP tool. The adapter handles JSON decode/encode so the LLM sees a clean JSON-Schema input.
+Each Koog `Tool<*, *>` bean (resolved from Koin's `aiToolsCoreModule()`) becomes one MCP tool. The adapter is split across two files:
+
+- `ToolRegistrar.kt` — registration loop and per-call handler.
+- `schema/KoogJsonSchemaBuilder.kt` — `ToolDescriptor` → MCP `ToolSchema` (JSON Schema 2020-12).
+- `schema/KoogJsonElementAdapter.kt` — bridges kotlinx-serialization `JsonElement` ↔ Koog `JSONElement` via `JsonElement.toKoog()`.
 
 ```kotlin
 // mcp-server/src/main/kotlin/com/singularity/todo/mcp/ToolRegistrar.kt
@@ -129,45 +121,66 @@ package com.singularity.todo.mcp
 
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.Tool
-import io.modelcontextprotocol.kotlin.sdk.*
-import io.modelcontextprotocol.kotlin.sdk.schema.*
-import kotlinx.serialization.KSerializer
+import ai.koog.serialization.kotlinx.KotlinxSerializer
+import com.singularity.todo.mcp.schema.KoogJsonSchemaBuilder
+import com.singularity.todo.mcp.schema.toKoog
+import io.modelcontextprotocol.kotlin.sdk.server.Server
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequest
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
+import io.modelcontextprotocol.kotlin.sdk.types.TaskSupport
+import io.modelcontextprotocol.kotlin.sdk.types.TextContent
+import io.modelcontextprotocol.kotlin.sdk.types.ToolExecution
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.serializer
+import kotlinx.serialization.json.JsonObject
 import org.koin.core.context.GlobalContext
-import kotlin.reflect.typeOf
 
 class ToolRegistrar(private val server: Server) {
 
     private val koin = GlobalContext.get()
-    // All Tool<*, *> beans from aiToolsCoreModule()
+    @Suppress("UNCHECKED_CAST")
     private val tools: List<Tool<*, *>> = koin.get()
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val serializer = KotlinxSerializer(json)
 
     fun registerAll() {
-        tools.forEach { tool -> registerOne(tool) }
+        tools.forEach { registerOne(it) }
+    }
+
+    private fun registerOne(tool: Tool<*, *>) {
+        val descriptor = tool.descriptor
+        server.addTool(
+            name = descriptor.name,
+            description = descriptor.description,
+            inputSchema = KoogJsonSchemaBuilder.build(descriptor),
+            outputSchema = "",
+            toolSchema = KoogJsonSchemaBuilder.build(descriptor), // output schema, kept identical
+            annotations = TOOL_ANNOTATIONS[descriptor.name]?.toMcpAnnotations(),
+            toolExecution = ToolExecution(TaskSupport.Optional),
+            output = JsonObject(emptyMap()),
+        ) { request: CallToolRequest -> handleToolCall(tool, request) }
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun registerOne(tool: Tool<*, *>) {
-        val name = tool.name
-        val description = tool.description
-        // Koog TypeToken → JSON Schema 2020-12
-        val inputSchema = tool.inputSchema.toJsonSchema()
-
-        server.addTool(
-            name = name,
-            description = description,
-            inputSchema = inputSchema,
-            annotations = tool.annotations  // readOnlyHint, destructiveHint, idempotentHint
-        ) { request: CallToolRequest ->
-            val input = json.decodeFromJsonElement(tool.inputSerializer, request.arguments)
+    private fun handleToolCall(tool: Tool<*, *>, request: CallToolRequest): CallToolResult {
+        val koogArgs = ai.koog.serialization.JSONObject(
+            request.arguments?.mapValues { (_, v) -> v.toKoog() } ?: emptyMap()
+        )
+        return try {
             val koogTool = tool as SimpleTool<Any>
-            val result = runBlocking { koogTool.execute(input) }
+            val args: Any = koogTool.decodeArgs(koogArgs, serializer)
+            val resultString: String = runBlocking { koogTool.execute(args) }
             CallToolResult(
-                content = listOf(TextContent(text = result)),
-                structuredContent = json.decodeFromString<JsonElement>(result),
+                content = listOf(TextContent(text = resultString)),
+                structuredContent = runCatching {
+                    json.parseToJsonElement(resultString).let { it as? kotlinx.serialization.json.JsonObject }
+                }.getOrNull(),
                 isError = false,
+            )
+        } catch (e: Exception) {
+            CallToolResult(
+                content = listOf(TextContent(text = "[InternalError] ${e.message ?: "unknown"}")),
+                isError = true,
             )
         }
     }
@@ -175,9 +188,9 @@ class ToolRegistrar(private val server: Server) {
 ```
 
 **Critical:**
-- `tool.inputSerializer` — Koog exposes `TypeToken` which has `.javaType`. Use `json.serializersModule.serializer(tool.inputSerializer.javaType)`.
+- The 9-argument `Server.addTool` overload is positional; missing the `outputSchema` string parameter is a common typo.
 - The result `String` is already JSON-encoded by the existing Koog tool (see `singularity-todo-ai-tool`). Forward it as-is inside `TextContent`.
-- `structuredContent` — pass the decoded JSON element so clients can access typed fields.
+- `structuredContent` — attempt to parse the result; fall back to `null` if the tool did not return valid JSON.
 
 ## Two-Tier Error Model
 
