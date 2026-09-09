@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-rich-editor
-description: Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. Use when adding or modifying the notes editor, markdown toolbar, EditorAction sealed interface, EditorToolbar, sticky bottom toolbar pattern, or Markdown shortcut detection. Covers RichTextState, SpanStyle, HeadingStyle, debounced autosave, EditorSession hoisting, InternalLinkPickerSheet, wikilink round-trip, and the dual-scope coroutine strategy for NotesViewModel.
+description: Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. Use when adding or modifying the notes editor, markdown toolbar, EditorAction sealed interface, EditorToolbar, sticky bottom toolbar pattern, EditorSession hoisting, wikilink insertion, wikilink extraction from HTML, or markdown-to-HTML serialization via RichTextState.
 ---
 
 # Skill: Rich-Text Editor for Notes (WYSIWYG)
@@ -13,9 +13,9 @@ Use when implementing or modifying the rich-text editor in `feature/notes/`. Thi
 - `EditorSession` — the hoisting pattern for sharing `RichTextState` between toolbar and body
 - Internal link picker (Obsidian-style `[[Note Title]]` / `[[Task Title]]`)
 - External URL link dialog (`LinkUrlDialog`)
-- Backlinks panel (`BacklinksSheet`)
-- Wiki-link round-trip in `RichEditorMarkdownHtmlPort`
-- Markdown shortcut auto-detection (Phase 5)
+- Wikilink insertion via `addLinkToSelection`
+- Wikilink extraction via `extractOutgoingLinks` (HTML regex)
+- `RichTextState.toMarkdown()` / `setHtml()` for markdown round-trip (built-in, no port needed)
 - Debounced autosave with `AutosaveScheduler`
 
 ## Architecture Overview
@@ -23,29 +23,39 @@ Use when implementing or modifying the rich-text editor in `feature/notes/`. Thi
 ```
 feature/notes/
 ├── NoteEditorScreen.kt          # Screen composable, EditorSession, EditorTitleAndBody
-├── NoteEditorScreen.kt          # LinkUrlDialog, BacklinksSheet, MetaChipsRow
-├── EditorAction.kt              # sealed interface for toolbar actions
-├── Ids.kt                      # NoteId, Note, NoteColor
-├── NotesViewModel.kt            # Single VM: list + editor state + debounced autosave
-├── NotesUiEvent.kt              # Per-feature sealed UiEvent
-├── ComposingMarkdownHtmlPort.kt # toHtml/toMarkdown + wikilink round-trip
-├── MarkdownHtmlPort.kt          # Fun interface: toHtml / toMarkdown
+├── NoteEditor.kt                # NoteEditor VM: editor state, autosave, persist()
+├── NotePreview.kt               # NotePreview VM: read-only view
+├── NotePreviewScreen.kt         # Read-only screen: RichText + backlinks + BottomAppBar
+├── NotesListViewModel.kt         # List VM: filter, sort, multi-select, quick-add
+├── NotesScreen.kt               # List screen with QuickAddRow + NotesEmptyState
+├── EditorSession.kt            # Top-level class: RichTextState + title + dispatch
+├── EditorAction.kt             # sealed interface for toolbar actions
+├── Ids.kt                      # NoteId, Note, NoteColor, LinkResult, LinkKind
+├── LinkResult.kt               # Generic link picker result (LinkRef sealed interface)
+├── OutgoingLinksExtractor.kt   # extractOutgoingLinks(html): List<LinkRef> via HTML regex
+├── NoteFormatters.kt           # extractPreviewText, formatNoteAiResult
+├── NotesUiEvent.kt             # Per-feature sealed UiEvent
+├── NotesDiModule.kt            # DI: 3 VMs + 2 repositories
 └── components/
-    └── EditorToolbar.kt        # Sticky bottom toolbar with overflow menu
+    ├── EditorToolbar.kt        # Sticky bottom toolbar with overflow menu
+    └── InternalLinkPickerSheet.kt  # Generic merged Notes+Tasks picker
 
 core/ui/components/
-└── InternalLinkPickerSheet.kt  # Bottom sheet with Notes/Tasks tabs + search
+└── (no notes-specific components here — see rule below)
 ```
+
+## Rule: `core/` Must Not Import Feature Types
+
+`core/ui/components/` is shared infrastructure. It must **never** import from `feature/notes/` or `feature/tasks/`. If a component needs feature-specific data, pass a generic adapter (e.g. `LinkResult`) from the feature layer.
 
 ## EditorSession Hoisting Pattern
 
 `RichTextState` has no stable equality (uses internal `MutableState`), so it **must** be created via `remember` and stored at the screen level.
 
 ```kotlin
-// NoteEditorScreen.kt
+// EditorSession.kt (top-level class)
 
-/** Holds all mutable editor state for one note-editing session. */
-private class EditorSession(
+class EditorSession(
     val richTextState: RichTextState,
     var titleFieldValue: String,
     private var lastDispatchedHtml: String,
@@ -53,6 +63,13 @@ private class EditorSession(
     private val onBodyChange: (id: String, html: String) -> Unit,
     private val id: String,
 ) {
+    private val insertedLinks = mutableListOf<Pair<IntRange, String>>()
+
+    fun recordLink(url: String) {
+        val sel = richTextState.selection
+        insertedLinks.add(sel.min..<sel.max to url)
+    }
+
     fun dispatchHtml() {
         val html = richTextState.toHtml()
         if (html != lastDispatchedHtml) {
@@ -60,20 +77,23 @@ private class EditorSession(
             onBodyChange(id, html)
         }
     }
+
+    fun notifyFirstLoadSkipped() { firstLoadSkipped = true }
+    val isFirstLoadSkipped: Boolean get() = firstLoadSkipped
 }
 
 @Composable
-private fun rememberEditorSession(
+fun rememberEditorSession(
     state: EditorState.Editing,
     onBodyChange: (id: String, html: String) -> Unit,
 ): EditorSession {
-    // Fresh RichTextState per note — key prevents stale state when switching notes
     val richTextState = remember(state.id) {
         RichTextState().also { it.setHtml(state.html) }
     }
-    val session = remember(state.id) { EditorSession(...) }
-
-    // Dispatch HTML on every text mutation (not just toolbar clicks)
+    val session = remember(state.id) {
+        EditorSession(richTextState, state.title, state.html, false, onBodyChange, state.id)
+    }
+    LaunchedEffect(state.title) { session.titleFieldValue = state.title }
     LaunchedEffect(state.id, richTextState) {
         if (!session.isFirstLoadSkipped) { session.notifyFirstLoadSkipped(); return@LaunchedEffect }
         session.dispatchHtml()
@@ -85,7 +105,7 @@ private fun rememberEditorSession(
 **Why this pattern:**
 - `RichTextState` identity has no `equals()` — `remember` keyed on `state.id` guarantees a fresh state per note
 - `EditorToolbar` (in `Scaffold.bottomBar`) and `EditorTitleAndBody` (in content area) share the same session
-- `LaunchedEffect` over `richTextState.annotatedString` dispatches HTML on every keystroke (not just toolbar clicks)
+- `LaunchedEffect` over `richTextState` dispatches HTML on every keystroke
 
 ## EditorAction Sealed Interface
 
@@ -120,8 +140,6 @@ sealed interface EditorAction {
 Located in `EditorToolbar.kt` — pure helpers, no Compose dependency, unit-testable.
 
 ```kotlin
-// components/EditorToolbar.kt
-
 internal fun RichTextState.apply(action: EditorAction): RichTextState = when (action) {
     EditorAction.Bold        -> apply { toggleSpanStyle(SpanStyle(fontWeight = FontWeight.Bold)) }
     EditorAction.Italic     -> apply { toggleSpanStyle(SpanStyle(fontStyle = FontStyle.Italic)) }
@@ -139,159 +157,123 @@ internal fun RichTextState.apply(action: EditorAction): RichTextState = when (ac
     EditorAction.AlignCenter -> apply { toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center)) }
     EditorAction.AlignRight  -> apply { toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.End)) }
 }
-
-internal fun RichTextState.isActive(action: EditorAction): Boolean = when (action) {
-    EditorAction.Bold        -> currentSpanStyle.fontWeight?.let { it >= FontWeight.Bold } ?: false
-    EditorAction.Italic       -> currentSpanStyle.fontStyle == FontStyle.Italic
-    EditorAction.Underline   -> currentSpanStyle.textDecoration?.contains(TextDecoration.Underline) ?: false
-    EditorAction.Strike       -> currentSpanStyle.textDecoration?.contains(TextDecoration.LineThrough) ?: false
-    EditorAction.Code         -> isCodeSpan
-    EditorAction.H1           -> currentHeadingStyle == HeadingStyle.H1
-    EditorAction.H2           -> currentHeadingStyle == HeadingStyle.H2
-    EditorAction.H3           -> currentHeadingStyle == HeadingStyle.H3
-    EditorAction.Bullet       -> isUnorderedList
-    EditorAction.Ordered      -> isOrderedList
-    EditorAction.Quote        -> false  // no blockquote state
-    EditorAction.ExternalLink  -> isLink
-    EditorAction.InternalLink  -> false
-    EditorAction.AlignLeft    -> currentParagraphStyle.textAlign == TextAlign.Start || currentParagraphStyle.textAlign == TextAlign.Left
-    EditorAction.AlignCenter   -> currentParagraphStyle.textAlign == TextAlign.Center
-    EditorAction.AlignRight   -> currentParagraphStyle.textAlign == TextAlign.End
-}
 ```
 
-## Sticky Bottom Toolbar
+## Internal Link Picker — Generic Merged (PR #3)
 
-Placed in `Scaffold.bottomBar` in `NoteEditorScreenContent`:
-
+**`LinkResult`** (`feature/notes/LinkResult.kt`):
 ```kotlin
-// NoteEditorScreen.kt
-bottomBar = {
-    session?.let { editorSession ->
-        Column {
-            MetaChipsRow(html = editorState.html)
-            EditorToolbar(
-                richTextState = editorSession.richTextState,
-                onHtmlChange = { editorSession.dispatchHtml() },
-                onAiClick = onAiClick,
-                onLinkClick = { linkDialogVisible = true },           // external URL
-                onInternalLinkClick = { internalLinkPickerVisible = true }, // wikilinks
-            )
-        }
-    }
-}
+data class LinkResult(val id: String, val title: String, val kind: LinkKind)
+enum class LinkKind { Note, Task }
 ```
 
-**Toolbar composable signature:**
+**Generic sheet** (`feature/notes/components/InternalLinkPickerSheet.kt`):
 ```kotlin
 @Composable
-fun EditorToolbar(
-    richTextState: RichTextState,
-    onHtmlChange: () -> Unit,
-    onAiClick: () -> Unit,
-    onLinkClick: () -> Unit,
-    onInternalLinkClick: () -> Unit,
-    modifier: Modifier = Modifier,
+fun InternalLinkPickerSheet(
+    queryFlow: MutableStateFlow<String>,
+    onSearch: suspend (String) -> List<LinkResult>,  // caller merges Notes + Tasks
+    onSelected: (LinkResult) -> Unit,
+    onDismiss: () -> Unit,
 )
 ```
 
-**Overflow menu** (`DropdownMenu` via `MoreVert` IconButton) contains: H2, H3, Code, AlignLeft, AlignCenter, AlignRight, ExternalLink, InternalLink.
-
-**Undo/Redo** — `richTextState.history.undo()` / `richTextState.history.redo()` wired to dedicated toolbar buttons (no keyboard shortcuts — `RichTextEditor` lacks `onKeyEvent`).
-
-## Internal Link Picker (Obsidian-style Wikilinks)
-
-Triggered by the **InternalLink** overflow button. Opens `InternalLinkPickerSheet`.
-
-**Link insertion format** (stored as `href` attribute):
-```
-note://{noteId}   → displayed as [[Note Title]]
-task://{taskId}   → displayed as [[Task Title]]
-```
-
+**NoteEditorScreen wiring:**
 ```kotlin
-// In NoteEditorScreenContent:
+val linkQueryFlow = remember { MutableStateFlow("") }
 InternalLinkPickerSheet(
-    onNoteSelected = { noteId, title ->
-        session?.richTextState?.addLinkToSelection(url = "note://$noteId")
-        session?.dispatchHtml()
+    queryFlow = linkQueryFlow,
+    onSearch = { q ->
+        val notes = linkRepo.searchNotes(currentUser.scopedUserId.value, q)
+            .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
+        val tasks = linkRepo.searchTasks(q)
+            .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
+        notes + tasks  // merged
     },
-    onTaskSelected = { taskId, title ->
-        session?.richTextState?.addLinkToSelection(url = "task://$taskId")
+    onSelected = { result ->
+        val url = when (result.kind) {
+            LinkKind.Note -> "note://${result.id}"
+            LinkKind.Task -> "task://${result.id}"
+        }
+        session?.richTextState?.addLinkToSelection(url = url)
+        session?.recordLink(url)
         session?.dispatchHtml()
+        linkQueryFlow.value = ""
     },
-    onDismiss = { internalLinkPickerVisible = false },
+    onDismiss = { internalLinkPickerVisible = false; linkQueryFlow.value = "" },
 )
 ```
 
-**`InternalLinkPickerSheet`** (`core/ui/components/InternalLinkPickerSheet.kt`):
-- Material3 `ModalBottomSheet` via `TaskEditorSheetHost`
-- `TabRow` with Notes / Tasks tabs
-- `OutlinedTextField` with debounced 250ms search
-- `LazyColumn` of `ListItem` results
-- Queries via `InternalLinkRepository`
+## Wikilink Extraction from HTML (PR #2)
 
-**`InternalLinkRepository`** (`feature/search/InternalLinkRepository.kt`):
+`RichTextState` paragraph tree (`RichParagraph.children`) is `internal`. Walking it from outside the library is impossible. Instead, parse the HTML output.
+
+**`OutgoingLinksExtractor.kt`** (pure function):
 ```kotlin
-interface InternalLinkRepository {
-    suspend fun searchNotes(userId: UserId, query: String): List<Note>
-    suspend fun searchTasks(query: String): List<Task>
-    suspend fun getBacklinkNotes(noteId: String): List<Note>
-}
-```
-
-**DI registration** in `NotesDiModule.kt`:
-```kotlin
-single<InternalLinkRepository> { InternalLinkRepositoryImpl(get(), get()) }
-```
-
-## Wiki-link Round-trip
-
-In `ComposingMarkdownHtmlPort.kt`:
-
-**toHtml** — `[[Title]]` → `<a href="note://URL-encoded-title">Title</a>`:
-```kotlin
-text.startsWith("[[", i) -> {
-    val end = text.indexOf("]]", i + 2)
-    if (end != -1) {
-        val title = text.substring(i + 2, end)
-        val encoded = URLEncoder.encode(title, "UTF-8")
-        append("<a href=\"note://").append(encoded).append("\">").append(title).append("</a>")
-        i = end + 2
+internal fun extractOutgoingLinks(html: String): List<LinkRef> {
+    val seen = mutableSetOf<LinkRef>()
+    val regex = Regex("""<a\s[^>]*href="(note://[^"]+)""")
+    for (match in regex.findAll(html)) {
+        val url = match.groupValues[1]
+        when {
+            url.startsWith("note://") -> seen.add(LinkRef.Note(...))
+            url.startsWith("task://") -> seen.add(LinkRef.Task(...))
+        }
     }
+    return seen.toList()
+}
+
+sealed interface LinkRef {
+    data class Note(val noteId: String) : LinkRef
+    data class Task(val taskId: String) : LinkRef
 }
 ```
 
-**toMarkdown** — reverse:
+**Wired in `NoteEditor.persist()`** (called on every save):
 ```kotlin
-val noteLinkRegex = Regex("""<a href="note://([^"]+)">([^<]+)</a>""")
-noteLinkRegex.replace(text) { m ->
-    val title = URLDecoder.decode(m.groupValues[1], "UTF-8")
-    "[[${m.groupValues[2]}]]"  // preserves display text, not encoded title
+private suspend fun persist(html: String, title: String, id: String, navigateBack: Boolean) {
+    repo.updateContent(...).getOrThrow()
+    val outgoingLinks = extractOutgoingLinks(html).map { link ->
+        when (link) {
+            is LinkRef.Note -> "note://${link.noteId}"
+            is LinkRef.Task -> "task://${link.taskId}"
+        }
+    }
+    repo.setOutgoingLinks(NoteId.fromString(id), outgoingLinks).getOrThrow()
+    // ...
 }
 ```
 
-## Backlinks Panel
+## Markdown Round-trip (Built-in, No Port)
 
-Opens via the **undo icon** (↩) in the top app bar. Shows notes that link TO the current note.
+`RichTextState` from `richeditor-compose:1.2.0` has built-in markdown support:
 
 ```kotlin
-BacklinksSheet(
-    noteId = editorState.id,
-    onNoteSelected = { noteId ->
-        backlinksSheetVisible = false
-        onNavigateToNote(noteId)
-    },
-    onDismiss = { backlinksSheetVisible = false },
-)
+// Serialize (editor → markdown for CLI/MCP tools)
+val markdown = RichTextState().apply { setHtml(html) }.toMarkdown()
+
+// Deserialize (legacy note: markdown → HTML for editor)
+val html = RichTextState().apply { setMarkdown(markdown) }.toHtml()
 ```
 
-**Query** (`NoteDao.getBacklinkNotes`):
-```sql
-SELECT * FROM notes WHERE deleted_at IS NULL AND outgoing_links LIKE '%note://' || :noteId || '%'
+**`MarkdownHtmlPort` interface and `ComposingMarkdownHtmlPort` are deleted** — the library handles this natively.
+
+For `CreateNoteTool` (MCP/CLI): use `RichTextState().apply { setMarkdown(args.bodyMarkdown) }.toHtml()` inline.
+
+## NotePreview — Read-only View (PR #1)
+
+Uses `RichText(state)` composable (NOT `RichTextEditor`) for read-only display.
+
+```kotlin
+NotePreviewScreen.kt:
+- Scaffold + TopAppBar: back, backlinks button, overflow
+- Hero: large title, relative timestamp, wordCount chip
+- Body: RichText(state = richTextState)  // read-only
+- BottomAppBar: Edit | Backlinks(count) | Delete
+- BacklinksSheet: ModalBottomSheet with linking notes
 ```
 
-**Schema**: `NoteEntity.outgoing_links` stores a JSON array of `["note://id1", "task://id2"]`. Updated via `NoteDao.setOutgoingLinks` when the note is saved.
+`NotePreview` VM observes via `repo.watchNote()`, fetches backlinks via `linkRepo.getBacklinkNotes()`.
 
 ## richeditor-compose API (v1.2.0)
 
@@ -306,7 +288,7 @@ richState.toggleUnorderedList()
 richState.toggleOrderedList()
 richState.toggleCodeSpan()
 richState.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center))
-richState.addLinkToSelection(url = "https://example.com")  // selected text becomes link
+richState.addLinkToSelection(url = "https://example.com")  // inserts link span
 
 // Query state
 richState.currentSpanStyle.fontWeight >= FontWeight.Bold  // isBold
@@ -314,133 +296,52 @@ richState.isCodeSpan
 richState.isUnorderedList
 richState.isOrderedList
 richState.isLink
-richState.currentParagraphStyle.textAlign == TextAlign.Center
 richState.history.undo()
 richState.history.redo()
 
-// Serialization
-richState.toHtml()
-richState.setHtml(html)
+// Serialization — BUILT-IN (no port needed)
+richState.toMarkdown()    // HTML → Markdown
+richState.setMarkdown(md) // Markdown → internal state
+richState.toHtml()        // internal state → HTML
+richState.setHtml(html)   // HTML → internal state
+```
 
-// ⚠️ No blockquote support (no toggleBlockquote, no isBlockquote)
-// ⚠️ No onKeyEvent — keyboard shortcuts not available on RichTextEditor
+**`RichSpanStyle.Link`** — serializes as `<a href="url">`:
+```kotlin
+// Link URL schemes used:
+note://{noteId}
+task://{taskId}
 ```
 
 ## Link Tap Navigation
 
-`RichTextEditor` has no `onLinkClick`. The `BasicRichText` (read-only) handles link taps internally via `detectTapGestures` + `getLinkByOffset` (internal API).
+`RichText` (read-only, used in NotePreview) handles link taps internally via `detectTapGestures` + `getLinkByOffset` (internal API).
 
-For editable editor: tap handling is planned but not yet wired. The link URLs (`note://id`, `task://id`) are stored correctly; navigation requires wrapping `RichTextEditor` with a `pointerInput` overlay (future work).
-
-## Limitations
-
-- **Quote/blockquote**: `richeditor-compose 1.2.0` has no `toggleBlockquote()` or `isBlockquote` — `EditorAction.Quote` is a no-op
-- **Tables/Images**: HTML↔Markdown round-trip is lossy
-- **Keyboard shortcuts**: `RichTextEditor` lacks `onKeyEvent` — undo/redo buttons are used instead
-- **Link tap navigation**: not yet wired (requires `pointerInput` overlay on `RichTextEditor`)
-- **Backlinks for tasks**: only notes supported; `outgoing_links` JSON column tracks both `note://` and `task://` URLs
-
-## Files Reference
-
-| File | Purpose |
-|---|---|
-| `NoteEditorScreen.kt` | Screen, EditorSession, EditorTitleAndBody, LinkUrlDialog, BacklinksSheet |
-| `EditorAction.kt` | Sealed interface (Bold, Italic, H1-H3, Bullet, Ordered, Quote, Align*, ExternalLink, InternalLink) |
-| `EditorToolbar.kt` | Sticky bottom toolbar; pure `apply()`/`isActive()` extensions |
-| `InternalLinkPickerSheet.kt` | Notes/Tasks tab picker bottom sheet |
-| `InternalLinkRepository.kt` | Interface |
-| `InternalLinkRepositoryImpl.kt` | DAO-based implementation |
-| `ComposingMarkdownHtmlPort.kt` | toHtml/toMarkdown + wikilink round-trip |
-| `Ids.kt` | NoteId, Note, NoteColor value classes |
-| `NotesDiModule.kt` | DI: `single<InternalLinkRepository> { InternalLinkRepositoryImpl(...) }` |
-
-## MarkdownHtmlPort for CreateNoteTool (CLI/MCP)
-
-When creating a note via `CreateNoteTool` (from the MCP server or CLI), the input is plain markdown. It must be converted to HTML before storage in `NoteEntity.bodyHtml`.
-
-The `MarkdownHtmlPort` interface handles this:
-
-```kotlin
-// shared/src/commonMain/.../feature/notes/MarkdownHtmlPort.kt
-interface MarkdownHtmlPort {
-    suspend fun toHtml(markdown: String): String
-    suspend fun toMarkdown(html: String): String
-}
-```
-
-**Implementation** in `ComposingMarkdownHtmlPort.kt` handles wikilinks and formatting:
-
-```kotlin
-class ComposingMarkdownHtmlPort : MarkdownHtmlPort {
-    override suspend fun toHtml(markdown: String): String {
-        // [[Title]] → <a href="note://URL-encoded-title">Title</a>
-        // **bold**, *italic*, etc. → HTML equivalents
-        return markdownToHtml(markdown)
-    }
-}
-```
-
-**CreateNoteTool usage:**
-
-```kotlin
-class CreateNoteTool(
-    private val notesRepo: NotesRepository,
-    private val markdownHtmlPort: MarkdownHtmlPort,
-    private val currentUser: CurrentUser,
-) : SimpleTool<CreateNoteInput>(...) {
-
-    override suspend fun execute(args: CreateNoteInput): String {
-        // Convert markdown → HTML (wikilinks, bold, italic, etc.)
-        val html = markdownHtmlPort.toHtml(args.bodyMarkdown)
-
-        val noteId = NoteId.fromString(UUID.randomUUID().toString())
-        notesRepo.createWithContent(
-            userId = currentUser.userId,
-            id = noteId,
-            title = args.title,
-            bodyMarkdown = args.bodyMarkdown,
-            bodyHtml = html,
-        ).getOrThrow()
-
-        return CreateNoteOutput(noteId = noteId.value).toJson()
-    }
-}
-```
-
-**Wikilink round-trip:**
-- `[[Note Title]]` → stored as `<a href="note://Note%20Title">Note Title</a>` in bodyHtml
-- `toMarkdown()` reverses: regex extracts `href` and reconstructs `[[display text]]`
-- Both CLI and UI use the same `toHtml()` — wikilinks look identical everywhere
-
-**DI registration** (same as existing):
-```kotlin
-// NotesDiModule.kt or AiToolsDiModule.kt
-factory<MarkdownHtmlPort> { ComposingMarkdownHtmlPort() }
-```
+For the editable `RichTextEditor`: `addLinkToSelection(url)` inserts the link span correctly. Tapping links in the editor for navigation is future work.
 
 ## Limitations
 
 - **Quote/blockquote**: `richeditor-compose 1.2.0` has no `toggleBlockquote()` or `isBlockquote` — `EditorAction.Quote` is a no-op
 - **Tables/Images**: HTML↔Markdown round-trip is lossy
 - **Keyboard shortcuts**: `RichTextEditor` lacks `onKeyEvent` — undo/redo buttons are used instead
-- **Link tap navigation**: not yet wired (requires `pointerInput` overlay on `RichTextEditor`)
-- **Backlinks for tasks**: only notes supported; `outgoing_links` JSON column tracks both `note://` and `task://` URLs
+- **RichParagraph/RichSpan tree**: `internal` — wikilink extraction uses HTML regex
 
 ## Files Reference
 
 | File | Purpose |
 |---|---|
-| `NoteEditorScreen.kt` | Screen, EditorSession, EditorTitleAndBody, LinkUrlDialog, BacklinksSheet |
+| `NoteEditorScreen.kt` | Screen, EditorSession, EditorTitleAndBody, LinkUrlDialog |
+| `NoteEditor.kt` | NoteEditor VM: editorState, autosave, persist() |
+| `NotePreviewScreen.kt` | Read-only view: RichText + BottomAppBar + BacklinksSheet |
+| `NotePreview.kt` | NotePreview VM: observes note + backlinks |
+| `NotesScreen.kt` | List screen: QuickAddRow + NotesEmptyState + multi-select toolbar |
+| `NotesListViewModel.kt` | List VM: filter, sort, multi-select, quick-add, createNoteWithTitle |
+| `EditorSession.kt` | Top-level class: RichTextState + title + dispatch |
 | `EditorAction.kt` | Sealed interface (Bold, Italic, H1-H3, Bullet, Ordered, Quote, Align*, ExternalLink, InternalLink) |
 | `EditorToolbar.kt` | Sticky bottom toolbar; pure `apply()`/`isActive()` extensions |
-| `InternalLinkPickerSheet.kt` | Notes/Tasks tab picker bottom sheet |
-| `InternalLinkRepository.kt` | Interface |
-| `InternalLinkRepositoryImpl.kt` | DAO-based implementation |
-| `ComposingMarkdownHtmlPort.kt` | toHtml/toMarkdown + wikilink round-trip |
-| `MarkdownHtmlPort.kt` | Fun interface: toHtml / toMarkdown |
-| `Ids.kt` | NoteId, Note, NoteColor value classes |
-| `NotesDiModule.kt` | DI: `single<InternalLinkRepository> { InternalLinkRepositoryImpl(...) }` |
-
-**Deleted (dead code):**
-- `ToolbarState.kt` — DSL builder, never referenced
-- `EditorBody.kt` — replaced by `EditorTitleAndBody` in `NoteEditorScreen.kt`
+| `InternalLinkPickerSheet.kt` | Generic merged Notes+Tasks picker |
+| `LinkResult.kt` | `LinkResult` data class + `LinkKind` enum |
+| `OutgoingLinksExtractor.kt` | `extractOutgoingLinks(html)` + `LinkRef` sealed interface |
+| `NoteFormatters.kt` | `extractPreviewText`, `formatNoteAiResult` |
+| `Ids.kt` | NoteId, Note, NoteColor |
+| `NotesDiModule.kt` | DI: 3 VMs + NotesRepository + InternalLinkRepository |

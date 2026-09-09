@@ -19,8 +19,10 @@ fun domainModule(): Module = module {
     single<TaskRepository> { TaskRepositoryImpl(get(), get()) }
     factory { CreateTaskUseCase(get(), get()) }
     viewModelOf(::TasksViewModel)
-    viewModelOf(::NotesViewModel)
-    // ...
+    // Notes — 3 VMs split by lifecycle scope:
+    viewModel { NotesListViewModel(get(), get(), get()) }
+    viewModel { NoteEditor(repo=get(), currentUser=get(), idGen=get(), autosaveScheduler=get(), improveNote=getOrNull()) }
+    viewModel { NotePreview(repo=get(), linkRepo=get(), currentUser=get()) }
 }
 ```
 
@@ -46,6 +48,7 @@ fun domainModule(): Module = module {
 ```kotlin
 single<TaskRepository> { TaskRepositoryImpl(get(), get()) }
 single<NotesRepository> { RoomNotesRepository(get(), get()) }
+single<InternalLinkRepository> { InternalLinkRepositoryImpl(get(), get()) }
 ```
 
 ### Use cases (factory — new instance per injection)
@@ -58,8 +61,12 @@ factory { CreateNoteUseCase(get(), get()) }
 ```kotlin
 // viewModelOf is preferred — auto-resolves all constructor dependencies
 viewModelOf(::TasksViewModel)
-viewModelOf(::NotesViewModel)
 viewModelOf(::ProjectsViewModel)
+
+// Notes uses 3 separate VMs (list / editor / preview) — each scoped to its screen:
+viewModel { NotesListViewModel(get(), get(), get()) }
+viewModel { NoteEditor(repo=get(), currentUser=get(), idGen=get(), autosaveScheduler=get(), improveNote=getOrNull()) }
+viewModel { NotePreview(repo=get(), linkRepo=get(), currentUser=get()) }
 ```
 
 ### ViewModels with runtime parameters
@@ -133,7 +140,6 @@ fun `search notes`() = runTest {
         modules(
             module {
                 single<NotesRepository> { FakeNotesRepository() }
-                single<MarkdownHtmlPort> { FakeHtmlPort() }
             }
         )
     }
@@ -141,28 +147,38 @@ fun `search notes`() = runTest {
 }
 
 // Option 2: pure constructor injection (preferred — no Koin needed)
-class NotesViewModelTest {
-    private val vm = NotesViewModel(
+class NotesListViewModelTest {
+    private val vm = NotesListViewModel(
         repo = FakeNotesRepository(),
-        htmlPort = FakeHtmlPort(),
+        currentUser = FakeCurrentUser(UserId.anonymous),
+        idGen = SequenceIdGenerator(),
+    )
+    // no Koin needed
+}
+
+class NoteEditorTest {
+    private val vm = NoteEditor(
+        repo = FakeNotesRepository(),
         currentUser = FakeCurrentUser(UserId.anonymous),
         idGen = SequenceIdGenerator(),
         autosaveScheduler = FakeAutosaveScheduler(),
         improveNote = null,
-        logger = FakeLogger(),
     )
-    // no Koin needed
 }
 ```
 
 ## Testing ViewModels with scopeOverride
 
-ViewModels that launch coroutines in `init`, `save()`, `delete()`, etc. need the `scopeOverride` pattern:
+`NoteEditor` launches coroutines directly in `viewModelScope` (via `scope.launch(Dispatchers.Unconfined)`). To test these in a synchronous `runTest` context, use `scopeOverride`:
 
 ```kotlin
-class NotesViewModel(
+class NoteEditor(
     private val repo: NotesRepository,
-    // ... other deps ...
+    private val currentUser: ProfileAwareCurrentUser,
+    private val idGen: IdGenerator,
+    private val autosaveScheduler: AutosaveScheduler,
+    private val improveNote: ImproveNoteUseCase? = null,
+    logger: Logger? = null,
     private val scopeOverride: CoroutineScope? = null,  // ADD
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
@@ -176,7 +192,7 @@ class NotesViewModel(
 **In tests:**
 ```kotlin
 @OptIn(ExperimentalCoroutinesApi::class)
-class NotesViewModelTest {
+class NoteEditorTest {
     @Test
     fun `saveNow emits NavigateBack`() = runTest {
         val vm = createVm(scope = backgroundScope)
@@ -187,24 +203,20 @@ class NotesViewModelTest {
 }
 ```
 
-## ⚠️ Logger injection in ViewModels (Phase 1)
+## ⚠️ Logger injection in ViewModels
 
-When adding `Logger` as a dependency to `NotesViewModel` (Phase 1):
-
-- If `Logger` is **required**: use `viewModel { }` form with all 8 deps explicit
-- If `Logger` is **optional** (may be null if not configured): use `getOrNull<Logger>()` with a default
+`NoteEditor` accepts an optional `Logger`. Use `getOrNull<Logger>()`:
 
 ```kotlin
-// Phase 1: Logger is optional — use getOrNull()
+// NoteEditor: logger is optional — use getOrNull()
 viewModel {
-    NotesViewModel(
+    NoteEditor(
         repo = get(),
-        htmlPort = get(),
         currentUser = get(),
         idGen = get(),
         autosaveScheduler = get(),
         improveNote = getOrNull(),
-        logger = getOrNull(),  // Phase 1: nullable logger
+        logger = getOrNull(),  // nullable
         scopeOverride = null,
     )
 }

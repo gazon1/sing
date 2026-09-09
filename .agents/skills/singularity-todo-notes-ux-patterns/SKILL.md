@@ -9,22 +9,21 @@ This skill is the **single source of truth** for all Notes-specific UX patterns.
 
 ## Overview of Patterns
 
-| Pattern | Phase | Reference |
+| Pattern | PR | Reference |
 |---|---|---|
-| Saved-pill animation | Phase 1 | TickTick |
-| Sticky bottom toolbar | Phase 1 | TickTick / Bear |
-| Meta chips (time, words, chars) | Phase 1 | TickTick |
-| Swipe-to-pin / swipe-to-delete | Phase 2 | Apple Notes |
-| Pinned section (sticky header) | Phase 2 | Apple Notes |
-| Multi-select + bottom action bar | Phase 2 | Apple Notes / iOS Mail |
-| Filter chip row | Phase 2 | TickTick |
-| Folder navigation | Phase 3 | Bear / Apple Notes |
-| Tags row in editor | Phase 3 | Bear |
-| Attachment button + badge | Phase 4 | TickTick |
-| Markdown shortcuts | Phase 5 | Bear / Obsidian |
-| Search with snippet highlight | Phase 5 | Obsidian |
-| Wikilinks `[[note:uuid]]` | Phase 5 | Notion / Obsidian |
-| Backlinks panel | Phase 5 | Obsidian |
+| Saved-pill animation | PR #1 | TickTick |
+| Sticky bottom toolbar | PR #1 | TickTick / Bear |
+| Meta chips (time, words, chars) | PR #1 | TickTick |
+| Swipe-to-pin / swipe-to-delete | PR #1 | Apple Notes |
+| Pinned section (sticky header) | PR #1 | Apple Notes |
+| Multi-select + bottom action bar | PR #1 | Apple Notes / iOS Mail |
+| Filter chip row | PR #1 | TickTick |
+| Quick-add row | PR #4 | TickTick |
+| Empty state CTA | PR #5 | Apple Notes |
+| Wikilinks `[[note://id]]` | PR #2 | Notion / Obsidian |
+| Backlinks panel | PR #1 | Obsidian |
+| NotePreview (read-only view) | PR #1 | Apple Notes / Notion |
+| Generic InternalLinkPickerSheet | PR #3 | Obsidian |
 
 ## 1. Saved-Pill Animation (Phase 1)
 
@@ -293,102 +292,74 @@ private fun NoteTagRow(
 }
 ```
 
-## 6. Wikilinks `[[note:uuid]]` (Phase 5)
+## 6. Wikilinks `[[note://id]]` (PR #2)
 
-**Reference:** Notion `@mention`, Obsidian `[[wikilink]]`.
+**Reference:** Obsidian `[[wikilink]]`, Notion `@mention`.
 
-**Pattern:** `[[note:abc123]]` renders as a clickable chip in the editor.
-
-**MarkdownHtmlPort extension:**
-```kotlin
-// In ComposingMarkdownHtmlPort.kt — toHtml with resolver:
-fun toHtml(markdown: String, noteLookup: suspend (NoteId) -> Note?): String {
-    val wikilink = Regex("""\[\[note:([a-f0-9-]+)\]\]""")
-    return markdown.replace(wikilink) { match ->
-        val noteId = NoteId.fromString(match.groupValues[1])
-        val note = noteLookup(noteId)
-        val title = note?.title ?: "Untitled"
-        """<a class="wikilink" data-note-id="${noteId.value}">$title</a>"""
-    }
-}
-
-// Reverse (toMarkdown):
-val wikilinkTag = Regex("""<a class="wikilink" data-note-id="([a-f0-9-]+)">.*?</a>""")
-fun toMarkdown(html: String): String =
-    html.replace(wikilinkTag) { match ->
-        val noteId = match.groupValues[1]
-        "[[note:$noteId]]"
-    }
+**URL scheme:**
+```
+note://{noteId}   → displayed as [[Note Title]] in editor
+task://{taskId}   → displayed as [[Task Title]] in editor
 ```
 
-**Rendering wikilink as clickable chip:**
-```kotlin
-@Composable
-private fun AnnotatedString.Builder.wikilinkStyles(html: String) {
-    // Parse <a class="wikilink"> and add ClickableText style
-    // Use String\Annotation to mark ranges, then handle in ClickableText
-}
-```
+**Storage:** Links are stored as `<a href="note://...">` in `RichTextState` HTML. The richeditor library serializes `RichSpanStyle.Link` automatically.
 
-## 7. Backlinks Panel (Phase 5)
+**Extraction:** `OutgoingLinksExtractor.extractOutgoingLinks(html)` parses the HTML with a regex to find all `note://` and `task://` hrefs, deduplicates, and returns `List<LinkRef>`. Persisted to `NoteEntity.outgoing_links` column on every save.
+
+**Insertion:** `RichTextState.addLinkToSelection(url)` inserts a link span at the current cursor/selection.
+
+**InternalLinkPickerSheet:** Generic merged sheet. Caller (NoteEditorScreen) provides `onSearch` that merges `searchNotes` + `searchTasks` results into `List<LinkResult>`.
+
+See `singularity-todo-rich-editor` skill for full implementation details.
+
+## 7. Backlinks Panel (PR #1)
 
 **Reference:** Obsidian — shows all notes that link to the current note.
 
-**VM:**
-```kotlin
-class NotesViewModel(
-    private val repo: NotesRepository,
-    // ...
-) : ViewModel() {
-    private val _backlinks = MutableStateFlow<List<Note>>(emptyList())
-    val backlinks: StateFlow<List<Note>> = _backlinks.asStateFlow()
+**Architecture:**
+- `NotePreview` VM observes the note via `repo.watchNote(id)` and fetches backlinks via `linkRepo.getBacklinkNotes(noteId)`
+- `NotePreviewScreen` shows `RichText(state)` (read-only) and a `BacklinksSheet` ModalBottomSheet
+- `BacklinksSheet` shows `ListItem` per linking note with extracted preview snippet
 
-    fun loadBacklinks(noteId: NoteId) {
-        scope.launch {
-            repo.watchBacklinks(noteId).collect { notes ->
-                _backlinks.value = notes
-            }
-        }
-    }
-}
+**DAO query:**
+```sql
+SELECT * FROM notes
+WHERE deleted_at IS NULL
+AND outgoing_links LIKE '%note://' || :noteId || '%'
+LIMIT 20
 ```
 
-**Repository:**
-```kotlin
-interface NotesRepository {
-    fun watchBacklinks(noteId: NoteId): Flow<List<Note>>
-    // ...
-}
+**Preview snippet:** `extractPreviewText(linkingNote.bodyMarkdown, 80)` strips markdown for clean display.
+
+## 8. NotePreview — Read-Only View (PR #1)
+
+**Reference:** Apple Notes, Notion — open a note to read, tap Edit to modify.
+
+**Separation:** `NoteView` (read-only) ≠ `NoteEditor` (edit). Two separate routes and ViewModels.
+
+**Screen layout:**
+```
+┌──────────────────────────────────────────────┐
+│ ← Back    Backlinks(3)    ⋮ (Edit/Delete)  │  ← TopAppBar
+├──────────────────────────────────────────────┤
+│ Meeting Notes                     Updated 3m  │  ← Hero: title + timestamp
+│                                  142 words   │
+├──────────────────────────────────────────────┤
+│                                              │
+│  Rich text body...                          │  ← RichText(state) read-only
+│  [[Link to another note]]                   │
+│                                              │
+├──────────────────────────────────────────────┤
+│ [ Edit ]    [ Backlinks (3) ]   [ Delete ] │  ← BottomAppBar
+└──────────────────────────────────────────────┘
 ```
 
-**Screen:**
-```kotlin
-@Composable
-private fun BacklinksSection(
-    backlinks: List<Note>,
-    onClick: (NoteId) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (backlinks.isEmpty()) return
+**BottomAppBar actions:**
+- FilledTonalButton "Edit" → navigates to `NoteEditor(noteId)`
+- OutlinedButton "Backlinks(count)" → opens `BacklinksSheet`
+- OutlinedButton "Delete" → AlertDialog confirmation → soft delete → navigate back
 
-    Column(modifier = modifier.padding(16.dp)) {
-        Text(
-            "Linked from ${backlinks.size} note${if (backlinks.size > 1) "s" else ""}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        backlinks.forEach { note ->
-            ListItem(
-                headlineContent = { Text(note.title.ifBlank { "Untitled" }) },
-                modifier = Modifier.clickable { onClick(note.id) },
-                leadingContent = {
-                    Icon(Icons.Default.Link, null, modifier = Modifier.size(20.dp))
-                }
-            )
-        }
-    }
-}
-```
+**Key difference from editor:** Uses `RichText(state)` composable (read-only) instead of `RichTextEditor`. No cursor, no keyboard, no autosave. Clean reading experience.
 
 ## 8. Search with Snippet Highlight (Phase 5)
 

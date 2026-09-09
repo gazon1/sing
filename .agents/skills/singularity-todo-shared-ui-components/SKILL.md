@@ -114,6 +114,33 @@ Always use `CollectEvents(flow) { … }` instead of `LaunchedEffect(Unit) { vm.e
 - **Feature-specific widget in `core/ui/components/`** — `TaskCard` doesn't belong here; only generic primitives do.
 - **Compose-`@Composable` helper that's actually pure** (e.g. maps enum → color) — make it a plain `internal fun`.
 
+### Architecture Rule: `core/` Must Not Import Feature Types
+
+`core/ui/components/` is shared infrastructure. **It must never import from `feature/notes/`, `feature/tasks/`, `feature/projects/`, etc.**
+
+**Why:** `core/` is loaded before any feature module and has no knowledge of domain entities. Introducing feature imports creates a hard circular dependency boundary and breaks modularity.
+
+**If a component needs feature-specific data:**
+1. Define a generic data class in the feature layer (e.g. `LinkResult` in `feature/notes/`)
+2. Pass it as a constructor parameter / callback to the shared component
+3. Keep the shared component purely presentational
+
+**Correct example — generic picker:**
+```
+feature/notes/
+└── components/InternalLinkPickerSheet.kt   ← feature-specific, knows about LinkResult
+
+NoteEditorScreen.kt                       ← imports InternalLinkPickerSheet, passes LinkResult
+```
+
+**Wrong example — feature types in core:**
+```
+core/ui/components/
+└── InternalLinkPickerSheet.kt           ← imported Note/Task from feature/notes
+```
+
+**Migration pattern:** When a component in `core/ui/components/` gains a feature-domain import, move it to `feature/<feature>/components/` and make it generic (accept adapter types from the caller).
+
 ## Part 2 — Composable decomposition
 
 ### The thin-view rule
