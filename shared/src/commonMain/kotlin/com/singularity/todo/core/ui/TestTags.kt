@@ -85,6 +85,9 @@ object TestTags {
     const val NOTE_EDITOR_DELETE = "note_editor_delete"
     const val NOTE_EDITOR_MARKDOWN_TOOLBAR = "note_editor_markdown_toolbar"
 
+    // ─── Note Preview ────────────────────────────────────────────────────────
+    const val NOTES_BACKLINKS_BUTTON = "notes_backlinks_button"
+
     // ─── Projects ───────────────────────────────────────────────────────────
     /** Dynamic: project_card_<name> */
     fun projectCard(name: String) = "project_card_${name.lowercase().replace(" ", "_")}"

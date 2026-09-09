@@ -2,39 +2,24 @@ package com.singularity.todo.feature.notes
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,21 +35,16 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mohamedrejeb.richeditor.model.RichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
-import com.singularity.todo.core.ui.components.InternalLinkPickerSheet
-import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.notes.components.EditorToolbar
-import com.singularity.todo.feature.search.InternalLinkRepository
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -77,7 +57,7 @@ fun NoteEditorScreen(
     onBack: () -> Unit,
     onNavigateToNote: (String) -> Unit = {},
     onNavigateToTask: (String) -> Unit = {},
-    viewModel: NotesViewModel = koinViewModel(),
+    viewModel: NoteEditor = koinViewModel(),
 ) {
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
 
@@ -125,120 +105,7 @@ private fun NotesUiEvent.toNotification(): Notification = when (this) {
     NotesUiEvent.SavedPulse -> Notification.None
 }
 
-// ─── Session ─────────────────────────────────────────────────────────────────
-
-/**
- * Holds all editor state for one note-editing session.
- * Created once per [EditorState.Editing.id] via [rememberEditorSession].
- *
- * Having this at the screen level lets both [EditorTitleAndBody] (title) and
- * [EditorToolbar] (toolbar buttons) share the same [RichTextState] — the
- * toolbar can be moved to [Scaffold.bottomBar] without passing state down
- * through intermediate composables.
- */
-private class EditorSession(
-    val richTextState: RichTextState,
-    var titleFieldValue: String,
-    private var lastDispatchedHtml: String,
-    private var firstLoadSkipped: Boolean,
-    private val onBodyChange: (id: String, html: String) -> Unit,
-    private val onHtmlChange: () -> Unit,
-    private val id: String,
-) {
-    // Track inserted links: url → selection range (start, end) in the text
-    private val insertedLinks = mutableListOf<Pair<IntRange, String>>()
-
-    fun recordLink(url: String) {
-        val sel = richTextState.selection
-        if (!sel.collapsed) {
-            insertedLinks.add(sel.min..<sel.max to url)
-        } else {
-            // No selection — find the last inserted link range that ends at cursor
-            // Fallback: store with cursor position as approximate range
-            insertedLinks.add(sel.min..<sel.max to url)
-        }
-    }
-
-    fun findLinkAt(charOffset: Int): String? {
-        return insertedLinks.find { (range, _) ->
-            charOffset in range
-        }?.second
-    }
-
-    fun dispatchHtml() {
-        val html = richTextState.toHtml()
-        if (html != lastDispatchedHtml) {
-            lastDispatchedHtml = html
-            onBodyChange(id, html)
-            onHtmlChange()
-        }
-    }
-
-    fun notifyFirstLoadSkipped() {
-        firstLoadSkipped = true
-    }
-
-    val isFirstLoadSkipped: Boolean get() = firstLoadSkipped
-}
-
-/**
- * Creates [EditorSession] keyed to [state.id].
- * Ensures a fresh [RichTextState] when switching notes.
- * The [LaunchedEffect] handles HTML dispatch on every keystroke.
- */
-@Composable
-private fun rememberEditorSession(
-    state: EditorState.Editing,
-    onBodyChange: (id: String, html: String) -> Unit,
-): EditorSession {
-    val richTextState = remember(state.id) {
-        RichTextState().also { it.setHtml(state.html) }
-    }
-
-    val session = remember(state.id) {
-        EditorSession(
-            richTextState = richTextState,
-            titleFieldValue = state.title,
-            lastDispatchedHtml = state.html,
-            firstLoadSkipped = false,
-            onBodyChange = onBodyChange,
-            onHtmlChange = {},
-            id = state.id,
-        )
-    }
-
-    // Sync title from state (e.g. when note is loaded from DB)
-    LaunchedEffect(state.title) {
-        session.titleFieldValue = state.title
-    }
-
-    // Dispatch HTML to ViewModel on every rich-text mutation.
-    // This is the key fix: EditorToolbar.onHtmlChange only fires on toolbar button
-    // clicks, but this LaunchedEffect fires on every text mutation.
-    LaunchedEffect(state.id, richTextState) {
-        if (!session.isFirstLoadSkipped) {
-            session.notifyFirstLoadSkipped()
-            return@LaunchedEffect
-        }
-        session.dispatchHtml()
-    }
-
-    return session
-}
-
 // ─── Content ─────────────────────────────────────────────────────────────────
-
-/** Pure helper: counts words in an HTML string (strips tags first). */
-internal fun wordCount(html: String): Int {
-    val text = html.replace(Regex("<[^>]*>"), " ").replace(Regex("\\s+"), " ").trim()
-    if (text.isEmpty()) return 0
-    return text.split(" ").count { it.isNotBlank() }
-}
-
-/** Pure helper: character count from HTML (strips tags). */
-internal fun charCount(html: String): Int {
-    return html.replace(Regex("<[^>]*>"), "").length
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -259,15 +126,12 @@ fun NoteEditorScreenContent(
         label = "savedAlpha",
     )
 
-    // External URL dialog state
+    // External URL link dialog state
     var linkDialogVisible by remember { mutableStateOf(false) }
     var linkUrl by remember { mutableStateOf("") }
 
     // Internal link picker sheet state
     var internalLinkPickerVisible by remember { mutableStateOf(false) }
-
-    // Backlinks sheet state
-    var backlinksSheetVisible by remember { mutableStateOf(false) }
 
     // Session — created once per editing note
     val session = (editorState as? EditorState.Editing)?.let { editing ->
@@ -299,9 +163,6 @@ fun NoteEditorScreenContent(
                         IconButton(onClick = onSaveNow, modifier = Modifier.testTag(TestTags.NOTE_EDITOR_SAVE)) {
                             Icon(Icons.Filled.Check, contentDescription = "Save")
                         }
-                        IconButton(onClick = { backlinksSheetVisible = true }) {
-                            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Backlinks")
-                        }
                     }
                 },
             )
@@ -309,7 +170,6 @@ fun NoteEditorScreenContent(
         bottomBar = {
             session?.let { editorSession ->
                 Column {
-                    MetaChipsRow(html = editorState.html)
                     EditorToolbar(
                         richTextState = editorSession.richTextState,
                         onHtmlChange = { editorSession.dispatchHtml() },
@@ -322,7 +182,16 @@ fun NoteEditorScreenContent(
         },
     ) { padding ->
         when (editorState) {
-            EditorState.Empty -> LoadingIndicator(modifier = Modifier.padding(padding))
+            EditorState.Empty -> {
+                // Loading state — handled by parent screen
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center,
+                ) {}
+            }
+
             is EditorState.Editing -> {
                 session?.let { editorSession ->
                     Column(modifier = Modifier.padding(padding)) {
@@ -362,7 +231,7 @@ fun NoteEditorScreenContent(
 
     // Internal link picker (Obsidian-style [[Note]] / [[Task]])
     if (internalLinkPickerVisible) {
-        InternalLinkPickerSheet(
+        com.singularity.todo.core.ui.components.InternalLinkPickerSheet(
             onNoteSelected = { noteId, title ->
                 val url = "note://$noteId"
                 session?.richTextState?.addLinkToSelection(url = url)
@@ -378,18 +247,6 @@ fun NoteEditorScreenContent(
                 internalLinkPickerVisible = false
             },
             onDismiss = { internalLinkPickerVisible = false },
-        )
-    }
-
-    // Backlinks panel
-    if (backlinksSheetVisible && editorState is EditorState.Editing) {
-        BacklinksSheet(
-            noteId = editorState.id,
-            onNoteSelected = { noteId ->
-                backlinksSheetVisible = false
-                onNavigateToNote(noteId)
-            },
-            onDismiss = { backlinksSheetVisible = false },
         )
     }
 }
@@ -427,25 +284,7 @@ private fun EditorTitleAndBody(
                 .fillMaxWidth()
                 .weight(1f)
                 .padding(horizontal = 16.dp)
-                .testTag(TestTags.NOTE_EDITOR_BODY)
-                .pointerInput(richTextState) {
-                    detectTapGestures(
-                        onTap = { offset ->
-                            // Get character offset from tap position using layout
-                            // We approximate link tap by using the current selection/cursor position
-                            // which the user positions near the link before tapping
-                            val cursorOffset = richTextState.selection.min
-                            val link = session.findLinkAt(cursorOffset)
-                            if (link != null) {
-                                when {
-                                    link.startsWith("note://") -> onNavigateToNote(link.removePrefix("note://"))
-                                    link.startsWith("task://") -> onNavigateToTask(link.removePrefix("task://"))
-                                    else -> uriHandler.openUri(link)
-                                }
-                            }
-                        }
-                    )
-                },
+                .testTag(TestTags.NOTE_EDITOR_BODY),
             colors = RichTextEditorDefaults.richTextEditorColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
             ),
@@ -508,126 +347,6 @@ private fun LinkUrlDialog(
             }
         },
     )
-}
-
-// ─── Backlinks Sheet ───────────────────────────────────────────────────────────
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun BacklinksSheet(
-    noteId: String,
-    onNoteSelected: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val linkRepo: InternalLinkRepository = koinInject()
-    var backlinks by remember { mutableStateOf<List<Note>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    LaunchedEffect(noteId) {
-        isLoading = true
-        backlinks = try {
-            linkRepo.getBacklinkNotes(noteId)
-        } catch (e: Exception) {
-            emptyList()
-        }
-        isLoading = false
-    }
-
-    val backlinksSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
-    LaunchedEffect(Unit) { backlinksSheetState.show() }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = backlinksSheetState,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .padding(bottom = 32.dp),
-        ) {
-            Text(
-                "Backlinks",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-
-            when {
-                isLoading -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-                backlinks.isEmpty() -> {
-                    Text(
-                        "No backlinks yet",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp),
-                    )
-                }
-                else -> {
-                    LazyColumn {
-                        items(backlinks, key = { it.id.value }) { note ->
-                            androidx.compose.material3.ListItem(
-                                headlineContent = {
-                                    Text(
-                                        text = note.title.ifBlank { "(Untitled)" },
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                },
-                                supportingContent = {
-                                    Text(
-                                        text = "Links to this note",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onNoteSelected(note.id.value) }
-                                    .padding(horizontal = 8.dp),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ─── Meta Chips ────────────────────────────────────────────────────────────────
-
-@Composable
-private fun MetaChipsRow(html: String, modifier: Modifier = Modifier) {
-    val words = wordCount(html)
-    val chars = charCount(html)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-    ) {
-        SuggestionChip(
-            onClick = {},
-            label = { Text("$words words", style = MaterialTheme.typography.labelSmall) },
-            modifier = Modifier.padding(end = 8.dp),
-            colors = SuggestionChipDefaults.suggestionChipColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            ),
-        )
-        SuggestionChip(
-            onClick = {},
-            label = { Text("$chars chars", style = MaterialTheme.typography.labelSmall) },
-            colors = SuggestionChipDefaults.suggestionChipColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            ),
-        )
-    }
 }
 
 // ─── Preview ─────────────────────────────────────────────────────────────────

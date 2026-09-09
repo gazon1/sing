@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PushPin
@@ -63,13 +64,15 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun NotesScreen(
     onNavigateToNote: (String) -> Unit,
-    viewModel: NotesViewModel = koinViewModel(),
+    onNavigateToCreateNote: () -> Unit,
+    viewModel: NotesListViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     NotesScreenContent(
         state = state,
         onNavigateToNote = onNavigateToNote,
+        onCreateNote = onNavigateToCreateNote,
         onDelete = viewModel::delete,
         onTogglePin = viewModel::togglePin,
         onSetFilter = viewModel::setFilter,
@@ -93,6 +96,7 @@ private fun NotesUiState.toContentState() =
 fun NotesScreenContent(
     state: NotesUiState,
     onNavigateToNote: (String) -> Unit,
+    onCreateNote: () -> Unit,
     onDelete: (NoteId) -> Unit,
     onTogglePin: (NoteId) -> Unit,
     onSetFilter: (NoteFilter) -> Unit,
@@ -105,38 +109,66 @@ fun NotesScreenContent(
     currentSortOrder: NoteSortOrder,
 ) {
     var sortMenuExpanded by remember { mutableStateOf(false) }
+    val content = state as? NotesUiState.Content
+    val listState = content?.list
+    val isSelectionMode = listState?.isSelectionMode == true
+    val selectedCount = listState?.selectedIds?.size ?: 0
 
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(
-                    title = { Text("Notes") },
-                    actions = {
-                        // Sort menu
-                        Box {
-                            IconButton(onClick = { sortMenuExpanded = true }) {
-                                Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
+                if (isSelectionMode) {
+                    // Selection mode: count + exit + delete
+                    TopAppBar(
+                        title = { Text("$selectedCount selected") },
+                        navigationIcon = {
+                            IconButton(onClick = onExitSelection) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Exit selection")
                             }
-                            SortDropdownMenu(
-                                expanded = sortMenuExpanded,
-                                currentOrder = currentSortOrder,
-                                onSelect = {
-                                    onSetSortOrder(it)
-                                    sortMenuExpanded = false
-                                },
-                                onDismiss = { sortMenuExpanded = false },
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                )
-                // Filter chips row
-                FilterChipRow(
-                    currentFilter = currentFilter,
-                    onFilterChange = onSetFilter,
-                )
+                        },
+                        actions = {
+                            IconButton(onClick = {
+                                onDeleteSelected()
+                            }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete selected",
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
+                    )
+                } else {
+                    TopAppBar(
+                        title = { Text("Notes") },
+                        actions = {
+                            Box {
+                                IconButton(onClick = { sortMenuExpanded = true }) {
+                                    Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
+                                }
+                                SortDropdownMenu(
+                                    expanded = sortMenuExpanded,
+                                    currentOrder = currentSortOrder,
+                                    onSelect = {
+                                        onSetSortOrder(it)
+                                        sortMenuExpanded = false
+                                    },
+                                    onDismiss = { sortMenuExpanded = false },
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                    )
+                    FilterChipRow(
+                        currentFilter = currentFilter,
+                        onFilterChange = onSetFilter,
+                    )
+                }
                 HorizontalDivider()
             }
         },
@@ -146,13 +178,11 @@ fun NotesScreenContent(
             emptyTitle = "No notes yet",
             modifier = Modifier.padding(padding),
         ) { allNotes ->
-            val content = state as? NotesUiState.Content
-            val listState = content?.list
             NoteList(
                 allNotes = allNotes,
                 pinned = listState?.pinned ?: emptyList(),
                 unpinned = listState?.unpinned ?: emptyList(),
-                isSelectionMode = listState?.isSelectionMode == true,
+                isSelectionMode = isSelectionMode,
                 selectedIds = listState?.selectedIds ?: emptySet(),
                 onNavigateToNote = onNavigateToNote,
                 onDelete = onDelete,
@@ -478,6 +508,7 @@ private fun NotesScreenContentPreview() = PreviewThemed(darkTheme = false, useSu
         onDeleteSelected = {},
         currentFilter = NoteFilter.All,
         currentSortOrder = NoteSortOrder.UpdatedDesc,
+        onCreateNote = {},
     )
 }
 
@@ -497,5 +528,6 @@ private fun NotesScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurf
         onDeleteSelected = {},
         currentFilter = NoteFilter.All,
         currentSortOrder = NoteSortOrder.UpdatedDesc,
+        onCreateNote = {},
     )
 }

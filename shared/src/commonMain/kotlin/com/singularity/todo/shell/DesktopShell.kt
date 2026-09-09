@@ -71,7 +71,7 @@ private fun AppDestination.toNavDestination(): NavDestination = when (this) {
     AppDestination.ProfileSwitcher -> NavDestination.Settings
     is AppDestination.TaskDetail -> NavDestination.Tasks
     is AppDestination.TaskEditor -> NavDestination.Tasks
-    is AppDestination.NoteDetail -> NavDestination.Notes
+    is AppDestination.NoteView -> NavDestination.Notes
     is AppDestination.NoteEditor -> NavDestination.Notes
     is AppDestination.ProjectEditor -> NavDestination.Projects
     is AppDestination.ProjectDetail -> NavDestination.Projects

@@ -123,7 +123,7 @@ sealed interface AppDestination {
     }
 
     @Serializable
-    data class NoteDetail(val noteId: String) : AppDestination {
+    data class NoteView(val noteId: String) : AppDestination {
         override val title = "Note"
     }
 
@@ -165,7 +165,7 @@ val AppDestination.icon: ImageVector
         AppDestination.ProfileSwitcher -> Icons.Filled.Person
         is AppDestination.TaskDetail -> Icons.Filled.Check
         is AppDestination.TaskEditor -> Icons.Filled.Check
-        is AppDestination.NoteDetail -> Icons.Filled.Create
+        is AppDestination.NoteView -> Icons.Filled.Create
         is AppDestination.NoteEditor -> Icons.Filled.Create
         is AppDestination.ProjectEditor -> Icons.Filled.Check
         is AppDestination.ProjectDetail -> Icons.Filled.Check

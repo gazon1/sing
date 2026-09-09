@@ -14,6 +14,7 @@ import com.singularity.todo.feature.archive.ArchiveScreen
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AppNavigator
 import com.singularity.todo.feature.notes.NoteEditorScreen
+import com.singularity.todo.feature.notes.NotePreviewScreen
 import com.singularity.todo.feature.notes.NotesScreen
 import com.singularity.todo.feature.pomodoro.PomodoroScreen
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
@@ -129,12 +130,13 @@ fun AppNavHost(
                 onBack = navigator::popBackStack,
             )
         }
-        composable<AppDestination.NoteDetail> { backStackEntry ->
-            val route = backStackEntry.toRoute<AppDestination.NoteDetail>()
-            NoteEditorScreen(
+        composable<AppDestination.NoteView> { backStackEntry ->
+            val route = backStackEntry.toRoute<AppDestination.NoteView>()
+            NotePreviewScreen(
                 noteId = route.noteId,
                 onBack = navigator::popBackStack,
-                onNavigateToNote = { id -> navigator.navigate(AppDestination.NoteDetail(id)) },
+                onEdit = { id -> navigator.navigate(AppDestination.NoteEditor(id)) },
+                onNavigateToNote = { id -> navigator.navigate(AppDestination.NoteView(id)) },
                 onNavigateToTask = { id -> navigator.navigate(AppDestination.TaskDetail(id)) },
             )
         }
@@ -143,7 +145,7 @@ fun AppNavHost(
             NoteEditorScreen(
                 noteId = route.noteId,
                 onBack = navigator::popBackStack,
-                onNavigateToNote = { id -> navigator.navigate(AppDestination.NoteDetail(id)) },
+                onNavigateToNote = { id -> navigator.navigate(AppDestination.NoteView(id)) },
                 onNavigateToTask = { id -> navigator.navigate(AppDestination.TaskDetail(id)) },
             )
         }
@@ -202,7 +204,8 @@ private fun TasksRoute(entry: TasksScreenEntry, navigator: AppNavigator) {
 private fun NotesRoute(navigator: AppNavigator) {
     NotesScreen(
         viewModel = koinViewModel(),
-        onNavigateToNote = { id -> navigator.navigate(AppDestination.NoteDetail(id)) },
+        onNavigateToNote = { id -> navigator.navigate(AppDestination.NoteView(id)) },
+        onNavigateToCreateNote = { navigator.navigate(AppDestination.NoteEditor()) },
     )
 }
 

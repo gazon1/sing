@@ -35,7 +35,7 @@ class DestinationKindTest {
     fun `isTab rejects sub-routes`() {
         assertFalse(DestinationKind.isTab(AppDestination.TaskDetail("42")))
         assertFalse(DestinationKind.isTab(AppDestination.TaskEditor()))
-        assertFalse(DestinationKind.isTab(AppDestination.NoteDetail("n1")))
+        assertFalse(DestinationKind.isTab(AppDestination.NoteView("n1")))
     }
 
     @Test
@@ -57,7 +57,7 @@ class DestinationKindTest {
     fun `isSubRoute only matches sub-routes`() {
         assertTrue(DestinationKind.isSubRoute(AppDestination.TaskDetail("1")))
         assertTrue(DestinationKind.isSubRoute(AppDestination.TaskEditor()))
-        assertTrue(DestinationKind.isSubRoute(AppDestination.NoteDetail("n")))
+        assertTrue(DestinationKind.isSubRoute(AppDestination.NoteView("n")))
         assertTrue(DestinationKind.isSubRoute(AppDestination.NoteEditor()))
         assertTrue(DestinationKind.isSubRoute(AppDestination.ProjectEditor()))
     }
