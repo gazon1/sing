@@ -1,19 +1,32 @@
 package com.singularity.todo.core.ui.components
 
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.ui.unit.dp
+
+/**
+ * Type alias for the `trailing` slot in [SettingsRow] — allows callers to pass
+ * arbitrary composable content (Switch, RadioButton, Icon, etc.) with [RowScope] access.
+ */
+typealias SettingsRowTrailing = @Composable RowScope.() -> Unit
 
 /**
  * Titled card used as the visual container for one settings sub-section.
@@ -35,6 +48,51 @@ fun SettingsSection(
             Text(text = title, style = MaterialTheme.typography.titleSmall)
             content()
         }
+    }
+}
+
+/**
+ * One settings row with a label, optional subtitle, and a composable [trailing] slot.
+ *
+ * Use when a setting needs more than a Switch — e.g. a clickable row with a chevron,
+ * a row with a value display, or a row with radio buttons.
+ *
+ * @param title    Primary label text.
+ * @param subtitle Optional secondary label.
+ * @param onClick  Optional click handler. When non-null the row is tappable.
+ * @param trailing Composable slot rendered on the right side. Use for Switch, icons, chevrons.
+ * @param modifier Standard Compose modifier.
+ */
+@Composable
+fun SettingsRow(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    onClick: (() -> Unit)? = null,
+    trailing: SettingsRowTrailing = {},
+) {
+    Row(
+        modifier = modifier
+            .then(
+                if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick)
+                else Modifier
+            )
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            subtitle?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        trailing()
     }
 }
 
@@ -105,6 +163,61 @@ private fun SettingsSectionDarkPreview() = PreviewThemed(darkTheme = true) {
             title = "Offline mode",
             checked = false,
             onCheckedChange = {},
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SettingsRowLightPreview() = PreviewThemed(darkTheme = false) {
+    SettingsSection(title = "General") {
+        SettingsRow(
+            title = "Language",
+            subtitle = "English",
+            onClick = {},
+            trailing = {
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
+        SettingsRow(
+            title = "About",
+            onClick = {},
+            trailing = {
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
+        SettingsRow(
+            title = "Switch setting",
+            trailing = {
+                Switch(checked = true, onCheckedChange = {})
+            },
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SettingsRowDarkPreview() = PreviewThemed(darkTheme = true) {
+    SettingsSection(title = "General") {
+        SettingsRow(
+            title = "Language",
+            subtitle = "English",
+            onClick = {},
+            trailing = {
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
         )
     }
 }

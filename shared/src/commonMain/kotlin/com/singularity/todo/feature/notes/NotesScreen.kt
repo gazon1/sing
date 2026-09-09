@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ContentStateMapper
+import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -189,9 +190,17 @@ fun NotesScreenContent(
         },
     ) { padding ->
         if (state is NotesUiState.Empty) {
-            NotesEmptyState(
-                onCreateNote = { onCreateNote("") },
+            EmptyState(
+                title = "No notes yet",
+                subtitle = "Create your first note to get started",
                 modifier = Modifier.padding(padding),
+                actions = {
+                    FilledTonalButton(onClick = { onCreateNote("") }) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text("Create your first note")
+                    }
+                },
             )
         } else {
             StatefulContent(
@@ -313,38 +322,6 @@ private val NoteSortOrder.label: String
         NoteSortOrder.TitleAsc -> "Title A–Z"
         NoteSortOrder.TitleDesc -> "Title Z–A"
     }
-
-// ─── Empty state ────────────────────────────────────────────────────────────
-
-@Composable
-private fun NotesEmptyState(
-    onCreateNote: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = "No notes yet",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "Create your first note to get started",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(24.dp))
-        FilledTonalButton(onClick = onCreateNote) {
-            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.size(6.dp))
-            Text("Create your first note")
-        }
-    }
-}
 
 // ─── List ───────────────────────────────────────────────────────────────────
 
