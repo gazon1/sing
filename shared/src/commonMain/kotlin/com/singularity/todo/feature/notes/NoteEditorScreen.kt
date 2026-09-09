@@ -45,6 +45,13 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.notes.components.EditorToolbar
+import com.singularity.todo.feature.notes.components.InternalLinkPickerSheet
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.search.InternalLinkRepository
+import com.singularity.todo.feature.tasks.UserId
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -132,6 +139,9 @@ fun NoteEditorScreenContent(
 
     // Internal link picker sheet state
     var internalLinkPickerVisible by remember { mutableStateOf(false) }
+    val linkQueryFlow = remember { MutableStateFlow("") }
+    val linkRepo: InternalLinkRepository = koinInject()
+    val currentUser: ProfileAwareCurrentUser = koinInject()
 
     // Session — created once per editing note
     val session = (editorState as? EditorState.Editing)?.let { editing ->
@@ -231,22 +241,29 @@ fun NoteEditorScreenContent(
 
     // Internal link picker (Obsidian-style [[Note]] / [[Task]])
     if (internalLinkPickerVisible) {
-        com.singularity.todo.core.ui.components.InternalLinkPickerSheet(
-            onNoteSelected = { noteId, title ->
-                val url = "note://$noteId"
+        InternalLinkPickerSheet(
+            queryFlow = linkQueryFlow,
+            onSearch = { q ->
+                val notes = linkRepo.searchNotes(currentUser.scopedUserId.value, q)
+                    .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
+                val tasks = linkRepo.searchTasks(q)
+                    .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
+                notes + tasks
+            },
+            onSelected = { result ->
+                val url = when (result.kind) {
+                    LinkKind.Note -> "note://${result.id}"
+                    LinkKind.Task -> "task://${result.id}"
+                }
                 session?.richTextState?.addLinkToSelection(url = url)
                 session?.recordLink(url)
                 session?.dispatchHtml()
-                internalLinkPickerVisible = false
+                linkQueryFlow.value = ""
             },
-            onTaskSelected = { taskId, title ->
-                val url = "task://$taskId"
-                session?.richTextState?.addLinkToSelection(url = url)
-                session?.recordLink(url)
-                session?.dispatchHtml()
+            onDismiss = {
                 internalLinkPickerVisible = false
+                linkQueryFlow.value = ""
             },
-            onDismiss = { internalLinkPickerVisible = false },
         )
     }
 }

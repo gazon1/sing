@@ -59,6 +59,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует. _(from `2026-09-07-fab-chrome-level`)_
 - `AppShell` — minor change: добавлен `FabAction` parameter. _(from `2026-09-07-fab-chrome-level`)_
 - **Breaking:** `coreDomainModule()` удалён; заменён на `domainModule()` (includes everything). Test files обновлены. _(from `2026-09-06-di-module-split`)_
+- Caller must provide `MutableStateFlow<String>` and inject `InternalLinkRepository` and `ProfileAwareCurrentUser` — slightly more boilerplate at call site _(from `2026-09-09-internal-link-picker-generic`)_
 
 ### `"architecture"`
 
@@ -67,12 +68,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `architecture`
 
 - **CollectEvents** в виджетах принимает `Flow<T : UiEvent>` — generic call site остаётся тем же _(from `2026-09-05-ui-event-per-feature`)_
+- `core/ui/components/` is now free of feature-domain imports _(from `2026-09-09-internal-link-picker-generic`)_
 - Cross-screen state (e.g. "did the user just save a note") must flow through navigation callbacks, not shared VM state _(from `2026-09-09-notes-vm-split`)_
 - Do NOT introduce `koinViewModel()` inside any `@Preview` — CI/preview harness does not start Koin _(from `2026-09-09-preview-with-koin-helper`)_
 - Each VM is small enough to understand fully (~60-150 lines) _(from `2026-09-09-notes-vm-split`)_
 - Editor session state is released when user navigates away _(from `2026-09-09-notes-vm-split`)_
 - **Existing tests:** `DiGraphTest`, `JvmAiDiGraphTest`, `AppSmokeTest` обновлены и проходят. _(from `2026-09-06-di-module-split`)_
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them _(from `2026-09-09-preview-with-koin-helper`)_
+- Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
 - **New file count:** 8 новых файлов (7 модулей + decision). _(from `2026-09-06-di-module-split`)_
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables _(from `2026-09-09-notes-vm-split`)_
 - **NotificationHost** — финальный widget для всех экранов, заменяет ~64 строк ручного glue кода _(from `2026-09-05-ui-event-per-feature`)_
@@ -81,6 +84,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `ParentPickerSheet` signature: `options: List<ParentOption>`, NOT `currentParentId: ProjectId?` _(from `2026-09-09-parent-picker-contract`)_
 - `@Preview` composables are always `private` and call the `*Content` variant with manually constructed VMs _(from `2026-09-09-preview-with-koin-helper`)_
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
+- Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
+- Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
+- Single search + merged results = better UX (one tap instead of tab switching) _(from `2026-09-09-internal-link-picker-generic`)_
 
 ### `"architecture"`
 
@@ -439,6 +445,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `Runtime.getRuntime().addShutdownHook { server.close() }` becomes redundant for normal EOF exits — `onClose → done.complete() → done.join() returns → runBlocking exits → JVM exits cleanly`. We keep the shutdown hook only as a backstop for SIGTERM. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 
+### `linking`
+
+- Caller must provide `MutableStateFlow<String>` and inject `InternalLinkRepository` and `ProfileAwareCurrentUser` — slightly more boilerplate at call site _(from `2026-09-09-internal-link-picker-generic`)_
+- `core/ui/components/` is now free of feature-domain imports _(from `2026-09-09-internal-link-picker-generic`)_
+- Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
+- Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
+- Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
+- Single search + merged results = better UX (one tap instead of tab switching) _(from `2026-09-09-internal-link-picker-generic`)_
+
 ### `llm-usage`
 
 - 4 ADR entries created + DIGEST.md refreshed _(from `2026-09-07-multi-profile-and-usage-tracking`)_
@@ -549,13 +564,16 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `notes`
 
 - Backlinks are now shown and functional _(from `2026-09-09-notes-view-edit-split`)_
+- Caller must provide `MutableStateFlow<String>` and inject `InternalLinkRepository` and `ProfileAwareCurrentUser` — slightly more boilerplate at call site _(from `2026-09-09-internal-link-picker-generic`)_
 - Clear UX: notes list → tap note → read → optionally edit _(from `2026-09-09-notes-view-edit-split`)_
+- `core/ui/components/` is now free of feature-domain imports _(from `2026-09-09-internal-link-picker-generic`)_
 - Cross-screen state (e.g. "did the user just save a note") must flow through navigation callbacks, not shared VM state _(from `2026-09-09-notes-vm-split`)_
 - Delete confirmation is handled in `NotePreview`, not buried in editor overflow menu _(from `2026-09-09-notes-view-edit-split`)_
 - Each VM is small enough to understand fully (~60-150 lines) _(from `2026-09-09-notes-vm-split`)_
 - Editor session state is released when user navigates away _(from `2026-09-09-notes-vm-split`)_
 - `FakeNotesRepository` и `FakeNoteDao` обновлены同步. _(from `2026-09-07-note-editor-body-load`)_
 - `getBacklinkNotes` now returns real results — backlinks in `NotePreview` and `InternalLinkPickerSheet` will work _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
 - Navigation now has one more route: `NoteView` ↔ `NoteEditor` ↔ `NotesScreen` _(from `2026-09-09-notes-view-edit-split`)_
 - No new dependencies _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - No schema migration needed _(from `2026-09-09-notes-outgoing-links-extraction`)_
@@ -566,6 +584,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables _(from `2026-09-09-notes-vm-split`)_
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
 - Regex over HTML is less elegant than walking the paragraph tree, but the paragraph tree is internal _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
+- Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
+- Single search + merged results = better UX (one tap instead of tab switching) _(from `2026-09-09-internal-link-picker-generic`)_
 - The `outgoing_links` column is populated on every save, keeping backlinks current _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - Three Koin registrations instead of one _(from `2026-09-09-notes-vm-split`)_
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading _(from `2026-09-09-notes-view-edit-split`)_
@@ -845,6 +866,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `Clock.System.now()` must not appear in preview code — use _(from `2026-09-06-compose-previews`)_
 - **CollectEvents** в виджетах принимает `Flow<T : UiEvent>` — generic call site остаётся тем же _(from `2026-09-05-ui-event-per-feature`)_
 
+### `ui-components`
+
+- Caller must provide `MutableStateFlow<String>` and inject `InternalLinkRepository` and `ProfileAwareCurrentUser` — slightly more boilerplate at call site _(from `2026-09-09-internal-link-picker-generic`)_
+- `core/ui/components/` is now free of feature-domain imports _(from `2026-09-09-internal-link-picker-generic`)_
+- Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
+- Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
+- Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
+- Single search + merged results = better UX (one tap instead of tab switching) _(from `2026-09-09-internal-link-picker-generic`)_
+
 ### `ui-contract`
 
 - `ParentOption` is a `@JvmInline value class` candidate if it grows beyond 3 fields (currently 3 — plain data class is fine) _(from `2026-09-09-parent-picker-contract`)_
@@ -1034,6 +1064,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-08-task-archive-restore-contract` — "task-detail"  "archive"  "repository"
 - `2026-09-08-task-detail-critical-fixes` — "task-detail"  "critical-fix"  "ux"
 - `2026-09-08-task-restore-undo` — "task-detail"  "undo"  "ux"
+- `2026-09-09-internal-link-picker-generic` — notes  ui-components  linking  architecture
 - `2026-09-09-notes-outgoing-links-extraction` — notes  wikilinks  rich-editor  room
 - `2026-09-09-notes-view-edit-split` — notes  navigation  rich-editor  ux
 - `2026-09-09-notes-vm-split` — notes  architecture  viewmodel  di
@@ -1093,6 +1124,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-08-task-archive-restore-contract` — Task archive vs delete: separate contracts via archiveAt
 - `2026-09-08-task-detail-critical-fixes` — TaskDetail critical fixes: TOCTOU race, Saved-spam, dead condition
 - `2026-09-08-task-restore-undo` — TaskRepository.restore + UndoDelete via SnackbarHost
+- `2026-09-09-internal-link-picker-generic` — Notes — generic InternalLinkPickerSheet with merged Notes+Tasks results
 - `2026-09-09-notes-outgoing-links-extraction` — Notes — wikilink extraction via HTML parsing + setOutgoingLinks wired to persist()
 - `2026-09-09-notes-view-edit-split` — Notes — split NoteDetail into NoteView (read-only) and NoteEditor (edit)
 - `2026-09-09-notes-vm-split` — Notes — split god-class NotesViewModel into 3 focused ViewModels
