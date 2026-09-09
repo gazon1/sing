@@ -65,6 +65,7 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.notes.components.NotesActions
 import com.singularity.todo.feature.tasks.UserId
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -79,23 +80,29 @@ fun NotesScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    val actions = NotesActions { action ->
+        when (action) {
+            is NotesActions.Action.NavigateToNote -> onNavigateToNote(action.id.value)
+            is NotesActions.Action.CreateNote -> {
+                val id = viewModel.createNoteWithTitle(action.title)
+                onNavigateToNote(id)
+            }
+            is NotesActions.Action.Delete -> viewModel.delete(action.id)
+            is NotesActions.Action.TogglePin -> viewModel.togglePin(action.id)
+            is NotesActions.Action.SetFilter -> viewModel.setFilter(action.filter)
+            is NotesActions.Action.SetSortOrder -> viewModel.setSortOrder(action.order)
+            is NotesActions.Action.EnterSelection -> viewModel.enterSelectionMode(action.id)
+            is NotesActions.Action.ToggleSelection -> viewModel.toggleSelection(action.id)
+            is NotesActions.Action.ExitSelection -> viewModel.exitSelectionMode()
+            is NotesActions.Action.DeleteSelected -> viewModel.deleteSelected()
+        }
+    }
+
     NotesScreenContent(
         state = state,
-        onNavigateToNote = onNavigateToNote,
-        onCreateNote = { title ->
-            val id = viewModel.createNoteWithTitle(title)
-            onNavigateToNote(id)
-        },
-        onDelete = viewModel::delete,
-        onTogglePin = viewModel::togglePin,
-        onSetFilter = viewModel::setFilter,
-        onSetSortOrder = viewModel::setSortOrder,
-        onEnterSelection = viewModel::enterSelectionMode,
-        onToggleSelection = viewModel::toggleSelection,
-        onExitSelection = viewModel::exitSelectionMode,
-        onDeleteSelected = viewModel::deleteSelected,
         currentFilter = viewModel.filter.collectAsStateWithLifecycle().value,
         currentSortOrder = viewModel.sortOrder.collectAsStateWithLifecycle().value,
+        actions = actions,
     )
 }
 
@@ -108,18 +115,10 @@ private fun NotesUiState.toContentState() =
 @Composable
 fun NotesScreenContent(
     state: NotesUiState,
-    onNavigateToNote: (String) -> Unit,
-    onCreateNote: (String) -> Unit,
-    onDelete: (NoteId) -> Unit,
-    onTogglePin: (NoteId) -> Unit,
-    onSetFilter: (NoteFilter) -> Unit,
-    onSetSortOrder: (NoteSortOrder) -> Unit,
-    onEnterSelection: (NoteId) -> Unit,
-    onToggleSelection: (NoteId) -> Unit,
-    onExitSelection: () -> Unit,
-    onDeleteSelected: () -> Unit,
     currentFilter: NoteFilter,
     currentSortOrder: NoteSortOrder,
+    modifier: Modifier = Modifier,
+    actions: NotesActions = NotesActions.Empty,
 ) {
     var sortMenuExpanded by remember { mutableStateOf(false) }
     val content = state as? NotesUiState.Content
@@ -135,13 +134,13 @@ fun NotesScreenContent(
                     TopAppBar(
                         title = { Text("$selectedCount selected") },
                         navigationIcon = {
-                            IconButton(onClick = onExitSelection) {
+                            IconButton(onClick = { actions.onExitSelection() }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Exit selection")
                             }
                         },
                         actions = {
                             IconButton(onClick = {
-                                onDeleteSelected()
+                                actions.onDeleteSelected()
                             }) {
                                 Icon(
                                     Icons.Default.Delete,
@@ -166,7 +165,7 @@ fun NotesScreenContent(
                                     expanded = sortMenuExpanded,
                                     currentOrder = currentSortOrder,
                                     onSelect = {
-                                        onSetSortOrder(it)
+                                        actions.onSetSortOrder(it)
                                         sortMenuExpanded = false
                                     },
                                     onDismiss = { sortMenuExpanded = false },
@@ -179,10 +178,10 @@ fun NotesScreenContent(
                     )
                     FilterChipRow(
                         currentFilter = currentFilter,
-                        onFilterChange = onSetFilter,
+                        onFilterChange = { actions.onSetFilter(it) },
                     )
                     QuickAddRow(
-                        onSubmit = { title -> onCreateNote(title) },
+                        onSubmit = { title -> actions.onCreateNote(title) },
                     )
                 }
                 HorizontalDivider()
@@ -195,7 +194,7 @@ fun NotesScreenContent(
                 subtitle = "Create your first note to get started",
                 modifier = Modifier.padding(padding),
                 actions = {
-                    FilledTonalButton(onClick = { onCreateNote("") }) {
+                    FilledTonalButton(onClick = { actions.onCreateNote("") }) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
                         Text("Create your first note")
@@ -214,11 +213,7 @@ fun NotesScreenContent(
                     unpinned = listState?.unpinned ?: emptyList(),
                     isSelectionMode = isSelectionMode,
                     selectedIds = listState?.selectedIds ?: emptySet(),
-                    onNavigateToNote = onNavigateToNote,
-                    onDelete = onDelete,
-                    onTogglePin = onTogglePin,
-                    onEnterSelection = onEnterSelection,
-                    onToggleSelection = onToggleSelection,
+                    actions = actions,
                 )
             }
         }
@@ -332,11 +327,7 @@ private fun NoteList(
     unpinned: List<Note>,
     isSelectionMode: Boolean,
     selectedIds: Set<NoteId>,
-    onNavigateToNote: (String) -> Unit,
-    onDelete: (NoteId) -> Unit,
-    onTogglePin: (NoteId) -> Unit,
-    onEnterSelection: (NoteId) -> Unit,
-    onToggleSelection: (NoteId) -> Unit,
+    actions: NotesActions,
 ) {
     LazyColumn(
         modifier = Modifier.testTag(TestTags.NOTES_LIST),
@@ -359,12 +350,12 @@ private fun NoteList(
                     isSelected = note.id in selectedIds,
                     isSelectionMode = isSelectionMode,
                     onClick = {
-                        if (isSelectionMode) onToggleSelection(note.id)
-                        else onNavigateToNote(note.id.value)
+                        if (isSelectionMode) actions.onToggleSelection(note.id)
+                        else actions.onNavigateToNote(note.id)
                     },
-                    onLongClick = { onEnterSelection(note.id) },
-                    onDelete = { onDelete(note.id) },
-                    onTogglePin = { onTogglePin(note.id) },
+                    onLongClick = { actions.onEnterSelection(note.id) },
+                    onDelete = { actions.onDelete(note.id) },
+                    onTogglePin = { actions.onTogglePin(note.id) },
                 )
             }
         }
@@ -386,12 +377,12 @@ private fun NoteList(
                 isSelected = note.id in selectedIds,
                 isSelectionMode = isSelectionMode,
                 onClick = {
-                    if (isSelectionMode) onToggleSelection(note.id)
-                    else onNavigateToNote(note.id.value)
+                    if (isSelectionMode) actions.onToggleSelection(note.id)
+                    else actions.onNavigateToNote(note.id)
                 },
-                onLongClick = { onEnterSelection(note.id) },
-                onDelete = { onDelete(note.id) },
-                onTogglePin = { onTogglePin(note.id) },
+                onLongClick = { actions.onEnterSelection(note.id) },
+                onDelete = { actions.onDelete(note.id) },
+                onTogglePin = { actions.onTogglePin(note.id) },
             )
         }
     }
@@ -565,18 +556,9 @@ private fun NotesScreenContentPreview() = PreviewThemed(darkTheme = false, useSu
                 ),
             ),
         ),
-        onNavigateToNote = {},
-        onDelete = {},
-        onTogglePin = {},
-        onSetFilter = {},
-        onSetSortOrder = {},
-        onEnterSelection = {},
-        onToggleSelection = {},
-        onExitSelection = {},
-        onDeleteSelected = {},
         currentFilter = NoteFilter.All,
         currentSortOrder = NoteSortOrder.UpdatedDesc,
-        onCreateNote = {},
+        actions = NotesActions.Empty,
     )
 }
 
@@ -585,17 +567,8 @@ private fun NotesScreenContentPreview() = PreviewThemed(darkTheme = false, useSu
 private fun NotesScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     NotesScreenContent(
         state = NotesUiState.Empty(userId = UserId.anonymous),
-        onNavigateToNote = {},
-        onDelete = {},
-        onTogglePin = {},
-        onSetFilter = {},
-        onSetSortOrder = {},
-        onEnterSelection = {},
-        onToggleSelection = {},
-        onExitSelection = {},
-        onDeleteSelected = {},
         currentFilter = NoteFilter.All,
         currentSortOrder = NoteSortOrder.UpdatedDesc,
-        onCreateNote = {},
+        actions = NotesActions.Empty,
     )
 }

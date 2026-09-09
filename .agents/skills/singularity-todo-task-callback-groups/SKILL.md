@@ -241,6 +241,32 @@ If a section composable has 4 callbacks today but is only used in 1 screen, **wa
 | 4+ incoming data params that are a cohesive unit | Data class |
 | Mixing incoming + outgoing in one class | Never — split by direction |
 
+### `enum class Action` vs `sealed class Action`
+
+**Use `enum class Action` when:** all actions are simple toggles/state-changes with **no payload**.
+Example — `TaskCardActions.Action` (4 simple actions: Toggle, Delete, Ai, Pin).
+
+**Use `sealed class Action` when:** any action carries **payload** (an ID, a string, a domain object).
+Example — `NotesActions.Action.CreateNote(title: String)`, `TaskDetailActions.Action.TitleChange(title: String)`.
+
+```kotlin
+// ✅ CORRECT — sealed class with data class for payload
+sealed class Action {
+    data object ToggleComplete : Action()           // no payload
+    data class TitleChange(val title: String) : Action()  // payload
+    data class NavigateToNote(val id: NoteId) : Action()   // payload
+}
+
+// ❌ WRONG — enum can't carry payload
+enum class Action {
+    ToggleComplete, TitleChange, NavigateToNote  // where does the title/id go?
+}
+```
+
+The `sealed class` also enables exhaustive `when` with smart-cast — impossible with `enum`.
+
 ## Reference Implementation
 
-`TaskDetailActions` at `feature/tasks/components/TaskDetailActions.kt` — the canonical example of `@JvmInline value class` with sealed `Action` hierarchy used to pack 25+ callbacks into one parameter.
+- `TaskDetailActions` at `feature/tasks/components/TaskDetailActions.kt` — `@JvmInline value class` with sealed `Action` hierarchy (25+ callbacks)
+- `NotesActions` at `feature/notes/components/NotesActions.kt` — `@JvmInline value class` with sealed `Action` hierarchy (10 callbacks)
+- `NoteCardActions` at `feature/notes/components/NoteCardActions.kt` — `@JvmInline value class` with sealed `Action` hierarchy (4 callbacks)
