@@ -39,6 +39,12 @@ import com.singularity.todo.feature.tasks.Task
 /**
  * Card representation of a single task. Stateless — every piece of behavior is
  * supplied via [onClick] (whole-row tap) and [actions] (per-button callbacks).
+ *
+ * Supports slot customization via [body] and [trailing] parameters following
+ * Material 3 naming convention (`body` for main content, `trailing` for actions).
+ *
+ * @param body    Main content slot — defaults to [DefaultTaskCardBody].
+ * @param trailing Actions slot — defaults to [DefaultTaskCardTrailing].
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -48,7 +54,8 @@ fun TaskCard(
     onLongClick: () -> Unit = {},
     actions: TaskCardActions = TaskCardActions.Empty,
     modifier: Modifier = Modifier,
-    trailing: @Composable (RowScope.() -> Unit)? = null,
+    body: @Composable RowScope.() -> Unit = { DefaultTaskCardBody(task, actions) },
+    trailing: @Composable RowScope.() -> Unit = { DefaultTaskCardTrailing(task, actions) },
 ) {
     Card(
         modifier = modifier
@@ -66,25 +73,36 @@ fun TaskCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ToggleButton(isCompleted = task.isCompleted, onClick = actions::onToggle, taskTitle = task.title)
-
-            TaskText(task = task, modifier = Modifier.weight(1f))
-
-            if (task.parentTaskId != null) {
-                SubtaskChip()
-            }
-
-            PriorityChip(priority = task.priority)
-
-            PinButton(isPinned = task.isPinned, onClick = actions::onPin)
-            AiActionButton(onClick = actions::onAiClick)
-            DeleteActionButton(onClick = actions::onDelete)
-            if (trailing != null) {
-                Spacer(modifier = Modifier.padding(start = 4.dp))
-                Row { trailing() }
-            }
+            body()
+            Spacer(modifier = Modifier.padding(start = 4.dp))
+            trailing()
         }
     }
+}
+
+/**
+ * Default body content for [TaskCard] — toggle, title text, and meta chips.
+ * Marked as [Composable][Composable] with [RowScope] receiver so callers
+ * can use [Modifier.weight] inside the slot.
+ */
+@Composable
+internal fun RowScope.DefaultTaskCardBody(task: Task, actions: TaskCardActions) {
+    ToggleButton(isCompleted = task.isCompleted, onClick = actions::onToggle, taskTitle = task.title)
+    TaskText(task = task, modifier = Modifier.weight(1f))
+    if (task.parentTaskId != null) {
+        SubtaskChip()
+    }
+    PriorityChip(priority = task.priority)
+}
+
+/**
+ * Default trailing actions for [TaskCard] — pin, AI, delete buttons.
+ */
+@Composable
+internal fun DefaultTaskCardTrailing(task: Task, actions: TaskCardActions) {
+    PinButton(isPinned = task.isPinned, onClick = actions::onPin)
+    AiActionButton(onClick = actions::onAiClick)
+    DeleteActionButton(onClick = actions::onDelete)
 }
 
 @Composable

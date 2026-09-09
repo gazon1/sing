@@ -13,7 +13,7 @@ internal fun formatNoteAiResult(result: NoteAiResult): String = when (result) {
  * truncated to [maxChars] characters. Used by [NoteCardContent] to show
  * a readable snippet instead of raw Markdown.
  */
-internal fun extractPreviewText(markdown: String?, maxChars: Int = 120): String {
+fun extractPreviewText(markdown: String?, maxChars: Int = 120): String {
     if (markdown.isNullOrBlank()) return ""
     val stripped = markdown
         .replace(Regex("""#{1,6}\s+"""), "")          // headings

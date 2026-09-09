@@ -65,6 +65,8 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.notes.components.NoteCard
+import com.singularity.todo.feature.notes.components.NoteCardActions
 import com.singularity.todo.feature.notes.components.NotesActions
 import com.singularity.todo.feature.tasks.UserId
 import org.koin.compose.viewmodel.koinViewModel
@@ -426,9 +428,12 @@ fun SwipeableNoteCard(
                 onLongClick = onLongClick,
             ),
     ) {
-        NoteCardContent(
+        NoteCard(
             note = note,
             isSelected = isSelected,
+            onClick = onClick,
+            onLongClick = onLongClick,
+            actions = NoteCardActions.Empty,
         )
     }
 }
@@ -468,73 +473,6 @@ private fun SwipeBackground(dismissValue: SwipeToDismissBoxValue) {
                 tint = Color.White,
                 modifier = Modifier.size(24.dp),
             )
-        }
-    }
-}
-
-// ─── Card Content ─────────────────────────────────────────────────────────────
-
-@Composable
-private fun NoteCardContent(
-    note: Note,
-    isSelected: Boolean = false,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(TestTags.noteItem(note.id.value)),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                isSelected -> MaterialTheme.colorScheme.primaryContainer
-                note.isFolder -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
-                note.color != null -> Color(note.color.value).copy(alpha = 0.15f)
-                else -> MaterialTheme.colorScheme.surface
-            },
-        ),
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = note.title.ifBlank { "Untitled" },
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (note.isPinned) {
-                    Icon(
-                        imageVector = Icons.Default.PushPin,
-                        contentDescription = "Pinned",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .padding(start = 4.dp),
-                    )
-                }
-            }
-            val previewText = extractPreviewText(note.bodyMarkdown)
-            if (previewText.isNotBlank()) {
-                Text(
-                    text = previewText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            // Meta row: word count + updated time
-            if (note.wordCount > 0) {
-                Text(
-                    text = "${note.wordCount} words",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
         }
     }
 }
