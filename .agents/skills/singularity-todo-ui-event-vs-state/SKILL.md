@@ -248,6 +248,21 @@ val actions = remember { TaskDetailActions { intent ->
 
 **Exception: routing that requires domain data.** If you need to ask the VM which project to pre-select in a picker, read that from `state.ui.project` (already available). You do not need to emit a `SharedFlow` event to ask.
 
+**ProjectDetailIntent follows the same pattern.** Routing variants (`OpenColorSheet`, `OpenIconSheet`, `OpenDeleteSheet`, etc.) are `Routing` sealed-subinterface members. They are handled on the screen via `remember { ProjectDetailActions { ... } }` that sets `activeSheet = ActiveSheet.PickColor` directly. The VM never knows which sheet is open.
+
+```kotlin
+// ProjectDetailScreen — routing handled entirely on screen
+val actions = remember {
+    ProjectDetailActions { intent ->
+        when (intent) {
+            is ProjectDetailIntent.Routing.OpenColorSheet -> { sheetState = ActiveSheet.PickColor }
+            is ProjectDetailIntent.Routing.OpenDeleteSheet -> { sheetState = ActiveSheet.ConfirmDelete }
+            is ProjectDetailIntent.Domain -> viewModel.onIntent(intent)
+        }
+    }
+}
+```
+
 ## When to keep `MutableStateFlow` inside a Composable
 
 Genuinely Composable-local UI affordances only:

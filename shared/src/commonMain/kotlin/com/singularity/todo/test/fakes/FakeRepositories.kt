@@ -165,97 +165,94 @@ class FakeBackupRepository : BackupRepository {
 // ─── TaskRepository ───────────────────────────────────────────────────────────
 
 class FakeTaskRepository : TaskRepository {
-    internal val tasks = MutableStateFlow<Map<String, Task>>(emptyMap())
+    private val store = InMemoryStore<Task>(keyOf = { it.id.value })
     private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
     override val changes: SharedFlow<Task> = _changes.asSharedFlow()
 
+    /** Expose store state as [StateFlow] for [watchTasks] and other flows. */
+    internal val tasks: StateFlow<Map<String, Task>> = store.state
+
     /** Seeds tasks by merging into existing state (adds or overwrites by id). */
-    fun seed(vararg tasks: Task) {
-        this.tasks.value += tasks.associateBy { it.id.value }
-    }
+    fun seed(vararg tasks: Task) = store.seed(tasks.toList())
 
-    fun add(task: Task) {
-        tasks.value += (task.id.value to task)
-    }
+    fun add(task: Task) = store.upsert(task)
 
-    fun clear() {
-        tasks.value = emptyMap()
-    }
+    fun clear() = store.clear()
 
     override suspend fun create(task: Task): Result<Unit> = runCatching {
-        tasks.value += (task.id.value to task)
+        store.upsert(task)
         _changes.emit(task)
     }
 
     override suspend fun update(task: Task): Result<Unit> = runCatching {
-        tasks.value += (task.id.value to task)
+        store.upsert(task)
         _changes.emit(task)
     }
 
     override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
-        tasks.value[id.value]?.let { task ->
+        store.get(id.value)?.let { task ->
             val deleted = task.copy(archivedAt = Clock.now())
-            tasks.value += (id.value to deleted)
+            store.upsert(deleted)
             _changes.emit(deleted)
         }
     }
 
-    override suspend fun getById(id: TaskId): Task? = tasks.value[id.value]
+    override suspend fun getById(id: TaskId): Task? = store.get(id.value)
 
     override suspend fun restore(id: TaskId): Result<Unit> = runCatching {
-        tasks.value[id.value]?.let { task ->
+        store.get(id.value)?.let { task ->
             val restored = task.copy(archivedAt = null)
-            tasks.value += (id.value to restored)
+            store.upsert(restored)
             _changes.emit(restored)
         }
     }
 
     override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatching {
-        tasks.value[id.value]?.let { task ->
+        store.get(id.value)?.let { task ->
             val toggled = if (task.completedAt != null) {
                 task.copy(completedAt = null)
             } else {
                 task.copy(completedAt = Clock.now())
             }
-            tasks.value += (id.value to toggled)
+            store.upsert(toggled)
             _changes.emit(toggled)
         }
     }
 
     override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatching {
-        tasks.value[id.value]?.let { task ->
+        store.get(id.value)?.let { task ->
             val toggled = task.copy(isPinned = !task.isPinned)
-            tasks.value += (id.value to toggled)
+            store.upsert(toggled)
             _changes.emit(toggled)
         }
     }
 
-    override suspend fun exists(id: TaskId): Boolean = tasks.value.containsKey(id.value)
+    override suspend fun exists(id: TaskId): Boolean = store.contains(id.value)
 
     override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
-        tasks.value[taskId.value]?.let { task ->
+        store.get(taskId.value)?.let { task ->
             val updated = task.copy(tags = tagIds)
-            tasks.value += (taskId.value to updated)
+            store.upsert(updated)
         }
     }
 
     override fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> =
-        tasks.map { map ->
+        store.state.map { map ->
             map.values
                 .filter { it.userId == userId }
                 .filter { TasksDomain.matchesFilter(it, filter, kotlin.time.Instant.fromEpochMilliseconds(Clock.now().toEpochMilliseconds()).toLocalDateTime(TimeZone.currentSystemDefault()).date) }
                 .sortedWith(compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }))
         }
 
-    override fun watchTask(id: TaskId): Flow<Task?> = tasks.map { it[id.value] }
+    override fun watchTask(id: TaskId): Flow<Task?> = store.state.map { it[id.value] }
 
     override fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> =
-        tasks.map { map ->
+        store.state.map { map ->
             map.values.filter { it.parentTaskId == parentId && it.userId.value == userId.value }
         }
 
     override fun getTagIds(taskId: TaskId): Flow<List<TagId>> =
-        tasks.map { it[taskId.value]?.tags ?: emptyList() }
+        store.state.map { it[taskId.value]?.tags ?: emptyList() }
 }
 
 // ─── ChecklistRepository ─────────────────────────────────────────────────────
@@ -353,54 +350,41 @@ class FakeAuthRepository(
 // ─── ProjectsRepository ──────────────────────────────────────────────────────
 
 class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRepository {
-    internal val store = mutableMapOf<String, com.singularity.todo.feature.projects.Project>()
-    private val _flow = MutableStateFlow<List<com.singularity.todo.feature.projects.Project>>(emptyList())
+    internal val store = InMemoryStore<com.singularity.todo.feature.projects.Project>(
+        keyOf = { it.id.value },
+    )
 
-    fun seed(vararg projects: com.singularity.todo.feature.projects.Project) {
-        projects.forEach { store[it.id.value] = it }
-        emit()
-    }
-
-    fun add(project: com.singularity.todo.feature.projects.Project) {
-        store[project.id.value] = project
-        emit()
-    }
-
-    fun clear() {
-        store.clear()
-        emit()
-    }
-
-    private fun emit() { _flow.value = store.values.toList() }
+    fun seed(vararg projects: com.singularity.todo.feature.projects.Project) = store.seed(projects.toList())
+    fun add(project: com.singularity.todo.feature.projects.Project) = store.upsert(project)
+    fun clear() = store.clear()
 
     override fun watchProjects(userId: String): Flow<List<com.singularity.todo.feature.projects.Project>> =
-        _flow.map { list -> list.filter { it.userId == userId && !it.isDeleted } }
+        store.state.map { list -> list.values.filter { it.userId == userId && !it.isDeleted } }
 
     override fun watchProject(id: com.singularity.todo.feature.projects.ProjectId): Flow<com.singularity.todo.feature.projects.Project?> =
-        _flow.map { list -> list.firstOrNull { it.id == id } }
+        store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
     override suspend fun getById(id: com.singularity.todo.feature.projects.ProjectId): com.singularity.todo.feature.projects.Project? =
-        store[id.value]
+        store.get(id.value)
 
     override fun changes(id: com.singularity.todo.feature.projects.ProjectId): Flow<com.singularity.todo.feature.projects.Project?> =
-        _flow.map { list -> list.firstOrNull { it.id == id } }
+        store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
     override fun watchProjectsWithCounts(userId: String): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
-        _flow.map { list ->
-            list.filter { it.userId == userId && !it.isDeleted }
+        store.state.map { list ->
+            list.values
+                .filter { it.userId == userId && !it.isDeleted }
                 .map { p ->
                     com.singularity.todo.core.database.ProjectWithCountRow(
-                        project = p.let {
-                            com.singularity.todo.core.database.ProjectEntity(
-                                id = it.id.value, userId = it.userId, name = it.name, color = it.color,
-                                icon = it.icon, description = it.description, createdAt = it.createdAt.toEpochMilliseconds(),
-                                updatedAt = it.updatedAt.toEpochMilliseconds(), isDefault = it.isDefault,
-                                dueDate = it.dueDate?.toString(), team = it.team, isDeleted = it.isDeleted,
-                                deletedAt = it.deletedAt?.toEpochMilliseconds(), parentId = it.parentId?.value,
-                                sortOrder = it.sortOrder, idempotencyKey = it.idempotencyKey, externalId = it.externalId,
-                                sync = com.singularity.todo.core.database.SyncColumns()
-                            )
-                        },
+                        project = com.singularity.todo.core.database.ProjectEntity(
+                            id = p.id.value, userId = p.userId, name = p.name, color = p.color,
+                            icon = p.icon, description = p.description, createdAt = p.createdAt.toEpochMilliseconds(),
+                            updatedAt = p.updatedAt.toEpochMilliseconds(), isDefault = p.isDefault,
+                            dueDate = p.dueDate?.toString(), team = p.team, isDeleted = p.isDeleted,
+                            deletedAt = p.deletedAt?.toEpochMilliseconds(), parentId = p.parentId?.value,
+                            sortOrder = p.sortOrder, idempotencyKey = p.idempotencyKey, externalId = p.externalId,
+                            sync = com.singularity.todo.core.database.SyncColumns(),
+                        ),
                         totalCount = 0,
                         completedCount = 0,
                     )
@@ -408,43 +392,40 @@ class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRep
         }
 
     override fun watchByParent(parentId: com.singularity.todo.feature.projects.ProjectId): Flow<List<com.singularity.todo.feature.projects.Project>> =
-        _flow.map { list -> list.filter { it.parentId == parentId && !it.isDeleted } }
+        store.state.map { list -> list.values.filter { it.parentId == parentId && !it.isDeleted } }
 
     override suspend fun setParent(id: com.singularity.todo.feature.projects.ProjectId, parentId: com.singularity.todo.feature.projects.ProjectId?, updatedAt: Long) {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(parentId = parentId, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt))
+        store.get(id.value)?.let { existing ->
+            store.upsert(existing.copy(parentId = parentId, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)))
         }
     }
 
     override suspend fun setSortOrder(id: com.singularity.todo.feature.projects.ProjectId, sortOrder: Int, updatedAt: Long) {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(sortOrder = sortOrder, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt))
+        store.get(id.value)?.let { existing ->
+            store.upsert(existing.copy(sortOrder = sortOrder, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)))
         }
     }
 
     override suspend fun restore(id: com.singularity.todo.feature.projects.ProjectId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(isDeleted = false, deletedAt = null)
+        store.get(id.value)?.let { existing ->
+            store.upsert(existing.copy(isDeleted = false, deletedAt = null))
         }
     }
 
     override suspend fun findByIdempotencyKey(key: String): com.singularity.todo.feature.projects.Project? =
-        store.values.firstOrNull { it.idempotencyKey == key }
+        store.values().firstOrNull { it.idempotencyKey == key }
 
     override suspend fun create(project: com.singularity.todo.feature.projects.Project): Result<Unit> = runCatching {
-        store[project.id.value] = project
-        emit()
+        store.upsert(project)
     }
 
     override suspend fun update(project: com.singularity.todo.feature.projects.Project): Result<Unit> = runCatching {
-        store[project.id.value] = project
-        emit()
+        store.upsert(project)
     }
 
     override suspend fun delete(id: com.singularity.todo.feature.projects.ProjectId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(isDeleted = true, deletedAt = Clock.now())
-            emit()
+        store.get(id.value)?.let { existing ->
+            store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.now()))
         }
     }
 }
@@ -452,72 +433,47 @@ class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRep
 // ─── TagsRepository ──────────────────────────────────────────────────────────
 
 class FakeTagsRepository : com.singularity.todo.feature.tags.TagsRepository {
-    private val store = mutableMapOf<String, com.singularity.todo.feature.tags.Tag>()
-    private val _flow = MutableStateFlow<List<com.singularity.todo.feature.tags.Tag>>(emptyList())
+    private val store = InMemoryStore<com.singularity.todo.feature.tags.Tag>(keyOf = { it.id.value })
 
-    fun seed(vararg tags: com.singularity.todo.feature.tags.Tag) {
-        tags.forEach { store[it.id.value] = it }
-        emit()
-    }
-
-    fun add(tag: com.singularity.todo.feature.tags.Tag) {
-        store[tag.id.value] = tag
-        emit()
-    }
-
-    fun clear() {
-        store.clear()
-        emit()
-    }
-
-    private fun emit() { _flow.value = store.values.toList() }
+    fun seed(vararg tags: com.singularity.todo.feature.tags.Tag) = store.seed(tags.toList())
+    fun add(tag: com.singularity.todo.feature.tags.Tag) = store.upsert(tag)
+    fun clear() = store.clear()
 
     override fun watchTags(userId: String): Flow<List<com.singularity.todo.feature.tags.Tag>> =
-        _flow.map { list -> list.filter { it.userId == userId } }
+        store.state.map { list -> list.values.filter { it.userId == userId } }
 
     override fun watchTag(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
-        _flow.map { list -> list.firstOrNull { it.id == id } }
+        store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
     override suspend fun create(tag: com.singularity.todo.feature.tags.Tag): Result<Unit> = runCatching {
-        store[tag.id.value] = tag
-        emit()
+        store.upsert(tag)
     }
 
     override suspend fun update(tag: com.singularity.todo.feature.tags.Tag): Result<Unit> = runCatching {
-        store[tag.id.value] = tag
-        emit()
+        store.upsert(tag)
     }
 
     override suspend fun delete(id: TagId): Result<Unit> = runCatching {
         store.remove(id.value)
-        emit()
     }
 }
 
 // ─── AttachmentRepository ────────────────────────────────────────────────────
 
 class FakeAttachmentRepository : com.singularity.todo.core.attachments.AttachmentRepository {
-    private val store = mutableMapOf<String, com.singularity.todo.core.attachments.Attachment>()
-    private val _flow = MutableStateFlow<List<com.singularity.todo.core.attachments.Attachment>>(emptyList())
+    private val store = InMemoryStore<com.singularity.todo.core.attachments.Attachment>(keyOf = { it.id.value })
 
-    fun seed(vararg attachments: com.singularity.todo.core.attachments.Attachment) {
-        attachments.forEach { store[it.id.value] = it }
-        emit()
-    }
-
-    private fun emit() { _flow.value = store.values.toList() }
+    fun seed(vararg attachments: com.singularity.todo.core.attachments.Attachment) = store.seed(attachments.toList())
 
     override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
-        _flow.map { list -> list.filter { it.taskId == taskId && it.userId == userId } }
+        store.state.map { list -> list.values.filter { it.taskId == taskId && it.userId == userId } }
 
     override suspend fun create(attachment: com.singularity.todo.core.attachments.Attachment): Result<Unit> = runCatching {
-        store[attachment.id.value] = attachment
-        emit()
+        store.upsert(attachment)
     }
 
     override suspend fun delete(id: com.singularity.todo.core.attachments.AttachmentId): Result<Unit> = runCatching {
         store.remove(id.value)
-        emit()
     }
 
     override suspend fun saveFileAttachment(
@@ -536,8 +492,7 @@ class FakeAttachmentRepository : com.singularity.todo.core.attachments.Attachmen
             createdAt = Clock.now(),
             updatedAt = Clock.now(),
         )
-        store[att.id.value] = att
-        emit()
+        store.upsert(att)
         att
     }
 
@@ -557,8 +512,7 @@ class FakeAttachmentRepository : com.singularity.todo.core.attachments.Attachmen
             createdAt = Clock.now(),
             updatedAt = Clock.now(),
         )
-        store[att.id.value] = att
-        emit()
+        store.upsert(att)
         att
     }
 }
@@ -566,57 +520,40 @@ class FakeAttachmentRepository : com.singularity.todo.core.attachments.Attachmen
 // ─── NotesRepository ─────────────────────────────────────────────────────────
 
 class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
-    val notes: Map<String, com.singularity.todo.feature.notes.Note> get() = store
-    private val store = mutableMapOf<String, com.singularity.todo.feature.notes.Note>()
-    private val _flow = MutableStateFlow<List<com.singularity.todo.feature.notes.Note>>(emptyList())
+    /** Exposes raw store map for tests that need direct map access. */
+    val notes: Map<String, com.singularity.todo.feature.notes.Note> get() = store.state.value
+    private val store = InMemoryStore<com.singularity.todo.feature.notes.Note>(keyOf = { it.id.value })
 
-    fun seed(note: com.singularity.todo.feature.notes.Note) {
-        store[note.id.value] = note
-        emit()
-    }
-
-    fun add(note: com.singularity.todo.feature.notes.Note) {
-        store[note.id.value] = note
-        emit()
-    }
-
-    fun clear() {
-        store.clear()
-        emit()
-    }
-
-    private fun emit() {
-        _flow.value = store.values.toList()
-    }
+    fun seed(note: com.singularity.todo.feature.notes.Note) = store.upsert(note)
+    fun add(note: com.singularity.todo.feature.notes.Note) = store.upsert(note)
+    fun clear() = store.clear()
 
     override fun watchNotes(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        _flow.map { list -> list.filter { it.userId == userId && it.deletedAt == null } }
+        store.state.map { list -> list.values.filter { it.userId == userId && it.deletedAt == null } }
 
     override fun watchPinned(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        _flow.map { list -> list.filter { it.userId == userId && it.isPinned && it.deletedAt == null } }
+        store.state.map { list -> list.values.filter { it.userId == userId && it.isPinned && it.deletedAt == null } }
 
     override fun watchArchived(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        _flow.map { list -> list.filter { it.userId == userId && it.archivedAt != null && it.deletedAt == null } }
+        store.state.map { list -> list.values.filter { it.userId == userId && it.archivedAt != null && it.deletedAt == null } }
 
     override fun watchRootNotes(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        _flow.map { list -> list.filter { it.userId == userId && it.parentNoteId == null && !it.isFolder && it.deletedAt == null } }
+        store.state.map { list -> list.values.filter { it.userId == userId && it.parentNoteId == null && !it.isFolder && it.deletedAt == null } }
 
     override fun watchNote(id: com.singularity.todo.feature.notes.NoteId): Flow<com.singularity.todo.feature.notes.Note?> =
-        _flow.map { list -> list.firstOrNull { it.id == id } }
+        store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
     override fun searchNotes(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        _flow.map { list ->
-            list.filter { note -> note.deletedAt == null && (note.title.contains(query, ignoreCase = true) || (note.bodyMarkdown?.contains(query, ignoreCase = true) == true)) }
+        store.state.map { list ->
+            list.values.filter { note -> note.deletedAt == null && (note.title.contains(query, ignoreCase = true) || (note.bodyMarkdown?.contains(query, ignoreCase = true) == true)) }
         }
 
     override suspend fun create(note: com.singularity.todo.feature.notes.Note): Result<Unit> = runCatching {
-        store[note.id.value] = note
-        emit()
+        store.upsert(note)
     }
 
     override suspend fun update(note: com.singularity.todo.feature.notes.Note): Result<Unit> = runCatching {
-        store[note.id.value] = note
-        emit()
+        store.upsert(note)
     }
 
     override suspend fun createWithContent(
@@ -627,7 +564,7 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
         bodyHtml: String,
     ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
         val now = Clock.now()
-        store[id.value] = com.singularity.todo.feature.notes.Note(
+        val note = com.singularity.todo.feature.notes.Note(
             id = id,
             userId = userId,
             title = title,
@@ -638,14 +575,14 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
             createdAt = now,
             updatedAt = now,
         )
-            emit()
+        store.upsert(note)
         id
     }
 
     override suspend fun createNoteWithTitle(userId: UserId, title: String): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
         val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
         val now = Clock.now()
-        store[id.value] = com.singularity.todo.feature.notes.Note(
+        val note = com.singularity.todo.feature.notes.Note(
             id = id,
             userId = userId,
             title = title,
@@ -656,7 +593,7 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
             createdAt = now,
             updatedAt = now,
         )
-        emit()
+        store.upsert(note)
         id
     }
 
@@ -666,72 +603,65 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
         bodyMarkdown: String,
         bodyHtml: String,
     ): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(
-                title = title,
-                bodyMarkdown = bodyMarkdown,
-                bodyHtml = bodyHtml,
-                wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
-                charCount = bodyMarkdown.length,
-                updatedAt = Clock.now(),
+        store.get(id.value)?.let { existing ->
+            store.upsert(
+                existing.copy(
+                    title = title,
+                    bodyMarkdown = bodyMarkdown,
+                    bodyHtml = bodyHtml,
+                    wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
+                    charCount = bodyMarkdown.length,
+                    updatedAt = Clock.now(),
+                )
             )
-            emit()
         }
     }
 
     override suspend fun softDelete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(deletedAt = Clock.now())
-            emit()
+        store.get(id.value)?.let { existing ->
+            store.upsert(existing.copy(deletedAt = Clock.now()))
         }
     }
 
     override suspend fun restore(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(deletedAt = null)
-            emit()
+        store.get(id.value)?.let { existing ->
+            store.upsert(existing.copy(deletedAt = null))
         }
     }
 
     override suspend fun archive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(archivedAt = Clock.now())
-            emit()
+        store.get(id.value)?.let { existing ->
+            store.upsert(existing.copy(archivedAt = Clock.now()))
         }
     }
 
     override suspend fun unarchive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(archivedAt = null)
-            emit()
+        store.get(id.value)?.let { existing ->
+            store.upsert(existing.copy(archivedAt = null))
         }
     }
 
     override suspend fun setPinned(id: com.singularity.todo.feature.notes.NoteId, pinned: Boolean): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(isPinned = pinned, pinnedAt = if (pinned) Clock.now() else null)
-            emit()
+        store.get(id.value)?.let { existing ->
+            store.upsert(existing.copy(isPinned = pinned, pinnedAt = if (pinned) Clock.now() else null))
         }
     }
 
     override suspend fun setColor(id: com.singularity.todo.feature.notes.NoteId, color: com.singularity.todo.feature.notes.NoteColor?): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(color = color)
-            emit()
+        store.get(id.value)?.let { existing ->
+            store.upsert(existing.copy(color = color))
         }
     }
 
     override suspend fun setSortOrder(id: com.singularity.todo.feature.notes.NoteId, sortOrder: Int): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(sortOrder = sortOrder)
-            emit()
+        store.get(id.value)?.let { existing ->
+            store.upsert(existing.copy(sortOrder = sortOrder))
         }
     }
 
     override suspend fun setOutgoingLinks(id: com.singularity.todo.feature.notes.NoteId, links: List<String>): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store[id.value] = existing.copy(outgoingLinks = links)
-            emit()
+        store.get(id.value)?.let { existing ->
+            store.upsert(existing.copy(outgoingLinks = links))
         }
     }
 }

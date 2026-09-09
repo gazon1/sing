@@ -378,6 +378,65 @@ fun TaskCard(
 
 This matches Compose convention and allows trailing lambda syntax.
 
+## When NOT to use marker interfaces — the BaseEntity trap
+
+Kotlin makes it easy to write `interface Xxx { val id: Id }` — but just because it's possible doesn't mean it's useful.
+
+### The anti-pattern: "simple boundary class" (Effective Kotlin, Rask)
+
+```kotlin
+// ❌ Marker interface with no behaviour — a "simple boundary class"
+interface BaseEntity<ID> {
+    val id: ID
+    val createdAt: Instant
+    val updatedAt: Instant
+}
+
+// Each model "implements" it
+data class Task(...) : BaseEntity<TaskId>
+data class Project(...) : BaseEntity<ProjectId>
+```
+
+**Why it's wrong:** The interface adds no behaviour — it's purely a marker. Effective Kotlin item "Avoid simple boundary classes": a class whose only purpose is to share code between subclasses is a code smell, not an abstraction. In Kotlin, composition + utility functions beat inheritance for this use case.
+
+### The other anti-pattern: `FakeStoreRepository<E>`
+
+```kotlin
+// ❌ Abstract class that only holds state — same problem
+abstract class FakeStoreRepository<E : BaseEntity<*>> {
+    protected val state = MutableStateFlow<Map<String, E>>(emptyMap())
+    open fun seed(items: Collection<E>) { ... }
+}
+```
+
+Every subclass overrides everything meaningful anyway. The base covers only the boilerplate, not the domain logic.
+
+### What to do instead
+
+**For test fakes:** Use `InMemoryStore<E>` as a composition helper:
+```kotlin
+class FakeTaskRepository : TaskRepository {
+    private val store = InMemoryStore<Task>(keyOf = { it.id.value })
+    // domain methods (toggleComplete, watchSubtasks) stay here
+    suspend fun toggleComplete(id: TaskId) = ...
+}
+```
+
+**For typed IDs:** Use `@JvmInline value class` directly — no shared interface needed:
+```kotlin
+@JvmInline value class TaskId(val value: String)
+@JvmInline value class ProjectId(val value: String)
+```
+
+**For validation:** Use `Either<AppError.Validation, T>` in a domain object, not a marker interface:
+```kotlin
+object TasksDomain {
+    fun validate(input: CreateTaskInput): Either<AppError.Validation, CreateTaskInput> { ... }
+}
+```
+
+**Rule of Three:** Only introduce a shared abstraction when ≥3 features need it and the abstraction has real behaviour (not just shared fields).
+
 ## When to use which pattern
 
 | Situation | Kotlin tool |

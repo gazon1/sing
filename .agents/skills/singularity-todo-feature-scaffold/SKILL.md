@@ -252,6 +252,65 @@ class <Feature>ViewModelTest {
 
 ---
 
+## When NOT to Extract a Shared Layer (2026-09-09)
+
+Extracting shared infrastructure too early creates **leaky abstractions** and **over-engineering**. Follow the **Rule of Three**: abstract only when ≥3 features share the same pattern.
+
+### Don't extract: `BaseEntity` marker interface
+
+**Anti-pattern:**
+```kotlin
+// ❌ Simple boundary class — shares nothing meaningful
+interface BaseEntity<ID> { val id: ID; val createdAt: Instant; val updatedAt: Instant }
+class Task : BaseEntity<TaskId> { ... }
+class Project : BaseEntity<ProjectId> { ... }
+```
+
+**Why:** Effective Kotlin (Rask) — "Avoid simple boundary classes." A marker interface with no behaviour is a code smell. Models should be plain data classes.
+
+**Do instead:** Keep `Task` and `Project` as independent data classes. Use `InMemoryStore<E>` (composition utility) for test fakes, not inheritance.
+
+### Don't extract: `FakeStoreRepository<E>` abstract class
+
+**Anti-pattern:**
+```kotlin
+// ❌ Simple boundary class — each repo overrides everything anyway
+abstract class FakeStoreRepository<E : BaseEntity<*>> {
+    protected val state = MutableStateFlow<Map<String, E>>(emptyMap())
+    open fun seed(vararg items: E) { ... }
+}
+class FakeTaskRepository : FakeStoreRepository<Task>() { ... }
+class FakeProjectsRepository : FakeStoreRepository<Project>() { ... }
+```
+
+**Why:** Every concrete Fake overrides `seed`, `add`, `clear` identically. But domain methods (`toggleComplete`, `watchSubtasks`, `findByIdempotencyKey`) stay in the subclass — the base covers ~30% of the code. This is exactly the "simple boundary class" anti-pattern.
+
+**Do instead:** Use `InMemoryStore<E>` as a **composition helper**:
+```kotlin
+class FakeTaskRepository : TaskRepository {
+    private val store = InMemoryStore<Task>(keyOf = { it.id.value })
+    // domain methods (toggleComplete, watchSubtasks) stay here
+}
+```
+
+### When shared infrastructure IS justified
+
+Only extract when **all three** are true:
+1. **≥3 features** use the same pattern.
+2. The abstraction has **behaviour**, not just shared fields.
+3. The abstraction's contract is **stable** — won't need to change when one feature changes.
+
+**Examples in this project that passed the test:**
+- `Either<AppError.Validation, T>` + `toResult()` — used in all CreateUseCases for typed validation.
+- `InMemoryStore<E : Any>` — utility (not a class) for in-memory CRUD in all Fake repositories.
+- `ProfileAwareCurrentUser` — injected into all write operations.
+
+**Examples that were rejected:**
+- `BaseEntity` marker interface — no behaviour, 2 features would use it.
+- Generic `CreateUseCase<E, Input>` — each feature has different validation logic.
+
+---
+
 ## 1-Level Hierarchy Invariant
 
 Projects support a **1-level parent hierarchy**: a project may have a `parentId` pointing to another project, but that parent **must not have its own parent** (`parent.parentId == null`). This is a deliberate simplification: 1-level hierarchy makes cycle-prevention structurally impossible (no chain can form), keeps indentation in lists to a single level, and matches the scope agreed in ADR decisions.

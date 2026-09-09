@@ -221,6 +221,43 @@ ModalBottomSheet(sheetState = sheetState) { ... }
 
 **The fix (PR D, Phase 6):** Updated `libs.versions.toml` to use `io.github.takahirom.roborazzi:roborazzi:1.74.0`. See `singularity-todo-task-snapshot-testing` skill for the correct Maven coordinates and API usage.
 
+### Regression 13: TOCTOU in detail ViewModels — reading state snapshot instead of write-through cache
+
+**Root cause:** `ProjectDetailViewModel.toggleArchive` (and similar mutation methods) read `state.value` to determine current `isDeleted`:
+
+```kotlin
+// ❌ WRONG — state.value may be stale if debounce collector is mid-flight
+fun toggleArchive() = viewModelScope.launch {
+    val current = (state.value as? ProjectDetailUiState.Content)?.ui?.project ?: return@launch
+    updateProject(projectId) { it.copy(isDeleted = !current.isDeleted) }
+}
+```
+
+If the debounce collector for `updateName` fired during the 300ms debounce window, the Room entity was updated but `state` hasn't emitted the new combined value yet. `current.isDeleted` is stale, and `toggleArchive` flips to the wrong value.
+
+**The fix:** `_latestProject` write-through cache (mirrors `_latestTask` from `TaskDetailViewModel`):
+
+```kotlin
+// ✅ CORRECT — read from the write-through cache, not state snapshot
+private val _latestProject = MutableStateFlow<Project?>(null)
+
+init {
+    viewModelScope.launch {
+        projectRepo.watchProject(projectId).collect { _latestProject.value = it }
+    }
+}
+
+private fun handleToggleArchive() = viewModelScope.launch {
+    val current = _latestProject.value ?: return@launch
+    updateProject(projectId) { it.copy(isDeleted = !current.isDeleted) }
+    _events.emit(ProjectDetailUiEvent.Saved)
+}
+```
+
+**The invariant:** In any detail VM that combines multiple flows, **all mutation methods must read from the `_latest<Entity>` StateFlow**, not from `state.value`. The `_latest<Entity>` is updated synchronously before any downstream `combine`, so it is never stale.
+
+**Rule:** If you find yourself writing `state.value as? UiState.Content)?.ui?.entity` inside a `viewModelScope.launch`, introduce `_latest<Entity>` as a write-through cache. See ADR `2026-09-09-projectdetail-write-through-fix.md`.
+
 ## Reference apps
 
 - **TickTick** (Android/iOS) — primary reference for document-style detail screen. Priority chip with coloured flag, combined date+time chip, checklist with progress bar, bottom action bar.
