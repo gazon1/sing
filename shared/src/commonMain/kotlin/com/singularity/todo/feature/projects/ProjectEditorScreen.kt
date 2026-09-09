@@ -24,7 +24,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetState
@@ -302,6 +302,7 @@ private fun ProjectEditorUiEvent.toNotification(): Notification = when (this) {
 
 // ─── Previews ─────────────────────────────────────────────────────────────────
 
+@Suppress("ViewModelConstructorInComposable")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProjectEditorCreatePreview() {
@@ -313,8 +314,8 @@ private fun ProjectEditorCreatePreview() {
 
     val vm = ProjectEditorViewModel(
         projectId = null,
-        createProject = com.singularity.todo.feature.projects.CreateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
-        updateProject = com.singularity.todo.feature.projects.UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
+        createProject = CreateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
+        updateProject = UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
         projectsRepo = fakeProjectsRepo,
         currentUser = fakeCurrentUser,
     )
@@ -324,6 +325,7 @@ private fun ProjectEditorCreatePreview() {
     }
 }
 
+@Suppress("ViewModelConstructorInComposable")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProjectEditorEditPreview() {
@@ -335,8 +337,8 @@ private fun ProjectEditorEditPreview() {
 
     val vm = ProjectEditorViewModel(
         projectId = ProjectId.fromString("p1"),
-        createProject = com.singularity.todo.feature.projects.CreateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
-        updateProject = com.singularity.todo.feature.projects.UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
+        createProject = CreateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
+        updateProject = UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
         projectsRepo = fakeProjectsRepo,
         currentUser = fakeCurrentUser,
     )

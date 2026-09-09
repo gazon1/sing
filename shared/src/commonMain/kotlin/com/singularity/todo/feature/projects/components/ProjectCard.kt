@@ -25,11 +25,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.AiActionButton
-import com.singularity.todo.core.ui.preview.PreviewSamples
-import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.projects.ProjectIconRegistry
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.feature.projects.Project
+import com.singularity.todo.feature.projects.ProjectIconRegistry
 
 /**
  * Visual representation of a [Project]. Stateless — every interaction is
@@ -104,14 +102,4 @@ private fun ColorCircle(color: Color, iconKey: String?) {
     }
 }
 
-// ===== Preview =====
 
-@Composable
-private fun ProjectCardLightPreview() = PreviewThemed(darkTheme = false) {
-    ProjectCard(
-        project = PreviewSamples.project(),
-        totalCount = 5,
-        completedCount = 2,
-        onClick = {},
-    )
-}

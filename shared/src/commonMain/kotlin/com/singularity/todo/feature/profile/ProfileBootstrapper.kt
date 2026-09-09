@@ -64,8 +64,6 @@ class ProfileBootstrapper(
         companion object {
             /** Default 'AI Agent' profile: 🤖 on green. */
             val AI_AGENT = SeedProfile(name = "AI Agent", emoji = "🤖", colorIdx = 1)
-            /** Default 'Personal' profile: 🏠 on blue. */
-            val PERSONAL = SeedProfile(name = "Personal", emoji = "🏠", colorIdx = 0)
         }
     }
 }

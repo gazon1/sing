@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.platform.Clock
@@ -56,10 +57,12 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import kotlin.time.Instant
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Suppress("VIEW_MODEL_IN_COMPOSABLE") // Koin DSL — not a direct constructor call
 @Composable
 fun TasksByProjectScreen(
     projectId: ProjectId,
@@ -281,7 +284,8 @@ private fun QuickAddRow(
 
 // ─── Previews ────────────────────────────────────────────────────────────────
 
-@androidx.compose.ui.tooling.preview.Preview
+@Suppress("VIEW_MODEL_IN_COMPOSABLE") // Preview pattern: construct VM with Fake* deps directly
+@Preview
 @Composable
 private fun TasksByProjectContentPreview() {
     val fakeTaskRepo = FakeTaskRepository()
@@ -292,9 +296,26 @@ private fun TasksByProjectContentPreview() {
 
     val sample = PreviewSamples.project()
     fakeProjectsRepo.seed(sample)
+    val now = Instant.fromEpochMilliseconds(0)
     fakeTaskRepo.seed(
-        PreviewSamples.task(id = "t1", title = "Fix the bug", projectId = sample.id),
-        PreviewSamples.task(id = "t2", title = "Write tests", projectId = sample.id),
+        Task(
+            id = TaskId("t1"),
+            title = "Fix the bug",
+            priority = TaskPriority.Medium,
+            projectId = sample.id,
+            createdAt = now,
+            updatedAt = now,
+            userId = UserId.anonymous,
+        ),
+        Task(
+            id = TaskId("t2"),
+            title = "Write tests",
+            priority = TaskPriority.Low,
+            projectId = sample.id,
+            createdAt = now,
+            updatedAt = now,
+            userId = UserId.anonymous,
+        ),
     )
 
     val vm = TasksByProjectViewModel(

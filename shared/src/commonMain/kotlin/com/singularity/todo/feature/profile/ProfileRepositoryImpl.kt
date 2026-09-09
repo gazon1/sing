@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import kotlin.time.Instant
 
 /**
@@ -99,7 +98,7 @@ class ProfileRepositoryImpl(
     }
 
     override suspend fun switchTo(id: ProfileId) {
-        val exists = profileDao.getById(id.value)
+         profileDao.getById(id.value)
             ?: throw IllegalArgumentException("Profile not found: ${id.value}")
         dataStore.edit { it[ACTIVE_PROFILE_ID] = id.value }
     }
@@ -157,5 +156,5 @@ private fun ProfileEntity.toDomain(): Profile = Profile(
     updatedAt = Instant.fromEpochMilliseconds(updatedAt),
 )
 
-private fun instantToEpochMillis(instant: kotlin.time.Instant): Long =
+private fun instantToEpochMillis(instant: Instant): Long =
     instant.toEpochMilliseconds()

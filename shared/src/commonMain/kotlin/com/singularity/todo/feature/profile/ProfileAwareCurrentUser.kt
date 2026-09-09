@@ -21,8 +21,8 @@ import kotlinx.coroutines.flow.stateIn
  * Example: profile "abc", userId "user_1" → "abc/user_1"
  */
 class ProfileAwareCurrentUser(
-    private val currentUser: CurrentUser,
-    private val profileRepository: ProfileRepository,
+      currentUser: CurrentUser,
+      profileRepository: ProfileRepository,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 

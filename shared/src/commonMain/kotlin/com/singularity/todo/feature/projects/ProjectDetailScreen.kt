@@ -27,28 +27,26 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.SheetValue
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -64,21 +62,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
-import com.singularity.todo.core.ui.components.DatePickerSheet
-import com.singularity.todo.feature.reminders.ReminderPicker
-import com.singularity.todo.feature.tasks.TaskId
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.reminders.ReminderPicker
 import com.singularity.todo.feature.tasks.Task
+import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.components.TaskCard
 import com.singularity.todo.feature.tasks.components.TaskCardActions
 import org.koin.compose.viewmodel.koinViewModel
@@ -983,7 +982,7 @@ private val clock: Clock get() = Clock.System
 // ─── Previews ────────────────────────────────────────────────────────────────
 
 @androidx.compose.ui.tooling.preview.Preview
-@Suppress("VIEW_MODEL_IN_COMPOSABLE") // Preview pattern: construct VM with Fake* deps directly
+@Suppress("VIEW_MODEL_IN_COMPOSABLE", "ViewModelConstructorInComposable") // Preview pattern: construct VM with Fake* deps directly
 @Composable
 private fun ProjectDetailContentPreview() {
     val sample = PreviewSamples.project()
@@ -1004,7 +1003,7 @@ private fun ProjectDetailContentPreview() {
         projectRepo = fakeProjectsRepo,
         taskRepo = fakeTaskRepo,
         deleteProject = com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
-        updateProject = com.singularity.todo.feature.projects.UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
+        updateProject = UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
         updateTask = com.singularity.todo.feature.tasks.UpdateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
         currentUser = fakeCurrentUser,
         clock = com.singularity.todo.core.platform.Clock,

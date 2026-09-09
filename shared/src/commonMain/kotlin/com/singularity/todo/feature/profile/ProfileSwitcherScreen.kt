@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.test.fakes.FakeProfileRepository
 import org.koin.compose.viewmodel.koinViewModel
 
 private val PROFILE_COLORS = listOf(
@@ -62,6 +63,14 @@ fun ProfileSwitcherScreen(
     modifier: Modifier = Modifier,
 ) {
     val viewModel: ProfileSwitcherViewModel = koinViewModel()
+    ProfileSwitcherContent(viewModel = viewModel, modifier = modifier)
+}
+
+@Composable
+private fun ProfileSwitcherContent(
+    viewModel: ProfileSwitcherViewModel,
+    modifier: Modifier = Modifier,
+) {
     val state by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var profileToDelete by remember { mutableStateOf<Profile?>(null) }
@@ -288,7 +297,10 @@ private fun CreateProfileDialog(
 }
 
 @androidx.compose.ui.tooling.preview.Preview
+@Suppress("VIEW_MODEL_IN_COMPOSABLE", "ViewModelConstructorInComposable") // Preview pattern: construct VM with Fake* deps directly
 @Composable
 private fun ProfileSwitcherScreenPreview() = PreviewThemed {
-    ProfileSwitcherScreen(onBack = {})
+    val fakeProfileRepo = FakeProfileRepository()
+    val vm = ProfileSwitcherViewModel(profileRepository = fakeProfileRepo)
+    ProfileSwitcherContent(viewModel = vm)
 }

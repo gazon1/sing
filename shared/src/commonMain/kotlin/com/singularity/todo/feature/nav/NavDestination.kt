@@ -2,13 +2,13 @@ package com.singularity.todo.feature.nav
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.ManageSearch
+import androidx.compose.material.icons.automirrored.filled.StickyNote2
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.ManageSearch
-import androidx.compose.material.icons.filled.StickyNote2
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -25,12 +25,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
  */
 enum class NavDestination(val title: String, val icon: ImageVector) {
     Tasks("Tasks", Icons.Filled.CheckCircleOutline),
-    Notes("Notes", Icons.Filled.StickyNote2),
+    Notes("Notes", Icons.AutoMirrored.Filled.StickyNote2),
     Projects("Projects", Icons.Filled.Folder),
     Pomodoro("Timer", Icons.Filled.Timer),
     Statistics("Stats", Icons.Filled.BarChart),
     Chat("AI Chat", Icons.AutoMirrored.Filled.Chat),
-    Search("Search", Icons.Filled.ManageSearch),
+    Search("Search", Icons.AutoMirrored.Filled.ManageSearch),
     Archive("Archive", Icons.Filled.Inventory2),
     Settings("Settings", Icons.Filled.AdminPanelSettings),
 }

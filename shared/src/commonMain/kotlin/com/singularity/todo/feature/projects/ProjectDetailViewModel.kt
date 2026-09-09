@@ -9,11 +9,10 @@ import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.TaskFilter
 import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.TaskRepository
-import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.TaskKind
 import com.singularity.todo.feature.tasks.TaskPriority
-import kotlinx.datetime.LocalDate
+import com.singularity.todo.feature.tasks.TaskRepository
+import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -31,6 +30,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 /**
@@ -158,7 +158,7 @@ class ProjectDetailViewModel(
     fun updateName(name: String) {
         debounceNameJob?.cancel()
         debounceNameJob = viewModelScope.launch {
-            delay(300)
+            delay(300.milliseconds)
             updateProject(projectId) { it.copy(name = name) }
             _lastEditedAt.value = clock.now()
         }
@@ -168,7 +168,7 @@ class ProjectDetailViewModel(
     fun updateDescription(description: String?) {
         debounceDescJob?.cancel()
         debounceDescJob = viewModelScope.launch {
-            delay(300)
+            delay(300.milliseconds)
             updateProject(projectId) { it.copy(description = description) }
             _lastEditedAt.value = clock.now()
         }
@@ -246,11 +246,7 @@ class ProjectDetailViewModel(
         }
     }
 
-    fun duplicate() = viewModelScope.launch {
-        val current = (state.value as? ProjectDetailUiState.Content)?.ui?.project ?: return@launch
-        // Triggers Saved event for explicit duplicate action
-        _events.emit(ProjectDetailUiEvent.Saved)
-    }
+
 }
 
 // ─── UI State ─────────────────────────────────────────────────────────────────
