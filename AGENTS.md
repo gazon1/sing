@@ -289,6 +289,7 @@ Skill-ов немного и они узкие. **Большинство арх�
 | `singularity-todo-rich-editor` | Rich-text WYSIWYG для заметок |
 | `singularity-todo-room-migration` | Миграции Room-схемы |
 | `singularity-todo-ui-event-vs-state` | One-shot события vs continuous state в VM |
+| `singularity-todo-preview-with-koin` | `@Preview` без Koin — VM-as-parameter pattern, FakeRepositories для preview |
 
 **Удалённые skill-ы** (информация переехала в `docs/decisions/`):
 ~~`singularity-todo-koin-suspend-bridge`~~ — см. `2026-09-05-koin-suspend-bridge.md`.

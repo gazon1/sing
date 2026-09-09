@@ -3,6 +3,17 @@ package com.singularity.todo.feature.projects
 import com.singularity.todo.feature.tasks.Task
 
 /**
+ * DTO for a single option in the parent-project picker.
+ * Excludes [Project] itself to avoid cycles and omits deleted / non-root items.
+ */
+data class ParentOption(
+    val id: ProjectId,
+    val name: String,
+    /** True if this option is currently the parent of the displayed project. */
+    val isCurrent: Boolean,
+)
+
+/**
  * Combined read model for [ProjectDetailScreen].
  * Aggregates the project with its task list and aggregate counts.
  */

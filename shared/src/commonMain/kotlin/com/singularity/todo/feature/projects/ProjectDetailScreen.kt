@@ -21,11 +21,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
@@ -50,28 +51,23 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.components.DatePickerSheet
+import com.singularity.todo.feature.reminders.ReminderPicker
+import com.singularity.todo.feature.tasks.TaskId
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.CollectEvents
-import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -79,7 +75,6 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.components.TaskCard
 import com.singularity.todo.feature.tasks.components.TaskCardActions
-import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlin.time.Clock
@@ -97,20 +92,51 @@ import kotlin.time.Instant
  *
  * All pickers/confirms are routed through [ActiveSheet].
  */
+
+// ─── Public entry point — creates VM via Koin ──────────────────────────────────
+
+/**
+ * Shell that creates [ProjectDetailViewModel] via Koin and delegates to
+ * [ProjectDetailContent]. This is the navigation-entry composable.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalTime::class)
 @Composable
 fun ProjectDetailScreen(
     projectId: ProjectId,
     onBack: () -> Unit,
     onNavigateToTasks: (ProjectId) -> Unit,
+    onNavigateToTask: (TaskId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: ProjectDetailViewModel = koinViewModel { parametersOf(projectId) }
+    ProjectDetailContent(
+        viewModel = viewModel,
+        projectId = projectId,
+        modifier = modifier,
+        onBack = onBack,
+        onNavigateToTasks = onNavigateToTasks,
+        onNavigateToTask = onNavigateToTask,
+    )
+}
+
+// ─── Content — accepts VM as parameter (usable without Koin) ──────────────────
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalTime::class)
+@Composable
+fun ProjectDetailContent(
+    viewModel: ProjectDetailViewModel,
+    projectId: ProjectId,
+    onBack: () -> Unit,
+    onNavigateToTasks: (ProjectId) -> Unit,
+    onNavigateToTask: (TaskId) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
     val hideCompleted by viewModel.hideCompleted.collectAsStateWithLifecycle()
+    val parentOptions by viewModel.parentOptionsFlow.collectAsStateWithLifecycle()
     var sheetState by remember { mutableStateOf<ActiveSheet?>(null) }
-    val sheetScope = rememberCoroutineScope()
+    var overflowMenuOpen by remember { mutableStateOf(false) }
 
     CollectEvents(viewModel.events) { event ->
         when (event) {
@@ -134,11 +160,37 @@ fun ProjectDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { sheetState = ActiveSheet.Edit }) {
-                        Icon(Icons.Filled.Edit, "Edit project")
-                    }
-                    IconButton(onClick = { sheetState = ActiveSheet.MoreMenu }) {
-                        Icon(Icons.Filled.MoreVert, "More")
+                    // Edit icon removed — name is already inline-editable in ProjectHeroSection.
+                    // Overflow menu with Archive / Delete.
+                    Box {
+                        IconButton(onClick = { overflowMenuOpen = true }) {
+                            Icon(Icons.Filled.MoreVert, "More")
+                        }
+                        DropdownMenu(
+                            expanded = overflowMenuOpen,
+                            onDismissRequest = { overflowMenuOpen = false },
+                        ) {
+                            val isArchived = (state as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true
+                            DropdownMenuItem(
+                                text = { Text(if (isArchived) "Unarchive" else "Archive") },
+                                onClick = {
+                                    overflowMenuOpen = false
+                                    sheetState = ActiveSheet.ConfirmArchive
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Delete",
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                },
+                                onClick = {
+                                    overflowMenuOpen = false
+                                    sheetState = ActiveSheet.ConfirmDelete
+                                },
+                            )
+                        }
                     }
                 }
             )
@@ -147,9 +199,9 @@ fun ProjectDetailScreen(
             if (contentState is ProjectDetailUiState.Content) {
                 ProjectBottomActionBar(
                     isArchived = contentState.ui.project.isDeleted,
-                    onRemind = { /* TODO */ },
-                    onAttach = { /* TODO */ },
-                    onMoreClick = { sheetState = ActiveSheet.MoreMenu },
+                    onRemind = { sheetState = ActiveSheet.PickReminder },
+                    onAttach = { sheetState = ActiveSheet.AddAttachment },
+                    onMoreClick = { overflowMenuOpen = true },
                 )
             }
         }
@@ -178,13 +230,16 @@ fun ProjectDetailScreen(
                 ProjectMetaChipsRow(
                     ui = s.ui,
                     onParentClick = { sheetState = ActiveSheet.PickParent(s.ui.project.parentId) },
+                    onDueDateClick = { sheetState = ActiveSheet.PickDueDate },
+                    onChildClick = { sheetState = ActiveSheet.ShowChildren },
                 )
                 ProjectBodySection(
                     ui = s.ui,
                     hideCompleted = hideCompleted,
                     onToggleHideCompleted = viewModel::toggleHideCompleted,
                     onSeeAllClick = onNavigateToTasks,
-                    onTaskClick = { /* TODO: navigate to task detail */ },
+                    onTaskClick = { task -> onNavigateToTask(task.id) },
+                    onCreateTask = viewModel::createTask,
                 )
             }
         }
@@ -197,7 +252,7 @@ fun ProjectDetailScreen(
             onDismissRequest = { sheetState = null },
             sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
         ) {
-            when (val sheet = sheetState) {
+            when (sheetState) {
                 null -> Unit
                 is ActiveSheet.PickColor -> ColorPickerSheet(
                     currentColor = (state as? ProjectDetailUiState.Content)?.ui?.project?.color
@@ -217,7 +272,7 @@ fun ProjectDetailScreen(
                     onDismiss = { sheetState = null },
                 )
                 is ActiveSheet.PickParent -> ParentPickerSheet(
-                    currentParentId = (state as? ProjectDetailUiState.Content)?.ui?.project?.parentId,
+                    options = parentOptions,
                     onPick = { parentId ->
                         viewModel.updateParent(parentId)
                         sheetState = null
@@ -240,8 +295,25 @@ fun ProjectDetailScreen(
                     },
                     onDismiss = { sheetState = null },
                 )
-                is ActiveSheet.Edit -> { /* edit handled via top bar nav */ sheetState = null }
-                is ActiveSheet.MoreMenu -> { /* rendered as dropdown in top bar */ sheetState = null }
+                is ActiveSheet.PickReminder -> ReminderPickerSheet(
+                    onPick = { /* reminder set on project — future enhancement */ sheetState = null },
+                    onDismiss = { sheetState = null },
+                )
+                is ActiveSheet.AddAttachment -> AttachmentPlaceholderSheet(
+                    onDismiss = { sheetState = null },
+                )
+                is ActiveSheet.PickDueDate -> DatePickerSheet(
+                    initialDate = (state as? ProjectDetailUiState.Content)?.ui?.project?.dueDate,
+                    onDateSelected = { date ->
+                        viewModel.updateDueDate(date)
+                        sheetState = null
+                    },
+                    onDismiss = { sheetState = null },
+                )
+                is ActiveSheet.ShowChildren -> ChildProjectsSheet(
+                    children = (state as? ProjectDetailUiState.Content)?.ui?.childProjects ?: emptyList(),
+                    onDismiss = { sheetState = null },
+                )
             }
         }
     }
@@ -260,8 +332,8 @@ private fun ProjectDetailUiState.title(): String = when (this) {
 @Composable
 private fun ProjectHeroSection(
     ui: ProjectDetailUi,
-    lastEditedAt: kotlin.time.Instant?,
-    now: kotlin.time.Instant,
+    lastEditedAt: Instant?,
+    now: Instant,
     onNameChange: (String) -> Unit,
     onDescriptionChange: (String?) -> Unit,
     onColorClick: () -> Unit,
@@ -364,6 +436,8 @@ private fun ProjectHeroSection(
 private fun ProjectMetaChipsRow(
     ui: ProjectDetailUi,
     onParentClick: () -> Unit,
+    onDueDateClick: () -> Unit,
+    onChildClick: () -> Unit,
 ) {
     FlowRow(
         modifier = Modifier
@@ -374,7 +448,7 @@ private fun ProjectMetaChipsRow(
         ui.project.dueDate?.let { date ->
             FilterChip(
                 selected = false,
-                onClick = { /* open date picker */ },
+                onClick = onDueDateClick,
                 label = { Text(date.toString()) },
                 leadingIcon = {
                     Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -399,7 +473,7 @@ private fun ProjectMetaChipsRow(
         if (ui.childProjects.isNotEmpty()) {
             FilterChip(
                 selected = false,
-                onClick = { /* show child projects */ },
+                onClick = onChildClick,
                 label = { Text("${ui.childProjects.size} sub-projects") },
                 leadingIcon = {
                     Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -416,11 +490,12 @@ private fun ProjectBodySection(
     onToggleHideCompleted: () -> Unit,
     onSeeAllClick: (ProjectId) -> Unit,
     onTaskClick: (Task) -> Unit,
+    onCreateTask: (String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // Quick-add input
         ProjectDetailQuickAddInput(
-            projectId = ui.project.id,
+            onSubmit = onCreateTask,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
@@ -510,10 +585,11 @@ private fun ProjectBottomActionBar(
 
 @Composable
 private fun ProjectDetailQuickAddInput(
-    projectId: ProjectId,
+    onSubmit: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var text by remember { mutableStateOf("") }
+    val focus = LocalFocusManager.current
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -526,6 +602,14 @@ private fun ProjectDetailQuickAddInput(
             placeholder = { Text("Add a task...") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                if (text.isNotBlank()) {
+                    onSubmit(text)
+                    text = ""
+                    focus.clearFocus()
+                }
+            }),
         )
     }
 }
@@ -538,8 +622,10 @@ private sealed interface ActiveSheet {
     data class PickParent(val current: ProjectId?) : ActiveSheet
     data object ConfirmDelete : ActiveSheet
     data object ConfirmArchive : ActiveSheet
-    data object Edit : ActiveSheet
-    data object MoreMenu : ActiveSheet
+    data object PickReminder : ActiveSheet
+    data object AddAttachment : ActiveSheet
+    data object PickDueDate : ActiveSheet
+    data object ShowChildren : ActiveSheet
 }
 
 @Composable
@@ -616,21 +702,35 @@ private fun IconPickerSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ParentPickerSheet(
-    currentParentId: ProjectId?,
+    options: List<ParentOption>,
     onPick: (ProjectId?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // TODO: list all root projects as options
-    Column(modifier = Modifier.padding(24.dp)) {
-        Text("Parent project", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(8.dp))
-        DropdownMenuItem(
-            text = { Text("None (root)") },
-            onClick = { onPick(null) },
-            modifier = Modifier.clickable { onPick(null) },
-        )
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text("Parent project", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(12.dp))
+            TextButton(
+                onClick = { onPick(null) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("None (root)")
+            }
+            LazyColumn {
+                items(options) { opt ->
+                    FilterChip(
+                        selected = opt.isCurrent,
+                        onClick = { onPick(opt.id) },
+                        label = { Text(opt.name) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
     }
 }
 
@@ -676,6 +776,89 @@ private fun ConfirmArchiveSheet(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderPickerSheet(
+    onPick: (kotlinx.datetime.LocalDate?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            ReminderPicker(
+                selected = com.singularity.todo.feature.settings.ReminderOffset.AT_DUE,
+                onSelect = { offset ->
+                    // Project-level reminder is a future enhancement;
+                    // for now, creating a task with this offset would be the UX path.
+                    onDismiss()
+                },
+            )
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AttachmentPlaceholderSheet(
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Text("Attachments", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Attachments for projects are a future enhancement. " +
+                "Please use task-level attachments via TaskDetail.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(16.dp))
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Close") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChildProjectsSheet(
+    children: List<Project>,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text("Sub-projects", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(12.dp))
+            if (children.isEmpty()) {
+                Text(
+                    "No sub-projects",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                LazyColumn {
+                    items(children) { child ->
+                        FilterChip(
+                            selected = false,
+                            onClick = onDismiss,
+                            label = { Text(child.name) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
 // ─── Pure formatter ───────────────────────────────────────────────────────────
 
 /** Formats a "Saved X ago" relative timestamp. Must be testable without Compose. */
@@ -695,11 +878,37 @@ private val clock: Clock get() = Clock.System
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ProjectDetailContentPreview() = PreviewThemed(darkTheme = false) {
+private fun ProjectDetailContentPreview() {
     val sample = PreviewSamples.project()
-    ProjectDetailScreen(
+
+    // Build fake dependencies manually — no Koin needed in previews.
+    // Pattern: public Screen entry = koinViewModel wrapper;
+    //          private Content = accepts VM as parameter.
+    val fakeProjectsRepo = com.singularity.todo.test.fakes.FakeProjectsRepository().apply {
+        seed(sample)
+    }
+    val fakeTaskRepo = com.singularity.todo.test.fakes.FakeTaskRepository()
+    val fakeAuthRepo = com.singularity.todo.test.fakes.FakeAuthRepository()
+    val fakeProfileRepo = com.singularity.todo.test.fakes.FakeProfileRepository()
+    val fakeCurrentUser = com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser(fakeAuthRepo, fakeProfileRepo)
+
+    val vm = ProjectDetailViewModel(
         projectId = sample.id,
-        onBack = {},
-        onNavigateToTasks = {},
+        projectRepo = fakeProjectsRepo,
+        taskRepo = fakeTaskRepo,
+        deleteProject = com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
+        updateProject = com.singularity.todo.feature.projects.UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
+        currentUser = fakeCurrentUser,
+        clock = com.singularity.todo.core.platform.Clock,
     )
+
+    PreviewThemed {
+        ProjectDetailContent(
+            viewModel = vm,
+            projectId = sample.id,
+            onBack = {},
+            onNavigateToTasks = {},
+            onNavigateToTask = {},
+        )
+    }
 }

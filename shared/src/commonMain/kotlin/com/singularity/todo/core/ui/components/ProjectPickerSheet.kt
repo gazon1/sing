@@ -24,18 +24,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.Project
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.tasks.components.TaskEditorSheetHost
-import com.singularity.todo.core.settings.SettingsRepository
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -46,7 +46,7 @@ fun ProjectPickerSheet(
     onDismiss: () -> Unit,
 ) {
     val projectsRepo: ProjectsRepository = koinInject()
-    val settingsRepo: SettingsRepository = koinInject()
+    val currentUser: ProfileAwareCurrentUser = koinInject()
     val scope = rememberCoroutineScope()
 
     var projects by remember { mutableStateOf<List<Project>>(emptyList()) }
@@ -54,9 +54,9 @@ fun ProjectPickerSheet(
     var newProjectName by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
 
-    LaunchedEffect(Unit) {
-        val userId = settingsRepo.userId.first()
-        projects = projectsRepo.watchProjects(userId).first()
+    val userId by currentUser.scopedUserId.collectAsStateWithLifecycle()
+    LaunchedEffect(userId) {
+        projectsRepo.watchProjects(userId.value).collect { projects = it }
     }
 
     TaskEditorSheetHost(
@@ -95,23 +95,22 @@ fun ProjectPickerSheet(
                             modifier = Modifier.weight(1f),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(
+                                keyboardActions = KeyboardActions(
                                 onDone = {
                                     if (newProjectName.isNotBlank()) {
                                         scope.launch {
-                                            val userId = settingsRepo.userId.first()
+                                            val uid = currentUser.scopedUserId.value.value
                                             val newProject = Project(
                                                 id = ProjectId.generate(),
                                                 name = newProjectName.trim(),
                                                 color = 0xFF4CAF50.toInt(),
                                                 createdAt = Clock.now(),
                                                 updatedAt = Clock.now(),
-                                                userId = userId,
+                                                userId = uid,
                                             )
                                             projectsRepo.create(newProject)
                                             newProjectName = ""
                                             isCreating = false
-                                            projects = projectsRepo.watchProjects(userId).first()
                                         }
                                     }
                                     focusManager.clearFocus()
@@ -122,19 +121,18 @@ fun ProjectPickerSheet(
                             onClick = {
                                 if (newProjectName.isNotBlank()) {
                                     scope.launch {
-                                        val userId = settingsRepo.userId.first()
+                                        val uid = currentUser.scopedUserId.value.value
                                         val newProject = Project(
                                             id = ProjectId.generate(),
                                             name = newProjectName.trim(),
                                             color = 0xFF4CAF50.toInt(),
                                             createdAt = Clock.now(),
                                             updatedAt = Clock.now(),
-                                            userId = userId,
+                                            userId = uid,
                                         )
                                         projectsRepo.create(newProject)
                                         newProjectName = ""
                                         isCreating = false
-                                        projects = projectsRepo.watchProjects(userId).first()
                                     }
                                 }
                                 focusManager.clearFocus()

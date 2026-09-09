@@ -162,6 +162,9 @@ fun AppNavHost(
                 onNavigateToTasks = { projectId ->
                     navigator.navigate(AppDestination.TasksByProject(projectId.value))
                 },
+                onNavigateToTask = { taskId ->
+                    navigator.navigate(AppDestination.TaskDetail(taskId.value))
+                },
             )
         }
         composable<AppDestination.TasksByProject> { backStackEntry ->

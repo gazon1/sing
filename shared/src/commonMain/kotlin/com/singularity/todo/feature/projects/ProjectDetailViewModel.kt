@@ -8,7 +8,11 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.TaskFilter
+import com.singularity.todo.feature.tasks.TaskId
+import com.singularity.todo.feature.tasks.TaskKind
+import com.singularity.todo.feature.tasks.TaskPriority
 import com.singularity.todo.feature.tasks.TaskRepository
+import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -58,6 +62,21 @@ class ProjectDetailViewModel(
         .onStart { emit(null) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    /**
+     * Reactive list of parent-picker options, derived from [projectFlow] and
+     * [ProjectsRepository.watchProjects]. Excludes the current project (cycle prevention)
+     * and already-deleted / non-root projects.
+     */
+    val parentOptionsFlow: StateFlow<List<ParentOption>> = combine(
+        projectFlow,
+        projectRepo.watchProjects(currentUser.scopedUserId.value.value),
+    ) { project, allProjects ->
+        if (project == null) emptyList()
+        else allProjects
+            .filter { it.id != project.id && it.parentId == null && !it.isDeleted }
+            .map { ParentOption(it.id, it.name, it.id == project.parentId) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val state: StateFlow<ProjectDetailUiState> = combine(
         projectFlow,
         projectFlow.flatMapLatest { project ->
@@ -71,8 +90,12 @@ class ProjectDetailViewModel(
             if (project == null) flowOf(emptyList())
             else projectRepo.watchByParent(projectId)
         },
+        projectFlow.flatMapLatest { p ->
+            if (p == null || p.parentId == null) flowOf(null)
+            else projectRepo.watchProject(p.parentId)
+        },
         _hideCompleted,
-    ) { project, tasks, childProjects, hideCompleted ->
+    ) { project, tasks, childProjects, parent, hideCompleted ->
         when {
             project == null -> ProjectDetailUiState.Loading
             project.isDeleted -> ProjectDetailUiState.NotFound
@@ -85,7 +108,7 @@ class ProjectDetailViewModel(
                         totalCount = tasks.size,
                         completedCount = tasks.count { it.completedAt != null },
                         childProjects = childProjects,
-                        parent = null, // loaded separately if needed
+                        parent = parent,
                     )
                 )
             }
@@ -167,6 +190,30 @@ class ProjectDetailViewModel(
                     (error as? AppError)?.message ?: error.message ?: "Delete failed"
                 ))
             }
+    }
+
+    fun createTask(title: String) = viewModelScope.launch {
+        val trimmed = title.trim()
+        if (trimmed.isEmpty()) return@launch
+        val now = clock.now()
+        runCatching {
+            taskRepo.create(
+                Task(
+                    id = TaskId.generate(),
+                    title = trimmed,
+                    kind = TaskKind.Task,
+                    priority = TaskPriority.None,
+                    projectId = projectId,
+                    createdAt = now,
+                    updatedAt = now,
+                    userId = UserId(currentUser.scopedUserId.value.value),
+                )
+            )
+        }.onFailure { error ->
+            _events.emit(ProjectDetailUiEvent.ShowError(
+                (error as? AppError)?.message ?: error.message ?: "Create task failed"
+            ))
+        }
     }
 
     fun duplicate() = viewModelScope.launch {

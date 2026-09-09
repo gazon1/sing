@@ -214,6 +214,83 @@ viewModel {
 - `viewModelOf(::Vm)` works when all constructor parameters have Koin bindings and there are **≤7 parameters**
 - When ≥8 parameters or when `getOrNull()` is needed → use `viewModel { Vm(get(), ...) }`
 
+## Runtime Parameters in ViewModels (e.g. `ProjectDetailViewModel(projectId: ProjectId)`)
+
+Some ViewModels need a runtime parameter (an ID, a filter, an initial value) that can't come from DI — it is passed at the call site.
+
+### The correct pattern — `viewModel { (param) -> Vm(param, get(), ...) }`
+
+```kotlin
+// In Modules.kt — domainModule()
+viewModel { (projectId: ProjectId) ->
+    ProjectDetailViewModel(
+        projectId = projectId,
+        projectRepo = get(),
+        taskRepo = get(),
+        deleteProject = get(),
+        updateProject = get(),
+        currentUser = get(),
+        clock = get(),
+    )
+}
+
+// In the screen — use parametersOf()
+@Composable
+fun ProjectDetailScreen(projectId: ProjectId, ...) {
+    val vm: ProjectDetailViewModel = koinViewModel { parametersOf(projectId) }
+    ProjectDetailContent(viewModel = vm, ...)
+}
+```
+
+### Parameter ordering in the lambda
+
+The parameter goes **first** in the `viewModel { (param) -> ... }` lambda, then all `get()` calls. This matches how `parametersOf(param)` is called.
+
+### ⚠️ Common mistake — `factory {}` for ViewModel with runtime params
+
+```kotlin
+// ❌ WRONG — memory leak! Factory creates a new instance every time get() is called
+factory { (projectId: ProjectId) ->
+    ProjectDetailViewModel(projectId, get(), get(), ...)
+}
+
+// ✅ CORRECT — viewModel {} scopes the instance to the lifecycle
+viewModel { (projectId: ProjectId) ->
+    ProjectDetailViewModel(projectId, get(), get(), ...)
+}
+```
+
+**Why `factory` is wrong:** `factory` in Koin means "create new instance on every `get()` call". For a ViewModel, this means a new ViewModel on every rotation, navigation, or recomposition — a guaranteed memory leak. Always use `viewModel { }` for ViewModels, even with runtime parameters.
+
+### In @Preview — pass parameter directly to the VM constructor
+
+```kotlin
+@Preview
+@Composable
+private fun ProjectDetailScreen_Preview() {
+    PreviewThemed {
+        val vm = ProjectDetailViewModel(
+            projectId = sampleProjectId,
+            projectRepo = FakeProjectsRepository(),
+            taskRepo = FakeTaskRepository(),
+            deleteProject = DeleteProjectUseCase(FakeProjectsRepository(), Clock),
+            updateProject = UpdateProjectUseCase(FakeProjectsRepository(), Clock),
+            currentUser = FakeProfileAwareCurrentUser(...),
+            clock = Clock,
+        )
+        ProjectDetailContent(
+            viewModel = vm,
+            projectId = sampleProjectId,
+            onBack = {},
+            onNavigateToTasks = {},
+            onNavigateToTask = {},
+        )
+    }
+}
+```
+
+**Rule:** Never call `koinViewModel { parametersOf(...) }` in a preview — the preview harness does not start Koin. Construct the VM directly with `FakeRepositories`.
+
 ## Gotchas
 
 1. **Last-wins**: if two modules define the same type, the later-loaded one wins.

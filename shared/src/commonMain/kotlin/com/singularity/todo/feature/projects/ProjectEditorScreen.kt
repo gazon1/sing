@@ -58,6 +58,10 @@ import org.koin.core.parameter.parametersOf
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
+/**
+ * Shell that creates [ProjectEditorViewModel] via Koin and delegates to
+ * [ProjectEditorContent]. This is the navigation-entry composable.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProjectEditorScreen(
@@ -66,6 +70,22 @@ fun ProjectEditorScreen(
     modifier: Modifier = Modifier,
 ) {
     val viewModel: ProjectEditorViewModel = koinViewModel { parametersOf(projectId) }
+    ProjectEditorContent(
+        viewModel = viewModel,
+        modifier = modifier,
+        onBack = onBack,
+    )
+}
+
+// ─── Content — accepts VM as parameter (usable without Koin) ──────────────────
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun ProjectEditorContent(
+    viewModel: ProjectEditorViewModel,
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showIconPicker by remember { mutableStateOf(false) }
     var showParentPicker by remember { mutableStateOf(false) }
@@ -284,18 +304,44 @@ private fun ProjectEditorUiEvent.toNotification(): Notification = when (this) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProjectEditorCreatePreview() = PreviewThemed(darkTheme = false) {
-    ProjectEditorScreen(
+private fun ProjectEditorCreatePreview() {
+    // Build fake dependencies manually — no Koin needed in previews.
+    val fakeProjectsRepo = com.singularity.todo.test.fakes.FakeProjectsRepository()
+    val fakeAuthRepo = com.singularity.todo.test.fakes.FakeAuthRepository()
+    val fakeProfileRepo = com.singularity.todo.test.fakes.FakeProfileRepository()
+    val fakeCurrentUser = com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser(fakeAuthRepo, fakeProfileRepo)
+
+    val vm = ProjectEditorViewModel(
         projectId = null,
-        onBack = {},
+        createProject = com.singularity.todo.feature.projects.CreateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
+        updateProject = com.singularity.todo.feature.projects.UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
+        projectsRepo = fakeProjectsRepo,
+        currentUser = fakeCurrentUser,
     )
+
+    PreviewThemed {
+        ProjectEditorContent(viewModel = vm, onBack = {})
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProjectEditorEditPreview() = PreviewThemed(darkTheme = false) {
-    ProjectEditorScreen(
+private fun ProjectEditorEditPreview() {
+    val sample = com.singularity.todo.core.ui.preview.PreviewSamples.project("p1", "Work")
+    val fakeProjectsRepo = com.singularity.todo.test.fakes.FakeProjectsRepository().apply { seed(sample) }
+    val fakeAuthRepo = com.singularity.todo.test.fakes.FakeAuthRepository()
+    val fakeProfileRepo = com.singularity.todo.test.fakes.FakeProfileRepository()
+    val fakeCurrentUser = com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser(fakeAuthRepo, fakeProfileRepo)
+
+    val vm = ProjectEditorViewModel(
         projectId = ProjectId.fromString("p1"),
-        onBack = {},
+        createProject = com.singularity.todo.feature.projects.CreateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
+        updateProject = com.singularity.todo.feature.projects.UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
+        projectsRepo = fakeProjectsRepo,
+        currentUser = fakeCurrentUser,
     )
+
+    PreviewThemed {
+        ProjectEditorContent(viewModel = vm, onBack = {})
+    }
 }
