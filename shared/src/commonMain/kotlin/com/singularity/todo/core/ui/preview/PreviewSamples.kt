@@ -28,8 +28,6 @@ import com.singularity.todo.feature.tasks.TaskKind
 import com.singularity.todo.feature.tasks.TaskPriority
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 
 // ===== Preview theme wrapper =====
 
@@ -72,7 +70,7 @@ internal fun PreviewThemed(
 internal object PreviewSamples {
     // Use epoch-0 so we don't depend on Clock.System (unavailable in some KMP targets)
     private val now: kotlin.time.Instant = kotlinx.datetime.Instant.fromEpochMilliseconds(0)
-    val today: LocalDate = kotlinx.datetime.LocalDate(2026, 9, 6)
+    val today: LocalDate = LocalDate(2026, 9, 6)
     val userId: UserId = UserId.anonymous
     private val projectUserId: String = UserId.anonymous.value
 

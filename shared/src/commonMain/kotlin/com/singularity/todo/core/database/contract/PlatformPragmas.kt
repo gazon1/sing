@@ -27,12 +27,10 @@ object PlatformPragmas {
      */
     fun applyTo(driver: SQLiteDriver, path: String) {
         val conn: SQLiteConnection = driver.open(path)
-        try {
+        conn.use { conn ->
             for (sql in Commands) {
                 conn.execSQL(sql)
             }
-        } finally {
-            conn.close()
         }
     }
 }

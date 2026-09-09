@@ -1002,6 +1002,7 @@ private fun ProjectDetailContentPreview() {
         deleteProject = com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
         updateProject = UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
         updateTask = com.singularity.todo.feature.tasks.UpdateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
+        createTaskUseCase = com.singularity.todo.feature.tasks.CreateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
         currentUser = fakeCurrentUser,
         clock = com.singularity.todo.core.platform.Clock,
     )

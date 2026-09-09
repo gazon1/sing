@@ -12,7 +12,6 @@ import com.singularity.todo.feature.tasks.TaskEditorDeps
 import com.singularity.todo.feature.tasks.AttachmentSaver
 import com.singularity.todo.feature.tasks.AttachmentsViewModelAttachmentSaver
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
-import com.singularity.todo.feature.tasks.TasksViewModel
 import com.singularity.todo.feature.tasks.TasksByProjectViewModel
 import com.singularity.todo.feature.archive.ArchiveRepository
 import com.singularity.todo.feature.archive.ArchiveViewModel
@@ -27,13 +26,6 @@ import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.statistics.StatisticsViewModel
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
-import com.singularity.todo.feature.projects.ProjectsRepository
-import com.singularity.todo.core.auth.CurrentUser
-import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
-import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
-import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
-import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
-import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.platform.TimeZoneProvider

@@ -1,5 +1,7 @@
 package com.singularity.todo.core.clock
 
+import kotlin.time.Duration.Companion.milliseconds
+
 /**
  * Port for the autosave delay mechanism.
  * Allows testing the autosave logic without real delays.
@@ -16,6 +18,6 @@ class DelayAutosaveScheduler(
     private val delayMs: Long = 500L,
 ) : AutosaveScheduler {
     override suspend fun awaitTick() {
-        kotlinx.coroutines.delay(delayMs)
+        kotlinx.coroutines.delay(delayMs.milliseconds)
     }
 }

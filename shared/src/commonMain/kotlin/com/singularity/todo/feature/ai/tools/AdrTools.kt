@@ -8,7 +8,6 @@ import java.io.File
 import kotlin.io.path.Path
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
-import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
@@ -215,7 +214,7 @@ data class WriteAdrInput(
 )
 
 class WriteAdrTool : SimpleTool<WriteAdrInput>(
-    ai.koog.serialization.TypeToken.of(WriteAdrInput::class.java),
+    TypeToken.of(WriteAdrInput::class.java),
     NAME,
     DESCRIPTION,
 ) {

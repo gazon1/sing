@@ -2,7 +2,6 @@ package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
-import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.ai.KoogAgentService
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
@@ -66,7 +65,6 @@ import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.projects.CreateProjectUseCase
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
-import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.UsageRecorder
 import com.singularity.todo.core.platform.Clock

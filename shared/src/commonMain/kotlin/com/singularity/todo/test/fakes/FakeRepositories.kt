@@ -190,17 +190,17 @@ class FakeTaskRepository : TaskRepository {
     }
 
     override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
-        store.get(id.value)?.let { task ->
+        store[id.value]?.let { task ->
             val deleted = task.copy(archivedAt = Clock.now())
             store.upsert(deleted)
             _changes.emit(deleted)
         }
     }
 
-    override suspend fun getById(id: TaskId): Task? = store.get(id.value)
+    override suspend fun getById(id: TaskId): Task? = store[id.value]
 
     override suspend fun restore(id: TaskId): Result<Unit> = runCatching {
-        store.get(id.value)?.let { task ->
+        store[id.value]?.let { task ->
             val restored = task.copy(archivedAt = null)
             store.upsert(restored)
             _changes.emit(restored)
@@ -208,7 +208,7 @@ class FakeTaskRepository : TaskRepository {
     }
 
     override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatching {
-        store.get(id.value)?.let { task ->
+        store[id.value]?.let { task ->
             val toggled = if (task.completedAt != null) {
                 task.copy(completedAt = null)
             } else {
@@ -220,7 +220,7 @@ class FakeTaskRepository : TaskRepository {
     }
 
     override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatching {
-        store.get(id.value)?.let { task ->
+        store[id.value]?.let { task ->
             val toggled = task.copy(isPinned = !task.isPinned)
             store.upsert(toggled)
             _changes.emit(toggled)
@@ -230,7 +230,7 @@ class FakeTaskRepository : TaskRepository {
     override suspend fun exists(id: TaskId): Boolean = store.contains(id.value)
 
     override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
-        store.get(taskId.value)?.let { task ->
+        store[taskId.value]?.let { task ->
             val updated = task.copy(tags = tagIds)
             store.upsert(updated)
         }
@@ -365,7 +365,7 @@ class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRep
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
     override suspend fun getById(id: com.singularity.todo.feature.projects.ProjectId): com.singularity.todo.feature.projects.Project? =
-        store.get(id.value)
+        store[id.value]
 
     override fun changes(id: com.singularity.todo.feature.projects.ProjectId): Flow<com.singularity.todo.feature.projects.Project?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
@@ -395,19 +395,19 @@ class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRep
         store.state.map { list -> list.values.filter { it.parentId == parentId && !it.isDeleted } }
 
     override suspend fun setParent(id: com.singularity.todo.feature.projects.ProjectId, parentId: com.singularity.todo.feature.projects.ProjectId?, updatedAt: Long) {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(existing.copy(parentId = parentId, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)))
         }
     }
 
     override suspend fun setSortOrder(id: com.singularity.todo.feature.projects.ProjectId, sortOrder: Int, updatedAt: Long) {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(existing.copy(sortOrder = sortOrder, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)))
         }
     }
 
     override suspend fun restore(id: com.singularity.todo.feature.projects.ProjectId): Result<Unit> = runCatching {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(existing.copy(isDeleted = false, deletedAt = null))
         }
     }
@@ -424,7 +424,7 @@ class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRep
     }
 
     override suspend fun delete(id: com.singularity.todo.feature.projects.ProjectId): Result<Unit> = runCatching {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.now()))
         }
     }
@@ -603,7 +603,7 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
         bodyMarkdown: String,
         bodyHtml: String,
     ): Result<Unit> = runCatching {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(
                 existing.copy(
                     title = title,
@@ -618,49 +618,49 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
     }
 
     override suspend fun softDelete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(existing.copy(deletedAt = Clock.now()))
         }
     }
 
     override suspend fun restore(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(existing.copy(deletedAt = null))
         }
     }
 
     override suspend fun archive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(existing.copy(archivedAt = Clock.now()))
         }
     }
 
     override suspend fun unarchive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(existing.copy(archivedAt = null))
         }
     }
 
     override suspend fun setPinned(id: com.singularity.todo.feature.notes.NoteId, pinned: Boolean): Result<Unit> = runCatching {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(existing.copy(isPinned = pinned, pinnedAt = if (pinned) Clock.now() else null))
         }
     }
 
     override suspend fun setColor(id: com.singularity.todo.feature.notes.NoteId, color: com.singularity.todo.feature.notes.NoteColor?): Result<Unit> = runCatching {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(existing.copy(color = color))
         }
     }
 
     override suspend fun setSortOrder(id: com.singularity.todo.feature.notes.NoteId, sortOrder: Int): Result<Unit> = runCatching {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(existing.copy(sortOrder = sortOrder))
         }
     }
 
     override suspend fun setOutgoingLinks(id: com.singularity.todo.feature.notes.NoteId, links: List<String>): Result<Unit> = runCatching {
-        store.get(id.value)?.let { existing ->
+        store[id.value]?.let { existing ->
             store.upsert(existing.copy(outgoingLinks = links))
         }
     }

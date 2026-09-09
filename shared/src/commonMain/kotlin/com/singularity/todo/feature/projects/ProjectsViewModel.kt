@@ -44,7 +44,7 @@ class ProjectsViewModel(
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
     private val scopeOverride: CoroutineScope? = null,
-    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
+    sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 

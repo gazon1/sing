@@ -2,10 +2,6 @@ package com.singularity.todo.feature.archive
 
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.tasks.Task
-import com.singularity.todo.feature.tasks.TaskFilter
-import com.singularity.todo.feature.tasks.TaskRepository
-import com.singularity.todo.feature.tasks.UserId
 
 /**
  * Bulk-archive completed tasks. The repository owns the side effect;

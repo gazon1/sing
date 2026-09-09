@@ -22,7 +22,7 @@ data class StatisticsUiState(
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatisticsViewModel(
     private val taskRepository: TaskRepository,
-    private val currentUser: ProfileAwareCurrentUser,
+    currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : ViewModel() {
 

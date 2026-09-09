@@ -9,6 +9,6 @@ class InMemoryPomodoroRepository : PomodoroRepository {
     override fun watchSessions(): Flow<List<PomodoroSession>> = _sessions
 
     override suspend fun saveSession(session: PomodoroSession): Result<Unit> = runCatching {
-        _sessions.value = _sessions.value + session
+        _sessions.value += session
     }
 }

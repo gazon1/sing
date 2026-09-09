@@ -58,7 +58,7 @@ sealed interface NotesUiState {
 @OptIn(ExperimentalCoroutinesApi::class)
 class NotesListViewModel(
     private val repo: NotesRepository,
-    private val currentUser: ProfileAwareCurrentUser,
+    currentUser: ProfileAwareCurrentUser,
     private val idGen: IdGenerator,
 ) : ViewModel() {
 

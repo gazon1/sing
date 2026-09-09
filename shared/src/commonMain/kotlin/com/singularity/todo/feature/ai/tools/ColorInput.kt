@@ -31,24 +31,27 @@ fun parseColor(raw: String?, defaultColor: Int): Int {
     val hexOrEmpty = if (rawTrim.startsWith("0x") || rawTrim.startsWith("0X")) rawTrim.substring(2) else rawTrim
     return if (hexOrEmpty.startsWith("#")) {
         val hex = hexOrEmpty.substring(1)
-        when {
-            hex.length == 6 -> ("FF$hex").toLong(16).toInt()
-            hex.length == 8 -> hex.toLong(16).toInt()
+        when (hex.length) {
+            6 -> ("FF$hex").toLong(16).toInt()
+            8 -> hex.toLong(16).toInt()
             else -> defaultColor
         }
     } else {
         // Try decimal ARGB int first; fall back to hex digits (no '#' but still parseable)
         val asDec: Long? = rawTrim.toLongOrNull()
-        if (asDec != null) {
-            // narrow Long → Int; on 64-bit JVMs any 32-bit value fits, so cast is safe.
-            asDec.toInt()
-        } else if (hexOrEmpty.length == 6) {
-            ("FF$hexOrEmpty").toLong(16).toInt()
-        } else if (hexOrEmpty.length == 8) {
-            hexOrEmpty.toLong(16).toInt()
-        } else {
-            defaultColor
-        }
+        asDec?.// narrow Long → Int; on 64-bit JVMs any 32-bit value fits, so cast is safe.
+        toInt()
+            ?: when (hexOrEmpty.length) {
+                6 -> {
+                    ("FF$hexOrEmpty").toLong(16).toInt()
+                }
+                8 -> {
+                    hexOrEmpty.toLong(16).toInt()
+                }
+                else -> {
+                    defaultColor
+                }
+            }
     }
 }
 

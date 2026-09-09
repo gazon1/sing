@@ -99,7 +99,7 @@ class SettingsViewModel(
 
             // Debounced sinks: write through to repository only after 300ms of inactivity.
             scope.launch {
-                _aiApiKeyInput.debounce(300L).collect { value ->
+                _aiApiKeyInput.debounce(300L.milliseconds).collect { value ->
                     if (value.isNotBlank()) {
                         secureStorage.write(OpenAiConfig.KEY_OPENAI, value)
                     } else {
@@ -108,12 +108,12 @@ class SettingsViewModel(
                 }
             }
             scope.launch {
-                _aiBaseUrlInput.debounce(300L).collect { value ->
+                _aiBaseUrlInput.debounce(300L.milliseconds).collect { value ->
                     settings.setAiBaseUrl(value)
                 }
             }
             scope.launch {
-                _aiSystemPromptInput.debounce(300L).collect { value ->
+                _aiSystemPromptInput.debounce(300L.milliseconds).collect { value ->
                     settings.setAiSystemPrompt(value)
                 }
             }

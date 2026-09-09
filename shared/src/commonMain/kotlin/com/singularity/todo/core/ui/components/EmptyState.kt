@@ -105,7 +105,7 @@ private fun EmptyStateWithActionsPreview() = PreviewThemed(darkTheme = false) {
             androidx.compose.material3.FilledTonalButton(
                 onClick = {},
             ) {
-                androidx.compose.material3.Text("Create your first note")
+                Text("Create your first note")
             }
         },
     )
@@ -121,7 +121,7 @@ private fun EmptyStateWithActionsDarkPreview() = PreviewThemed(darkTheme = true)
             androidx.compose.material3.FilledTonalButton(
                 onClick = {},
             ) {
-                androidx.compose.material3.Text("Create task")
+                Text("Create task")
             }
         },
     )

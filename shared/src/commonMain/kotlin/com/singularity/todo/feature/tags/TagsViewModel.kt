@@ -22,7 +22,7 @@ sealed interface TagsUiState {
 
 class TagsViewModel(
     private val tagRepo: TagsRepository,
-    private val currentUser: ProfileAwareCurrentUser,
+    currentUser: ProfileAwareCurrentUser,
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope

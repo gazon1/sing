@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 sealed interface ArchiveUiState {
@@ -30,7 +29,7 @@ sealed interface ArchiveUiState {
 class ArchiveViewModel(
     private val archiveRepo: ArchiveRepository,
     private val taskRepo: TaskRepository,
-    private val currentUser: ProfileAwareCurrentUser,
+    currentUser: ProfileAwareCurrentUser,
 ) : ViewModel() {
 
     private val _refreshing = MutableStateFlow(false)

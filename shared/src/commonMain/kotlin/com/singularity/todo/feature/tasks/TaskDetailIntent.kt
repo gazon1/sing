@@ -3,7 +3,6 @@ package com.singularity.todo.feature.tasks
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.ProjectId
-import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.feature.tags.TagId
 import kotlinx.datetime.LocalDate

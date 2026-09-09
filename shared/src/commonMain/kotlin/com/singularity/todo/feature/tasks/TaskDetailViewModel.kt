@@ -7,11 +7,9 @@ import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.checklist.ChecklistItem
-import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.Project
-import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
@@ -19,7 +17,6 @@ import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.ReminderType
 import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.feature.tags.Tag
-import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -35,14 +32,10 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
 import kotlin.time.Duration.Companion.milliseconds
-import com.singularity.todo.feature.tasks.dueInstant
 import kotlin.time.Instant
 
 /** Combined read model for [TaskDetailScreen]. */

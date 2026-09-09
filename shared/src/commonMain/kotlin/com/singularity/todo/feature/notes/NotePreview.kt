@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 class NotePreview(
     private val repo: NotesRepository,
     private val linkRepo: InternalLinkRepository,
-    private val currentUser: ProfileAwareCurrentUser,
+    currentUser: ProfileAwareCurrentUser,
 ) : ViewModel() {
 
     private val userId = currentUser.scopedUserId

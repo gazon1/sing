@@ -40,8 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.TaskId
-import kotlinx.datetime.Clock
-import org.koin.compose.koinInject
 
 @Composable
 fun PomodoroScreen(
@@ -365,14 +363,14 @@ private fun PomodoroScreenWorkPreview() = PreviewThemed(darkTheme = false, useSu
         ),
         tasks = listOf(
             com.singularity.todo.feature.tasks.Task(
-                id = com.singularity.todo.feature.tasks.TaskId("t1"),
+                id = TaskId("t1"),
                 title = "Write documentation",
                 createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
                 updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
                 userId = com.singularity.todo.feature.tasks.UserId.anonymous,
             ),
             com.singularity.todo.feature.tasks.Task(
-                id = com.singularity.todo.feature.tasks.TaskId("t2"),
+                id = TaskId("t2"),
                 title = "Review PRs",
                 createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
                 updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),

@@ -6,15 +6,12 @@ import com.singularity.todo.core.observability.DailyUsage
 import com.singularity.todo.core.observability.ToolUsage
 import com.singularity.todo.core.observability.ModelUsage
 import com.singularity.todo.core.observability.UsageRecorder
-import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.ProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -30,7 +27,7 @@ data class AiUsageUiState(
 
 class AiUsageViewModel(
     private val usageRecorder: UsageRecorder,
-    private val profileRepository: ProfileRepository,
+    profileRepository: ProfileRepository,
 ) : ViewModel() {
 
     @OptIn(ExperimentalCoroutinesApi::class)

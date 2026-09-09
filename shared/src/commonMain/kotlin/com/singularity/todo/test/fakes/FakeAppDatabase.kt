@@ -173,7 +173,7 @@ private class FakeTaskDao(
         store.value.values.filter { it.archivedAt == null && it.title.contains(q, ignoreCase = true) }
             .sortedByDescending { it.updatedAt }.take(20)
 
-    private suspend fun mutateTask(id: String, fn: (TaskEntity) -> TaskEntity) {
+    private fun mutateTask(id: String, fn: (TaskEntity) -> TaskEntity) {
         store.update { current ->
             val existing = current[id] ?: return@update current
             current + (id to fn(existing))
@@ -248,7 +248,7 @@ private class FakeNoteDao(
             n.deletedAt == null && n.outgoingLinks.contains("note://$noteId")
         }.take(20)
 
-    private suspend fun mutate(id: String, fn: (NoteEntity) -> NoteEntity) {
+    private fun mutate(id: String, fn: (NoteEntity) -> NoteEntity) {
         store.update { current ->
             val existing = current[id] ?: return@update current
             current + (id to fn(existing))
@@ -295,7 +295,7 @@ private class FakeProjectDao(
     override suspend fun listAllForUser(userId: String): List<ProjectEntity> =
         store.value.values.filter { it.userId == userId }
 
-    private suspend fun mutate(id: String, fn: (ProjectEntity) -> ProjectEntity) {
+    private fun mutate(id: String, fn: (ProjectEntity) -> ProjectEntity) {
         store.update { current ->
             val existing = current[id] ?: return@update current
             current + (id to fn(existing))
@@ -319,7 +319,7 @@ private class FakeTagDao(
     override suspend fun listAllForUser(userId: String): List<TagEntity> =
         store.value.values.filter { it.userId == userId }
 
-    private suspend fun mutate(id: String, fn: (TagEntity) -> TagEntity) {
+    private fun mutate(id: String, fn: (TagEntity) -> TagEntity) {
         store.update { current ->
             val existing = current[id] ?: return@update current
             current + (id to fn(existing))
@@ -375,7 +375,7 @@ private class FakeAttachmentDao(
     override suspend fun listAllForUser(userId: String): List<AttachmentEntity> =
         store.value.values.filter { it.userId == userId }
 
-    private suspend fun mutate(id: String, fn: (AttachmentEntity) -> AttachmentEntity) {
+    private fun mutate(id: String, fn: (AttachmentEntity) -> AttachmentEntity) {
         store.update { current ->
             val existing = current[id] ?: return@update current
             current + (id to fn(existing))
@@ -422,7 +422,7 @@ private class FakeChecklistDao(
     private val store: MutableStateFlow<Map<String, ChecklistItemEntity>>,
 ) : ChecklistDao {
 
-    override fun watchByTask(taskId: String): kotlinx.coroutines.flow.Flow<List<ChecklistItemEntity>> =
+    override fun watchByTask(taskId: String): Flow<List<ChecklistItemEntity>> =
         store.map { it.values.filter { c -> c.taskId == taskId }.sortedBy { c -> c.sortOrder } }
 
     override suspend fun upsert(item: ChecklistItemEntity) {
@@ -448,10 +448,10 @@ private class FakeLlmUsageDao(
         store.update { it + (entity.id to entity) }
     }
 
-    override fun observeRecent(profileId: String, limit: Int): kotlinx.coroutines.flow.Flow<List<LlmUsageEntity>> =
+    override fun observeRecent(profileId: String, limit: Int): Flow<List<LlmUsageEntity>> =
         store.map { it.values.filter { e -> e.profileId == profileId }.sortedByDescending { it.createdAt }.take(limit) }
 
-    override fun observeByDay(profileId: String, sinceEpochMs: Long): kotlinx.coroutines.flow.Flow<List<com.singularity.todo.core.database.DailyUsageRow>> =
+    override fun observeByDay(profileId: String, sinceEpochMs: Long): Flow<List<com.singularity.todo.core.database.DailyUsageRow>> =
         store.map { rows ->
             rows.values
                 .filter { it.profileId == profileId && it.createdAt >= sinceEpochMs }
@@ -467,7 +467,7 @@ private class FakeLlmUsageDao(
                 .sortedByDescending { it.date }
         }
 
-    override fun observeByTool(profileId: String): kotlinx.coroutines.flow.Flow<List<com.singularity.todo.core.database.ToolUsageRow>> =
+    override fun observeByTool(profileId: String): Flow<List<com.singularity.todo.core.database.ToolUsageRow>> =
         store.map { rows ->
             rows.values
                 .filter { it.profileId == profileId }
@@ -483,7 +483,7 @@ private class FakeLlmUsageDao(
                 .sortedByDescending { it.totalTokens }
         }
 
-    override fun observeByModel(profileId: String): kotlinx.coroutines.flow.Flow<List<com.singularity.todo.core.database.ModelUsageRow>> =
+    override fun observeByModel(profileId: String): Flow<List<com.singularity.todo.core.database.ModelUsageRow>> =
         store.map { rows ->
             rows.values
                 .filter { it.profileId == profileId }

@@ -21,7 +21,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 
 /**
  * Production [TextGenPort] backed by JetBrains Koog [AIAgent].
@@ -60,7 +60,7 @@ class KoogAgentService(
         systemPrompt: String?,
         model: String?,
     ): Result<String> = runCatching {
-        val apiKey = requireApiKey()
+        requireApiKey()
             ?: return@runCatching "(AI unavailable: API key not configured.)"
 
         val effectiveSystemPrompt = systemPrompt
@@ -111,7 +111,7 @@ class KoogAgentService(
 
     override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> =
         runCatching {
-            val url = URL("$baseUrl/models")
+            val url = URI("$baseUrl/models").toURL()
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
             conn.setRequestProperty("Authorization", "Bearer $apiKey")
@@ -121,9 +121,7 @@ class KoogAgentService(
             try {
                 val response = conn.inputStream.bufferedReader().readText()
                 val parsed = Json.parseToJsonElement(response)
-                parsed.jsonArray
-                    .map { it.jsonObject["id"]?.jsonPrimitive?.content }
-                    .filterNotNull()
+                parsed.jsonArray.mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.content }
             } finally {
                 conn.disconnect()
             }

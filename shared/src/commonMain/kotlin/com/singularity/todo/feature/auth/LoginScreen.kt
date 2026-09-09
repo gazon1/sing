@@ -221,9 +221,9 @@ private fun LoginScreenFormContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = "Singularity Todo", style = androidx.compose.material3.MaterialTheme.typography.headlineLarge)
+        Text(text = "Singularity Todo", style = MaterialTheme.typography.headlineLarge)
         Spacer(modifier = Modifier.height(32.dp))
-        androidx.compose.material3.OutlinedTextField(
+        OutlinedTextField(
             value = email,
             onValueChange = onEmailChange,
             label = { Text("Email") },
@@ -232,7 +232,7 @@ private fun LoginScreenFormContent(
             singleLine = true
         )
         Spacer(modifier = Modifier.height(16.dp))
-        androidx.compose.material3.OutlinedTextField(
+        OutlinedTextField(
             value = password,
             onValueChange = onPasswordChange,
             label = { Text("Password") },
@@ -245,8 +245,8 @@ private fun LoginScreenFormContent(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = errorMessage,
-                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
-                style = androidx.compose.material3.MaterialTheme.typography.bodySmall
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
             )
         }
         Spacer(modifier = Modifier.height(24.dp))

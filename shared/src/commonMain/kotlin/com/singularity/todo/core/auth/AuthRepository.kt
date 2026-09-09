@@ -91,7 +91,6 @@ class SupabaseAuthRepository(
     }
 
     override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> = runCatchingResult {
-        // TODO: Implement migration of anonymous data to cloud user
-        Unit
+        TODO("Implement migration of anonymous data to cloud user")
     }
 }

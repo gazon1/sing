@@ -1,8 +1,6 @@
 package com.singularity.todo.core.security
 
-import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.ProfileRepository
-import kotlinx.coroutines.flow.first
 
 /**
  * A [SecureStoragePort] that namespaces all keys under `profiles/{profileId}/`
@@ -21,7 +19,7 @@ class ProfileAwareSecureStorage(
     private val prefixKey: Boolean = true,
 ) : SecureStoragePort {
 
-    private suspend fun prefixed(key: String): String =
+    private fun prefixed(key: String): String =
         if (!prefixKey) key
         else "profiles/${profileRepository.activeProfileId.value.value}/$key"
 

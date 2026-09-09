@@ -5,15 +5,11 @@ import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.reminders.Reminder
-import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.ActiveSheet
 import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.TaskDetailIntent
 import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.TaskKind
-import com.singularity.todo.feature.tasks.TaskPriority
-import kotlinx.datetime.LocalDate
 
 /**
  * Все callbacks доступные в секциях экрана [com.singularity.todo.feature.tasks.TaskDetailScreen].

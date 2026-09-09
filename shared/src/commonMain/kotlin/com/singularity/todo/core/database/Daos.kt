@@ -240,10 +240,10 @@ interface ReminderDao {
 @Dao
 interface ChecklistDao {
     @Query("SELECT * FROM checklist_items WHERE task_id = :taskId ORDER BY sort_order ASC")
-    fun watchByTask(taskId: String): kotlinx.coroutines.flow.Flow<List<com.singularity.todo.core.database.ChecklistItemEntity>>
+    fun watchByTask(taskId: String): Flow<List<ChecklistItemEntity>>
 
     @Upsert
-    suspend fun upsert(item: com.singularity.todo.core.database.ChecklistItemEntity)
+    suspend fun upsert(item: ChecklistItemEntity)
 
     @Query("DELETE FROM checklist_items WHERE id = :id")
     suspend fun delete(id: String)
@@ -254,7 +254,7 @@ interface ChecklistDao {
 
 @Dao
 interface LlmUsageDao {
-    @androidx.room3.Upsert
+    @Upsert
     suspend fun upsert(entity: LlmUsageEntity)
 
     @Query("SELECT * FROM llm_usage WHERE profile_id = :profileId ORDER BY created_at DESC LIMIT :limit")

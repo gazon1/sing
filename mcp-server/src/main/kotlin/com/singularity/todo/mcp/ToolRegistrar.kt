@@ -68,7 +68,7 @@ class ToolRegistrar(private val server: Server) {
         val emptyOutputSchema = ToolSchema(
             schema = null as String?,
             properties = JsonObject(emptyMap()),
-            required = emptyList<String>(),
+            required = emptyList(),
             defs = null as JsonObject?,
         )
 

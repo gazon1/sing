@@ -40,7 +40,7 @@ class PomodoroTimer(
         _state.value = _state.value.copy(isRunning = true, taskId = taskId)
         timerJob = viewModelScope.launch {
             while (_state.value.isRunning && _state.value.remainingSeconds > 0) {
-                delay(1000)
+                delay(1000.milliseconds)
                 _state.value = _state.value.copy(remainingSeconds = _state.value.remainingSeconds - 1)
             }
             if (_state.value.remainingSeconds <= 0) {

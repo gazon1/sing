@@ -52,9 +52,7 @@ import com.singularity.todo.core.ui.components.formatTimestampsRelative
 import com.singularity.todo.core.ui.components.priorityColorByIndex
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.attachments.AttachmentSheet
-import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.tasks.TasksFormatters.dueChipColors
-import com.singularity.todo.feature.tasks.parseDueTime
 import com.singularity.todo.feature.tasks.components.TaskDetailActions
 import com.singularity.todo.feature.tasks.components.TaskEditorPrioritySheet
 import com.singularity.todo.feature.tasks.sections.TaskBottomActionBar
@@ -66,12 +64,10 @@ import com.singularity.todo.feature.tasks.sections.TaskMetaChipsRow
 import com.singularity.todo.feature.tasks.sections.TaskSubtasksSection
 import com.singularity.todo.feature.tasks.sections.TagsRow
 import com.singularity.todo.feature.projects.ProjectId
-import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import com.singularity.todo.core.files.toFilePickerResult
-import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -455,6 +451,6 @@ private fun TaskDetailContentPreview() = PreviewThemed {
         actions = TaskDetailActions.Empty,
         onBack = {},
         snackbarHostState = androidx.compose.runtime.remember { SnackbarHostState() },
-        timeZone = kotlinx.datetime.TimeZone.currentSystemDefault(),
+        timeZone = TimeZone.currentSystemDefault(),
     )
 }

@@ -10,11 +10,12 @@ import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.TaskFilter
 import com.singularity.todo.feature.tasks.TaskId
+import com.singularity.todo.feature.tasks.CreateTaskInput
+import com.singularity.todo.feature.tasks.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.TaskKind
 import com.singularity.todo.feature.tasks.TaskPriority
 import com.singularity.todo.feature.tasks.TaskRepository
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
-import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,10 +54,11 @@ class ProjectDetailViewModel(
     private val deleteProject: DeleteProjectUseCase,
     private val updateProject: UpdateProjectUseCase,
     private val updateTask: UpdateTaskUseCase,
+    private val createTaskUseCase: CreateTaskUseCase,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
     private val scopeOverride: CoroutineScope? = null,
-    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
+    sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
     private val scope get() = scopeOverride ?: viewModelScope
 
@@ -229,7 +231,7 @@ class ProjectDetailViewModel(
             }
             is ProjectDetailIntent.Domain.Delete ->
                 viewModelScope.launch {
-                    deleteProject(projectId, currentUser.current.value)
+                    deleteProject(projectId, currentUser.scopedUserId.value.value)
                         .onSuccess { _events.emit(ProjectDetailUiEvent.NavigateBack) }
                         .onFailure { error ->
                             _events.emit(ProjectDetailUiEvent.ShowError(
@@ -243,21 +245,14 @@ class ProjectDetailViewModel(
                 val trimmed = intent.title.trim()
                 if (trimmed.isEmpty()) return
                 viewModelScope.launch {
-                    val now = clock.now()
-                    runCatching {
-                        taskRepo.create(
-                            Task(
-                                id = TaskId.generate(),
-                                title = trimmed,
-                                kind = TaskKind.Task,
-                                priority = TaskPriority.None,
-                                projectId = projectId,
-                                createdAt = now,
-                                updatedAt = now,
-                                userId = currentUser.current,
-                            )
+                    createTaskUseCase(
+                        CreateTaskInput(
+                            title = trimmed,
+                            userId = currentUser.scopedUserId.value,
+                            projectId = projectId,
+                            kind = TaskKind.Task,
                         )
-                    }.onFailure { error ->
+                    ).onFailure { error ->
                         _events.emit(ProjectDetailUiEvent.ShowError(
                             (error as? AppError)?.message ?: error.message ?: "Create task failed"
                         ))

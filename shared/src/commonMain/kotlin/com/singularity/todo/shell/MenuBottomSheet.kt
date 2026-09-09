@@ -112,7 +112,7 @@ private data class MenuItem(
      * icon slot — same as Compose's own nullable-content convention.
      */
     fun iconContent(): (@Composable () -> Unit)? =
-        icon?.let { icon -> { androidx.compose.material3.Icon(icon, contentDescription = null) } }
+        icon?.let { icon -> { Icon(icon, contentDescription = null) } }
 }
 
 /** Static menu structure — Account/Search are placeholder sections for now. */

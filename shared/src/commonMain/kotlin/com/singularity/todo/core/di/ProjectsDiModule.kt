@@ -4,15 +4,11 @@ import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.projects.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.CreateProjectUseCase
 import com.singularity.todo.feature.projects.UpdateProjectUseCase
+import com.singularity.todo.feature.tasks.CreateTaskUseCase
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.ProjectEditorViewModel
 import com.singularity.todo.feature.projects.ProjectDetailViewModel
-import com.singularity.todo.feature.projects.ProjectsViewModel
-import com.singularity.todo.core.auth.CurrentUser
-import com.singularity.todo.feature.tasks.TaskRepository
-import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import org.koin.core.module.dsl.viewModel
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
@@ -46,13 +42,14 @@ fun projectsModule(): org.koin.core.module.Module = module {
     }
 
     viewModel { (id: com.singularity.todo.feature.projects.ProjectId) ->
-        com.singularity.todo.feature.projects.ProjectDetailViewModel(
+        ProjectDetailViewModel(
             projectId = id,
             projectRepo = get(),
             taskRepo = get(),
             deleteProject = get(),
             updateProject = get(),
             updateTask = get(),
+            createTaskUseCase = get(),
             currentUser = get(),
             clock = get(),
         )

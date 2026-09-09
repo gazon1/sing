@@ -51,7 +51,7 @@ sealed interface NoteAiResult {
  */
 open class NoteEditor(
     private val repo: NotesRepository,
-    private val currentUser: ProfileAwareCurrentUser,
+    currentUser: ProfileAwareCurrentUser,
     private val idGen: IdGenerator,
     private val autosaveScheduler: AutosaveScheduler,
     private val improveNote: ImproveNoteUseCase? = null,
