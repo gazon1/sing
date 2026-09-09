@@ -1,9 +1,6 @@
 package com.singularity.todo.feature.tasks.components
 
-import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.tasks.TaskPriority
-import com.singularity.todo.feature.tasks.TaskId
 import kotlinx.datetime.LocalDate
 
 /**

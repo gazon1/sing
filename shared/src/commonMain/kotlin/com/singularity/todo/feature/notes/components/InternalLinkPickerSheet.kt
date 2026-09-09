@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.filled.Note
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Task
@@ -27,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,8 +45,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
-import org.koin.compose.koinInject
-import com.singularity.todo.feature.tasks.components.TaskEditorSheetHost
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Generic Obsidian-style [[Note]] / [[Task]] link picker.
@@ -95,7 +96,7 @@ fun InternalLinkPickerSheet(
             // Search field
             val focusManager = LocalFocusManager.current
             OutlinedTextField(
-                value = queryFlow.value,
+                value = queryFlow.collectAsState().value,
                 onValueChange = { queryFlow.value = it },
                 placeholder = { Text("Search notes and tasks...") },
                 leadingIcon = {
@@ -117,16 +118,13 @@ fun InternalLinkPickerSheet(
                     .fillMaxWidth()
                     .height(320.dp),
             ) {
-                val results by remember(queryFlow.value) {
-                    mutableStateOf<List<LinkResult>>(emptyList())
-                }
                 var isLoading by remember { mutableStateOf(false) }
                 var shownResults by remember { mutableStateOf<List<LinkResult>>(emptyList()) }
 
                 // Debounced search
                 LaunchedEffect(queryFlow) {
                     queryFlow
-                        .debounce(300)
+                        .debounce(300.milliseconds)
                         .distinctUntilChanged()
                         .filter { it.isNotBlank() }
                         .collect { q ->
@@ -142,7 +140,7 @@ fun InternalLinkPickerSheet(
                             modifier = Modifier.align(Alignment.Center),
                         )
                     }
-                    queryFlow.value.isBlank() -> {
+                    queryFlow.collectAsState().value.isBlank() -> {
                         Text(
                             "Type to search notes and tasks",
                             style = MaterialTheme.typography.bodyMedium,
@@ -184,7 +182,7 @@ private fun LinkResultItem(
     onClick: () -> Unit,
 ) {
     val icon = when (result.kind) {
-        LinkKind.Note -> Icons.Default.Note
+        LinkKind.Note -> Icons.AutoMirrored.Filled.Note
         LinkKind.Task -> Icons.Default.Task
     }
     androidx.compose.material3.ListItem(

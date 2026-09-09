@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.IdGenerator
@@ -11,6 +10,7 @@ import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.ChecklistUseCase
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderRepository
@@ -28,7 +28,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 
 /**
@@ -298,7 +297,7 @@ class TaskEditorViewModel(
                 saveSubEntities(taskId, current, userId)
                 _events.emit(TaskEditorUiEvent.NavigateBack)
             }
-            .onFailure {
+            .onFailure { it ->
                 _uiState.update { it.copy(saving = false) }
                 _events.emit(TaskEditorUiEvent.Error(it.message ?: "Failed to save"))
             }

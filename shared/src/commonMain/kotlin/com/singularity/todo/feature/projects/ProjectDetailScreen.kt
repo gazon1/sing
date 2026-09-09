@@ -106,6 +106,7 @@ import kotlin.time.Instant
  * [ProjectDetailContent]. This is the navigation-entry composable.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalTime::class)
+@Suppress("VIEW_MODEL_IN_COMPOSABLE") // Koin DSL — not a direct constructor call
 @Composable
 fun ProjectDetailScreen(
     projectId: ProjectId,
@@ -982,6 +983,7 @@ private val clock: Clock get() = Clock.System
 // ─── Previews ────────────────────────────────────────────────────────────────
 
 @androidx.compose.ui.tooling.preview.Preview
+@Suppress("VIEW_MODEL_IN_COMPOSABLE") // Preview pattern: construct VM with Fake* deps directly
 @Composable
 private fun ProjectDetailContentPreview() {
     val sample = PreviewSamples.project()

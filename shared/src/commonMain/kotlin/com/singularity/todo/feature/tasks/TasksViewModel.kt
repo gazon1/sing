@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -65,7 +64,7 @@ class TasksViewModel(
     private val taskRepo: TaskRepository,
     private val createTask: CreateTaskUseCase,
     private val updateTask: UpdateTaskUseCase,
-    private val currentUser: ProfileAwareCurrentUser,
+    currentUser: ProfileAwareCurrentUser,
     private val mutations: TaskMutationsUseCase,
     // AI use cases are optional — Android doesn't ship with Koog/JVM AI stack,
     // so VMs work with null AI dependencies (AI buttons become no-ops on Android)
@@ -74,7 +73,7 @@ class TasksViewModel(
     private val generateChecklist: GenerateChecklistUseCase? = null,
     private val decomposeTask: DecomposeTaskUseCase? = null,
     private val pickTime: PickTimeUseCase? = null,
-    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
+      sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
@@ -92,7 +91,6 @@ class TasksViewModel(
     val selectedIds: StateFlow<Set<TaskId>> = _selectedIds.asStateFlow()
 
     private val _expandedParentIds = MutableStateFlow<Set<TaskId>>(emptySet())
-    val expandedParentIds: StateFlow<Set<TaskId>> = _expandedParentIds.asStateFlow()
 
     val state: StateFlow<TasksUiState> = combine(
         combine(_filter, currentUser.scopedUserId) { f, uid -> f to uid }

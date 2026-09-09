@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentRepository
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.ChecklistUseCase
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.Project
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.projects.ProjectsRepository
@@ -20,32 +22,25 @@ import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.datetime.LocalDate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlin.time.Instant
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.core.platform.TimeZoneProvider
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
-import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 /** Combined read model for [TaskDetailScreen]. */
 data class TaskDetailUi(
@@ -96,7 +91,6 @@ class TaskDetailViewModel(
      * Updated whenever the combined state emits a new value.
      */
     private val _latestTask = MutableStateFlow<Task?>(null)
-    val latestTask: StateFlow<Task?> = _latestTask
 
     /**
      * Silent timestamp for debounced inline edits — does NOT emit Saved.
@@ -110,14 +104,13 @@ class TaskDetailViewModel(
      * Cleared after a successful restore or when the snackbar timeout expires.
      */
     private val _recentlyDeleted = MutableStateFlow<Task?>(null)
-    val recentlyDeleted: StateFlow<Task?> = _recentlyDeleted
     init {
         scope.launch {
             titleDraft
-                .debounce(300)
+                .debounce(300.milliseconds)
                 .filterNotNull()
                 .collect { title ->
-                    val taskId = _taskId.value ?: return@collect
+                    _taskId.value ?: return@collect
                     val current = _latestTask.value ?: return@collect
                     updateTask(current.copy(title = title))
                         .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
@@ -126,10 +119,10 @@ class TaskDetailViewModel(
         }
         scope.launch {
             descriptionDraft
-                .debounce(300)
+                .debounce(300.milliseconds)
                 .filterNotNull()
                 .collect { desc ->
-                    val taskId = _taskId.value ?: return@collect
+                     _taskId.value ?: return@collect
                     val current = _latestTask.value ?: return@collect
                     updateTask(current.copy(description = desc.ifBlank { null }))
                         .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }

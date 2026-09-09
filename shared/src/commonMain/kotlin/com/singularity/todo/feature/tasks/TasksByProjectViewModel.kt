@@ -6,8 +6,6 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.Project
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.projects.ProjectsRepository
-import com.singularity.todo.feature.tasks.CreateTaskUseCase
-import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -46,7 +44,7 @@ sealed interface TasksByProjectEvent {
 class TasksByProjectViewModel(
     private val projectId: ProjectId,
     private val taskRepo: TaskRepository,
-    private val projectRepo: ProjectsRepository,
+    projectRepo: ProjectsRepository,
     private val createTask: CreateTaskUseCase,
     private val updateTask: UpdateTaskUseCase,
     private val currentUser: ProfileAwareCurrentUser,

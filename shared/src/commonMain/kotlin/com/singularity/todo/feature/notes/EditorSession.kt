@@ -2,10 +2,7 @@ package com.singularity.todo.feature.notes
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import com.mohamedrejeb.richeditor.model.RichTextState
 
 /**

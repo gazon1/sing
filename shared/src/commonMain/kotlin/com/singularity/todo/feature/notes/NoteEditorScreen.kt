@@ -30,14 +30,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mohamedrejeb.richeditor.model.RichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import com.singularity.todo.core.ui.TestTags
@@ -50,7 +48,6 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration.Companion.milliseconds
@@ -65,6 +62,8 @@ fun NoteEditorScreen(
     onNavigateToNote: (String) -> Unit = {},
     onNavigateToTask: (String) -> Unit = {},
     viewModel: NoteEditor = koinViewModel(),
+    linkRepo: InternalLinkRepository = koinInject(),
+    currentUser: ProfileAwareCurrentUser = koinInject(),
 ) {
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
 
@@ -95,6 +94,8 @@ fun NoteEditorScreen(
         onNavigateToNote = onNavigateToNote,
         onNavigateToTask = onNavigateToTask,
         savedVisible = savedVisible,
+        linkRepo = linkRepo,
+        currentUser = currentUser,
     )
 
     NotificationHost(
@@ -126,6 +127,8 @@ fun NoteEditorScreenContent(
     onNavigateToNote: (String) -> Unit = {},
     onNavigateToTask: (String) -> Unit = {},
     savedVisible: Boolean = false,
+    linkRepo: InternalLinkRepository? = null,
+    currentUser: ProfileAwareCurrentUser? = null,
 ) {
     val savedAlpha by animateFloatAsState(
         targetValue = if (savedVisible) 1f else 0f,
@@ -140,8 +143,10 @@ fun NoteEditorScreenContent(
     // Internal link picker sheet state
     var internalLinkPickerVisible by remember { mutableStateOf(false) }
     val linkQueryFlow = remember { MutableStateFlow("") }
-    val linkRepo: InternalLinkRepository = koinInject()
-    val currentUser: ProfileAwareCurrentUser = koinInject()
+    // linkRepo and currentUser must be provided when called from a @Preview (no Koin).
+    // At runtime they come from the NoteEditorScreen wrapper via koinInject().
+    val resolvedLinkRepo = linkRepo
+    val resolvedCurrentUser = currentUser
 
     // Session — created once per editing note
     val session = (editorState as? EditorState.Editing)?.let { editing ->
@@ -244,10 +249,14 @@ fun NoteEditorScreenContent(
         InternalLinkPickerSheet(
             queryFlow = linkQueryFlow,
             onSearch = { q ->
-                val notes = linkRepo.searchNotes(currentUser.scopedUserId.value, q)
-                    .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
-                val tasks = linkRepo.searchTasks(q)
-                    .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
+                val notes = resolvedLinkRepo
+                    ?.searchNotes(resolvedCurrentUser?.scopedUserId?.value ?: UserId(""), q)
+                    ?.map { LinkResult(it.id.value, it.title, LinkKind.Note) }
+                    ?: emptyList()
+                val tasks = resolvedLinkRepo
+                    ?.searchTasks(q)
+                    ?.map { LinkResult(it.id.value, it.title, LinkKind.Task) }
+                    ?: emptyList()
                 notes + tasks
             },
             onSelected = { result ->
@@ -279,7 +288,6 @@ private fun EditorTitleAndBody(
     onNavigateToTask: (String) -> Unit,
 ) {
     val richTextState = session.richTextState
-    val uriHandler = LocalUriHandler.current
 
     Column(modifier = Modifier.fillMaxWidth()) {
         // Title field

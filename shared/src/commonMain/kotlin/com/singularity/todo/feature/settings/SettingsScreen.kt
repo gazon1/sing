@@ -48,6 +48,7 @@ import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.test.fakes.FakeProfileRepository
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -270,6 +271,7 @@ private fun SettingsContentPreview(
                 SettingsTab.Account -> AccountSettingsScreen(
                     state = state,
                     onNavigateToProfileSwitcher = {},
+                    profileRepository = FakeProfileRepository(),
                 )
             }
         }

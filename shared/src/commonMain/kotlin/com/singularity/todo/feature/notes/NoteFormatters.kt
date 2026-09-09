@@ -23,8 +23,8 @@ fun extractPreviewText(markdown: String?, maxChars: Int = 120): String {
         .replace(Regex("""_(.+?)_"""), "$1")            // italic alt
         .replace(Regex("""~~(.+?)~~"""), "$1")          // strikethrough
         .replace(Regex("""`{1,3}[^`]*`{1,3}"""), "")  // code
-        .replace(Regex("""\[([^\]]+)\]\([^\)]+\)"""), "$1") // links
-        .replace(Regex("""!\[[^\]]*\]\([^\)]+\)"""), "") // images
+        .replace(Regex("""\[([^]]+)]\([^)]+\)"""), "$1") // links
+        .replace(Regex("""!\[[^]]*]\([^)]+\)"""), "") // images
         .replace(Regex("""^\s*[-*+]\s+""", RegexOption.MULTILINE), "") // list bullets
         .replace(Regex("""^\s*\d+\.\s+""", RegexOption.MULTILINE), "") // numbered lists
         .replace(Regex("""^\s*>\s+""", RegexOption.MULTILINE), "") // blockquotes

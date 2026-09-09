@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,16 +42,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.projects.ProjectColorPalette
 import com.singularity.todo.feature.projects.ProjectIconRegistry
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tasks.components.TaskCard
 import com.singularity.todo.feature.tasks.components.TaskCardActions
+import com.singularity.todo.test.fakes.FakeAuthRepository
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeProfileRepository
+import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeTaskRepository
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -65,6 +68,18 @@ fun TasksByProjectScreen(
     modifier: Modifier = Modifier,
 ) {
     val viewModel: TasksByProjectViewModel = koinViewModel { parametersOf(projectId) }
+    TasksByProjectContent(viewModel = viewModel, projectId = projectId, onBack = onBack, onNavigateToTask = onNavigateToTask, modifier = modifier)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TasksByProjectContent(
+    viewModel: TasksByProjectViewModel,
+    projectId: ProjectId,
+    onBack: () -> Unit,
+    onNavigateToTask: (TaskId) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val hideCompleted by viewModel.hideCompleted.collectAsStateWithLifecycle()
 
@@ -268,11 +283,35 @@ private fun QuickAddRow(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun TasksByProjectContentPreview() = PreviewThemed(darkTheme = false) {
+private fun TasksByProjectContentPreview() {
+    val fakeTaskRepo = FakeTaskRepository()
+    val fakeProjectsRepo = FakeProjectsRepository()
+    val fakeAuthRepo = FakeAuthRepository()
+    val fakeProfileRepo = FakeProfileRepository()
+    val fakeCurrentUser = FakeProfileAwareCurrentUser(fakeAuthRepo, fakeProfileRepo)
+
     val sample = PreviewSamples.project()
-    TasksByProjectScreen(
-        projectId = sample.id,
-        onBack = {},
-        onNavigateToTask = {},
+    fakeProjectsRepo.seed(sample)
+    fakeTaskRepo.seed(
+        PreviewSamples.task(id = "t1", title = "Fix the bug", projectId = sample.id),
+        PreviewSamples.task(id = "t2", title = "Write tests", projectId = sample.id),
     )
+
+    val vm = TasksByProjectViewModel(
+        projectId = sample.id,
+        taskRepo = fakeTaskRepo,
+        projectRepo = fakeProjectsRepo,
+        createTask = CreateTaskUseCase(fakeTaskRepo, Clock),
+        updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
+        currentUser = fakeCurrentUser,
+    )
+
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        TasksByProjectContent(
+            viewModel = vm,
+            projectId = sample.id,
+            onBack = {},
+            onNavigateToTask = {},
+        )
+    }
 }

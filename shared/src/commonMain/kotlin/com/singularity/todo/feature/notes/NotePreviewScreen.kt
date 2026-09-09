@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.notes
 
+// Re-export NotePreviewState so preview functions in this file can reference it
+// without a runtime ClassNotFoundException during Compose Preview rendering.
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,9 +33,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
@@ -48,20 +50,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mohamedrejeb.richeditor.annotation.ExperimentalRichTextApi
 import com.mohamedrejeb.richeditor.model.RichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.UserId
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-import java.net.URLDecoder
-import kotlin.time.Duration.Companion.milliseconds
 
 // ─── Screen entry ─────────────────────────────────────────────────────────────
 
@@ -134,7 +133,7 @@ fun NotePreviewScreen(
 
 // ─── Content ─────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalRichTextApi::class)
 @Composable
 fun NotePreviewScreenContent(
     state: NotePreviewState,
@@ -145,7 +144,6 @@ fun NotePreviewScreenContent(
     onNavigateToNote: (String) -> Unit,
     onNavigateToTask: (String) -> Unit,
 ) {
-    val uriHandler = LocalUriHandler.current
 
     Scaffold(
         topBar = {
@@ -159,7 +157,6 @@ fun NotePreviewScreenContent(
                 actions = {
                     val loaded = state as? NotePreviewState.Loaded
                     if (loaded != null) {
-                        val count = loaded.backlinkCount
                         IconButton(
                             onClick = onBacklinksClick,
                             modifier = Modifier.testTag(TestTags.NOTES_BACKLINKS_BUTTON),
