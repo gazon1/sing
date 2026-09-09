@@ -1,8 +1,9 @@
 ---
 title: "Roborazzi Snapshot Tests for Task Detail Sections"
-status: accepted
+status: superseded
 date: 2026-09-08
 deciders: Singularity Developer
+superseded-by: 2026-09-08-roborazzi-snapshot-tests-superseded
 ---
 
 ## Context

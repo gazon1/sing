@@ -6,6 +6,7 @@ import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.TaskId
 
 /**
@@ -53,6 +54,10 @@ value class TaskDetailActions(
         // ── Subtasks ─────────────────────────────────────────────────────────
         /** Navigate to a child task's detail screen. */
         data class NavigateToSubtask(val childTaskId: TaskId) : Action()
+        /** Toggle a subtask's completion state. */
+        data class ToggleSubtask(val task: Task) : Action()
+        /** Delete a subtask. */
+        data class DeleteSubtask(val task: Task) : Action()
         /** Promote a checklist item to a sub-task (removes checklist item, creates task). */
         data class PromoteChecklistToSubtask(val checklistItem: ChecklistItem) : Action()
 
@@ -61,6 +66,8 @@ value class TaskDetailActions(
 
         // ── Attachments ──────────────────────────────────────────────────────
         data class DeleteAttachment(val attachment: Attachment) : Action()
+        /** Open an attachment (preview / download / share). */
+        data class ClickAttachment(val attachment: Attachment) : Action()
 
         // ── Bottom bar ──────────────────────────────────────────────────────
         data object OpenReminderSheet : Action()
@@ -103,6 +110,8 @@ value class TaskDetailActions(
     // ── Subtasks ──────────────────────────────────────────────────────────────
 
     fun onNavigateToSubtask(childTaskId: TaskId) = block(Action.NavigateToSubtask(childTaskId))
+    fun onToggleSubtask(task: Task) = block(Action.ToggleSubtask(task))
+    fun onDeleteSubtask(task: Task) = block(Action.DeleteSubtask(task))
     fun onPromoteChecklistToSubtask(item: ChecklistItem) = block(Action.PromoteChecklistToSubtask(item))
 
     // ── Reminders ────────────────────────────────────────────────────────────
@@ -112,6 +121,7 @@ value class TaskDetailActions(
     // ── Attachments ──────────────────────────────────────────────────────────
 
     fun onDeleteAttachment(attachment: Attachment) = block(Action.DeleteAttachment(attachment))
+    fun onClickAttachment(attachment: Attachment) = block(Action.ClickAttachment(attachment))
 
     // ── Bottom bar ────────────────────────────────────────────────────────────
 

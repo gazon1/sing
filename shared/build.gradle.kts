@@ -211,7 +211,7 @@ kotlin {
             // JetBrains version depends on Espresso which is incompatible with Robolectric.
             implementation(libs.composeUiTestJunit4)
             // Roborazzi snapshot testing — see docs/decisions/2026-09-08-roborazzi-snapshot-tests.md
-            // TODO: add io.github.nickid:roborazzi when plugin artifact is resolvable
+            // TODO: library resolved but compose API requires further investigation
             // implementation(libs.roborazzi)
         }
     }

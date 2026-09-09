@@ -32,20 +32,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
+import com.singularity.todo.feature.tasks.components.TaskDetailActions
 
 /**
  * The attachments section of a task detail screen — shows a horizontal scrollable
  * row of attachment cards with the file icon, title, and delete action.
  *
  * @param attachments All attachments belonging to the current task.
- * @param onDeleteAttachment Called when the user taps delete on an attachment.
- * @param onAttachmentClick Called when the user taps an attachment card.
+ * @param actions Packed [TaskDetailActions] callback handler.
  */
 @Composable
 fun AttachmentsSection(
     attachments: List<Attachment>,
-    onDeleteAttachment: (Attachment) -> Unit,
-    onAttachmentClick: (Attachment) -> Unit,
+    actions: TaskDetailActions,
     modifier: Modifier = Modifier,
 ) {
     if (attachments.isEmpty()) return
@@ -65,8 +64,8 @@ fun AttachmentsSection(
             items(attachments, key = { it.id.value }) { attachment ->
                 AttachmentCard(
                     attachment = attachment,
-                    onDelete = { onDeleteAttachment(attachment) },
-                    onClick = { onAttachmentClick(attachment) },
+                    onDelete = { actions.onDeleteAttachment(attachment) },
+                    onClick = { actions.onClickAttachment(attachment) },
                 )
             }
         }

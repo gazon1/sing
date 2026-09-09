@@ -207,3 +207,5 @@ When a detail screen has a reference to another entity (e.g., a Task's project c
 4. **>4 sub-composables** — consolidate into 4 sections; each sub-component should be ≥30 lines to justify a file.
 5. **`remember { mutableStateOf<Sheet?>(null) }` per sheet** — use a single `ActiveSheet` sealed interface in the VM.
 6. **Emoji icons instead of Material Icons** — `Icons.Filled.*` only in production UI.
+7. **Mixing unrelated refactors in one PR** — e.g. combining sheet API migration with Instant type migration. Keep PRs focused: one concern per PR. A type-system migration (Instant) mixed with a UI migration (sheets) creates massive scope and makes review impossible.
+8. **Using a `ContentParams` data class instead of extending `XxxActions`** — creates 4-level nested hierarchy with no cohesion. Use `@JvmInline value class XxxActions` with sealed `Action` hierarchy instead. See `singularity-todo-task-callback-groups`.

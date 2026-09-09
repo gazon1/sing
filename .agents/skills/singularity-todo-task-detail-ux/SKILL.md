@@ -194,6 +194,33 @@ scope.launch {
 
 **The fix (PR 4):** `ConfirmDeleteSheet` and `ConfirmArchiveSheet` are now `ModalBottomSheet`. The `deleteTask` VM method emits `TaskDetailUiEvent.UndoDelete(taskId)` instead of navigating back immediately. The screen shows a `Snackbar` with an "Undo" action. If the user taps "Undo", `viewModel.restoreTask()` is called (backed by `TaskRepository.restore`). Archive is soft-delete only — it has no undo snackbar since archived tasks are recoverable from the Archive screen.
 
+### Regression 11: Deprecated sheet API — `rememberModalBottomSheetState` → `rememberBottomSheetState`
+
+**Problem:** In Material3 1.12.x, `rememberModalBottomSheetState(...)` is deprecated in favor of `rememberBottomSheetState(initialValue = SheetValue.Hidden, ...)`.
+
+**The fix (PR B, Phase 6):** Mechanical replacement across all sheets.
+
+**Critical gotcha:** `rememberModalBottomSheetState(skipPartiallyExpanded = true)` auto-expanded on mount. `rememberBottomSheetState(initialValue = Hidden)` does NOT — you must call `LaunchedEffect(Unit) { sheetState.show() }` after declaration or the sheet will not open:
+
+```kotlin
+// ❌ WRONG — sheet will not open
+val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+ModalBottomSheet(sheetState = sheetState) { ... }
+
+// ✅ CORRECT — explicit expand on mount
+val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+LaunchedEffect(Unit) { sheetState.show() }
+ModalBottomSheet(sheetState = sheetState) { ... }
+```
+
+**Also:** `skipPartiallyExpanded` is NOT a parameter of `rememberBottomSheetState` — it belongs to `ModalBottomSheet`, not to the state constructor.
+
+### Regression 12: Roborazzi plugin resolution failure
+
+**Problem:** The original ADR referenced `io.github.nickid:roborazzi` which does not exist on Maven Central. The correct group is `io.github.takahirom.roborazzi`.
+
+**The fix (PR D, Phase 6):** Updated `libs.versions.toml` to use `io.github.takahirom.roborazzi:roborazzi:1.74.0`. See `singularity-todo-task-snapshot-testing` skill for the correct Maven coordinates and API usage.
+
 ## Reference apps
 
 - **TickTick** (Android/iOS) — primary reference for document-style detail screen. Priority chip with coloured flag, combined date+time chip, checklist with progress bar, bottom action bar.

@@ -784,10 +784,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Bulk-операции fail-fast при отсутствующих ID _(from `2026-09-05-refactoring-summary`)_
 - CI may later call `just tests::check` instead of `./check.sh` — the behavior is identical. _(from `2026-09-06-modular-justfile`)_
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска _(from `2026-09-05-ui-tests-ultron`)_
+- `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR. _(from `2026-09-08-instant-migration`)_
 - `ContentStateMapper` — добавлен object с двумя методами _(from `2026-09-05-refactoring-summary`)_
+- Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed. _(from `2026-09-08-instant-migration`)_
+- Developers should prefer `kotlinx.datetime.Instant` in new code. _(from `2026-09-08-instant-migration`)_
 - DI-граф упрощён: 5 factory → 1 _(from `2026-09-05-refactoring-summary`)_
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes) _(from `2026-09-07-task-detail-archive-overflow`)_
 - Internal links survive HTML round-trip (stored as `note://` / `task://` href) _(from `2026-09-07-notes-internal-links-backlinks`)_
+- `io.github.nickid:roborazzi:1.25.0` added to `libs.versions.toml`. _(from `2026-09-08-roborazzi-snapshot-tests`)_
 - `just` must be installed (`just 1.57.0` is present in this environment). _(from `2026-09-06-modular-justfile`)_
 - **`koinInject()` в Screen** требует Koin контекст — widget тесты обходят это через Robolectric + `createComposeRule` без Koin _(from `2026-09-05-ui-tests-ultron`)_
 - Link tap detection requires cursor placement (no visual link highlight tap) — acceptable tradeoff given library limitation _(from `2026-09-07-notes-internal-links-backlinks`)_
@@ -797,6 +801,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Picker sheets визуально согласованы с остальными sheets (drag-handle, chrome) _(from `2026-09-07-task-detail-archive-overflow`)_
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`). _(from `2026-09-06-modular-justfile`)_
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов _(from `2026-09-05-uiautomator-compose-discovery`)_
+- `roborazzi` dependency added to `androidHostTest` in `shared/build.gradle.kts`. _(from `2026-09-08-roborazzi-snapshot-tests`)_
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill) _(from `2026-09-07-notes-internal-links-backlinks`)_
 - `scopeOverride` добавлен в `ProjectsViewModel` _(from `2026-09-05-ui-decomposition`)_
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates _(from `2026-09-05-task-editor-refactor`)_
@@ -804,6 +809,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskEditorViewModel` constructor signature unchanged; DI registration unchanged. _(from `2026-09-05-task-editor-refactor`)_
 - `TaskEditorViewModelTest` and `TaskEditorIntegrationTest` must add edit-mode scenarios. _(from `2026-09-05-task-editor-refactor`)_
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика _(from `2026-09-05-refactoring-summary`)_
+- Tests are ignored until the plugin resolution issue in the development environment is resolved. _(from `2026-09-08-roborazzi-snapshot-tests`)_
 - Two new top-level entries added: `justfile` and `.just/`. _(from `2026-09-06-modular-justfile`)_
 - UI Automator тесты **удалены** (`UIAutomatorTest.kt`). _(from `2026-09-05-uiautomator-compose-discovery`)_
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear() _(from `2026-09-05-refactoring-summary`)_
@@ -916,12 +922,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-07-task-detail-archive-overflow` — _(no title)
 - `2026-09-07-task-detail-document-style` — _(no title)
 - `2026-09-07-write-tools-in-koog-registry` — Write Tools — idempotent контракт, dryRun, error model
+- `2026-09-08-instant-migration` — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
 - `2026-09-08-mcp-dogfooding-round-2` — MCP dogfooding — round 2 plan index
 - `2026-09-08-mcp-plan-tracking-via-mcp` — MCP plan tracking end-to-end
 - `2026-09-08-mcp-schema-and-profile-userid-fixes` — MCP schema dialect bug + profile-aware userId defaults
 - `2026-09-08-mcp-server-health-audit` — MCP server health audit — dead code, missing tests, contract hazards
 - `2026-09-08-projects-ux-rework` — _(no title)
 - `2026-09-08-roboazzi-snapshot-tests` — Snapshot tests via Roborazzi for all detail screen sections
+- `2026-09-08-roborazzi-snapshot-tests` — Roborazzi Snapshot Tests for Task Detail Sections
+- `2026-09-08-roborazzi-snapshot-tests-superseded` — Superseded: Roborazzi Snapshot Tests for Task Detail Sections
 - `2026-09-08-task-1-level-subtasks` — Sub-task 1-level hierarchy (like projects)
 - `2026-09-08-task-archive-restore-contract` — Task archive vs delete: separate contracts via archiveAt
 - `2026-09-08-task-detail-critical-fixes` — TaskDetail critical fixes: TOCTOU race, Saved-spam, dead condition

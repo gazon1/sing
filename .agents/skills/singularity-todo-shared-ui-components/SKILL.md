@@ -223,6 +223,15 @@ Why:
 - The card has **one** parameter for "what can happen here" instead of N callbacks
 - Call sites that don't care about a button (e.g. `SearchScreen` showing a read-only preview) pass `TaskCardActions.Empty`
 
+### When NOT to use a data class for grouping callbacks
+
+See `singularity-todo-task-callback-groups` for the full decision tree. TL;DR:
+
+- **Do NOT** group unrelated callbacks into a `data class ContentParams` — this creates a 4-level hierarchy and makes refactoring painful
+- **Do NOT** use `data class` to group outgoing actions (those go to the VM) — use `@JvmInline value class` instead
+- **Only** use a data class when 4+ incoming data parameters form a natural domain unit (e.g., `DueDateModel(date, time, zone)`)
+- **Do NOT** introduce a new `Actions` class for 4 callbacks in a single-screen composable — raw lambdas are fine until usage spreads to 2+ screens
+
 ## Part 3 — Worked examples
 
 ### Worked example: `EditorToolbar` (combining decomposition + formatter extraction)

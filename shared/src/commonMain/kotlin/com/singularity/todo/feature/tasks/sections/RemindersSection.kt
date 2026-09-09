@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.formatReminderTime
 import com.singularity.todo.feature.reminders.Reminder
+import com.singularity.todo.feature.tasks.components.TaskDetailActions
 import kotlinx.datetime.TimeZone
 
 /**
@@ -29,13 +30,13 @@ import kotlinx.datetime.TimeZone
  *
  * @param reminders All reminders belonging to the current task.
  * @param timeZone The user's local timezone for formatting.
- * @param onDeleteReminder Called when the user taps delete on a reminder.
+ * @param actions Packed [TaskDetailActions] callback handler.
  */
 @Composable
 fun RemindersSection(
     reminders: List<Reminder>,
     timeZone: TimeZone,
-    onDeleteReminder: (Reminder) -> Unit,
+    actions: TaskDetailActions,
     modifier: Modifier = Modifier,
 ) {
     if (reminders.isEmpty()) return
@@ -84,7 +85,7 @@ fun RemindersSection(
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(
-                    onClick = { onDeleteReminder(reminder) },
+                    onClick = { actions.onDeleteReminder(reminder) },
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Delete,
