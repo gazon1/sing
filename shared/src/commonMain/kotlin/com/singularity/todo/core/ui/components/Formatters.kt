@@ -5,6 +5,8 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
 
 /**
  * Pure-Kotlin presentation helpers used by [core/ui/components]. No Compose
@@ -80,4 +82,95 @@ internal fun formatDueChip(
     }
 
     return DueChipModel(text = fullText, state = state)
+}
+
+/**
+ * Formats a reminder's fire-at instant into a human-readable label.
+ *
+ * - `"At 9:00 AM"` — when [offsetMinutes] is 0 (AT_DUE)
+ * - `"15 min before due"` — when [offsetMinutes] is non-zero and no absolute time
+ * - `"Tomorrow at 9:00 AM"` / `"Today at 9:00 AM"` / `"Sep 8 at 9:00 AM"` — absolute datetime
+ *
+ * [fireAt] is epoch millis. [zone] is the user's local timezone.
+ */
+internal fun formatReminderTime(
+    fireAt: Long,
+    offsetMinutes: Int,
+    zone: kotlinx.datetime.TimeZone,
+): String {
+    val instant = kotlinx.datetime.Instant.fromEpochMilliseconds(fireAt)
+    val local = instant.toLocalDateTime(zone)
+    val timeStr = "${local.hour.toString().padStart(2, '0')}:${local.minute.toString().padStart(2, '0')}"
+
+    return if (offsetMinutes == 0) {
+        // AT_DUE — just show the absolute time
+        "${local.dayOfMonth} ${shortMonth(local.month)} at $timeStr"
+    } else {
+        // Relative offset — show how many minutes/hours/days before due
+        val mins = kotlin.math.abs(offsetMinutes)
+        when {
+            mins < 60 -> "$mins min before due"
+            mins < 1440 -> "${mins / 60} hour${if (mins >= 120) "s" else ""} before due"
+            else -> "${mins / 1440} day${if (mins >= 2880) "s" else ""} before due"
+        }
+    }
+}
+
+private fun shortMonth(month: kotlinx.datetime.Month): String = when (month) {
+    kotlinx.datetime.Month.JANUARY -> "Jan"
+    kotlinx.datetime.Month.FEBRUARY -> "Feb"
+    kotlinx.datetime.Month.MARCH -> "Mar"
+    kotlinx.datetime.Month.APRIL -> "Apr"
+    kotlinx.datetime.Month.MAY -> "May"
+    kotlinx.datetime.Month.JUNE -> "Jun"
+    kotlinx.datetime.Month.JULY -> "Jul"
+    kotlinx.datetime.Month.AUGUST -> "Aug"
+    kotlinx.datetime.Month.SEPTEMBER -> "Sep"
+    kotlinx.datetime.Month.OCTOBER -> "Oct"
+    kotlinx.datetime.Month.NOVEMBER -> "Nov"
+    kotlinx.datetime.Month.DECEMBER -> "Dec"
+}
+
+/**
+ * Formats `createdAt` and `updatedAt` timestamps for display in the task detail footer.
+ *
+ * - createdAt: "Created Sep 8"
+ * - updatedAt: "Updated 2m ago" (relative), or "Updated Sep 8" if >7 days old
+ */
+internal fun formatTimestampsRelative(
+    createdAt: Instant,
+    updatedAt: Instant,
+    now: Instant,
+): TimestampsModel {
+    val createdStr = formatCreatedDate(createdAt)
+    val updatedStr = formatUpdatedRelative(updatedAt, now)
+    return TimestampsModel(created = createdStr, updated = updatedStr)
+}
+
+internal data class TimestampsModel(
+    val created: String,
+    val updated: String,
+)
+
+private fun formatCreatedDate(instant: Instant): String {
+    val local = instant.toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+    return "Created ${shortMonth(local.month)} ${local.dayOfMonth}"
+}
+
+private fun formatUpdatedRelative(instant: Instant, now: Instant): String {
+    val diffMs = now.toEpochMilliseconds() - instant.toEpochMilliseconds()
+    val diffMinutes = diffMs / 60_000
+    val diffHours = diffMinutes / 60
+    val diffDays = diffHours / 24
+
+    return when {
+        diffMinutes < 1 -> "Updated just now"
+        diffMinutes < 60 -> "Updated ${diffMinutes}m ago"
+        diffHours < 24 -> "Updated ${diffHours}h ago"
+        diffDays <= 7 -> "Updated ${diffDays}d ago"
+        else -> {
+            val local = instant.toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+            "Updated ${shortMonth(local.month)} ${local.dayOfMonth}"
+        }
+    }
 }

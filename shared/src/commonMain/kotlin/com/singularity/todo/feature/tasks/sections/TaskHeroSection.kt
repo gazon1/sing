@@ -6,9 +6,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,15 +25,18 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.feature.tasks.TaskDetailActions
+import com.singularity.todo.feature.tasks.TaskKind
+import com.singularity.todo.feature.tasks.components.TaskDetailActions
 
 /**
  * The top "hero" area of a task detail screen: a large checkbox, inline-editable
- * title, and inline-editable description.
+ * title, inline-editable description, and kind/someday indicator buttons.
  *
  * @param title        Current task title (may be empty — placeholder is shown).
  * @param description  Current description, or `null` when blank.
  * @param isCompleted  Completion state — drives checkbox and strikethrough.
+ * @param kind         Current [TaskKind] — determines the kind icon shown.
+ * @param isSomeday   Whether the task is marked as someday/maybe.
  * @param actions      Packed [TaskDetailActions] callback handler.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,6 +45,8 @@ fun TaskHeroSection(
     title: String,
     description: String?,
     isCompleted: Boolean,
+    kind: TaskKind,
+    isSomeday: Boolean,
     actions: TaskDetailActions,
     modifier: Modifier = Modifier,
 ) {
@@ -69,6 +81,45 @@ fun TaskHeroSection(
                 textDecoration = null,
                 onValueChange = actions::onDescriptionChange,
             )
+
+            // Kind and someday indicator row
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                // Kind chip
+                IconButton(
+                    onClick = { actions.onOpenKindPicker() },
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        imageVector = if (kind == TaskKind.Note) Icons.Filled.Lightbulb else Icons.Filled.CheckBox,
+                        contentDescription = "Kind: ${kind.name}",
+                        tint = if (kind == TaskKind.Note) {
+                            MaterialTheme.colorScheme.tertiary
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+
+                // Someday chip
+                if (isSomeday) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(
+                        onClick = { actions.onToggleSomeday() },
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.WatchLater,
+                            contentDescription = "Someday/Maybe — tap to activate",
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -249,6 +249,11 @@ class FakeTaskRepository : TaskRepository {
 
     override fun watchTask(id: TaskId): Flow<Task?> = tasks.map { it[id.value] }
 
+    override fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> =
+        tasks.map { map ->
+            map.values.filter { it.parentTaskId == parentId && it.userId.value == userId.value }
+        }
+
     override fun getTagIds(taskId: TaskId): Flow<List<TagId>> =
         tasks.map { it[taskId.value]?.tags ?: emptyList() }
 }

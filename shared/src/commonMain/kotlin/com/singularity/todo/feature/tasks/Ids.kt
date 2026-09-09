@@ -72,9 +72,10 @@ data class CreateTaskInput(
     val priority: TaskPriority = TaskPriority.None,
     val kind: TaskKind = TaskKind.Task,
     val projectId: ProjectId? = null,
+    val parentTaskId: TaskId? = null,
     val tagIds: List<TagId> = emptyList(),
     val dueDate: kotlinx.datetime.LocalDate? = null,
     val dueTime: String? = null,
     val someday: Boolean = false,
-    val userId: UserId
+    val userId: UserId,
 )

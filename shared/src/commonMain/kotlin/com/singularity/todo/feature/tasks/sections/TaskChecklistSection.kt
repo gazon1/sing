@@ -23,20 +23,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.checklist.ChecklistItem
-import com.singularity.todo.feature.tasks.TaskDetailActions
+import com.singularity.todo.feature.tasks.components.TaskDetailActions
 import com.singularity.todo.feature.checklist.components.ChecklistItemRow
 
 /**
  * The checklist section of a task detail screen — shows a progress bar,
- * individual checklist items with toggle/delete, and an inline "add item" field.
+ * individual checklist items with toggle/delete/promote, and an inline "add item" field.
  *
  * @param items    All checklist items belonging to the current task.
  * @param actions  Packed [TaskDetailActions] callback handler.
+ * @param onPromoteChecklist Optional callback to convert a checklist item to a subtask.
  */
 @Composable
 fun TaskChecklistSection(
     items: List<ChecklistItem>,
     actions: TaskDetailActions,
+    onPromoteChecklist: ((ChecklistItem) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var draft by remember { mutableStateOf("") }
@@ -85,6 +87,7 @@ fun TaskChecklistSection(
                 checked = item.isCompleted,
                 onToggle = { actions.onToggleChecklistItem(item) },
                 onDelete = { actions.onDeleteChecklistItem(item.id) },
+                onPromote = onPromoteChecklist?.let { { it(item) } },
             )
         }
 

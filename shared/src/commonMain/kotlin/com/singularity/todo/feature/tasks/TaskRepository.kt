@@ -36,6 +36,8 @@ interface TaskRepository {
     suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit>
     fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>>
     fun watchTask(id: TaskId): Flow<Task?>
+    /** Returns direct child tasks of the given parent. */
+    fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>>
     fun getTagIds(taskId: TaskId): Flow<List<TagId>>
     suspend fun exists(id: TaskId): Boolean
     suspend fun getById(id: TaskId): Task?
@@ -74,6 +76,12 @@ class TaskRepositoryImpl(
 
     override fun watchTask(id: TaskId): Flow<Task?> {
         return taskDao.watchById(id.value).map { it?.toTask() }
+    }
+
+    override fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> {
+        return taskDao.watchActive(userId.value).map { list ->
+            list.filter { it.parentTaskId == parentId.value }.map { it.toTask() }
+        }
     }
 
     override suspend fun create(task: Task): Result<Unit> = runCatching {

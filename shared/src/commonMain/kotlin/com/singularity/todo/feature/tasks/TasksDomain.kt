@@ -36,11 +36,12 @@ object TasksDomain {
         priority: TaskPriority = TaskPriority.None,
         kind: TaskKind = TaskKind.Task,
         projectId: ProjectId? = null,
+        parentTaskId: TaskId? = null,
         tagIds: List<TagId> = emptyList(),
         dueDate: kotlinx.datetime.LocalDate? = null,
         dueTime: String? = null,
         someday: Boolean = false,
-        userId: UserId
+        userId: UserId,
     ): Either<AppError.Validation, CreateTaskInput> {
         val trimmed: String = when (val v = validateTitle(title)) {
             is Either.Left -> return v
@@ -53,6 +54,7 @@ object TasksDomain {
                 priority = priority,
                 kind = kind,
                 projectId = projectId,
+                parentTaskId = parentTaskId,
                 tagIds = tagIds,
                 dueDate = dueDate,
                 dueTime = dueTime,
@@ -78,13 +80,14 @@ object TasksDomain {
         priority = input.priority,
         kind = input.kind,
         projectId = input.projectId,
+        parentTaskId = input.parentTaskId,
         tags = input.tagIds,
         dueDate = input.dueDate,
         dueTime = input.dueTime,
         someday = input.someday,
         createdAt = createdAt,
         updatedAt = updatedAt,
-        userId = input.userId
+        userId = input.userId,
     )
 
     /**
@@ -105,5 +108,27 @@ object TasksDomain {
             is TaskFilter.Search -> task.title.contains(filter.query, ignoreCase = true) ||
                     task.description?.contains(filter.query, ignoreCase = true) == true
         }
+    }
+
+    /**
+     * Validates that setting [childId] as a child of [parentId] would not violate
+     * the 1-level hierarchy rule: a child task cannot itself have children.
+     *
+     * Returns [AppError.Validation] if [childId] already has its own `parentTaskId`,
+     * or if [parentId] is already a child of [childId] (circular assignment).
+     */
+    fun assertNoNesting(
+        parentId: TaskId,
+        childId: TaskId,
+        allTasks: List<Task>,
+    ): Either<AppError.Validation, Unit> {
+        val child = allTasks.find { it.id == childId } ?: return Either.Right(Unit)
+        // Child is already a parent — cannot re-parent it
+        if (child.parentTaskId != null) {
+            return Either.Left(
+                AppError.Validation("Sub-tasks can only be 1 level deep. \"${child.title}\" is already a sub-task.")
+            )
+        }
+        return Either.Right(Unit)
     }
 }

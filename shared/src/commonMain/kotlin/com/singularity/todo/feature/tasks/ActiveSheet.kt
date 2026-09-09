@@ -12,6 +12,7 @@ sealed interface ActiveSheet {
     data object Tags : ActiveSheet
     data object Reminder : ActiveSheet
     data object Attachment : ActiveSheet
+    data object Kind : ActiveSheet
     data object ConfirmDelete : ActiveSheet
     data object ConfirmArchive : ActiveSheet
 }
@@ -27,6 +28,7 @@ fun TaskDetailUiEvent.toActiveSheet(): ActiveSheet? = when {
     this is TaskDetailUiEvent.OpenTagSheet -> ActiveSheet.Tags
     this is TaskDetailUiEvent.OpenReminderSheet -> ActiveSheet.Reminder
     this is TaskDetailUiEvent.OpenAttachmentSheet -> ActiveSheet.Attachment
+    this is TaskDetailUiEvent.OpenKindSheet -> ActiveSheet.Kind
     this is TaskDetailUiEvent.ConfirmDelete -> ActiveSheet.ConfirmDelete
     this is TaskDetailUiEvent.ConfirmArchive -> ActiveSheet.ConfirmArchive
     else -> null

@@ -55,6 +55,8 @@ data class TaskDetailUi(
     val checklist: List<ChecklistItem> = emptyList(),
     val reminders: List<Reminder> = emptyList(),
     val attachments: List<Attachment> = emptyList(),
+    /** Direct child tasks (1-level hierarchy only). */
+    val subtasks: List<Task> = emptyList(),
     /** Continuous draft for the inline checklist add-field. */
     val checklistDraft: String = "",
 )
@@ -69,6 +71,7 @@ sealed interface TaskDetailUiState {
 class TaskDetailViewModel(
     private val taskRepo: TaskRepository,
     private val updateTask: UpdateTaskUseCase,
+    private val createTask: CreateTaskUseCase,
     private val projectsRepo: ProjectsRepository,
     private val tagsRepo: TagsRepository,
     private val checklistUseCase: ChecklistUseCase,
@@ -102,7 +105,12 @@ class TaskDetailViewModel(
     private val _lastEditedAt = MutableStateFlow<Instant?>(null)
     val lastEditedAt: StateFlow<Instant?> = _lastEditedAt
 
-    /** Collectors for debounced drafts. Each fires after 300 ms of inactivity. */
+    /**
+     * The most recently soft-deleted task, kept in memory so [restoreTask] can undo.
+     * Cleared after a successful restore or when the snackbar timeout expires.
+     */
+    private val _recentlyDeleted = MutableStateFlow<Task?>(null)
+    val recentlyDeleted: StateFlow<Task?> = _recentlyDeleted
     init {
         scope.launch {
             titleDraft
@@ -146,8 +154,9 @@ class TaskDetailViewModel(
                 val checklistFlow = checklistUseCase.watchChecklist(id.value)
                 val reminderFlow = reminderRepo.watchByTask(id, currentUser.current)
                 val attachmentsFlow = attachmentsRepo.watchByTask(id, currentUser.current)
+                val subtasksFlow = taskRepo.watchSubtasks(id, currentUser.current)
 
-                combine(taskFlow, projectFlow, tagsFlow, checklistFlow, reminderFlow, attachmentsFlow) { values ->
+                combine(taskFlow, projectFlow, tagsFlow, checklistFlow, reminderFlow, attachmentsFlow, subtasksFlow) { values ->
                     @Suppress("UNCHECKED_CAST")
                     val task = values[0] as Task?
                     @Suppress("UNCHECKED_CAST")
@@ -160,6 +169,8 @@ class TaskDetailViewModel(
                     val reminders = values[4] as List<Reminder>
                     @Suppress("UNCHECKED_CAST")
                     val attachments = values[5] as List<Attachment>
+                    @Suppress("UNCHECKED_CAST")
+                    val subtasks = values[6] as List<Task>
 
                     _latestTask.value = task
                     if (task == null) {
@@ -173,6 +184,7 @@ class TaskDetailViewModel(
                                 checklist = checklist,
                                 reminders = reminders,
                                 attachments = attachments,
+                                subtasks = subtasks,
                                 checklistDraft = "",
                             )
                         )
@@ -241,6 +253,24 @@ class TaskDetailViewModel(
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
+    fun setKind(current: Task, kind: TaskKind) = scope.launch {
+        updateTask(current.copy(kind = kind))
+            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Failed to set kind")) }
+    }
+
+    fun setSomeday(current: Task, someday: Boolean) = scope.launch {
+        updateTask(current.copy(someday = someday))
+            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Failed to set someday")) }
+    }
+
+    fun setParentTask(current: Task, parentId: TaskId?) = scope.launch {
+        updateTask(current.copy(parentTaskId = parentId))
+            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Failed to set parent")) }
+    }
+
     fun setCompleted(current: Task, completed: Boolean) = scope.launch {
         val completedAt = if (completed) {
             Clock.now()
@@ -281,6 +311,30 @@ class TaskDetailViewModel(
     fun deleteChecklistItem(id: ChecklistItemId) = scope.launch {
         checklistUseCase.deleteItem(id)
             .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Delete failed")) }
+    }
+
+    // ─── Subtasks ───────────────────────────────────────────────────────────────
+
+    fun addSubtask(parentTaskId: TaskId, title: String) = scope.launch {
+        if (title.isBlank()) return@launch
+        createTask(
+            CreateTaskInput(
+                title = title.trim(),
+                userId = currentUser.current,
+                parentTaskId = parentTaskId,
+            )
+        )
+            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Subtask added")) }
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Add subtask failed")) }
+    }
+
+    fun toggleSubtask(task: Task) = scope.launch {
+        setCompleted(task, task.completedAt == null)
+    }
+
+    fun deleteSubtask(task: Task) = scope.launch {
+        taskRepo.softDelete(task.id)
+            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Delete subtask failed")) }
     }
 
     // ─── Reminders ──────────────────────────────────────────────────────────────
@@ -331,19 +385,48 @@ class TaskDetailViewModel(
 
     // ─── Delete ────────────────────────────────────────────────────────────────
 
+    /**
+     * Soft-deletes the task and stores it in [_recentlyDeleted] so [restoreTask] can undo.
+     * Emits [TaskDetailUiEvent.UndoDelete] instead of navigating back immediately —
+     * the screen listens for this event and shows a Snackbar with an Undo action.
+     */
     fun deleteTask(current: Task) = scope.launch {
+        _recentlyDeleted.value = current
         taskRepo.softDelete(current.id)
             .onSuccess {
-                _events.emit(TaskDetailUiEvent.Saved("Task deleted"))
-                _events.emit(TaskDetailUiEvent.NavigateBack)
+                _events.emit(TaskDetailUiEvent.UndoDelete(current.id))
             }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Delete failed")) }
+            .onFailure {
+                _recentlyDeleted.value = null
+                _events.emit(TaskDetailUiEvent.Error(it.message ?: "Delete failed"))
+            }
+    }
+
+    /**
+     * Restores a task that was soft-deleted and shown in the undo snackbar.
+     * Clears [_recentlyDeleted] on success.
+     */
+    fun restoreTask() = scope.launch {
+        val task = _recentlyDeleted.value ?: return@launch
+        taskRepo.restore(task.id)
+            .onSuccess {
+                _recentlyDeleted.value = null
+                _events.emit(TaskDetailUiEvent.Saved("Task restored"))
+            }
+            .onFailure {
+                _events.emit(TaskDetailUiEvent.Error(it.message ?: "Restore failed"))
+            }
     }
 
     // ─── Archive ───────────────────────────────────────────────────────────────
 
+    /** Emits [TaskDetailUiEvent.ConfirmArchive] — archive is soft-delete with no Undo. */
     fun confirmArchive() = scope.launch { _events.emit(TaskDetailUiEvent.ConfirmArchive) }
 
+    /**
+     * Soft-deletes the task (archive = soft-delete) and navigates back.
+     * No undo snackbar — archive has its own recovery path via the Archive screen.
+     */
     fun archiveTask(current: Task) = scope.launch {
         taskRepo.softDelete(current.id)
             .onSuccess {
@@ -362,5 +445,6 @@ class TaskDetailViewModel(
     fun openTagSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenTagSheet) }
     fun openReminderSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenReminderSheet) }
     fun openAttachmentSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenAttachmentSheet) }
+    fun openKindSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenKindSheet) }
     fun confirmDelete() = scope.launch { _events.emit(TaskDetailUiEvent.ConfirmDelete) }
 }

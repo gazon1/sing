@@ -21,7 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.feature.tasks.TaskDetailActions
+import com.singularity.todo.feature.tasks.components.TaskDetailActions
 
 /**
  * The bottom action bar of a task detail screen — pinned notifications,

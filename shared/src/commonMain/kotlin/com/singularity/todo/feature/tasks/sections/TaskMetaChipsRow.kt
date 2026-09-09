@@ -28,8 +28,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.projects.Project
 import com.singularity.todo.feature.projects.ProjectId
-import com.singularity.todo.feature.tasks.TaskDetailActions
 import com.singularity.todo.feature.tasks.TaskPriority
+import com.singularity.todo.feature.tasks.components.TaskDetailActions
 
 /**
  * A [FlowRow] of contextual chips for due-date, time, priority, and project —

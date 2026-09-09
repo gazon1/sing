@@ -21,6 +21,14 @@ sealed interface TaskDetailUiEvent {
     data object OpenTagSheet : TaskDetailUiEvent
     data object OpenReminderSheet : TaskDetailUiEvent
     data object OpenAttachmentSheet : TaskDetailUiEvent
+    data object OpenKindSheet : TaskDetailUiEvent
     data object ConfirmDelete : TaskDetailUiEvent
     data object ConfirmArchive : TaskDetailUiEvent
+
+    /**
+     * Task was soft-deleted and can be restored within the snackbar timeout.
+     * The [Task] is stored in [_recentlyDeleted][com.singularity.todo.feature.tasks.TaskDetailViewModel._recentlyDeleted]
+     * and should be restored by calling [TaskRepository.restore].
+     */
+    data class UndoDelete(val taskId: TaskId) : TaskDetailUiEvent
 }

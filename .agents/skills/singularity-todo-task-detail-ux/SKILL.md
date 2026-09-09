@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-task-detail-ux
-description: Document-style vs form-style UX pattern for task detail screens. Covers the hero block (checkbox + title + description), meta-chips row (date/time/priority/project), inline-edit tap-to-edit, bottom action bar, and the TickTick/Todoist reference. Documents 7 known regressions: AlertDialog-to-ModalBottomSheet migration trap, dead FieldMode state, emoji-icon usage, empty-section noise, Saved-spam from debounced inline edits, TOCTOU race in debounced collectors, and ReminderPicker always resetting to 15 min.
+description: Document-style vs form-style UX pattern for task detail screens. Covers the hero block (checkbox + title + description), meta-chips row (date/time/priority/project), inline-edit tap-to-edit, bottom action bar, and the TickTick/Todoist reference. Documents 10 known regressions: AlertDialog-to-ModalBottomSheet migration trap, dead FieldMode state, emoji-icon usage, empty-section noise, Saved-spam from debounced inline edits, TOCTOU race in debounced collectors, ReminderPicker always resetting to 15 min, missing Clear on date/time pickers, missing inline create in project/tag pickers, and using AlertDialog for confirm-delete instead of ModalBottomSheet with Snackbar undo.
 ---
 
 # Task Detail UX — Document-Style vs Form-Style
@@ -109,7 +109,7 @@ Three chip types:
 - `PushPin` — tinted `primary` when `isPinned`, else `onSurfaceVariant`
 - `DeleteOutline` — always `error` tint, tap → `AlertDialog` confirmation
 
-## 6 known regressions (anti-patterns to avoid)
+## 10 known regressions (anti-patterns to avoid)
 
 ### Regression 1: AlertDialog → ModalBottomSheet migration trap
 
@@ -169,9 +169,30 @@ scope.launch {
 
 ### Regression 7: ReminderPicker always resets to 15 min before
 
-**Root cause:** `ReminderPickerSheetContent` at `TaskDetailScreen.kt:336–393` is a local duplicate of `TaskEditorSheetHost`. Unlike `TaskEditorSheetHost` (which accepts `existingReminder: Reminder?` and pre-selects the correct offset), `ReminderPickerSheetContent` always initialises the selection to `ReminderOffset.FIFTEEN_MIN` regardless of what reminder is actually set on the task.
+**Root cause:** `ReminderPickerSheetContent` always initialised `selectedOffset` to `ReminderOffset.FIFTEEN_MIN` regardless of the task's existing reminders. The sheet was re-composed on every keystroke in the parent, resetting the selection.
 
-**The fix:** `TaskDetailScreen` should use `TaskEditorSheetHost` directly, passing the existing reminder for pre-selection — not a local duplicate. This was fixed in PR 1a by removing the duplicate and routing through `TaskEditorSheetHost` with the correct pre-select state.
+**The fix (PR 3):** The initial offset is derived from `reminders.firstOrNull()?.offsetMinutes` via `ReminderOffset.entries.find { it.minutes == reminder.offsetMinutes } ?: ReminderOffset.FIFTEEN_MIN`. The `remember { mutableStateOf(initialOffset) }` pattern ensures the selection survives sheet re-compositions.
+
+### Regression 8: No Clear action on date/time pickers
+
+**Root cause:** `DatePickerSheet` and `TimePickerSheet` had no way to clear a previously-set date or time — the only options were "Cancel" (dismiss) or "OK" (confirm). Users who wanted to remove a due date had no UI affordance to do so.
+
+**The fix (PR 3):** Both pickers are now `ModalBottomSheet` (not `DatePickerDialog`/`AlertDialog`) with three buttons: "Clear" (left), "Cancel" (centre-right), "OK" (right-most). "Clear" calls `onDateSelected(null)` / `onTimeSelected(null)` — a silent update, no `Saved` event.
+
+### Regression 9: No inline create in project/tag pickers
+
+**Root cause:** `ProjectPickerSheet` and `TagPickerSheet` only listed existing items. Creating a new project or tag required a full round-trip to a separate screen. This breaks the flow — the user had to abandon the picker, create the item, then re-open the picker to select it.
+
+**The fix (PR 3):** Both pickers now show a "+ Create new project" / "+ Create new tag" `TextButton` at the bottom of the list. Tapping it reveals an inline `OutlinedTextField` + "Create" button. On "Create":
+- `ProjectPickerSheet`: creates a `Project` with `ProjectId.generate()`, default green colour (`0xFF4CAF50`), calls `projectsRepo.create()`.
+- `TagPickerSheet`: supports comma-separated multi-word input (e.g. `"urgent, client"`), creates one tag per word, auto-selects newly created tags.
+- Both refresh the list and keep the new item visible.
+
+### Regression 10: AlertDialog for confirm-delete instead of ModalBottomSheet + Snackbar undo
+
+**Root cause:** `ConfirmDeleteDialog` and `ConfirmArchiveDialog` were implemented as `AlertDialog` — a Material3 dialog component — rather than `ModalBottomSheet`. AlertDialog is appropriate for truly destructive one-shot confirms, but delete-with-undo is better served by a `ModalBottomSheet` with a SnackbarHost showing an "Undo" action for 4 seconds.
+
+**The fix (PR 4):** `ConfirmDeleteSheet` and `ConfirmArchiveSheet` are now `ModalBottomSheet`. The `deleteTask` VM method emits `TaskDetailUiEvent.UndoDelete(taskId)` instead of navigating back immediately. The screen shows a `Snackbar` with an "Undo" action. If the user taps "Undo", `viewModel.restoreTask()` is called (backed by `TaskRepository.restore`). Archive is soft-delete only — it has no undo snackbar since archived tasks are recoverable from the Archive screen.
 
 ## Reference apps
 

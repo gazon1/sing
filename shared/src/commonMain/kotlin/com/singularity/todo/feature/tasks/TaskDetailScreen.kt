@@ -12,15 +12,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -32,6 +35,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,10 +49,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.platform.todayInSystemZone
@@ -57,7 +66,11 @@ import com.singularity.todo.core.ui.components.ProjectPickerSheet
 import com.singularity.todo.core.ui.components.TagPickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.formatDueChip
+import com.singularity.todo.core.ui.components.formatTimestampsRelative
 import com.singularity.todo.core.ui.components.priorityColorByIndex
+import com.singularity.todo.core.attachments.Attachment
+import com.singularity.todo.feature.checklist.ChecklistItem
+import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.attachments.AttachmentSheet
 import com.singularity.todo.feature.reminders.ReminderPicker
@@ -68,16 +81,18 @@ import com.singularity.todo.feature.tasks.toActiveSheet
 import com.singularity.todo.feature.tasks.sections.TaskBottomActionBar
 import com.singularity.todo.feature.tasks.sections.TaskChecklistSection
 import com.singularity.todo.feature.tasks.sections.TaskHeroSection
+import com.singularity.todo.feature.tasks.sections.RemindersSection
+import com.singularity.todo.feature.tasks.sections.AttachmentsSection
 import com.singularity.todo.feature.tasks.sections.TaskMetaChipsRow
-import com.singularity.todo.feature.tasks.sections.TagsRow
+import com.singularity.todo.feature.tasks.sections.TaskSubtasksSection
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.reminders.ReminderPicker
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import com.singularity.todo.core.files.toFilePickerResult
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.datetime.LocalTime
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -89,6 +104,7 @@ fun TaskDetailScreen(
     taskId: TaskId,
     onBack: () -> Unit,
     onNavigateToProject: (ProjectId) -> Unit,
+    onNavigateToTask: (TaskId) -> Unit,
     viewModel: TaskDetailViewModel = koinViewModel(),
     attachmentsVm: AttachmentsViewModel = koinViewModel(),
 ) {
@@ -110,12 +126,30 @@ fun TaskDetailScreen(
         }
     }
 
-    // Map VM events to the active sheet state.
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+
+    // Map VM events to the active sheet state and snackbar.
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
-            val sheet = event.toActiveSheet()
-            if (sheet != null) {
-                activeSheet = sheet
+            when (event) {
+                is TaskDetailUiEvent.UndoDelete -> {
+                    // Show snackbar with Undo; navigate back after dismiss.
+                    val result = snackbarHostState.showSnackbar(
+                        message = "Task deleted",
+                        actionLabel = "Undo",
+                        duration = SnackbarDuration.Short,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        viewModel.restoreTask()
+                    } else {
+                        onBack()
+                    }
+                }
+                else -> {
+                    val sheet = event.toActiveSheet()
+                    if (sheet != null) activeSheet = sheet
+                }
             }
         }
     }
@@ -139,6 +173,9 @@ fun TaskDetailScreen(
                             viewModel.onTitleChange(action.title)
                         is TaskDetailActions.Action.DescriptionChange ->
                             viewModel.onDescriptionChange(action.description)
+                        TaskDetailActions.Action.ToggleSomeday ->
+                            viewModel.setSomeday(ui.task, !ui.task.someday)
+                        TaskDetailActions.Action.OpenKindPicker -> viewModel.openKindSheet()
 
                         // Meta chips
                         TaskDetailActions.Action.OpenDatePicker -> viewModel.openDatePicker()
@@ -146,6 +183,7 @@ fun TaskDetailScreen(
                         TaskDetailActions.Action.OpenPriorityPicker -> viewModel.openPrioritySheet()
                         TaskDetailActions.Action.OpenProjectPicker -> viewModel.openProjectSheet()
                         is TaskDetailActions.Action.NavigateToProject -> onNavigateToProject(action.id)
+                        is TaskDetailActions.Action.NavigateToParent -> onNavigateToTask(action.parentTaskId)
 
                         // Tags
                         TaskDetailActions.Action.AddTag -> viewModel.openTagSheet()
@@ -159,6 +197,23 @@ fun TaskDetailScreen(
                             viewModel.deleteChecklistItem(action.id)
                         is TaskDetailActions.Action.AddChecklistItem ->
                             viewModel.addChecklistItem(ui.task.id, action.title)
+
+                        // Subtasks
+                        is TaskDetailActions.Action.NavigateToSubtask ->
+                            onNavigateToTask(action.childTaskId)
+                        is TaskDetailActions.Action.PromoteChecklistToSubtask -> {
+                            val title = action.checklistItem.title
+                            viewModel.addSubtask(ui.task.id, title)
+                            viewModel.deleteChecklistItem(action.checklistItem.id)
+                        }
+
+                        // Reminders
+                        is TaskDetailActions.Action.DeleteReminder ->
+                            viewModel.deleteReminder(ui.task)
+
+                        // Attachments
+                        is TaskDetailActions.Action.DeleteAttachment ->
+                            attachmentsVm.delete(action.attachment.id)
 
                         // Bottom bar
                         TaskDetailActions.Action.OpenReminderSheet -> viewModel.openReminderSheet()
@@ -179,6 +234,16 @@ fun TaskDetailScreen(
                 onBack = onBack,
                 showActionsMenu = showActionsMenu,
                 onShowActionsMenuChange = { showActionsMenu = it },
+                snackbarHostState = snackbarHostState,
+                onToggleSubtask = viewModel::toggleSubtask,
+                onDeleteSubtask = viewModel::deleteSubtask,
+                onSubtaskClick = { actions.onNavigateToSubtask(it.id) },
+                onAddSubtask = { viewModel.addSubtask(ui.task.id, it) },
+                onPromoteChecklist = { actions.onPromoteChecklistToSubtask(it) },
+                onDeleteReminder = { actions.onDeleteReminder(it) },
+                onDeleteAttachment = { actions.onDeleteAttachment(it) },
+                onAttachmentClick = { /* TODO: open attachment */ },
+                timeZone = kotlinx.datetime.TimeZone.currentSystemDefault(),
             )
         }
     }
@@ -236,7 +301,7 @@ fun TaskDetailScreen(
         ActiveSheet.Reminder -> {
             loaded?.let { ui ->
                 ReminderPickerSheetContent(
-                    task = ui.task,
+                    reminders = ui.reminders,
                     onReminderSet = { offset -> viewModel.setReminder(ui.task, offset) },
                     onReminderDeleted = { viewModel.deleteReminder(ui.task) },
                     onDismiss = { activeSheet = null },
@@ -254,8 +319,20 @@ fun TaskDetailScreen(
                 )
             }
         }
+        ActiveSheet.Kind -> {
+            loaded?.let { ui ->
+                KindSheet(
+                    currentKind = ui.task.kind,
+                    onSelect = { kind ->
+                        viewModel.setKind(ui.task, kind)
+                        activeSheet = null
+                    },
+                    onDismiss = { activeSheet = null },
+                )
+            }
+        }
         ActiveSheet.ConfirmDelete -> {
-            ConfirmDeleteDialog(
+            ConfirmDeleteSheet(
                 onConfirm = {
                     loaded?.let { viewModel.deleteTask(it.task) }
                     activeSheet = null
@@ -264,7 +341,7 @@ fun TaskDetailScreen(
             )
         }
         ActiveSheet.ConfirmArchive -> {
-            ConfirmArchiveDialog(
+            ConfirmArchiveSheet(
                 onConfirm = {
                     loaded?.let { viewModel.archiveTask(it.task) }
                     activeSheet = null
@@ -293,6 +370,16 @@ private fun TaskDetailContent(
     onBack: () -> Unit,
     showActionsMenu: Boolean,
     onShowActionsMenuChange: (Boolean) -> Unit,
+    snackbarHostState: SnackbarHostState,
+    onToggleSubtask: (Task) -> Unit,
+    onDeleteSubtask: (Task) -> Unit,
+    onSubtaskClick: (Task) -> Unit,
+    onAddSubtask: (String) -> Unit,
+    onPromoteChecklist: (ChecklistItem) -> Unit,
+    onDeleteReminder: (Reminder) -> Unit,
+    onDeleteAttachment: (Attachment) -> Unit,
+    onAttachmentClick: (Attachment) -> Unit,
+    timeZone: kotlinx.datetime.TimeZone,
 ) {
     val today = todayInSystemZone()
     val scrollState = rememberScrollState()
@@ -348,6 +435,7 @@ private fun TaskDetailContent(
                 actions = actions,
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -361,6 +449,8 @@ private fun TaskDetailContent(
                 title = ui.task.title,
                 description = ui.task.description,
                 isCompleted = ui.task.isCompleted,
+                kind = ui.task.kind,
+                isSomeday = ui.task.someday,
                 actions = actions,
             )
 
@@ -384,6 +474,43 @@ private fun TaskDetailContent(
             TaskChecklistSection(
                 items = ui.checklist,
                 actions = actions,
+                onPromoteChecklist = onPromoteChecklist,
+            )
+
+            RemindersSection(
+                reminders = ui.reminders,
+                timeZone = timeZone,
+                onDeleteReminder = { actions.onDeleteReminder(it) },
+            )
+
+            AttachmentsSection(
+                attachments = ui.attachments,
+                onDeleteAttachment = { actions.onDeleteAttachment(it) },
+                onAttachmentClick = { /* open attachment */ },
+            )
+
+            if (ui.subtasks.isNotEmpty()) {
+                TaskSubtasksSection(
+                    subtasks = ui.subtasks,
+                    onToggleSubtask = onToggleSubtask,
+                    onDeleteSubtask = onDeleteSubtask,
+                    onSubtaskClick = onSubtaskClick,
+                    onAddSubtask = onAddSubtask,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // ── Footer: timestamps ────────────────────────────────────────────────
+            val timestamps = formatTimestampsRelative(
+                createdAt = ui.task.createdAt,
+                updatedAt = ui.task.updatedAt,
+                now = kotlin.time.Clock.System.now(),
+            )
+            Text(
+                text = "${timestamps.created} · ${timestamps.updated}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -426,40 +553,233 @@ private fun TagsRow(
     }
 }
 
-// ─── Dialogs ─────────────────────────────────────────────────────────────────
+// ─── Confirm sheets ───────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ConfirmArchiveDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
+private fun ConfirmArchiveSheet(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("Archive task?") },
-        text = { Text("This will move it to the Archive and remove it from your active lists.") },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Archive", color = MaterialTheme.colorScheme.primary)
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Text(
+                text = "Archive task?",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(vertical = 16.dp),
+            )
+            Text(
+                text = "This will move it to the Archive and remove it from your active lists.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                    Text("Cancel")
+                }
+                TextButton(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Archive", color = MaterialTheme.colorScheme.primary)
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-    )
+        }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ConfirmDeleteDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
+private fun ConfirmDeleteSheet(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("Delete task?") },
-        text = { Text("This action cannot be undone.") },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Delete", color = MaterialTheme.colorScheme.error)
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Text(
+                text = "Delete task?",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(vertical = 16.dp),
+            )
+            Text(
+                text = "This action cannot be undone.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                    Text("Cancel")
+                }
+                TextButton(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-    )
+        }
+    }
+}
+
+// ─── Reminder picker sheet ───────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderPickerSheetContent(
+    reminders: List<com.singularity.todo.feature.reminders.Reminder>,
+    onReminderSet: (ReminderOffset) -> Unit,
+    onReminderDeleted: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // Derive initial selection from the first existing reminder's offset.
+    val initialOffset = reminders.firstOrNull()?.let { reminder ->
+        ReminderOffset.entries.find { it.minutes == reminder.offsetMinutes }
+    } ?: ReminderOffset.FIFTEEN_MIN
+
+    var selectedOffset by remember { mutableStateOf(initialOffset) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Text(
+                text = "Reminder",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(vertical = 16.dp),
+            )
+
+            ReminderPicker(
+                selected = selectedOffset,
+                onSelect = { selectedOffset = it },
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
+                TextButton(
+                    onClick = {
+                        if (selectedOffset == ReminderOffset.AT_DUE) {
+                            onReminderDeleted()
+                        } else {
+                            onReminderSet(selectedOffset)
+                        }
+                        onDismiss()
+                    },
+                ) {
+                    Text("Save")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+// ─── Kind sheet ───────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun KindSheet(
+    currentKind: TaskKind,
+    onSelect: (TaskKind) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        sheetState = sheetState,
+        onDismissRequest = onDismiss,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Text(
+                text = "Kind",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(vertical = 16.dp),
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                FilterChip(
+                    selected = currentKind == TaskKind.Task,
+                    onClick = { onSelect(TaskKind.Task) },
+                    label = { Text("Task") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.CheckBox,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                FilterChip(
+                    selected = currentKind == TaskKind.Note,
+                    onClick = { onSelect(TaskKind.Note) },
+                    label = { Text("Note") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Lightbulb,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
+            }
+        }
+    }
 }
 
 // ─── Mappers ─────────────────────────────────────────────────────────────────

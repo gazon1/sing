@@ -85,6 +85,7 @@ coil = "3.6.1"
 # Testing
 junit = "4.13.2"
 robolectric = "4.17-beta-4"
+roborazzi = "1.25.0"
 
 # Lint
 
@@ -186,6 +187,7 @@ androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navi
 ulid = { module = "com.github.f4b6a3:ulid-creator", version.ref = "ulid" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+roborazzi = { module = "io.github.nickid:roborazzi", version.ref = "roborazzi" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-testExt" }
 
 # FileKit
@@ -213,6 +215,7 @@ koog-http-client-okhttp = { module = "ai.koog:http-client-okhttp", version.ref =
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
+roborazzi = { id = "io.github.nickid.roborazzi", version.ref = "roborazzi" }
 androidMultiplatformLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

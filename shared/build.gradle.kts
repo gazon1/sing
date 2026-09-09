@@ -210,6 +210,9 @@ kotlin {
             // Note: AndroidX version (1.7.3) is used instead of JetBrains (1.11.1) because
             // JetBrains version depends on Espresso which is incompatible with Robolectric.
             implementation(libs.composeUiTestJunit4)
+            // Roborazzi snapshot testing — see docs/decisions/2026-09-08-roborazzi-snapshot-tests.md
+            // TODO: add io.github.nickid:roborazzi when plugin artifact is resolvable
+            // implementation(libs.roborazzi)
         }
     }
 }
