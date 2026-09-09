@@ -367,7 +367,7 @@ private fun BacklinksSheet(
                                     )
                                 },
                                 supportingContent = {
-                                    val snippet = note.bodyMarkdown?.take(80)?.replace(Regex("<[^>]*>"), "") ?: ""
+                                    val snippet = extractPreviewText(note.bodyMarkdown, 80)
                                     if (snippet.isNotBlank()) {
                                         Text(
                                             text = snippet,

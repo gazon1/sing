@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,6 +32,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -185,23 +188,30 @@ fun NotesScreenContent(
             }
         },
     ) { padding ->
-        StatefulContent(
-            state = state.toContentState(),
-            emptyTitle = "No notes yet",
-            modifier = Modifier.padding(padding),
-        ) { allNotes ->
-            NoteList(
-                allNotes = allNotes,
-                pinned = listState?.pinned ?: emptyList(),
-                unpinned = listState?.unpinned ?: emptyList(),
-                isSelectionMode = isSelectionMode,
-                selectedIds = listState?.selectedIds ?: emptySet(),
-                onNavigateToNote = onNavigateToNote,
-                onDelete = onDelete,
-                onTogglePin = onTogglePin,
-                onEnterSelection = onEnterSelection,
-                onToggleSelection = onToggleSelection,
+        if (state is NotesUiState.Empty) {
+            NotesEmptyState(
+                onCreateNote = { onCreateNote("") },
+                modifier = Modifier.padding(padding),
             )
+        } else {
+            StatefulContent(
+                state = state.toContentState(),
+                emptyTitle = "No notes yet",
+                modifier = Modifier.padding(padding),
+            ) { allNotes ->
+                NoteList(
+                    allNotes = allNotes,
+                    pinned = listState?.pinned ?: emptyList(),
+                    unpinned = listState?.unpinned ?: emptyList(),
+                    isSelectionMode = isSelectionMode,
+                    selectedIds = listState?.selectedIds ?: emptySet(),
+                    onNavigateToNote = onNavigateToNote,
+                    onDelete = onDelete,
+                    onTogglePin = onTogglePin,
+                    onEnterSelection = onEnterSelection,
+                    onToggleSelection = onToggleSelection,
+                )
+            }
         }
     }
 }
@@ -303,6 +313,38 @@ private val NoteSortOrder.label: String
         NoteSortOrder.TitleAsc -> "Title A–Z"
         NoteSortOrder.TitleDesc -> "Title Z–A"
     }
+
+// ─── Empty state ────────────────────────────────────────────────────────────
+
+@Composable
+private fun NotesEmptyState(
+    onCreateNote: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = "No notes yet",
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Create your first note to get started",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(24.dp))
+        FilledTonalButton(onClick = onCreateNote) {
+            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(6.dp))
+            Text("Create your first note")
+        }
+    }
+}
 
 // ─── List ───────────────────────────────────────────────────────────────────
 
@@ -506,9 +548,10 @@ private fun NoteCardContent(
                     )
                 }
             }
-            note.bodyMarkdown?.let { body ->
+            val previewText = extractPreviewText(note.bodyMarkdown)
+            if (previewText.isNotBlank()) {
                 Text(
-                    text = body.take(100),
+                    text = previewText,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
