@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
@@ -37,8 +38,10 @@ import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.SheetValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -135,6 +138,7 @@ fun ProjectDetailContent(
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
     val hideCompleted by viewModel.hideCompleted.collectAsStateWithLifecycle()
     val parentOptions by viewModel.parentOptionsFlow.collectAsStateWithLifecycle()
+    val availableTasks by viewModel.availableTasksFlow.collectAsStateWithLifecycle()
     var sheetState by remember { mutableStateOf<ActiveSheet?>(null) }
     var overflowMenuOpen by remember { mutableStateOf(false) }
 
@@ -236,10 +240,12 @@ fun ProjectDetailContent(
                 ProjectBodySection(
                     ui = s.ui,
                     hideCompleted = hideCompleted,
+                    availableTasks = availableTasks,
                     onToggleHideCompleted = viewModel::toggleHideCompleted,
                     onSeeAllClick = onNavigateToTasks,
                     onTaskClick = { task -> onNavigateToTask(task.id) },
                     onCreateTask = viewModel::createTask,
+                    onAddExistingTask = viewModel::moveTaskToProject,
                 )
             }
         }
@@ -487,15 +493,19 @@ private fun ProjectMetaChipsRow(
 private fun ProjectBodySection(
     ui: ProjectDetailUi,
     hideCompleted: Boolean,
+    availableTasks: List<Task>,
     onToggleHideCompleted: () -> Unit,
     onSeeAllClick: (ProjectId) -> Unit,
     onTaskClick: (Task) -> Unit,
     onCreateTask: (String) -> Unit,
+    onAddExistingTask: (TaskId) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // Quick-add input
         ProjectDetailQuickAddInput(
+            availableTasks = availableTasks,
             onSubmit = onCreateTask,
+            onAddExisting = onAddExistingTask,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
@@ -585,32 +595,113 @@ private fun ProjectBottomActionBar(
 
 @Composable
 private fun ProjectDetailQuickAddInput(
+    availableTasks: List<Task>,
     onSubmit: (String) -> Unit,
+    onAddExisting: (TaskId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var text by remember { mutableStateOf("") }
+    var popupOpen by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
     val focus = LocalFocusManager.current
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(Icons.Filled.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(8.dp))
-        OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
-            placeholder = { Text("Add a task...") },
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = {
-                if (text.isNotBlank()) {
-                    onSubmit(text)
-                    text = ""
-                    focus.clearFocus()
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = { popupOpen = true }) {
+                Icon(Icons.Filled.Add, "Add existing task", tint = MaterialTheme.colorScheme.primary)
+            }
+            Spacer(Modifier.width(4.dp))
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text("Add a task...") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    if (text.isNotBlank()) {
+                        onSubmit(text)
+                        text = ""
+                        focus.clearFocus()
+                    }
+                }),
+            )
+        }
+
+        if (popupOpen) {
+            AddExistingTaskPopup(
+                tasks = availableTasks,
+                query = query,
+                onQueryChange = { query = it },
+                onPick = { taskId ->
+                    onAddExisting(taskId)
+                    popupOpen = false
+                    query = ""
+                },
+                onDismiss = {
+                    popupOpen = false
+                    query = ""
+                },
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddExistingTaskPopup(
+    tasks: List<Task>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onPick: (TaskId) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val filtered = remember(tasks, query) {
+        if (query.isBlank()) tasks.take(10)
+        else tasks.filter { it.title.contains(query, ignoreCase = true) }.take(10)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Text("Add existing task", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                placeholder = { Text("Search tasks...") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            )
+            Spacer(Modifier.height(8.dp))
+            if (filtered.isEmpty()) {
+                Text(
+                    "No tasks found",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(filtered, key = { it.id.value }) { task ->
+                        ListItem(
+                            headlineContent = { Text(task.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            modifier = Modifier.clickable { onPick(task.id) },
+                        )
+                    }
                 }
-            }),
-        )
+            }
+        }
     }
 }
 
@@ -898,6 +989,7 @@ private fun ProjectDetailContentPreview() {
         taskRepo = fakeTaskRepo,
         deleteProject = com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
         updateProject = com.singularity.todo.feature.projects.UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
+        updateTask = com.singularity.todo.feature.tasks.UpdateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
         currentUser = fakeCurrentUser,
         clock = com.singularity.todo.core.platform.Clock,
     )

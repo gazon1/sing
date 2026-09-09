@@ -53,6 +53,7 @@ fun projectsModule(): org.koin.core.module.Module = module {
             taskRepo = get(),
             deleteProject = get(),
             updateProject = get(),
+            updateTask = get(),
             currentUser = get(),
             clock = get(),
         )

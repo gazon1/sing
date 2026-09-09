@@ -9,9 +9,10 @@ import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.TaskFilter
 import com.singularity.todo.feature.tasks.TaskId
+import com.singularity.todo.feature.tasks.TaskRepository
+import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.TaskKind
 import com.singularity.todo.feature.tasks.TaskPriority
-import com.singularity.todo.feature.tasks.TaskRepository
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -48,6 +49,7 @@ class ProjectDetailViewModel(
     private val taskRepo: TaskRepository,
     private val deleteProject: DeleteProjectUseCase,
     private val updateProject: UpdateProjectUseCase,
+    private val updateTask: UpdateTaskUseCase,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : ViewModel() {
@@ -76,6 +78,17 @@ class ProjectDetailViewModel(
             .filter { it.id != project.id && it.parentId == null && !it.isDeleted }
             .map { ParentOption(it.id, it.name, it.id == project.parentId) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * All active tasks that are NOT in this project — for the "add existing task"
+     * quick-add picker. Derived by filtering [TaskFilter.All] against this [projectId].
+     */
+    val availableTasksFlow: StateFlow<List<Task>> =
+        taskRepo.watchTasks(currentUser.scopedUserId.value, TaskFilter.All)
+            .map { all ->
+                all.filter { it.projectId != projectId && it.completedAt == null }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val state: StateFlow<ProjectDetailUiState> = combine(
         projectFlow,
@@ -188,6 +201,16 @@ class ProjectDetailViewModel(
             .onFailure { error ->
                 _events.emit(ProjectDetailUiEvent.ShowError(
                     (error as? AppError)?.message ?: error.message ?: "Delete failed"
+                ))
+            }
+    }
+
+    fun moveTaskToProject(taskId: TaskId) = viewModelScope.launch {
+        updateTask.invoke(taskId) { it.copy(projectId = projectId) }
+            .onSuccess { _events.emit(ProjectDetailUiEvent.Saved) }
+            .onFailure { error ->
+                _events.emit(ProjectDetailUiEvent.ShowError(
+                    (error as? AppError)?.message ?: error.message ?: "Move task failed"
                 ))
             }
     }
