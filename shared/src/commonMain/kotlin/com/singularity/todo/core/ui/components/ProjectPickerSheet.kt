@@ -56,7 +56,7 @@ fun ProjectPickerSheet(
 
     val userId by currentUser.scopedUserId.collectAsStateWithLifecycle()
     LaunchedEffect(userId) {
-        projectsRepo.watchProjects(userId.value).collect { projects = it }
+        projectsRepo.watchProjects(userId).collect { projects = it }
     }
 
     TaskEditorSheetHost(
@@ -99,7 +99,7 @@ fun ProjectPickerSheet(
                                 onDone = {
                                     if (newProjectName.isNotBlank()) {
                                         scope.launch {
-                                            val uid = currentUser.scopedUserId.value.value
+                                            val uid = currentUser.scopedUserId.value
                                             val newProject = Project(
                                                 id = ProjectId.generate(),
                                                 name = newProjectName.trim(),
@@ -121,7 +121,7 @@ fun ProjectPickerSheet(
                             onClick = {
                                 if (newProjectName.isNotBlank()) {
                                     scope.launch {
-                                        val uid = currentUser.scopedUserId.value.value
+                                        val uid = currentUser.scopedUserId.value
                                         val newProject = Project(
                                             id = ProjectId.generate(),
                                             name = newProjectName.trim(),

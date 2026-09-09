@@ -5,6 +5,7 @@ import ai.koog.serialization.TypeToken
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.tasks.UserId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -25,7 +26,7 @@ class DeleteProjectTool(
 
     override suspend fun execute(args: DeleteProjectInput): String {
         val userId = currentUser.scopedUserId.value.value
-        val result = deleteProject(ProjectId.fromString(args.projectId), userId)
+        val result = deleteProject(ProjectId.fromString(args.projectId), UserId(userId))
         return Json.encodeToString(
             DeleteProjectOutput.serializer(),
             DeleteProjectOutput(

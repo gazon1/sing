@@ -111,7 +111,7 @@ internal object PreviewSamples {
         parentId = parentId,
         createdAt = now,
         updatedAt = now,
-        userId = projectUserId,
+        userId = UserId(projectUserId),
     )
 
     fun tag(

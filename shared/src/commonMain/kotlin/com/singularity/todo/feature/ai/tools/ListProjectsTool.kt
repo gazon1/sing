@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.ProjectsRepository
+import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 
@@ -33,7 +34,7 @@ class ListProjectsTool(
 
     override suspend fun execute(args: ListProjectsInput): String {
         val userId = currentUser.scopedUserId.value.value
-        val rows = projectsRepository.watchProjectsWithCounts(userId).first()
+        val rows = projectsRepository.watchProjectsWithCounts(UserId(userId)).first()
             .take(args.limit)
             .map { row ->
                 ProjectSummary(

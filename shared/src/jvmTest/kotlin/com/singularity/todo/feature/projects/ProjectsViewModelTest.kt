@@ -68,7 +68,7 @@ class ProjectsViewModelTest {
                 parentId = parentId,
                 createdAt = now,
                 updatedAt = now,
-                userId = testUserId.value,
+                userId = testUserId,
             )
         )
     }
@@ -120,7 +120,7 @@ class ProjectsViewModelTest {
 
         // Verify project was soft-deleted in repo
         fakeProjectRepo.clear()
-        val remaining = fakeProjectRepo.watchProjects(testUserId.value)
+        val remaining = fakeProjectRepo.watchProjects(testUserId)
         // After clear+re-watch, deleted project should not appear
         assertTrue(true) // If we get here without exception, delete didn't throw
     }

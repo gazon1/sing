@@ -3,6 +3,7 @@ package com.singularity.todo.feature.projects
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.tasks.UserId
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.TaskFilter
@@ -27,7 +28,7 @@ enum class ProjectSortOrder { Name, Color }
 
 sealed interface ProjectsUiState {
     data object Loading : ProjectsUiState
-    data class Empty(val userId: String) : ProjectsUiState
+    data class Empty(val userId: UserId) : ProjectsUiState
     data class Content(
         val projects: List<ProjectWithCounts>,
         val searchQuery: String = "",
@@ -64,7 +65,7 @@ class ProjectsViewModel(
     ) { uid, query, sort ->
         Triple(uid, query, sort)
     }.flatMapLatest { (uid, query, sort) ->
-        projectRepo.watchProjectsWithCounts(uid.value).map { rows ->
+        projectRepo.watchProjectsWithCounts(uid).map { rows ->
             val domainRows = rows.map { row ->
                 ProjectWithCounts(
                     project = row.project.toProject(),
@@ -78,7 +79,7 @@ class ProjectsViewModel(
                 ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
                 ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
             }
-            if (sorted.isEmpty()) ProjectsUiState.Empty(uid.value)
+            if (sorted.isEmpty()) ProjectsUiState.Empty(uid)
             else ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
         }
     }.catch { cause ->
@@ -100,7 +101,7 @@ class ProjectsViewModel(
     }
 
     fun delete(id: ProjectId) = scope.launch {
-        val userId = currentUser.current.value
+        val userId = currentUser.current
         deleteProject(id, userId)
     }
 

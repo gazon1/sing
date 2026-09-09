@@ -35,7 +35,7 @@ class ProjectLifecycleIntegrationTest {
         fakeProjectRepo.seed(
             Project(
                 id = ProjectId.fromString("p1"),
-                userId = testUserId.value,
+                userId = testUserId,
                 name = "Empty Project",
                 color = 0xFF0000,
                 createdAt = Clock.now(),
@@ -44,11 +44,11 @@ class ProjectLifecycleIntegrationTest {
         )
         val useCase = createDeleteProjectUseCase()
 
-        useCase(ProjectId.fromString("p1"), testUserId.value)
+        useCase(ProjectId.fromString("p1"), testUserId)
         advanceUntilIdle()
 
         // Soft-delete sets isDeleted = true; verify via watchProjects flow
-        val projectList = fakeProjectRepo.watchProjects(testUserId.value).first()
+        val projectList = fakeProjectRepo.watchProjects(testUserId).first()
         assertTrue(projectList.isEmpty(), "Deleted project should be filtered from watchProjects")
         assertTrue(fakeProjectRepo.watchProject(ProjectId.fromString("p1")).first()?.isDeleted == true)
     }
@@ -59,7 +59,7 @@ class ProjectLifecycleIntegrationTest {
         fakeProjectRepo.seed(
             Project(
                 id = projectId,
-                userId = testUserId.value,
+                userId = testUserId,
                 name = "Project with tasks",
                 color = 0xFF0000,
                 createdAt = Clock.now(),
@@ -78,7 +78,7 @@ class ProjectLifecycleIntegrationTest {
         )
         val useCase = createDeleteProjectUseCase()
 
-        val result = useCase(projectId, testUserId.value)
+        val result = useCase(projectId, testUserId)
         advanceUntilIdle()
 
         assertTrue(result.isFailure)

@@ -19,9 +19,9 @@ class DeleteProjectUseCase(
     private val projectRepo: ProjectsRepository,
     private val taskRepo: TaskRepository,
 ) {
-    suspend operator fun invoke(id: ProjectId, userId: String): Result<Unit> = runCatching {
+    suspend operator fun invoke(id: ProjectId, userId: UserId): Result<Unit> = runCatching {
         // Guard: reject if project has tasks
-        val tasks = taskRepo.watchTasks(UserId(userId), TaskFilter.ByProject(id)).first()
+        val tasks = taskRepo.watchTasks(userId, TaskFilter.ByProject(id)).first()
         if (tasks.isNotEmpty()) {
             throw AppError.Validation(
                 "Cannot delete a project that has tasks. Archive or delete the tasks first."

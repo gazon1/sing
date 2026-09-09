@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects
 
+import com.singularity.todo.feature.tasks.UserId
 import java.util.UUID
 import kotlin.time.Instant
 
@@ -28,7 +29,7 @@ data class Project(
     val sortOrder: Int = 0,
     val idempotencyKey: String? = null,
     val externalId: String? = null,
-    val userId: String
+    val userId: UserId
 )
 
 /** Domain projection of [Project] with task counts, used by [ProjectsViewModel] UI state. */
@@ -44,5 +45,5 @@ data class CreateProjectInput(
     val icon: String? = null,
     val description: String? = null,
     val parentId: ProjectId? = null,
-    val userId: String,
+    val userId: UserId,
 )

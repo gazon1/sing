@@ -5,6 +5,7 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.projects.Project
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tasks.TaskRepository
+import com.singularity.todo.feature.tasks.UserId
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.tags.TagsRepository
@@ -30,7 +31,7 @@ class SearchUseCase(
     ): Flow<SearchResults> = combine(
         taskRepo.watchTasks(com.singularity.todo.feature.tasks.UserId.fromString(userId), com.singularity.todo.feature.tasks.TaskFilter.Search(query)),
         noteRepo.searchNotes(query),
-        projectRepo.watchProjects(userId),
+        projectRepo.watchProjects(UserId.fromString(userId)),
         tagRepo.watchTags(userId)
     ) { tasks, notes, projects, tags ->
         SearchResults(

@@ -32,7 +32,7 @@ class ProjectsUseCaseTest {
         val input = CreateProjectInput(
             name = "Work",
             color = 0xFF2196F3.toInt(),
-            userId = testUserId.value,
+            userId = testUserId,
         )
         val result = createProjectUseCase()(input)
         assertTrue(result.isSuccess)
@@ -44,7 +44,7 @@ class ProjectsUseCaseTest {
         val input = CreateProjectInput(
             name = "   ",
             color = 0xFF2196F3.toInt(),
-            userId = testUserId.value,
+            userId = testUserId,
         )
         val result = createProjectUseCase()(input)
         assertTrue(result.isFailure)
@@ -55,7 +55,7 @@ class ProjectsUseCaseTest {
         val input = CreateProjectInput(
             name = "A".repeat(51),
             color = 0xFF2196F3.toInt(),
-            userId = testUserId.value,
+            userId = testUserId,
         )
         val result = createProjectUseCase()(input)
         assertTrue(result.isFailure)
@@ -66,7 +66,7 @@ class ProjectsUseCaseTest {
         val input = CreateProjectInput(
             name = "Work",
             color = 0x002196F3, // transparent alpha
-            userId = testUserId.value,
+            userId = testUserId,
         )
         val result = createProjectUseCase()(input)
         assertTrue(result.isFailure)
@@ -79,7 +79,7 @@ class ProjectsUseCaseTest {
             color = 0xFFFF0000.toInt(),
             icon = "work",
             parentId = ProjectId.fromString("parent1"),
-            userId = testUserId.value,
+            userId = testUserId,
         )
         val result = createProjectUseCase()(input)
         assertTrue(result.isSuccess)
@@ -91,7 +91,7 @@ class ProjectsUseCaseTest {
     fun `update project name succeeds`() = runTest {
         // Create first
         val id = createProjectUseCase()(
-            CreateProjectInput(name = "Old", color = 0xFF2196F3.toInt(), userId = testUserId.value)
+            CreateProjectInput(name = "Old", color = 0xFF2196F3.toInt(), userId = testUserId)
         ).getOrNull()!!
 
         val result = updateProjectUseCase()(id) { it.copy(name = "New Name") }
@@ -114,17 +114,17 @@ class ProjectsUseCaseTest {
     @Test
     fun `delete empty project succeeds`() = runTest {
         val id = createProjectUseCase()(
-            CreateProjectInput(name = "Empty", color = 0xFF2196F3.toInt(), userId = testUserId.value)
+            CreateProjectInput(name = "Empty", color = 0xFF2196F3.toInt(), userId = testUserId)
         ).getOrNull()!!
 
-        val result = deleteProjectUseCase()(id, testUserId.value)
+        val result = deleteProjectUseCase()(id, testUserId)
         assertTrue(result.isSuccess)
     }
 
     @Test
     fun `delete project with tasks fails with Validation error`() = runTest {
         val id = createProjectUseCase()(
-            CreateProjectInput(name = "With Tasks", color = 0xFF2196F3.toInt(), userId = testUserId.value)
+            CreateProjectInput(name = "With Tasks", color = 0xFF2196F3.toInt(), userId = testUserId)
         ).getOrNull()!!
 
         // Seed a task belonging to this project
@@ -141,7 +141,7 @@ class ProjectsUseCaseTest {
             )
         )
 
-        val result = deleteProjectUseCase()(id, testUserId.value)
+        val result = deleteProjectUseCase()(id, testUserId)
         assertTrue(result.isFailure)
     }
 }

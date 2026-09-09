@@ -358,7 +358,7 @@ class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRep
     fun add(project: com.singularity.todo.feature.projects.Project) = store.upsert(project)
     fun clear() = store.clear()
 
-    override fun watchProjects(userId: String): Flow<List<com.singularity.todo.feature.projects.Project>> =
+    override fun watchProjects(userId: UserId): Flow<List<com.singularity.todo.feature.projects.Project>> =
         store.state.map { list -> list.values.filter { it.userId == userId && !it.isDeleted } }
 
     override fun watchProject(id: com.singularity.todo.feature.projects.ProjectId): Flow<com.singularity.todo.feature.projects.Project?> =
@@ -370,14 +370,14 @@ class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRep
     override fun changes(id: com.singularity.todo.feature.projects.ProjectId): Flow<com.singularity.todo.feature.projects.Project?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
-    override fun watchProjectsWithCounts(userId: String): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
+    override fun watchProjectsWithCounts(userId: UserId): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
         store.state.map { list ->
             list.values
                 .filter { it.userId == userId && !it.isDeleted }
                 .map { p ->
                     com.singularity.todo.core.database.ProjectWithCountRow(
                         project = com.singularity.todo.core.database.ProjectEntity(
-                            id = p.id.value, userId = p.userId, name = p.name, color = p.color,
+                            id = p.id.value, userId = p.userId.value, name = p.name, color = p.color,
                             icon = p.icon, description = p.description, createdAt = p.createdAt.toEpochMilliseconds(),
                             updatedAt = p.updatedAt.toEpochMilliseconds(), isDefault = p.isDefault,
                             dueDate = p.dueDate?.toString(), team = p.team, isDeleted = p.isDeleted,

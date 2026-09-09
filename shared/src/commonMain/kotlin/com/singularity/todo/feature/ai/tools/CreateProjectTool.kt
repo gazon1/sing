@@ -7,6 +7,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.Project
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.projects.ProjectsRepository
+import com.singularity.todo.feature.tasks.UserId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.datetime.LocalDate
@@ -53,7 +54,7 @@ class CreateProjectTool(
             description = args.description,
             createdAt = now,
             updatedAt = now,
-            userId = userId,
+            userId = UserId(userId),
         )
         projectsRepository.create(project)
         return Json.encodeToString(

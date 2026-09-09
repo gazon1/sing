@@ -62,7 +62,7 @@ class TasksByProjectViewModel(
         projectFlow.flatMapLatest { project ->
             if (project == null) flowOf(emptyList())
             else taskRepo.watchTasks(
-                UserId(project.userId),
+                project.userId,
                 TaskFilter.ByProject(projectId)
             )
         },

@@ -79,7 +79,7 @@ class ProjectDetailViewModel(
      */
     val parentOptionsFlow: StateFlow<List<ParentOption>> = combine(
         projectFlow,
-        projectRepo.watchProjects(currentUser.scopedUserId.value.value),
+        projectRepo.watchProjects(currentUser.scopedUserId.value),
     ) { project, allProjects ->
         if (project == null) emptyList()
         else allProjects
@@ -231,7 +231,7 @@ class ProjectDetailViewModel(
             }
             is ProjectDetailIntent.Domain.Delete ->
                 viewModelScope.launch {
-                    deleteProject(projectId, currentUser.scopedUserId.value.value)
+                    deleteProject(projectId, currentUser.scopedUserId.value)
                         .onSuccess { _events.emit(ProjectDetailUiEvent.NavigateBack) }
                         .onFailure { error ->
                             _events.emit(ProjectDetailUiEvent.ShowError(

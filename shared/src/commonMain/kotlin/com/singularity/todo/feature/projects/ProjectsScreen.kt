@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.tasks.UserId
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -136,7 +137,7 @@ private fun ProjectsScreenContentPreview() = PreviewThemed(darkTheme = false, us
 @Composable
 private fun ProjectsScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     ProjectsContent(
-        state = ProjectsUiState.Empty(userId = "anonymous"),
+        state = ProjectsUiState.Empty(userId = UserId("anonymous")),
         onNavigateToProject = {},
         onDelete = {},
         onReviewClick = {},

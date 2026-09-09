@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.tasks.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.UserId
@@ -48,6 +49,7 @@ class ProjectDetailViewModelTest {
             deleteProject = DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
             updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock),
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
+            createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, Clock),
             currentUser = fakeCurrentUser,
             clock = Clock,
             scopeOverride = scope,
@@ -67,7 +69,7 @@ class ProjectDetailViewModelTest {
             isDeleted = false,
             createdAt = Clock.now(),
             updatedAt = Clock.now(),
-            userId = testUserId.value,
+            userId = testUserId,
         )
         fakeProjectsRepo.seed(project)
         return project
