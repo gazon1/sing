@@ -41,8 +41,8 @@ private val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
  *
  * Covered:
  * 1. TOCTOU fix: _latestTask cache prevents losing concurrent remote edits
- * 2. Explicit actions: setCompleted, deleteTask, archiveTask, addChecklistItem,
- *    toggleChecklistItem produce verifiable side-effects in the repository
+ * 2. Intent-based actions: ToggleComplete, Delete, Archive, AddChecklistItem,
+ *    ToggleChecklistItem produce verifiable side-effects in the repository
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskDetailViewModelTest {
@@ -74,7 +74,9 @@ class TaskDetailViewModelTest {
             timeZoneProvider = TEST_TZ,
             scopeOverride = scope,
         )
-        // Activate the stateIn chain (WhileSubscribed requires an initial subscriber)
+        // Activate the stateIn chain (WhileSubscribed requires an initial subscriber).
+        // Use SharingStarted.Eagerly so the upstream starts immediately in tests
+        // (virtual time does not advance 5 seconds needed by WhileSubscribed(5000)).
         vm.state.launchIn(scope)
         return vm
     }
@@ -131,56 +133,56 @@ class TaskDetailViewModelTest {
     // These actions produce verifiable side-effects in the repository.
 
     @Test
-    fun `setCompleted sets completedAt in repository`() = runTest {
+    fun `ToggleComplete sets completedAt in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope)
         vm.start(task.id)
-        advanceUntilIdle()
+        delay(100) // Allow real-time subscription to establish before acting
         assertNull(fakeTaskRepo.tasks.value["t1"]?.completedAt)
 
-        vm.setCompleted(task, true)
-        delay(50)
+        vm.onIntent(TaskDetailIntent.Domain.ToggleComplete)
+        delay(50) // Real time — scope.launch { mutate(...) } executes immediately
 
         assertNotNull(fakeTaskRepo.tasks.value["t1"]?.completedAt)
     }
 
     @Test
-    fun `deleteTask sets archivedAt (soft delete) in repository`() = runTest {
+    fun `Delete sets archivedAt (soft delete) in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope)
         vm.start(task.id)
-        advanceUntilIdle()
+        delay(100)
         assertNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
 
-        vm.deleteTask(task)
+        vm.onIntent(TaskDetailIntent.Domain.Delete)
         delay(50)
 
         assertNotNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
     }
 
     @Test
-    fun `archiveTask sets archivedAt in repository`() = runTest {
+    fun `Archive sets archivedAt in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope)
         vm.start(task.id)
-        advanceUntilIdle()
+        delay(100)
         assertNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
 
-        vm.archiveTask(task)
+        vm.onIntent(TaskDetailIntent.Domain.Archive)
         delay(50)
 
         assertNotNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
     }
 
     @Test
-    fun `addChecklistItem creates checklist item in repository`() = runTest {
+    fun `AddChecklistItem creates checklist item in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope)
         vm.start(task.id)
-        advanceUntilIdle()
+        delay(100)
         assertTrue(fakeChecklistRepo.items.value.isEmpty())
 
-        vm.addChecklistItem(task.id, "New item")
+        vm.onIntent(TaskDetailIntent.Domain.AddChecklistItem("New item"))
         delay(50)
 
         val items = fakeChecklistRepo.items.value.values.toList()
@@ -190,21 +192,21 @@ class TaskDetailViewModelTest {
     }
 
     @Test
-    fun `toggleChecklistItem flips isCompleted in repository`() = runTest {
+    fun `ToggleChecklistItem flips isCompleted in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope)
         vm.start(task.id)
-        advanceUntilIdle()
+        delay(100)
 
         // Add an item first
-        vm.addChecklistItem(task.id, "Toggle me")
+        vm.onIntent(TaskDetailIntent.Domain.AddChecklistItem("Toggle me"))
         delay(50)
 
         val item = fakeChecklistRepo.items.value.values.first()
         assertFalse(item.isCompleted)
 
         // Toggle it
-        vm.toggleChecklistItem(item)
+        vm.onIntent(TaskDetailIntent.Domain.ToggleChecklistItem(item))
         delay(50)
 
         val toggled = fakeChecklistRepo.items.value[item.id.value]

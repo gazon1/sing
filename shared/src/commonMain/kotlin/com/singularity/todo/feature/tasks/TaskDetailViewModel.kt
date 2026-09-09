@@ -35,10 +35,13 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
@@ -52,8 +55,6 @@ data class TaskDetailUi(
     val attachments: List<Attachment> = emptyList(),
     /** Direct child tasks (1-level hierarchy only). */
     val subtasks: List<Task> = emptyList(),
-    /** Continuous draft for the inline checklist add-field. */
-    val checklistDraft: String = "",
 )
 
 sealed interface TaskDetailUiState {
@@ -89,8 +90,10 @@ class TaskDetailViewModel(
     /**
      * Cached latest task — avoids TOCTOU race when using `.first()` after debounce.
      * Updated whenever the combined state emits a new value.
+     * ALL mutating operations must use this, not a snapshot from UI.
      */
     private val _latestTask = MutableStateFlow<Task?>(null)
+    val latestTask: StateFlow<Task?> = _latestTask
 
     /**
      * Silent timestamp for debounced inline edits — does NOT emit Saved.
@@ -100,33 +103,34 @@ class TaskDetailViewModel(
     val lastEditedAt: StateFlow<Instant?> = _lastEditedAt
 
     /**
-     * The most recently soft-deleted task, kept in memory so [restoreTask] can undo.
+     * The most recently soft-deleted task, kept in memory so [Restore] can undo.
      * Cleared after a successful restore or when the snackbar timeout expires.
      */
     private val _recentlyDeleted = MutableStateFlow<Task?>(null)
+
     init {
+        // Title debounce — reads _latestTask to avoid TOCTOU with concurrent remote edits.
         scope.launch {
             titleDraft
                 .debounce(300.milliseconds)
                 .filterNotNull()
                 .collect { title ->
-                    _taskId.value ?: return@collect
                     val current = _latestTask.value ?: return@collect
                     updateTask(current.copy(title = title))
-                        .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-                        .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+                        .onSuccess { _lastEditedAt.value = Clock.now() }
+                        .onFailure { emitError("Save failed") }
                 }
         }
+        // Description debounce — same pattern.
         scope.launch {
             descriptionDraft
                 .debounce(300.milliseconds)
                 .filterNotNull()
                 .collect { desc ->
-                     _taskId.value ?: return@collect
                     val current = _latestTask.value ?: return@collect
                     updateTask(current.copy(description = desc.ifBlank { null }))
-                        .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-                        .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+                        .onSuccess { _lastEditedAt.value = Clock.now() }
+                        .onFailure { emitError("Save failed") }
                 }
         }
     }
@@ -178,7 +182,6 @@ class TaskDetailViewModel(
                                 reminders = reminders,
                                 attachments = attachments,
                                 subtasks = subtasks,
-                                checklistDraft = "",
                             )
                         )
                     }
@@ -202,160 +205,190 @@ class TaskDetailViewModel(
         descriptionDraft.value = value
     }
 
-    // ─── Field setters ─────────────────────────────────────────────────────────
+    // ─── Intent dispatcher ────────────────────────────────────────────────────
 
-    fun setTitle(current: Task, value: String) = scope.launch {
-        updateTask(current.copy(title = value.takeIf { it.isNotBlank() } ?: current.title))
-            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
-    }
+    /**
+     * Единственный публичный метод для всех доменных операций.
+     *
+     * Routing-интенты ([TaskDetailIntent.OpenSheet], [TaskDetailIntent.NavigateTo*],
+     * [TaskDetailIntent.Attachment]) обрабатываются экраном и сюда не попадают.
+     */
+    fun onIntent(intent: TaskDetailIntent.Domain) {
+        val current = _latestTask.value ?: return
+        when (intent) {
+            // ── Hero ─────────────────────────────────────────────────────────────
+            is TaskDetailIntent.Domain.ToggleComplete -> {
+                val completed = current.completedAt == null
+                val completedAt = if (completed) Clock.now() else null
+                mutate(current, silent = true) { copy(completedAt = completedAt) }
+            }
+            is TaskDetailIntent.Domain.TitleChanged -> {
+                // Debounced via titleDraft — don't call mutate here.
+                // Handled by the init{} debounce collector.
+            }
+            is TaskDetailIntent.Domain.DescriptionChanged -> {
+                // Debounced via descriptionDraft — don't call mutate here.
+            }
 
-    fun setDescription(current: Task, value: String) = scope.launch {
-        updateTask(current.copy(description = value.ifBlank { null }))
-            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
-    }
+            // ── Meta fields ───────────────────────────────────────────────────────
+            is TaskDetailIntent.Domain.SetDueDate ->
+                mutate(current) { copy(dueDate = intent.date) }
+            is TaskDetailIntent.Domain.SetDueTime ->
+                mutate(current) { copy(dueTime = intent.time?.takeIf { it.isNotBlank() }) }
+            is TaskDetailIntent.Domain.SetPriority ->
+                mutate(current) { copy(priority = intent.priority) }
+            is TaskDetailIntent.Domain.SetProject ->
+                mutate(current) { copy(projectId = intent.projectId) }
 
-    fun setDueDate(current: Task, date: kotlinx.datetime.LocalDate?) = scope.launch {
-        updateTask(current.copy(dueDate = date))
-            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
-    }
+            // ── Tags ──────────────────────────────────────────────────────────────
+            is TaskDetailIntent.Domain.SetTags ->
+                mutate(current) { copy(tags = intent.tagIds) }
+            is TaskDetailIntent.Domain.RemoveTag ->
+                mutate(current) { copy(tags = current.tags - intent.tagId) }
 
-    fun setDueTime(current: Task, time: String?) = scope.launch {
-        updateTask(current.copy(dueTime = time?.takeIf { it.isNotBlank() }))
-            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
-    }
+            // ── Kind / Someday / Pin ─────────────────────────────────────────────
+            is TaskDetailIntent.Domain.SetKind ->
+                mutate(current, error = "Failed to set kind") { copy(kind = intent.kind) }
+            is TaskDetailIntent.Domain.ToggleSomeday ->
+                mutate(current, error = "Failed to set someday") { copy(someday = !someday) }
+            is TaskDetailIntent.Domain.SetPinned ->
+                mutate(current) { copy(isPinned = intent.pinned) }
 
-    fun setPriority(current: Task, priority: TaskPriority) = scope.launch {
-        updateTask(current.copy(priority = priority))
-            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
-    }
+            // ── Checklist ─────────────────────────────────────────────────────────
+            is TaskDetailIntent.Domain.ToggleChecklistItem ->
+                scope.launch {
+                    checklistUseCase.toggleItem(current.id.value, intent.item.id)
+                        .onFailure { emitError("Toggle failed") }
+                }
+            is TaskDetailIntent.Domain.DeleteChecklistItem ->
+                scope.launch {
+                    checklistUseCase.deleteItem(intent.id)
+                        .onFailure { emitError("Delete failed") }
+                }
+            is TaskDetailIntent.Domain.AddChecklistItem ->
+                scope.launch {
+                    if (intent.title.isBlank()) return@launch
+                    checklistUseCase.addItem(current.id.value, intent.title.trim())
+                        .onSuccess { scope.launch { _events.emit(TaskDetailUiEvent.Saved("Item added")) } }
+                        .onFailure { emitError("Add failed") }
+                }
 
-    fun setProject(current: Task, projectId: ProjectId?) = scope.launch {
-        updateTask(current.copy(projectId = projectId))
-            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
-    }
+            // ── Subtasks ─────────────────────────────────────────────────────────
+            is TaskDetailIntent.Domain.ToggleSubtask -> {
+                val completed = intent.task.completedAt == null
+                val completedAt = if (completed) Clock.now() else null
+                mutate(intent.task, silent = true) { copy(completedAt = completedAt) }
+            }
+            is TaskDetailIntent.Domain.DeleteSubtask ->
+                scope.launch {
+                    taskRepo.softDelete(intent.task.id)
+                        .onFailure { emitError("Delete subtask failed") }
+                }
+            is TaskDetailIntent.Domain.AddSubtask ->
+                scope.launch {
+                    if (intent.title.isBlank()) return@launch
+                    createTask(
+                        CreateTaskInput(
+                            title = intent.title.trim(),
+                            userId = currentUser.current,
+                            parentTaskId = current.id,
+                        )
+                    )
+                        .onSuccess { scope.launch { _events.emit(TaskDetailUiEvent.Saved("Subtask added")) } }
+                        .onFailure { emitError("Add subtask failed") }
+                }
 
-    fun setPinned(current: Task, pinned: Boolean) = scope.launch {
-        updateTask(current.copy(isPinned = pinned))
-            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
-    }
+            // ── Reminders ────────────────────────────────────────────────────────
+            is TaskDetailIntent.Domain.SetReminder -> {
+                scope.launch {
+                    if (intent.offset == ReminderOffset.AT_DUE) {
+                        reminderRepo.deleteByTask(current.id, currentUser.current)
+                            .onFailure { emitError("Failed to set reminder") }
+                        return@launch
+                    }
+                    val now = Clock.now().toEpochMilliseconds()
+                    val fireAt = computeFireAt(current.dueDate, current.dueTime, intent.offset, now)
+                    val reminder = Reminder(
+                        id = ReminderId.generate(),
+                        taskId = current.id,
+                        userId = currentUser.current,
+                        type = ReminderType.Gentle,
+                        offsetMinutes = -intent.offset.minutes,
+                        fireAt = fireAt,
+                        recurringPattern = null,
+                    )
+                    reminderRepo.upsert(reminder)
+                        .onFailure { emitError("Failed to set reminder") }
+                }
+            }
+            TaskDetailIntent.Domain.DeleteReminder ->
+                scope.launch {
+                    reminderRepo.deleteByTask(current.id, currentUser.current)
+                        .onFailure { emitError("Failed to remove reminder") }
+                }
 
-    fun setKind(current: Task, kind: TaskKind) = scope.launch {
-        updateTask(current.copy(kind = kind))
-            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Failed to set kind")) }
-    }
-
-    fun setSomeday(current: Task, someday: Boolean) = scope.launch {
-        updateTask(current.copy(someday = someday))
-            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Failed to set someday")) }
-    }
-
-    fun setParentTask(current: Task, parentId: TaskId?) = scope.launch {
-        updateTask(current.copy(parentTaskId = parentId))
-            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Failed to set parent")) }
-    }
-
-    fun setCompleted(current: Task, completed: Boolean) = scope.launch {
-        val completedAt = if (completed) {
-            Clock.now()
-        } else {
-            null
+            // ── Lifecycle ─────────────────────────────────────────────────────────
+            TaskDetailIntent.Domain.Delete -> {
+                scope.launch {
+                    _recentlyDeleted.value = current
+                    taskRepo.softDelete(current.id)
+                        .onSuccess { _events.emit(TaskDetailUiEvent.UndoDelete(current.id)) }
+                        .onFailure {
+                            _recentlyDeleted.value = null
+                            emitError("Delete failed")
+                        }
+                }
+            }
+            TaskDetailIntent.Domain.Archive -> {
+                scope.launch {
+                    taskRepo.softDelete(current.id)
+                        .onSuccess {
+                            scope.launch {
+                                _events.emit(TaskDetailUiEvent.Saved("Task archived"))
+                                _events.emit(TaskDetailUiEvent.NavigateBack)
+                            }
+                        }
+                        .onFailure { emitError("Archive failed") }
+                }
+            }
+            TaskDetailIntent.Domain.Restore -> {
+                scope.launch {
+                    val task = _recentlyDeleted.value ?: return@launch
+                    taskRepo.restore(task.id)
+                        .onSuccess {
+                            _recentlyDeleted.value = null
+                            scope.launch { _events.emit(TaskDetailUiEvent.Saved("Task restored")) }
+                        }
+                        .onFailure { emitError("Restore failed") }
+                }
+            }
         }
-        updateTask(current.copy(completedAt = completedAt))
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
     }
 
-    fun setTags(current: Task, tagIds: List<TagId>) = scope.launch {
-        updateTask(current.copy(tags = tagIds))
-            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
+    // ─── Helpers ────────────────────────────────────────────────────────────────
+
+    /**
+     * Applies a mutation to [current] via [transform] and persists via [updateTask].
+     * Uses [_latestTask] as the source of truth — not a snapshot from UI — to avoid TOCTOU.
+     *
+     * @param current  the task to transform; must be the same reference as [_latestTask].
+     * @param error    user-facing message on failure.
+     * @param silent   if true, [_lastEditedAt] is NOT updated (e.g. for toggle-complete).
+     * @param transform  field mutations to apply.
+     */
+    private fun mutate(
+        current: Task,
+        error: String = "Save failed",
+        silent: Boolean = false,
+        transform: Task.() -> Task,
+    ) = scope.launch {
+        updateTask(current.transform())
+            .onSuccess { if (!silent) _lastEditedAt.value = Clock.now() }
+            .onFailure { emitError(error) }
     }
 
-    fun removeTag(current: Task, tagId: TagId) = scope.launch {
-        val newTags = current.tags - tagId
-        updateTask(current.copy(tags = newTags))
-            .onSuccess { _lastEditedAt.value = kotlin.time.Clock.System.now() }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Save failed")) }
-    }
-
-    // ─── Checklist ─────────────────────────────────────────────────────────────
-
-    fun toggleChecklistItem(item: ChecklistItem) = scope.launch {
-        checklistUseCase.toggleItem(item.taskId, item.id)
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Toggle failed")) }
-    }
-
-    fun addChecklistItem(taskId: TaskId, title: String) = scope.launch {
-        if (title.isBlank()) return@launch
-        checklistUseCase.addItem(taskId.value, title.trim())
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Item added")) }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Add failed")) }
-    }
-
-    fun deleteChecklistItem(id: ChecklistItemId) = scope.launch {
-        checklistUseCase.deleteItem(id)
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Delete failed")) }
-    }
-
-    // ─── Subtasks ───────────────────────────────────────────────────────────────
-
-    fun addSubtask(parentTaskId: TaskId, title: String) = scope.launch {
-        if (title.isBlank()) return@launch
-        createTask(
-            CreateTaskInput(
-                title = title.trim(),
-                userId = currentUser.current,
-                parentTaskId = parentTaskId,
-            )
-        )
-            .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Subtask added")) }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Add subtask failed")) }
-    }
-
-    fun toggleSubtask(task: Task) = scope.launch {
-        setCompleted(task, task.completedAt == null)
-    }
-
-    fun deleteSubtask(task: Task) = scope.launch {
-        taskRepo.softDelete(task.id)
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Delete subtask failed")) }
-    }
-
-    // ─── Reminders ──────────────────────────────────────────────────────────────
-
-    fun setReminder(current: Task, offset: ReminderOffset) = scope.launch {
-        if (offset == ReminderOffset.AT_DUE) {
-            // Remove the reminder entirely
-            reminderRepo.deleteByTask(current.id, currentUser.current)
-            return@launch
-        }
-        val now = Clock.now().toEpochMilliseconds()
-        val fireAt = computeFireAt(current.dueDate, current.dueTime, offset, now)
-        val reminder = Reminder(
-            id = ReminderId.generate(),
-            taskId = current.id,
-            userId = currentUser.current,
-            type = ReminderType.Gentle,
-            offsetMinutes = -offset.minutes,
-            fireAt = fireAt,
-            recurringPattern = null,
-        )
-        reminderRepo.upsert(reminder)
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Failed to set reminder")) }
-    }
-
-    fun deleteReminder(current: Task) = scope.launch {
-        reminderRepo.deleteByTask(current.id, currentUser.current)
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Failed to remove reminder")) }
+    private fun emitError(message: String) {
+        scope.launch { _events.emit(TaskDetailUiEvent.Error(message)) }
     }
 
     private fun computeFireAt(
@@ -375,69 +408,4 @@ class TaskDetailViewModel(
         val base = ldt.toInstant(zone).toEpochMilliseconds()
         return base - offset.minutes * 60_000L
     }
-
-    // ─── Delete ────────────────────────────────────────────────────────────────
-
-    /**
-     * Soft-deletes the task and stores it in [_recentlyDeleted] so [restoreTask] can undo.
-     * Emits [TaskDetailUiEvent.UndoDelete] instead of navigating back immediately —
-     * the screen listens for this event and shows a Snackbar with an Undo action.
-     */
-    fun deleteTask(current: Task) = scope.launch {
-        _recentlyDeleted.value = current
-        taskRepo.softDelete(current.id)
-            .onSuccess {
-                _events.emit(TaskDetailUiEvent.UndoDelete(current.id))
-            }
-            .onFailure {
-                _recentlyDeleted.value = null
-                _events.emit(TaskDetailUiEvent.Error(it.message ?: "Delete failed"))
-            }
-    }
-
-    /**
-     * Restores a task that was soft-deleted and shown in the undo snackbar.
-     * Clears [_recentlyDeleted] on success.
-     */
-    fun restoreTask() = scope.launch {
-        val task = _recentlyDeleted.value ?: return@launch
-        taskRepo.restore(task.id)
-            .onSuccess {
-                _recentlyDeleted.value = null
-                _events.emit(TaskDetailUiEvent.Saved("Task restored"))
-            }
-            .onFailure {
-                _events.emit(TaskDetailUiEvent.Error(it.message ?: "Restore failed"))
-            }
-    }
-
-    // ─── Archive ───────────────────────────────────────────────────────────────
-
-    /** Emits [TaskDetailUiEvent.ConfirmArchive] — archive is soft-delete with no Undo. */
-    fun confirmArchive() = scope.launch { _events.emit(TaskDetailUiEvent.ConfirmArchive) }
-
-    /**
-     * Soft-deletes the task (archive = soft-delete) and navigates back.
-     * No undo snackbar — archive has its own recovery path via the Archive screen.
-     */
-    fun archiveTask(current: Task) = scope.launch {
-        taskRepo.softDelete(current.id)
-            .onSuccess {
-                _events.emit(TaskDetailUiEvent.Saved("Task archived"))
-                _events.emit(TaskDetailUiEvent.NavigateBack)
-            }
-            .onFailure { _events.emit(TaskDetailUiEvent.Error(it.message ?: "Archive failed")) }
-    }
-
-    // ─── Sheet / dialog triggers ────────────────────────────────────────────────
-
-    fun openDatePicker() = scope.launch { _events.emit(TaskDetailUiEvent.OpenDatePicker) }
-    fun openTimePicker() = scope.launch { _events.emit(TaskDetailUiEvent.OpenTimePicker) }
-    fun openPrioritySheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenPrioritySheet) }
-    fun openProjectSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenProjectSheet) }
-    fun openTagSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenTagSheet) }
-    fun openReminderSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenReminderSheet) }
-    fun openAttachmentSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenAttachmentSheet) }
-    fun openKindSheet() = scope.launch { _events.emit(TaskDetailUiEvent.OpenKindSheet) }
-    fun confirmDelete() = scope.launch { _events.emit(TaskDetailUiEvent.ConfirmDelete) }
 }

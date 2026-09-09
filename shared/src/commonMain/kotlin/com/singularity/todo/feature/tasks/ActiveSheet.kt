@@ -1,8 +1,12 @@
 package com.singularity.todo.feature.tasks
 
 /**
- * Marks which bottom sheet / dialog is currently open on the task detail screen.
- * Produced by [TaskDetailUiEvent.toActiveSheet].
+ * Routing state экрана [TaskDetailScreen]: какой bottom sheet или dialog открыт.
+ *
+ * Routing ведётся через [TaskDetailIntent.OpenSheet] → [ActiveSheet] в экране
+ * (не через [TaskDetailUiEvent] → [toActiveSheet]).
+ *
+ * Экран сам владеет этим состоянием; VM ничего не знает про [ActiveSheet].
  */
 sealed interface ActiveSheet {
     data object Date : ActiveSheet
@@ -15,21 +19,4 @@ sealed interface ActiveSheet {
     data object Kind : ActiveSheet
     data object ConfirmDelete : ActiveSheet
     data object ConfirmArchive : ActiveSheet
-}
-
-/**
- * Maps a [TaskDetailUiEvent] to the corresponding [ActiveSheet], or null if no sheet.
- */
-fun TaskDetailUiEvent.toActiveSheet(): ActiveSheet? = when {
-    this is TaskDetailUiEvent.OpenDatePicker -> ActiveSheet.Date
-    this is TaskDetailUiEvent.OpenTimePicker -> ActiveSheet.Time
-    this is TaskDetailUiEvent.OpenPrioritySheet -> ActiveSheet.Priority
-    this is TaskDetailUiEvent.OpenProjectSheet -> ActiveSheet.Project
-    this is TaskDetailUiEvent.OpenTagSheet -> ActiveSheet.Tags
-    this is TaskDetailUiEvent.OpenReminderSheet -> ActiveSheet.Reminder
-    this is TaskDetailUiEvent.OpenAttachmentSheet -> ActiveSheet.Attachment
-    this is TaskDetailUiEvent.OpenKindSheet -> ActiveSheet.Kind
-    this is TaskDetailUiEvent.ConfirmDelete -> ActiveSheet.ConfirmDelete
-    this is TaskDetailUiEvent.ConfirmArchive -> ActiveSheet.ConfirmArchive
-    else -> null
 }

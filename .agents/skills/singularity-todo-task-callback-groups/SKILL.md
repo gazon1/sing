@@ -17,7 +17,7 @@ How many callbacks does your Composable need?
 │
 ├─ 4+ OUTGOING callbacks (Composable → ViewModel actions)
 │   └─ Use @JvmInline value class with sealed Action hierarchy
-│       Example: TaskDetailActions, ProjectDetailActions
+│       Example: NotesActions, NoteCardActions, ProjectDetailActions
 │
 ├─ 4+ INCOMING callbacks (parent → child data)
 │   └─ Consider a data class — but ONLY if they form a cohesive group
@@ -62,21 +62,20 @@ fun RemindersSection(
 
 **Use when:** 4+ outgoing actions from a composable, all dispatched to the same handler (typically a ViewModel).
 
-This is the pattern used by `TaskDetailActions`:
+This is the pattern used by `NotesActions` and `NoteCardActions`. `TaskDetailActions` follows it too, but also pairs with a `TaskDetailIntent` hierarchy (see `singularity-todo-vm-intent-pattern`):
 
 ```kotlin
 @JvmInline
-value class TaskDetailActions(
-    val block: (Action) -> Unit,
+value class NotesActions(
+    private val block: (Action) -> Unit,
 ) {
     sealed class Action {
-        data object ToggleComplete : Action()
-        data class TitleChange(val title: String) : Action()
+        data class NavigateToNote(val id: NoteId) : Action()
+        data object DeleteSelected : Action()
         // ...
     }
 
-    fun onToggleComplete() = block(Action.ToggleComplete)
-    fun onTitleChange(title: String) = block(Action.TitleChange(title))
+    fun onNavigateToNote(id: NoteId) = block(Action.NavigateToNote(id))
     // ...
 }
 ```
@@ -193,12 +192,11 @@ ContentParams(
     checklist = ChecklistCallbacks(onToggleItem = vm::toggleItem, onDeleteItem = vm::deleteItem),
 )
 
-// ✅ CORRECT — single flat TaskDetailActions with sealed hierarchy
-val actions = TaskDetailActions { action ->
+// ✅ CORRECT — single flat NotesActions with sealed hierarchy
+val actions = NotesActions { action ->
     when (action) {
-        is TaskDetailActions.Action.ToggleComplete -> vm.toggle()
-        is TaskDetailActions.Action.TitleChange -> vm.setTitle(action.title)
-        is TaskDetailActions.Action.ToggleChecklistItem -> vm.toggleItem(action.item)
+        is NotesActions.Action.NavigateToNote -> onNavigateToNote(action.id)
+        is NotesActions.Action.Delete -> viewModel.delete(action.id)
         // ...
     }
 }
@@ -229,6 +227,46 @@ fun ProjectDetailScreen(
 ### Mistake 3: Adding `Actions` too early
 
 If a section composable has 4 callbacks today but is only used in 1 screen, **wait**. It may grow to 10 callbacks across refactors, at which point you extract the `Actions` object. Extracting it later is easy; extracting it prematurely creates unnecessary indirection.
+
+### Mistake 4: Actions value class whose helpers fan out to N individual VM methods
+
+The `value class Actions` is a **Compose-side packing** convention. Its `block` should end in **one** call to the VM — `viewModel.onIntent(intent)` — not in 27 individual `viewModel.setPriority(...)`, `viewModel.openDatePicker(...)` etc.
+
+```kotlin
+// ❌ WRONG — Actions fans out to 27 individual VM methods
+val actions = TaskDetailActions { action ->
+    when (action) {
+        is Action.OpenDatePicker -> viewModel.openDatePicker()    // VM method 1
+        is Action.OpenTimePicker -> viewModel.openTimePicker()     // VM method 2
+        is Action.SetPriority    -> viewModel.setPriority(...)      // VM method 3
+        // 24 more...
+    }
+}
+
+// ✅ CORRECT — Actions dispatches to one VM entry point
+val actions = TaskDetailActions { intent ->
+    when (intent) {
+        is TaskDetailIntent.OpenSheet   -> activeSheet = intent.sheet   // routing
+        is TaskDetailIntent.Domain      -> viewModel.onIntent(intent)     // single entry
+    }
+}
+```
+
+The anti-pattern defeats the purpose of the value class: it relocates the 27-branch `when` from the VM into the screen, creating a large file that is hard to navigate. Fix: push routing intents to the screen, domain intents to `onIntent`.
+
+### `remember` without keys — killing the stability of the value class
+
+The `value class` wrapper only gives **referential stability** if the lambda itself is stable. Creating it inside `remember { }` with a state dependency recreates it on every state change:
+
+```kotlin
+// ❌ WRONG — lambda recreated on every recomposition, all sections recompose
+val actions = remember(ui) { TaskDetailActions { intent -> ... } }
+
+// ✅ CORRECT — lambda is stable; sections only recompose on real intent emissions
+val actions = remember { TaskDetailActions { intent -> ... } }
+```
+
+When in doubt: `remember` with no keys on a `value class` lambda is almost always correct (the class itself is the key). Adding state as a key defeats the purpose.
 
 ## Rule of Thumb
 
@@ -267,6 +305,10 @@ The `sealed class` also enables exhaustive `when` with smart-cast — impossible
 
 ## Reference Implementation
 
-- `TaskDetailActions` at `feature/tasks/components/TaskDetailActions.kt` — `@JvmInline value class` with sealed `Action` hierarchy (25+ callbacks)
 - `NotesActions` at `feature/notes/components/NotesActions.kt` — `@JvmInline value class` with sealed `Action` hierarchy (10 callbacks)
 - `NoteCardActions` at `feature/notes/components/NoteCardActions.kt` — `@JvmInline value class` with sealed `Action` hierarchy (4 callbacks)
+- `TaskDetailActions` at `feature/tasks/components/TaskDetailActions.kt` — pairs with `TaskDetailIntent` sealed hierarchy; each helper calls `block(TaskDetailIntent.Domain.X)` and the screen dispatches to `viewModel.onIntent(intent)` (see `singularity-todo-vm-intent-pattern`)
+
+## See Also
+
+- `singularity-todo-vm-intent-pattern` — how the VM side of this pattern should look; the mistake of fanning Actions out to N individual VM methods is documented there

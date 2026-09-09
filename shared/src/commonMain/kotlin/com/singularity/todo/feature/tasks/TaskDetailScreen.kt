@@ -53,9 +53,11 @@ import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.formatDueChip
 import com.singularity.todo.core.ui.components.formatTimestampsRelative
 import com.singularity.todo.core.ui.components.priorityColorByIndex
-import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.attachments.AttachmentSheet
+import com.singularity.todo.feature.checklist.ChecklistItem
+import com.singularity.todo.feature.tasks.TasksFormatters.dueChipColors
+import com.singularity.todo.feature.tasks.parseDueTime
 import com.singularity.todo.feature.tasks.components.TaskDetailActions
 import com.singularity.todo.feature.tasks.components.TaskEditorPrioritySheet
 import com.singularity.todo.feature.tasks.sections.TaskBottomActionBar
@@ -66,12 +68,13 @@ import com.singularity.todo.feature.tasks.sections.AttachmentsSection
 import com.singularity.todo.feature.tasks.sections.TaskMetaChipsRow
 import com.singularity.todo.feature.tasks.sections.TaskSubtasksSection
 import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import com.singularity.todo.core.files.toFilePickerResult
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.datetime.LocalTime
+import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
 import org.koin.compose.viewmodel.koinViewModel
 
 // ─── Public screen ─────────────────────────────────────────────────────────────
@@ -92,8 +95,8 @@ fun TaskDetailScreen(
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    // Screen owns routing state; VM knows nothing about ActiveSheet.
     var activeSheet by remember { mutableStateOf<ActiveSheet?>(null) }
-    var showActionsMenu by remember { mutableStateOf(false) }
 
     val filePickerLauncher = rememberFilePickerLauncher(type = FileKitType.File()) { file ->
         file?.let {
@@ -104,32 +107,23 @@ fun TaskDetailScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Map VM events to the active sheet state and snackbar.
-    LaunchedEffect(Unit) {
-        viewModel.events.collectLatest { event ->
-            when (event) {
-                is TaskDetailUiEvent.UndoDelete -> {
-                    // Show snackbar with Undo; navigate back after dismiss.
-                    val result = snackbarHostState.showSnackbar(
-                        message = "Task deleted",
-                        actionLabel = "Undo",
-                        duration = SnackbarDuration.Short,
-                    )
-                    if (result == SnackbarResult.ActionPerformed) {
-                        viewModel.restoreTask()
-                    } else {
-                        onBack()
-                    }
-                }
-                else -> {
-                    val sheet = event.toActiveSheet()
-                    if (sheet != null) activeSheet = sheet
+    // Undo snackbar — the only screen-bound side effect from VM events.
+    LaunchedEffect(viewModel.events) {
+        viewModel.events.collect { event ->
+            if (event is TaskDetailUiEvent.UndoDelete) {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Task deleted",
+                    actionLabel = "Undo",
+                    duration = SnackbarDuration.Short,
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    viewModel.onIntent(TaskDetailIntent.Domain.Restore)
+                } else {
+                    onBack()
                 }
             }
         }
     }
-
-    val loaded = (state as? TaskDetailUiState.Loaded)?.ui
 
     when (val s = state) {
         TaskDetailUiState.Loading -> LoadingIndicator()
@@ -137,74 +131,27 @@ fun TaskDetailScreen(
         is TaskDetailUiState.Loaded -> {
             val ui = s.ui
 
-            // Pack all callbacks into a single TaskDetailActions value class.
+            // Routing actions: screen state (activeSheet, navigation).
+            // Domain actions: delegated to VM.onIntent.
             val actions = remember(ui) {
-                TaskDetailActions { action ->
-                    when (action) {
-                        // Hero
-                        TaskDetailActions.Action.ToggleComplete ->
-                            viewModel.setCompleted(ui.task, !ui.task.isCompleted)
-                        is TaskDetailActions.Action.TitleChange ->
-                            viewModel.onTitleChange(action.title)
-                        is TaskDetailActions.Action.DescriptionChange ->
-                            viewModel.onDescriptionChange(action.description)
-                        TaskDetailActions.Action.ToggleSomeday ->
-                            viewModel.setSomeday(ui.task, !ui.task.someday)
-                        TaskDetailActions.Action.OpenKindPicker -> viewModel.openKindSheet()
+                TaskDetailActions { intent ->
+                    when (intent) {
+                        is TaskDetailIntent.OpenSheet -> activeSheet = intent.sheet
+                        TaskDetailIntent.CloseSheet -> activeSheet = null
 
-                        // Meta chips
-                        TaskDetailActions.Action.OpenDatePicker -> viewModel.openDatePicker()
-                        TaskDetailActions.Action.OpenTimePicker -> viewModel.openTimePicker()
-                        TaskDetailActions.Action.OpenPriorityPicker -> viewModel.openPrioritySheet()
-                        TaskDetailActions.Action.OpenProjectPicker -> viewModel.openProjectSheet()
-                        is TaskDetailActions.Action.NavigateToProject -> onNavigateToProject(action.id)
-                        is TaskDetailActions.Action.NavigateToParent -> onNavigateToTask(action.parentTaskId)
+                        is TaskDetailIntent.NavigateToTask -> onNavigateToTask(intent.id)
+                        is TaskDetailIntent.NavigateToProject -> onNavigateToProject(intent.id)
 
-                        // Tags
-                        TaskDetailActions.Action.AddTag -> viewModel.openTagSheet()
-                        is TaskDetailActions.Action.RemoveTag ->
-                            viewModel.removeTag(ui.task, action.id)
-
-                        // Checklist
-                        is TaskDetailActions.Action.ToggleChecklistItem ->
-                            viewModel.toggleChecklistItem(action.item)
-                        is TaskDetailActions.Action.DeleteChecklistItem ->
-                            viewModel.deleteChecklistItem(action.id)
-                        is TaskDetailActions.Action.AddChecklistItem ->
-                            viewModel.addChecklistItem(ui.task.id, action.title)
-
-                        // Subtasks
-                        is TaskDetailActions.Action.NavigateToSubtask ->
-                            onNavigateToTask(action.childTaskId)
-                        is TaskDetailActions.Action.ToggleSubtask ->
-                            viewModel.toggleSubtask(action.task)
-                        is TaskDetailActions.Action.DeleteSubtask ->
-                            viewModel.deleteSubtask(action.task)
-                        is TaskDetailActions.Action.PromoteChecklistToSubtask -> {
-                            val title = action.checklistItem.title
-                            viewModel.addSubtask(ui.task.id, title)
-                            viewModel.deleteChecklistItem(action.checklistItem.id)
+                        is TaskDetailIntent.Attachment -> {
+                            when (intent) {
+                                is TaskDetailIntent.Attachment.Delete ->
+                                    attachmentsVm.delete(intent.attachmentId)
+                                is TaskDetailIntent.Attachment.Click -> Unit // TODO: preview
+                                TaskDetailIntent.Attachment.PickFile -> filePickerLauncher.launch()
+                            }
                         }
 
-                        // Reminders
-                        is TaskDetailActions.Action.DeleteReminder ->
-                            viewModel.deleteReminder(ui.task)
-
-                        // Attachments
-                        is TaskDetailActions.Action.DeleteAttachment ->
-                            attachmentsVm.delete(action.attachment.id)
-                        is TaskDetailActions.Action.ClickAttachment ->
-                            Unit // TODO: open attachment preview
-
-                        // Bottom bar
-                        TaskDetailActions.Action.OpenReminderSheet -> viewModel.openReminderSheet()
-                        TaskDetailActions.Action.OpenAttachmentSheet -> viewModel.openAttachmentSheet()
-                        TaskDetailActions.Action.TogglePin ->
-                            viewModel.setPinned(ui.task, !ui.task.isPinned)
-                        TaskDetailActions.Action.OpenDeleteConfirm -> activeSheet = ActiveSheet.ConfirmDelete
-
-                        // Dialog
-                        TaskDetailActions.Action.OpenArchiveConfirm -> activeSheet = ActiveSheet.ConfirmArchive
+                        is TaskDetailIntent.Domain -> viewModel.onIntent(intent)
                     }
                 }
             }
@@ -213,10 +160,8 @@ fun TaskDetailScreen(
                 ui = ui,
                 actions = actions,
                 onBack = onBack,
-                showActionsMenu = showActionsMenu,
-                onShowActionsMenuChange = { showActionsMenu = it },
                 snackbarHostState = snackbarHostState,
-                timeZone = kotlinx.datetime.TimeZone.currentSystemDefault(),
+                timeZone = TimeZone.currentSystemDefault(),
             )
         }
     }
@@ -225,63 +170,86 @@ fun TaskDetailScreen(
 
     when (activeSheet) {
         ActiveSheet.Date -> {
+            val loaded = (state as? TaskDetailUiState.Loaded)?.ui
             DatePickerSheet(
                 initialDate = loaded?.task?.dueDate,
-                onDateSelected = { date -> loaded?.let { viewModel.setDueDate(it.task, date) } },
+                onDateSelected = { date ->
+                    loaded?.let {
+                        viewModel.onIntent(TaskDetailIntent.Domain.SetDueDate(date))
+                    }
+                    activeSheet = null
+                },
                 onDismiss = { activeSheet = null },
             )
         }
         ActiveSheet.Time -> {
-            val currentTime = loaded?.task?.dueTime?.let { time ->
-                runCatching {
-                    val parts = time.split(":")
-                    LocalTime(parts[0].toInt(), parts[1].toInt())
-                }.getOrNull()
-            }
+            val loaded = (state as? TaskDetailUiState.Loaded)?.ui
+            val currentTime = parseDueTime(loaded?.task?.dueTime)
             TimePickerSheet(
                 initialTime = currentTime,
-                onTimeSelected = { time -> loaded?.let { viewModel.setDueTime(it.task, time?.toString()) } },
+                onTimeSelected = { time ->
+                    loaded?.let {
+                        viewModel.onIntent(TaskDetailIntent.Domain.SetDueTime(time?.toString()))
+                    }
+                    activeSheet = null
+                },
                 onDismiss = { activeSheet = null },
             )
         }
         ActiveSheet.Priority -> {
+            val loaded = (state as? TaskDetailUiState.Loaded)?.ui
             TaskEditorPrioritySheet(
                 selected = loaded?.task?.priority ?: TaskPriority.None,
                 onSelect = { priority ->
-                    loaded?.let { viewModel.setPriority(it.task, priority) }
+                    loaded?.let {
+                        viewModel.onIntent(TaskDetailIntent.Domain.SetPriority(priority))
+                    }
                     activeSheet = null
                 },
             )
         }
         ActiveSheet.Project -> {
+            val loaded = (state as? TaskDetailUiState.Loaded)?.ui
             ProjectPickerSheet(
-                onProjectSelected = { project -> loaded?.let { viewModel.setProject(it.task, project?.id) } },
+                onProjectSelected = { project ->
+                    loaded?.let {
+                        viewModel.onIntent(TaskDetailIntent.Domain.SetProject(project?.id))
+                    }
+                    activeSheet = null
+                },
                 onDismiss = { activeSheet = null },
             )
         }
         ActiveSheet.Tags -> {
+            val loaded = (state as? TaskDetailUiState.Loaded)?.ui
             loaded?.let { ui ->
                 TagPickerSheet(
                     selectedTagIds = ui.task.tags.map { it.value }.toSet(),
                     onTagsSelected = { selectedIds ->
                         val tagIds = selectedIds.map { TagId.fromString(it) }
-                        viewModel.setTags(ui.task, tagIds)
+                        viewModel.onIntent(TaskDetailIntent.Domain.SetTags(tagIds))
                     },
                     onDismiss = { activeSheet = null },
                 )
             }
         }
         ActiveSheet.Reminder -> {
+            val loaded = (state as? TaskDetailUiState.Loaded)?.ui
             loaded?.let { ui ->
                 ReminderPickerSheetContent(
                     reminders = ui.reminders,
-                    onReminderSet = { offset -> viewModel.setReminder(ui.task, offset) },
-                    onReminderDeleted = { viewModel.deleteReminder(ui.task) },
+                    onReminderSet = { offset ->
+                        viewModel.onIntent(TaskDetailIntent.Domain.SetReminder(offset))
+                    },
+                    onReminderDeleted = {
+                        viewModel.onIntent(TaskDetailIntent.Domain.DeleteReminder)
+                    },
                     onDismiss = { activeSheet = null },
                 )
             }
         }
         ActiveSheet.Attachment -> {
+            val loaded = (state as? TaskDetailUiState.Loaded)?.ui
             loaded?.let { ui ->
                 AttachmentSheet(
                     taskId = ui.task.id,
@@ -293,11 +261,12 @@ fun TaskDetailScreen(
             }
         }
         ActiveSheet.Kind -> {
+            val loaded = (state as? TaskDetailUiState.Loaded)?.ui
             loaded?.let { ui ->
                 KindSheet(
                     currentKind = ui.task.kind,
                     onSelect = { kind ->
-                        viewModel.setKind(ui.task, kind)
+                        viewModel.onIntent(TaskDetailIntent.Domain.SetKind(kind))
                         activeSheet = null
                     },
                     onDismiss = { activeSheet = null },
@@ -307,7 +276,7 @@ fun TaskDetailScreen(
         ActiveSheet.ConfirmDelete -> {
             ConfirmDeleteSheet(
                 onConfirm = {
-                    loaded?.let { viewModel.deleteTask(it.task) }
+                    viewModel.onIntent(TaskDetailIntent.Domain.Delete)
                     activeSheet = null
                 },
                 onDismiss = { activeSheet = null },
@@ -316,7 +285,7 @@ fun TaskDetailScreen(
         ActiveSheet.ConfirmArchive -> {
             ConfirmArchiveSheet(
                 onConfirm = {
-                    loaded?.let { viewModel.archiveTask(it.task) }
+                    viewModel.onIntent(TaskDetailIntent.Domain.Archive)
                     activeSheet = null
                 },
                 onDismiss = { activeSheet = null },
@@ -333,38 +302,35 @@ fun TaskDetailScreen(
     )
 }
 
+// ─── Mappers ─────────────────────────────────────────────────────────────────
+
+private fun TaskDetailUiEvent.toNotification(): Notification = when (this) {
+    is TaskDetailUiEvent.Saved -> Notification.Text(title = "Saved", text = message)
+    is TaskDetailUiEvent.Error -> Notification.Error(message)
+    TaskDetailUiEvent.NavigateBack -> Notification.NavigateBack
+    else -> Notification.Dismiss
+}
+
 // ─── Main content ─────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun TaskDetailContent(
+internal fun TaskDetailContent(
     ui: TaskDetailUi,
     actions: TaskDetailActions,
     onBack: () -> Unit,
-    showActionsMenu: Boolean,
-    onShowActionsMenuChange: (Boolean) -> Unit,
     snackbarHostState: SnackbarHostState,
-    timeZone: kotlinx.datetime.TimeZone,
+    timeZone: TimeZone,
+    modifier: Modifier = Modifier,
 ) {
     val today = todayInSystemZone()
     val scrollState = rememberScrollState()
+    var showMenu by remember { mutableStateOf(false) }
 
     // Pre-compute chip colours so section composables stay stateless.
     val dueChipModel = formatDueChip(ui.task.dueDate, ui.task.dueTime, today)
-    val (dueDateBg, dueDateFg) = when (dueChipModel?.state) {
-        com.singularity.todo.core.ui.components.DueVisualState.Overdue ->
-            MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-        com.singularity.todo.core.ui.components.DueVisualState.Today ->
-            MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        else ->
-            MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    val (dueDateBg, dueDateFg) = dueChipColors(dueChipModel?.state)
     val priorityIconColor = priorityColorByIndex(ui.task.priority.ordinal)
-
-    // Promote checklist item to subtask — uses ui.task.id captured here.
-    val onPromoteChecklist: (ChecklistItem) -> Unit = { item ->
-        actions.onPromoteChecklistToSubtask(item)
-    }
 
     Scaffold(
         topBar = {
@@ -377,18 +343,18 @@ private fun TaskDetailContent(
                 },
                 actions = {
                     Box {
-                        IconButton(onClick = { onShowActionsMenuChange(true) }) {
+                        IconButton(onClick = { showMenu = true }) {
                             Icon(Icons.Filled.MoreVert, contentDescription = "More")
                         }
                         DropdownMenu(
-                            expanded = showActionsMenu,
-                            onDismissRequest = { onShowActionsMenuChange(false) },
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
                         ) {
                             DropdownMenuItem(
                                 text = { Text("Archive") },
                                 leadingIcon = { Icon(Icons.Filled.Inbox, contentDescription = null) },
                                 onClick = {
-                                    onShowActionsMenuChange(false)
+                                    showMenu = false
                                     actions.onArchive()
                                 },
                             )
@@ -408,7 +374,7 @@ private fun TaskDetailContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(scrollState)
@@ -444,7 +410,7 @@ private fun TaskDetailContent(
             TaskChecklistSection(
                 items = ui.checklist,
                 actions = actions,
-                onPromoteChecklist = onPromoteChecklist,
+                onPromoteChecklist = { actions.onPromoteChecklistToSubtask(it) },
             )
 
             RemindersSection(
@@ -489,7 +455,7 @@ private fun TaskDetailContent(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TagsRow(
-    tags: List<com.singularity.todo.feature.tags.Tag>,
+    tags: List<Tag>,
     actions: TaskDetailActions,
 ) {
     FlowRow(
@@ -517,13 +483,4 @@ private fun TagsRow(
             },
         )
     }
-}
-
-// ─── Mappers ─────────────────────────────────────────────────────────────────
-
-private fun TaskDetailUiEvent.toNotification(): Notification = when (this) {
-    is TaskDetailUiEvent.Saved -> Notification.Text(title = "Saved", text = message)
-    is TaskDetailUiEvent.Error -> Notification.Error(message)
-    TaskDetailUiEvent.NavigateBack -> Notification.NavigateBack
-    else -> Notification.Dismiss
 }

@@ -1,141 +1,108 @@
 package com.singularity.todo.feature.tasks.components
 
+import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.reminders.Reminder
-import com.singularity.todo.core.attachments.Attachment
+import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.ActiveSheet
 import com.singularity.todo.feature.tasks.Task
+import com.singularity.todo.feature.tasks.TaskDetailIntent
 import com.singularity.todo.feature.tasks.TaskId
+import com.singularity.todo.feature.tasks.TaskKind
+import com.singularity.todo.feature.tasks.TaskPriority
+import kotlinx.datetime.LocalDate
 
 /**
- * All callback actions available in the [com.singularity.todo.feature.tasks.TaskDetailScreen].
- * Packed into a single [JvmInline value class][value class] so every section composable
- * receives exactly one `actions` parameter instead of 10–20 individual lambdas.
+ * Все callbacks доступные в секциях экрана [com.singularity.todo.feature.tasks.TaskDetailScreen].
+ * Упакованы в [JvmInline value class][value class], чтобы каждая секция получала
+ * один параметр `actions` вместо 10–27 отдельных лямбд.
  *
- * 27 individual callbacks grouped as:
- * - **Hero**: toggle, title, description
- * - **Meta chips**: date / time / priority / project pickers, navigate-to-project
- * - **Tags**: add / remove
- * - **Checklist**: toggle / delete / add items
- * - **Bottom bar**: remind, attach, pin, delete
+ * Внутренне [block] получает [TaskDetailIntent]: routing-варианты обрабатываются
+ * экраном, доменные — [com.singularity.todo.feature.tasks.TaskDetailViewModel.onIntent].
+ *
+ * Экранный диспетчер:
+ * ```kotlin
+ * TaskDetailActions { intent ->
+ *     when (intent) {
+ *         is TaskDetailIntent.OpenSheet      -> activeSheet = intent.sheet
+ *         TaskDetailIntent.CloseSheet       -> activeSheet = null
+ *         is TaskDetailIntent.NavigateToTask -> onNavigateToTask(intent.id)
+ *         is TaskDetailIntent.NavigateToProject -> onNavigateToProject(intent.id)
+ *         is TaskDetailIntent.Attachment     -> handleAttachment(intent, attachmentsVm)
+ *         is TaskDetailIntent.Domain         -> viewModel.onIntent(intent)
+ *     }
+ * }
+ * ```
+ *
+ * 27 callbacks → 1 параметр. Хелперы публичные для секций; тип блока — деталь реализации.
+ *
+ * @see TaskDetailIntent.Domain — исчерпывающий список всех доменных операций.
  */
 @JvmInline
 value class TaskDetailActions(
-    val block: (Action) -> Unit,
+    private val block: (TaskDetailIntent) -> Unit,
 ) {
-    /** Sealed action hierarchy — enables exhaustive `when` with smart-cast. */
-    sealed class Action {
-        // ── Hero ─────────────────────────────────────────────────────────────
-        data object ToggleComplete : Action()
-        data class TitleChange(val title: String) : Action()
-        data class DescriptionChange(val description: String) : Action()
-        data object ToggleSomeday : Action()
-        data object OpenKindPicker : Action()
-
-        // ── Meta chips ───────────────────────────────────────────────────────
-        data object OpenDatePicker : Action()
-        data object OpenTimePicker : Action()
-        data object OpenPriorityPicker : Action()
-        data object OpenProjectPicker : Action()
-        data class NavigateToProject(val id: ProjectId) : Action()
-        data class NavigateToParent(val parentTaskId: TaskId) : Action()
-
-        // ── Tags ─────────────────────────────────────────────────────────────
-        data object AddTag : Action()
-        data class RemoveTag(val id: TagId) : Action()
-
-        // ── Checklist ────────────────────────────────────────────────────────
-        data class ToggleChecklistItem(val item: ChecklistItem) : Action()
-        data class DeleteChecklistItem(val id: ChecklistItemId) : Action()
-        data class AddChecklistItem(val title: String) : Action()
-
-        // ── Subtasks ─────────────────────────────────────────────────────────
-        /** Navigate to a child task's detail screen. */
-        data class NavigateToSubtask(val childTaskId: TaskId) : Action()
-        /** Toggle a subtask's completion state. */
-        data class ToggleSubtask(val task: Task) : Action()
-        /** Delete a subtask. */
-        data class DeleteSubtask(val task: Task) : Action()
-        /** Promote a checklist item to a sub-task (removes checklist item, creates task). */
-        data class PromoteChecklistToSubtask(val checklistItem: ChecklistItem) : Action()
-
-        // ── Reminders ────────────────────────────────────────────────────────
-        data class DeleteReminder(val reminder: Reminder) : Action()
-
-        // ── Attachments ──────────────────────────────────────────────────────
-        data class DeleteAttachment(val attachment: Attachment) : Action()
-        /** Open an attachment (preview / download / share). */
-        data class ClickAttachment(val attachment: Attachment) : Action()
-
-        // ── Bottom bar ──────────────────────────────────────────────────────
-        data object OpenReminderSheet : Action()
-        data object OpenAttachmentSheet : Action()
-        data object TogglePin : Action()
-        data object OpenDeleteConfirm : Action()
-
-        // ── Dialog ───────────────────────────────────────────────────────────
-        data object OpenArchiveConfirm : Action()
-    }
 
     // ── Hero ──────────────────────────────────────────────────────────────────
 
-    fun onToggleComplete() = block(Action.ToggleComplete)
-    fun onTitleChange(title: String) = block(Action.TitleChange(title))
-    fun onDescriptionChange(description: String) = block(Action.DescriptionChange(description))
-    fun onToggleSomeday() = block(Action.ToggleSomeday)
-    fun onOpenKindPicker() = block(Action.OpenKindPicker)
+    fun onToggleComplete() = block(TaskDetailIntent.Domain.ToggleComplete)
+    fun onTitleChange(title: String) = block(TaskDetailIntent.Domain.TitleChanged(title))
+    fun onDescriptionChange(description: String) = block(TaskDetailIntent.Domain.DescriptionChanged(description))
+    fun onToggleSomeday() = block(TaskDetailIntent.Domain.ToggleSomeday)
+    fun onOpenKindPicker() = block(TaskDetailIntent.OpenSheet(ActiveSheet.Kind))
 
-    // ── Meta chips ───────────────────────────────────────────────────────────
+    // ── Meta chips ─────────────────────────────────────────────────────────────
 
-    fun onPickDate() = block(Action.OpenDatePicker)
-    fun onPickTime() = block(Action.OpenTimePicker)
-    fun onPickPriority() = block(Action.OpenPriorityPicker)
-    fun onPickProject() = block(Action.OpenProjectPicker)
-    fun onNavigateToProject(id: ProjectId) = block(Action.NavigateToProject(id))
-    fun onNavigateToParent(parentTaskId: TaskId) = block(Action.NavigateToParent(parentTaskId))
+    fun onPickDate() = block(TaskDetailIntent.OpenSheet(ActiveSheet.Date))
+    fun onPickTime() = block(TaskDetailIntent.OpenSheet(ActiveSheet.Time))
+    fun onPickPriority() = block(TaskDetailIntent.OpenSheet(ActiveSheet.Priority))
+    fun onPickProject() = block(TaskDetailIntent.OpenSheet(ActiveSheet.Project))
+    fun onNavigateToProject(id: ProjectId) = block(TaskDetailIntent.NavigateToProject(id))
+    fun onNavigateToParent(parentTaskId: TaskId) = block(TaskDetailIntent.NavigateToTask(parentTaskId))
 
-    // ── Tags ─────────────────────────────────────────────────────────────────
+    // ── Tags ──────────────────────────────────────────────────────────────────
 
-    fun onAddTag() = block(Action.AddTag)
-    fun onRemoveTag(id: TagId) = block(Action.RemoveTag(id))
+    fun onAddTag() = block(TaskDetailIntent.OpenSheet(ActiveSheet.Tags))
+    fun onRemoveTag(id: TagId) = block(TaskDetailIntent.Domain.RemoveTag(id))
 
-    // ── Checklist ───────────────────────────────────────────────────────────
+    // ── Checklist ──────────────────────────────────────────────────────────────
 
-    fun onToggleChecklistItem(item: ChecklistItem) = block(Action.ToggleChecklistItem(item))
-    fun onDeleteChecklistItem(id: ChecklistItemId) = block(Action.DeleteChecklistItem(id))
-    fun onAddChecklistItem(title: String) = block(Action.AddChecklistItem(title))
+    fun onToggleChecklistItem(item: ChecklistItem) = block(TaskDetailIntent.Domain.ToggleChecklistItem(item))
+    fun onDeleteChecklistItem(id: ChecklistItemId) = block(TaskDetailIntent.Domain.DeleteChecklistItem(id))
+    fun onAddChecklistItem(title: String) = block(TaskDetailIntent.Domain.AddChecklistItem(title))
 
-    // ── Subtasks ──────────────────────────────────────────────────────────────
+    // ── Subtasks ───────────────────────────────────────────────────────────────
 
-    fun onNavigateToSubtask(childTaskId: TaskId) = block(Action.NavigateToSubtask(childTaskId))
-    fun onToggleSubtask(task: Task) = block(Action.ToggleSubtask(task))
-    fun onDeleteSubtask(task: Task) = block(Action.DeleteSubtask(task))
-    fun onPromoteChecklistToSubtask(item: ChecklistItem) = block(Action.PromoteChecklistToSubtask(item))
+    fun onNavigateToSubtask(childTaskId: TaskId) = block(TaskDetailIntent.NavigateToTask(childTaskId))
+    fun onToggleSubtask(task: Task) = block(TaskDetailIntent.Domain.ToggleSubtask(task))
+    fun onDeleteSubtask(task: Task) = block(TaskDetailIntent.Domain.DeleteSubtask(task))
+    fun onPromoteChecklistToSubtask(item: ChecklistItem) =
+        block(TaskDetailIntent.Domain.AddSubtask(item.title))
 
-    // ── Reminders ────────────────────────────────────────────────────────────
+    // ── Reminders ──────────────────────────────────────────────────────────────
 
-    fun onDeleteReminder(reminder: Reminder) = block(Action.DeleteReminder(reminder))
+    fun onDeleteReminder(reminder: Reminder) = block(TaskDetailIntent.Domain.DeleteReminder)
+    fun onRemind() = block(TaskDetailIntent.OpenSheet(ActiveSheet.Reminder))
 
-    // ── Attachments ──────────────────────────────────────────────────────────
+    // ── Attachments ─────────────────────────────────────────────────────────────
 
-    fun onDeleteAttachment(attachment: Attachment) = block(Action.DeleteAttachment(attachment))
-    fun onClickAttachment(attachment: Attachment) = block(Action.ClickAttachment(attachment))
+    fun onDeleteAttachment(attachment: Attachment) =
+        block(TaskDetailIntent.Attachment.Delete(attachment.id))
+    fun onClickAttachment(attachment: Attachment) =
+        block(TaskDetailIntent.Attachment.Click(attachment))
+    fun onAttach() = block(TaskDetailIntent.OpenSheet(ActiveSheet.Attachment))
 
-    // ── Bottom bar ────────────────────────────────────────────────────────────
+    // ── Bottom bar ─────────────────────────────────────────────────────────────
 
-    fun onRemind() = block(Action.OpenReminderSheet)
-    fun onAttach() = block(Action.OpenAttachmentSheet)
-    fun onPin() = block(Action.TogglePin)
-    fun onDelete() = block(Action.OpenDeleteConfirm)
-
-    // ── Dialog ───────────────────────────────────────────────────────────────
-
-    fun onArchive() = block(Action.OpenArchiveConfirm)
+    fun onPin() = block(TaskDetailIntent.Domain.SetPinned(true))
+    fun onDelete() = block(TaskDetailIntent.OpenSheet(ActiveSheet.ConfirmDelete))
+    fun onArchive() = block(TaskDetailIntent.OpenSheet(ActiveSheet.ConfirmArchive))
 
     companion object {
-        /** No-op actions — useful for previews and test stubs. */
+        /** No-op actions — для превью и тестов. */
         val Empty = TaskDetailActions {}
     }
 }
