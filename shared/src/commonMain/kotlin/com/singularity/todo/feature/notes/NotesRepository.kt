@@ -45,6 +45,10 @@ interface NotesRepository {
     suspend fun setPinned(id: NoteId, pinned: Boolean): Result<Unit>
     suspend fun setColor(id: NoteId, color: NoteColor?): Result<Unit>
     suspend fun setSortOrder(id: NoteId, sortOrder: Int): Result<Unit>
+
+    // ─── Internal links (wikilinks) ─────────────────────────────────────────
+    /** Updates the outgoing links column for a note. Called after each save. */
+    suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit>
 }
 
 /**
@@ -149,6 +153,10 @@ class RoomNotesRepository(
 
     override suspend fun setSortOrder(id: NoteId, sortOrder: Int): Result<Unit> = runCatching {
         noteDao.setSortOrder(id.value, sortOrder, clock.now().toEpochMilliseconds())
+    }
+
+    override suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit> = runCatching {
+        noteDao.setOutgoingLinks(id.value, links.toLinksJson(), clock.now().toEpochMilliseconds())
     }
 }
 

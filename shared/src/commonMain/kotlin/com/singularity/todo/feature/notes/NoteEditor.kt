@@ -178,6 +178,16 @@ open class NoteEditor(
                 markdown,
                 html
             ).getOrThrow()
+
+            // Extract and persist outgoing wikilinks from the HTML
+            val outgoingLinks = extractOutgoingLinks(html).map { link ->
+                when (link) {
+                    is LinkRef.Note -> "note://${link.noteId}"
+                    is LinkRef.Task -> "task://${link.taskId}"
+                }
+            }
+            repo.setOutgoingLinks(NoteId.fromString(id), outgoingLinks).getOrThrow()
+
             val current = _editorState.value as? EditorState.Editing ?: return
             _editorState.value = current.copy(isDirty = false)
             _savedPulse.emit(Unit)

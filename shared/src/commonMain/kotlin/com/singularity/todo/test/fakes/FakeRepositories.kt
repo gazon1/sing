@@ -709,6 +709,13 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
             emit()
         }
     }
+
+    override suspend fun setOutgoingLinks(id: com.singularity.todo.feature.notes.NoteId, links: List<String>): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store[id.value] = existing.copy(outgoingLinks = links)
+            emit()
+        }
+    }
 }
 
 // ─── ProfileRepository ──────────────────────────────────────────────────────────

@@ -555,13 +555,18 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Each VM is small enough to understand fully (~60-150 lines) _(from `2026-09-09-notes-vm-split`)_
 - Editor session state is released when user navigates away _(from `2026-09-09-notes-vm-split`)_
 - `FakeNotesRepository` и `FakeNoteDao` обновлены同步. _(from `2026-09-07-note-editor-body-load`)_
+- `getBacklinkNotes` now returns real results — backlinks in `NotePreview` and `InternalLinkPickerSheet` will work _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - Navigation now has one more route: `NoteView` ↔ `NoteEditor` ↔ `NotesScreen` _(from `2026-09-09-notes-view-edit-split`)_
+- No new dependencies _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- No schema migration needed _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - `NoteDao.updateContent` сигнатура изменилась: добавлен параметр `html: String`. _(from `2026-09-07-note-editor-body-load`)_
 - Note metadata (word count, last updated) is visible without entering edit mode _(from `2026-09-09-notes-view-edit-split`)_
 - `NotePreview` must observe the note via `repo.watchNote()` — requires a Flow subscription _(from `2026-09-09-notes-view-edit-split`)_
 - `NotesRepository.createWithContent` и `updateContent` сигнатуры изменились: добавлен параметр `bodyHtml: String`. _(from `2026-09-07-note-editor-body-load`)_
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables _(from `2026-09-09-notes-vm-split`)_
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
+- Regex over HTML is less elegant than walking the paragraph tree, but the paragraph tree is internal _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- The `outgoing_links` column is populated on every save, keeping backlinks current _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - Three Koin registrations instead of one _(from `2026-09-09-notes-vm-split`)_
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading _(from `2026-09-09-notes-view-edit-split`)_
 - VMs are independently testable with focused test suites _(from `2026-09-09-notes-vm-split`)_
@@ -661,11 +666,16 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Clear UX: notes list → tap note → read → optionally edit _(from `2026-09-09-notes-view-edit-split`)_
 - Delete confirmation is handled in `NotePreview`, not buried in editor overflow menu _(from `2026-09-09-notes-view-edit-split`)_
 - `FakeNotesRepository` и `FakeNoteDao` обновлены同步. _(from `2026-09-07-note-editor-body-load`)_
+- `getBacklinkNotes` now returns real results — backlinks in `NotePreview` and `InternalLinkPickerSheet` will work _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - Navigation now has one more route: `NoteView` ↔ `NoteEditor` ↔ `NotesScreen` _(from `2026-09-09-notes-view-edit-split`)_
+- No new dependencies _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- No schema migration needed _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - `NoteDao.updateContent` сигнатура изменилась: добавлен параметр `html: String`. _(from `2026-09-07-note-editor-body-load`)_
 - Note metadata (word count, last updated) is visible without entering edit mode _(from `2026-09-09-notes-view-edit-split`)_
 - `NotePreview` must observe the note via `repo.watchNote()` — requires a Flow subscription _(from `2026-09-09-notes-view-edit-split`)_
 - `NotesRepository.createWithContent` и `updateContent` сигнатуры изменились: добавлен параметр `bodyHtml: String`. _(from `2026-09-07-note-editor-body-load`)_
+- Regex over HTML is less elegant than walking the paragraph tree, but the paragraph tree is internal _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- The `outgoing_links` column is populated on every save, keeping backlinks current _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading _(from `2026-09-09-notes-view-edit-split`)_
 - Все существующие тесты проходят — никаких изменений в тестовых вызовах не потребовалось (jvmTest зелёный). _(from `2026-09-07-note-editor-body-load`)_
 - При первом открытии старой заметки (без `bodyHtml`) — форматирование может отличаться от исходного (round-trip через markdown). Это accepted trade-off для legacy data. _(from `2026-09-07-note-editor-body-load`)_
@@ -689,8 +699,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `room`
 
 - `FakeNotesRepository` и `FakeNoteDao` обновлены同步. _(from `2026-09-07-note-editor-body-load`)_
+- `getBacklinkNotes` now returns real results — backlinks in `NotePreview` and `InternalLinkPickerSheet` will work _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- No new dependencies _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- No schema migration needed _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - `NoteDao.updateContent` сигнатура изменилась: добавлен параметр `html: String`. _(from `2026-09-07-note-editor-body-load`)_
 - `NotesRepository.createWithContent` и `updateContent` сигнатуры изменились: добавлен параметр `bodyHtml: String`. _(from `2026-09-07-note-editor-body-load`)_
+- Regex over HTML is less elegant than walking the paragraph tree, but the paragraph tree is internal _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- The `outgoing_links` column is populated on every save, keeping backlinks current _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - Все существующие тесты проходят — никаких изменений в тестовых вызовах не потребовалось (jvmTest зелёный). _(from `2026-09-07-note-editor-body-load`)_
 - При первом открытии старой заметки (без `bodyHtml`) — форматирование может отличаться от исходного (round-trip через markdown). Это accepted trade-off для legacy data. _(from `2026-09-07-note-editor-body-load`)_
 
@@ -971,6 +986,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`viewModelOf(::VM)` для VM без nullable dep** — предпочтительный паттерн _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - **`viewModel { Vm(get(), get(), ...) }`** — для VM с nullable dep + getOrNull() (TasksViewModel, ProjectsViewModel) _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 
+### `wikilinks`
+
+- `getBacklinkNotes` now returns real results — backlinks in `NotePreview` and `InternalLinkPickerSheet` will work _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- No new dependencies _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- No schema migration needed _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- Regex over HTML is less elegant than walking the paragraph tree, but the paragraph tree is internal _(from `2026-09-09-notes-outgoing-links-extraction`)_
+- The `outgoing_links` column is populated on every save, keeping backlinks current _(from `2026-09-09-notes-outgoing-links-extraction`)_
+
 
 ## Index (slug → tags)
 
@@ -1011,6 +1034,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-08-task-archive-restore-contract` — "task-detail"  "archive"  "repository"
 - `2026-09-08-task-detail-critical-fixes` — "task-detail"  "critical-fix"  "ux"
 - `2026-09-08-task-restore-undo` — "task-detail"  "undo"  "ux"
+- `2026-09-09-notes-outgoing-links-extraction` — notes  wikilinks  rich-editor  room
 - `2026-09-09-notes-view-edit-split` — notes  navigation  rich-editor  ux
 - `2026-09-09-notes-vm-split` — notes  architecture  viewmodel  di
 - `2026-09-09-parent-picker-contract` — ui-contract  projects  picker  architecture
@@ -1069,6 +1093,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-08-task-archive-restore-contract` — Task archive vs delete: separate contracts via archiveAt
 - `2026-09-08-task-detail-critical-fixes` — TaskDetail critical fixes: TOCTOU race, Saved-spam, dead condition
 - `2026-09-08-task-restore-undo` — TaskRepository.restore + UndoDelete via SnackbarHost
+- `2026-09-09-notes-outgoing-links-extraction` — Notes — wikilink extraction via HTML parsing + setOutgoingLinks wired to persist()
 - `2026-09-09-notes-view-edit-split` — Notes — split NoteDetail into NoteView (read-only) and NoteEditor (edit)
 - `2026-09-09-notes-vm-split` — Notes — split god-class NotesViewModel into 3 focused ViewModels
 - `2026-09-09-parent-picker-contract` — ParentPickerSheet receives ParentOption DTO, not Project entity
