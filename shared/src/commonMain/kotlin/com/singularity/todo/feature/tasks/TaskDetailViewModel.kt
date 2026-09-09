@@ -94,7 +94,6 @@ class TaskDetailViewModel(
      * ALL mutating operations must use this, not a snapshot from UI.
      */
     private val _latestTask = MutableStateFlow<Task?>(null)
-    val latestTask: StateFlow<Task?> = _latestTask
 
     /**
      * Silent timestamp for debounced inline edits — does NOT emit Saved.

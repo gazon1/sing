@@ -114,7 +114,7 @@ class ProjectEditorViewModel(
 
         _state.value = current.copy(saving = true, errorMessage = null)
         viewModelScope.launch {
-            val userId = currentUser.scopedUserId.value.value
+            val userId = currentUser.scopedUserId.value
             if (current.projectId == null) {
                 // Create mode
                 val input = CreateProjectInput(

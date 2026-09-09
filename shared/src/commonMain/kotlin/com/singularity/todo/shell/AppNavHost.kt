@@ -1,9 +1,7 @@
 package com.singularity.todo.shell
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
@@ -29,7 +27,6 @@ import com.singularity.todo.feature.statistics.StatisticsScreen
 import com.singularity.todo.feature.tasks.TaskDetailScreen
 import com.singularity.todo.feature.tasks.TaskEditorScreen
 import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.TasksByProjectScreen
 import com.singularity.todo.feature.tasks.TasksScreen
 import com.singularity.todo.feature.tasks.TasksScreenEntry
 import org.koin.compose.koinInject
@@ -169,16 +166,7 @@ fun AppNavHost(
                 },
             )
         }
-        composable<AppDestination.TasksByProject> { backStackEntry ->
-            val route = backStackEntry.toRoute<AppDestination.TasksByProject>()
-            TasksByProjectScreen(
-                projectId = ProjectId.fromString(route.projectId),
-                onBack = navigator::popBackStack,
-                onNavigateToTask = { taskId ->
-                    navigator.navigate(AppDestination.TaskDetail(taskId.value))
-                },
-            )
-        }
+
     }
 }
 

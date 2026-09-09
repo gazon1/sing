@@ -12,7 +12,6 @@ import com.singularity.todo.feature.tasks.TaskEditorDeps
 import com.singularity.todo.feature.tasks.AttachmentSaver
 import com.singularity.todo.feature.tasks.AttachmentsViewModelAttachmentSaver
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
-import com.singularity.todo.feature.tasks.TasksByProjectViewModel
 import com.singularity.todo.feature.archive.ArchiveRepository
 import com.singularity.todo.feature.archive.ArchiveViewModel
 import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
@@ -128,14 +127,4 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     viewModelOf(::SearchViewModel)
 
-    viewModel { (projectId: com.singularity.todo.feature.projects.ProjectId) ->
-        TasksByProjectViewModel(
-            projectId = projectId,
-            taskRepo = get(),
-            projectRepo = get(),
-            createTask = get(),
-            updateTask = get(),
-            currentUser = get(),
-        )
-    }
 }
