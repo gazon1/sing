@@ -638,6 +638,24 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
             createdAt = now,
             updatedAt = now,
         )
+            emit()
+        id
+    }
+
+    override suspend fun createNoteWithTitle(userId: UserId, title: String): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
+        val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
+        val now = Clock.now()
+        store[id.value] = com.singularity.todo.feature.notes.Note(
+            id = id,
+            userId = userId,
+            title = title,
+            bodyMarkdown = null,
+            bodyHtml = null,
+            wordCount = 0,
+            charCount = 0,
+            createdAt = now,
+            updatedAt = now,
+        )
         emit()
         id
     }

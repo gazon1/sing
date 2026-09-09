@@ -33,6 +33,8 @@ interface NotesRepository {
 
     // ─── Editor mutations (id + fields — autosave path) ─────────────────────
     suspend fun createWithContent(userId: UserId, id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<NoteId>
+    /** Creates a note with an initial title (quick-add path). Returns the new id. */
+    suspend fun createNoteWithTitle(userId: UserId, title: String): Result<NoteId>
     suspend fun updateContent(id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<Unit>
 
     // ─── Lifecycle ─────────────────────────────────────────────────────────
@@ -107,6 +109,32 @@ class RoomNotesRepository(
                 sortOrder = 0,
                 wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
                 charCount = bodyMarkdown.length,
+                createdAt = now,
+                updatedAt = now,
+                deletedAt = null,
+                archivedAt = null,
+            )
+        )
+        id
+    }
+
+    override suspend fun createNoteWithTitle(userId: UserId, title: String): Result<NoteId> = runCatching {
+        val id = NoteId(com.singularity.todo.core.ids.nextId())
+        val now = clock.now().toEpochMilliseconds()
+        noteDao.upsert(
+            NoteEntity(
+                id = id.value,
+                userId = userId.value,
+                title = title,
+                bodyMarkdown = null,
+                bodyHtml = null,
+                parentNoteId = null,
+                isPinned = false,
+                pinnedAt = null,
+                color = null,
+                sortOrder = 0,
+                wordCount = 0,
+                charCount = 0,
                 createdAt = now,
                 updatedAt = now,
                 deletedAt = null,

@@ -2,6 +2,7 @@ package com.singularity.todo.feature.notes
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +59,7 @@ sealed interface NotesUiState {
 class NotesListViewModel(
     private val repo: NotesRepository,
     private val currentUser: ProfileAwareCurrentUser,
+    private val idGen: IdGenerator,
 ) : ViewModel() {
 
     private val userId = currentUser.scopedUserId
@@ -182,6 +184,17 @@ class NotesListViewModel(
             _selectedIds.value.forEach { id -> repo.softDelete(id) }
             exitSelectionMode()
         }
+    }
+
+    // ─── Quick-create ──────────────────────────────────────────────────────
+
+    /** Creates a note with the given title and returns its id. */
+    fun createNoteWithTitle(title: String): String {
+        val id = NoteId(idGen.next())
+        viewModelScope.launch(Dispatchers.Unconfined) {
+            repo.createNoteWithTitle(userId.value, title)
+        }
+        return id.value
     }
 
     // ─── Delete ────────────────────────────────────────────────────────────

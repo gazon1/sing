@@ -575,20 +575,25 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `getBacklinkNotes` now returns real results — backlinks in `NotePreview` and `InternalLinkPickerSheet` will work _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
 - Navigation now has one more route: `NoteView` ↔ `NoteEditor` ↔ `NotesScreen` _(from `2026-09-09-notes-view-edit-split`)_
+- No loading screen — the text field is always visible in the list _(from `2026-09-09-notes-quick-add`)_
 - No new dependencies _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - No schema migration needed _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - `NoteDao.updateContent` сигнатура изменилась: добавлен параметр `html: String`. _(from `2026-09-07-note-editor-body-load`)_
 - Note metadata (word count, last updated) is visible without entering edit mode _(from `2026-09-09-notes-view-edit-split`)_
 - `NotePreview` must observe the note via `repo.watchNote()` — requires a Flow subscription _(from `2026-09-09-notes-view-edit-split`)_
+- `NotesListViewModel` now requires `IdGenerator` as a third constructor parameter _(from `2026-09-09-notes-quick-add`)_
 - `NotesRepository.createWithContent` и `updateContent` сигнатуры изменились: добавлен параметр `bodyHtml: String`. _(from `2026-09-07-note-editor-body-load`)_
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables _(from `2026-09-09-notes-vm-split`)_
+- One tap fewer than before for the common "capture a thought" workflow _(from `2026-09-09-notes-quick-add`)_
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
 - Regex over HTML is less elegant than walking the paragraph tree, but the paragraph tree is internal _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
 - Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
 - Single search + merged results = better UX (one tap instead of tab switching) _(from `2026-09-09-internal-link-picker-generic`)_
+- Slight visual complexity added to the list screen _(from `2026-09-09-notes-quick-add`)_
 - The `outgoing_links` column is populated on every save, keeping backlinks current _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - Three Koin registrations instead of one _(from `2026-09-09-notes-vm-split`)_
+- Title pre-saved to DB before navigating to editor (no lost titles on crash) _(from `2026-09-09-notes-quick-add`)_
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading _(from `2026-09-09-notes-view-edit-split`)_
 - VMs are independently testable with focused test suites _(from `2026-09-09-notes-vm-split`)_
 - Все существующие тесты проходят — никаких изменений в тестовых вызовах не потребовалось (jvmTest зелёный). _(from `2026-09-07-note-editor-body-load`)_
@@ -659,6 +664,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill. _(from `2026-09-08-roboazzi-snapshot-tests`)_
 - Baseline images stored in `shared/src/commonTest/resources/roborazzi/`. _(from `2026-09-08-roboazzi-snapshot-tests`)_
 - Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+
+### `quick-add`
+
+- No loading screen — the text field is always visible in the list _(from `2026-09-09-notes-quick-add`)_
+- `NotesListViewModel` now requires `IdGenerator` as a third constructor parameter _(from `2026-09-09-notes-quick-add`)_
+- One tap fewer than before for the common "capture a thought" workflow _(from `2026-09-09-notes-quick-add`)_
+- Slight visual complexity added to the list screen _(from `2026-09-09-notes-quick-add`)_
+- Title pre-saved to DB before navigating to editor (no lost titles on crash) _(from `2026-09-09-notes-quick-add`)_
 
 ### `reactive`
 
@@ -983,8 +996,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
 - Delete confirmation is handled in `NotePreview`, not buried in editor overflow menu _(from `2026-09-09-notes-view-edit-split`)_
 - Navigation now has one more route: `NoteView` ↔ `NoteEditor` ↔ `NotesScreen` _(from `2026-09-09-notes-view-edit-split`)_
+- No loading screen — the text field is always visible in the list _(from `2026-09-09-notes-quick-add`)_
 - Note metadata (word count, last updated) is visible without entering edit mode _(from `2026-09-09-notes-view-edit-split`)_
 - `NotePreview` must observe the note via `repo.watchNote()` — requires a Flow subscription _(from `2026-09-09-notes-view-edit-split`)_
+- `NotesListViewModel` now requires `IdGenerator` as a third constructor parameter _(from `2026-09-09-notes-quick-add`)_
+- One tap fewer than before for the common "capture a thought" workflow _(from `2026-09-09-notes-quick-add`)_
 
 ### `"ux"`
 
@@ -993,7 +1009,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `ux`
 
+- Slight visual complexity added to the list screen _(from `2026-09-09-notes-quick-add`)_
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
+- Title pre-saved to DB before navigating to editor (no lost titles on crash) _(from `2026-09-09-notes-quick-add`)_
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading _(from `2026-09-09-notes-view-edit-split`)_
 
 ### `viewmodel`
@@ -1066,6 +1084,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-08-task-restore-undo` — "task-detail"  "undo"  "ux"
 - `2026-09-09-internal-link-picker-generic` — notes  ui-components  linking  architecture
 - `2026-09-09-notes-outgoing-links-extraction` — notes  wikilinks  rich-editor  room
+- `2026-09-09-notes-quick-add` — notes  ux  quick-add
 - `2026-09-09-notes-view-edit-split` — notes  navigation  rich-editor  ux
 - `2026-09-09-notes-vm-split` — notes  architecture  viewmodel  di
 - `2026-09-09-parent-picker-contract` — ui-contract  projects  picker  architecture
@@ -1126,6 +1145,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-08-task-restore-undo` — TaskRepository.restore + UndoDelete via SnackbarHost
 - `2026-09-09-internal-link-picker-generic` — Notes — generic InternalLinkPickerSheet with merged Notes+Tasks results
 - `2026-09-09-notes-outgoing-links-extraction` — Notes — wikilink extraction via HTML parsing + setOutgoingLinks wired to persist()
+- `2026-09-09-notes-quick-add` — Notes — quick-add inline input on the notes list screen
 - `2026-09-09-notes-view-edit-split` — Notes — split NoteDetail into NoteView (read-only) and NoteEditor (edit)
 - `2026-09-09-notes-vm-split` — Notes — split god-class NotesViewModel into 3 focused ViewModels
 - `2026-09-09-parent-picker-contract` — ParentPickerSheet receives ParentOption DTO, not Project entity

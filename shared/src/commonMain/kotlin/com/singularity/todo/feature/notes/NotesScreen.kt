@@ -15,9 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Card
@@ -31,6 +34,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -46,7 +50,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -72,7 +78,10 @@ fun NotesScreen(
     NotesScreenContent(
         state = state,
         onNavigateToNote = onNavigateToNote,
-        onCreateNote = onNavigateToCreateNote,
+        onCreateNote = { title ->
+            val id = viewModel.createNoteWithTitle(title)
+            onNavigateToNote(id)
+        },
         onDelete = viewModel::delete,
         onTogglePin = viewModel::togglePin,
         onSetFilter = viewModel::setFilter,
@@ -96,7 +105,7 @@ private fun NotesUiState.toContentState() =
 fun NotesScreenContent(
     state: NotesUiState,
     onNavigateToNote: (String) -> Unit,
-    onCreateNote: () -> Unit,
+    onCreateNote: (String) -> Unit,
     onDelete: (NoteId) -> Unit,
     onTogglePin: (NoteId) -> Unit,
     onSetFilter: (NoteFilter) -> Unit,
@@ -167,6 +176,9 @@ fun NotesScreenContent(
                     FilterChipRow(
                         currentFilter = currentFilter,
                         onFilterChange = onSetFilter,
+                    )
+                    QuickAddRow(
+                        onSubmit = { title -> onCreateNote(title) },
                     )
                 }
                 HorizontalDivider()
@@ -245,6 +257,42 @@ private fun SortDropdownMenu(
                 } else null,
             )
         }
+    }
+}
+
+// ─── Quick-add row ───────────────────────────────────────────────────────────
+
+@Composable
+private fun QuickAddRow(
+    onSubmit: (String) -> Unit,
+) {
+    var text by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            placeholder = { Text("Quick add note...") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            leadingIcon = {
+                Icon(Icons.Default.Add, contentDescription = null)
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                if (text.isNotBlank()) {
+                    onSubmit(text.trim())
+                    text = ""
+                    focusManager.clearFocus()
+                }
+            }),
+        )
     }
 }
 

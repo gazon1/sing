@@ -1,5 +1,6 @@
 package com.singularity.todo.core.di
 
+import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.feature.notes.NoteEditor
 import com.singularity.todo.feature.notes.NotePreview
 import com.singularity.todo.feature.notes.NotesListViewModel
@@ -26,7 +27,7 @@ fun notesModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModel { NotesListViewModel(get(), get()) }
+    viewModel { NotesListViewModel(get(), get(), get()) }
 
     // NoteEditor: improveNote is optional — use getOrNull() so Koin can
     // instantiate without it (the AI button will be hidden in UI when null).
