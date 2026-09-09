@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -15,8 +16,6 @@ import com.singularity.todo.feature.tasks.TaskRepository
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -24,6 +23,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -53,7 +55,10 @@ class ProjectDetailViewModel(
     private val updateTask: UpdateTaskUseCase,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
+    private val scopeOverride: CoroutineScope? = null,
+    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
+    private val scope get() = scopeOverride ?: viewModelScope
 
     // ─── UI State ───────────────────────────────────────────────────────────────
 
@@ -63,7 +68,7 @@ class ProjectDetailViewModel(
     /** Emits null on start (loading placeholder), then the project flow. */
     private val projectFlow: StateFlow<Project?> = projectRepo.watchProject(projectId)
         .onStart { emit(null) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        .stateIn(scope, sharingStarted(), null)
 
     /**
      * Reactive list of parent-picker options, derived from [projectFlow] and
@@ -78,7 +83,7 @@ class ProjectDetailViewModel(
         else allProjects
             .filter { it.id != project.id && it.parentId == null && !it.isDeleted }
             .map { ParentOption(it.id, it.name, it.id == project.parentId) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(scope, sharingStarted(), emptyList())
 
     /**
      * All active tasks that are NOT in this project — for the "add existing task"
@@ -95,7 +100,7 @@ class ProjectDetailViewModel(
                             .thenByDescending { it.updatedAt }
                     )
             }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(scope, sharingStarted(), emptyList())
 
     val state: StateFlow<ProjectDetailUiState> = combine(
         projectFlow,
@@ -116,6 +121,7 @@ class ProjectDetailViewModel(
         },
         _hideCompleted,
     ) { project, tasks, childProjects, parent, hideCompleted ->
+        _latestProject.value = project
         when {
             project == null -> ProjectDetailUiState.Loading
             project.isDeleted -> ProjectDetailUiState.NotFound
@@ -133,120 +139,159 @@ class ProjectDetailViewModel(
                 )
             }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ProjectDetailUiState.Loading)
+    }.stateIn(scope, sharingStarted(), ProjectDetailUiState.Loading)
 
     // ─── Silent debounce for inline edits ───────────────────────────────────────
 
     private val _lastEditedAt = MutableStateFlow<Instant?>(null)
     val lastEditedAt: StateFlow<Instant?> = _lastEditedAt
 
-    private var debounceNameJob: Job? = null
-    private var debounceDescJob: Job? = null
+    /** Draft flows — written by onIntent, collected and debounced in init{}. */
+    private val nameDraft = MutableStateFlow<String?>(null)
+    private val descriptionDraft = MutableStateFlow<String?>(null)
+
+    init {
+        // Name debounce — reads _latestProject to avoid TOCTOU.
+        viewModelScope.launch {
+            nameDraft
+                .debounce(300.milliseconds)
+                .filterNotNull()
+                .distinctUntilChanged()
+                .collect { name ->
+                    val current = _latestProject.value ?: return@collect
+                    mutate(current) { copy(name = name) }
+                }
+        }
+        // Description debounce — same pattern.
+        viewModelScope.launch {
+            descriptionDraft
+                .debounce(300.milliseconds)
+                .filterNotNull()
+                .distinctUntilChanged()
+                .collect { desc ->
+                    val current = _latestProject.value ?: return@collect
+                    mutate(current) { copy(description = desc) }
+                }
+        }
+    }
+
+    // ─── Cached latest project — TOCTOU guard ────────────────────────────────
+
+    private val _latestProject = MutableStateFlow<Project?>(null)
 
     // ─── One-shot events ─────────────────────────────────────────────────────────
 
     private val _events = MutableSharedFlow<ProjectDetailUiEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<ProjectDetailUiEvent> = _events.asSharedFlow()
 
-    // ─── Intents ─────────────────────────────────────────────────────────────────
+    // ─── Intent dispatcher ─────────────────────────────────────────────────────
 
-    fun toggleHideCompleted() {
-        _hideCompleted.value = !_hideCompleted.value
-    }
+    /**
+     * Единственный публичный метод для всех доменных операций.
+     *
+     * Routing-интенты ([ProjectDetailIntent.Routing]) обрабатываются экраном
+     * и сюда не попадают.
+     */
+    fun onIntent(intent: ProjectDetailIntent.Domain) {
+        when (intent) {
+            // ── Visibility ──────────────────────────────────────────────────
+            is ProjectDetailIntent.Domain.ToggleHideCompleted ->
+                _hideCompleted.value = !_hideCompleted.value
 
-    /** Silently debounced — updates [_lastEditedAt] but does NOT emit Saved. */
-    fun updateName(name: String) {
-        debounceNameJob?.cancel()
-        debounceNameJob = viewModelScope.launch {
-            delay(300.milliseconds)
-            updateProject(projectId) { it.copy(name = name) }
-            _lastEditedAt.value = clock.now()
+            // ── Inline edits — debounced, written to draft StateFlows ────────
+            is ProjectDetailIntent.Domain.UpdateName ->
+                nameDraft.value = intent.name
+            is ProjectDetailIntent.Domain.UpdateDescription ->
+                descriptionDraft.value = intent.description
+
+            // ── Pickers ─────────────────────────────────────────────────────
+            is ProjectDetailIntent.Domain.UpdateColor -> {
+                val current = _latestProject.value ?: return
+                mutate(current) { copy(color = intent.color) }
+            }
+            is ProjectDetailIntent.Domain.UpdateIcon -> {
+                val current = _latestProject.value ?: return
+                mutate(current) { copy(icon = intent.icon) }
+            }
+            is ProjectDetailIntent.Domain.UpdateParent -> {
+                val current = _latestProject.value ?: return
+                mutate(current) { copy(parentId = intent.parentId) }
+            }
+            is ProjectDetailIntent.Domain.UpdateDueDate -> {
+                val current = _latestProject.value ?: return
+                mutate(current) { copy(dueDate = intent.dueDate) }
+            }
+
+            // ── Lifecycle ──────────────────────────────────────────────────
+            is ProjectDetailIntent.Domain.ToggleArchive -> {
+                val current = _latestProject.value ?: return
+                mutate(current) { copy(isDeleted = !isDeleted) }
+            }
+            is ProjectDetailIntent.Domain.Delete ->
+                viewModelScope.launch {
+                    deleteProject(projectId, currentUser.current.value)
+                        .onSuccess { _events.emit(ProjectDetailUiEvent.NavigateBack) }
+                        .onFailure { error ->
+                            _events.emit(ProjectDetailUiEvent.ShowError(
+                                (error as? AppError)?.message ?: error.message ?: "Delete failed"
+                            ))
+                        }
+                }
+
+            // ── Tasks ──────────────────────────────────────────────────────
+            is ProjectDetailIntent.Domain.CreateTask -> {
+                val trimmed = intent.title.trim()
+                if (trimmed.isEmpty()) return
+                viewModelScope.launch {
+                    val now = clock.now()
+                    runCatching {
+                        taskRepo.create(
+                            Task(
+                                id = TaskId.generate(),
+                                title = trimmed,
+                                kind = TaskKind.Task,
+                                priority = TaskPriority.None,
+                                projectId = projectId,
+                                createdAt = now,
+                                updatedAt = now,
+                                userId = currentUser.current,
+                            )
+                        )
+                    }.onFailure { error ->
+                        _events.emit(ProjectDetailUiEvent.ShowError(
+                            (error as? AppError)?.message ?: error.message ?: "Create task failed"
+                        ))
+                    }
+                }
+            }
+            is ProjectDetailIntent.Domain.MoveTaskToProject ->
+                viewModelScope.launch {
+                    updateTask.invoke(intent.taskId) { it.copy(projectId = projectId) }
+                        .onFailure { error ->
+                            _events.emit(ProjectDetailUiEvent.ShowError(
+                                (error as? AppError)?.message ?: error.message ?: "Move task failed"
+                            ))
+                        }
+                }
         }
     }
 
-    /** Silently debounced — updates [_lastEditedAt] but does NOT emit Saved. */
-    fun updateDescription(description: String?) {
-        debounceDescJob?.cancel()
-        debounceDescJob = viewModelScope.launch {
-            delay(300.milliseconds)
-            updateProject(projectId) { it.copy(description = description) }
-            _lastEditedAt.value = clock.now()
+    // ─── Helpers ────────────────────────────────────────────────────────────────
+
+    /**
+     * Applies a mutation to [current] via [transform] and persists via [updateProject].
+     * Uses [_latestProject] as the source of truth to avoid TOCTOU.
+     */
+    private fun mutate(
+        current: Project,
+        transform: Project.() -> Project,
+    ) {
+        viewModelScope.launch {
+            updateProject(projectId, transform)
+                .onSuccess { _lastEditedAt.value = clock.now() }
+                .onFailure { /* silent — UI already reflects the draft */ }
         }
     }
-
-    fun updateColor(color: Int) = viewModelScope.launch {
-        updateProject(projectId) { it.copy(color = color) }
-        _events.emit(ProjectDetailUiEvent.Saved)
-    }
-
-    fun updateIcon(icon: String?) = viewModelScope.launch {
-        updateProject(projectId) { it.copy(icon = icon) }
-        _events.emit(ProjectDetailUiEvent.Saved)
-    }
-
-    fun updateParent(parentId: ProjectId?) = viewModelScope.launch {
-        updateProject(projectId) { it.copy(parentId = parentId) }
-        _events.emit(ProjectDetailUiEvent.Saved)
-    }
-
-    fun updateDueDate(dueDate: kotlinx.datetime.LocalDate?) = viewModelScope.launch {
-        updateProject(projectId) { it.copy(dueDate = dueDate) }
-        _events.emit(ProjectDetailUiEvent.Saved)
-    }
-
-    fun toggleArchive() = viewModelScope.launch {
-        val current = (state.value as? ProjectDetailUiState.Content)?.ui?.project ?: return@launch
-        updateProject(projectId) { it.copy(isDeleted = !current.isDeleted) }
-        _events.emit(ProjectDetailUiEvent.Saved)
-    }
-
-    fun delete() = viewModelScope.launch {
-        deleteProject(projectId, currentUser.scopedUserId.value.value)
-            .onSuccess {
-                _events.emit(ProjectDetailUiEvent.NavigateBack)
-            }
-            .onFailure { error ->
-                _events.emit(ProjectDetailUiEvent.ShowError(
-                    (error as? AppError)?.message ?: error.message ?: "Delete failed"
-                ))
-            }
-    }
-
-    fun moveTaskToProject(taskId: TaskId) = viewModelScope.launch {
-        updateTask.invoke(taskId) { it.copy(projectId = projectId) }
-            .onSuccess { _events.emit(ProjectDetailUiEvent.Saved) }
-            .onFailure { error ->
-                _events.emit(ProjectDetailUiEvent.ShowError(
-                    (error as? AppError)?.message ?: error.message ?: "Move task failed"
-                ))
-            }
-    }
-
-    fun createTask(title: String) = viewModelScope.launch {
-        val trimmed = title.trim()
-        if (trimmed.isEmpty()) return@launch
-        val now = clock.now()
-        runCatching {
-            taskRepo.create(
-                Task(
-                    id = TaskId.generate(),
-                    title = trimmed,
-                    kind = TaskKind.Task,
-                    priority = TaskPriority.None,
-                    projectId = projectId,
-                    createdAt = now,
-                    updatedAt = now,
-                    userId = UserId(currentUser.scopedUserId.value.value),
-                )
-            )
-        }.onFailure { error ->
-            _events.emit(ProjectDetailUiEvent.ShowError(
-                (error as? AppError)?.message ?: error.message ?: "Create task failed"
-            ))
-        }
-    }
-
-
 }
 
 // ─── UI State ─────────────────────────────────────────────────────────────────
@@ -260,8 +305,6 @@ sealed interface ProjectDetailUiState {
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 sealed interface ProjectDetailUiEvent {
-    data object Saved : ProjectDetailUiEvent            // explicit action
-    data object NavigateBack : ProjectDetailUiEvent      // after successful delete
-    data object NavigateToTasks : ProjectDetailUiEvent   // "See all N tasks"
+    data object NavigateBack : ProjectDetailUiEvent  // after successful delete
     data class ShowError(val message: String) : ProjectDetailUiEvent
 }

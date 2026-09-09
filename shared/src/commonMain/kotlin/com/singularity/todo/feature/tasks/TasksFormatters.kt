@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks
 
 import androidx.compose.material3.MaterialTheme
+import kotlinx.datetime.toInstant
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import com.singularity.todo.core.ui.components.DueVisualState
@@ -45,6 +46,34 @@ internal fun parseDueTime(time: String?): kotlinx.datetime.LocalTime? {
             kotlinx.datetime.LocalTime(parts[0].toInt(), parts[1].toInt())
         }.getOrNull()
     }
+}
+
+/**
+ * Computes the instant at which a reminder should fire for a task with the given
+ * due date/time, applying the [ReminderOffset] offset.
+ *
+ * Pure: depends only on its inputs, no side effects, no `Clock.now()`.
+ *
+ * @param dueDate  the task's due date, or null if no date is set.
+ * @param dueTime  the task's due time as `"HH:mm"`, or null (defaults to 12:00).
+ * @param offset   how many minutes before the due moment to fire.
+ * @param zone     the time zone to use for date→instant conversion.
+ * @return epoch milliseconds at which the reminder should fire.
+ */
+internal fun dueInstant(
+    dueDate: kotlinx.datetime.LocalDate?,
+    dueTime: String?,
+    offset: com.singularity.todo.feature.settings.ReminderOffset,
+    zone: kotlinx.datetime.TimeZone,
+    nowEpochMs: Long = System.currentTimeMillis(),
+): Long {
+    if (dueDate == null) return nowEpochMs
+    val parsed = parseDueTime(dueTime)
+    val hour = parsed?.hour ?: 12
+    val minute = parsed?.minute ?: 0
+    val ldt = kotlinx.datetime.LocalDateTime(dueDate.year, dueDate.month, dueDate.day, hour, minute)
+    val base = ldt.toInstant(zone).toEpochMilliseconds()
+    return base - offset.minutes * 60_000L
 }
 
 /**

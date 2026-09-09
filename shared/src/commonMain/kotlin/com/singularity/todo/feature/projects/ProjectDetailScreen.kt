@@ -80,6 +80,7 @@ import com.singularity.todo.feature.tasks.Task
 import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.components.TaskCard
 import com.singularity.todo.feature.tasks.components.TaskCardActions
+import com.singularity.todo.feature.projects.components.ProjectDetailActions
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlin.time.Clock
@@ -147,6 +148,26 @@ fun ProjectDetailContent(
     val snackbarHostState = remember { SnackbarHostState() }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    // Routing + domain dispatcher — routing handled here, domain delegated to VM.
+    val actions = remember {
+        ProjectDetailActions { intent ->
+            when (intent) {
+                is ProjectDetailIntent.Routing.NavigateToTasks -> onNavigateToTasks(intent.projectId)
+                is ProjectDetailIntent.Routing.NavigateToTask -> onNavigateToTask(intent.taskId)
+                is ProjectDetailIntent.Routing.OpenColorSheet -> { sheetState = ActiveSheet.PickColor }
+                is ProjectDetailIntent.Routing.OpenIconSheet -> { sheetState = ActiveSheet.PickIcon }
+                is ProjectDetailIntent.Routing.OpenParentSheet -> { sheetState = ActiveSheet.PickParent(intent.currentParentId) }
+                is ProjectDetailIntent.Routing.OpenDueDateSheet -> { sheetState = ActiveSheet.PickDueDate }
+                is ProjectDetailIntent.Routing.OpenChildrenSheet -> { sheetState = ActiveSheet.ShowChildren }
+                is ProjectDetailIntent.Routing.OpenDeleteSheet -> { sheetState = ActiveSheet.ConfirmDelete }
+                is ProjectDetailIntent.Routing.OpenArchiveSheet -> { sheetState = ActiveSheet.ConfirmArchive }
+                is ProjectDetailIntent.Routing.OpenReminderSheet -> { sheetState = ActiveSheet.PickReminder }
+                is ProjectDetailIntent.Routing.OpenAttachmentSheet -> { sheetState = ActiveSheet.AddAttachment }
+                is ProjectDetailIntent.Domain -> viewModel.onIntent(intent)
+            }
+        }
+    }
+
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -157,9 +178,7 @@ fun ProjectDetailContent(
     CollectEvents(viewModel.events) { event ->
         when (event) {
             ProjectDetailUiEvent.NavigateBack -> onBack()
-            ProjectDetailUiEvent.NavigateToTasks -> onNavigateToTasks(projectId)
             is ProjectDetailUiEvent.ShowError -> { errorMessage = event.message }
-            ProjectDetailUiEvent.Saved -> { /* silent — lastEditedAt drives UI */ }
         }
     }
 
@@ -190,7 +209,7 @@ fun ProjectDetailContent(
                                 text = { Text(if (isArchived) "Unarchive" else "Archive") },
                                 onClick = {
                                     overflowMenuOpen = false
-                                    sheetState = ActiveSheet.ConfirmArchive
+                                    actions.onOpenArchiveSheet()
                                 },
                             )
                             DropdownMenuItem(
@@ -202,7 +221,7 @@ fun ProjectDetailContent(
                                 },
                                 onClick = {
                                     overflowMenuOpen = false
-                                    sheetState = ActiveSheet.ConfirmDelete
+                                    actions.onOpenDeleteSheet()
                                 },
                             )
                         }
@@ -214,10 +233,7 @@ fun ProjectDetailContent(
             if (contentState is ProjectDetailUiState.Content) {
                 ProjectBottomActionBar(
                     isArchived = contentState.ui.project.isDeleted,
-                    onRemind = { sheetState = ActiveSheet.PickReminder },
-                    onAttach = { sheetState = ActiveSheet.AddAttachment },
-                    onToggleArchive = { viewModel.toggleArchive() },
-                    onMoreClick = { overflowMenuOpen = true },
+                    actions = actions,
                 )
             }
         },
@@ -239,26 +255,17 @@ fun ProjectDetailContent(
                     ui = s.ui,
                     lastEditedAt = lastEditedAt,
                     now = clock.now(),
-                    onNameChange = viewModel::updateName,
-                    onDescriptionChange = viewModel::updateDescription,
-                    onColorClick = { sheetState = ActiveSheet.PickColor },
-                    onIconClick = { sheetState = ActiveSheet.PickIcon },
+                    actions = actions,
                 )
                 ProjectMetaChipsRow(
                     ui = s.ui,
-                    onParentClick = { sheetState = ActiveSheet.PickParent(s.ui.project.parentId) },
-                    onDueDateClick = { sheetState = ActiveSheet.PickDueDate },
-                    onChildClick = { sheetState = ActiveSheet.ShowChildren },
+                    actions = actions,
                 )
                 ProjectBodySection(
                     ui = s.ui,
                     hideCompleted = hideCompleted,
                     availableTasks = availableTasks,
-                    onToggleHideCompleted = viewModel::toggleHideCompleted,
-                    onSeeAllClick = onNavigateToTasks,
-                    onTaskClick = { task -> onNavigateToTask(task.id) },
-                    onCreateTask = viewModel::createTask,
-                    onAddExistingTask = viewModel::moveTaskToProject,
+                    actions = actions,
                 )
             }
         }
@@ -277,7 +284,7 @@ fun ProjectDetailContent(
                     currentColor = (state as? ProjectDetailUiState.Content)?.ui?.project?.color
                         ?: ProjectColorPalette.default,
                     onPick = { color ->
-                        viewModel.updateColor(color)
+                        actions.onUpdateColor(color)
                         sheetState = null
                     },
                     onDismiss = { sheetState = null },
@@ -285,7 +292,7 @@ fun ProjectDetailContent(
                 is ActiveSheet.PickIcon -> IconPickerSheet(
                     currentIcon = (state as? ProjectDetailUiState.Content)?.ui?.project?.icon,
                     onPick = { icon ->
-                        viewModel.updateIcon(icon)
+                        actions.onUpdateIcon(icon)
                         sheetState = null
                     },
                     onDismiss = { sheetState = null },
@@ -293,7 +300,7 @@ fun ProjectDetailContent(
                 is ActiveSheet.PickParent -> ParentPickerSheet(
                     options = parentOptions,
                     onPick = { parentId ->
-                        viewModel.updateParent(parentId)
+                        actions.onUpdateParent(parentId)
                         sheetState = null
                     },
                     onDismiss = { sheetState = null },
@@ -301,7 +308,7 @@ fun ProjectDetailContent(
                 is ActiveSheet.ConfirmDelete -> ConfirmDeleteSheet(
                     projectName = (state as? ProjectDetailUiState.Content)?.ui?.project?.name ?: "",
                     onConfirm = {
-                        viewModel.delete()
+                        actions.onDelete()
                         sheetState = null
                     },
                     onDismiss = { sheetState = null },
@@ -309,7 +316,7 @@ fun ProjectDetailContent(
                 is ActiveSheet.ConfirmArchive -> ConfirmArchiveSheet(
                     isArchived = (state as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true,
                     onConfirm = {
-                        viewModel.toggleArchive()
+                        actions.onToggleArchive()
                         sheetState = null
                     },
                     onDismiss = { sheetState = null },
@@ -324,7 +331,7 @@ fun ProjectDetailContent(
                 is ActiveSheet.PickDueDate -> DatePickerSheet(
                     initialDate = (state as? ProjectDetailUiState.Content)?.ui?.project?.dueDate,
                     onDateSelected = { date ->
-                        viewModel.updateDueDate(date)
+                        actions.onUpdateDueDate(date)
                         sheetState = null
                     },
                     onDismiss = { sheetState = null },
@@ -353,13 +360,14 @@ private fun ProjectHeroSection(
     ui: ProjectDetailUi,
     lastEditedAt: Instant?,
     now: Instant,
-    onNameChange: (String) -> Unit,
-    onDescriptionChange: (String?) -> Unit,
-    onColorClick: () -> Unit,
-    onIconClick: () -> Unit,
+    actions: ProjectDetailActions,
 ) {
     var draftName by remember(ui.project.name) { mutableStateOf(ui.project.name) }
     var draftDesc by remember(ui.project.description) { mutableStateOf(ui.project.description ?: "") }
+
+    // Sync drafts to VM debounce flows — UI stays responsive, debounce happens in VM.
+    LaunchedEffect(draftName) { actions.onUpdateName(draftName) }
+    LaunchedEffect(draftDesc) { actions.onUpdateDescription(draftDesc.ifBlank { null }) }
 
     Column(
         modifier = Modifier
@@ -375,7 +383,7 @@ private fun ProjectHeroSection(
                     .size(56.dp)
                     .clip(CircleShape)
                     .background(Color(ui.project.color))
-                    .clickable(onClick = onColorClick),
+                    .clickable(onClick = actions::onOpenColorSheet),
                 contentAlignment = Alignment.Center,
             ) {
                 val icon = ProjectIconRegistry.iconByKey(ui.project.icon) ?: Icons.Filled.Folder
@@ -454,9 +462,7 @@ private fun ProjectHeroSection(
 @Composable
 private fun ProjectMetaChipsRow(
     ui: ProjectDetailUi,
-    onParentClick: () -> Unit,
-    onDueDateClick: () -> Unit,
-    onChildClick: () -> Unit,
+    actions: ProjectDetailActions,
 ) {
     FlowRow(
         modifier = Modifier
@@ -467,7 +473,7 @@ private fun ProjectMetaChipsRow(
         ui.project.dueDate?.let { date ->
             FilterChip(
                 selected = false,
-                onClick = onDueDateClick,
+                onClick = actions::onOpenDueDateSheet,
                 label = { Text(date.toString()) },
                 leadingIcon = {
                     Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -478,7 +484,7 @@ private fun ProjectMetaChipsRow(
         ui.parent?.let { parent ->
             FilterChip(
                 selected = false,
-                onClick = onParentClick,
+                onClick = { actions.onOpenParentSheet(parent.id) },
                 label = { Text(parent.name) },
                 leadingIcon = {
                     Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -492,7 +498,7 @@ private fun ProjectMetaChipsRow(
         if (ui.childProjects.isNotEmpty()) {
             FilterChip(
                 selected = false,
-                onClick = onChildClick,
+                onClick = actions::onOpenChildrenSheet,
                 label = { Text("${ui.childProjects.size} sub-projects") },
                 leadingIcon = {
                     Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -507,18 +513,13 @@ private fun ProjectBodySection(
     ui: ProjectDetailUi,
     hideCompleted: Boolean,
     availableTasks: List<Task>,
-    onToggleHideCompleted: () -> Unit,
-    onSeeAllClick: (ProjectId) -> Unit,
-    onTaskClick: (Task) -> Unit,
-    onCreateTask: (String) -> Unit,
-    onAddExistingTask: (TaskId) -> Unit,
+    actions: ProjectDetailActions,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // Quick-add input
         ProjectDetailQuickAddInput(
             availableTasks = availableTasks,
-            onSubmit = onCreateTask,
-            onAddExisting = onAddExistingTask,
+            actions = actions,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
@@ -540,7 +541,7 @@ private fun ProjectBodySection(
                         text = if (hideCompleted) "Show completed" else "Hide completed",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable(onClick = onToggleHideCompleted),
+                        modifier = Modifier.clickable(onClick = actions::onToggleHideCompleted),
                     )
                 }
             }
@@ -557,7 +558,7 @@ private fun ProjectBodySection(
                 items(ui.tasks, key = { it.id.value }) { task ->
                     TaskCard(
                         task = task,
-                        onClick = { onTaskClick(task) },
+                        onClick = { actions.onNavigateToTask(task.id) },
                         actions = TaskCardActions.Empty,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
@@ -568,7 +569,7 @@ private fun ProjectBodySection(
         // "See all" link
         if (ui.totalCount > 5) {
             TextButton(
-                onClick = { onSeeAllClick(ui.project.id) },
+                onClick = { actions.onNavigateToTasks(ui.project.id) },
                 modifier = Modifier.padding(horizontal = 16.dp),
             ) {
                 Text("See all ${ui.totalCount} tasks")
@@ -581,25 +582,22 @@ private fun ProjectBodySection(
 @Composable
 private fun ProjectBottomActionBar(
     isArchived: Boolean,
-    onRemind: () -> Unit,
-    onAttach: () -> Unit,
-    onToggleArchive: () -> Unit,
-    onMoreClick: () -> Unit,
+    actions: ProjectDetailActions,
 ) {
     BottomAppBar(modifier = Modifier.fillMaxWidth()) {
-        IconButton(onClick = onRemind) {
+        IconButton(onClick = actions::onOpenReminderSheet) {
             Icon(Icons.Filled.Notifications, "Remind")
         }
-        IconButton(onClick = onAttach) {
+        IconButton(onClick = actions::onOpenAttachmentSheet) {
             Icon(Icons.Filled.Folder, "Attach")
         }
         Spacer(Modifier.weight(1f))
         if (isArchived) {
-            IconButton(onClick = onToggleArchive) {
+            IconButton(onClick = actions::onToggleArchive) {
                 Icon(Icons.Filled.PushPin, "Unarchive")
             }
         }
-        IconButton(onClick = onMoreClick) {
+        IconButton(onClick = actions::onOpenIconSheet) {
             Icon(Icons.Filled.MoreVert, "More")
         }
     }
@@ -610,8 +608,7 @@ private fun ProjectBottomActionBar(
 @Composable
 private fun ProjectDetailQuickAddInput(
     availableTasks: List<Task>,
-    onSubmit: (String) -> Unit,
-    onAddExisting: (TaskId) -> Unit,
+    actions: ProjectDetailActions,
     modifier: Modifier = Modifier,
 ) {
     var text by remember { mutableStateOf("") }
@@ -637,7 +634,7 @@ private fun ProjectDetailQuickAddInput(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = {
                     if (text.isNotBlank()) {
-                        onSubmit(text)
+                        actions.onCreateTask(text)
                         text = ""
                         focus.clearFocus()
                     }
@@ -651,7 +648,7 @@ private fun ProjectDetailQuickAddInput(
                 query = query,
                 onQueryChange = { query = it },
                 onPick = { taskId ->
-                    onAddExisting(taskId)
+                    actions.onMoveTaskToProject(taskId)
                     popupOpen = false
                     query = ""
                 },

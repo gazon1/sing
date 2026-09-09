@@ -5,9 +5,14 @@ description: The house ViewModel pattern for this project: sealed Intent + singl
 
 # ViewModel Intent Pattern
 
-This project uses a **typed Intent** pattern for all ViewModels. The pattern is documented in AGENTS.md ("`*ViewModel.kt` — `StateFlow<SealedUiState>`, **sealed Intent**, viewModelScope") and implemented in five VMs: `TaskEditorViewModel`, `ChatViewModel`, `ProjectEditorViewModel`, `ChecklistEditorViewModel`, `SettingsIntent`.
+This project uses a **typed Intent** pattern for all ViewModels. The pattern is documented in AGENTS.md ("`*ViewModel.kt` — `StateFlow<SealedUiState>`, **sealed Intent**, viewModelScope") and implemented across the codebase.
 
 This skill captures the pattern, the common pitfalls, and the key design split — **when a pure reducer is appropriate and when it is not**.
+
+**Two variants of the pattern:**
+
+- **Full** (has routing intents for sheets): `TaskDetailViewModel`, `TaskEditorViewModel`
+- **Minimal** (no sheets — only domain mutations + navigation): `ProjectDetailViewModel`
 
 ---
 
@@ -170,7 +175,8 @@ When in doubt: if the operation does not touch the repository, it does not belon
 ## Reference Implementation
 
 - `TaskEditorViewModel` — draft-editor pattern with pure `reduce()` + `TaskEditorReducerTest`
-- `TaskDetailViewModel` — write-through pattern with single `onIntent()` + `mutate{}`
+- `TaskDetailViewModel` — write-through pattern with single `onIntent()` + `mutate{}`; has sheet routing intents
+- `ProjectDetailViewModel` — **minimal variant**: no sheets, only domain intents + navigation callbacks; demonstrates the pattern at its simplest
 - `TaskDetailIntent.kt` — routing/domain separation in a real-world screen
 
 ## See Also
@@ -178,3 +184,4 @@ When in doubt: if the operation does not touch the repository, it does not belon
 - `singularity-todo-task-callback-groups` — pairing this pattern with `@JvmInline value class Actions` in Composables
 - `singularity-todo-ui-event-vs-state` — routing state (which sheet is open) is NOT a `SharedFlow` event
 - `docs/decisions/2026-09-09-task-detail-intent-refactor.md` — the ADR that formalized this pattern
+- `docs/decisions/2026-09-09-project-detail-intent-refactor.md` — the minimal variant ADR (no sheets)

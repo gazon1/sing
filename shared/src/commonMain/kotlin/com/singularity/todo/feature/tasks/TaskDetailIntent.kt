@@ -101,6 +101,6 @@ sealed interface TaskDetailIntent {
 
         // ── Pin ────────────────────────────────────────────────────────────
 
-        data class SetPinned(val pinned: Boolean) : Domain
+        data object TogglePinned : Domain
     }
 }

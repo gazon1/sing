@@ -61,7 +61,7 @@ class TaskDetailViewModelTest {
     )
 
     private fun createVm(scope: CoroutineScope): TaskDetailViewModel {
-        val vm = TaskDetailViewModel(
+        val deps = TaskDetailDeps(
             taskRepo = fakeTaskRepo,
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
             createTask = CreateTaskUseCase(fakeTaskRepo, Clock),
@@ -72,8 +72,8 @@ class TaskDetailViewModelTest {
             attachmentsRepo = fakeAttachmentsRepo,
             currentUser = fakeCurrentUser,
             timeZoneProvider = TEST_TZ,
-            scopeOverride = scope,
         )
+        val vm = TaskDetailViewModel(deps = deps, scopeOverride = scope)
         // Activate the stateIn chain (WhileSubscribed requires an initial subscriber).
         // Use SharingStarted.Eagerly so the upstream starts immediately in tests
         // (virtual time does not advance 5 seconds needed by WhileSubscribed(5000)).
@@ -211,5 +211,24 @@ class TaskDetailViewModelTest {
 
         val toggled = fakeChecklistRepo.items.value[item.id.value]
         assertTrue(toggled?.isCompleted == true)
+    }
+
+    @Test
+    fun `TogglePinned flips isPinned — pin then unpin`() = runTest {
+        val task = seedTask()
+        val vm = createVm(backgroundScope)
+        vm.start(task.id)
+        delay(100)
+        assertFalse(fakeTaskRepo.tasks.value["t1"]?.isPinned == true)
+
+        // Pin
+        vm.onIntent(TaskDetailIntent.Domain.TogglePinned)
+        delay(50)
+        assertTrue(fakeTaskRepo.tasks.value["t1"]?.isPinned == true)
+
+        // Unpin
+        vm.onIntent(TaskDetailIntent.Domain.TogglePinned)
+        delay(50)
+        assertFalse(fakeTaskRepo.tasks.value["t1"]?.isPinned == true)
     }
 }

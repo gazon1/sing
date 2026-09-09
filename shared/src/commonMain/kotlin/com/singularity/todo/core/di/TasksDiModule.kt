@@ -5,6 +5,7 @@ import com.singularity.todo.feature.tasks.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
+import com.singularity.todo.feature.tasks.TaskDetailDeps
 import com.singularity.todo.feature.tasks.TaskDetailViewModel
 import com.singularity.todo.feature.tasks.TaskEditorViewModel
 import com.singularity.todo.feature.tasks.TaskEditorDeps
@@ -91,10 +92,25 @@ fun tasksModule(): org.koin.core.module.Module = module {
     // TasksViewModel with AI deps: registered in aiToolsCoreModule (has nullable AI use cases)
     // TasksViewModel without AI deps: not needed — AI-less version uses same class, handles null gracefully
 
-    viewModelOf(::TaskDetailViewModel)
+    viewModel {
+        TaskDetailViewModel(
+            deps = TaskDetailDeps(
+                taskRepo = get(),
+                updateTask = get(),
+                createTask = get(),
+                projectsRepo = get(),
+                tagsRepo = get(),
+                checklistUseCase = get(),
+                reminderRepo = get(),
+                attachmentsRepo = get(),
+                currentUser = get(),
+                timeZoneProvider = get(),
+            )
+        )
+    }
 
-    // TaskEditorViewModel — runtime parameter (initialDueDate), keep factory form
-    factory { (initialDueDate: kotlinx.datetime.LocalDate?) ->
+    // TaskEditorViewModel — runtime parameter (initialDueDate)
+    viewModel { (initialDueDate: kotlinx.datetime.LocalDate?) ->
         TaskEditorViewModel(
             deps = TaskEditorDeps(
                 createTask = get(),
@@ -120,7 +136,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     viewModelOf(::SearchViewModel)
 
-    factory { (projectId: com.singularity.todo.feature.projects.ProjectId) ->
+    viewModel { (projectId: com.singularity.todo.feature.projects.ProjectId) ->
         TasksByProjectViewModel(
             projectId = projectId,
             taskRepo = get(),

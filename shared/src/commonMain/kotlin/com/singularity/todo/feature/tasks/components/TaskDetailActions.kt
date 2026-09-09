@@ -97,7 +97,7 @@ value class TaskDetailActions(
 
     // ── Bottom bar ─────────────────────────────────────────────────────────────
 
-    fun onPin() = block(TaskDetailIntent.Domain.SetPinned(true))
+    fun onPin() = block(TaskDetailIntent.Domain.TogglePinned)
     fun onDelete() = block(TaskDetailIntent.OpenSheet(ActiveSheet.ConfirmDelete))
     fun onArchive() = block(TaskDetailIntent.OpenSheet(ActiveSheet.ConfirmArchive))
 

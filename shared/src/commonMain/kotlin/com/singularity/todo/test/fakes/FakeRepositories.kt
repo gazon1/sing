@@ -11,10 +11,15 @@ import com.singularity.todo.core.backup.BackupResult
 import com.singularity.todo.core.backup.ExportOptions
 import com.singularity.todo.core.backup.ImportOptions
 import com.singularity.todo.core.backup.RestoreResult
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.ChecklistRepository
+import com.singularity.todo.feature.profile.Profile
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.profile.ProfileId
+import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderRepository
@@ -25,11 +30,6 @@ import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.TaskRepository
 import com.singularity.todo.feature.tasks.TasksDomain
 import com.singularity.todo.feature.tasks.UserId
-import com.singularity.todo.feature.profile.Profile
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.profile.ProfileId
-import com.singularity.todo.feature.profile.ProfileRepository
-import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -353,7 +353,7 @@ class FakeAuthRepository(
 // ─── ProjectsRepository ──────────────────────────────────────────────────────
 
 class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRepository {
-    private val store = mutableMapOf<String, com.singularity.todo.feature.projects.Project>()
+    internal val store = mutableMapOf<String, com.singularity.todo.feature.projects.Project>()
     private val _flow = MutableStateFlow<List<com.singularity.todo.feature.projects.Project>>(emptyList())
 
     fun seed(vararg projects: com.singularity.todo.feature.projects.Project) {
@@ -770,15 +770,15 @@ class FakeProfileRepository : ProfileRepository {
 
     override suspend fun create(name: String, emoji: String, colorIdx: Int): ProfileId {
         val id = ProfileId.generate()
-        _profiles.value = _profiles.value + Profile(
-            id = id,
-            name = name,
-            emoji = emoji,
-            colorIdx = colorIdx,
-            isDefault = false,
-            createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
-            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
-        )
+        _profiles.value += Profile(
+                    id = id,
+                    name = name,
+                    emoji = emoji,
+                    colorIdx = colorIdx,
+                    isDefault = false,
+                    createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+                    updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+                )
         return id
     }
 
@@ -812,15 +812,15 @@ class FakeProfileRepository : ProfileRepository {
         // by the initial value of [_profiles].
         for ((name, emoji, colorIdx) in extraProfiles) {
             if (_profiles.value.any { it.name == name }) continue
-            _profiles.value = _profiles.value + Profile(
-                id = ProfileId.generate(),
-                name = name,
-                emoji = emoji,
-                colorIdx = colorIdx,
-                isDefault = false,
-                createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
-                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
-            )
+            _profiles.value += Profile(
+                            id = ProfileId.generate(),
+                            name = name,
+                            emoji = emoji,
+                            colorIdx = colorIdx,
+                            isDefault = false,
+                            createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+                            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+                        )
         }
     }
 }

@@ -41,8 +41,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
-import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Duration.Companion.milliseconds
+import com.singularity.todo.feature.tasks.dueInstant
 import kotlin.time.Instant
 
 /** Combined read model for [TaskDetailScreen]. */
@@ -63,18 +63,26 @@ sealed interface TaskDetailUiState {
     data class Error(val message: String) : TaskDetailUiState
 }
 
+/**
+ * Dependencies for [TaskDetailViewModel] — reduces constructor parameter count
+ * and makes DI registration more maintainable.
+ */
+data class TaskDetailDeps(
+    val taskRepo: TaskRepository,
+    val updateTask: UpdateTaskUseCase,
+    val createTask: CreateTaskUseCase,
+    val projectsRepo: ProjectsRepository,
+    val tagsRepo: TagsRepository,
+    val checklistUseCase: ChecklistUseCase,
+    val reminderRepo: ReminderRepository,
+    val attachmentsRepo: AttachmentRepository,
+    val currentUser: ProfileAwareCurrentUser,
+    val timeZoneProvider: TimeZoneProvider,
+)
+
 @OptIn(ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
 class TaskDetailViewModel(
-    private val taskRepo: TaskRepository,
-    private val updateTask: UpdateTaskUseCase,
-    private val createTask: CreateTaskUseCase,
-    private val projectsRepo: ProjectsRepository,
-    private val tagsRepo: TagsRepository,
-    private val checklistUseCase: ChecklistUseCase,
-    private val reminderRepo: ReminderRepository,
-    private val attachmentsRepo: AttachmentRepository,
-    private val currentUser: ProfileAwareCurrentUser,
-    private val timeZoneProvider: TimeZoneProvider,
+    private val deps: TaskDetailDeps,
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
@@ -116,7 +124,7 @@ class TaskDetailViewModel(
                 .filterNotNull()
                 .collect { title ->
                     val current = _latestTask.value ?: return@collect
-                    updateTask(current.copy(title = title))
+                    deps.updateTask(current.copy(title = title))
                         .onSuccess { _lastEditedAt.value = Clock.now() }
                         .onFailure { emitError("Save failed") }
                 }
@@ -128,7 +136,7 @@ class TaskDetailViewModel(
                 .filterNotNull()
                 .collect { desc ->
                     val current = _latestTask.value ?: return@collect
-                    updateTask(current.copy(description = desc.ifBlank { null }))
+                    deps.updateTask(current.copy(description = desc.ifBlank { null }))
                         .onSuccess { _lastEditedAt.value = Clock.now() }
                         .onFailure { emitError("Save failed") }
                 }
@@ -140,18 +148,18 @@ class TaskDetailViewModel(
             if (id == null) {
                 flowOf<TaskDetailUiState>(TaskDetailUiState.Loading)
             } else {
-                val taskFlow = taskRepo.watchTask(id)
+                val taskFlow = deps.taskRepo.watchTask(id)
                 val projectFlow = taskFlow.map { task ->
                     val projectId = task?.projectId
                     if (projectId == null) flowOf<Project?>(null)
-                    else projectsRepo.watchProject(projectId)
+                    else deps.projectsRepo.watchProject(projectId)
                 }.flatMapLatest { it }
 
-                val tagsFlow = tagsRepo.watchTags(currentUser.current.value)
-                val checklistFlow = checklistUseCase.watchChecklist(id.value)
-                val reminderFlow = reminderRepo.watchByTask(id, currentUser.current)
-                val attachmentsFlow = attachmentsRepo.watchByTask(id, currentUser.current)
-                val subtasksFlow = taskRepo.watchSubtasks(id, currentUser.current)
+                val tagsFlow = deps.tagsRepo.watchTags(deps.currentUser.current.value)
+                val checklistFlow = deps.checklistUseCase.watchChecklist(id.value)
+                val reminderFlow = deps.reminderRepo.watchByTask(id, deps.currentUser.current)
+                val attachmentsFlow = deps.attachmentsRepo.watchByTask(id, deps.currentUser.current)
+                val subtasksFlow = deps.taskRepo.watchSubtasks(id, deps.currentUser.current)
 
                 combine(taskFlow, projectFlow, tagsFlow, checklistFlow, reminderFlow, attachmentsFlow, subtasksFlow) { values ->
                     @Suppress("UNCHECKED_CAST")
@@ -251,24 +259,24 @@ class TaskDetailViewModel(
                 mutate(current, error = "Failed to set kind") { copy(kind = intent.kind) }
             is TaskDetailIntent.Domain.ToggleSomeday ->
                 mutate(current, error = "Failed to set someday") { copy(someday = !someday) }
-            is TaskDetailIntent.Domain.SetPinned ->
-                mutate(current) { copy(isPinned = intent.pinned) }
+            is TaskDetailIntent.Domain.TogglePinned ->
+                mutate(current) { copy(isPinned = !isPinned) }
 
             // ── Checklist ─────────────────────────────────────────────────────────
             is TaskDetailIntent.Domain.ToggleChecklistItem ->
                 scope.launch {
-                    checklistUseCase.toggleItem(current.id.value, intent.item.id)
+                    deps.checklistUseCase.toggleItem(current.id.value, intent.item.id)
                         .onFailure { emitError("Toggle failed") }
                 }
             is TaskDetailIntent.Domain.DeleteChecklistItem ->
                 scope.launch {
-                    checklistUseCase.deleteItem(intent.id)
+                    deps.checklistUseCase.deleteItem(intent.id)
                         .onFailure { emitError("Delete failed") }
                 }
             is TaskDetailIntent.Domain.AddChecklistItem ->
                 scope.launch {
                     if (intent.title.isBlank()) return@launch
-                    checklistUseCase.addItem(current.id.value, intent.title.trim())
+                    deps.checklistUseCase.addItem(current.id.value, intent.title.trim())
                         .onSuccess { scope.launch { _events.emit(TaskDetailUiEvent.Saved("Item added")) } }
                         .onFailure { emitError("Add failed") }
                 }
@@ -281,16 +289,16 @@ class TaskDetailViewModel(
             }
             is TaskDetailIntent.Domain.DeleteSubtask ->
                 scope.launch {
-                    taskRepo.softDelete(intent.task.id)
+                    deps.taskRepo.softDelete(intent.task.id)
                         .onFailure { emitError("Delete subtask failed") }
                 }
             is TaskDetailIntent.Domain.AddSubtask ->
                 scope.launch {
                     if (intent.title.isBlank()) return@launch
-                    createTask(
+                    deps.createTask(
                         CreateTaskInput(
                             title = intent.title.trim(),
-                            userId = currentUser.current,
+                            userId = deps.currentUser.current,
                             parentTaskId = current.id,
                         )
                     )
@@ -302,7 +310,7 @@ class TaskDetailViewModel(
             is TaskDetailIntent.Domain.SetReminder -> {
                 scope.launch {
                     if (intent.offset == ReminderOffset.AT_DUE) {
-                        reminderRepo.deleteByTask(current.id, currentUser.current)
+                        deps.reminderRepo.deleteByTask(current.id, deps.currentUser.current)
                             .onFailure { emitError("Failed to set reminder") }
                         return@launch
                     }
@@ -311,19 +319,19 @@ class TaskDetailViewModel(
                     val reminder = Reminder(
                         id = ReminderId.generate(),
                         taskId = current.id,
-                        userId = currentUser.current,
+                        userId = deps.currentUser.current,
                         type = ReminderType.Gentle,
                         offsetMinutes = -intent.offset.minutes,
                         fireAt = fireAt,
                         recurringPattern = null,
                     )
-                    reminderRepo.upsert(reminder)
+                    deps.reminderRepo.upsert(reminder)
                         .onFailure { emitError("Failed to set reminder") }
                 }
             }
             TaskDetailIntent.Domain.DeleteReminder ->
                 scope.launch {
-                    reminderRepo.deleteByTask(current.id, currentUser.current)
+                    deps.reminderRepo.deleteByTask(current.id, deps.currentUser.current)
                         .onFailure { emitError("Failed to remove reminder") }
                 }
 
@@ -331,7 +339,7 @@ class TaskDetailViewModel(
             TaskDetailIntent.Domain.Delete -> {
                 scope.launch {
                     _recentlyDeleted.value = current
-                    taskRepo.softDelete(current.id)
+                    deps.taskRepo.softDelete(current.id)
                         .onSuccess { _events.emit(TaskDetailUiEvent.UndoDelete(current.id)) }
                         .onFailure {
                             _recentlyDeleted.value = null
@@ -341,7 +349,7 @@ class TaskDetailViewModel(
             }
             TaskDetailIntent.Domain.Archive -> {
                 scope.launch {
-                    taskRepo.softDelete(current.id)
+                    deps.taskRepo.softDelete(current.id)
                         .onSuccess {
                             scope.launch {
                                 _events.emit(TaskDetailUiEvent.Saved("Task archived"))
@@ -354,7 +362,7 @@ class TaskDetailViewModel(
             TaskDetailIntent.Domain.Restore -> {
                 scope.launch {
                     val task = _recentlyDeleted.value ?: return@launch
-                    taskRepo.restore(task.id)
+                    deps.taskRepo.restore(task.id)
                         .onSuccess {
                             _recentlyDeleted.value = null
                             scope.launch { _events.emit(TaskDetailUiEvent.Saved("Task restored")) }
@@ -382,7 +390,7 @@ class TaskDetailViewModel(
         silent: Boolean = false,
         transform: Task.() -> Task,
     ) = scope.launch {
-        updateTask(current.transform())
+        deps.updateTask(current.transform())
             .onSuccess { if (!silent) _lastEditedAt.value = Clock.now() }
             .onFailure { emitError(error) }
     }
@@ -398,14 +406,6 @@ class TaskDetailViewModel(
         nowEpochMs: Long,
     ): Long {
         if (dueDate == null) return nowEpochMs
-        val zone = timeZoneProvider.current()
-        val hourMinute = dueTime?.split(":")?.map { it.toIntOrNull() }
-            ?.takeIf { it.size == 2 && it.all { v -> v != null } }
-            ?.let { (h, m) -> h!! to m!! }
-        val hour = hourMinute?.first ?: 12
-        val minute = hourMinute?.second ?: 0
-        val ldt = kotlinx.datetime.LocalDateTime(dueDate.year, dueDate.month, dueDate.day, hour, minute)
-        val base = ldt.toInstant(zone).toEpochMilliseconds()
-        return base - offset.minutes * 60_000L
+        return dueInstant(dueDate, dueTime, offset, deps.timeZoneProvider.current())
     }
 }

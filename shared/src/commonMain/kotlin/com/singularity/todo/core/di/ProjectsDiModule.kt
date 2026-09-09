@@ -35,7 +35,7 @@ fun projectsModule(): org.koin.core.module.Module = module {
     // ProjectsViewModel with AI deps: registered in aiToolsCoreModule
     // (has nullable ProjectReviewUseCase — handles null gracefully on Android)
 
-    factory { (projectId: com.singularity.todo.feature.projects.ProjectId?) ->
+    viewModel { (projectId: com.singularity.todo.feature.projects.ProjectId?) ->
         ProjectEditorViewModel(
             projectId = projectId,
             createProject = get(),
@@ -45,8 +45,7 @@ fun projectsModule(): org.koin.core.module.Module = module {
         )
     }
 
-    // projectId passed at call site via parametersOf — must be a factory
-    factory { (id: com.singularity.todo.feature.projects.ProjectId) ->
+    viewModel { (id: com.singularity.todo.feature.projects.ProjectId) ->
         com.singularity.todo.feature.projects.ProjectDetailViewModel(
             projectId = id,
             projectRepo = get(),

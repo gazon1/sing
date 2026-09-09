@@ -22,6 +22,7 @@ import com.singularity.todo.feature.reminders.ReminderType
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.Task
+import com.singularity.todo.feature.tasks.TaskDetailUi
 import com.singularity.todo.feature.tasks.TaskId
 import com.singularity.todo.feature.tasks.TaskKind
 import com.singularity.todo.feature.tasks.TaskPriority
@@ -207,6 +208,24 @@ internal object PreviewSamples {
         taskId = "t1",
         title = title,
         isCompleted = done,
+    )
+
+    fun taskDetailUi(
+        task: Task = task(),
+        project: Project? = null,
+        tags: List<Tag> = emptyList(),
+        checklist: List<ChecklistItem> = emptyList(),
+        reminders: List<Reminder> = emptyList(),
+        attachments: List<Attachment> = emptyList(),
+        subtasks: List<Task> = emptyList(),
+    ): TaskDetailUi = TaskDetailUi(
+        task = task,
+        project = project,
+        tags = tags,
+        checklist = checklist,
+        reminders = reminders,
+        attachments = attachments,
+        subtasks = subtasks,
     )
 }
 
