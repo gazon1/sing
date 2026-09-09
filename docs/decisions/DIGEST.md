@@ -68,14 +68,17 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `architecture`
 
 - **CollectEvents** в виджетах принимает `Flow<T : UiEvent>` — generic call site остаётся тем же _(from `2026-09-05-ui-event-per-feature`)_
+- Consistent API across all shared components _(from `2026-09-09-content-slot-pattern`)_
 - `core/ui/components/` is now free of feature-domain imports _(from `2026-09-09-internal-link-picker-generic`)_
 - Cross-screen state (e.g. "did the user just save a note") must flow through navigation callbacks, not shared VM state _(from `2026-09-09-notes-vm-split`)_
 - Do NOT introduce `koinViewModel()` inside any `@Preview` — CI/preview harness does not start Koin _(from `2026-09-09-preview-with-koin-helper`)_
 - Each VM is small enough to understand fully (~60-150 lines) _(from `2026-09-09-notes-vm-split`)_
+- Easier to extend cards and editors without breaking call sites _(from `2026-09-09-content-slot-pattern`)_
 - Editor session state is released when user navigates away _(from `2026-09-09-notes-vm-split`)_
 - **Existing tests:** `DiGraphTest`, `JvmAiDiGraphTest`, `AppSmokeTest` обновлены и проходят. _(from `2026-09-06-di-module-split`)_
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them _(from `2026-09-09-preview-with-koin-helper`)_
 - Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
+- Migration from plain lambdas requires updating call sites _(from `2026-09-09-content-slot-pattern`)_
 - **New file count:** 8 новых файлов (7 модулей + decision). _(from `2026-09-06-di-module-split`)_
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables _(from `2026-09-09-notes-vm-split`)_
 - **NotificationHost** — финальный widget для всех экранов, заменяет ~64 строк ручного glue кода _(from `2026-09-05-ui-event-per-feature`)_
@@ -97,7 +100,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TagsScreen` больше не принимает callback — экран не подключён к навигации (menu destination `Tags` отсутствует в `AppDestination`). _(from `2026-09-07-fab-chrome-level`)_
 - The "None (root)" option is rendered as a `TextButton` above the `LazyColumn`, not as part of `options` _(from `2026-09-09-parent-picker-contract`)_
 - Three Koin registrations instead of one _(from `2026-09-09-notes-vm-split`)_
+- Type-safe actions via `sealed class Action` with exhaustive `when` _(from `2026-09-09-content-slot-pattern`)_
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально _(from `2026-09-05-ui-event-per-feature`)_
+- `value class XxxActions` indirection — harder to read at first glance _(from `2026-09-09-content-slot-pattern`)_
 - VMs are independently testable with focused test suites _(from `2026-09-09-notes-vm-split`)_
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)` _(from `2026-09-05-ui-event-per-feature`)_
 
@@ -142,13 +147,16 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **BottomBar taps** now have a single source of truth: `navigator.navigateTopLevel(dest)` — no `selectedIndex` to keep in sync. _(from `2026-09-05-android-bottom-nav`)_
 - `Clock.System.now()` must not appear in preview code — use _(from `2026-09-06-compose-previews`)_
 - `compose-ui-test:1.12.0` added to `libs.versions.toml` as `composeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
+- Consistent API across all shared components _(from `2026-09-09-content-slot-pattern`)_
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
 - Do NOT introduce `koinViewModel()` inside any `@Preview` — CI/preview harness does not start Koin _(from `2026-09-09-preview-with-koin-helper`)_
+- Easier to extend cards and editors without breaking call sites _(from `2026-09-09-content-slot-pattern`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them _(from `2026-09-09-preview-with-koin-helper`)_
 - **Menu sheet visibility** is `rememberSaveable` state in `AndroidShell` — survives config changes, not part of the back stack. _(from `2026-09-05-android-bottom-nav`)_
+- Migration from plain lambdas requires updating call sites _(from `2026-09-09-content-slot-pattern`)_
 - `ModalShell` + `DrawerStyle.Modal` remain in `AppShell.kt`. They are not wired to any platform but are preserved for future modal drawer needs. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **`NavDestination` (drawer enum)** remains for the desktop drawer's grouping by `NavGroup` — not removed, just no longer wired to mobile. _(from `2026-09-05-android-bottom-nav`)_
 - Navigation interaction tests (click-to-navigate) are out of scope for this smoke test — they require handling NavBackStackEntry lifecycle in `runDesktopComposeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
@@ -163,7 +171,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`TasksScreen`** unchanged — it already takes `onNavigateToTask` / `onNavigateToCreateTask` callbacks; the per-tab sub-navigation state now lives in `TasksRoute` inside `AppNavHost` via `rememberSaveable`. _(from `2026-09-05-android-bottom-nav`)_
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
 - The `checkJvmMainComposeLibrariesCompatibility` task must pass silently on every PR. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
+- Type-safe actions via `sealed class Action` with exhaustive `when` _(from `2026-09-09-content-slot-pattern`)_
 - `useSurface = false` when the preview root already contains a `Scaffold` _(from `2026-09-06-compose-previews`)_
+- `value class XxxActions` indirection — harder to read at first glance _(from `2026-09-09-content-slot-pattern`)_
 - When adding a new third-party Compose dependency, verify its JetBrains compose `requires:` constraint in the Gradle module metadata (`.module` file in cache) before adding — if it demands a version newer than the current pin, either bump or find an alternative. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 
 ### `coroutines`
@@ -888,6 +898,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
 - Single search + merged results = better UX (one tap instead of tab switching) _(from `2026-09-09-internal-link-picker-generic`)_
 
+### `ui`
+
+- Consistent API across all shared components _(from `2026-09-09-content-slot-pattern`)_
+
 ### `ui-contract`
 
 - `ParentOption` is a `@JvmInline value class` candidate if it grows beyond 3 fields (currently 3 — plain data class is fine) _(from `2026-09-09-parent-picker-contract`)_
@@ -899,10 +913,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
+- Easier to extend cards and editors without breaking call sites _(from `2026-09-09-content-slot-pattern`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Fake repo returns empty by default** — widget tests that check `LazyColumn` with `testTag` will fail when repo is empty (state = `Empty`). Test the `EmptyState` text instead, or seed data via `fakeNotesRepo.seed(note)`. _(from `2026-09-05-robolectric-widget-tests`)_
 - **JVM args for JDK 21+** — add `--add-opens=java.base/jdk.internal.access=ALL-UNNAMED` to `gradle.properties` (`org.gradle.jvmargs`) AND to `shared/build.gradle.kts` via `afterEvaluate` + `tasks.withType<Test>()` for the test worker process. _(from `2026-09-05-robolectric-widget-tests`)_
 - **Menu sheet visibility** is `rememberSaveable` state in `AndroidShell` — survives config changes, not part of the back stack. _(from `2026-09-05-android-bottom-nav`)_
+- Migration from plain lambdas requires updating call sites _(from `2026-09-09-content-slot-pattern`)_
 - `ModalShell` + `DrawerStyle.Modal` remain in `AppShell.kt`. They are not wired to any platform but are preserved for future modal drawer needs. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **`NavDestination` (drawer enum)** remains for the desktop drawer's grouping by `NavGroup` — not removed, just no longer wired to mobile. _(from `2026-09-05-android-bottom-nav`)_
 - **NotificationHost** — финальный widget для всех экранов, заменяет ~64 строк ручного glue кода _(from `2026-09-05-ui-event-per-feature`)_
@@ -929,9 +945,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - `TextGenPort.listModels` — добавлен в интерфейс, реализация в `KoogAgentService` и `FakeTextGen`. _(from `2026-09-07-settings-fixes`)_
 - The Test connection "probe" prompt is hard-coded: `"Reply with the single word: pong."` — change together with the system prompt if needed. _(from `2026-09-05-llm-provider-settings`)_
+- Type-safe actions via `sealed class Action` with exhaustive `when` _(from `2026-09-09-content-slot-pattern`)_
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально _(from `2026-09-05-ui-event-per-feature`)_
 - `useSurface = false` when the preview root already contains a `Scaffold` _(from `2026-09-06-compose-previews`)_
 - **Use `UserId` from `feature.tasks`** — it's defined in `Ids.kt` there, imported explicitly. _(from `2026-09-05-robolectric-widget-tests`)_
+- `value class XxxActions` indirection — harder to read at first glance _(from `2026-09-09-content-slot-pattern`)_
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly. _(from `2026-09-05-robolectric-widget-tests`)_
 - Все 6 sub-screens имеют `verticalScroll` — контент больше не обрезается. _(from `2026-09-07-settings-fixes`)_
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)` _(from `2026-09-05-ui-event-per-feature`)_
@@ -1082,6 +1100,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-08-task-archive-restore-contract` — "task-detail"  "archive"  "repository"
 - `2026-09-08-task-detail-critical-fixes` — "task-detail"  "critical-fix"  "ux"
 - `2026-09-08-task-restore-undo` — "task-detail"  "undo"  "ux"
+- `2026-09-09-content-slot-pattern` — architecture  compose  ui
 - `2026-09-09-internal-link-picker-generic` — notes  ui-components  linking  architecture
 - `2026-09-09-notes-outgoing-links-extraction` — notes  wikilinks  rich-editor  room
 - `2026-09-09-notes-quick-add` — notes  ux  quick-add
@@ -1143,6 +1162,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-08-task-archive-restore-contract` — Task archive vs delete: separate contracts via archiveAt
 - `2026-09-08-task-detail-critical-fixes` — TaskDetail critical fixes: TOCTOU race, Saved-spam, dead condition
 - `2026-09-08-task-restore-undo` — TaskRepository.restore + UndoDelete via SnackbarHost
+- `2026-09-09-content-slot-pattern` — Content slot API design rules
 - `2026-09-09-internal-link-picker-generic` — Notes — generic InternalLinkPickerSheet with merged Notes+Tasks results
 - `2026-09-09-notes-outgoing-links-extraction` — Notes — wikilink extraction via HTML parsing + setOutgoingLinks wired to persist()
 - `2026-09-09-notes-quick-add` — Notes — quick-add inline input on the notes list screen

@@ -241,6 +241,143 @@ actual typealias AtomicInt = java.util.concurrent.atomic.AtomicInteger
 
 **Never nest** scope functions — `this`/`it` confusion is the #1 bug.
 
+## 14. Compose Content Slot Idioms
+
+### Receiver scope: `RowScope.() -> Unit` vs plain `() -> Unit`
+
+```kotlin
+// Plain slot — no layout context
+@Composable
+fun EmptyState(
+    title: String,
+    actions: @Composable () -> Unit = {},  // ColumnScope if you need Column-specific content
+)
+
+// RowScope slot — gives access to Row/Column layout modifiers
+@Composable
+fun SettingsRow(
+    title: String,
+    trailing: @Composable RowScope.() -> Unit = {},
+) {
+    Row {
+        Text(title)
+        Spacer(Modifier.weight(1f))
+        trailing()  // has RowScope receiver → Modifier.weight() available
+    }
+}
+```
+
+**When to use `RowScope.() -> Unit`:** only when the slot content needs `Modifier.weight()`, `Modifier.fillMaxWidth()`, or other `RowScope`-scoped modifiers.
+
+**When to use plain `() -> Unit`:** for everything else — simpler, more reusable.
+
+### `@Composable inline fun If` / `IfElse`
+
+Avoids `if (cond) { Content() }` at the top level of a composable body:
+
+```kotlin
+@Composable
+inline fun If(condition: Boolean, content: @Composable () -> Unit) {
+    if (condition) content()
+}
+
+@Composable
+inline fun IfElse(
+    condition: Boolean,
+    ifTrue: @Composable () -> Unit,
+    ifFalse: @Composable () -> Unit,
+) { if (condition) ifTrue() else ifFalse() }
+
+// Usage — no top-level if branches
+@Composable
+fun SomeScreen(state: State) {
+    Column {
+        If(state.isLoading) { CircularProgressIndicator() }
+        IfElse(
+            condition = state.error != null,
+            ifTrue = { ErrorView(state.error) },
+            ifFalse = { ContentView(state.data) },
+        )
+    }
+}
+```
+
+`inline` means zero runtime overhead — the lambda is inlined at compile time, just like a macro.
+
+### `typealias` for long slot signatures
+
+```kotlin
+typealias EmptyStateActions = @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+typealias SettingsRowTrailing = @Composable RowScope.() -> Unit
+
+@Composable
+fun EmptyState(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    actions: EmptyStateActions = {},
+)
+```
+
+Without the typealias, the signature is harder to read and `ColumnScope.() -> Unit` must be repeated at every call site.
+
+### Packed Actions: `@JvmInline value class` + `sealed class Action`
+
+When a composable needs 4+ callbacks, group them into a value class instead of adding individual parameters:
+
+```kotlin
+@JvmInline
+value class NoteCardActions(val block: (Action) -> Unit) {
+    sealed class Action {
+        data class NavigateToNote(val id: NoteId) : Action()
+        data class Delete(val id: NoteId) : Action()
+        data class TogglePin(val id: NoteId) : Action()
+    }
+    fun onNavigateToNote(id: NoteId) = block(Action.NavigateToNote(id))
+    fun onDelete(id: NoteId) = block(Action.Delete(id))
+    fun onTogglePin(id: NoteId) = block(Action.TogglePin(id))
+    companion object { val Empty = NoteCardActions {} }
+}
+```
+
+**Why `sealed class` (not `enum`):** actions with payload (`data class NavigateToNote(val id: NoteId)`) require `sealed class`. `enum class` is only correct for no-payload actions.
+
+**Why `data object`:** for actions with no payload (`data object OpenPriorityPicker : Action()`), use `data object`, not bare `object`.
+
+### Default empty `Actions` companion
+
+Always provide a zero-action singleton for backward compatibility:
+
+```kotlin
+companion object { val Empty = NoteCardActions {} }
+
+// Call site — can omit trailing slot:
+NoteCard(note = note, actions = NoteCardActions.Empty)
+NoteCard(note = note)  // same, using default = {}
+```
+
+### `Modifier` parameter last
+
+```kotlin
+// ✅ Correct — Modifier is always last
+@Composable
+fun TaskCard(
+    task: Task,
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier,  // last
+)
+
+// ❌ Wrong — Modifier in the middle
+@Composable
+fun TaskCard(
+    task: Task,
+    modifier: Modifier = Modifier,  // wrong position
+    onClick: () -> Unit = {},
+)
+```
+
+This matches Compose convention and allows trailing lambda syntax.
+
 ## When to use which pattern
 
 | Situation | Kotlin tool |
@@ -253,3 +390,7 @@ actual typealias AtomicInt = java.util.concurrent.atomic.AtomicInteger
 | Cross-platform platform impl | `expect`/`actual` + `typealias` |
 | Inject time/clock | Constructor param `clock: Clock` (not `Clock.System` direct) |
 | Validation errors | `require(name.isNotBlank()) { "msg" }` — NOT `require(...) { throw ... }` |
+| 4+ composable callbacks | `@JvmInline value class` + `sealed class Action` |
+| Slot needs `Modifier.weight()` | `RowScope.() -> Unit` |
+| Empty branch composable | `inline fun If(condition, content)` |
+| Long slot type signature | `typealias` |

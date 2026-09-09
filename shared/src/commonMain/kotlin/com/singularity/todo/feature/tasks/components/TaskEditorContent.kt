@@ -21,7 +21,33 @@ import kotlinx.datetime.LocalDate
 
 /**
  * Main task editor body — LazyColumn scaffold that composes all sections.
+ *
+ * ## Migration (2026-09)
+ *
+ * Formerly accepted 17 individual callback parameters. Now accepts a single
+ * [TaskEditorActions] parameter. The old signature is preserved as a deprecated
+ * overload that forwards to this version.
  */
+@Composable
+fun TaskEditorContent(
+    state: TaskEditorUiState,
+    actions: TaskEditorActions,
+    modifier: Modifier = Modifier,
+) {
+    EditorContent(state = state, actions = actions, modifier = modifier)
+}
+
+/**
+ * @deprecated Use [TaskEditorContent](state, actions, modifier). This overload
+ *   exists only for backward compatibility during the migration period.
+ */
+@Deprecated(
+    message = "Use TaskEditorContent(state, actions)",
+    replaceWith = ReplaceWith(
+        "TaskEditorContent(state, actions, modifier)",
+        "com.singularity.todo.feature.tasks.components.TaskEditorActions",
+    ),
+)
 @Composable
 fun TaskEditorContent(
     state: TaskEditorUiState,
@@ -43,6 +69,41 @@ fun TaskEditorContent(
     onReminderClick: () -> Unit,
     onAttachmentClick: () -> Unit,
     onRemoveAttachment: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val actions = TaskEditorActions { action ->
+        when (action) {
+            is TaskEditorActions.Action.TitleChange -> onTitleChange(action.title)
+            is TaskEditorActions.Action.DescriptionChange -> onDescriptionChange(action.description)
+            is TaskEditorActions.Action.OpenPriorityPicker -> onPriorityClick()
+            is TaskEditorActions.Action.OpenKindPicker -> {} // not wired in legacy path
+            is TaskEditorActions.Action.OpenDatePicker -> onDateClick()
+            is TaskEditorActions.Action.OpenTimePicker -> onTimeClick()
+            is TaskEditorActions.Action.DatePreset -> onDatePreset(action.date)
+            is TaskEditorActions.Action.ClearDate -> onClearDate()
+            is TaskEditorActions.Action.ClearTime -> onClearTime()
+            is TaskEditorActions.Action.OpenProjectPicker -> onProjectClick()
+            is TaskEditorActions.Action.OpenTagsPicker -> onTagsClick()
+            is TaskEditorActions.Action.ClearProject -> onClearProject()
+            is TaskEditorActions.Action.RemoveTag -> {} // not wired in legacy path
+            is TaskEditorActions.Action.NewChecklistItemChange -> onNewChecklistItemChange(action.text)
+            is TaskEditorActions.Action.AddChecklistItem -> onAddChecklistItem()
+            is TaskEditorActions.Action.ToggleChecklistItem ->
+                onToggleChecklistItem(action.id)
+            is TaskEditorActions.Action.DeleteChecklistItem ->
+                onDeleteChecklistItem(action.id)
+            is TaskEditorActions.Action.OpenReminderPicker -> onReminderClick()
+            is TaskEditorActions.Action.OpenAttachmentPicker -> onAttachmentClick()
+            is TaskEditorActions.Action.RemoveAttachment -> onRemoveAttachment(action.id)
+        }
+    }
+    EditorContent(state = state, actions = actions, modifier = modifier)
+}
+
+@Composable
+private fun EditorContent(
+    state: TaskEditorUiState,
+    actions: TaskEditorActions,
     modifier: Modifier = Modifier,
 ) {
     // Reference date for Today/Tomorrow presets; computed once.
@@ -71,8 +132,8 @@ fun TaskEditorContent(
                 description = state.description,
                 isError = state.errorMessage != null,
                 errorMessage = state.errorMessage,
-                onTitleChange = onTitleChange,
-                onDescriptionChange = onDescriptionChange,
+                onTitleChange = actions::onTitleChange,
+                onDescriptionChange = actions::onDescriptionChange,
                 requestFocus = state.mode is TaskEditorMode.New,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
@@ -82,7 +143,7 @@ fun TaskEditorContent(
         item {
             TaskEditorPriorityRow(
                 priority = state.priority,
-                onClick = onPriorityClick,
+                onClick = actions::onOpenPriorityPicker,
                 modifier = Modifier.padding(vertical = 2.dp),
             )
         }
@@ -95,11 +156,11 @@ fun TaskEditorContent(
                 dueDate = state.dueDate,
                 dueTime = state.dueTime,
                 today = today,
-                onDateClick = onDateClick,
-                onTimeClick = onTimeClick,
-                onDatePreset = onDatePreset,
-                onClearDate = onClearDate,
-                onClearTime = onClearTime,
+                onDateClick = actions::onOpenDatePicker,
+                onTimeClick = actions::onOpenTimePicker,
+                onDatePreset = actions::onDatePreset,
+                onClearDate = actions::onClearDate,
+                onClearTime = actions::onClearTime,
             )
         }
 
@@ -110,10 +171,9 @@ fun TaskEditorContent(
             TaskEditorOrganizationSection(
                 projectLabel = null,
                 tagLabels = state.tagIds.map { "Tag" },
-                onProjectClick = onProjectClick,
-                onTagsClick = onTagsClick,
-                onClearProject = onClearProject,
-                onRemoveTag = { },
+                onProjectClick = actions::onOpenProjectPicker,
+                onTagsClick = actions::onOpenTagsPicker,
+                onClearProject = actions::onClearProject,
             )
         }
 
@@ -124,10 +184,10 @@ fun TaskEditorContent(
             TaskEditorChecklistSection(
                 items = state.checklistItems,
                 newItemText = state.newChecklistItem,
-                onNewItemChange = onNewChecklistItemChange,
-                onAddItem = onAddChecklistItem,
-                onToggleItem = onToggleChecklistItem,
-                onDeleteItem = onDeleteChecklistItem,
+                onNewItemChange = actions::onNewChecklistItemChange,
+                onAddItem = actions::onAddChecklistItem,
+                onToggleItem = actions::onToggleChecklistItem,
+                onDeleteItem = actions::onDeleteChecklistItem,
                 modifier = Modifier.padding(vertical = 4.dp),
             )
         }
@@ -138,7 +198,7 @@ fun TaskEditorContent(
         item {
             TaskEditorReminderSection(
                 reminderOffset = state.reminderOffset,
-                onClick = onReminderClick,
+                onClick = actions::onOpenReminderPicker,
                 modifier = Modifier.padding(vertical = 4.dp),
             )
         }
@@ -149,8 +209,8 @@ fun TaskEditorContent(
         item {
             TaskEditorAttachmentsSection(
                 attachments = state.pendingAttachments,
-                onAddClick = onAttachmentClick,
-                onRemoveAttachment = onRemoveAttachment,
+                onAddClick = actions::onOpenAttachmentPicker,
+                onRemoveAttachment = actions::onRemoveAttachment,
                 modifier = Modifier.padding(vertical = 4.dp),
             )
         }

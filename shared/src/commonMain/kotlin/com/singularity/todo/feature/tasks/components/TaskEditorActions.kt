@@ -1,8 +1,6 @@
 package com.singularity.todo.feature.tasks.components
 
-import com.singularity.todo.feature.checklist.ChecklistItem
-import com.singularity.todo.feature.checklist.ChecklistItemId
-import com.singularity.todo.feature.reminders.ReminderOffset
+import com.singularity.todo.feature.settings.ReminderOffset
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.TaskPriority
 import com.singularity.todo.feature.tasks.TaskId
@@ -81,8 +79,8 @@ value class TaskEditorActions(
         // ── Checklist ──────────────────────────────────────────────────────
         data class NewChecklistItemChange(val text: String) : Action()
         data object AddChecklistItem : Action()
-        data class ToggleChecklistItem(val id: ChecklistItemId) : Action()
-        data class DeleteChecklistItem(val id: ChecklistItemId) : Action()
+        data class ToggleChecklistItem(val id: String) : Action()
+        data class DeleteChecklistItem(val id: String) : Action()
 
         // ── Reminder ────────────────────────────────────────────────────────
         data object OpenReminderPicker : Action()
@@ -121,8 +119,8 @@ value class TaskEditorActions(
 
     fun onNewChecklistItemChange(text: String) = block(Action.NewChecklistItemChange(text))
     fun onAddChecklistItem() = block(Action.AddChecklistItem)
-    fun onToggleChecklistItem(id: ChecklistItemId) = block(Action.ToggleChecklistItem(id))
-    fun onDeleteChecklistItem(id: ChecklistItemId) = block(Action.DeleteChecklistItem(id))
+    fun onToggleChecklistItem(id: String) = block(Action.ToggleChecklistItem(id))
+    fun onDeleteChecklistItem(id: String) = block(Action.DeleteChecklistItem(id))
 
     // ── Reminder ─────────────────────────────────────────────────────────────
 

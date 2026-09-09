@@ -67,6 +67,7 @@ import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.notes.components.NoteCard
 import com.singularity.todo.feature.notes.components.NoteCardActions
+import com.singularity.todo.feature.notes.components.NoteCardContent
 import com.singularity.todo.feature.notes.components.NotesActions
 import com.singularity.todo.feature.tasks.UserId
 import org.koin.compose.viewmodel.koinViewModel
@@ -421,19 +422,15 @@ fun SwipeableNoteCard(
         backgroundContent = {
             SwipeBackground(dismissState.currentValue)
         },
-        modifier = modifier
-            .fillMaxWidth()
-            .combinedClickable(
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        NoteCardContent(
+            note = note,
+            isSelected = isSelected,
+            modifier = Modifier.combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
             ),
-    ) {
-        NoteCard(
-            note = note,
-            isSelected = isSelected,
-            onClick = onClick,
-            onLongClick = onLongClick,
-            actions = NoteCardActions.Empty,
         )
     }
 }

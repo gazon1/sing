@@ -23,7 +23,6 @@ fun TaskEditorOrganizationSection(
     onProjectClick: () -> Unit,
     onTagsClick: () -> Unit,
     onClearProject: () -> Unit,
-    onRemoveTag: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
