@@ -49,11 +49,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -141,13 +144,21 @@ fun ProjectDetailContent(
     val availableTasks by viewModel.availableTasksFlow.collectAsStateWithLifecycle()
     var sheetState by remember { mutableStateOf<ActiveSheet?>(null) }
     var overflowMenuOpen by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            errorMessage = null
+        }
+    }
 
     CollectEvents(viewModel.events) { event ->
         when (event) {
             ProjectDetailUiEvent.NavigateBack -> onBack()
             ProjectDetailUiEvent.NavigateToTasks -> onNavigateToTasks(projectId)
-            ProjectDetailUiEvent.AddTask -> { /* quick-add handled inline */ }
-            is ProjectDetailUiEvent.ShowError -> { /* TODO: show snackbar */ }
+            is ProjectDetailUiEvent.ShowError -> { errorMessage = event.message }
             ProjectDetailUiEvent.Saved -> { /* silent — lastEditedAt drives UI */ }
         }
     }
@@ -205,10 +216,12 @@ fun ProjectDetailContent(
                     isArchived = contentState.ui.project.isDeleted,
                     onRemind = { sheetState = ActiveSheet.PickReminder },
                     onAttach = { sheetState = ActiveSheet.AddAttachment },
+                    onToggleArchive = { viewModel.toggleArchive() },
                     onMoreClick = { overflowMenuOpen = true },
                 )
             }
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         when (val s = state) {
             ProjectDetailUiState.Loading -> LoadingIndicator(Modifier.padding(padding))
@@ -570,6 +583,7 @@ private fun ProjectBottomActionBar(
     isArchived: Boolean,
     onRemind: () -> Unit,
     onAttach: () -> Unit,
+    onToggleArchive: () -> Unit,
     onMoreClick: () -> Unit,
 ) {
     BottomAppBar(modifier = Modifier.fillMaxWidth()) {
@@ -581,7 +595,7 @@ private fun ProjectBottomActionBar(
         }
         Spacer(Modifier.weight(1f))
         if (isArchived) {
-            IconButton(onClick = { /* unarchive */ }) {
+            IconButton(onClick = onToggleArchive) {
                 Icon(Icons.Filled.PushPin, "Unarchive")
             }
         }

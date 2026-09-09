@@ -13,6 +13,7 @@ import com.singularity.todo.feature.tasks.TaskRepository
 import com.singularity.todo.feature.tasks.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.TaskKind
 import com.singularity.todo.feature.tasks.TaskPriority
+import kotlinx.datetime.LocalDate
 import com.singularity.todo.feature.tasks.UserId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -81,12 +82,18 @@ class ProjectDetailViewModel(
 
     /**
      * All active tasks that are NOT in this project — for the "add existing task"
-     * quick-add picker. Derived by filtering [TaskFilter.All] against this [projectId].
+     * quick-add picker. Excludes inbox tasks (projectId == null) and completed tasks.
+     * Sorted by dueDate ascending (nulls last), then updatedAt descending.
      */
     val availableTasksFlow: StateFlow<List<Task>> =
         taskRepo.watchTasks(currentUser.scopedUserId.value, TaskFilter.All)
             .map { all ->
-                all.filter { it.projectId != projectId && it.completedAt == null }
+                all
+                    .filter { it.projectId != null && it.projectId != projectId && it.completedAt == null }
+                    .sortedWith(
+                        compareBy<Task, kotlinx.datetime.LocalDate?>(nullsLast()) { it.dueDate }
+                            .thenByDescending { it.updatedAt }
+                    )
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -260,6 +267,5 @@ sealed interface ProjectDetailUiEvent {
     data object Saved : ProjectDetailUiEvent            // explicit action
     data object NavigateBack : ProjectDetailUiEvent      // after successful delete
     data object NavigateToTasks : ProjectDetailUiEvent   // "See all N tasks"
-    data object AddTask : ProjectDetailUiEvent          // quick-add submitted
     data class ShowError(val message: String) : ProjectDetailUiEvent
 }
