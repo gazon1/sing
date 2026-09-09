@@ -8,5 +8,3 @@ internal fun formatNoteAiResult(result: NoteAiResult): String = when (result) {
     is NoteAiResult.Error -> "Error: ${result.message}"
 }
 
-internal fun canSaveNote(state: EditorState): Boolean =
-    state is EditorState.Editing && state.title.isNotBlank()

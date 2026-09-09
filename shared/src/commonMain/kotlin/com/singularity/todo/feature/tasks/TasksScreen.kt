@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.tasks.TaskPriority
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -41,7 +40,6 @@ import com.singularity.todo.feature.tasks.components.TaskAiBottomSheet
 import com.singularity.todo.feature.tasks.components.TaskCard
 import com.singularity.todo.feature.tasks.components.TaskCardActions
 import com.singularity.todo.core.ui.TestTags
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

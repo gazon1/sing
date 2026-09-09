@@ -5,14 +5,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -41,11 +38,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.platform.todayInSystemZone
@@ -59,14 +53,11 @@ import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.formatDueChip
 import com.singularity.todo.core.ui.components.formatTimestampsRelative
 import com.singularity.todo.core.ui.components.priorityColorByIndex
-import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.feature.checklist.ChecklistItem
-import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.attachments.AttachmentSheet
 import com.singularity.todo.feature.tasks.components.TaskDetailActions
 import com.singularity.todo.feature.tasks.components.TaskEditorPrioritySheet
-import com.singularity.todo.feature.tasks.toActiveSheet
 import com.singularity.todo.feature.tasks.sections.TaskBottomActionBar
 import com.singularity.todo.feature.tasks.sections.TaskChecklistSection
 import com.singularity.todo.feature.tasks.sections.TaskHeroSection
@@ -81,8 +72,6 @@ import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import com.singularity.todo.core.files.toFilePickerResult
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.datetime.LocalTime
-import kotlinx.coroutines.launch
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 // ─── Public screen ─────────────────────────────────────────────────────────────
@@ -102,11 +91,9 @@ fun TaskDetailScreen(
         attachmentsVm.watchAttachments(taskId)
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val attachmentsState by attachmentsVm.state.collectAsStateWithLifecycle()
 
     var activeSheet by remember { mutableStateOf<ActiveSheet?>(null) }
     var showActionsMenu by remember { mutableStateOf(false) }
-    val focusManager = LocalFocusManager.current
 
     val filePickerLauncher = rememberFilePickerLauncher(type = FileKitType.File()) { file ->
         file?.let {
@@ -116,7 +103,6 @@ fun TaskDetailScreen(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val snackbarScope = rememberCoroutineScope()
 
     // Map VM events to the active sheet state and snackbar.
     LaunchedEffect(Unit) {
@@ -237,7 +223,7 @@ fun TaskDetailScreen(
 
     // ─── Sheet overlays ─────────────────────────────────────────────────────────
 
-    when (val sheet = activeSheet) {
+    when (activeSheet) {
         ActiveSheet.Date -> {
             DatePickerSheet(
                 initialDate = loaded?.task?.dueDate,

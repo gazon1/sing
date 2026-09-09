@@ -25,7 +25,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -67,6 +66,7 @@ import com.singularity.todo.feature.notes.components.EditorToolbar
 import com.singularity.todo.feature.search.InternalLinkRepository
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import kotlin.time.Duration.Companion.milliseconds
 
 // ─── Screen entry ──────────────────────────────────────────────────────────────
 
@@ -90,7 +90,7 @@ fun NoteEditorScreen(
     LaunchedEffect(Unit) {
         viewModel.savedPulse.collect {
             savedVisible = true
-            kotlinx.coroutines.delay(1500)
+            kotlinx.coroutines.delay(1500.milliseconds)
             savedVisible = false
         }
     }
@@ -309,7 +309,7 @@ fun NoteEditorScreenContent(
         bottomBar = {
             session?.let { editorSession ->
                 Column {
-                    MetaChipsRow(html = (editorState as? EditorState.Editing)?.html ?: "")
+                    MetaChipsRow(html = editorState.html)
                     EditorToolbar(
                         richTextState = editorSession.richTextState,
                         onHtmlChange = { editorSession.dispatchHtml() },

@@ -126,7 +126,6 @@ open class NotesViewModel(
 
     // AI action results
     private val _aiResult = MutableSharedFlow<NoteAiResult>()
-    val aiResult = _aiResult.asSharedFlow()
 
     // One-shot "Saved" pulse — triggers the Saved-pill animation in the UI.
     // Uses extraBufferCapacity=1 so rapid saves don't drop the signal.
@@ -342,19 +341,8 @@ open class NotesViewModel(
         }
     }
 
-    fun unarchive(id: NoteId) {
-        scope.launch(Dispatchers.Unconfined) {
-            repo.unarchive(id).getOrThrow()
-        }
-    }
 
-    // ─── Color ─────────────────────────────────────────────────────────────
 
-    fun setColor(id: NoteId, color: NoteColor?) {
-        scope.launch(Dispatchers.Unconfined) {
-            repo.setColor(id, color).getOrThrow()
-        }
-    }
 
     // ─── Multi-select ──────────────────────────────────────────────────────
 

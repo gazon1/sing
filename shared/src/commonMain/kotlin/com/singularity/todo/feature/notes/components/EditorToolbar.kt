@@ -5,13 +5,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
+import androidx.compose.material.icons.automirrored.filled.FormatAlignRight
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.FormatAlignCenter
-import androidx.compose.material.icons.filled.FormatAlignLeft
-import androidx.compose.material.icons.filled.FormatAlignRight
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatListNumbered
@@ -113,9 +113,11 @@ private val overflowButtons = listOf(
     ToolbarButton(EditorAction.H2,           Icons.Filled.Title,                                  "Heading 2"),
     ToolbarButton(EditorAction.H3,           Icons.Filled.Title,                                  "Heading 3"),
     ToolbarButton(EditorAction.Code,          Icons.Filled.Code,                                   "Inline code"),
-    ToolbarButton(EditorAction.AlignLeft,    Icons.Filled.FormatAlignLeft,                        "Align left"),
+    ToolbarButton(EditorAction.AlignLeft,
+        Icons.AutoMirrored.Filled.FormatAlignLeft,                        "Align left"),
     ToolbarButton(EditorAction.AlignCenter,  Icons.Filled.FormatAlignCenter,                      "Align center"),
-    ToolbarButton(EditorAction.AlignRight,   Icons.Filled.FormatAlignRight,                       "Align right"),
+    ToolbarButton(EditorAction.AlignRight,
+        Icons.AutoMirrored.Filled.FormatAlignRight,                       "Align right"),
     ToolbarButton(EditorAction.ExternalLink, Icons.Filled.Link,                                  "External link"),
     ToolbarButton(EditorAction.InternalLink, Icons.Filled.Link,                                  "Internal link"),
 )

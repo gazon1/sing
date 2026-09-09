@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.notes
 
-import androidx.compose.ui.text.style.TextAlign
 
 /**
  * Formatting action for the rich-text toolbar.
