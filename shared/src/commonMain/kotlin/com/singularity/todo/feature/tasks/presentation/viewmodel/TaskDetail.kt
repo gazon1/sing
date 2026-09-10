@@ -220,7 +220,7 @@ class TaskDetailViewModel(
                 }
             is TaskDetailIntent.Domain.SetReminder -> {
                 scope.launch {
-                    if (intent.offset == com.singularity.todo.feature.settings.ReminderOffset.AT_DUE) {
+                    if (intent.offset == com.singularity.todo.core.reminders.ReminderOffset.AT_DUE) {
                         deps.reminderRepo.deleteByTask(current.id, deps.currentUser.current)
                             .onFailure { emitError("Failed to set reminder") }
                         return@launch
@@ -300,7 +300,7 @@ class TaskDetailViewModel(
     private fun computeFireAt(
         dueDate: kotlinx.datetime.LocalDate?,
         dueTime: String?,
-        offset: com.singularity.todo.feature.settings.ReminderOffset,
+        offset: com.singularity.todo.core.reminders.ReminderOffset,
         nowEpochMs: Long,
     ): Long {
         if (dueDate == null) return nowEpochMs

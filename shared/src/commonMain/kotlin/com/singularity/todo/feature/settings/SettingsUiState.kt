@@ -1,90 +1,69 @@
 package com.singularity.todo.feature.settings
 
-import com.singularity.todo.core.error.AppError
-import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.llm.AiTestResult
+import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.settings.SettingsIntent
+import com.singularity.todo.core.settings.SettingsSection
 
 /**
- * Settings screen UI state.
+ * Re-exports [SettingsIntent] from [core.settings] so that existing importers
+ * (sub-screens, ViewModels) don't need to change their import paths.
+ */
+typealias SettingsIntent = com.singularity.todo.core.settings.SettingsIntent
+
+/**
+ * Settings screen UI state — thin sealed interface.
  * [Loading] while DataStore loads; [Content] once ready; [Error] on failure.
+ *
+ * ## Architecture note
+ * [Content] combines:
+ * - Typed contributor sections ([appearance], [ai]) — the new contributor pattern
+ * - Flat fields for legacy sub-screens that still read directly from [Content]
+ *   (notifications, work schedule, greeting, account) — these will be migrated to
+ *   their own contributors in a future iteration.
+ *
+ * Sub-screens (Interface, AI Provider, Notifications, etc.) are gradually being
+ * converted to use typed sections from `core.settings` directly instead of the
+ * flat legacy fields.
  */
 sealed interface SettingsUiState {
     data object Loading : SettingsUiState
-    data class Error(val cause: AppError) : SettingsUiState
+    data class Error(val cause: Throwable) : SettingsUiState
     data class Content(
-        // Appearance
+        // ── Typed contributor sections (new pattern) ────────────────────────────
+        val appearance: SettingsSection.Appearance = SettingsSection.Appearance(),
+        val ai: SettingsSection.Ai = SettingsSection.Ai(),
+
+        // ── Legacy flat fields (backward compatibility with existing sub-screens) ──
+        // Appearance (mirrors appearance.*)
         val darkTheme: Boolean = false,
         val accentColor: String = "blue",
         val fontSizeScale: Float = 1f,
+        // AI Provider (mirrors ai.*)
+        val aiProvider: String = "openai",
+        val aiBaseUrl: String = "https://api.openai.com/v1",
+        val aiModel: String = "gpt-4o-mini",
+        val aiSystemPrompt: String = "You are a helpful productivity assistant. Be concise and actionable.",
+        val aiTestResult: AiTestResult = AiTestResult.Idle,
+        val aiModels: List<String> = emptyList(),
+        val isFetchingAiModels: Boolean = false,
+        val fetchAiModelsError: String? = null,
         // Notifications
         val notificationsEnabled: Boolean = true,
         val notificationSound: Boolean = true,
         val notificationVibration: Boolean = true,
         val reminderDefault: ReminderOffset = ReminderOffset.AT_DUE,
-        // AI Provider — the API key never enters here, it lives in SecureStorage.
-        val aiProvider: String = "openai",
-        val aiBaseUrl: String = "https://api.openai.com/v1",
-        val aiModel: String = "gpt-4o-mini",
-        val aiSystemPrompt: String = SettingsRepository.DEFAULT_SYSTEM_PROMPT,
-        val aiTestResult: AiTestResult = AiTestResult.Idle,
-        val aiModels: List<String> = emptyList(),
-        val isFetchingAiModels: Boolean = false,
-        val fetchAiModelsError: String? = null,
         // Work Schedule
-        val workDayStartMinutes: Int = 540,   // 09:00
-        val workDayEndMinutes: Int = 1080,   // 18:00
-        val workLunchStartMinutes: Int = 720, // 12:00
-        val workLunchEndMinutes: Int = 780,   // 13:00
+        val workDayStartMinutes: Int = 540,
+        val workDayEndMinutes: Int = 1080,
+        val workLunchStartMinutes: Int = 720,
+        val workLunchEndMinutes: Int = 780,
         val workWeekendSat: Boolean = false,
         val workWeekendSun: Boolean = false,
-        // Greeting hours (clock hour, 0-23)
+        // Greeting
         val greetingMorningEnd: Int = 12,
         val greetingAfternoonEnd: Int = 18,
         // Account
         val userId: String = "anonymous",
     ) : SettingsUiState
-}
-
-/** Result of the "Test connection" probe from the AI Provider settings screen. */
-sealed interface AiTestResult {
-    data object Idle : AiTestResult
-    data object Testing : AiTestResult
-    data class Ok(val latencyMs: Long) : AiTestResult
-    data class Error(val message: String) : AiTestResult
-}
-
-enum class ReminderOffset(val minutes: Int, val label: String) {
-    AT_DUE(0, "At due time"),
-    FIFTEEN_MIN(15, "15 minutes before"),
-    ONE_HOUR(60, "1 hour before"),
-    ONE_DAY(1440, "1 day before"),
-}
-
-sealed interface SettingsIntent {
-    // Appearance
-    data class UpdateDarkTheme(val value: Boolean) : SettingsIntent
-    data class UpdateAccentColor(val value: String) : SettingsIntent
-    data class UpdateFontSizeScale(val value: Float) : SettingsIntent
-    // Notifications
-    data class UpdateNotificationsEnabled(val value: Boolean) : SettingsIntent
-    data class UpdateNotificationSound(val value: Boolean) : SettingsIntent
-    data class UpdateNotificationVibration(val value: Boolean) : SettingsIntent
-    data class UpdateReminderDefault(val value: ReminderOffset) : SettingsIntent
-    // AI Provider
-    data class UpdateAiApiKey(val value: String) : SettingsIntent
-    data class UpdateAiProvider(val value: String) : SettingsIntent
-    data class UpdateAiBaseUrl(val value: String) : SettingsIntent
-    data class UpdateAiModel(val value: String) : SettingsIntent
-    data class UpdateAiSystemPrompt(val value: String) : SettingsIntent
-    data object TestAiConnection : SettingsIntent
-    data object FetchAiModels : SettingsIntent
-    // Work Schedule
-    data class UpdateWorkDayStart(val minutes: Int) : SettingsIntent
-    data class UpdateWorkDayEnd(val minutes: Int) : SettingsIntent
-    data class UpdateWorkLunchStart(val minutes: Int) : SettingsIntent
-    data class UpdateWorkLunchEnd(val minutes: Int) : SettingsIntent
-    data class UpdateWorkWeekendSat(val value: Boolean) : SettingsIntent
-    data class UpdateWorkWeekendSun(val value: Boolean) : SettingsIntent
-    // Greetings
-    data class UpdateGreetingMorningEnd(val hour: Int) : SettingsIntent
-    data class UpdateGreetingAfternoonEnd(val hour: Int) : SettingsIntent
 }

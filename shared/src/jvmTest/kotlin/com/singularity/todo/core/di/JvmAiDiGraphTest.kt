@@ -42,6 +42,8 @@ import com.singularity.todo.feature.ai.tools.ListProjectsTool
 import com.singularity.todo.feature.ai.tools.UpdateProjectTool
 import com.singularity.todo.feature.ai.tools.CreateTagTool
 import com.singularity.todo.feature.ai.tools.DeleteTagTool
+import com.singularity.todo.core.security.FakeSecureStorage
+import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
@@ -71,7 +73,7 @@ class JvmAiDiGraphTest {
 
     @Test
     fun `full AI module resolves every binding without network calls`() {
-        val app = org.koin.core.context.startKoin {
+        val app = org.koin.dsl.koinApplication {
             modules(
                 platformModule(),
                 *domainModule().toTypedArray(),
@@ -79,9 +81,10 @@ class JvmAiDiGraphTest {
                 // Safety belt overrides — see class KDoc.
                 module {
                     single<LLModel> { testLLModel }
-                    // Use fakes to avoid needing real DataStore
+                    // Use fakes to avoid needing real DataStore / file system
                     single<ProfileRepository> { FakeProfileRepository() }
                     single<ProfileAwareCurrentUser> { FakeProfileAwareCurrentUser() }
+                    single<SecureStoragePort> { FakeSecureStorage() }
                 },
             )
         }
@@ -135,7 +138,7 @@ class JvmAiDiGraphTest {
             koin.get<CreateTagTool>()
             koin.get<DeleteTagTool>()
         } finally {
-            org.koin.core.context.stopKoin()
+            app.close()
         }
     }
 }

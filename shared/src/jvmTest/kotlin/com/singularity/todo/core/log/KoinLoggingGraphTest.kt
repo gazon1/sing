@@ -10,7 +10,7 @@ class KoinLoggingGraphTest {
 
     @Test
     fun `Logger can be resolved from Koin`() {
-        val app = org.koin.core.context.startKoin {
+        val app = org.koin.dsl.koinApplication {
             modules(
                 org.koin.dsl.module {
                     single { Logger.withTag("TestTag") }
@@ -20,13 +20,13 @@ class KoinLoggingGraphTest {
         try {
             app.koin.get<Logger>()
         } finally {
-            org.koin.core.context.stopKoin()
+            app.close()
         }
     }
 
     @Test
     fun `LoggerHolder can be resolved from Koin`() {
-        val app = org.koin.core.context.startKoin {
+        val app = org.koin.dsl.koinApplication {
             modules(
                 org.koin.dsl.module {
                     single { Logger.withTag("App") }
@@ -37,7 +37,7 @@ class KoinLoggingGraphTest {
         try {
             app.koin.get<LoggerHolder>()
         } finally {
-            org.koin.core.context.stopKoin()
+            app.close()
         }
     }
 }

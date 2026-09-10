@@ -1,7 +1,6 @@
 package com.singularity.todo.shell
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AppNavigator
 import com.singularity.todo.feature.nav.AppShell

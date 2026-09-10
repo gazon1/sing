@@ -20,8 +20,8 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.settings.ReminderOffset
-import com.singularity.todo.feature.settings.SettingsIntent
+import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.feature.settings.SettingsUiState
 
 @Composable
@@ -40,7 +40,7 @@ fun NotificationSettingsScreen(
             SettingsSwitchRow(
                 title = "Enable Notifications",
                 checked = state.notificationsEnabled,
-                onCheckedChange = { onIntent(SettingsIntent.UpdateNotificationsEnabled(it)) },
+                onCheckedChange = { onIntent(SettingsIntent.Notifications.UpdateEnabled(it)) },
             )
         }
 
@@ -49,19 +49,19 @@ fun NotificationSettingsScreen(
                 SettingsSwitchRow(
                     title = "Notification Sound",
                     checked = state.notificationSound,
-                    onCheckedChange = { onIntent(SettingsIntent.UpdateNotificationSound(it)) },
+                    onCheckedChange = { onIntent(SettingsIntent.Notifications.UpdateSound(it)) },
                 )
                 SettingsSwitchRow(
                     title = "Vibration",
                     checked = state.notificationVibration,
-                    onCheckedChange = { onIntent(SettingsIntent.UpdateNotificationVibration(it)) },
+                    onCheckedChange = { onIntent(SettingsIntent.Notifications.UpdateVibration(it)) },
                 )
             }
         }
 
         ReminderDefaultsSection(
             selected = state.reminderDefault,
-            onSelect = { onIntent(SettingsIntent.UpdateReminderDefault(it)) },
+            onSelect = { onIntent(SettingsIntent.Notifications.UpdateReminderDefault(it)) },
         )
     }
 }

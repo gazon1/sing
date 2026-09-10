@@ -32,7 +32,7 @@ import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.theme.SingularityAccents
-import com.singularity.todo.feature.settings.SettingsIntent
+import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.feature.settings.SettingsUiState
 
 @Composable
@@ -52,18 +52,18 @@ fun InterfaceSettingsScreen(
                 title = "Dark Theme",
                 subtitle = "Use dark color scheme",
                 checked = state.darkTheme,
-                onCheckedChange = { onIntent(SettingsIntent.UpdateDarkTheme(it)) },
+                onCheckedChange = { onIntent(SettingsIntent.Appearance.UpdateDarkTheme(it)) },
             )
         }
 
         AccentColorPicker(
             selected = state.accentColor,
-            onSelect = { onIntent(SettingsIntent.UpdateAccentColor(it)) },
+            onSelect = { onIntent(SettingsIntent.Appearance.UpdateAccentColor(it)) },
         )
 
         FontSizeSlider(
             value = state.fontSizeScale,
-            onValueChange = { onIntent(SettingsIntent.UpdateFontSizeScale(it)) },
+            onValueChange = { onIntent(SettingsIntent.Appearance.UpdateFontSizeScale(it)) },
         )
     }
 }

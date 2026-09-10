@@ -36,12 +36,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.backup.BackupScreen
 import com.singularity.todo.feature.backup.BackupViewModel
-import com.singularity.todo.feature.settings.screens.AccountSettingsScreen
+import com.singularity.todo.feature.profile.presentation.AccountSettingsScreen
 import com.singularity.todo.feature.settings.screens.AiProviderSettingsScreen
 import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
@@ -68,7 +69,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val viewModel: SettingsViewModel = koinViewModel()
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.state.collectAsState()
     var selectedTab by remember { mutableStateOf(SettingsTab.Interface) }
 
     when (val state = uiState) {
@@ -137,7 +138,6 @@ private fun SettingsContent(
                     onSelectRestoreFile = { /* Platform shell provides file picker on Android */ },
                 )
                 SettingsTab.Account -> AccountSettingsScreen(
-                    state = state,
                     onNavigateToProfileSwitcher = onNavigateToProfileSwitcher,
                 )
             }
@@ -269,7 +269,6 @@ private fun SettingsContentPreview(
                     Text("Backup", modifier = Modifier.padding(16.dp))
                 }
                 SettingsTab.Account -> AccountSettingsScreen(
-                    state = state,
                     onNavigateToProfileSwitcher = {},
                     profileRepository = FakeProfileRepository(),
                 )

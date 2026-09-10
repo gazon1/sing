@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tags
 
-import java.util.UUID
 import kotlin.time.Instant
 
 @JvmInline

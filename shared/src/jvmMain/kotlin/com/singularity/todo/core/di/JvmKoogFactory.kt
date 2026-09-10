@@ -1,8 +1,9 @@
 package com.singularity.todo.core.di
 
+import com.singularity.todo.core.llm.OpenAiConfig
+import com.singularity.todo.core.llm.SettingsReader
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
-import com.singularity.todo.feature.ai.OpenAiConfig
 
 /**
  * JVM actual for [createKoogPromptExecutor].
@@ -16,7 +17,12 @@ actual suspend fun createKoogPromptExecutor(
     secureStorage: SecureStoragePort,
     settings: SettingsRepository,
 ): PromptExecutorPort {
-    val cfg = OpenAiConfig.resolve(secureStorage, settings)
+    val reader = object : SettingsReader {
+        override val aiProvider = settings.aiProvider
+        override val aiBaseUrl = settings.aiBaseUrl
+        override val aiModel = settings.aiModel
+    }
+    val cfg = OpenAiConfig.resolve(secureStorage, reader)
     val executor = buildExecutor(cfg)
     return KoogPromptExecutorPort(executor)
 }

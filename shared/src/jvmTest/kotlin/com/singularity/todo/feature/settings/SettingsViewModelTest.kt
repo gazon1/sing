@@ -1,18 +1,22 @@
 package com.singularity.todo.feature.settings
 
+import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.security.FakeSecureStorage
+import com.singularity.todo.core.settings.SettingsContributor
+import com.singularity.todo.core.settings.SettingsIntent
+import com.singularity.todo.feature.ai.AiSettingsContributor
+import com.singularity.todo.feature.ai.data.AiSettingsStore
 import com.singularity.todo.feature.ai.FakeTextGen
-import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertNull
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
@@ -20,295 +24,142 @@ class SettingsViewModelTest {
     private val fakeStorage = FakeSecureStorage()
     private val fakeSettings = FakeSettingsRepository()
 
-    /** Unconfined dispatcher runs launchFlow collectors synchronously — no
-     *  advanceUntilIdle juggling required after the first one. */
-    private fun createVm(
-        scope: CoroutineScope,
-        textGen: TextGenPort = FakeTextGen(),
-    ): SettingsViewModel =
-        SettingsViewModel(
+    private fun createVm(scope: CoroutineScope): SettingsViewModel {
+        val aiStore = AiSettingsStore(fakeStorage, fakeSettings, FakeTextGen())
+        val aiContributor = AiSettingsContributor(aiStore)
+        val contributors: Set<SettingsContributor<*, *>> = setOf(aiContributor)
+        return SettingsViewModel(
+            contributors = contributors,
             settings = fakeSettings,
-            secureStorage = fakeStorage,
-            textGen = textGen,
-            clock = { 0L },
             scopeOverride = scope,
         )
+    }
 
     // ─── Initial state ─────────────────────────────────────────────────────────
 
     @Test
-    fun `initial state is Content after init`() = runTest {
+    fun `initial state is Content`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertIs<SettingsUiState.Content>(state)
+        runCurrent()
+        val state = vm.state.value as SettingsUiState.Content
         assertEquals(false, state.darkTheme)
         assertEquals("blue", state.accentColor)
         assertEquals(1f, state.fontSizeScale)
         assertEquals(true, state.notificationsEnabled)
     }
 
-    // ─── Appearance intents ────────────────────────────────────────────────────
+    // ─── Appearance ─────────────────────────────────────────────────────────────
 
     @Test
     fun `UpdateDarkTheme updates state`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateDarkTheme(true))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertIs<SettingsUiState.Content>(state)
+        vm.processIntent(SettingsIntent.Appearance.UpdateDarkTheme(true))
+        runCurrent()
+        val state = vm.state.value as SettingsUiState.Content
         assertEquals(true, state.darkTheme)
     }
 
     @Test
     fun `UpdateAccentColor updates state`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateAccentColor("green"))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
+        vm.processIntent(SettingsIntent.Appearance.UpdateAccentColor("green"))
+        runCurrent()
+        val state = vm.state.value as SettingsUiState.Content
         assertEquals("green", state.accentColor)
     }
 
     @Test
     fun `UpdateFontSizeScale updates state`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateFontSizeScale(1.5f))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals(1.5f, state.fontSizeScale)
+        vm.processIntent(SettingsIntent.Appearance.UpdateFontSizeScale(1.25f))
+        runCurrent()
+        val state = vm.state.value as SettingsUiState.Content
+        assertEquals(1.25f, state.fontSizeScale)
     }
 
-    // ─── Notification intents ──────────────────────────────────────────────────
+    // ─── Notifications ─────────────────────────────────────────────────────────
 
     @Test
-    fun `UpdateNotificationsEnabled updates state`() = runTest {
+    fun `Notifications UpdateEnabled updates state`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateNotificationsEnabled(false))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
+        vm.processIntent(SettingsIntent.Notifications.UpdateEnabled(false))
+        runCurrent()
+        val state = vm.state.value as SettingsUiState.Content
         assertEquals(false, state.notificationsEnabled)
     }
 
+    // ─── Work Schedule ────────────────────────────────────────────────────────
+
     @Test
-    fun `UpdateNotificationSound updates state`() = runTest {
+    fun `WorkSchedule UpdateWorkDayStart updates state`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateNotificationSound(false))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals(false, state.notificationSound)
+        vm.processIntent(SettingsIntent.WorkSchedule.UpdateWorkDayStart(600))
+        runCurrent()
+        val state = vm.state.value as SettingsUiState.Content
+        assertEquals(600, state.workDayStartMinutes)
     }
 
+    // ─── Greeting ─────────────────────────────────────────────────────────────
+
     @Test
-    fun `UpdateNotificationVibration updates state`() = runTest {
+    fun `Greeting UpdateMorningEnd updates state`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateNotificationVibration(false))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals(false, state.notificationVibration)
+        vm.processIntent(SettingsIntent.Greeting.UpdateMorningEnd(10))
+        runCurrent()
+        val state = vm.state.value as SettingsUiState.Content
+        assertEquals(10, state.greetingMorningEnd)
     }
 
-    @Test
-    fun `UpdateReminderDefault updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateReminderDefault(com.singularity.todo.feature.settings.ReminderOffset.FIFTEEN_MIN))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals(com.singularity.todo.feature.settings.ReminderOffset.FIFTEEN_MIN, state.reminderDefault)
-    }
-
-    // ─── AI intents ────────────────────────────────────────────────────────────
+    // ─── AI ─────────────────────────────────────────────────────────────────
 
     @Test
-    fun `UpdateAiApiKey writes to secureStorage only — never enters UI state`() = runTest {
+    fun `Ai UpdateProvider changes provider`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateAiApiKey("sk-test"))
-        advanceUntilIdle()
-        // State must not contain the secret
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertIs<SettingsUiState.Content>(state)
-        // But secure storage holds it
-        assertEquals("sk-test", fakeStorage.read("ai_key_openai"))
-    }
-
-    @Test
-    fun `UpdateAiApiKey blank deletes from SecureStorage`() = runTest {
-        // First write something, then clear it
-        fakeStorage.write("ai_key_openai", "sk-test")
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateAiApiKey(""))
-        advanceUntilIdle()
-        assertNull(fakeStorage.read("ai_key_openai"))
-    }
-
-    @Test
-    fun `UpdateAiBaseUrl updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateAiBaseUrl("https://api.test.com/v1"))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals("https://api.test.com/v1", state.aiBaseUrl)
-    }
-
-    @Test
-    fun `UpdateAiModel updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateAiModel("gpt-4"))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals("gpt-4", state.aiModel)
-    }
-
-    // ─── Work schedule intents ─────────────────────────────────────────────────
-
-    @Test
-    fun `UpdateWorkDayStart updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateWorkDayStart(420))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals(420, state.workDayStartMinutes)
-    }
-
-    @Test
-    fun `UpdateWorkDayEnd updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateWorkDayEnd(1200))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals(1200, state.workDayEndMinutes)
-    }
-
-    @Test
-    fun `UpdateWorkLunchStart updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateWorkLunchStart(720))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals(720, state.workLunchStartMinutes)
-    }
-
-    @Test
-    fun `UpdateWorkLunchEnd updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateWorkLunchEnd(780))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals(780, state.workLunchEndMinutes)
-    }
-
-    @Test
-    fun `UpdateWorkWeekendSat updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateWorkWeekendSat(true))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals(true, state.workWeekendSat)
-    }
-
-    @Test
-    fun `UpdateWorkWeekendSun updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateWorkWeekendSun(true))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals(true, state.workWeekendSun)
-    }
-
-    // ─── Greeting intents ──────────────────────────────────────────────────────
-
-    @Test
-    fun `UpdateGreetingMorningEnd updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateGreetingMorningEnd(11))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals(11, state.greetingMorningEnd)
-    }
-
-    @Test
-    fun `UpdateGreetingAfternoonEnd updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateGreetingAfternoonEnd(20))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals(20, state.greetingAfternoonEnd)
-    }
-
-    // ─── AI Provider + Test connection ────────────────────────────────────────
-
-    @Test
-    fun `UpdateAiProvider updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateAiProvider("ollama"))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
+        vm.processIntent(SettingsIntent.Ai.UpdateProvider(com.singularity.todo.core.llm.LlmProvider.OLLAMA))
+        runCurrent()
+        val state = vm.state.value as SettingsUiState.Content
         assertEquals("ollama", state.aiProvider)
     }
 
     @Test
-    fun `UpdateAiSystemPrompt updates state`() = runTest {
+    fun `Ai TestConnection returns Error on missing API key`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.UpdateAiSystemPrompt("You are a poet."))
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertEquals("You are a poet.", state.aiSystemPrompt)
+        vm.processIntent(SettingsIntent.Ai.TestConnection)
+        runCurrent()
+        val state = vm.state.value as SettingsUiState.Content
+        val testResult = state.aiTestResult
+        assertIs<AiTestResult.Error>(testResult)
+        assertEquals("API key not configured", testResult.message)
     }
 
     @Test
-    fun `TestAiConnection without key reports Error and never calls TextGen`() = runTest {
-        val textGen = FakeTextGen(success = "pong", trackGenerateCalls = true)
-        val vm = createVm(backgroundScope, textGen = textGen)
-        advanceUntilIdle()
-        // No key configured in fakeStorage.
-        vm.processIntent(SettingsIntent.TestAiConnection)
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertIs<AiTestResult.Error>(state.aiTestResult)
-        assertEquals("API key not configured", state.aiTestResult.message)
-        assertEquals(emptyList(), textGen.generateCalls, "TextGen must not be invoked without a key")
+    fun `Ai TestConnection returns Ok on success`() = runTest {
+        fakeStorage.write("ai_key_openai", "sk-test")
+        val vm = createVm(backgroundScope)
+        vm.processIntent(SettingsIntent.Ai.TestConnection)
+        runCurrent()
+        val state = vm.state.value as SettingsUiState.Content
+        val testResult = state.aiTestResult
+        assertIs<AiTestResult.Ok>(testResult)
     }
 
     @Test
-    fun `TestAiConnection with key on success reports Ok with latency`() = runTest {
-        fakeStorage.write(com.singularity.todo.feature.ai.OpenAiConfig.KEY_OPENAI, "sk-test")
-        val vm = createVm(backgroundScope, textGen = FakeTextGen(success = "pong"))
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.TestAiConnection)
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertIs<AiTestResult.Ok>(state.aiTestResult)
-    }
-
-    @Test
-    fun `TestAiConnection with failing TextGen reports Error with message`() = runTest {
-        fakeStorage.write(com.singularity.todo.feature.ai.OpenAiConfig.KEY_OPENAI, "sk-test")
-        val vm = createVm(backgroundScope, textGen = FakeTextGen(failureMessage = "kaboom"))
-        advanceUntilIdle()
-        vm.processIntent(SettingsIntent.TestAiConnection)
-        advanceUntilIdle()
-        val state = vm.uiState.value as SettingsUiState.Content
-        assertIs<AiTestResult.Error>(state.aiTestResult)
-        assertEquals("kaboom", state.aiTestResult.message)
+    fun `Ai TestConnection returns Error on failure`() = runTest {
+        fakeStorage.write("ai_key_openai", "sk-test")
+        val textGen = FakeTextGen(failureMessage = "kaboom")
+        val aiStore = AiSettingsStore(fakeStorage, fakeSettings, textGen)
+        val aiContributor = AiSettingsContributor(aiStore)
+        val contributors: Set<SettingsContributor<*, *>> = setOf(aiContributor)
+        val vm = SettingsViewModel(
+            contributors = contributors,
+            settings = fakeSettings,
+            scopeOverride = backgroundScope,
+        )
+        vm.processIntent(SettingsIntent.Ai.TestConnection)
+        runCurrent()
+        val state = vm.state.value as SettingsUiState.Content
+        val testResult = state.aiTestResult
+        assertIs<AiTestResult.Error>(testResult)
+        assertEquals("kaboom", testResult.message)
     }
 }

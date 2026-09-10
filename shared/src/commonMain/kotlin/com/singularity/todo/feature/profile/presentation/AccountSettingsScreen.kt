@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.settings.screens
+package com.singularity.todo.feature.profile.presentation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,20 +29,17 @@ import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileRepository
-import com.singularity.todo.feature.settings.SettingsUiState
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import org.koin.compose.koinInject
 
 @Composable
 fun AccountSettingsScreen(
-    state: SettingsUiState.Content,
     onNavigateToProfileSwitcher: () -> Unit,
     modifier: Modifier = Modifier,
     profileRepository: ProfileRepository = koinInject(),
 ) {
     val activeProfile by profileRepository.activeProfile().collectAsState(initial = null)
     AccountSettingsScreenContent(
-        state = state,
         activeProfile = activeProfile,
         onNavigateToProfileSwitcher = onNavigateToProfileSwitcher,
         modifier = modifier,
@@ -51,7 +48,6 @@ fun AccountSettingsScreen(
 
 @Composable
 private fun AccountSettingsScreenContent(
-    state: SettingsUiState.Content,
     activeProfile: Profile?,
     onNavigateToProfileSwitcher: () -> Unit,
     modifier: Modifier = Modifier,
@@ -62,24 +58,12 @@ private fun AccountSettingsScreenContent(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SettingsSection(title = "Account") {
-            Text(
-                text = "User ID",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = state.userId,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-
-            activeProfile?.let { profile ->
+        activeProfile?.let { profile ->
+            SettingsSection(title = "Account") {
                 Text(
                     text = "Active profile",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 12.dp),
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
@@ -139,7 +123,6 @@ private fun AccountSettingsScreenLightPreview() = PreviewThemed(darkTheme = fals
     val fakeProfileRepo = FakeProfileRepository()
     val activeProfile by fakeProfileRepo.activeProfile().collectAsState(initial = null)
     AccountSettingsScreenContent(
-        state = SettingsUiState.Content(userId = "user_abc123"),
         activeProfile = activeProfile,
         onNavigateToProfileSwitcher = {},
     )
@@ -151,7 +134,6 @@ private fun AccountSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true,
     val fakeProfileRepo = FakeProfileRepository()
     val activeProfile by fakeProfileRepo.activeProfile().collectAsState(initial = null)
     AccountSettingsScreenContent(
-        state = SettingsUiState.Content(userId = "user_xyz789"),
         activeProfile = activeProfile,
         onNavigateToProfileSwitcher = {},
     )

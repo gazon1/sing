@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.tasks
 
-import com.singularity.todo.feature.settings.ReminderOffset
+import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.tasks.domain.model.TaskEditorIntent
 import com.singularity.todo.feature.tasks.domain.model.TaskEditorUiState
 import com.singularity.todo.feature.tasks.domain.model.reduce

@@ -23,7 +23,7 @@ class DiGraphTest {
 
     @Test
     fun `core domain + platform modules register without errors`() {
-        val app = org.koin.core.context.startKoin {
+        val app = org.koin.dsl.koinApplication {
             modules(platformModule(), *domainModule().toTypedArray())
         }
         try {
@@ -32,13 +32,13 @@ class DiGraphTest {
             app.koin.get<PomodoroRepository>()
             app.koin.get<BackupRepository>()
         } finally {
-            org.koin.core.context.stopKoin()
+            app.close()
         }
     }
 
     @Test
     fun `UI ports are registered in DI graph`() {
-        val app = org.koin.core.context.startKoin {
+        val app = org.koin.dsl.koinApplication {
             modules(platformModule(), *domainModule().toTypedArray())
         }
         try {
@@ -47,7 +47,7 @@ class DiGraphTest {
             app.koin.get<BackupFileNamer>()
             app.koin.get<AttachmentSaver>()
         } finally {
-            org.koin.core.context.stopKoin()
+            app.close()
         }
     }
 }

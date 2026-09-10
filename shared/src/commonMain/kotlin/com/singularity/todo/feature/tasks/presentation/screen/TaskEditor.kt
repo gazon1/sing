@@ -34,7 +34,7 @@ import com.singularity.todo.core.ui.components.ProjectPickerSheet
 import com.singularity.todo.core.ui.components.TagPickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.feature.reminders.ReminderPicker
-import com.singularity.todo.feature.settings.ReminderOffset
+import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.tasks.domain.model.TaskEditorIntent
 import com.singularity.todo.feature.tasks.domain.model.TaskEditorMode
 import com.singularity.todo.feature.tasks.domain.model.TaskEditorUiEvent

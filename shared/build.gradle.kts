@@ -217,6 +217,13 @@ kotlin {
     }
 }
 
+// Force jvmTest to fork a new JVM for each test class.
+// This prevents KoinPlatform global state from leaking between tests that
+// call startKoin()/stopKoin() vs koinApplication().
+tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
+    forkEvery = 1
+}
+
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
 

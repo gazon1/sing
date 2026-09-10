@@ -15,7 +15,7 @@ import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.ReminderType
-import com.singularity.todo.feature.settings.ReminderOffset
+import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
 import com.singularity.todo.feature.tasks.domain.model.ChecklistItemUi
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput

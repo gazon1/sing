@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.feature.settings.ReminderOffset
+import com.singularity.todo.core.reminders.ReminderOffset
 
 /**
  * Reminder summary row — shows the selected offset label or "No reminder".

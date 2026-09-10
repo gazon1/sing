@@ -2,9 +2,9 @@ package com.singularity.todo.test
 
 import org.junit.Test
 import org.koin.core.qualifier.named
-import org.koin.core.context.startKoin
-import org.koin.core.context.stopKoin
+import org.koin.dsl.koinApplication
 import org.koin.dsl.module
+import org.koin.core.module.Module
 
 /**
  * Verifies that Koin scope isolation works as expected.
@@ -26,7 +26,7 @@ class ScopeIsolationTest {
             single(aiDep) { get<String>(profileStr) }
         }
 
-        val app = startKoin {
+        val app = org.koin.dsl.koinApplication {
             modules(loggingModule, profileModule, aiModule)
         }
 
@@ -34,7 +34,7 @@ class ScopeIsolationTest {
             val result: String = app.koin.get(aiDep)
             assert(result == "profile-singleton") { "Expected 'profile-singleton' but got '$result'" }
         } finally {
-            stopKoin()
+            app.close()
         }
     }
 
@@ -53,13 +53,13 @@ class ScopeIsolationTest {
             single<String> { "tasks" }
         }
 
-        val domainModuleList: List<org.koin.core.module.Module> = listOf(
+        val domainModuleList: List<Module> = listOf(
             tasksModule,
             profileModule,
             aiModule,
         )
 
-        val app = startKoin {
+        val app = org.koin.dsl.koinApplication {
             modules(platformModule, *domainModuleList.toTypedArray())
         }
 
@@ -67,7 +67,7 @@ class ScopeIsolationTest {
             val result: String = app.koin.get(aiDep)
             assert(result == "profile-singleton") { "Expected 'profile-singleton' but got '$result'" }
         } finally {
-            stopKoin()
+            app.close()
         }
     }
 
@@ -88,13 +88,13 @@ class ScopeIsolationTest {
             single<String> { "tasks" }
         }
 
-        fun domainModule(): List<org.koin.core.module.Module> = listOf(
+        fun domainModule(): List<Module> = listOf(
             tasksModule,
             profileModule,
             aiModule,
         )
 
-        val app = startKoin {
+        val app = org.koin.dsl.koinApplication {
             modules(platformModule, *domainModule().toTypedArray())
         }
 
@@ -102,7 +102,7 @@ class ScopeIsolationTest {
             val result: String = app.koin.get(aiDep)
             assert(result == "profile-singleton") { "Expected 'profile-singleton' but got '$result'" }
         } finally {
-            stopKoin()
+            app.close()
         }
     }
 }

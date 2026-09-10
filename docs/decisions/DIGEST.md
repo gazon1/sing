@@ -35,7 +35,6 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Never** store more than one recently-deleted task in memory — the most recent overwrite. _(from `2026-09-08-task-restore-undo`)_
 - **Always** read entity state from the write-through `_latest<Entity>` cache, never from `state.value` snapshot in mutation methods. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - **Always** update `_latest<Entity>` before any async operation that reads it. _(from `2026-09-09-projectdetail-write-through-fix`)_
-- **feature/tasks** follows strict layer discipline: `presentation` → `domain` only, `data` → `domain` only, `domain` has no outward dependencies. Repository interfaces live in `domain/port/`, implementations in `data/`, UI in `presentation/`. _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - **Never** emit `Saved` events for debounced inline edits — update `_lastEditedAt` only. _(from `2026-09-09-projectdetail-write-through-fix`)_
 
 ## Per-tag
@@ -85,6 +84,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
 - Migration from plain lambdas requires updating call sites _(from `2026-09-09-content-slot-pattern`)_
+- **Negative**: 40+ files had import paths updated; test files also required path corrections _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Negative**: Deep `domain/model/` import chains if not careful (mitigated by `package com.singularity.todo.feature.tasks.domain.model.*`) _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - **New file count:** 8 новых файлов (7 модулей + decision). _(from `2026-09-06-di-module-split`)_
 - New file `TaskDetailIntent.kt` (~120 lines). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables _(from `2026-09-09-notes-vm-split`)_
@@ -92,6 +93,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `ParentOption` is a `@JvmInline value class` candidate if it grows beyond 3 fields (currently 3 — plain data class is fine) _(from `2026-09-09-parent-picker-contract`)_
 - Parent options are reactive (`StateFlow`) — picker updates automatically when projects change _(from `2026-09-09-parent-picker-contract`)_
 - `ParentPickerSheet` signature: `options: List<ParentOption>`, NOT `currentParentId: ProjectId?` _(from `2026-09-09-parent-picker-contract`)_
+- **Positive**: Cross-feature imports are now compile-time errors if they bypass domain _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Positive**: Strict layer boundaries enforced by package structure; pure domain logic testable without Android instrumentation _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Positive**: `TaskDetailUiState.reduce()` is a pure function — covered by unit tests without mocks _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - `@Preview` composables are always `private` and call the `*Content` variant with manually constructed VMs _(from `2026-09-09-preview-with-koin-helper`)_
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
@@ -154,6 +158,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - All JetBrains compose library versions MUST track `version.ref = "composeMultiplatform"`. Split-version declarations are forbidden unless the artifact is an AndroidX (not JetBrains) group. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 - The `checkJvmMainComposeLibrariesCompatibility` task must pass silently on every PR. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 - When adding a new third-party Compose dependency, verify its JetBrains compose `requires:` constraint in the Gradle module metadata (`.module` file in cache) before adding — if it demands a version newer than the current pin, either bump or find an alternative. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
+
+### `clean-architecture`
+
+- **Negative**: 40+ files had import paths updated; test files also required path corrections _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Negative**: Deep `domain/model/` import chains if not careful (mitigated by `package com.singularity.todo.feature.tasks.domain.model.*`) _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Positive**: Cross-feature imports are now compile-time errors if they bypass domain _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Positive**: Strict layer boundaries enforced by package structure; pure domain logic testable without Android instrumentation _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Positive**: `TaskDetailUiState.reduce()` is a pure function — covered by unit tests without mocks _(from `2026-09-09-feature-tasks-clean-architecture`)_
 
 ### `compose`
 
@@ -351,6 +363,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально _(from `2026-09-05-ui-event-per-feature`)_
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)` _(from `2026-09-05-ui-event-per-feature`)_
 
+### `feature-tasks`
+
+- **Negative**: 40+ files had import paths updated; test files also required path corrections _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Negative**: Deep `domain/model/` import chains if not careful (mitigated by `package com.singularity.todo.feature.tasks.domain.model.*`) _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Positive**: Cross-feature imports are now compile-time errors if they bypass domain _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Positive**: Strict layer boundaries enforced by package structure; pure domain logic testable without Android instrumentation _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Positive**: `TaskDetailUiState.reduce()` is a pure function — covered by unit tests without mocks _(from `2026-09-09-feature-tasks-clean-architecture`)_
+
 ### `"followups"`
 
 - tag 'mcp-ux'/'ui-subtask'/'ai-tooling'/'mcp-policy'/'refactor' — 5 persistent categories для фильтрации. _(from `2026-09-08-mcp-dogfooding-round-2`)_
@@ -487,6 +507,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Все 17+ tools следуют этому контракту _(from `2026-09-07-write-tools-in-koog-registry`)_
 - Все token usage пишется в `llm_usage` с `profile_id=ai-agent` _(from `2026-09-07-dogfooding-mcp-server`)_
 - Новый Gradle-модуль `:mcp-server` с dependency на shared _(from `2026-09-07-dogfooding-mcp-server`)_
+
+### `kotlin-multiplatform`
+
+- **Negative**: 40+ files had import paths updated; test files also required path corrections _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Negative**: Deep `domain/model/` import chains if not careful (mitigated by `package com.singularity.todo.feature.tasks.domain.model.*`) _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Positive**: Cross-feature imports are now compile-time errors if they bypass domain _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Positive**: Strict layer boundaries enforced by package structure; pure domain logic testable without Android instrumentation _(from `2026-09-09-feature-tasks-clean-architecture`)_
+- **Positive**: `TaskDetailUiState.reduce()` is a pure function — covered by unit tests without mocks _(from `2026-09-09-feature-tasks-clean-architecture`)_
 
 ### `kotlin-sdk`
 
@@ -1047,7 +1075,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **~25 новых файлов**: 4 порта, 7 Page Objects, test infrastructure, integration tests _(from `2026-09-05-ui-tests-ultron`)_
 - 8 экранов мигрированы: Tasks, Notes, TaskDetail, TaskEditor, Projects, ProjectEditor, Chat, Archive _(from `2026-09-05-ui-decomposition`)_
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches. _(from `2026-09-06-modular-justfile`)_
+- `AiSettingsContributor` remains as the sole `SettingsContributor` implementation — used only for AI test/fetch ephemeral state. _(from `2026-09-10-simplified-settings-vm`)_
 - `AppDestination.TaskEditor` serialisation is backward compatible (extra field _(from `2026-09-05-task-editor-refactor`)_
+- `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly). _(from `2026-09-10-simplified-settings-vm`)_
 - Archive доступен с любого TaskDetailScreen через ⋮ menu _(from `2026-09-07-task-detail-archive-overflow`)_
 - Autosave вынесен из `delay()` в VM в отдельный port — теперь тестируем без `advanceTimeBy` _(from `2026-09-05-ui-decomposition`)_
 - Backlinks queryable via SQL without HTML parsing _(from `2026-09-07-notes-internal-links-backlinks`)_
@@ -1074,6 +1104,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `roborazzi` dependency added to `androidHostTest` in `shared/build.gradle.kts`. _(from `2026-09-08-roborazzi-snapshot-tests`)_
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill) _(from `2026-09-07-notes-internal-links-backlinks`)_
 - `scopeOverride` добавлен в `ProjectsViewModel` _(from `2026-09-05-ui-decomposition`)_
+- Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed. _(from `2026-09-10-simplified-settings-vm`)_
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates _(from `2026-09-05-task-editor-refactor`)_
 - `TaskEditorReducerTest` must add test cases for new intents. _(from `2026-09-05-task-editor-refactor`)_
 - `TaskEditorViewModel` constructor signature unchanged; DI registration unchanged. _(from `2026-09-05-task-editor-refactor`)_
@@ -1206,6 +1237,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-08-task-restore-undo` — "task-detail"  "undo"  "ux"
 - `2026-09-09-content-slot-pattern` — architecture  compose  ui
 - `2026-09-09-di-factory-viewmodel-fix` — koin  di  bugfix
+- `2026-09-09-feature-tasks-clean-architecture` — architecture  clean-architecture  feature-tasks  kotlin-multiplatform
 - `2026-09-09-internal-link-picker-generic` — notes  ui-components  linking  architecture
 - `2026-09-09-notes-outgoing-links-extraction` — notes  wikilinks  rich-editor  room
 - `2026-09-09-notes-quick-add` — notes  ux  quick-add
@@ -1272,6 +1304,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-08-task-restore-undo` — TaskRepository.restore + UndoDelete via SnackbarHost
 - `2026-09-09-content-slot-pattern` — Content slot API design rules
 - `2026-09-09-di-factory-viewmodel-fix` — DI bugfix: factory → viewModel for 4 VM registrations with runtime parameters
+- `2026-09-09-feature-tasks-clean-architecture` — Feature/tasks Clean Architecture: domain/data/presentation layers
 - `2026-09-09-internal-link-picker-generic` — Notes — generic InternalLinkPickerSheet with merged Notes+Tasks results
 - `2026-09-09-notes-outgoing-links-extraction` — Notes — wikilink extraction via HTML parsing + setOutgoingLinks wired to persist()
 - `2026-09-09-notes-quick-add` — Notes — quick-add inline input on the notes list screen
@@ -1283,3 +1316,4 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-09-project-detail-rework-15-fixes` — ProjectDetailScreen — 15-fixes rework (2026-09-09)
 - `2026-09-09-projectdetail-write-through-fix` — ProjectDetailViewModel: write-through + _latestProject TOCTOU guard
 - `2026-09-09-task-detail-intent-refactor` — TaskDetailViewModel: sealed Intent + single onIntent dispatcher
+- `2026-09-10-simplified-settings-vm` — _(no title)

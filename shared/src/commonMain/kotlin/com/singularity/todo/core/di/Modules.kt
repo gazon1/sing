@@ -2,6 +2,7 @@ package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.log.LoggerHolder
+import com.singularity.todo.feature.ai.di.aiSettingsModule
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.profile.ProfileRepositoryImpl
@@ -42,6 +43,7 @@ fun domainModule(): List<Module> = buildList {
     })
     add(coreModule())
     add(aiToolsModule())
+    add(aiSettingsModule())
 }
 
 /**

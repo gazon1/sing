@@ -85,7 +85,7 @@ class FakeSettingsRepository(
     private val _notificationsEnabled = MutableStateFlow(true)
     private val _notificationSound = MutableStateFlow(true)
     private val _notificationVibration = MutableStateFlow(true)
-    private val _reminderDefault = MutableStateFlow(com.singularity.todo.feature.settings.ReminderOffset.AT_DUE)
+    private val _reminderDefault = MutableStateFlow(com.singularity.todo.core.reminders.ReminderOffset.AT_DUE)
     private val _workDayStartMinutes = MutableStateFlow(540)
     private val _workDayEndMinutes = MutableStateFlow(1080)
     private val _workLunchStartMinutes = MutableStateFlow(720)
@@ -106,7 +106,7 @@ class FakeSettingsRepository(
     override val notificationsEnabled: Flow<Boolean> = _notificationsEnabled
     override val notificationSound: Flow<Boolean> = _notificationSound
     override val notificationVibration: Flow<Boolean> = _notificationVibration
-    override val reminderDefault: Flow<com.singularity.todo.feature.settings.ReminderOffset> = _reminderDefault
+    override val reminderDefault: Flow<com.singularity.todo.core.reminders.ReminderOffset> = _reminderDefault
     override val workDayStartMinutes: Flow<Int> = _workDayStartMinutes
     override val workDayEndMinutes: Flow<Int> = _workDayEndMinutes
     override val workLunchStartMinutes: Flow<Int> = _workLunchStartMinutes
@@ -127,7 +127,7 @@ class FakeSettingsRepository(
     override suspend fun setNotificationsEnabled(value: Boolean) { _notificationsEnabled.value = value }
     override suspend fun setNotificationSound(value: Boolean) { _notificationSound.value = value }
     override suspend fun setNotificationVibration(value: Boolean) { _notificationVibration.value = value }
-    override suspend fun setReminderDefault(value: com.singularity.todo.feature.settings.ReminderOffset) { _reminderDefault.value = value }
+    override suspend fun setReminderDefault(value: com.singularity.todo.core.reminders.ReminderOffset) { _reminderDefault.value = value }
     override suspend fun setWorkDayStartMinutes(value: Int) { _workDayStartMinutes.value = value }
     override suspend fun setWorkDayEndMinutes(value: Int) { _workDayEndMinutes.value = value }
     override suspend fun setWorkLunchStartMinutes(value: Int) { _workLunchStartMinutes.value = value }

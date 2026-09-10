@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.settings.SettingsIntent
+import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.feature.settings.SettingsUiState
 
 @Composable
@@ -46,13 +46,13 @@ fun WorkScheduleSettingsScreen(
             TimeSlider(
                 label = "Start",
                 value = state.workDayStartMinutes,
-                onValueChange = { onIntent(SettingsIntent.UpdateWorkDayStart(it)) },
+                onValueChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWorkDayStart(it)) },
                 formatter = ::formatMinutes,
             )
             TimeSlider(
                 label = "End",
                 value = state.workDayEndMinutes,
-                onValueChange = { onIntent(SettingsIntent.UpdateWorkDayEnd(it)) },
+                onValueChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWorkDayEnd(it)) },
                 formatter = ::formatMinutes,
             )
         }
@@ -61,13 +61,13 @@ fun WorkScheduleSettingsScreen(
             TimeSlider(
                 label = "Start",
                 value = state.workLunchStartMinutes,
-                onValueChange = { onIntent(SettingsIntent.UpdateWorkLunchStart(it)) },
+                onValueChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWorkLunchStart(it)) },
                 formatter = ::formatMinutes,
             )
             TimeSlider(
                 label = "End",
                 value = state.workLunchEndMinutes,
-                onValueChange = { onIntent(SettingsIntent.UpdateWorkLunchEnd(it)) },
+                onValueChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWorkLunchEnd(it)) },
                 formatter = ::formatMinutes,
             )
         }
@@ -76,12 +76,12 @@ fun WorkScheduleSettingsScreen(
             SettingsSwitchRow(
                 title = "Saturday",
                 checked = state.workWeekendSat,
-                onCheckedChange = { onIntent(SettingsIntent.UpdateWorkWeekendSat(it)) },
+                onCheckedChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWeekendSat(it)) },
             )
             SettingsSwitchRow(
                 title = "Sunday",
                 checked = state.workWeekendSun,
-                onCheckedChange = { onIntent(SettingsIntent.UpdateWorkWeekendSun(it)) },
+                onCheckedChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWeekendSun(it)) },
             )
         }
 
@@ -94,13 +94,13 @@ fun WorkScheduleSettingsScreen(
             TimeSlider(
                 label = "Morning ends at",
                 value = state.greetingMorningEnd,
-                onValueChange = { onIntent(SettingsIntent.UpdateGreetingMorningEnd(it)) },
+                onValueChange = { onIntent(SettingsIntent.Greeting.UpdateMorningEnd(it)) },
                 formatter = { formatHour(it) },
             )
             TimeSlider(
                 label = "Afternoon ends at",
                 value = state.greetingAfternoonEnd,
-                onValueChange = { onIntent(SettingsIntent.UpdateGreetingAfternoonEnd(it)) },
+                onValueChange = { onIntent(SettingsIntent.Greeting.UpdateAfternoonEnd(it)) },
                 formatter = { formatHour(it) },
             )
         }

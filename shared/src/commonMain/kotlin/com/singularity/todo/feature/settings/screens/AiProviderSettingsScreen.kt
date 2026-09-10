@@ -32,12 +32,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.llm.AiTestResult
+import com.singularity.todo.core.llm.LlmProvider
+import com.singularity.todo.core.llm.OpenAiConfig
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.ai.LlmProvider
-import com.singularity.todo.feature.ai.OpenAiConfig
-import com.singularity.todo.feature.settings.AiTestResult
-import com.singularity.todo.feature.settings.SettingsIntent
+import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.feature.settings.SettingsUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,7 +68,7 @@ fun AiProviderSettingsScreen(
             )
 
             var expanded by remember { mutableStateOf(false) }
-            val currentProvider = LlmProvider.fromId(state.aiProvider)
+            val currentProvider = state.ai.provider
 
             ExposedDropdownMenuBox(
                 expanded = expanded,
@@ -96,14 +96,14 @@ fun AiProviderSettingsScreen(
                         DropdownMenuItem(
                             text = { Text(provider.id) },
                             onClick = {
-                                onIntent(SettingsIntent.UpdateAiProvider(provider.id))
+                                onIntent(SettingsIntent.Ai.UpdateProvider(provider))
                                 // Auto-fill default base URL when switching to a provider
                                 // whose default the user hasn't customised. Uses the same
                                 // rule as [OpenAiConfig.resolveBaseUrl] so that
                                 // `Test connection` and the displayed URL agree.
-                                val resolved = OpenAiConfig.resolveBaseUrl(state.aiBaseUrl, provider)
-                                if (resolved != state.aiBaseUrl) {
-                                    onIntent(SettingsIntent.UpdateAiBaseUrl(resolved))
+                                val resolved = OpenAiConfig.resolveBaseUrl(state.ai.baseUrl, provider)
+                                if (resolved != state.ai.baseUrl) {
+                                    onIntent(SettingsIntent.Ai.UpdateBaseUrl(resolved))
                                 }
                                 expanded = false
                             },
@@ -124,7 +124,7 @@ fun AiProviderSettingsScreen(
                 value = apiKeyField,
                 onValueChange = {
                     apiKeyField = it
-                    onIntent(SettingsIntent.UpdateAiApiKey(it))
+                    onIntent(SettingsIntent.Ai.UpdateApiKey(it))
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 label = { Text("OpenAI API Key") },
@@ -154,8 +154,8 @@ fun AiProviderSettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OutlinedTextField(
-                value = state.aiBaseUrl,
-                onValueChange = { onIntent(SettingsIntent.UpdateAiBaseUrl(it)) },
+                value = state.ai.baseUrl,
+                onValueChange = { onIntent(SettingsIntent.Ai.UpdateBaseUrl(it)) },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 label = { Text("https://...") },
                 singleLine = true,
@@ -165,7 +165,7 @@ fun AiProviderSettingsScreen(
 
         // ─── Model ──────────────────────────────────────────────────────────────
         SettingsSection(title = "Model") {
-            if (state.aiModels.isNotEmpty()) {
+            if (state.ai.models.isNotEmpty()) {
                 var modelExpanded by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(
                     expanded = modelExpanded,
@@ -173,8 +173,8 @@ fun AiProviderSettingsScreen(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 ) {
                     OutlinedTextField(
-                        value = state.aiModel,
-                        onValueChange = { onIntent(SettingsIntent.UpdateAiModel(it)) },
+                        value = state.ai.model,
+                        onValueChange = { onIntent(SettingsIntent.Ai.UpdateModel(it)) },
                         readOnly = true,
                         label = { Text("Model") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelExpanded) },
@@ -186,11 +186,11 @@ fun AiProviderSettingsScreen(
                         expanded = modelExpanded,
                         onDismissRequest = { modelExpanded = false },
                     ) {
-                        state.aiModels.forEach { model ->
+                        state.ai.models.forEach { model ->
                             DropdownMenuItem(
                                 text = { Text(model) },
                                 onClick = {
-                                    onIntent(SettingsIntent.UpdateAiModel(model))
+                                    onIntent(SettingsIntent.Ai.UpdateModel(model))
                                     modelExpanded = false
                                 },
                             )
@@ -199,27 +199,27 @@ fun AiProviderSettingsScreen(
                 }
             } else {
                 OutlinedTextField(
-                    value = state.aiModel,
-                    onValueChange = { onIntent(SettingsIntent.UpdateAiModel(it)) },
+                    value = state.ai.model,
+                    onValueChange = { onIntent(SettingsIntent.Ai.UpdateModel(it)) },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     label = { Text("Model name") },
                     singleLine = true,
                 )
             }
-            if (state.fetchAiModelsError != null) {
+            if (state.ai.fetchModelsError != null) {
                 Text(
-                    text = "Fetch error: ${state.fetchAiModelsError}",
+                    text = "Fetch error: ${state.ai.fetchModelsError}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
             Button(
-                onClick = { onIntent(SettingsIntent.FetchAiModels) },
-                enabled = !state.isFetchingAiModels,
+                onClick = { onIntent(SettingsIntent.Ai.FetchModels) },
+                enabled = !state.ai.isFetchingModels,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
-                Text(if (state.isFetchingAiModels) "Fetching…" else "Fetch models")
+                Text(if (state.ai.isFetchingModels) "Fetching…" else "Fetch models")
             }
         }
 
@@ -231,8 +231,8 @@ fun AiProviderSettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OutlinedTextField(
-                value = state.aiSystemPrompt,
-                onValueChange = { onIntent(SettingsIntent.UpdateAiSystemPrompt(it)) },
+                value = state.ai.systemPrompt,
+                onValueChange = { onIntent(SettingsIntent.Ai.UpdateSystemPrompt(it)) },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 label = { Text("System prompt") },
                 minLines = 3,
@@ -244,13 +244,13 @@ fun AiProviderSettingsScreen(
         // ─── Test Connection ────────────────────────────────────────────────────
         SettingsSection(title = "Test Connection") {
             Button(
-                onClick = { onIntent(SettingsIntent.TestAiConnection) },
-                enabled = state.aiTestResult !is AiTestResult.Testing,
+                onClick = { onIntent(SettingsIntent.Ai.TestConnection) },
+                enabled = state.ai.testResult !is AiTestResult.Testing,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
-                Text(if (state.aiTestResult is AiTestResult.Testing) "Testing…" else "Send ping")
+                Text(if (state.ai.testResult is AiTestResult.Testing) "Testing…" else "Send ping")
             }
-            AiTestResultBanner(state.aiTestResult, Modifier.padding(top = 8.dp))
+            AiTestResultBanner(state.ai.testResult, Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -297,11 +297,13 @@ private fun AiTestResultBanner(result: AiTestResult, modifier: Modifier = Modifi
 private fun AiProviderSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     AiProviderSettingsScreen(
         state = SettingsUiState.Content(
-            aiProvider = "openai",
-            aiBaseUrl = "https://api.openai.com/v1",
-            aiModel = "gpt-4o-mini",
-            aiSystemPrompt = "You are a helpful assistant.",
-            aiTestResult = AiTestResult.Idle,
+            ai = com.singularity.todo.core.settings.SettingsSection.Ai(
+                provider = LlmProvider.OPENAI,
+                baseUrl = "https://api.openai.com/v1",
+                model = "gpt-4o-mini",
+                systemPrompt = "You are a helpful assistant.",
+                testResult = AiTestResult.Idle,
+            ),
         ),
         onIntent = {},
     )
@@ -313,11 +315,13 @@ private fun AiProviderSettingsScreenLightPreview() = PreviewThemed(darkTheme = f
 private fun AiProviderSettingsScreenConnectedPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     AiProviderSettingsScreen(
         state = SettingsUiState.Content(
-            aiProvider = "openai",
-            aiBaseUrl = "https://api.openai.com/v1",
-            aiModel = "gpt-4o-mini",
-            aiSystemPrompt = "You are a helpful assistant.",
-            aiTestResult = AiTestResult.Ok(latencyMs = 234),
+            ai = com.singularity.todo.core.settings.SettingsSection.Ai(
+                provider = LlmProvider.OPENAI,
+                baseUrl = "https://api.openai.com/v1",
+                model = "gpt-4o-mini",
+                systemPrompt = "You are a helpful assistant.",
+                testResult = AiTestResult.Ok(latencyMs = 234),
+            ),
         ),
         onIntent = {},
     )
@@ -329,11 +333,13 @@ private fun AiProviderSettingsScreenConnectedPreview() = PreviewThemed(darkTheme
 private fun AiProviderSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
     AiProviderSettingsScreen(
         state = SettingsUiState.Content(
-            aiProvider = "anthropic",
-            aiBaseUrl = "https://api.anthropic.com/v1",
-            aiModel = "claude-sonnet-4-20250514",
-            aiSystemPrompt = "You are Claude.",
-            aiTestResult = AiTestResult.Error(message = "Connection timeout"),
+            ai = com.singularity.todo.core.settings.SettingsSection.Ai(
+                provider = LlmProvider.ANTHROPIC_COMPATIBLE,
+                baseUrl = "https://api.anthropic.com/v1",
+                model = "claude-sonnet-4-20250514",
+                systemPrompt = "You are Claude.",
+                testResult = AiTestResult.Error(message = "Connection timeout"),
+            ),
         ),
         onIntent = {},
     )

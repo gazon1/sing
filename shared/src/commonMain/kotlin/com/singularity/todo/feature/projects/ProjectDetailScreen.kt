@@ -887,7 +887,7 @@ private fun ReminderPickerSheet(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(24.dp)) {
             ReminderPicker(
-                selected = com.singularity.todo.feature.settings.ReminderOffset.AT_DUE,
+                selected = com.singularity.todo.core.reminders.ReminderOffset.AT_DUE,
                 onSelect = { offset ->
                     // Project-level reminder is a future enhancement;
                     // for now, creating a task with this offset would be the UX path.

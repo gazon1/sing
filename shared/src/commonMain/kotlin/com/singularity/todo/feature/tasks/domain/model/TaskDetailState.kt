@@ -12,7 +12,7 @@ import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderRepository
-import com.singularity.todo.feature.settings.ReminderOffset
+import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository

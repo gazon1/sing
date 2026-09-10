@@ -5,7 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.singularity.todo.core.security.FakeSecureStorage
-import com.singularity.todo.feature.ai.OpenAiConfig
+import com.singularity.todo.core.llm.OpenAiConfig
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test

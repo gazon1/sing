@@ -10,9 +10,12 @@ import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.utils.time.KoogClock
 import com.singularity.todo.core.di.PromptExecutorPort
+import com.singularity.todo.core.llm.KnownModels
+import com.singularity.todo.core.llm.OpenAiConfig
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.prompts.Prompts
+import com.singularity.todo.core.llm.resolveModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -126,22 +129,6 @@ class KoogAgentService(
                 conn.disconnect()
             }
         }
-}
-
-/** Maps a user-supplied model identifier to a Koog [LLModel] constant. */
-internal fun resolveModel(modelId: String): LLModel = when (modelId) {
-    "gpt-4o" -> KnownModels.GPT4o
-    "gpt-4o-mini" -> KnownModels.GPT4oMini
-    "gpt-4.1" -> KnownModels.GPT4_1
-    "gpt-4.1-nano" -> KnownModels.GPT4_1Nano
-    "gpt-4.1-mini" -> KnownModels.GPT4_1Mini
-    "o1" -> KnownModels.O1
-    "o3" -> KnownModels.O3
-    "o3-mini" -> KnownModels.O3Mini
-    "o4-mini" -> KnownModels.O4Mini
-    "gpt-5" -> KnownModels.GPT5
-    "gpt-5-mini" -> KnownModels.GPT5Mini
-    else -> KnownModels.GPT4oMini
 }
 
 /**

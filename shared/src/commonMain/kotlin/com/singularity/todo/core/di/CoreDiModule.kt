@@ -116,9 +116,18 @@ fun coreModule(): org.koin.core.module.Module = module {
             clock = get(),
         )
     }
-    // ─── ViewModels ─────────────────────────────────────────────────────
+    // ─── Settings ───────────────────────────────────────────────────────
 
-    viewModelOf(::SettingsViewModel)
+    // SettingsViewModel collects all SettingsContributor implementations via getAll<>.
+    // Each contributor (Appearance, AI, …) is registered in its own feature module.
+    factory {
+        SettingsViewModel(
+            contributors = getAll<com.singularity.todo.core.settings.SettingsContributor<*, *>>().toSet(),
+            settings = get(),
+        )
+    }
+
+    // ─── ViewModels ─────────────────────────────────────────────────────
 
     viewModelOf(::AuthViewModel)
 

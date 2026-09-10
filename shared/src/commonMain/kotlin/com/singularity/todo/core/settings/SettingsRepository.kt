@@ -7,7 +7,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.singularity.todo.feature.settings.ReminderOffset
+import com.singularity.todo.core.llm.SettingsReader
+import com.singularity.todo.core.reminders.ReminderOffset
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -34,7 +35,7 @@ inline fun <reified T> DataStore<Preferences>.keyOf(
 /**
  * Contract for user settings.
  */
-interface SettingsRepository {
+interface SettingsRepository : SettingsReader {
 
     companion object {
         const val DEFAULT_SYSTEM_PROMPT =
@@ -53,9 +54,7 @@ interface SettingsRepository {
     // (hardware-backed keychain on Android, libsecret on Linux). Only
     // non-secret AI settings live in this repository.
 
-    val aiProvider: Flow<String>
-    val aiModel: Flow<String>
-    val aiBaseUrl: Flow<String>
+    // aiProvider, aiModel, aiBaseUrl inherited from SettingsReader
     val aiSystemPrompt: Flow<String>
 
     // ── Notifications ─────────────────────────────────────────────────────────

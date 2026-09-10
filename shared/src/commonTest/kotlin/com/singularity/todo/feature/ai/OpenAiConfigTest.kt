@@ -1,5 +1,9 @@
 package com.singularity.todo.feature.ai
 
+import com.singularity.todo.core.llm.ApiKey
+import com.singularity.todo.core.llm.LlmProvider
+import com.singularity.todo.core.llm.OpenAiConfig
+import com.singularity.todo.core.llm.SettingsReader
 import com.singularity.todo.core.security.FakeSecureStorage
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.test.runTest
@@ -8,13 +12,20 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+/** Wraps a [FakeSettingsRepository] as a [SettingsReader] for use in [OpenAiConfig.resolve]. */
+private fun FakeSettingsRepository.asSettingsReader() = object : SettingsReader {
+    override val aiProvider = this@asSettingsReader.aiProvider
+    override val aiBaseUrl = this@asSettingsReader.aiBaseUrl
+    override val aiModel = this@asSettingsReader.aiModel
+}
+
 class OpenAiConfigTest {
 
     @Test fun resolveReturnsEmptyKeyWhenNoKeyStored() = runTest {
         val secure = FakeSecureStorage()
         val settings = FakeSettingsRepository()
 
-        val cfg = OpenAiConfig.resolve(secure, settings)
+        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
         assertFalse(cfg.apiKey.isConfigured)
         assertEquals(ApiKey.EMPTY, cfg.apiKey)
@@ -24,7 +35,7 @@ class OpenAiConfigTest {
         val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "sk-test"))
         val settings = FakeSettingsRepository()
 
-        val cfg = OpenAiConfig.resolve(secure, settings)
+        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
         assertTrue(cfg.apiKey.isConfigured)
         assertEquals("sk-test", cfg.apiKey.value)
@@ -33,17 +44,11 @@ class OpenAiConfigTest {
     @Test fun resolveAppliesProviderDefaultUrlWhenSettingsHasBlankUrl() = runTest {
         val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
         val settings = FakeSettingsRepository().apply {
-            // Ollama chosen, blank base URL — should default to localhost.
-            // We poke into the underlying StateFlow via the public setter.
+            setAiBaseUrl("")
         }
 
-        // The FakeSettingsRepository initial values are the OpenAI defaults.
-        // Override via setAiBaseUrl("") to assert the fallback.
-        settings.setAiBaseUrl("")
+        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
-        val cfg = OpenAiConfig.resolve(secure, settings)
-
-        // Default provider in FakeSettingsRepository is OPENAI
         assertEquals(LlmProvider.OPENAI.defaultBaseUrl, cfg.baseUrl)
     }
 
@@ -53,7 +58,7 @@ class OpenAiConfigTest {
             setAiBaseUrl("https://my-proxy.example.com/v1")
         }
 
-        val cfg = OpenAiConfig.resolve(secure, settings)
+        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
         assertEquals("https://my-proxy.example.com/v1", cfg.baseUrl)
     }
@@ -64,7 +69,7 @@ class OpenAiConfigTest {
             setAiModel("")
         }
 
-        val cfg = OpenAiConfig.resolve(secure, settings)
+        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
         assertEquals(OpenAiConfig.DEFAULT_MODEL, cfg.defaultModelId)
     }
@@ -75,7 +80,7 @@ class OpenAiConfigTest {
             setAiModel("gpt-4o")
         }
 
-        val cfg = OpenAiConfig.resolve(secure, settings)
+        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
         assertEquals("gpt-4o", cfg.defaultModelId)
     }
@@ -86,7 +91,7 @@ class OpenAiConfigTest {
             setAiProvider("anthropic")
         }
 
-        val cfg = OpenAiConfig.resolve(secure, settings)
+        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
         assertEquals(LlmProvider.OPENAI, cfg.provider)
     }
@@ -98,7 +103,7 @@ class OpenAiConfigTest {
             setAiBaseUrl("")
         }
 
-        val cfg = OpenAiConfig.resolve(secure, settings)
+        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
         assertEquals(LlmProvider.OLLAMA, cfg.provider)
         assertEquals("http://localhost:11434/v1", cfg.baseUrl)
@@ -112,7 +117,6 @@ class OpenAiConfigTest {
     }
 
     @Test fun resolveBaseUrlReplacesStoredUrlWhenItMatchesAnotherProviderDefault() {
-        // User had Ollama, switched to OpenAI. URL is Ollama's default → replace.
         assertEquals(
             "https://api.openai.com/v1",
             OpenAiConfig.resolveBaseUrl("http://localhost:11434/v1", LlmProvider.OPENAI),
@@ -126,8 +130,7 @@ class OpenAiConfigTest {
         )
     }
 
-    @Test fun resolveSwapsUrlWhenItMatchesProviderOwnDefault_noop_() {
-        // URL == current provider's default → keep.
+    @Test fun resolveBaseUrlKeepsCurrentProviderDefault() {
         assertEquals(
             "https://api.openai.com/v1",
             OpenAiConfig.resolveBaseUrl("https://api.openai.com/v1", LlmProvider.OPENAI),

@@ -5,19 +5,14 @@ import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toEpochMillisOrNull
-import com.singularity.todo.core.database.toId
-import com.singularity.todo.core.database.toInstant
-import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.database.toIsoOrNull
-import com.singularity.todo.core.database.toLocalDateOrNull
-import com.singularity.todo.core.database.toProjectIdOrNull
 import com.singularity.todo.core.database.toTask
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -46,8 +41,7 @@ class TaskRepositoryImpl(
         return when (filter) {
             is TaskFilter.Today -> taskDao.watchByDate(userId.value, today).map { it.map { e -> e.toTask() } }
             is TaskFilter.Upcoming -> {
-                val endDate = today
-                taskDao.watchUpcoming(userId.value, today, endDate).map { it.map { e -> e.toTask() } }
+                taskDao.watchUpcoming(userId.value, today, today).map { it.map { e -> e.toTask() } }
             }
             is TaskFilter.Someday -> taskDao.watchSomeday(userId.value).map { it.map { e -> e.toTask() } }
             is TaskFilter.Inbox -> taskDao.watchActive(userId.value).map { it.map { e -> e.toTask() } }

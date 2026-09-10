@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.tasks.domain.port
 
-import com.singularity.todo.feature.settings.ReminderOffset
+import com.singularity.todo.core.reminders.ReminderOffset
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.toInstant

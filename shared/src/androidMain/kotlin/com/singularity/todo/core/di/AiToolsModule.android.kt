@@ -8,7 +8,7 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
-import com.singularity.todo.feature.ai.KnownModels
+import com.singularity.todo.core.llm.KnownModels
 import com.singularity.todo.feature.ai.KoogAgentService
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.ai.chat.ChatViewModel
