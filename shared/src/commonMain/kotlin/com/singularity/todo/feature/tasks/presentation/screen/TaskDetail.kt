@@ -33,8 +33,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.files.toFilePickerResult
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.LoadingIndicator
@@ -47,8 +49,10 @@ import com.singularity.todo.core.ui.components.dueChipColors
 import com.singularity.todo.core.ui.components.formatDueChip
 import com.singularity.todo.core.ui.components.formatTimestampsRelative
 import com.singularity.todo.core.ui.components.priorityColorByIndex
-import com.singularity.todo.feature.attachments.AttachmentsViewModel
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.attachments.AttachmentSheet
+import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.ActiveSheet
@@ -57,27 +61,25 @@ import com.singularity.todo.feature.tasks.domain.model.TaskDetailUi
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.port.parseDueTime
 import com.singularity.todo.feature.tasks.presentation.components.TaskDetailActions
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorPrioritySheet
+import com.singularity.todo.feature.tasks.presentation.sections.AttachmentsSection
+import com.singularity.todo.feature.tasks.presentation.sections.RemindersSection
+import com.singularity.todo.feature.tasks.presentation.sections.TagsRow
+import com.singularity.todo.feature.tasks.presentation.sections.TaskBottomActionBar
+import com.singularity.todo.feature.tasks.presentation.sections.TaskChecklistSection
+import com.singularity.todo.feature.tasks.presentation.sections.TaskTitle
+import com.singularity.todo.feature.tasks.presentation.sections.TaskMetaChipsRow
+import com.singularity.todo.feature.tasks.presentation.sections.TaskSubtasksSection
 import com.singularity.todo.feature.tasks.presentation.sheet.ConfirmArchiveSheet
 import com.singularity.todo.feature.tasks.presentation.sheet.ConfirmDeleteSheet
 import com.singularity.todo.feature.tasks.presentation.sheet.KindSheet
 import com.singularity.todo.feature.tasks.presentation.sheet.ReminderPickerSheetContent
-import com.singularity.todo.feature.tasks.presentation.sections.TaskBottomActionBar
-import com.singularity.todo.feature.tasks.presentation.sections.TaskChecklistSection
-import com.singularity.todo.feature.tasks.presentation.sections.TaskHeroSection
-import com.singularity.todo.feature.tasks.presentation.sections.TaskMetaChipsRow
-import com.singularity.todo.feature.tasks.presentation.sections.TaskSubtasksSection
-import com.singularity.todo.feature.tasks.presentation.sections.RemindersSection
-import com.singularity.todo.feature.tasks.presentation.sections.AttachmentsSection
-import com.singularity.todo.feature.tasks.presentation.sections.TagsRow
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
-import com.singularity.todo.core.files.toFilePickerResult
-import com.singularity.todo.feature.tasks.domain.port.parseDueTime
 import kotlinx.datetime.TimeZone
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -373,12 +375,10 @@ internal fun TaskDetailContent(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            TaskHeroSection(
+            TaskTitle(
                 title = ui.task.title,
                 description = ui.task.description,
                 isCompleted = ui.task.isCompleted,
-                kind = ui.task.kind,
-                isSomeday = ui.task.someday,
                 actions = actions,
             )
 
@@ -438,5 +438,37 @@ internal fun TaskDetailContent(
 
             Spacer(modifier = Modifier.height(8.dp))
         }
+    }
+}
+
+@Composable
+@Preview
+private fun TaskDetailContentPreview() {
+    val samples = PreviewSamples
+    val ui = samples.taskDetailUi(
+        task = samples.task(
+            title = "Buy groceries",
+            priority = TaskPriority.High,
+            dueDate = samples.today,
+        ),
+        project = samples.project(name = "Personal"),
+        tags = listOf(samples.tag(name = "work"), samples.tag(name = "urgent", id = "tg2")),
+        checklist = listOf(samples.checklistItem(title = "Milk", done = true), samples.checklistItem(title = "Bread")),
+        reminders = listOf(samples.reminder(offsetMinutes = 30)),
+        attachments = listOf(samples.attachment(title = "receipt.pdf")),
+        subtasks = listOf(
+            samples.task(id = "sub1", title = "Subtask 1"),
+            samples.task(id = "sub2", title = "Subtask 2", completed = true),
+        ),
+    )
+    val actions = TaskDetailActions {}
+    PreviewThemed(useSurface = false) {
+        TaskDetailContent(
+            ui = ui,
+            actions = actions,
+            onBack = {},
+            snackbarHostState = SnackbarHostState(),
+            timeZone = TimeZone.currentSystemDefault(),
+        )
     }
 }

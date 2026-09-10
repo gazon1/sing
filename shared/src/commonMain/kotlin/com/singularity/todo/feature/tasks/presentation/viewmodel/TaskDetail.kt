@@ -3,8 +3,6 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.feature.tasks.domain.model.ActiveSheet
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailIntent
@@ -12,10 +10,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskDetailUi
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
-import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow

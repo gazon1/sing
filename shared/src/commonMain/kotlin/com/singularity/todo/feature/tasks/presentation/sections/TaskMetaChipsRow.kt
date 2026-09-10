@@ -29,7 +29,7 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskDetailActi
 
 /**
  * A [FlowRow] of contextual chips for due-date, time, priority, and project —
- * the "metadata" bar directly below the [TaskHeroSection].
+ * the "metadata" bar directly below the [TaskTitle].
  *
  * All colours and icons are pre-computed by the caller so this composable
  * stays completely stateless and has no dependency on internal formatters.
