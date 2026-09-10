@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 class LoggingTest {
 
     @Test
-    fun `Logger can be constructed with StaticConfig and tag`() {
+    fun loggerCanBeConstructedWithStaticConfigAndTag() {
         // Verify Logger constructor accepts StaticConfig and tag — smoke test
         val log = Logger(StaticConfig(Severity.Debug), "T")
         // Instance methods compile and do not throw
@@ -27,14 +27,14 @@ class LoggingTest {
     }
 
     @Test
-    fun `Logger withTag creates tagged logger`() {
+    fun loggerWithTagCreatesTaggedLogger() {
         val log = Logger.withTag("MyTag")
         log.i { "hello" }
         log.e(RuntimeException("err")) { "failed" }
     }
 
     @Test
-    fun `LoggerHolder wraps a Logger`() {
+    fun loggerHolderWrapsALogger() {
         val log = Logger.withTag("App")
         val holder = LoggerHolder(log)
         holder.log.i { "wrapped logger works" }

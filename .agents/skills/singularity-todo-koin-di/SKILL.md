@@ -1,15 +1,15 @@
 ---
 name: singularity-todo-koin-di
-description: Koin Annotations 4.2.2 DI pattern for this KMP project. Use when adding new repository, use case, ViewModel, or AI tool to the DI graph. Covers domainModule() DSL as the current source of truth, @Module/@ComponentScan annotations (planned but not adopted), @Single/@Factory/@IntoSet/@Named qualifiers, and Fake test doubles registration. Also covers the scopeOverride pattern for testable coroutines in ViewModels.
+description: Koin Annotations 4.2.2 DI pattern for this KMP project. Use when adding new repository, use case, ViewModel, or AI tool to the DI graph. Covers domainModule() DSL as the current source of truth, layer-aware binding (interface from domain, impl from data), @Module/@ComponentScan annotations (planned but not adopted), @Single/@Factory/@IntoSet/@Named qualifiers, and Fake test doubles registration. Also covers the scopeOverride pattern for testable coroutines in ViewModels.
 ---
 
 # Singularity TODO — Koin DI Pattern
 
-## Current State (as of 2026-09-07)
+## Current State (as of 2026-09-09)
 
 **All domain bindings live in `shared/src/commonMain/.../core/di/Modules.kt`** as a single `domainModule()` DSL (~300 lines). This is the **source of truth**.
 
-**Koin Annotations 4.2.2 + KSP** are documented below as the **planned migration target** but are **NOT yet adopted** in this codebase. The DSL is not going anywhere soon.
+**Koin Annotations 4.2.2 + KSP** are documented below as the **planned migration target** but are **NOT yet adopted** in this codebase.
 
 ## DSL is Source of Truth (NOT annotations)
 
@@ -19,14 +19,63 @@ fun domainModule(): Module = module {
     single<TaskRepository> { TaskRepositoryImpl(get(), get()) }
     factory { CreateTaskUseCase(get(), get()) }
     viewModelOf(::TasksViewModel)
-    // Notes — 3 VMs split by lifecycle scope:
-    viewModel { NotesListViewModel(get(), get(), get()) }
-    viewModel { NoteEditor(repo=get(), currentUser=get(), idGen=get(), autosaveScheduler=get(), improveNote=getOrNull()) }
-    viewModel { NotePreview(repo=get(), linkRepo=get(), currentUser=get()) }
 }
 ```
 
 **Do NOT add `@Module @ComponentScan` annotations** for new feature bindings — add them to `domainModule()` DSL instead. This keeps all DI in one place and is easier to audit.
+
+## Layer-Aware Binding Pattern
+
+**The key rule:** interface comes from `domain/port/`, implementation comes from `data/`. The presentation layer never appears in DI bindings.
+
+```kotlin
+// ✅ CORRECT — interface from domain, impl from data
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
+
+single<TaskRepository> { TaskRepositoryImpl(get(), get()) }
+
+// ✅ CORRECT — use case from domain/usecase
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTask
+
+factory { CreateTask(get(), get()) }
+
+// ✅ CORRECT — ViewModel from presentation/viewmodel
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskList
+
+viewModelOf(::TaskList)
+
+// ❌ WRONG — ViewModel imported from wrong layer
+import com.singularity.todo.feature.tasks.TaskDetailViewModel  // old flat layout
+
+// ❌ WRONG — Impl imported from domain layer
+single<TaskRepository> { SomeImpl(get(), get()) }  // impl should be from data/
+```
+
+### DI imports by layer
+
+```kotlin
+// domain/model/ — no DI bindings, data classes only
+import com.singularity.todo.feature.tasks.domain.model.*
+
+// domain/port/ — interfaces only
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+
+// domain/usecase/ — use case classes
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTask
+import com.singularity.todo.feature.tasks.domain.usecase.UpdateTask
+
+// data/ — implementations
+import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
+
+// presentation/viewmodel/ — ViewModels
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetail
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskList
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskEditor
+
+// core/error/ — shared errors
+import com.singularity.todo.core.error.AppError
+```
 
 ## Key Annotations (planned, not yet adopted)
 
@@ -37,15 +86,15 @@ fun domainModule(): Module = module {
 @IntoSet             // add this bean to a Set<T> (used for 16 AI tools)
 @Module              // marks a class as a DI module (PLANNED)
 @ComponentScan("pkg") // auto-register all @Single/@Factory in that package (PLANNED)
-@OptIn(KoinApiExtension::class) // required for @ComponentScan
 ```
 
-**⚠️ `@ComponentScan` + KSP for KMP:** The KSP annotation processor runs per-target (JVM/Android) separately. Before adopting annotations, verify that `@ComponentScan` works correctly with KMP source sets. Currently untested in this project.
+**⚠️ `@ComponentScan` + KSP for KMP:** The KSP annotation processor runs per-target (JVM/Android) separately. Before adopting annotations, verify that `@ComponentScan` works correctly with KMP source sets.
 
 ## DSL Patterns (current)
 
-### Repository (singleton)
+### Repository (singleton) — layer-aware
 ```kotlin
+// Interface from domain/port/, impl from data/
 single<TaskRepository> { TaskRepositoryImpl(get(), get()) }
 single<NotesRepository> { RoomNotesRepository(get(), get()) }
 single<InternalLinkRepository> { InternalLinkRepositoryImpl(get(), get()) }
@@ -53,6 +102,7 @@ single<InternalLinkRepository> { InternalLinkRepositoryImpl(get(), get()) }
 
 ### Use cases (factory — new instance per injection)
 ```kotlin
+// From domain/usecase/
 factory { CreateTaskUseCase(get(), get()) }
 factory { CreateNoteUseCase(get(), get()) }
 ```
@@ -78,7 +128,7 @@ viewModel { (initialDueDate: LocalDate?) ->
             updateTask = get(),
             clock = get(),
             currentUser = get(),
-            taskRepository = get(),
+            taskRepository = get(),  // interface from domain/port/
             checklistUseCase = get(),
             reminderRepository = get(),
             attachmentSaver = get(),
@@ -97,7 +147,6 @@ factory { TasksViewModel(get(), get(), ...) }
 
 // ✅ CORRECT — viewModelOf or viewModel { }
 viewModelOf(::TasksViewModel)
-// or
 viewModel { TasksViewModel(get(), get(), ...) }
 ```
 
@@ -110,18 +159,15 @@ class DeviceDatabase(...)
 @Single @Named("backup")
 class BackupDatabase(...)
 
-// Usage:
 class Service(@Named("device") val db: Database)
 ```
 
 ## @IntoSet for multi-instance bindings (AI tools)
 
 ```kotlin
-// Each tool annotated @Single @IntoSet:
 @Single @IntoSet
 class RefineTaskTool(get(), get()) : SimpleTool<...>
 
-// KoogAgentService injects Set<Tool>:
 class KoogAgentService(
     private val tools: Set<Tool<*, *>>,
     ...
@@ -137,13 +183,10 @@ No more hand-written `listOf(get<X>(), get<Y>(), ...)` — Koin aggregates `@Int
 @Test
 fun `search notes`() = runTest {
     startKoin {
-        modules(
-            module {
-                single<NotesRepository> { FakeNotesRepository() }
-            }
-        )
+        modules(module {
+            single<NotesRepository> { FakeNotesRepository() }
+        })
     }
-    // test runs with fakes...
 }
 
 // Option 2: pure constructor injection (preferred — no Koin needed)
@@ -153,23 +196,12 @@ class NotesListViewModelTest {
         currentUser = FakeCurrentUser(UserId.anonymous),
         idGen = SequenceIdGenerator(),
     )
-    // no Koin needed
-}
-
-class NoteEditorTest {
-    private val vm = NoteEditor(
-        repo = FakeNotesRepository(),
-        currentUser = FakeCurrentUser(UserId.anonymous),
-        idGen = SequenceIdGenerator(),
-        autosaveScheduler = FakeAutosaveScheduler(),
-        improveNote = null,
-    )
 }
 ```
 
 ## Testing ViewModels with scopeOverride
 
-`NoteEditor` launches coroutines directly in `viewModelScope` (via `scope.launch(Dispatchers.Unconfined)`). To test these in a synchronous `runTest` context, use `scopeOverride`:
+`NoteEditor` launches coroutines directly in `viewModelScope`. To test in synchronous `runTest` context, use `scopeOverride`:
 
 ```kotlin
 class NoteEditor(
@@ -182,10 +214,6 @@ class NoteEditor(
     private val scopeOverride: CoroutineScope? = null,  // ADD
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
-
-    fun saveNow() = scope.launch(Dispatchers.Unconfined) {
-        // ...
-    }
 }
 ```
 
@@ -198,7 +226,6 @@ class NoteEditorTest {
         val vm = createVm(scope = backgroundScope)
         vm.saveNow()
         advanceUntilIdle()
-        assertIs<NotesUiEvent.NavigateBack>(vm.events.first())
     }
 }
 ```
@@ -208,7 +235,6 @@ class NoteEditorTest {
 `NoteEditor` accepts an optional `Logger`. Use `getOrNull<Logger>()`:
 
 ```kotlin
-// NoteEditor: logger is optional — use getOrNull()
 viewModel {
     NoteEditor(
         repo = get(),
@@ -226,21 +252,19 @@ viewModel {
 - `viewModelOf(::Vm)` works when all constructor parameters have Koin bindings and there are **≤7 parameters**
 - When ≥8 parameters or when `getOrNull()` is needed → use `viewModel { Vm(get(), ...) }`
 
-## Runtime Parameters in ViewModels (e.g. `ProjectDetailViewModel(projectId: ProjectId)`)
-
-Some ViewModels need a runtime parameter (an ID, a filter, an initial value) that can't come from DI — it is passed at the call site.
+## Runtime Parameters in ViewModels
 
 ### The correct pattern — `viewModel { (param) -> Vm(param, get(), ...) }`
 
 ```kotlin
-// In Modules.kt — domainModule()
+// In Modules.kt
 viewModel { (projectId: ProjectId) ->
     ProjectDetailViewModel(
         projectId = projectId,
-        projectRepo = get(),
-        taskRepo = get(),
-        deleteProject = get(),
-        updateProject = get(),
+        projectRepo = get(),      // interface from domain/port/
+        taskRepo = get(),         // interface from domain/port/
+        deleteProject = get(),   // use case from domain/usecase/
+        updateProject = get(),   // use case from domain/usecase/
         currentUser = get(),
         clock = get(),
     )
@@ -250,31 +274,20 @@ viewModel { (projectId: ProjectId) ->
 @Composable
 fun ProjectDetailScreen(projectId: ProjectId, ...) {
     val vm: ProjectDetailViewModel = koinViewModel { parametersOf(projectId) }
-    ProjectDetailContent(viewModel = vm, ...)
 }
 ```
-
-### Parameter ordering in the lambda
-
-The parameter goes **first** in the `viewModel { (param) -> ... }` lambda, then all `get()` calls. This matches how `parametersOf(param)` is called.
 
 ### ⚠️ Common mistake — `factory {}` for ViewModel with runtime params
 
 ```kotlin
-// ❌ WRONG — memory leak! Factory creates a new instance every time get() is called
-factory { (projectId: ProjectId) ->
-    ProjectDetailViewModel(projectId, get(), get(), ...)
-}
+// ❌ WRONG — memory leak
+factory { (projectId: ProjectId) -> ProjectDetailViewModel(projectId, get(), ...) }
 
-// ✅ CORRECT — viewModel {} scopes the instance to the lifecycle
-viewModel { (projectId: ProjectId) ->
-    ProjectDetailViewModel(projectId, get(), get(), ...)
-}
+// ✅ CORRECT
+viewModel { (projectId: ProjectId) -> ProjectDetailViewModel(projectId, get(), ...) }
 ```
 
-**Why `factory` is wrong:** `factory` in Koin means "create new instance on every `get()` call". For a ViewModel, this means a new ViewModel on every rotation, navigation, or recomposition — a guaranteed memory leak. Always use `viewModel { }` for ViewModels, even with runtime parameters.
-
-### In @Preview — pass parameter directly to the VM constructor
+### In @Preview — pass parameter directly
 
 ```kotlin
 @Preview
@@ -290,33 +303,23 @@ private fun ProjectDetailScreen_Preview() {
             currentUser = FakeProfileAwareCurrentUser(...),
             clock = Clock,
         )
-        ProjectDetailContent(
-            viewModel = vm,
-            projectId = sampleProjectId,
-            onBack = {},
-            onNavigateToTasks = {},
-            onNavigateToTask = {},
-        )
+        ProjectDetailContent(viewModel = vm, ...)
     }
 }
 ```
 
-**Rule:** Never call `koinViewModel { parametersOf(...) }` in a preview — the preview harness does not start Koin. Construct the VM directly with `FakeRepositories`.
-
 ## Gotchas
 
 1. **Last-wins**: if two modules define the same type, the later-loaded one wins.
-2. **`@ComponentScan` requires KSP** — ensure `koin-annotations-compiler` is in `kspJvm` / `kspAndroid` (not yet configured in this project).
+2. **`@ComponentScan` requires KSP** — ensure `koin-annotations-compiler` is in `kspJvm` / `kspAndroid`.
 3. **`@IntoSet` only works with `Set<T>`** — declare the target as `Set<TheInterface>`.
-4. **Run blocking in `Modules.kt`**: migrate to `@Factory` with a suspend builder, or pass a default constant.
-5. **`singleOf` for repositories** — constructor-reference form doesn't support complex constructors (per ADR `2026-09-06-koin-bridge-audit`). Use `single { RepoImpl(get(), get()) }`.
+4. **`singleOf` for repositories** — constructor-reference form doesn't support complex constructors. Use `single { RepoImpl(get(), get()) }`.
 
 ## Key Files
 
 | File | Role |
 |---|---|
 | `shared/src/commonMain/.../core/di/Modules.kt` | **Source of truth** — all domain bindings in DSL |
+| `shared/src/commonMain/.../core/di/TasksDiModule.kt` | Feature-specific bindings (tasks, projects, etc.) |
 | `shared/src/commonMain/.../core/di/PlatformModule.kt` | expect fun platformModule() |
-| `shared/src/jvmMain/.../core/di/PlatformModule.jvm.kt` | Database, Ktor CIO, Koog JVM |
-| `shared/src/androidMain/.../core/di/PlatformModule.android.kt` | Database, Ktor OkHttp, Koog error stub |
 | `shared/src/commonMain/.../test/fakes/FakeRepositories.kt` | All fake doubles |

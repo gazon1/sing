@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.statistics
 
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 
 data class DayBucket(
@@ -18,9 +17,6 @@ data class StatisticsSnapshot(
     val computedAt: Long,
 )
 
-data class Statistics(
-    val snapshot: StatisticsSnapshot,
-)
 
 internal fun computeStatistics(
     completedTasks: List<Pair<String, Long>>, // taskId to completedAt epoch

@@ -11,35 +11,35 @@ import kotlin.test.assertIs
 class ContentStateTest {
 
     @Test
-    fun `Loading is a singleton ContentState`() {
+    fun loadingIsASingletonContentState() {
         val a = ContentState.Loading
         val b = ContentState.Loading
         assertEquals(a, b)
     }
 
     @Test
-    fun `Empty is a singleton ContentState`() {
+    fun emptyIsASingletonContentState() {
         val a = ContentState.Empty
         val b = ContentState.Empty
         assertEquals(a, b)
     }
 
     @Test
-    fun `Error holds a message`() {
+    fun errorHoldsAMessage() {
         val error = ContentState.Error("boom")
         assertIs<ContentState.Error>(error)
         assertEquals("boom", error.message)
     }
 
     @Test
-    fun `Ready holds a typed value`() {
+    fun readyHoldsATypedValue() {
         val ready: ContentState<String> = ContentState.Ready("hello")
         assertIs<ContentState.Ready<String>>(ready)
         assertEquals("hello", ready.value)
     }
 
     @Test
-    fun `Error messages are distinct`() {
+    fun errorMessagesAreDistinct() {
         val e1 = ContentState.Error("one")
         val e2 = ContentState.Error("two")
         assertEquals("one", e1.message)
@@ -47,7 +47,7 @@ class ContentStateTest {
     }
 
     @Test
-    fun `Ready values are preserved through the type`() {
+    fun readyValuesArePreservedThroughTheType() {
         val ready = ContentState.Ready(listOf(1, 2, 3))
         assertIs<ContentState.Ready<List<Int>>>(ready)
         assertEquals(listOf(1, 2, 3), ready.value)

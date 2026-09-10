@@ -5,8 +5,8 @@ import androidx.room3.Embedded
 import androidx.room3.Entity
 import androidx.room3.Index
 import androidx.room3.PrimaryKey
-import com.singularity.todo.feature.tasks.TaskKind
-import com.singularity.todo.feature.tasks.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 
 /**
  * Mixin for sync metadata. Room flattens @Embedded columns into the parent table,

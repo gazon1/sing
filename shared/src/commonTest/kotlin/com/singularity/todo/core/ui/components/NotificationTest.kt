@@ -11,7 +11,7 @@ import kotlin.test.assertIs
 class NotificationTest {
 
     @Test
-    fun `Text notification carries title and optional text`() {
+    fun textNotificationCarriesTitleAndOptionalText() {
         val n = Notification.Text(title = "AI Result", text = "Buy milk")
         assertIs<Notification.Text>(n)
         assertEquals("AI Result", n.title)
@@ -19,27 +19,27 @@ class NotificationTest {
     }
 
     @Test
-    fun `Text notification text can be null`() {
+    fun textNotificationTextCanBeNull() {
         val n = Notification.Text(title = "Saved", text = null)
         assertEquals(null, n.text)
     }
 
     @Test
-    fun `Error notification carries message`() {
+    fun errorNotificationCarriesMessage() {
         val n = Notification.Error(message = "boom")
         assertIs<Notification.Error>(n)
         assertEquals("boom", n.message)
     }
 
     @Test
-    fun `NavigateBack is a singleton`() {
+    fun navigateBackIsASingleton() {
         val a = Notification.NavigateBack
         val b = Notification.NavigateBack
         assertEquals(a, b)
     }
 
     @Test
-    fun `Dismiss is a singleton`() {
+    fun dismissIsASingleton() {
         val a = Notification.Dismiss
         val b = Notification.Dismiss
         assertEquals(a, b)

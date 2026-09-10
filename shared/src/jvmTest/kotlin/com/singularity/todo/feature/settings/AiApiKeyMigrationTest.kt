@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 
 class AiApiKeyMigrationTest {
 
-    @Test fun `migrates legacy key from DataStore to SecureStorage`() = runTest {
+    @Test fun migratesLegacyKeyFromDataStoreToSecureStorage() = runTest {
         val dataStore = newDataStore().apply { seedLegacy("sk-old") }
         val secure = FakeSecureStorage()
 
@@ -27,7 +27,7 @@ class AiApiKeyMigrationTest {
         assertEquals(null, dataStore.data.first()[stringPreferencesKey(AiApiKeyMigration.LEGACY_DATASTORE_KEY)])
     }
 
-    @Test fun `is no-op when no legacy key exists`() = runTest {
+    @Test fun isNoopWhenNoLegacyKeyExists() = runTest {
         val dataStore = newDataStore()
         val secure = FakeSecureStorage()
 
@@ -37,7 +37,7 @@ class AiApiKeyMigrationTest {
         assertEquals(null, secure.read(OpenAiConfig.KEY_OPENAI))
     }
 
-    @Test fun `does not overwrite an already-configured secure key`() = runTest {
+    @Test fun doesNotOverwriteAlreadyConfiguredSecureKey() = runTest {
         val dataStore = newDataStore().apply { seedLegacy("sk-old") }
         val secure = FakeSecureStorage(
             mutableMapOf(OpenAiConfig.KEY_OPENAI to "sk-existing"),

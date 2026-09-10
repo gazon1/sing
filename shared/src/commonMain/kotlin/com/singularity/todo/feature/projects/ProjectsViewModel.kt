@@ -3,11 +3,11 @@ package com.singularity.todo.feature.projects
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.tasks.TaskFilter
-import com.singularity.todo.feature.tasks.TaskRepository
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow

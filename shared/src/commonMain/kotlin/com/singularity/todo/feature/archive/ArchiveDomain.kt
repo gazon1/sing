@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.archive
 
-import com.singularity.todo.feature.tasks.Task
+import com.singularity.todo.feature.tasks.domain.model.Task
 import kotlin.time.Instant
 
 /**

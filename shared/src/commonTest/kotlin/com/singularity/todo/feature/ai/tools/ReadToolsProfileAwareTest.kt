@@ -4,10 +4,11 @@ import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
-import com.singularity.todo.feature.tasks.Task
-import com.singularity.todo.feature.tasks.TaskKind
-import com.singularity.todo.feature.tasks.TaskPriority
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
@@ -22,6 +23,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * Locks in the profile-aware default userId contract for the three MCP
@@ -38,7 +40,7 @@ import kotlin.test.assertTrue
  */
 class ReadToolsProfileAwareTest {
 
-    private val now = kotlinx.datetime.Instant.parse("2026-01-01T00:00:00Z")
+    private val now = Instant.parse("2026-01-01T00:00:00Z")
 
     /**
      * Extracts the scoped userId by directly combining [CurrentUser.userId]
@@ -70,7 +72,7 @@ class ReadToolsProfileAwareTest {
         projectId: com.singularity.todo.feature.projects.ProjectId? = null,
     ) {
         val task = Task(
-            id = com.singularity.todo.feature.tasks.TaskId.generate(),
+            id = TaskId.generate(),
             title = title,
             description = null,
             priority = TaskPriority.None,

@@ -1,8 +1,11 @@
 package com.singularity.todo.feature.tasks
 
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.checklist.ChecklistUseCase
-import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeCurrentUser
@@ -17,6 +20,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * Integration tests for the task lifecycle using fake repositories.
@@ -34,8 +38,8 @@ class TaskLifecycleIntegrationTest {
         repo: FakeTaskRepository,
         id: String,
         title: String,
-        completedAt: kotlinx.datetime.Instant? = null,
-        archivedAt: kotlinx.datetime.Instant? = null,
+        completedAt: Instant? = null,
+        archivedAt: Instant? = null,
         isPinned: Boolean = false,
     ) {
         val now = Clock.now()

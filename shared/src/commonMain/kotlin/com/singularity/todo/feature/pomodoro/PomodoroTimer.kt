@@ -3,9 +3,9 @@ package com.singularity.todo.feature.pomodoro
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.auth.CurrentUser
-import com.singularity.todo.feature.tasks.Task
-import com.singularity.todo.feature.tasks.TaskFilter
-import com.singularity.todo.feature.tasks.TaskRepository
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow

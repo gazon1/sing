@@ -1,7 +1,7 @@
 package com.singularity.todo.core.auth
 
 import com.singularity.todo.core.error.AppError
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

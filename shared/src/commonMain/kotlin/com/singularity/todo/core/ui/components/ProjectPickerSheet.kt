@@ -24,18 +24,24 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.Project
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.projects.ProjectsRepository
-import com.singularity.todo.feature.tasks.components.TaskEditorSheetHost
+import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import com.singularity.todo.test.fakes.FakeAuthRepository
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeProfileRepository
+import com.singularity.todo.test.fakes.FakeProjectsRepository
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -47,6 +53,22 @@ fun ProjectPickerSheet(
 ) {
     val projectsRepo: ProjectsRepository = koinInject()
     val currentUser: ProfileAwareCurrentUser = koinInject()
+    ProjectPickerSheetContent(
+        projectsRepository = projectsRepo,
+        currentUser = currentUser,
+        onProjectSelected = onProjectSelected,
+        onDismiss = onDismiss,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProjectPickerSheetContent(
+    projectsRepository: ProjectsRepository,
+    currentUser: ProfileAwareCurrentUser,
+    onProjectSelected: (Project?) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
 
     var projects by remember { mutableStateOf<List<Project>>(emptyList()) }
@@ -56,7 +78,7 @@ fun ProjectPickerSheet(
 
     val userId by currentUser.scopedUserId.collectAsStateWithLifecycle()
     LaunchedEffect(userId) {
-        projectsRepo.watchProjects(userId).collect { projects = it }
+        projectsRepository.watchProjects(userId).collect { projects = it }
     }
 
     TaskEditorSheetHost(
@@ -108,7 +130,7 @@ fun ProjectPickerSheet(
                                                 updatedAt = Clock.now(),
                                                 userId = uid,
                                             )
-                                            projectsRepo.create(newProject)
+                                            projectsRepository.create(newProject)
                                             newProjectName = ""
                                             isCreating = false
                                         }
@@ -130,7 +152,7 @@ fun ProjectPickerSheet(
                                             updatedAt = Clock.now(),
                                             userId = uid,
                                         )
-                                        projectsRepo.create(newProject)
+                                        projectsRepository.create(newProject)
                                         newProjectName = ""
                                         isCreating = false
                                     }
@@ -174,4 +196,24 @@ fun ProjectPickerSheet(
             }
         }
     }
+}
+
+
+
+@Preview
+@Composable
+private fun ProjectPickerSheetLightPreview() = PreviewThemed(darkTheme = false) {
+    val fakeProjectsRepo = FakeProjectsRepository()
+    val fakeAuthRepo = FakeAuthRepository()
+    val fakeProfileRepo = FakeProfileRepository()
+    val fakeCurrentUser = FakeProfileAwareCurrentUser(
+        authRepository = fakeAuthRepo,
+        profileRepository = fakeProfileRepo,
+    )
+    ProjectPickerSheetContent(
+        projectsRepository = fakeProjectsRepo,
+        currentUser = fakeCurrentUser,
+        onProjectSelected = { _ -> },
+        onDismiss = {},
+    )
 }

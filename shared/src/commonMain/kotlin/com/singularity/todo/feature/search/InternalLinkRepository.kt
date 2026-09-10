@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.search
 
 import com.singularity.todo.feature.notes.Note
-import com.singularity.todo.feature.tasks.Task
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.core.ids.UserId
 
 /**
  * Repository for internal link picker — searches notes and tasks by title

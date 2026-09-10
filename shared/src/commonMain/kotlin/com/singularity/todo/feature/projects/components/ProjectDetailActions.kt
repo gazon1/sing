@@ -2,7 +2,7 @@ package com.singularity.todo.feature.projects.components
 
 import com.singularity.todo.feature.projects.ProjectDetailIntent
 import com.singularity.todo.feature.projects.ProjectId
-import com.singularity.todo.feature.tasks.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
  * All callbacks for [com.singularity.todo.feature.projects.ProjectDetailContent].

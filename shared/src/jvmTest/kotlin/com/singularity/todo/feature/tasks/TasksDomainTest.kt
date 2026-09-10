@@ -2,8 +2,16 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.TaskDomain
+import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -13,7 +21,7 @@ import kotlin.test.assertIs
 import kotlin.time.Instant
 
 /**
- * Tests for pure domain logic in TasksDomain.
+ * Tests for pure domain logic in TaskDomain.
  * No mocks needed - all functions are pure.
  */
 class TasksDomainTest {
@@ -22,20 +30,20 @@ class TasksDomainTest {
 
     @Test
     fun `validateTitle - blank string returns Left`() {
-        val result = TasksDomain.validateTitle("")
+        val result = TaskDomain.validateTitle("")
         assertIs<Either.Left<AppError.Validation>>(result)
         assertEquals("Title cannot be blank", result.error.message)
     }
 
     @Test
     fun `validateTitle - whitespace only returns Left`() {
-        val result = TasksDomain.validateTitle("   \t\n")
+        val result = TaskDomain.validateTitle("   \t\n")
         assertIs<Either.Left<AppError.Validation>>(result)
     }
 
     @Test
     fun `validateTitle - valid string returns Right with trimmed title`() {
-        val result = TasksDomain.validateTitle("  Buy groceries  ")
+        val result = TaskDomain.validateTitle("  Buy groceries  ")
         assertIs<Either.Right<String>>(result)
         assertEquals("Buy groceries", result.value)
     }
@@ -44,13 +52,13 @@ class TasksDomainTest {
 
     @Test
     fun `createInput - blank title returns Left`() {
-        val result = TasksDomain.createInput(title = "", userId = UserId.anonymous)
+        val result = TaskDomain.createInput(title = "", userId = UserId.anonymous)
         assertIs<Either.Left<AppError.Validation>>(result)
     }
 
     @Test
     fun `createInput - valid input returns Right with trimmed title`() {
-        val result = TasksDomain.createInput(
+        val result = TaskDomain.createInput(
             title = "  Buy groceries  ",
             userId = UserId.anonymous
         )
@@ -64,7 +72,7 @@ class TasksDomainTest {
         val tagIds = listOf(TagId.fromString("tag-1"), TagId.fromString("tag-2"))
         val dueDate = LocalDate(2024, 1, 15)
 
-        val result = TasksDomain.createInput(
+        val result = TaskDomain.createInput(
             title = "Task",
             description = "Description",
             priority = TaskPriority.High,
@@ -99,7 +107,7 @@ class TasksDomainTest {
         val createdAt = Instant.fromEpochMilliseconds(1000)
         val updatedAt = Instant.fromEpochMilliseconds(2000)
 
-        val task = TasksDomain.buildTask(input, createdAt = createdAt, updatedAt = updatedAt)
+        val task = TaskDomain.buildTask(input, createdAt = createdAt, updatedAt = updatedAt)
 
         assertEquals("Test task", task.title)
         assertEquals(createdAt, task.createdAt)
@@ -139,14 +147,14 @@ class TasksDomainTest {
     fun `matchesFilter - Today with matching dueDate`() {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(dueDate = today)
-        assertTrue(TasksDomain.matchesFilter(task, TaskFilter.Today, today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Today, today))
     }
 
     @Test
     fun `matchesFilter - Today with different dueDate`() {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(dueDate = LocalDate(2024, 1, 16))
-        assertFalse(TasksDomain.matchesFilter(task, TaskFilter.Today, today))
+        assertFalse(TaskDomain.matchesFilter(task, TaskFilter.Today, today))
     }
 
     @Test
@@ -156,41 +164,41 @@ class TasksDomainTest {
             dueDate = today,
             archivedAt = Instant.fromEpochMilliseconds(1)
         )
-        assertFalse(TasksDomain.matchesFilter(task, TaskFilter.Today, today))
+        assertFalse(TaskDomain.matchesFilter(task, TaskFilter.Today, today))
     }
 
     @Test
     fun `matchesFilter - Upcoming with future dueDate`() {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(dueDate = LocalDate(2024, 1, 20))
-        assertTrue(TasksDomain.matchesFilter(task, TaskFilter.Upcoming, today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Upcoming, today))
     }
 
     @Test
     fun `matchesFilter - Upcoming excludes today`() {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(dueDate = today)
-        assertFalse(TasksDomain.matchesFilter(task, TaskFilter.Upcoming, today))
+        assertFalse(TaskDomain.matchesFilter(task, TaskFilter.Upcoming, today))
     }
 
     @Test
     fun `matchesFilter - Someday`() {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(someday = true)
-        assertTrue(TasksDomain.matchesFilter(task, TaskFilter.Someday, today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Someday, today))
     }
 
     @Test
     fun `matchesFilter - Inbox excludes someday and trashed`() {
         val today = LocalDate(2024, 1, 15)
         val activeTask = taskWith(someday = false)
-        assertTrue(TasksDomain.matchesFilter(activeTask, TaskFilter.Inbox, today))
+        assertTrue(TaskDomain.matchesFilter(activeTask, TaskFilter.Inbox, today))
 
         val somedayTask = taskWith(someday = true)
-        assertFalse(TasksDomain.matchesFilter(somedayTask, TaskFilter.Inbox, today))
+        assertFalse(TaskDomain.matchesFilter(somedayTask, TaskFilter.Inbox, today))
 
         val trashedTask = taskWith(archivedAt = Instant.fromEpochMilliseconds(1))
-        assertFalse(TasksDomain.matchesFilter(trashedTask, TaskFilter.Inbox, today))
+        assertFalse(TaskDomain.matchesFilter(trashedTask, TaskFilter.Inbox, today))
     }
 
     @Test
@@ -199,8 +207,8 @@ class TasksDomainTest {
         val activeTask = taskWith()
         val trashedTask = taskWith(archivedAt = Instant.fromEpochMilliseconds(1))
         // Trash filter shows only trashed tasks
-        assertFalse(TasksDomain.matchesFilter(activeTask, TaskFilter.Trash, today))
-        assertTrue(TasksDomain.matchesFilter(trashedTask, TaskFilter.Trash, today))
+        assertFalse(TaskDomain.matchesFilter(activeTask, TaskFilter.Trash, today))
+        assertTrue(TaskDomain.matchesFilter(trashedTask, TaskFilter.Trash, today))
     }
 
     @Test
@@ -208,8 +216,8 @@ class TasksDomainTest {
         val today = LocalDate(2024, 1, 15)
         val projectId = ProjectId.fromString("proj-1")
         val task = taskWith(projectId = projectId)
-        assertTrue(TasksDomain.matchesFilter(task, TaskFilter.ByProject(projectId), today))
-        assertFalse(TasksDomain.matchesFilter(task, TaskFilter.ByProject(ProjectId.fromString("other")), today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.ByProject(projectId), today))
+        assertFalse(TaskDomain.matchesFilter(task, TaskFilter.ByProject(ProjectId.fromString("other")), today))
     }
 
     @Test
@@ -217,32 +225,32 @@ class TasksDomainTest {
         val today = LocalDate(2024, 1, 15)
         val tagId = TagId.fromString("tag-1")
         val task = taskWith(tags = listOf(tagId))
-        assertTrue(TasksDomain.matchesFilter(task, TaskFilter.ByTag(tagId), today))
-        assertFalse(TasksDomain.matchesFilter(task, TaskFilter.ByTag(TagId.fromString("other")), today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.ByTag(tagId), today))
+        assertFalse(TaskDomain.matchesFilter(task, TaskFilter.ByTag(TagId.fromString("other")), today))
     }
 
     @Test
     fun `matchesFilter - Search by title`() {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(title = "Buy groceries")
-        assertTrue(TasksDomain.matchesFilter(task, TaskFilter.Search("groceries"), today))
-        assertTrue(TasksDomain.matchesFilter(task, TaskFilter.Search("BUY"), today))
-        assertFalse(TasksDomain.matchesFilter(task, TaskFilter.Search("electronics"), today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("groceries"), today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("BUY"), today))
+        assertFalse(TaskDomain.matchesFilter(task, TaskFilter.Search("electronics"), today))
     }
 
     @Test
     fun `matchesFilter - Search by description`() {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(title = "Task", description = "Buy milk and eggs")
-        assertTrue(TasksDomain.matchesFilter(task, TaskFilter.Search("milk"), today))
-        assertFalse(TasksDomain.matchesFilter(task, TaskFilter.Search("bread"), today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("milk"), today))
+        assertFalse(TaskDomain.matchesFilter(task, TaskFilter.Search("bread"), today))
     }
 
     @Test
     fun `matchesFilter - Search is case insensitive`() {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(title = "Buy Groceries")
-        assertTrue(TasksDomain.matchesFilter(task, TaskFilter.Search("groceries"), today))
-        assertTrue(TasksDomain.matchesFilter(task, TaskFilter.Search("BUY GROCERIES"), today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("groceries"), today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("BUY GROCERIES"), today))
     }
 }

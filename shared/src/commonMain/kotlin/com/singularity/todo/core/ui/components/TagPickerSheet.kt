@@ -36,7 +36,7 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
-import com.singularity.todo.feature.tasks.components.TaskEditorSheetHost
+import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.core.settings.SettingsRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch

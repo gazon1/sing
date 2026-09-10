@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
  */
 class ModelResolverTest {
 
-    @Test fun `resolves all known model ids to non-empty LLModel instances`() {
+    @Test fun resolvesAllKnownModelIdsToNonEmptyLLModelInstances() {
         val ids = listOf(
             "gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-nano", "gpt-4.1-mini",
             "o1", "o3", "o3-mini", "o4-mini", "gpt-5", "gpt-5-mini",
@@ -24,7 +24,7 @@ class ModelResolverTest {
         }
     }
 
-    @Test fun `unknown id falls back to GPT4oMini`() {
+    @Test fun unknownIdFallsBackToGpt4oMini() {
         assertEquals(expected = "gpt-4o-mini", actual = resolveModel("claude-3").id)
         assertEquals(expected = "gpt-4o-mini", actual = resolveModel("").id)
         assertEquals(expected = "gpt-4o-mini", actual = resolveModel("???").id)

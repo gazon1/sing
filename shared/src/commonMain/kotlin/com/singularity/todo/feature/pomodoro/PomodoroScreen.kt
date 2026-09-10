@@ -39,7 +39,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.tasks.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlin.time.Instant
 
 @Composable
 fun PomodoroScreen(
@@ -204,7 +205,7 @@ fun PomodoroScreen(
 @Composable
 private fun PomodoroContentPreview(
     pomodoroState: PomodoroState,
-    tasks: List<com.singularity.todo.feature.tasks.Task> = emptyList(),
+    tasks: List<com.singularity.todo.feature.tasks.domain.model.Task> = emptyList(),
 ) {
     val phaseColor = when (pomodoroState.phase) {
         PomodoroPhase.Work -> MaterialTheme.colorScheme.error
@@ -362,19 +363,19 @@ private fun PomodoroScreenWorkPreview() = PreviewThemed(darkTheme = false, useSu
             taskId = "t1",
         ),
         tasks = listOf(
-            com.singularity.todo.feature.tasks.Task(
+            com.singularity.todo.feature.tasks.domain.model.Task(
                 id = TaskId("t1"),
                 title = "Write documentation",
-                createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
-                updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
-                userId = com.singularity.todo.feature.tasks.UserId.anonymous,
+                createdAt = Instant.fromEpochMilliseconds(0),
+                updatedAt = Instant.fromEpochMilliseconds(0),
+                userId = com.singularity.todo.core.ids.UserId.anonymous,
             ),
-            com.singularity.todo.feature.tasks.Task(
+            com.singularity.todo.feature.tasks.domain.model.Task(
                 id = TaskId("t2"),
                 title = "Review PRs",
-                createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
-                updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
-                userId = com.singularity.todo.feature.tasks.UserId.anonymous,
+                createdAt = Instant.fromEpochMilliseconds(0),
+                updatedAt = Instant.fromEpochMilliseconds(0),
+                userId = com.singularity.todo.core.ids.UserId.anonymous,
             ),
         ),
     )

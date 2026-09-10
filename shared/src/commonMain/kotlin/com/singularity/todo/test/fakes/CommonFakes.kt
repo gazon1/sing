@@ -1,10 +1,10 @@
 package com.singularity.todo.test.fakes
 
-import com.singularity.todo.feature.tasks.Task
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.TaskKind
-import com.singularity.todo.feature.tasks.TaskPriority
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import kotlinx.datetime.LocalDate

@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.usecase
 
-import com.singularity.todo.feature.tasks.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.testTask
 import kotlinx.coroutines.test.runTest

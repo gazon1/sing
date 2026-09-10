@@ -12,20 +12,20 @@ import org.junit.Test
 class DataModelTest {
 
     @Test
-    fun `get returns root object for Root path`() {
+    fun getReturnsRootObjectForRootPath() {
         val model = DataModel()
         assertEquals(JsonObject(emptyMap()), model.get(UiPath.Root))
     }
 
     @Test
-    fun `set and get roundtrip`() {
+    fun setAndGetRoundtrip() {
         val model = DataModel()
         model.set(UiPath.of("name"), JsonPrimitive("Alice"))
         assertEquals(JsonPrimitive("Alice"), model.get(UiPath.of("name")))
     }
 
     @Test
-    fun `set overwrites existing value`() {
+    fun setOverwritesExistingValue() {
         val model = DataModel()
         model.set(UiPath.of("name"), JsonPrimitive("Alice"))
         model.set(UiPath.of("name"), JsonPrimitive("Bob"))
@@ -33,7 +33,7 @@ class DataModelTest {
     }
 
     @Test
-    fun `nested path creates intermediate objects`() {
+    fun nestedPathCreatesIntermediateObjects() {
         val model = DataModel()
         model.set(UiPath.of("user", "name"), JsonPrimitive("Alice"))
         val root = model.snapshot()
@@ -44,7 +44,7 @@ class DataModelTest {
     }
 
     @Test
-    fun `flow emits on set`(): Unit = runBlocking {
+    fun flowEmitsOnSet(): Unit = runBlocking {
         val model = DataModel()
         model.set(UiPath.of("name"), JsonPrimitive("Alice"))
         val flow = model.flow(UiPath.of("name"))
@@ -52,7 +52,7 @@ class DataModelTest {
     }
 
     @Test
-    fun `snapshot returns current state`() {
+    fun snapshotReturnsCurrentState() {
         val model = DataModel()
         model.set(UiPath.of("key"), JsonPrimitive("value"))
         val snap = model.snapshot()
@@ -60,7 +60,7 @@ class DataModelTest {
     }
 
     @Test
-    fun `get returns null for non-existent non-root path`() {
+    fun getReturnsNullForNonExistentNonRootPath() {
         val model = DataModel()
         assertNull(model.get(UiPath.of("nonexistent")))
     }

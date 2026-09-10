@@ -15,19 +15,19 @@ class A2uiParserTest {
     private val parser = A2uiParser()
 
     @Test
-    fun `parseLine returns null for blank lines`() {
+    fun parseLineReturnsNullForBlankLines() {
         assertNull(parser.parseLine(""))
         assertNull(parser.parseLine("   "))
     }
 
     @Test
-    fun `parseLine returns null for invalid JSON`() {
+    fun parseLineReturnsNullForInvalidJson() {
         assertNull(parser.parseLine("not json"))
         assertNull(parser.parseLine("{"))
     }
 
     @Test
-    fun `parseLine parses createSurface`() {
+    fun parseLineParsesCreateSurface() {
         val line = """
             {"createSurface":{"surfaceId":"s1","rootId":"r1","components":[
                 {"id":"r1","kind":"text","value":"Hello"}
@@ -44,7 +44,7 @@ class A2uiParserTest {
     }
 
     @Test
-    fun `parseLine parses createSurface with multiple components`() {
+    fun parseLineParsesCreateSurfaceWithMultipleComponents() {
         val line = """
             {"createSurface":{"surfaceId":"s2","rootId":"c1","components":[
                 {"id":"c1","kind":"column","children":["t1","b1"]},
@@ -61,7 +61,7 @@ class A2uiParserTest {
     }
 
     @Test
-    fun `parseLine parses updateComponents`() {
+    fun parseLineParsesUpdateComponents() {
         val line = """
             {"updateComponents":{"surfaceId":"s1","components":[
                 {"id":"t2","kind":"text","value":"Updated"}
@@ -75,7 +75,7 @@ class A2uiParserTest {
     }
 
     @Test
-    fun `parseLine parses updateData`() {
+    fun parseLineParsesUpdateData() {
         val line = """{"updateData":{"surfaceId":"s1","path":"name","value":"Alice"}}"""
         val event = parser.parseLine(line)
         assert(event is UiEvent.UpdateData)
@@ -86,7 +86,7 @@ class A2uiParserTest {
     }
 
     @Test
-    fun `parseLine parses deleteSurface`() {
+    fun parseLineParsesDeleteSurface() {
         val line = """{"deleteSurface":{"surfaceId":"s1"}}"""
         val event = parser.parseLine(line)
         assert(event is UiEvent.DeleteSurface)
@@ -94,13 +94,13 @@ class A2uiParserTest {
     }
 
     @Test
-    fun `parseLine returns null for unknown operation`() {
+    fun parseLineReturnsNullForUnknownOperation() {
         val line = """{"unknownOp":{}}"""
         assertNull(parser.parseLine(line))
     }
 
     @Test
-    fun `parseLine parses badge with tone`() {
+    fun parseLineParsesBadgeWithTone() {
         val line = """{"createSurface":{"surfaceId":"s1","rootId":"b1","components":[
             {"id":"b1","kind":"badge","text":"Done","tone":"Positive"}
         ]}}"""
@@ -112,7 +112,7 @@ class A2uiParserTest {
     }
 
     @Test
-    fun `parseLine parses tabs`() {
+    fun parseLineParsesTabs() {
         val line = """{"createSurface":{"surfaceId":"s1","rootId":"tabs1","components":[
             {"id":"tabs1","kind":"tabs","tabs":[
                 {"title":"Tab A","child":"c1"},
@@ -130,7 +130,7 @@ class A2uiParserTest {
     }
 
     @Test
-    fun `parseLine parses checkbox with initial true`() {
+    fun parseLineParsesCheckboxWithInitialTrue() {
         val line = """{"createSurface":{"surfaceId":"s1","rootId":"cb1","components":[
             {"id":"cb1","kind":"checkbox","label":"Done","path":"done","initial":true}
         ]}}"""
@@ -142,7 +142,7 @@ class A2uiParserTest {
     }
 
     @Test
-    fun `parseLine parses icon`() {
+    fun parseLineParsesIcon() {
         val line = """{"createSurface":{"surfaceId":"s1","rootId":"i1","components":[
             {"id":"i1","kind":"icon","name":"star"}
         ]}}"""
@@ -153,7 +153,7 @@ class A2uiParserTest {
     }
 
     @Test
-    fun `parseLine parses text_field with path and initial`() {
+    fun parseLineParsesTextFieldWithPathAndInitial() {
         val line = """{"createSurface":{"surfaceId":"s1","rootId":"tf1","components":[
             {"id":"tf1","kind":"text_field","label":"Name","path":"items/0/name","initial":"Bob"}
         ]}}"""

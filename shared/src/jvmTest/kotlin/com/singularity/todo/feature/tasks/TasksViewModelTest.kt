@@ -1,11 +1,22 @@
 package com.singularity.todo.feature.tasks
 
+import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
-import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
+import com.singularity.todo.feature.tasks.domain.model.AiActionResult
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TasksUiState
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeSettingsRepository
@@ -45,8 +56,8 @@ class TasksViewModelTest {
         pickTime: PickTimeUseCase? = null,
     ) = TasksViewModel(
         taskRepo = fakeTaskRepo,
-        createTask = CreateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
-        updateTask = UpdateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
+        createTask = CreateTaskUseCase(fakeTaskRepo, Clock),
+        updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
         currentUser = fakeCurrentUser,
         mutations = TaskMutationsUseCase(fakeTaskRepo),
         refineTask = refineTask,
@@ -64,7 +75,7 @@ class TasksViewModelTest {
         isPinned: Boolean = false,
         isTrashed: Boolean = false,
     ) {
-        val now = com.singularity.todo.core.platform.Clock.now()
+        val now = Clock.now()
         fakeTaskRepo.seed(
             Task(
                 id = TaskId.fromString(id),

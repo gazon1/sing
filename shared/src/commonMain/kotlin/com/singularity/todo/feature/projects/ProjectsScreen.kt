@@ -2,7 +2,7 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize

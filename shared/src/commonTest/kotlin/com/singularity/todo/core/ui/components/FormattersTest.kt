@@ -10,14 +10,14 @@ class FormattersTest {
     // ─── formatDueChip ────────────────────────────────────────────────────────────
 
     @Test
-    fun `formatDueChip returns null when date is null`() {
+    fun formatDueChipReturnsNullWhenDateIsNull() {
         val today = LocalDate(2026, 9, 7)
         val result = formatDueChip(date = null, time = "09:00", today = today)
         assertNull(result)
     }
 
     @Test
-    fun `formatDueChip formats today with time`() {
+    fun formatDueChipFormatsTodayWithTime() {
         val today = LocalDate(2026, 9, 7)
         val result = formatDueChip(date = today, time = "09:00", today = today)!!
         assertEquals("Today, 09:00", result.text)
@@ -25,7 +25,7 @@ class FormattersTest {
     }
 
     @Test
-    fun `formatDueChip formats today without time`() {
+    fun formatDueChipFormatsTodayWithoutTime() {
         val today = LocalDate(2026, 9, 7)
         val result = formatDueChip(date = today, time = null, today = today)!!
         assertEquals("Today", result.text)
@@ -33,7 +33,7 @@ class FormattersTest {
     }
 
     @Test
-    fun `formatDueChip formats today with blank time`() {
+    fun formatDueChipFormatsTodayWithBlankTime() {
         val today = LocalDate(2026, 9, 7)
         val result = formatDueChip(date = today, time = "  ", today = today)!!
         assertEquals("Today", result.text)
@@ -41,7 +41,7 @@ class FormattersTest {
     }
 
     @Test
-    fun `formatDueChip formats tomorrow`() {
+    fun formatDueChipFormatsTomorrow() {
         val today = LocalDate(2026, 9, 7)
         val tomorrow = LocalDate(2026, 9, 8)
         val result = formatDueChip(date = tomorrow, time = "14:00", today = today)!!
@@ -50,7 +50,7 @@ class FormattersTest {
     }
 
     @Test
-    fun `formatDueChip formats yesterday`() {
+    fun formatDueChipFormatsYesterday() {
         val today = LocalDate(2026, 9, 7)
         val yesterday = LocalDate(2026, 9, 6)
         val result = formatDueChip(date = yesterday, time = null, today = today)!!
@@ -59,7 +59,7 @@ class FormattersTest {
     }
 
     @Test
-    fun `formatDueChip formats past date as overdue`() {
+    fun formatDueChipFormatsPastDateAsOverdue() {
         val today = LocalDate(2026, 9, 7)
         val fiveDaysAgo = LocalDate(2026, 9, 2)
         val result = formatDueChip(date = fiveDaysAgo, time = "10:00", today = today)!!
@@ -68,7 +68,7 @@ class FormattersTest {
     }
 
     @Test
-    fun `formatDueChip formats far future as future`() {
+    fun formatDueChipFormatsFarFutureAsFuture() {
         val today = LocalDate(2026, 9, 7)
         val nextWeek = LocalDate(2026, 9, 14)
         val result = formatDueChip(date = nextWeek, time = null, today = today)!!

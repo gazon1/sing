@@ -41,7 +41,7 @@ class ChatViewModelTest {
         ChatViewModel(testLog, ScriptedTextGen(flow), SequenceIdGenerator())
 
     @Test
-    fun `send appends user and assistant placeholder`() = runTest {
+    fun sendAppendsUserAndAssistantPlaceholder() = runTest {
         val vm = newVm()
         vm.onIntent(ChatViewModel.Intent.InputChanged("Hello"))
         vm.onIntent(ChatViewModel.Intent.Send)
@@ -54,7 +54,7 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun `send streams chunks into assistant message`() = runTest {
+    fun sendStreamsChunksIntoAssistantMessage() = runTest {
         val vm = newVm(flowOf("alpha", " beta", " gamma"))
         vm.onIntent(ChatViewModel.Intent.InputChanged("x"))
         vm.onIntent(ChatViewModel.Intent.Send)
@@ -65,7 +65,7 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun `send ignores blank input`() = runTest {
+    fun sendIgnoresBlankInput() = runTest {
         val vm = newVm()
         vm.onIntent(ChatViewModel.Intent.InputChanged("   "))
         vm.onIntent(ChatViewModel.Intent.Send)
@@ -74,7 +74,7 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun `FakeTextGen returns single placeholder chunk`() = runTest {
+    fun fakeTextGenReturnsSinglePlaceholderChunk() = runTest {
         val chunks = FakeTextGen().streamChat("hi").take(10).toList()
         assertEquals(1, chunks.size)
         assertTrue(chunks.first().startsWith("("))

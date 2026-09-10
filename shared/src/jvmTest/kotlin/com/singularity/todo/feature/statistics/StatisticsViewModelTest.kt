@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.statistics
 
-import com.singularity.todo.feature.tasks.Task
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository

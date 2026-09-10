@@ -13,7 +13,7 @@ import com.singularity.todo.core.backup.ExportOptions
 import com.singularity.todo.core.backup.ImportOptions
 import com.singularity.todo.core.backup.RestoreResult
 import com.singularity.todo.test.fakes.FakeAuthRepository
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow

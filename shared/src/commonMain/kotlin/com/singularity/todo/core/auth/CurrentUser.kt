@@ -1,6 +1,6 @@
 package com.singularity.todo.core.auth
 
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

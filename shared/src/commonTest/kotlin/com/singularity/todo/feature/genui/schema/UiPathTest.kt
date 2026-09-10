@@ -6,18 +6,18 @@ import org.junit.Test
 class UiPathTest {
 
     @Test
-    fun `parse returns Root for empty string`() {
+    fun parseReturnsRootForEmptyString() {
         assertEquals(UiPath.Root, UiPath.parse(""))
         assertEquals(UiPath.Root, UiPath.parse("/"))
     }
 
     @Test
-    fun `parse returns Root for whitespace-only`() {
+    fun parseReturnsRootForWhitespaceOnly() {
         assertEquals(UiPath.Root, UiPath.parse("   "))
     }
 
     @Test
-    fun `parse handles single segment`() {
+    fun parseHandlesSingleSegment() {
         assertEquals(
             UiPath.Prop("items", UiPath.Root),
             UiPath.parse("items"),
@@ -25,7 +25,7 @@ class UiPathTest {
     }
 
     @Test
-    fun `parse handles multiple segments`() {
+    fun parseHandlesMultipleSegments() {
         val result = UiPath.parse("items/0/label")
         val expected = UiPath.Prop(
             name = "items",
@@ -38,7 +38,7 @@ class UiPathTest {
     }
 
     @Test
-    fun `parse treats numeric segments as Child index`() {
+    fun parseTreatsNumericSegmentsAsChildIndex() {
         val result = UiPath.parse("items/42/name")
         val expected = UiPath.Prop(
             name = "items",
@@ -51,29 +51,29 @@ class UiPathTest {
     }
 
     @Test
-    fun `of builds from varargs`() {
+    fun ofBuildsFromVarargs() {
         val result = UiPath.of("items", "0", "label")
         val expected = UiPath.parse("items/0/label")
         assertEquals(expected, result)
     }
 
     @Test
-    fun `of returns Root for empty list`() {
+    fun ofReturnsRootForEmptyList() {
         assertEquals(UiPath.Root, UiPath.of())
     }
 
     @Test
-    fun `toPointer returns empty for Root`() {
+    fun toPointerReturnsEmptyForRoot() {
         assertEquals("", UiPath.Root.toPointer())
     }
 
     @Test
-    fun `toPointer returns segment for single Prop`() {
+    fun toPointerReturnsSegmentForSingleProp() {
         assertEquals("items", UiPath.Prop("items", UiPath.Root).toPointer())
     }
 
     @Test
-    fun `toPointer returns segments separated by slash`() {
+    fun toPointerReturnsSegmentsSeparatedBySlash() {
         val path = UiPath.Prop(
             name = "items",
             tail = UiPath.Child(0, UiPath.Prop("label", UiPath.Root)),

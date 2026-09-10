@@ -63,7 +63,7 @@ import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.notes.components.NoteCardContent
 import com.singularity.todo.feature.notes.components.NotesActions
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import org.koin.compose.viewmodel.koinViewModel
 
 // ─── Screen ─────────────────────────────────────────────────────────────────

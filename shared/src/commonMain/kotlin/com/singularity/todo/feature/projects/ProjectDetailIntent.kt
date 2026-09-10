@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.projects
 
-import com.singularity.todo.feature.tasks.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
  * Единая точка входа для [ProjectDetailViewModel].

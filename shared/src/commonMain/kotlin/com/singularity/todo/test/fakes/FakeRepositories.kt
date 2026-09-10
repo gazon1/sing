@@ -24,12 +24,12 @@ import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.tasks.Task
-import com.singularity.todo.feature.tasks.TaskFilter
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.TaskRepository
-import com.singularity.todo.feature.tasks.TasksDomain
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.domain.TaskDomain
+import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -240,7 +240,7 @@ class FakeTaskRepository : TaskRepository {
         store.state.map { map ->
             map.values
                 .filter { it.userId == userId }
-                .filter { TasksDomain.matchesFilter(it, filter, kotlin.time.Instant.fromEpochMilliseconds(Clock.now().toEpochMilliseconds()).toLocalDateTime(TimeZone.currentSystemDefault()).date) }
+                .filter { TaskDomain.matchesFilter(it, filter, kotlin.time.Instant.fromEpochMilliseconds(Clock.now().toEpochMilliseconds()).toLocalDateTime(TimeZone.currentSystemDefault()).date) }
                 .sortedWith(compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }))
         }
 
@@ -765,3 +765,16 @@ fun FakeProfileAwareCurrentUser(
     currentUser = CurrentUser(authRepository),
     profileRepository = profileRepository,
 )
+
+// ─── AttachmentSaver ──────────────────────────────────────────────────────────
+
+/**
+ * Fake [com.singularity.todo.feature.tasks.domain.model.AttachmentSaver] for tests.
+ */
+class FakeAttachmentSaver : com.singularity.todo.feature.tasks.domain.model.AttachmentSaver {
+    val saved = mutableListOf<Triple<String, String, String?>>()
+
+    override suspend fun save(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId, path: String, mimeType: String?): Result<Unit> = runCatching {
+        saved.add(Triple(taskId.value, path, mimeType))
+    }
+}

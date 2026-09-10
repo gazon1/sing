@@ -1,7 +1,7 @@
 package com.singularity.todo.core.attachments
 
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.core.ids.UserId
 
 data class Attachment(
     val id: AttachmentId,

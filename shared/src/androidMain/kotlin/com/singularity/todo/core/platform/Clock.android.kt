@@ -14,7 +14,7 @@ actual object Clock {
 
 actual fun todayInSystemZone(): LocalDate {
     val nowMs = Clock.now().toEpochMilliseconds()
-    val kxInstant = kotlinx.datetime.Instant.fromEpochMilliseconds(nowMs)
+    val kxInstant = Instant.fromEpochMilliseconds(nowMs)
     return kxInstant.toLocalDateTime(TimeZone.currentSystemDefault()).date
 }
 

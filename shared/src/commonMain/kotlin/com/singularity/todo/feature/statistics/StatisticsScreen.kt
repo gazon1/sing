@@ -23,9 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import kotlinx.datetime.Clock
 import org.koin.compose.viewmodel.koinViewModel
 import java.time.LocalDate
+import kotlin.time.Instant
 
 @Composable
 fun StatisticsScreen(
@@ -277,7 +277,7 @@ private fun StatisticsScreenLightPreview() = PreviewThemed(darkTheme = false, us
                 totalCompleted = 35,
                 totalOverdue = 3,
                 averagePerDay = 5.0,
-                computedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0).toEpochMilliseconds(),
+                computedAt = Instant.fromEpochMilliseconds(0).toEpochMilliseconds(),
             ),
         ),
     )

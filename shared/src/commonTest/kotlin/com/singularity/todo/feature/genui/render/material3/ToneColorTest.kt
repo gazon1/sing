@@ -8,22 +8,22 @@ import kotlin.test.assertEquals
 class ToneColorTest {
 
     @Test
-    fun `positive tone maps to green`() {
+    fun positiveToneMapsToGreen() {
         assertEquals(0xFF2E7D32.toInt(), toneColor(UiNode.Tone.Positive).toArgb())
     }
 
     @Test
-    fun `error tone maps to red`() {
+    fun errorToneMapsToRed() {
         assertEquals(0xFFFF0000.toInt(), toneColor(UiNode.Tone.Error).toArgb())
     }
 
     @Test
-    fun `warning tone maps to amber`() {
+    fun warningToneMapsToAmber() {
         assertEquals(0xFFCC7700.toInt(), toneColor(UiNode.Tone.Warning).toArgb())
     }
 
     @Test
-    fun `default tone is unspecified`() {
+    fun defaultToneIsUnspecified() {
         assertEquals(androidx.compose.ui.graphics.Color.Unspecified, toneColor(UiNode.Tone.Default))
     }
 }

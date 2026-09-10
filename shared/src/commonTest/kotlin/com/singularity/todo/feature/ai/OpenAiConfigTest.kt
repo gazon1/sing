@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 
 class OpenAiConfigTest {
 
-    @Test fun `resolve returns empty key when no key stored`() = runTest {
+    @Test fun resolveReturnsEmptyKeyWhenNoKeyStored() = runTest {
         val secure = FakeSecureStorage()
         val settings = FakeSettingsRepository()
 
@@ -20,7 +20,7 @@ class OpenAiConfigTest {
         assertEquals(ApiKey.EMPTY, cfg.apiKey)
     }
 
-    @Test fun `resolve reads stored api key`() = runTest {
+    @Test fun resolveReadsStoredApiKey() = runTest {
         val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "sk-test"))
         val settings = FakeSettingsRepository()
 
@@ -30,7 +30,7 @@ class OpenAiConfigTest {
         assertEquals("sk-test", cfg.apiKey.value)
     }
 
-    @Test fun `resolve applies provider default URL when settings has blank URL`() = runTest {
+    @Test fun resolveAppliesProviderDefaultUrlWhenSettingsHasBlankUrl() = runTest {
         val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
         val settings = FakeSettingsRepository().apply {
             // Ollama chosen, blank base URL — should default to localhost.
@@ -47,7 +47,7 @@ class OpenAiConfigTest {
         assertEquals(LlmProvider.OPENAI.defaultBaseUrl, cfg.baseUrl)
     }
 
-    @Test fun `resolve preserves custom base URL over provider default`() = runTest {
+    @Test fun resolvePreservesCustomBaseUrlOverProviderDefault() = runTest {
         val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
         val settings = FakeSettingsRepository().apply {
             setAiBaseUrl("https://my-proxy.example.com/v1")
@@ -58,7 +58,7 @@ class OpenAiConfigTest {
         assertEquals("https://my-proxy.example.com/v1", cfg.baseUrl)
     }
 
-    @Test fun `resolve falls back to DEFAULT_MODEL when settings blank`() = runTest {
+    @Test fun resolveFallsBackToDefaultModelWhenSettingsBlank() = runTest {
         val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
         val settings = FakeSettingsRepository().apply {
             setAiModel("")
@@ -69,7 +69,7 @@ class OpenAiConfigTest {
         assertEquals(OpenAiConfig.DEFAULT_MODEL, cfg.defaultModelId)
     }
 
-    @Test fun `resolve uses stored model when set`() = runTest {
+    @Test fun resolveUsesStoredModelWhenSet() = runTest {
         val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
         val settings = FakeSettingsRepository().apply {
             setAiModel("gpt-4o")
@@ -80,7 +80,7 @@ class OpenAiConfigTest {
         assertEquals("gpt-4o", cfg.defaultModelId)
     }
 
-    @Test fun `resolve maps unknown provider id to OPENAI`() = runTest {
+    @Test fun resolveMapsUnknownProviderIdToOpenAi() = runTest {
         val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
         val settings = FakeSettingsRepository().apply {
             setAiProvider("anthropic")
@@ -91,7 +91,7 @@ class OpenAiConfigTest {
         assertEquals(LlmProvider.OPENAI, cfg.provider)
     }
 
-    @Test fun `resolve uses Ollama default URL when provider is Ollama and URL blank`() = runTest {
+    @Test fun resolveUsesOllamaDefaultUrlWhenProviderIsOllamaAndUrlBlank() = runTest {
         val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
         val settings = FakeSettingsRepository().apply {
             setAiProvider("ollama")
@@ -106,12 +106,12 @@ class OpenAiConfigTest {
 
     // ─── resolveBaseUrl (pure) ─────────────────────────────────────────────────
 
-    @Test fun `resolveBaseUrl returns provider default when stored is blank`() {
+    @Test fun resolveBaseUrlReturnsProviderDefaultWhenStoredIsBlank() {
         assertEquals("https://api.openai.com/v1", OpenAiConfig.resolveBaseUrl("", LlmProvider.OPENAI))
         assertEquals("http://localhost:11434/v1", OpenAiConfig.resolveBaseUrl("", LlmProvider.OLLAMA))
     }
 
-    @Test fun `resolveBaseUrl replaces stored URL when it matches another provider default`() {
+    @Test fun resolveBaseUrlReplacesStoredUrlWhenItMatchesAnotherProviderDefault() {
         // User had Ollama, switched to OpenAI. URL is Ollama's default → replace.
         assertEquals(
             "https://api.openai.com/v1",
@@ -119,14 +119,14 @@ class OpenAiConfigTest {
         )
     }
 
-    @Test fun `resolveBaseUrl keeps stored URL when it is a custom endpoint`() {
+    @Test fun resolveBaseUrlKeepsStoredUrlWhenItIsACustomEndpoint() {
         assertEquals(
             "https://my-proxy.example.com/v1",
             OpenAiConfig.resolveBaseUrl("https://my-proxy.example.com/v1", LlmProvider.OPENAI),
         )
     }
 
-    @Test fun `resolve swaps URL when it matches provider's own default (no-op)`() {
+    @Test fun resolveSwapsUrlWhenItMatchesProviderOwnDefault_noop_() {
         // URL == current provider's default → keep.
         assertEquals(
             "https://api.openai.com/v1",

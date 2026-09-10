@@ -13,13 +13,13 @@ import org.junit.Test
 class SurfaceControllerTest {
 
     @Test
-    fun `surfaces starts empty`() {
+    fun surfacesStartsEmpty() {
         val ctrl = SurfaceController()
         assertEquals(emptyMap<SurfaceId, Surface>(), ctrl.surfaces.value)
     }
 
     @Test
-    fun `apply CreateSurface adds surface to map`() {
+    fun applyCreateSurfaceAddsSurfaceToMap() {
         val ctrl = SurfaceController()
         ctrl.apply(
             UiEvent.CreateSurface(
@@ -35,7 +35,7 @@ class SurfaceControllerTest {
     }
 
     @Test
-    fun `apply UpdateComponents merges into existing surface`() {
+    fun applyUpdateComponentsMergesIntoExistingSurface() {
         val ctrl = SurfaceController()
         ctrl.apply(
             UiEvent.CreateSurface(
@@ -61,7 +61,7 @@ class SurfaceControllerTest {
     }
 
     @Test
-    fun `apply UpdateData updates dataModel`() {
+    fun applyUpdateDataUpdatesDataModel() {
         val ctrl = SurfaceController()
         ctrl.apply(
             UiEvent.CreateSurface(
@@ -92,7 +92,7 @@ class SurfaceControllerTest {
     }
 
     @Test
-    fun `apply DeleteSurface removes surface`() {
+    fun applyDeleteSurfaceRemovesSurface() {
         val ctrl = SurfaceController()
         ctrl.apply(
             UiEvent.CreateSurface(
@@ -106,14 +106,14 @@ class SurfaceControllerTest {
     }
 
     @Test
-    fun `apply ParseError does not crash and does not change state`() {
+    fun applyParseErrorDoesNotCrashAndDoesNotChangeState() {
         val ctrl = SurfaceController()
         ctrl.apply(UiEvent.ParseError(input = "bad json", message = "invalid"))
         assertEquals(emptyMap<SurfaceId, Surface>(), ctrl.surfaces.value)
     }
 
     @Test
-    fun `reset clears all surfaces`() {
+    fun resetClearsAllSurfaces() {
         val ctrl = SurfaceController()
         ctrl.apply(
             UiEvent.CreateSurface(
@@ -127,7 +127,7 @@ class SurfaceControllerTest {
     }
 
     @Test
-    fun `rootNode returns root node for existing surface`() {
+    fun rootNodeReturnsRootNodeForExistingSurface() {
         val ctrl = SurfaceController()
         ctrl.apply(
             UiEvent.CreateSurface(
@@ -142,13 +142,13 @@ class SurfaceControllerTest {
     }
 
     @Test
-    fun `rootNode returns null for unknown surface`() {
+    fun rootNodeReturnsNullForUnknownSurface() {
         val ctrl = SurfaceController()
         assertNull(ctrl.rootNode(SurfaceId("unknown")))
     }
 
     @Test
-    fun `surfaces flow emits on event`(): Unit = runBlocking {
+    fun surfacesFlowEmitsOnEvent(): Unit = runBlocking {
         val ctrl = SurfaceController()
         val first = ctrl.surfaces.first()
         assertEquals(emptyMap<SurfaceId, Surface>(), first)

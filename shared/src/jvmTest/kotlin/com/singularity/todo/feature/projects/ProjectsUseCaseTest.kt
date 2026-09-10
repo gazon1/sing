@@ -5,10 +5,10 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import com.singularity.todo.feature.tasks.Task
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.TaskPriority
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test

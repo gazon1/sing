@@ -5,9 +5,13 @@ description: Feature scaffold pattern for the Singularity Todo KMP app. Use when
 
 # Feature Scaffold — Adding a New CRUD Feature
 
-## Canonical 7-file pattern
+## Two layouts: flat vs layered
 
-For a feature named `<Feature>` (e.g., `Task`, `Note`, `Project`):
+Pick based on feature size.
+
+### Flat layout — small feature (<10 files, 1 screen)
+
+Use when the feature fits in one screen and has no sub-entities or sub-UseCases.
 
 ```
 feature/<feature>/
@@ -20,12 +24,74 @@ feature/<feature>/
 └── <Feature>Screen.kt     — Compose UI
 ```
 
+### Layered layout — large feature (≥10 files, multiple screens, sub-entities)
+
+Use when the feature has **≥2 screens** (list + detail, list + editor, etc.) **OR sub-entities** (tags, checklist, attachments):
+
+```
+feature/<feature>/
+├── domain/                           — pure, no platform, no Android imports
+│   ├── model/
+│   │   ├── <Feature>.kt              — IDs, domain model, CreateXInput, sealed UiState, sealed Intent
+│   │   ├── <Feature>List.kt          — list-specific types (if ≥2 screens)
+│   │   └── <Feature>DetailState.kt   — detail-specific read model (if 2nd screen)
+│   ├── port/
+│   │   └── <Feature>Repository.kt    — interface only
+│   ├── usecase/
+│   │   ├── Create<Feature>.kt        — Create<Feature>UseCase
+│   │   ├── Update<Feature>.kt        — Update<Feature>UseCase
+│   │   └── <Feature>Mutations.kt   — bulk ops if any
+│   └── <Feature>Domain.kt            — pure validation/build, `object`
+│
+├── data/
+│   └── <Feature>RepositoryImpl.kt    — Room impl + toEntity/toDomain mappers
+│
+└── presentation/
+    ├── viewmodel/
+    │   ├── <Feature>List.kt          — list VM
+    │   └── <Feature>Detail.kt        — detail VM (each screen = its own file)
+    ├── screen/
+    │   ├── <Feature>List.kt          — list screen
+    │   └── <Feature>Detail.kt        — detail screen
+    ├── components/                   — only if feature has its own UI widgets
+    └── sections/                     — only if screens split into sections
+```
+
+**When to upgrade flat → layered:**
+- Adding a 2nd screen (detail, editor)
+- Adding sub-entities (tags, checklist, attachments)
+- `*ViewModel.kt` > 300 lines
+- Multiple VMs need shared types
+
+### Naming convention
+
+File name = entity or concept, no role prefix when parent folder already implies the role.
+
+| Path | File name | Class inside |
+|---|---|---|
+| `domain/model/Task.kt` | `Task` | `Task`, `TaskId`, `UserId`, `TaskPriority`, `TaskKind`, `TaskFilter`, `Task`, `CreateTaskInput` |
+| `domain/model/TaskList.kt` | `TaskList` | `TaskGroup`, `TasksUiState`, `AiActionResult`, `FromToday` |
+| `domain/model/TaskDetailState.kt` | `TaskDetailState` | `TaskDetailUi`, `TaskDetailUiState`, `TaskDetailIntent` |
+| `domain/model/TaskEditorState.kt` | `TaskEditorState` | `TaskEditorUiState`, `TaskEditorIntent`, `reduce()` |
+| `presentation/viewmodel/TaskList.kt` | `TaskList` | `TasksViewModel` |
+| `presentation/screen/TaskList.kt` | `TaskList` | `TasksScreen` |
+| `domain/usecase/CreateTask.kt` | `CreateTask` | `CreateTaskUseCase` |
+| `domain/usecase/TaskMutations.kt` | `TaskMutations` | `TaskMutationsUseCase` |
+
+**State-bearers carry `*State` suffix** when in `domain/model/` because the folder is generic. Inside `presentation/viewmodel/` or `presentation/screen/` the role is already implied — no suffix needed.
+
+## Canonical flow
+
+```
+pure domain validation → repository (Result<T>) → use case (only real logic) → ViewModel (StateFlow + sealed Intent) → Screen
+```
+
 > **Pass-through use cases are anti-pattern.** `Get<Feature>UseCase`, `Delete<Feature>UseCase`, `ToggleCompleteUseCase` that just delegate to `repo.X()` are boilerplate. Inject the repository directly into the ViewModel.
 
 ## 1. Ids.kt — Typed ID wrappers + domain model
 
 ```kotlin
-package com.singularity.todo.feature.<feature>
+package com.singularity.todo.feature.<feature>.domain.model
 
 @JvmInline
 value class <Feature>Id private constructor(val value: String) {
@@ -44,10 +110,10 @@ data class <Feature>(
 )
 ```
 
-## 2. *Repository.kt — Interface
+## 2. <Feature>Repository.kt — Interface (in `domain/port/`)
 
 ```kotlin
-package com.singularity.todo.feature.<feature>
+package com.singularity.todo.feature.<feature>.domain.port
 
 interface <Feature>Repository {
     fun watchAll(userId: UserId): Flow<List<<Feature>>>
@@ -64,7 +130,7 @@ interface <Feature>Repository {
 - Reads return `Flow<T>` (never `List<T>` — so the UI updates reactively).
 - No `*Blocking()` methods.
 
-## 3. *UseCase.kt — ONLY real logic
+## 3. Use cases — ONLY real logic
 
 **Keep only these use cases** (if they add real value beyond delegation):
 
@@ -84,7 +150,7 @@ class Create<Feature>UseCase(private val repo: <Feature>Repository, private val 
 - `Delete<Feature>UseCase` → VM calls `repo.delete(id).getOrThrow()`
 - `Update<Feature>UseCase` → VM calls `repo.update(entity).getOrThrow()`
 
-## 4. *ViewModel.kt — State + Intent
+## 4. ViewModel — State + Intent
 
 ```kotlin
 sealed interface <Feature>UiState {
@@ -121,14 +187,14 @@ class <Feature>ViewModel(
 }
 ```
 
-## 5. *Screen.kt — Compose UI
+## 5. Screen — Compose UI
 
 ```kotlin
 @Composable
 fun <Feature>Screen(
     viewModel: <Feature>ViewModel = koinViewModel(),
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.state.collectAsStateWithLifecycle()  // ← lifecycle-aware
     when (val s = state) {
         is <Feature>UiState.Loading -> LoadingIndicator()
         is <Feature>UiState.Content -> <Feature>List(items = s.items)
@@ -137,20 +203,30 @@ fun <Feature>Screen(
 }
 ```
 
-## DI Registration (Modules.kt)
+**⚠️ Always use `collectAsStateWithLifecycle()`** — not `collectAsState()`. Lifecycle-aware collection stops subscribing when Activity is in background, saves CPU.
+
+## DI Registration (Modules.kt — `core/di/`)
 
 ```kotlin
 // Modules.kt
+import com.singularity.todo.feature.<feature>.domain.model.*
+import com.singularity.todo.feature.<feature>.domain.port.*
+import com.singularity.todo.feature.<feature>.domain.usecase.*
+import com.singularity.todo.feature.<feature>.data.*
+import com.singularity.todo.feature.<feature>.presentation.viewmodel.*
+
+single<<Feature>Repository> { <Feature>RepositoryImpl(get(), get()) }  // interface from domain, impl from data
 factory { Create<Feature>UseCase(get(), get()) }
 viewModelOf(::FeatureViewModel)
 ```
+
+See `singularity-todo-koin-di` skill for full DI conventions.
 
 ## Navigation (AppDestination.kt + AppNavHost.kt)
 
 ```kotlin
 // AppDestination.kt
 sealed interface AppDestination {
-    // ...
     data object <Feature> : AppDestination
 }
 
@@ -166,51 +242,23 @@ composable<AppDestination.<Feature>> {
 
 When a feature grows to encompass multiple bounded contexts, split the repository into sub-interfaces registered separately in DI.
 
-**Example: NoteTagRepository** (Phase 3)
+**Example: NoteTagRepository**
 
 Notes and tags have a many-to-many relationship. Instead of bloating `NotesRepository` with tag-specific methods, create a dedicated sub-interface:
 
 ```kotlin
-// NoteTagRepository is a SEPARATE interface from NotesRepository
 interface NoteTagRepository {
     fun watchTags(noteId: NoteId): Flow<List<Tag>>
     fun watchNotesForTag(tagId: TagId): Flow<List<Note>>
     suspend fun setTags(noteId: NoteId, tagIds: Set<TagId>): Result<Unit>
 }
 
-// NotesRepository stays focused on note CRUD:
 interface NotesRepository {
     fun watchAll(userId: UserId): Flow<List<Note>>
     fun watchNote(id: NoteId): Flow<Note?>
     suspend fun createWithContent(...): Result<NoteId>
     suspend fun updateContent(...): Result<Unit>
     suspend fun softDelete(id: NoteId): Result<Unit>
-    // Note: tag operations are NOT here — they live in NoteTagRepository
-}
-```
-
-**Why separate?**
-- `NoteTagRepository` has a different data access pattern (many-to-many cross-ref)
-- Adding tag methods to `NotesRepository` would bloat it with cross-cutting concerns
-- `FakeNoteTagRepository` can be tested independently
-- DI bindings are cleaner: `single<NoteTagRepository> { RoomNoteTagRepository(get(), get()) }`
-
-**DI registration:**
-```kotlin
-// NotesTagDiModule.kt (separate module for clarity)
-fun notesTagModule(): Module = module {
-    single<NoteTagRepository> { RoomNoteTagRepository(get(), get()) }
-}
-```
-
-**Using both in a ViewModel:**
-```kotlin
-class NotesViewModel(
-    private val notesRepo: NotesRepository,
-    private val tagRepo: NoteTagRepository,
-    // ...
-) : ViewModel() {
-    // tag operations via tagRepo, note operations via notesRepo
 }
 ```
 
@@ -226,7 +274,6 @@ class NotesViewModel(
 ## Co-located Tests
 
 ```kotlin
-// shared/src/jvmTest/kotlin/com/singularity/todo/feature/<feature>/<Feature>ViewModelTest.kt
 class <Feature>ViewModelTest {
     private fun createVm(
         repo: <Feature>Repository = Fake<Feature>Repository(),
@@ -236,10 +283,24 @@ class <Feature>ViewModelTest {
     @Test fun `deletes item`() = runTest {
         val vm = createVm()
         vm.processIntent(<Feature>Intent.Delete(id))
-        // assert...
     }
 }
 ```
+
+## Layer-boundary checklist
+
+Before merging a feature change:
+
+- [ ] `presentation/` does NOT import from `data/` directly (only via `domain/port/` interfaces)
+- [ ] `domain/` does NOT import from `data/` or `presentation/`
+- [ ] `data/` does NOT import from `presentation/`
+- [ ] All cross-feature references go through interface ports in `domain/port/`
+- [ ] Use cases live in `domain/usecase/` and depend only on `domain/port/` interfaces
+- [ ] ViewModels depend only on `domain/port/` interfaces + `domain/usecase/`
+- [ ] `collectAsStateWithLifecycle()` used (not `collectAsState()`)
+- [ ] ViewModels contain `scopeOverride` for tests
+
+See `singularity-todo-clean-architecture-audit` for automated checks.
 
 ## Anti-patterns to Avoid
 
@@ -249,47 +310,35 @@ class <Feature>ViewModelTest {
 4. **`java.io.File` directly** — use the `FileSystem` port
 5. **MockK / Mockito** — use `Fake<Feature>Repository()`
 6. **Adding tag/attachment operations to the main repository** — use subinterface instead
+7. **UI layer imports data layer** — the `presentation/` only sees `domain/port/` interfaces, never `data/` implementations
+8. **`collectAsState()` instead of `collectAsStateWithLifecycle()`** — wastes CPU when backgrounded
 
 ---
 
-## When NOT to Extract a Shared Layer (2026-09-09)
+## When NOT to Extract a Shared Layer
 
 Extracting shared infrastructure too early creates **leaky abstractions** and **over-engineering**. Follow the **Rule of Three**: abstract only when ≥3 features share the same pattern.
 
 ### Don't extract: `BaseEntity` marker interface
 
-**Anti-pattern:**
 ```kotlin
 // ❌ Simple boundary class — shares nothing meaningful
 interface BaseEntity<ID> { val id: ID; val createdAt: Instant; val updatedAt: Instant }
-class Task : BaseEntity<TaskId> { ... }
-class Project : BaseEntity<ProjectId> { ... }
 ```
 
-**Why:** Effective Kotlin (Rask) — "Avoid simple boundary classes." A marker interface with no behaviour is a code smell. Models should be plain data classes.
-
-**Do instead:** Keep `Task` and `Project` as independent data classes. Use `InMemoryStore<E>` (composition utility) for test fakes, not inheritance.
+**Do instead:** Keep `Task` and `Project` as independent data classes. Use `InMemoryStore<E>` (composition utility) for test fakes.
 
 ### Don't extract: `FakeStoreRepository<E>` abstract class
 
-**Anti-pattern:**
 ```kotlin
 // ❌ Simple boundary class — each repo overrides everything anyway
-abstract class FakeStoreRepository<E : BaseEntity<*>> {
-    protected val state = MutableStateFlow<Map<String, E>>(emptyMap())
-    open fun seed(vararg items: E) { ... }
-}
-class FakeTaskRepository : FakeStoreRepository<Task>() { ... }
-class FakeProjectsRepository : FakeStoreRepository<Project>() { ... }
+abstract class FakeStoreRepository<E : BaseEntity<*>> { ... }
 ```
-
-**Why:** Every concrete Fake overrides `seed`, `add`, `clear` identically. But domain methods (`toggleComplete`, `watchSubtasks`, `findByIdempotencyKey`) stay in the subclass — the base covers ~30% of the code. This is exactly the "simple boundary class" anti-pattern.
 
 **Do instead:** Use `InMemoryStore<E>` as a **composition helper**:
 ```kotlin
 class FakeTaskRepository : TaskRepository {
     private val store = InMemoryStore<Task>(keyOf = { it.id.value })
-    // domain methods (toggleComplete, watchSubtasks) stay here
 }
 ```
 
@@ -298,71 +347,39 @@ class FakeTaskRepository : TaskRepository {
 Only extract when **all three** are true:
 1. **≥3 features** use the same pattern.
 2. The abstraction has **behaviour**, not just shared fields.
-3. The abstraction's contract is **stable** — won't need to change when one feature changes.
+3. The abstraction's contract is **stable**.
 
-**Examples in this project that passed the test:**
-- `Either<AppError.Validation, T>` + `toResult()` — used in all CreateUseCases for typed validation.
-- `InMemoryStore<E : Any>` — utility (not a class) for in-memory CRUD in all Fake repositories.
-- `ProfileAwareCurrentUser` — injected into all write operations.
+**Examples that passed the test:**
+- `Either<AppError.Validation, T>` + `toResult()` — used in all CreateUseCases
+- `InMemoryStore<E : Any>` — utility for in-memory CRUD in all Fake repositories
+- `ProfileAwareCurrentUser` — injected into all write operations
 
 **Examples that were rejected:**
-- `BaseEntity` marker interface — no behaviour, 2 features would use it.
-- Generic `CreateUseCase<E, Input>` — each feature has different validation logic.
+- `BaseEntity` marker interface — no behaviour
+- Generic `CreateUseCase<E, Input>` — each feature has different validation logic
 
 ---
 
 ## 1-Level Hierarchy Invariant
 
-Projects support a **1-level parent hierarchy**: a project may have a `parentId` pointing to another project, but that parent **must not have its own parent** (`parent.parentId == null`). This is a deliberate simplification: 1-level hierarchy makes cycle-prevention structurally impossible (no chain can form), keeps indentation in lists to a single level, and matches the scope agreed in ADR decisions.
-
-### What is allowed
+Projects support a **1-level parent hierarchy**: a project may have a `parentId` pointing to another project, but that parent **must not have its own parent** (`parent.parentId == null`). This is a deliberate simplification.
 
 ```kotlin
-// A root project (parentId == null) — valid
+// Valid
 val work = Project(id, name = "Work", parentId = null, ...)
+val client = Project(id, name = "Client A", parentId = work.id, ...)
 
-// A child project with a root parent — valid
-val workClient = Project(id, name = "Client A", parentId = work.id, ...)
+// NOT valid — structurally impossible
+val invalid = Project(name = "Task", parentId = workClient.id, ...) // workClient already has parentId
 ```
 
-### What is NOT allowed (enforced by domain validation)
-
+Domain enforcement:
 ```kotlin
-// A child-of-child — structurally impossible because parent already has a parent
-val invalid = Project(
-    name = "Task",
-    parentId = workClient.id,  // workClient already has parentId = work.id
-    // This would create a chain: invalid → workClient → work
-    // 1-level rule forbids this at creation time
-)
-```
-
-### Domain enforcement
-
-```kotlin
-// In CreateProjectUseCase or UpdateProjectUseCase:
 if (input.parentId != null) {
     val parent = repo.findById(input.parentId).getOrNull()
         ?: return Result.failure(AppError.Validation("Parent project not found"))
     check(parent.parentId == null) {
-        AppError.Validation("Only root projects can be parents. Nested sub-projects are not supported.")
+        AppError.Validation("Only root projects can be parents.")
     }
 }
 ```
-
-### DAO enforcement (belt-and-suspenders)
-
-```kotlin
-// ProjectDao.setParent — reject if it would create a 2-level chain
-@Query("UPDATE projects SET parent_id = :parentId WHERE id = :id")
-suspend fun setParent(id: String, parentId: String?): Int
-
-// The SQL itself doesn't need cycle prevention because:
-// 1. We only allow setting parent to a root project (parent.parentId IS NULL)
-// 2. A project that is already a child cannot become a parent
-// This is checked in the UseCase before calling setParent.
-```
-
-### No cycle-prevention code needed
-
-Because the hierarchy is strictly 1-level, there is **no need for recursive cycle-detection** (no `hasDescendant`, no visited-set traversal). If you find yourself writing cycle-prevention logic for projects, that is a sign the hierarchy rule has been violated.

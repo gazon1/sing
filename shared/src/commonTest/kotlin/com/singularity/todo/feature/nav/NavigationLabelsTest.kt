@@ -17,20 +17,20 @@ import kotlin.test.assertTrue
 class NavigationLabelsTest {
 
     @Test
-    fun `every destination has a non-blank title`() {
+    fun everyDestinationHasNonBlankTitle() {
         NavDestination.entries.forEach { dest ->
             assertTrue(dest.title.isNotBlank(), "Destination $dest must have a non-blank title")
         }
     }
 
     @Test
-    fun `all destination names are distinct`() {
+    fun allDestinationNamesAreDistinct() {
         val names = NavDestination.entries.map { it.name }
         assertEquals(names.size, names.toSet().size, "Destination names must be distinct")
     }
 
     @Test
-    fun `no two destinations share the same title`() {
+    fun noTwoDestinationsShareSameTitle() {
         val titles = NavDestination.entries.map { it.title }
         assertEquals(titles.size, titles.toSet().size, "Destination titles must be distinct")
     }

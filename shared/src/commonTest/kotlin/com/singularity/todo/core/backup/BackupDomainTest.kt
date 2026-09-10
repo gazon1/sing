@@ -1,6 +1,6 @@
 package com.singularity.todo.core.backup
 
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,7 +8,7 @@ import org.junit.Test
 class BackupDomainTest {
 
     @Test
-    fun `sha256Hex is deterministic`() {
+    fun sha256HexIsDeterministic() {
         val data = "hello world".toByteArray()
         val hash1 = BackupDomain.sha256Hex(data)
         val hash2 = BackupDomain.sha256Hex(data)
@@ -16,14 +16,14 @@ class BackupDomainTest {
     }
 
     @Test
-    fun `sha256Hex produces 64-char hex string`() {
+    fun sha256HexProduces64CharHexString() {
         val hash = BackupDomain.sha256Hex("test".toByteArray())
         assertEquals(64, hash.length)
         assertTrue(hash.all { it.isDigit() || it in 'a'..'f' })
     }
 
     @Test
-    fun `extractUserIdHash is stable`() {
+    fun extractUserIdHashIsStable() {
         val userId = UserId.fromString("user-123")
         val hash1 = BackupDomain.extractUserIdHash(userId)
         val hash2 = BackupDomain.extractUserIdHash(userId)
@@ -31,7 +31,7 @@ class BackupDomainTest {
     }
 
     @Test
-    fun `buildManifest produces valid manifest`() {
+    fun buildManifestProducesValidManifest() {
         val userId = UserId.fromString("user-123")
         val payloadBytes = "{\"tasks\":[]}".toByteArray()
         val counts = EntityCounts(tasks = 1, notes = 2, projects = 0, tags = 0, attachments = 0, taskTags = 0)
@@ -55,7 +55,7 @@ class BackupDomainTest {
     }
 
     @Test
-    fun `validateManifest accepts valid manifest`() {
+    fun validateManifestAcceptsValidManifest() {
         val userId = UserId.fromString("user-123")
         val payloadBytes = "{\"tasks\":[]}".toByteArray()
         val manifest = BackupDomain.buildManifest("1.0.0", 1000L, userId, payloadBytes,
@@ -66,7 +66,7 @@ class BackupDomainTest {
     }
 
     @Test
-    fun `validateManifest rejects future formatVersion`() {
+    fun validateManifestRejectsFutureFormatVersion() {
         val manifest = BackupManifest(
             formatVersion = 99,
             appName = "test",
@@ -84,7 +84,7 @@ class BackupDomainTest {
     }
 
     @Test
-    fun `validateManifest rejects future schemaVersion`() {
+    fun validateManifestRejectsFutureSchemaVersion() {
         val manifest = BackupManifest(
             formatVersion = 1,
             appName = "test",
@@ -102,7 +102,7 @@ class BackupDomainTest {
     }
 
     @Test
-    fun `validateManifest rejects checksum mismatch`() {
+    fun validateManifestRejectsChecksumMismatch() {
         val manifest = BackupManifest(
             formatVersion = 1,
             appName = "test",

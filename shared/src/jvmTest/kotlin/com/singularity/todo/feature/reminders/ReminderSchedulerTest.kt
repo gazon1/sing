@@ -2,8 +2,8 @@ package com.singularity.todo.feature.reminders
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.notifications.FakeNotificationPort
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeReminderRepository
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test

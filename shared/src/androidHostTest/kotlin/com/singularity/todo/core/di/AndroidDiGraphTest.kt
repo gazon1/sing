@@ -35,7 +35,7 @@ class AndroidDiGraphTest {
 
     @Suppress("DEPRECATION")
     @Test
-    fun `android graph verifies on Robolectric`() {
+    fun androidGraphVerifiesOnRobolectric() {
         // Skip: Room 3 BundledSQLiteDriver requires native sqliteJni not available in Robolectric.
         // The JVM DiGraphTest already covers non-DB graph verification.
         // Full Android graph verification is done manually on a real device.

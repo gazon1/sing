@@ -10,6 +10,10 @@ import ai.koog.prompt.Prompt
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
 import com.singularity.todo.feature.ai.prompts.Prompts
+import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -217,11 +221,11 @@ fun dataGetNoteTool(notesRepo: com.singularity.todo.feature.notes.NotesRepositor
     },
 )
 
-fun dataGetTaskTool(taskRepository: com.singularity.todo.feature.tasks.TaskRepository) = dataTool<GetTaskInput, GetTaskOutput>(
+fun dataGetTaskTool(taskRepository: com.singularity.todo.feature.tasks.domain.port.TaskRepository) = dataTool<GetTaskInput, GetTaskOutput>(
     name = "get_task",
     description = "Fetch a single task by its ID.",
     block = { args ->
-        val task = taskRepository.watchTask(com.singularity.todo.feature.tasks.TaskId(args.taskId)).first()
+        val task = taskRepository.watchTask(com.singularity.todo.feature.tasks.domain.model.TaskId(args.taskId)).first()
         val output = if (task != null) {
             GetTaskOutput(task.id.value, task.title, task.description, task.isCompleted, task.projectId?.value)
         } else {
@@ -246,20 +250,20 @@ fun dataGetProjectTool(projectsRepository: com.singularity.todo.feature.projects
 )
 
 fun dataListTasksTool(
-    taskRepository: com.singularity.todo.feature.tasks.TaskRepository,
+    taskRepository: com.singularity.todo.feature.tasks.domain.port.TaskRepository,
     currentUser: com.singularity.todo.feature.profile.ProfileAwareCurrentUser,
 ) = dataTool<ListTasksInput, ListTasksOutput>(
     name = "list_tasks",
     description = "List tasks, optionally filtered by project.",
     block = { args ->
         val effectiveUserId = if (args.userId.isNotBlank()) {
-            com.singularity.todo.feature.tasks.UserId(args.userId)
+            com.singularity.todo.core.ids.UserId(args.userId)
         } else {
             currentUser.scopedUserId.value
         }
         val filter = args.projectId?.let {
-            com.singularity.todo.feature.tasks.TaskFilter.ByProject(com.singularity.todo.feature.projects.ProjectId(it))
-        } ?: com.singularity.todo.feature.tasks.TaskFilter.All
+            com.singularity.todo.feature.tasks.domain.model.TaskFilter.ByProject(com.singularity.todo.feature.projects.ProjectId(it))
+        } ?: com.singularity.todo.feature.tasks.domain.model.TaskFilter.All
         val tasks = taskRepository.watchTasks(effectiveUserId, filter).first().take(args.limit)
             .map { TaskSummary(it.id.value, it.title, it.isCompleted, it.projectId?.value) }
         Json.encodeToString(ListTasksOutput.serializer(), ListTasksOutput(tasks))
@@ -267,18 +271,18 @@ fun dataListTasksTool(
 )
 
 fun dataSearchTasksTool(
-    taskRepository: com.singularity.todo.feature.tasks.TaskRepository,
+    taskRepository: com.singularity.todo.feature.tasks.domain.port.TaskRepository,
     currentUser: com.singularity.todo.feature.profile.ProfileAwareCurrentUser,
 ) = dataTool<SearchTasksInput, SearchTasksOutput>(
     name = "search_tasks",
     description = "Search tasks by title (case-insensitive).",
     block = { args ->
         val effectiveUserId = if (args.userId.isNotBlank()) {
-            com.singularity.todo.feature.tasks.UserId(args.userId)
+            com.singularity.todo.core.ids.UserId(args.userId)
         } else {
             currentUser.scopedUserId.value
         }
-        val tasks = taskRepository.watchTasks(effectiveUserId, com.singularity.todo.feature.tasks.TaskFilter.All)
+        val tasks = taskRepository.watchTasks(effectiveUserId, com.singularity.todo.feature.tasks.domain.model.TaskFilter.All)
             .first()
             .filter { it.title.contains(args.query, ignoreCase = true) }
             .take(args.limit)
@@ -288,21 +292,21 @@ fun dataSearchTasksTool(
 )
 
 fun dataListLinkedTasksTool(
-    taskRepository: com.singularity.todo.feature.tasks.TaskRepository,
+    taskRepository: com.singularity.todo.feature.tasks.domain.port.TaskRepository,
     currentUser: com.singularity.todo.feature.profile.ProfileAwareCurrentUser,
 ) = dataTool<ListLinkedTasksInput, ListLinkedTasksOutput>(
     name = "list_linked_tasks",
     description = "List all tasks linked to a specific project.",
     block = { args ->
         val effectiveUserId = if (args.userId.isNotBlank()) {
-            com.singularity.todo.feature.tasks.UserId(args.userId)
+            UserId(args.userId)
         } else {
             currentUser.scopedUserId.value
         }
         val tasks = taskRepository.watchTasks(
             effectiveUserId,
-            com.singularity.todo.feature.tasks.TaskFilter.ByProject(
-                com.singularity.todo.feature.projects.ProjectId(args.projectId),
+            TaskFilter.ByProject(
+                ProjectId(args.projectId),
             ),
         ).first()
             .map { TaskSummary(it.id.value, it.title, it.isCompleted, it.projectId?.value) }

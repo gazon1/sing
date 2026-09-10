@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.reminders
 
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.Flow
 
 /**

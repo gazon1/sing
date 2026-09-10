@@ -32,7 +32,7 @@ class AppNavigatorTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `navigateTopLevel is idempotent on the same tab`() {
+    fun navigateTopLevelIsIdempotentOnTheSameTab() {
         val (controller, navigator) = buildNavigator()
 
         composeRule.runOnUiThread {
@@ -51,7 +51,7 @@ class AppNavigatorTest {
     }
 
     @Test
-    fun `switching tabs pushes the new tab and keeps Today reachable via popBackStack`() {
+    fun switchingTabsPushesTheNewTabAndKeepsTodayReachableViaPopBackStack() {
         val (controller, navigator) = buildNavigator()
 
         composeRule.runOnUiThread {
@@ -71,7 +71,7 @@ class AppNavigatorTest {
     }
 
     @Test
-    fun `returning to a tab restores its sub-route`() {
+    fun returningToATabRestoresItsSubRoute() {
         val (controller, navigator) = buildNavigator()
 
         composeRule.runOnUiThread {
@@ -97,7 +97,7 @@ class AppNavigatorTest {
     }
 
     @Test
-    fun `navigateTopLevel rejects sub-routes with a clear error`() {
+    fun navigateTopLevelRejectsSubRoutesWithAClearError() {
         val (_, navigator) = buildNavigator()
 
         composeRule.runOnUiThread {
@@ -114,7 +114,7 @@ class AppNavigatorTest {
     }
 
     @Test
-    fun `popBackStack walks back through the current tab`() {
+    fun popBackStackWalksBackThroughTheCurrentTab() {
         val (controller, navigator) = buildNavigator()
 
         composeRule.runOnUiThread {
@@ -132,7 +132,7 @@ class AppNavigatorTest {
     }
 
     @Test
-    fun `popBackStack returns false at the start destination`() {
+    fun popBackStackReturnsFalseAtTheStartDestination() {
         val (_, navigator) = buildNavigator()
 
         composeRule.runOnUiThread {

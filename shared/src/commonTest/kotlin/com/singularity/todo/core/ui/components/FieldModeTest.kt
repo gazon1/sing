@@ -6,21 +6,21 @@ import kotlin.test.assertTrue
 
 class FieldModeTest {
 
-    @Test fun `View is singleton`() {
+    @Test fun viewIsSingleton() {
         assertEquals(FieldMode.View, FieldMode.View)
     }
 
-    @Test fun `Edit carries draft text`() {
+    @Test fun editCarriesDraftText() {
         val mode = FieldMode.Edit("draft text")
         assertEquals("draft text", mode.draft)
     }
 
-    @Test fun `Edit with empty draft represents cleared input`() {
+    @Test fun editWithEmptyDraftRepresentsClearedInput() {
         val mode = FieldMode.Edit("")
         assertTrue(mode.draft.isEmpty())
     }
 
-    @Test fun `View and Edit are distinct`() {
+    @Test fun viewAndEditAreDistinct() {
         val view: FieldMode = FieldMode.View
         val edit: FieldMode = FieldMode.Edit("anything")
         assertTrue(view != edit)

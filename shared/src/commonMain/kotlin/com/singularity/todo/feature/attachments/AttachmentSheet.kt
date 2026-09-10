@@ -35,7 +35,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
-import com.singularity.todo.feature.tasks.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

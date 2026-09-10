@@ -40,8 +40,8 @@ fun TaskEntity.toDto(): TaskDto = TaskDto(
 
 fun TaskDto.toEntity(userId: String): TaskEntity = TaskEntity(
     id = id, title = title, description = description,
-    priority = com.singularity.todo.feature.tasks.TaskPriority.valueOf(priority),
-    kind = com.singularity.todo.feature.tasks.TaskKind.valueOf(kind),
+    priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.valueOf(priority),
+    kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.valueOf(kind),
     projectId = projectId, dueDate = dueDate, dueTime = dueTime,
     completedAt = completedAt, someday = someday,
     archivedAt = archivedAt, isPinned = isPinned,

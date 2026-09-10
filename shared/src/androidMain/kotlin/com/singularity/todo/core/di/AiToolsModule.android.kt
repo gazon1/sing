@@ -65,11 +65,11 @@ import com.singularity.todo.feature.projects.CreateProjectUseCase
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.projects.ProjectsViewModel
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.tasks.CreateTaskUseCase
-import com.singularity.todo.feature.tasks.TaskRepository
-import com.singularity.todo.feature.tasks.TasksViewModel
-import com.singularity.todo.feature.tasks.UpdateTaskUseCase
-import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
+import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.core.auth.CurrentUser
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel

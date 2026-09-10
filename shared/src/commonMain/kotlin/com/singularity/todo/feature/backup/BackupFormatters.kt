@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.backup
 
-import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 
 /**
@@ -19,9 +19,9 @@ internal fun formatFileSize(bytes: Long): String = when {
 
 /** Formats an epoch-milliseconds instant into a local date-time string. */
 internal fun formatBackupDate(epochMillis: Long, zone: TimeZone): String {
-    val ldt = Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(zone)
+    val ldt = kotlin.time.Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(zone)
     return "%04d-%02d-%02d %02d:%02d".format(
-        ldt.year, ldt.monthNumber, ldt.dayOfMonth,
+        ldt.year, ldt.month.number, ldt.day,
         ldt.hour, ldt.minute
     )
 }

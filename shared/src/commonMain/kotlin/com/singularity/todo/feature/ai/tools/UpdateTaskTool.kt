@@ -5,11 +5,11 @@ import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.tasks.Task
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.TaskKind
-import com.singularity.todo.feature.tasks.TaskPriority
-import com.singularity.todo.feature.tasks.TaskRepository
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

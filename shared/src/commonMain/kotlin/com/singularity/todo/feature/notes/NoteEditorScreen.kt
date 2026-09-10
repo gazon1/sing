@@ -46,7 +46,7 @@ import com.singularity.todo.feature.notes.components.EditorToolbar
 import com.singularity.todo.feature.notes.components.InternalLinkPickerSheet
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.InternalLinkRepository
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel

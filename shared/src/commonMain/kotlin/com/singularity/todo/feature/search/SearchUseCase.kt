@@ -1,11 +1,12 @@
 package com.singularity.todo.feature.search
 
-import com.singularity.todo.feature.tasks.Task
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.projects.Project
 import com.singularity.todo.feature.tags.Tag
-import com.singularity.todo.feature.tasks.TaskRepository
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.tags.TagsRepository
@@ -29,7 +30,7 @@ class SearchUseCase(
         query: String,
         userId: String
     ): Flow<SearchResults> = combine(
-        taskRepo.watchTasks(com.singularity.todo.feature.tasks.UserId.fromString(userId), com.singularity.todo.feature.tasks.TaskFilter.Search(query)),
+        taskRepo.watchTasks(UserId.fromString(userId), TaskFilter.Search(query)),
         noteRepo.searchNotes(query),
         projectRepo.watchProjects(UserId.fromString(userId)),
         tagRepo.watchTags(userId)

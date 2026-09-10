@@ -1,7 +1,7 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.files.FileChecksum
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 
 object BackupDomain {
     fun sha256Hex(bytes: ByteArray): String = FileChecksum.sha256(bytes)

@@ -2,7 +2,7 @@ package com.singularity.todo.feature.reminders
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.notifications.NotificationPort
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

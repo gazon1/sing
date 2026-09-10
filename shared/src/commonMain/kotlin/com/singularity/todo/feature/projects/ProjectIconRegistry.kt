@@ -1,25 +1,26 @@
 package com.singularity.todo.feature.projects
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderSpecial
-import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Note
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.singularity.todo.feature.projects.ProjectIconRegistry.iconByKey
 
 /**
  * Registry of Material icons available for projects.
@@ -35,7 +36,7 @@ object ProjectIconRegistry {
     val Star = Icons.Filled.Star
     val Folder = Icons.Filled.Folder
     val FolderSpecial = Icons.Filled.FolderSpecial
-    val Note = Icons.Filled.Note
+    val Note = Icons.AutoMirrored.Filled.Note
     val DateRange = Icons.Filled.DateRange
     val ShoppingCart = Icons.Filled.ShoppingCart
     val Flight = Icons.Filled.Flight

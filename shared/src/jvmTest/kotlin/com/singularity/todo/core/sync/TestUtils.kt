@@ -1,7 +1,7 @@
 package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.auth.Session
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject

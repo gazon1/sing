@@ -3,8 +3,9 @@ package com.singularity.todo.core.database
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.core.ids.UserId
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 
@@ -43,3 +44,27 @@ internal fun String?.toProjectIdOrNull(): ProjectId? =
 /** Returns null if string is null or blank. */
 internal fun String?.toTagIdOrNull(): TagId? =
     this?.takeIf { it.isNotBlank() }?.let { TagId.fromString(it) }
+
+/**
+ * Converts a [TaskEntity] to a domain [Task].
+ * Tags are not populated — callers must fill them separately if needed.
+ */
+internal fun TaskEntity.toTask(): Task = Task(
+    id = id.toId(),
+    title = title,
+    description = description,
+    priority = priority,
+    kind = kind,
+    projectId = projectId.toProjectIdOrNull(),
+    parentTaskId = parentTaskId?.toId(),
+    tags = emptyList(),
+    dueDate = dueDate.toLocalDateOrNull(),
+    dueTime = dueTime,
+    completedAt = completedAt.toInstantOrNull(),
+    someday = someday,
+    archivedAt = archivedAt.toInstantOrNull(),
+    isPinned = isPinned,
+    createdAt = createdAt.toInstant(),
+    updatedAt = updatedAt.toInstant(),
+    userId = userId.toId(),
+)

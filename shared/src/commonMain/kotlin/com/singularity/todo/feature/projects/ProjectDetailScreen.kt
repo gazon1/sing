@@ -76,10 +76,10 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.reminders.ReminderPicker
-import com.singularity.todo.feature.tasks.Task
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.components.TaskCard
-import com.singularity.todo.feature.tasks.components.TaskCardActions
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.presentation.components.TaskCard
+import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
 import com.singularity.todo.feature.projects.components.ProjectDetailActions
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -1001,8 +1001,8 @@ private fun ProjectDetailContentPreview() {
         taskRepo = fakeTaskRepo,
         deleteProject = com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
         updateProject = UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
-        updateTask = com.singularity.todo.feature.tasks.UpdateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
-        createTaskUseCase = com.singularity.todo.feature.tasks.CreateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
+        updateTask = com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
+        createTaskUseCase = com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
         currentUser = fakeCurrentUser,
         clock = com.singularity.todo.core.platform.Clock,
     )

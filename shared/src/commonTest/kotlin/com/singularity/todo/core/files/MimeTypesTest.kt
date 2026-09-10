@@ -6,7 +6,7 @@ import org.junit.Test
 class MimeTypesTest {
 
     @Test
-    fun `fromExtension returns correct MIME for image types`() {
+    fun fromExtensionReturnsCorrectMimeForImageTypes() {
         assertEquals("image/png", MimeTypes.fromExtension("png"))
         assertEquals("image/jpeg", MimeTypes.fromExtension("jpg"))
         assertEquals("image/jpeg", MimeTypes.fromExtension("jpeg"))
@@ -15,7 +15,7 @@ class MimeTypesTest {
     }
 
     @Test
-    fun `fromExtension returns correct MIME for documents`() {
+    fun fromExtensionReturnsCorrectMimeForDocuments() {
         assertEquals("application/pdf", MimeTypes.fromExtension("pdf"))
         assertEquals("application/msword", MimeTypes.fromExtension("doc"))
         assertEquals("text/plain", MimeTypes.fromExtension("txt"))
@@ -23,43 +23,43 @@ class MimeTypesTest {
     }
 
     @Test
-    fun `fromExtension is case insensitive`() {
+    fun fromExtensionIsCaseInsensitive() {
         assertEquals("image/png", MimeTypes.fromExtension("PNG"))
         assertEquals("image/jpeg", MimeTypes.fromExtension("JPG"))
     }
 
     @Test
-    fun `fromExtension returns octet-stream for unknown`() {
+    fun fromExtensionReturnsOctetStreamForUnknown() {
         assertEquals("application/octet-stream", MimeTypes.fromExtension("xyz"))
         assertEquals("application/octet-stream", MimeTypes.fromExtension("unknown"))
     }
 
     @Test
-    fun `fromExtension returns octet-stream for empty string`() {
+    fun fromExtensionReturnsOctetStreamForEmptyString() {
         assertEquals("application/octet-stream", MimeTypes.fromExtension(""))
     }
 
     @Test
-    fun `isImage returns true for image MIME types`() {
+    fun isImageReturnsTrueForImageMimeTypes() {
         assertEquals(true, MimeTypes.isImage("image/png"))
         assertEquals(true, MimeTypes.isImage("image/jpeg"))
         assertEquals(true, MimeTypes.isImage("image/gif"))
     }
 
     @Test
-    fun `isImage returns false for non-image MIME types`() {
+    fun isImageReturnsFalseForNonImageMimeTypes() {
         assertEquals(false, MimeTypes.isImage("text/plain"))
         assertEquals(false, MimeTypes.isImage("application/pdf"))
     }
 
     @Test
-    fun `isDocument returns true for document MIME types`() {
+    fun isDocumentReturnsTrueForDocumentMimeTypes() {
         assertEquals(true, MimeTypes.isDocument("application/pdf"))
         assertEquals(true, MimeTypes.isDocument("application/msword"))
     }
 
     @Test
-    fun `isArchive returns true for archive MIME types`() {
+    fun isArchiveReturnsTrueForArchiveMimeTypes() {
         assertEquals(true, MimeTypes.isArchive("application/zip"))
         assertEquals(true, MimeTypes.isArchive("application/x-7z-compressed"))
     }

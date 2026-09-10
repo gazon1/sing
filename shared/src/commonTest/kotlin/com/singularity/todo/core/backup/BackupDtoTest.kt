@@ -7,13 +7,13 @@ import com.singularity.todo.core.database.TaskEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import com.singularity.todo.feature.tasks.TaskKind
-import com.singularity.todo.feature.tasks.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 
 class BackupDtoTest {
 
     @Test
-    fun `TaskDto toEntity roundtrip preserves fields`() {
+    fun taskDtoToEntityRoundtripPreservesFields() {
         val now = System.currentTimeMillis()
         val entity = TaskEntity(
             id = "task-1",
@@ -62,7 +62,7 @@ class BackupDtoTest {
     }
 
     @Test
-    fun `NoteDto toEntity roundtrip preserves fields`() {
+    fun noteDtoToEntityRoundtripPreservesFields() {
         val now = System.currentTimeMillis()
         val entity = NoteEntity(
             id = "note-1",
@@ -89,7 +89,7 @@ class BackupDtoTest {
     }
 
     @Test
-    fun `ProjectDto toEntity roundtrip preserves fields`() {
+    fun projectDtoToEntityRoundtripPreservesFields() {
         val now = System.currentTimeMillis()
         val entity = ProjectEntity(
             id = "proj-1",

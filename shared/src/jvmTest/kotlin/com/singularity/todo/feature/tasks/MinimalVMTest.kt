@@ -1,9 +1,11 @@
 package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -16,7 +18,7 @@ class MinimalVMTest {
     @Test
     fun `UpdateTaskUseCase updates repository`() = runTest {
         val repo = FakeTaskRepository()
-        val task = com.singularity.todo.feature.tasks.Task(
+        val task = com.singularity.todo.feature.tasks.domain.model.Task(
             id = TaskId("t1"),
             title = "Original",
             userId = UserId("u1"),

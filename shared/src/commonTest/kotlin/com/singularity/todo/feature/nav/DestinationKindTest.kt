@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
 class DestinationKindTest {
 
     @Test
-    fun `isTab recognises all five bottom-bar tabs`() {
+    fun isTabRecognisesAllFiveBottomBarTabs() {
         assertTrue(DestinationKind.isTab(AppDestination.Inbox))
         assertTrue(DestinationKind.isTab(AppDestination.Today))
         assertTrue(DestinationKind.isTab(AppDestination.Plans))
@@ -23,7 +23,7 @@ class DestinationKindTest {
     }
 
     @Test
-    fun `isTab rejects menu entries`() {
+    fun isTabRejectsMenuEntries() {
         assertFalse(DestinationKind.isTab(AppDestination.Notes))
         assertFalse(DestinationKind.isTab(AppDestination.AiChat))
         assertFalse(DestinationKind.isTab(AppDestination.Search))
@@ -32,14 +32,14 @@ class DestinationKindTest {
     }
 
     @Test
-    fun `isTab rejects sub-routes`() {
+    fun isTabRejectsSubRoutes() {
         assertFalse(DestinationKind.isTab(AppDestination.TaskDetail("42")))
         assertFalse(DestinationKind.isTab(AppDestination.TaskEditor()))
         assertFalse(DestinationKind.isTab(AppDestination.NoteView("n1")))
     }
 
     @Test
-    fun `isMenuEntry recognises the five sheet destinations`() {
+    fun isMenuEntryRecognisesFiveSheetDestinations() {
         assertTrue(DestinationKind.isMenuEntry(AppDestination.Notes))
         assertTrue(DestinationKind.isMenuEntry(AppDestination.AiChat))
         assertTrue(DestinationKind.isMenuEntry(AppDestination.Search))
@@ -48,13 +48,13 @@ class DestinationKindTest {
     }
 
     @Test
-    fun `isMenuEntry rejects tabs and sub-routes`() {
+    fun isMenuEntryRejectsTabsAndSubRoutes() {
         assertFalse(DestinationKind.isMenuEntry(AppDestination.Today))
         assertFalse(DestinationKind.isMenuEntry(AppDestination.TaskEditor()))
     }
 
     @Test
-    fun `isSubRoute only matches sub-routes`() {
+    fun isSubRouteOnlyMatchesSubRoutes() {
         assertTrue(DestinationKind.isSubRoute(AppDestination.TaskDetail("1")))
         assertTrue(DestinationKind.isSubRoute(AppDestination.TaskEditor()))
         assertTrue(DestinationKind.isSubRoute(AppDestination.NoteView("n")))
@@ -63,13 +63,13 @@ class DestinationKindTest {
     }
 
     @Test
-    fun `isSubRoute rejects tabs and menu entries`() {
+    fun isSubRouteRejectsTabsAndMenuEntries() {
         assertFalse(DestinationKind.isSubRoute(AppDestination.Today))
         assertFalse(DestinationKind.isSubRoute(AppDestination.Notes))
     }
 
     @Test
-    fun `classification is mutually exclusive across the three buckets`() {
+    fun classificationIsMutuallyExclusiveAcrossThreeBuckets() {
         val all = listOf(
             AppDestination.Inbox,
             AppDestination.Today,

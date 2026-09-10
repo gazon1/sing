@@ -35,6 +35,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Never** store more than one recently-deleted task in memory — the most recent overwrite. _(from `2026-09-08-task-restore-undo`)_
 - **Always** read entity state from the write-through `_latest<Entity>` cache, never from `state.value` snapshot in mutation methods. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - **Always** update `_latest<Entity>` before any async operation that reads it. _(from `2026-09-09-projectdetail-write-through-fix`)_
+- **feature/tasks** follows strict layer discipline: `presentation` → `domain` only, `data` → `domain` only, `domain` has no outward dependencies. Repository interfaces live in `domain/port/`, implementations in `data/`, UI in `presentation/`. _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - **Never** emit `Saved` events for debounced inline edits — update `_lastEditedAt` only. _(from `2026-09-09-projectdetail-write-through-fix`)_
 
 ## Per-tag

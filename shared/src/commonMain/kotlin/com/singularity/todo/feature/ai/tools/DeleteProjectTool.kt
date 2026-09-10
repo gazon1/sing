@@ -5,7 +5,7 @@ import ai.koog.serialization.TypeToken
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 

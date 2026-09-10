@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 class PlatformPragmasTest {
 
     @Test
-    fun `Commands list matches the desktop tuning we had before Room`() {
+    fun commandsListMatchesTheDesktopTuningWeHadBeforeRoom() {
         assertEquals(
             listOf(
                 "PRAGMA journal_mode = WAL",
@@ -29,7 +29,7 @@ class PlatformPragmasTest {
     }
 
     @Test
-    fun `every command targets a desktop performance knob`() {
+    fun everyCommandTargetsADesktopPerformanceKnob() {
         for (cmd in PlatformPragmas.Commands) {
             assertTrue(cmd.startsWith("PRAGMA "), "not a PRAGMA: $cmd")
             assertTrue(
@@ -40,7 +40,7 @@ class PlatformPragmasTest {
     }
 
     @Test
-    fun `Commands list is non-empty and order-stable`() {
+    fun commandsListIsNonEmptyAndOrderStable() {
         // Order matters: e.g. journal_mode must be set before synchronous, since
         // NORMAL is meaningful only with WAL on. Capture twice to ensure stability.
         val first = PlatformPragmas.Commands

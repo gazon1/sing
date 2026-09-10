@@ -1,6 +1,6 @@
 package com.singularity.todo.core.auth
 
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 
 /**
  * Represents the current authentication session.

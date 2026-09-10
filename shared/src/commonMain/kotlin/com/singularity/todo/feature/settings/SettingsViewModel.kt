@@ -9,14 +9,14 @@ import com.singularity.todo.feature.ai.OpenAiConfig
 import com.singularity.todo.feature.ai.TextGenPort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Single ViewModel for all settings screens.
@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
  * in [SecureStoragePort] (hardware-backed). The Settings UI holds a local-only
  * field for the password input and writes through [processIntent].
  */
+@OptIn(FlowPreview::class)
 class SettingsViewModel(
     private val settings: SettingsRepository,
     private val secureStorage: SecureStoragePort,

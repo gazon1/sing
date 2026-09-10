@@ -1,8 +1,12 @@
 package com.singularity.todo.core.ui.components
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
@@ -33,6 +37,25 @@ internal fun priorityColorByIndex(index: Int): Color = when (index) {
  * Visual state for the due-date chip on the task detail screen.
  * Used to determine background / text colour (overdue = error, today = warning, future = neutral).
  */
+/**
+ * Returns the background and foreground colors for a due-date chip,
+ * based on its visual state.
+ *
+ * @.compose Must be called from a @Composable context — reads [MaterialTheme.colorScheme].
+ */
+@Composable
+@ReadOnlyComposable
+internal fun dueChipColors(state: DueVisualState?): Pair<Color, Color> {
+    return when (state) {
+        DueVisualState.Overdue ->
+            MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+        DueVisualState.Today ->
+            MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+        else ->
+            MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+}
+
 internal enum class DueVisualState {
     /** Past due date. */
     Overdue,
@@ -98,13 +121,13 @@ internal fun formatReminderTime(
     offsetMinutes: Int,
     zone: kotlinx.datetime.TimeZone,
 ): String {
-    val instant = kotlinx.datetime.Instant.fromEpochMilliseconds(fireAt)
+    val instant = Instant.fromEpochMilliseconds(fireAt)
     val local = instant.toLocalDateTime(zone)
     val timeStr = "${local.hour.toString().padStart(2, '0')}:${local.minute.toString().padStart(2, '0')}"
 
     return if (offsetMinutes == 0) {
         // AT_DUE — just show the absolute time
-        "${local.dayOfMonth} ${shortMonth(local.month)} at $timeStr"
+        "${local.day} ${shortMonth(local.month)} at $timeStr"
     } else {
         // Relative offset — show how many minutes/hours/days before due
         val mins = kotlin.math.abs(offsetMinutes)
@@ -154,7 +177,7 @@ internal data class TimestampsModel(
 
 private fun formatCreatedDate(instant: Instant): String {
     val local = instant.toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
-    return "Created ${shortMonth(local.month)} ${local.dayOfMonth}"
+    return "Created ${shortMonth(local.month)} ${local.day}"
 }
 
 private fun formatUpdatedRelative(instant: Instant, now: Instant): String {
@@ -170,7 +193,7 @@ private fun formatUpdatedRelative(instant: Instant, now: Instant): String {
         diffDays <= 7 -> "Updated ${diffDays}d ago"
         else -> {
             val local = instant.toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
-            "Updated ${shortMonth(local.month)} ${local.dayOfMonth}"
+            "Updated ${shortMonth(local.month)} ${local.day}"
         }
     }
 }

@@ -2,7 +2,7 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
@@ -67,8 +67,8 @@ class ProjectLifecycleIntegrationTest {
             )
         )
         fakeTaskRepo.seed(
-            com.singularity.todo.feature.tasks.Task(
-                id = com.singularity.todo.feature.tasks.TaskId.fromString("t1"),
+            com.singularity.todo.feature.tasks.domain.model.Task(
+                id = com.singularity.todo.feature.tasks.domain.model.TaskId.fromString("t1"),
                 userId = testUserId,
                 title = "Active task",
                 projectId = projectId,

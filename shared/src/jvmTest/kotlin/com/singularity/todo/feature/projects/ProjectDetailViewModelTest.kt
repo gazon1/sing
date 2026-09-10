@@ -2,10 +2,10 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.tasks.CreateTaskUseCase
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.UpdateTaskUseCase
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProfileRepository

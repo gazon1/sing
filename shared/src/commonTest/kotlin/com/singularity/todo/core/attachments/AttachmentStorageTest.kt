@@ -9,7 +9,7 @@ import org.junit.Test
 class AttachmentStorageTest {
 
     @Test
-    fun `saveFile writes data to correct path`() = runTest {
+    fun saveFileWritesDataToCorrectPath() = runTest {
         val fs = MapFileSystem()
         val storage = AttachmentStorage(fs, "/attachments")
 
@@ -31,7 +31,7 @@ class AttachmentStorageTest {
     }
 
     @Test
-    fun `computeChecksum returns stable hash`() = runTest {
+    fun computeChecksumReturnsStableHash() = runTest {
         val fs = MapFileSystem()
         val storage = AttachmentStorage(fs, "/attachments")
 
@@ -45,7 +45,7 @@ class AttachmentStorageTest {
     }
 
     @Test
-    fun `computeChecksum fails for missing file`() = runTest {
+    fun computeChecksumFailsForMissingFile() = runTest {
         val fs = MapFileSystem()
         val storage = AttachmentStorage(fs, "/attachments")
 
@@ -54,7 +54,7 @@ class AttachmentStorageTest {
     }
 
     @Test
-    fun `deleteFile removes file`() = runTest {
+    fun deleteFileRemovesFile() = runTest {
         val fs = MapFileSystem()
         val storage = AttachmentStorage(fs, "/attachments")
 
@@ -67,7 +67,7 @@ class AttachmentStorageTest {
     }
 
     @Test
-    fun `fileExists returns correct status`() = runTest {
+    fun fileExistsReturnsCorrectStatus() = runTest {
         val fs = MapFileSystem()
         val storage = AttachmentStorage(fs, "/attachments")
 

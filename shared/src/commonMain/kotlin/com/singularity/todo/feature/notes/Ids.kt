@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.notes
 
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import kotlin.time.Instant
 
 @JvmInline

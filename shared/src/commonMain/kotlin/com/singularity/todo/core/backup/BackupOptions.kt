@@ -1,6 +1,6 @@
 package com.singularity.todo.core.backup
 
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 
 @DslMarker
 annotation class BackupDsl

@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.projects
 
-import com.singularity.todo.feature.tasks.Task
+import com.singularity.todo.feature.tasks.domain.model.Task
 
 /**
  * DTO for a single option in the parent-project picker.

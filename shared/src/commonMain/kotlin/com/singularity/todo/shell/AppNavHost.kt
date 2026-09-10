@@ -24,11 +24,11 @@ import com.singularity.todo.feature.projects.ProjectsScreen
 import com.singularity.todo.feature.search.SearchScreen
 import com.singularity.todo.feature.settings.SettingsScreen
 import com.singularity.todo.feature.statistics.StatisticsScreen
-import com.singularity.todo.feature.tasks.TaskDetailScreen
-import com.singularity.todo.feature.tasks.TaskEditorScreen
-import com.singularity.todo.feature.tasks.TaskId
-import com.singularity.todo.feature.tasks.TasksScreen
-import com.singularity.todo.feature.tasks.TasksScreenEntry
+import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen
+import com.singularity.todo.feature.tasks.presentation.screen.TaskEditorScreen
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.presentation.screen.TasksScreen
+import com.singularity.todo.feature.tasks.domain.model.TasksScreenEntry
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 

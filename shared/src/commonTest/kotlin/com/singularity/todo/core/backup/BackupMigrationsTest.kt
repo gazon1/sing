@@ -11,7 +11,7 @@ class BackupMigrationsTest {
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
-    fun `migrate identity when from equals to`() {
+    fun migrateIdentityWhenFromEqualsTo() {
         val original = """{"tasks":[],"schemaVersion":1}"""
         val jsonElement: JsonElement = json.decodeFromString(JsonElement.serializer(), original)
         val jsonObj: JsonObject = jsonElement as JsonObject
@@ -20,7 +20,7 @@ class BackupMigrationsTest {
     }
 
     @Test
-    fun `migrate empty chain returns identity`() {
+    fun migrateEmptyChainReturnsIdentity() {
         val original = """{"tasks":[]}"""
         val jsonElement: JsonElement = json.decodeFromString(JsonElement.serializer(), original)
         val jsonObj: JsonObject = jsonElement as JsonObject

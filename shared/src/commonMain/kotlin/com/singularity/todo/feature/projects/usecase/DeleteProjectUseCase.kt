@@ -3,9 +3,9 @@ package com.singularity.todo.feature.projects.usecase
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.projects.ProjectId
-import com.singularity.todo.feature.tasks.TaskFilter
-import com.singularity.todo.feature.tasks.TaskRepository
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.first
 
 /**

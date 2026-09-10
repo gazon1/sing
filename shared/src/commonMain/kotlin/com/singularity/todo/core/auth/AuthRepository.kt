@@ -2,7 +2,7 @@ package com.singularity.todo.core.auth
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.runCatchingResult
-import com.singularity.todo.feature.tasks.UserId
+import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow

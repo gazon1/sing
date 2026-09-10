@@ -2,13 +2,20 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.SequenceIdGenerator
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.checklist.ChecklistUseCase
-import com.singularity.todo.feature.tasks.TaskEditorDeps
-import com.singularity.todo.feature.tasks.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
+import com.singularity.todo.feature.tasks.domain.model.TaskEditorDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskEditorIntent
+import com.singularity.todo.feature.tasks.domain.model.TaskEditorUiState
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskEditorViewModel
 import com.singularity.todo.feature.settings.ReminderOffset
-import com.singularity.todo.feature.tasks.FakeAttachmentSaver
+import com.singularity.todo.test.fakes.FakeAttachmentSaver
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
@@ -48,7 +55,7 @@ class TaskEditorViewModelTest {
         scope: CoroutineScope? = null,
         idGen: IdGenerator = SequenceIdGenerator(),
         timeZoneProvider: TimeZoneProvider = TEST_TZ,
-        attachmentSaver: AttachmentSaver = FakeAttachmentSaver,
+        attachmentSaver: AttachmentSaver = FakeAttachmentSaver(),
     ): TaskEditorViewModel {
         // Use the platform Clock singleton directly
         val clock = Clock

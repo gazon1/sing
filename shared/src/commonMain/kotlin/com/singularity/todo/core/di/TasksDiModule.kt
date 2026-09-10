@@ -1,16 +1,16 @@
 package com.singularity.todo.core.di
 
-import com.singularity.todo.feature.tasks.TaskRepository
-import com.singularity.todo.feature.tasks.TaskRepositoryImpl
-import com.singularity.todo.feature.tasks.CreateTaskUseCase
-import com.singularity.todo.feature.tasks.UpdateTaskUseCase
-import com.singularity.todo.feature.tasks.usecase.TaskMutationsUseCase
-import com.singularity.todo.feature.tasks.TaskDetailDeps
-import com.singularity.todo.feature.tasks.TaskDetailViewModel
-import com.singularity.todo.feature.tasks.TaskEditorViewModel
-import com.singularity.todo.feature.tasks.TaskEditorDeps
-import com.singularity.todo.feature.tasks.AttachmentSaver
-import com.singularity.todo.feature.tasks.AttachmentsViewModelAttachmentSaver
+import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
+import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskEditorDeps
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl
+import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskEditorViewModel
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.archive.ArchiveRepository
 import com.singularity.todo.feature.archive.ArchiveViewModel
@@ -72,7 +72,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     single<TimeZoneProvider> { com.singularity.todo.core.platform.systemTimeZone }
 
-    single<AttachmentSaver> { AttachmentsViewModelAttachmentSaver { get<AttachmentsViewModel>() } }
+    single<AttachmentSaver> { AttachmentSaverImpl(get(), get()) }
 
     // ─── Reminders ──────────────────────────────────────────────────────
 
@@ -80,27 +80,8 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    // TasksViewModel with AI deps: registered in aiToolsCoreModule (has nullable AI use cases)
-    // TasksViewModel without AI deps: not needed — AI-less version uses same class, handles null gracefully
+    viewModelOf(::TaskDetailViewModel)
 
-    viewModel {
-        TaskDetailViewModel(
-            deps = TaskDetailDeps(
-                taskRepo = get(),
-                updateTask = get(),
-                createTask = get(),
-                projectsRepo = get(),
-                tagsRepo = get(),
-                checklistUseCase = get(),
-                reminderRepo = get(),
-                attachmentsRepo = get(),
-                currentUser = get(),
-                timeZoneProvider = get(),
-            )
-        )
-    }
-
-    // TaskEditorViewModel — runtime parameter (initialDueDate)
     viewModel { (initialDueDate: kotlinx.datetime.LocalDate?) ->
         TaskEditorViewModel(
             deps = TaskEditorDeps(
@@ -126,5 +107,4 @@ fun tasksModule(): org.koin.core.module.Module = module {
     viewModelOf(::StatisticsViewModel)
 
     viewModelOf(::SearchViewModel)
-
 }
