@@ -70,9 +70,9 @@ import com.singularity.todo.feature.tasks.presentation.sections.RemindersSection
 import com.singularity.todo.feature.tasks.presentation.sections.TagsRow
 import com.singularity.todo.feature.tasks.presentation.sections.TaskBottomActionBar
 import com.singularity.todo.feature.tasks.presentation.sections.TaskChecklistSection
-import com.singularity.todo.feature.tasks.presentation.sections.TaskTitle
 import com.singularity.todo.feature.tasks.presentation.sections.TaskMetaChipsRow
 import com.singularity.todo.feature.tasks.presentation.sections.TaskSubtasksSection
+import com.singularity.todo.feature.tasks.presentation.sections.TaskTitle
 import com.singularity.todo.feature.tasks.presentation.sheet.ConfirmArchiveSheet
 import com.singularity.todo.feature.tasks.presentation.sheet.ConfirmDeleteSheet
 import com.singularity.todo.feature.tasks.presentation.sheet.KindSheet
@@ -377,7 +377,6 @@ internal fun TaskDetailContent(
         ) {
             TaskTitle(
                 title = ui.task.title,
-                description = ui.task.description,
                 isCompleted = ui.task.isCompleted,
                 actions = actions,
             )
