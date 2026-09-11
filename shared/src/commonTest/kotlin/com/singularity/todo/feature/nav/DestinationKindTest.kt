@@ -18,8 +18,8 @@ class DestinationKindTest {
         assertTrue(DestinationKind.isTab(AppDestination.Inbox))
         assertTrue(DestinationKind.isTab(AppDestination.Today))
         assertTrue(DestinationKind.isTab(AppDestination.Plans))
-        assertTrue(DestinationKind.isTab(AppDestination.Habits))
-        assertTrue(DestinationKind.isTab(AppDestination.Calendar))
+        assertTrue(DestinationKind.isTab(AppDestination.Pomodoro))
+        assertTrue(DestinationKind.isTab(AppDestination.Statistics))
     }
 
     @Test
@@ -74,8 +74,8 @@ class DestinationKindTest {
             AppDestination.Inbox,
             AppDestination.Today,
             AppDestination.Plans,
-            AppDestination.Habits,
-            AppDestination.Calendar,
+            AppDestination.Pomodoro,
+            AppDestination.Statistics,
             AppDestination.Notes,
             AppDestination.AiChat,
             AppDestination.Search,

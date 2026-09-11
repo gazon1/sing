@@ -1,4 +1,4 @@
-package com.singularity.todo.shell
+package com.singularity.todo
 
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -18,56 +18,52 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.AppNavigator
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.MenuButtonTitle
+import com.singularity.todo.feature.nav.Nav3State
+import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.nav.Navigator
+import com.singularity.todo.feature.nav.createAppEntryProvider
 import com.singularity.todo.feature.nav.icon
+import com.singularity.todo.shell.MenuBottomSheet
 import com.singularity.todo.core.ui.TestTags
 
 /**
- * Android app chrome: Scaffold + bottom navigation bar + per-tab FAB +
- * NavHost + an on-demand `MenuBottomSheet` overlay.
+ * Navigation 3 Android shell — the actual expect implementation for [androidShellNav3].
  *
- * Architecture:
- * - [Scaffold] owns layout (bottom bar, FAB, content padding).
- * - `AppNavHost` renders inside `content` and reacts to bottom-bar taps.
- * - `MenuBottomSheet` is **not** a navigation destination — it's a
- *   local overlay (`rememberSaveable`) that appears above the NavHost
- *   without disturbing the underlying back stack.
+ * Uses the terrakok nav3-recipes multiplestacks pattern:
+ * - [rememberNavBackStack] per top-level route (Android SavedState)
+ * - [rememberSaveableStateHolderNavEntryDecorator] preserves each stack's state across tab swaps
+ * - [Navigator] class handles navigation events (navigate + goBack)
+ * - [NavDisplay] renders all active stacks
  *
- * **Per-tab FAB**: the FAB action depends on the current top-level
- * destination. Today/Inbox → `TaskEditor`, Plans → `ProjectEditor`,
- * Habits → no FAB (Pomodoro has its own controls). Other tabs hide the
- * FAB entirely.
- *
- * Edge-to-edge: `contentWindowInsets` keeps horizontal insets so we don't
- * overlap the status bar / gesture nav. The bottom bar applies
- * [WindowInsets.navigationBars] padding so it sits *above* the gesture
- * inset (see reference plan §17).
- *
- * @param content Optional override for the central content slot.
- *   Defaults to `AppNavHost`. Tests use this to substitute a synthetic
- *   graph and keep the chrome test independent of every feature's wiring.
+ * [Nav3State] and [Navigator] are shared in commonMain. Platform-specific is only
+ * the [rememberNav3State] factory (Android has a no-arg `rememberNavBackStack`).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AndroidShell(
-    navigator: AppNavigator,
-    content: @Composable (Modifier) -> Unit = { modifier ->
-        AppNavHost(navigator = navigator, modifier = modifier)
-    },
-) {
-    val current = navigator.currentTopLevelDestination()
+actual fun androidShellNav3() {
+    val state = rememberNav3State()
+    val navigator = remember(state) { Navigator(state) }
     var menuVisible by rememberSaveable { mutableStateOf(false) }
 
-    val fabAction = fabActionFor(current, navigator)
+    // topLevelRoute is MutableState<NavKey>, getValue triggers recomposition on change
+    val current: AppDestination = state.topLevelRoute as? AppDestination
+        ?: AppDestination.Today
+
+    val fabAction = fabActionForNav3(current)
 
     Scaffold(
         bottomBar = {
@@ -80,7 +76,7 @@ fun AndroidShell(
                     val selected = current == destination
                     NavigationBarItem(
                         selected = selected,
-                        onClick = { navigator.navigateTopLevel(destination) },
+                        onClick = { navigator.navigate(destination) },
                         icon = {
                             Icon(
                                 destination.icon,
@@ -116,7 +112,16 @@ fun AndroidShell(
         },
         contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
     ) { padding ->
-        content(Modifier.padding(padding))
+        val navCallbacks = NavCallbacks(
+            navigate = navigator::navigate,
+            goBack = navigator::goBack,
+        )
+        val appEntryProvider = createAppEntryProvider(navCallbacks)
+        NavDisplay(
+            entries = state.toDecoratedEntries(appEntryProvider),
+            onBack = { navigator.goBack() },
+            modifier = Modifier.padding(padding),
+        )
     }
 
     if (menuVisible) {
@@ -124,26 +129,44 @@ fun AndroidShell(
             onDismiss = { menuVisible = false },
             onSelect = { dest ->
                 menuVisible = false
-                navigator.navigateTopLevel(dest)
+                navigator.navigate(dest)
             },
         )
     }
 }
 
-/** Action + label for the FAB on a given top-level destination. */
 private data class FabAction(val label: String, val onClick: () -> Unit)
 
-/** Pick the right FAB action for the current destination. Returns null to hide it. */
-private fun fabActionFor(current: AppDestination, navigator: AppNavigator): FabAction? = when (current) {
-    AppDestination.Inbox, AppDestination.Today -> FabAction("Add task") {
-        navigator.navigate(AppDestination.TaskDetailCreate())
-    }
-    AppDestination.Plans -> FabAction("Add project") {
-        navigator.navigate(AppDestination.ProjectEditor())
-    }
-    AppDestination.Notes -> FabAction("Add note") {
-        navigator.navigate(AppDestination.NoteEditor())
-    }
-    AppDestination.Habits, AppDestination.Calendar, AppDestination.Archive -> null
+private fun fabActionForNav3(current: AppDestination): FabAction? = when (current) {
+    AppDestination.Inbox, AppDestination.Today -> FabAction("Add task") { }
+    AppDestination.Plans -> FabAction("Add project") { }
+    AppDestination.Notes -> FabAction("Add note") { }
+    AppDestination.Pomodoro, AppDestination.Statistics, AppDestination.Archive -> null
     else -> null
+}
+
+// ─── Android: rememberNavBackStack with no SavedStateConfiguration ────────────────
+
+/**
+ * Creates the multi-back-stack [Nav3State] for the app.
+ * On Android, [rememberNavBackStack] is called without SavedStateConfiguration
+ * (the platform provides a no-arg overload).
+ */
+@Composable
+private fun rememberNav3State(): Nav3State {
+    val startRoute: NavKey = AppDestination.Today
+    val topLevelRoutes: Set<NavKey> =
+        DestinationKind.tabs.toSet() + DestinationKind.menuEntries.toSet()
+
+    val topLevelRoute: MutableState<NavKey> = remember(startRoute) {
+        mutableStateOf(startRoute)
+    }
+
+    val backStacks = topLevelRoutes.associateWith { key ->
+        rememberNavBackStack(key)
+    }
+
+    return remember(startRoute, topLevelRoutes) {
+        Nav3State(startRoute, topLevelRoute, backStacks)
+    }
 }

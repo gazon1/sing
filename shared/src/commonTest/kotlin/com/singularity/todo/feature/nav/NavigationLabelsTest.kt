@@ -4,34 +4,26 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-
 /**
- * Pure tests for the desktop-drawer destination enum.
+ * Pure tests for [AppDestination] title uniqueness.
  *
- * The enum is now a flat list of 9 destinations (no `NavGroup` / no icons /
- * no `grouped` map). These tests assert the basic invariants: every entry
- * has a non-blank title, and every entry is unique by name.
- *
- * Behaviour tests for navigation itself live in `AppNavigatorTest` (widget).
+ * [AppDestination] is a sealed interface, so we test via [DestinationKind.tabs]
+ * and [DestinationKind.menuEntries] which enumerate all top-level destinations.
  */
 class NavigationLabelsTest {
 
     @Test
     fun everyDestinationHasNonBlankTitle() {
-        NavDestination.entries.forEach { dest ->
+        val allDestinations = DestinationKind.tabs + DestinationKind.menuEntries
+        allDestinations.forEach { dest ->
             assertTrue(dest.title.isNotBlank(), "Destination $dest must have a non-blank title")
         }
     }
 
     @Test
-    fun allDestinationNamesAreDistinct() {
-        val names = NavDestination.entries.map { it.name }
-        assertEquals(names.size, names.toSet().size, "Destination names must be distinct")
-    }
-
-    @Test
     fun noTwoDestinationsShareSameTitle() {
-        val titles = NavDestination.entries.map { it.title }
+        val allDestinations = DestinationKind.tabs + DestinationKind.menuEntries
+        val titles = allDestinations.map { it.title }
         assertEquals(titles.size, titles.toSet().size, "Destination titles must be distinct")
     }
 }

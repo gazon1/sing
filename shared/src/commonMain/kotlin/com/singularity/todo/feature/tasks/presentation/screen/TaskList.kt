@@ -19,6 +19,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +35,7 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskGroup
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TasksScreenEntry
@@ -57,6 +59,15 @@ fun TasksScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
+
+    // Apply entry-based filter on first composition
+    LaunchedEffect(entry) {
+        when (entry) {
+            is TasksScreenEntry.FromToday -> viewModel.setFilter(TaskFilter.Today)
+            is TasksScreenEntry.FromInbox -> viewModel.setFilter(TaskFilter.Inbox)
+            is TasksScreenEntry.FromProject -> viewModel.setFilter(TaskFilter.ByProject(entry.projectId))
+        }
+    }
 
     var aiSheetTask by remember { mutableStateOf<Task?>(null) }
 

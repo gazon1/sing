@@ -57,8 +57,18 @@ openai-client = "4.1.0"
 # Theme / MaterialKolor
 materialkolor = "4.1.1"
 
-# Navigation
+# Navigation 2 — REMOVE AFTER MIGRATION (kept for existing androidx-navigation-compose lib)
 androidx-navigation = "2.9.2"
+
+# Navigation 3 (KMP multiplatform)
+# - androidx.navigation3 (Google) publishes the multiplatform runtime + generic UI
+# - JetBrains publishes platform-specific UI artifacts (navigation3-ui-desktop, etc.)
+# koin-compose-navigation3:4.2.2 transitively pulls navigation3-runtime:1.0.1.
+# We declare 1.1.1 explicitly — Gradle's resolution uses the newest matching constraint.
+# The koin library's compile-time reference to 1.0.1 is binary-compatible with 1.1.1
+# for the APIs we actually call.
+nav3 = "1.1.1"
+nav3-lifecycle-vm = "2.11.0"
 
 # Supabase
 supabaseVersion = "3.8.0"
@@ -179,7 +189,22 @@ openai-client = { module = "com.aallam.openai:openai-client", version.ref = "ope
 # MaterialKolor
 materialkolor = { module = "com.materialkolor:material-kolor", version.ref = "materialkolor" }
 
-# Navigation Compose (type-safe routes, multiplatform)
+# Navigation 3 (Google's androidx.navigation3)
+# - navigation3-runtime: multiplatform (NavKey, NavBackStack, NavEntry) — in commonMain
+# - navigation3-ui: multiplatform metadata only (NavDisplay is in jvmstubs for JVM)
+# - navigation3-ui-android: Android-specific (NavDisplay + Navigator implementations)
+androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3" }
+androidx-navigation3-ui-android = { module = "androidx.navigation3:navigation3-ui-android", version.ref = "nav3" }
+androidx-navigation3-runtime-desktop = { module = "androidx.navigation3:navigation3-runtime-desktop", version.ref = "nav3" }
+androidx-navigation3-ui-jvmstubs = { module = "androidx.navigation3:navigation3-ui-jvmstubs", version.ref = "nav3" }
+androidx-lifecycle-viewmodel-navigation3 = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "nav3-lifecycle-vm" }
+
+# Koin Navigation 3 DSL (multiplatform metadata — koinEntryProvider is in this artifact)
+koin-compose-navigation3 = { module = "io.insert-koin:koin-compose-navigation3", version.ref = "koin" }
+# Koin Navigation 3 DSL (Android AAR — contains the actual navigation{} function for androidJvm)
+koin-compose-navigation3-android = { module = "io.insert-koin:koin-compose-navigation3-android", version.ref = "koin" }
+
+# Navigation Compose (type-safe routes, multiplatform) — REMOVE AFTER MIGRATION
 # TestNavHostController is included in the main artifact — no separate testing dep needed.
 androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "androidx-navigation" }
 

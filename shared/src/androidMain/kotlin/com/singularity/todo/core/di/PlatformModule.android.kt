@@ -16,8 +16,11 @@ import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.AndroidSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
+import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.settings.AiApiKeyMigration
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
@@ -77,4 +80,10 @@ actual fun platformModule(): Module = module {
     single<BackupCodec> { AndroidBackupCodec() }
 
     single<String> { get<android.content.Context>().filesDir.absolutePath + "/backups" }
+
+    // ─── Pomodoro Timer ─────────────────────────────────────────────────
+
+    // Use viewModel so AndroidPomodoroTimer (a ViewModel) is scoped correctly.
+    // koinInject<PomodoroTimer>() in entry composables gets the scoped instance.
+    viewModel { AndroidPomodoroTimer(get(), get(), get()) }
 }

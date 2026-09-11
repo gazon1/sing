@@ -32,6 +32,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -39,6 +40,11 @@ import org.koin.dsl.module
 /**
  * Tasks feature DI: repositories, use cases, ViewModels.
  * Does NOT include AI tools — those live in [aiToolsCoreModule].
+ *
+ * Navigation entries (navigation{}) live in platform-specific sources:
+ * - androidMain: TasksNavEntries.kt (Nav3)
+ * - jvmMain: TasksNavEntries.kt (Nav3)
+ * Both delegate to the ViewModels and Screens defined here.
  */
 fun tasksModule(): org.koin.core.module.Module = module {
     // ─── Repositories ─────────────────────────────────────────────────────
@@ -61,7 +67,9 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     factory { SearchUseCase(get(), get(), get(), get()) }
 
-    factory { PomodoroTimer(get(), get(), get()) }
+    // PomodoroTimer is registered in platform-specific modules:
+    // - androidMain: AndroidPomodoroTimer(get(), get(), get())
+    // - jvmMain: JvmPomodoroTimer()
 
     // ─── Autosave ───────────────────────────────────────────────────────
 
@@ -80,6 +88,8 @@ fun tasksModule(): org.koin.core.module.Module = module {
     factory { ReminderScheduler(co.touchlab.kermit.Logger.withTag("ReminderScheduler"), get(), get()) }
 
     // ─── ViewModels ─────────────────────────────────────────────────────
+
+    viewModelOf(::TasksViewModel)
 
     viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
         TaskDetailViewModel(

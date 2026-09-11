@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.model
 
+import com.singularity.todo.feature.projects.ProjectId
+
 sealed interface TasksUiEvent {
     data class AiResult(val message: String) : TasksUiEvent
     data class Error(val message: String) : TasksUiEvent
@@ -52,9 +54,10 @@ sealed interface AiActionResult {
 /** Stable, value-classified set of actions a user can trigger from the AI sheet. */
 enum class TaskAiAction { RefineTitle, GenerateDescription, GenerateChecklist, Decompose, SuggestTime }
 
-enum class TasksScreenEntry {
-    FromToday,
-    FromInbox
+sealed class TasksScreenEntry {
+    data object FromToday : TasksScreenEntry()
+    data object FromInbox : TasksScreenEntry()
+    data class FromProject(val projectId: ProjectId) : TasksScreenEntry()
 }
 
 /**

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
 /**
@@ -40,7 +41,7 @@ import kotlinx.serialization.Serializable
  * [icon] is `@Transient` because [ImageVector] isn't serializable; the
  * Compose runtime uses [title] for accessibility only.
  */
-sealed interface AppDestination {
+sealed interface AppDestination : NavKey {
     /** User-visible label — used by BottomBar and MenuSheet. */
     val title: String
 
@@ -61,13 +62,13 @@ sealed interface AppDestination {
     }
 
     @Serializable
-    data object Habits : AppDestination {
-        override val title = "Habits"
+    data object Pomodoro : AppDestination {
+        override val title = "Pomodoro"
     }
 
     @Serializable
-    data object Calendar : AppDestination {
-        override val title = "Calendar"
+    data object Statistics : AppDestination {
+        override val title = "Statistics"
     }
 
     /** Menu destinations opened from `MenuBottomSheet`. */
@@ -152,8 +153,8 @@ val AppDestination.icon: ImageVector
         AppDestination.Inbox -> Icons.Filled.Inbox
         AppDestination.Today -> Icons.Filled.Today
         AppDestination.Plans -> Icons.Filled.Check
-        AppDestination.Habits -> Icons.Filled.Repeat
-        AppDestination.Calendar -> Icons.Filled.CalendarMonth
+        AppDestination.Pomodoro -> Icons.Filled.Repeat
+        AppDestination.Statistics -> Icons.Filled.CalendarMonth
         AppDestination.Notes -> Icons.Filled.Create
         AppDestination.AiChat -> Icons.Filled.AutoAwesome
         AppDestination.Search -> Icons.Filled.Search
@@ -195,8 +196,8 @@ object DestinationKind {
         AppDestination.Inbox,
         AppDestination.Today,
         AppDestination.Plans,
-        AppDestination.Habits,
-        AppDestination.Calendar,
+        AppDestination.Pomodoro,
+        AppDestination.Statistics,
     )
 
     /** Menu destinations in display order. */

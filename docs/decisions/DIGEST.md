@@ -1076,16 +1076,20 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - 8 экранов мигрированы: Tasks, Notes, TaskDetail, TaskEditor, Projects, ProjectEditor, Chat, Archive _(from `2026-09-05-ui-decomposition`)_
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches. _(from `2026-09-06-modular-justfile`)_
 - `AiSettingsContributor` remains as the sole `SettingsContributor` implementation — used only for AI test/fetch ephemeral state. _(from `2026-09-10-simplified-settings-vm`)_
+- `AppDestination.Habits` → `AppDestination.Pomodoro`, `AppDestination.Calendar` → `AppDestination.Statistics` _(from `2026-09-11-nav3-kmp-migration`)_
 - `AppDestination.TaskEditor` serialisation is backward compatible (extra field _(from `2026-09-05-task-editor-refactor`)_
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly). _(from `2026-09-10-simplified-settings-vm`)_
+- `AppNavHost.kt`, `AppNavigator.kt`, `DesktopShell.kt` (old Nav2 files) are deleted _(from `2026-09-11-nav3-kmp-migration`)_
 - Archive доступен с любого TaskDetailScreen через ⋮ menu _(from `2026-09-07-task-detail-archive-overflow`)_
 - Autosave вынесен из `delay()` в VM в отдельный port — теперь тестируем без `advanceTimeBy` _(from `2026-09-05-ui-decomposition`)_
 - Backlinks queryable via SQL without HTML parsing _(from `2026-09-07-notes-internal-links-backlinks`)_
+- Both Android and Desktop now use the same Nav3 architecture (multi-back-stack, `Navigator`, `NavDisplay`) _(from `2026-09-11-nav3-kmp-migration`)_
 - Bulk-операции fail-fast при отсутствующих ID _(from `2026-09-05-refactoring-summary`)_
 - CI may later call `just tests::check` instead of `./check.sh` — the behavior is identical. _(from `2026-09-06-modular-justfile`)_
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска _(from `2026-09-05-ui-tests-ultron`)_
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR. _(from `2026-09-08-instant-migration`)_
 - `ContentStateMapper` — добавлен object с двумя методами _(from `2026-09-05-refactoring-summary`)_
+- Dead Nav2 code removed from Android _(from `2026-09-11-nav3-kmp-migration`)_
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed. _(from `2026-09-08-instant-migration`)_
 - Developers should prefer `kotlinx.datetime.Instant` in new code. _(from `2026-09-08-instant-migration`)_
 - DI-граф упрощён: 5 factory → 1 _(from `2026-09-05-refactoring-summary`)_
@@ -1317,3 +1321,5 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-09-projectdetail-write-through-fix` — ProjectDetailViewModel: write-through + _latestProject TOCTOU guard
 - `2026-09-09-task-detail-intent-refactor` — TaskDetailViewModel: sealed Intent + single onIntent dispatcher
 - `2026-09-10-simplified-settings-vm` — _(no title)
+- `2026-09-11-nav3-kmp-migration` — _(no title)
+- `2026-09-11-navigation2-to-navigation3` — Navigation 2 → Navigation 3 Migration

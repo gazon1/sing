@@ -72,6 +72,13 @@ kotlin {
 			implementation(libs.koin.compose)
 			implementation(libs.koin.compose.viewmodel)
 			implementation(libs.koin.annotations.runtime)
+			implementation(libs.koin.compose.navigation3)
+
+			// Navigation 3 multiplatform runtime (NavKey, NavBackStack, NavEntry)
+			// Platform-specific implementations (entryProvider, rememberNavBackStack) are in
+			// the platform AARs: navigation3-runtime-android (androidMain).
+			// koin-compose-navigation3 (multiplatform metadata) is in commonMain for koinEntryProvider.
+			implementation(libs.androidx.navigation3.runtime)
 
             // Ktor
             implementation(libs.ktor.client.core)
@@ -136,6 +143,18 @@ kotlin {
             // Koin Android
             implementation(libs.koin.android)
 
+            // Koin Navigation 3 DSL
+            // koin-compose-navigation3 (multiplatform): provides koinEntryProvider in commonMain
+            // Note: the navigation{} DSL is NOT accessible from commonMain or androidMain in this
+            // Koin version due to classpath resolution issues with the multiplatform metadata JAR.
+            // Instead, entries are registered via koinEntryProvider() called from AndroidShellNav3.
+            implementation(libs.koin.compose.navigation3)
+            // navigation3-runtime-android: rememberNavBackStack, NavBackStack, NavEntry, entryProvider
+            // navigation3-ui-android: NavDisplay
+            implementation("androidx.navigation3:navigation3-runtime-android:1.1.1")
+            implementation("androidx.navigation3:navigation3-ui-android:1.1.1")
+            implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+
             // Ktor OkHttp
             implementation(libs.ktor.client.okhttp)
 
@@ -184,6 +203,11 @@ kotlin {
 
             // Koog OkHttp HTTP backend — JVM-only
             implementation(libs.koog.http.client.okhttp)
+
+            // Navigation 3 JVM (nav3-runtime-desktop has SavedStateConfiguration-based rememberNavBackStack)
+            implementation(libs.androidx.navigation3.runtime.desktop)
+            // navigation3-ui-jvmstubs provides the real NavDisplay implementation for JVM
+            implementation(libs.androidx.navigation3.ui.jvmstubs)
         }
 
         commonTest.dependencies {

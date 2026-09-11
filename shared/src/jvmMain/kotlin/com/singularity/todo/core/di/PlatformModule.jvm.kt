@@ -14,6 +14,8 @@ import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
+import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -70,4 +72,8 @@ actual fun platformModule(): Module = module {
     single<BackupCodec> { JvmBackupCodec() }
 
     single<String> { System.getProperty("user.home") + "/.singularity-todo/backups" }
+
+    // ─── Pomodoro Timer ─────────────────────────────────────────────────
+
+    factory<PomodoroTimer> { JvmPomodoroTimer() }
 }
