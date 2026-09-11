@@ -163,7 +163,7 @@ class SettingsViewModel(
                 is SettingsIntent.Ai.UpdateSystemPrompt -> {
                     @Suppress("UNCHECKED_CAST")
                     (aiContributor as? SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>)
-                        ?.apply(intent as SettingsIntent.Ai)
+                        ?.apply(intent)
                     reloadAiSection()
                 }
                 SettingsIntent.Ai.TestConnection,

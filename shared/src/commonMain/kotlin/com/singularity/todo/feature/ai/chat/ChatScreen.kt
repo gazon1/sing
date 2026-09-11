@@ -26,10 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.components.ChatInputBar
-import com.singularity.todo.core.ui.components.LoadingIndicator
-import com.singularity.todo.core.ui.components.MessageBubble
 import com.singularity.todo.core.ui.components.BubbleRole
+import com.singularity.todo.core.ui.components.ChatInputBar
+import com.singularity.todo.core.ui.components.MessageBubble
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -111,32 +110,6 @@ private fun ThinkingIndicator() {
 }
 
 // ===== Preview =====
-
-@Composable
-private fun ChatContentPreview(
-    messages: List<ChatMessage>,
-    input: String = "",
-    isLoading: Boolean = false,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(androidx.compose.foundation.layout.PaddingValues(0.dp)),
-    ) {
-        ChatMessagesList(
-            messages = messages,
-            isLoading = isLoading,
-            modifier = Modifier.weight(1f),
-        )
-        HorizontalDivider()
-        ChatInputBar(
-            value = input,
-            onValueChange = {},
-            onSend = {},
-            enabled = !isLoading,
-        )
-    }
-}
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable

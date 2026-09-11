@@ -1,12 +1,16 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.attachments.AttachmentRepository
+import com.singularity.todo.core.attachments.AttachmentRepositoryImpl
+import com.singularity.todo.core.attachments.AttachmentStorage
+import com.singularity.todo.core.attachments.AttachmentUploadService
+import com.singularity.todo.core.attachments.StubAttachmentUploadService
 import com.singularity.todo.core.auth.AuthRepository
-import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.SessionStore
-import com.singularity.todo.core.backup.BackupCodec
+import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.backup.BackupExporter
 import com.singularity.todo.core.backup.BackupFileNamer
 import com.singularity.todo.core.backup.BackupImporter
@@ -19,23 +23,18 @@ import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.settings.DataStoreSettingsRepository
+import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.sync.HlcFactory
+import com.singularity.todo.core.sync.SupabaseSyncApiClient
 import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.core.sync.SyncEngine
-import com.singularity.todo.core.sync.SupabaseSyncApiClient
-import com.singularity.todo.core.attachments.AttachmentRepository
-import com.singularity.todo.core.attachments.AttachmentRepositoryImpl
-import com.singularity.todo.core.attachments.AttachmentStorage
-import com.singularity.todo.core.attachments.AttachmentUploadService
-import com.singularity.todo.core.attachments.StubAttachmentUploadService
+import com.singularity.todo.feature.attachments.AttachmentsViewModel
+import com.singularity.todo.feature.auth.AuthViewModel
+import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.RoomReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
-import com.singularity.todo.feature.auth.AuthViewModel
-import com.singularity.todo.feature.backup.BackupViewModel
-import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -104,7 +103,8 @@ fun coreModule(): org.koin.core.module.Module = module {
     // ─── Backup ─────────────────────────────────────────────────────────
 
     single { BackupExporter(get(), get(), get(), get(), get(), get(), get(), get()) }
-    single { BackupImporter(Logger.withTag("BackupImporter"), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single { BackupImporter(Logger.withTag("BackupImporter"), get(), get(), get(), get(),
+        get(), get(), get(), get()) }
     single<RemoteBackupService> { StubRemoteBackupService() }
     single<BackupRepository> {
         BackupRepositoryImpl(
@@ -113,7 +113,6 @@ fun coreModule(): org.koin.core.module.Module = module {
             remoteService = get(),
             fs = get(),
             backupDir = get<String>(),
-            clock = get(),
         )
     }
     // ─── Settings ───────────────────────────────────────────────────────

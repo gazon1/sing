@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 data class AiUsageUiState(
     val isLoading: Boolean = true,
@@ -60,9 +59,4 @@ class AiUsageViewModel(
         AiUsageUiState(),
     )
 
-    fun prune(olderThanDays: Int = 90) {
-        viewModelScope.launch {
-            usageRecorder.prune(olderThanDays)
-        }
-    }
 }

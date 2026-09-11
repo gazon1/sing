@@ -4,8 +4,6 @@
 
 package com.singularity.todo.feature.ai
 
-import com.singularity.todo.core.llm.ApiKey
 import com.singularity.todo.core.llm.OpenAiConfig as CoreOpenAiConfig
-import com.singularity.todo.core.llm.SettingsReader
 
 typealias OpenAiConfig = CoreOpenAiConfig

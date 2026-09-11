@@ -2,13 +2,13 @@ package com.singularity.todo.core.di
 
 import ai.koog.prompt.llm.LLModel
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.llm.KnownModels
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.UsageRecorder
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
-import com.singularity.todo.core.llm.KnownModels
 import com.singularity.todo.feature.ai.KoogAgentService
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.ai.chat.ChatViewModel
@@ -18,8 +18,8 @@ import com.singularity.todo.feature.ai.tools.CreateNoteTool
 import com.singularity.todo.feature.ai.tools.CreateProjectTool
 import com.singularity.todo.feature.ai.tools.CreateTagTool
 import com.singularity.todo.feature.ai.tools.CreateTaskTool
-import com.singularity.todo.feature.ai.tools.DecomposeTaskTool
 import com.singularity.todo.feature.ai.tools.DecomposeAndCreateTool
+import com.singularity.todo.feature.ai.tools.DecomposeTaskTool
 import com.singularity.todo.feature.ai.tools.DeleteNoteTool
 import com.singularity.todo.feature.ai.tools.DeleteTagTool
 import com.singularity.todo.feature.ai.tools.DeleteTaskTool
@@ -65,12 +65,11 @@ import com.singularity.todo.feature.projects.CreateProjectUseCase
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.projects.ProjectsViewModel
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
-import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
-import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
@@ -139,7 +138,7 @@ actual fun aiToolsModule(): Module = module {
 
     // ─── AI Tools ───
 
-    factory { RefineTaskTool(Logger.withTag("RefineTaskTool"), get(), get()) }
+    factory { RefineTaskTool(get(), get()) }
     factory { SmartRewriteTool(get(), get()) }
     factory { GenerateDescriptionTool(get(), get()) }
     factory { DecomposeTaskTool(get(), get()) }
@@ -229,7 +228,6 @@ actual fun aiToolsModule(): Module = module {
     viewModel {
         ProjectsViewModel(
             projectRepo = get<ProjectsRepository>(),
-            createProject = get<CreateProjectUseCase>(),
             currentUser = get<ProfileAwareCurrentUser>(),
             taskRepository = get<TaskRepository>(),
             projectReview = getOrNull(),

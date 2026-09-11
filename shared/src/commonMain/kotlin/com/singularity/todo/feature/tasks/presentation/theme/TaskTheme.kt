@@ -12,7 +12,6 @@ import androidx.compose.ui.unit.dp
 object TaskColors {
     val Background = Color(0xFF0F1115)
     val Surface = Color(0xFF161A22)
-    val SurfaceElevated = Color(0xFF1C212B) // чуть светлее — для сгруппированных карточек
     val Outline = Color(0xFF262C38)
 
     val TextPrimary = Color(0xFFE2E4E9)
@@ -30,12 +29,10 @@ object TaskColors {
 }
 
 object TaskSpacing {
-    val xs = 4.dp
     val sm = 8.dp
     val md = 12.dp
     val lg = 16.dp
     val xl = 24.dp
-    val xxl = 32.dp
 
     val screenPadding = 16.dp
     val cardCornerRadius = 14.dp

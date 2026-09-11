@@ -1,6 +1,5 @@
 package com.singularity.todo.core.di
 
-import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.feature.notes.NoteEditor
 import com.singularity.todo.feature.notes.NotePreview
 import com.singularity.todo.feature.notes.NotesListViewModel

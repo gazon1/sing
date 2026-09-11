@@ -1,13 +1,12 @@
 package com.singularity.todo.core.di
 
+import com.singularity.todo.feature.projects.CreateProjectUseCase
+import com.singularity.todo.feature.projects.ProjectDetailViewModel
+import com.singularity.todo.feature.projects.ProjectEditorViewModel
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.projects.ProjectsRepositoryImpl
-import com.singularity.todo.feature.projects.CreateProjectUseCase
 import com.singularity.todo.feature.projects.UpdateProjectUseCase
-import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.projects.ProjectEditorViewModel
-import com.singularity.todo.feature.projects.ProjectDetailViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 

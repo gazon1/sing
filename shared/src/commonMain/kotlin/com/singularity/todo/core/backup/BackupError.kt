@@ -6,5 +6,4 @@ sealed class BackupError(message: String) : Exception(message) {
     class ChecksumMismatch(val expected: String, val actual: String) : BackupError("checksum mismatch: expected $expected, got $actual")
     class MalformedManifest(reason: String) : BackupError("malformed manifest: $reason")
     class FileNotFound(val path: String) : BackupError("file not found: $path")
-    class CodecError(reason: String) : BackupError("codec error: $reason")
 }

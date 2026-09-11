@@ -7,7 +7,6 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.core.ids.UserId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 

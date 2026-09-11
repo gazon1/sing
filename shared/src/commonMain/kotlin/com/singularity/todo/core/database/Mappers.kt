@@ -41,10 +41,6 @@ internal inline fun <reified T : Any> String.toId(): T = when (T::class) {
 internal fun String?.toProjectIdOrNull(): ProjectId? =
     this?.takeIf { it.isNotBlank() }?.let { ProjectId.fromString(it) }
 
-/** Returns null if string is null or blank. */
-internal fun String?.toTagIdOrNull(): TagId? =
-    this?.takeIf { it.isNotBlank() }?.let { TagId.fromString(it) }
-
 /**
  * Converts a [TaskEntity] to a domain [Task].
  * Tags are not populated — callers must fill them separately if needed.

@@ -1,7 +1,5 @@
 package com.singularity.todo.feature.checklist
 
-import java.util.UUID
-
 @JvmInline
 value class ChecklistItemId private constructor(val value: String) {
     companion object {

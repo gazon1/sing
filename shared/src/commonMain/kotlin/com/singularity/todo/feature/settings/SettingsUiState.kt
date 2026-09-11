@@ -9,7 +9,7 @@ import com.singularity.todo.core.settings.SettingsSection
  * Re-exports [SettingsIntent] from [core.settings] so that existing importers
  * (sub-screens, ViewModels) don't need to change their import paths.
  */
-typealias SettingsIntent = com.singularity.todo.core.settings.SettingsIntent
+typealias SettingsIntent = SettingsIntent
 
 /**
  * Settings screen UI state — thin sealed interface.

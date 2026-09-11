@@ -3,11 +3,10 @@ package com.singularity.todo.feature.search
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.toTask
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.toNote
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.core.ids.UserId
 
 class InternalLinkRepositoryImpl(
     private val noteDao: NoteDao,

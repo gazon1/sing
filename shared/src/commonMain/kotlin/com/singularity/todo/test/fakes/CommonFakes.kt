@@ -1,41 +1,14 @@
 package com.singularity.todo.test.fakes
 
+import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.projects.ProjectId
-import com.singularity.todo.feature.tags.TagId
 import kotlinx.datetime.LocalDate
-import kotlin.random.Random
 import kotlin.time.Instant
-
-/**
- * Controllable clock for tests — wraps the real [Clock] singleton and
- * lets tests advance time deterministically.
- *
- * Usage:
- * ```
- * val clock = FakeClock(Instant.fromEpochMilliseconds(0))
- * clock.now() // returns epoch 0
- * clock.advance(60_000) // advance by 1 minute
- * clock.now() // returns epoch 60_000
- * ```
- */
-class FakeClock(
-    private var _now: Instant = Instant.fromEpochMilliseconds(0)
-) {
-    fun now(): Instant = _now
-
-    fun advance(milliseconds: Long) {
-        _now = Instant.fromEpochMilliseconds(_now.toEpochMilliseconds() + milliseconds)
-    }
-
-    fun set(milliseconds: Long) {
-        _now = Instant.fromEpochMilliseconds(milliseconds)
-    }
-}
 
 // ─── Task fixtures ─────────────────────────────────────────────────────────────
 

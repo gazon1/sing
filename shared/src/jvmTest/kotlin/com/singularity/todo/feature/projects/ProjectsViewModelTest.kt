@@ -7,7 +7,6 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.core.ids.UserId
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.test.TestScope
@@ -43,7 +42,6 @@ class ProjectsViewModelTest {
     private fun TestScope.createVm(): ProjectsViewModel =
         ProjectsViewModel(
             projectRepo = fakeProjectRepo,
-            createProject = CreateProjectUseCase(fakeProjectRepo, Clock),
             currentUser = fakeCurrentUser,
             taskRepository = fakeTaskRepo,
             deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),

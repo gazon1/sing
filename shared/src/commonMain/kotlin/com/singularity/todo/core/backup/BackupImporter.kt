@@ -1,7 +1,6 @@
 package com.singularity.todo.core.backup
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.ProjectDao
@@ -18,7 +17,6 @@ class BackupImporter(
     private val noteDao: NoteDao,
     private val projectDao: ProjectDao,
     private val tagDao: TagDao,
-    private val attachmentDao: AttachmentDao,
     private val attachmentStorage: AttachmentStorage,
     private val codec: BackupCodec,
     private val clock: Clock,

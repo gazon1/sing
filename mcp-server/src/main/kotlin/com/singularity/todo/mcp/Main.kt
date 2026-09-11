@@ -134,7 +134,7 @@ private suspend fun bootstrapProfiles(profileCliArg: String?) {
             else -> null
         }
         bootstrapper.run(
-            seedExtras = listOf(com.singularity.todo.feature.profile.ProfileBootstrapper.SeedProfile.AI_AGENT),
+            seedExtras = listOf(ProfileBootstrapper.SeedProfile.AI_AGENT),
             activateName = activateName,
         )
         if (activateName == "AI Agent") {
@@ -166,9 +166,8 @@ private suspend fun bootstrapProfiles(profileCliArg: String?) {
  */
 private fun retromigrateRowsToAgentScope(profileId: String, localUserId: String, newUserId: String) {
     // Always use the default DB path — Desktop, Android, and MCP all share it now.
-    @Suppress("UNUSED_PARAMETER") val unused = profileId
     val dbPath = System.getProperty("user.home") + "/.singularity-todo/singularity-todo.db"
-    val file = java.io.File(dbPath)
+    val file = File(dbPath)
     if (!file.exists()) return
     val sql = buildString {
         for (table in listOf("tasks", "notes", "projects", "tags")) {
@@ -261,8 +260,6 @@ private fun platformModule(profileId: String?): org.koin.core.module.Module = mo
     File(dbPath).parentFile?.mkdirs()
     wipeIfNotRoomManaged(dbPath)
     single<AppDatabase> { AppDatabaseFactory.build(createSqlDriver(), dbPath) }
-
-    @Suppress("UNUSED_PARAMETER") val unused = profileId // preserved for backwards-compat
 
     single { get<AppDatabase>().taskDao() }
     single { get<AppDatabase>().noteDao() }

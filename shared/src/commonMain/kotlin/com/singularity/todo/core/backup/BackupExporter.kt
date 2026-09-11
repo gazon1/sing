@@ -67,7 +67,6 @@ class BackupExporter(
 
         // 5. Read attachment files
         val attachmentEntries = mutableListOf<Pair<String, ByteArray>>()
-        val missingAttachments = mutableListOf<String>()
 
         if (options.includeAttachments) {
             for (att in attachments) {

@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks.data
 
 import com.singularity.todo.core.attachments.AttachmentRepository
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
 import com.singularity.todo.feature.tasks.domain.model.TaskId

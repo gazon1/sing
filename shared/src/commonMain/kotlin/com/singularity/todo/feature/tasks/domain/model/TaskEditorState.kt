@@ -3,11 +3,10 @@ package com.singularity.todo.feature.tasks.domain.model
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderRepository
-import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
@@ -165,5 +164,5 @@ internal fun TaskEditorUiState.reduce(intent: TaskEditorIntent): TaskEditorUiSta
 }
 
 // Re-export
-typealias Clock = com.singularity.todo.core.platform.Clock
-typealias IdGenerator = com.singularity.todo.core.ids.IdGenerator
+typealias Clock = Clock
+typealias IdGenerator = IdGenerator

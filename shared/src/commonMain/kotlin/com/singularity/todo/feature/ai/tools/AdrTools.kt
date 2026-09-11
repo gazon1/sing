@@ -5,6 +5,7 @@ import ai.koog.serialization.TypeToken
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.lang.System.getProperty
 import kotlin.io.path.Path
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
@@ -30,12 +31,12 @@ object AdrStorage {
      * otherwise falls back to `~/.singularity-todo/docs/decisions/`.
      */
     fun decisionsDir(): String {
-        val workingDir = System.getProperty("user.dir")
+        val workingDir = getProperty("user.dir")
         val projectAdrDir = Path("$workingDir/$DECISIONS_DIR_NAME")
         return if (projectAdrDir.exists() && projectAdrDir.isDirectory()) {
             projectAdrDir.toString()
         } else {
-            Path(System.getProperty("user.home"), ".singularity-todo", DECISIONS_DIR_NAME).toString()
+            Path(getProperty("user.home"), ".singularity-todo", DECISIONS_DIR_NAME).toString()
         }
     }
 

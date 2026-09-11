@@ -10,7 +10,6 @@ class ChecklistUseCase(
     fun watchChecklist(taskId: String) = repository.watchByTask(taskId)
 
     suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> = runCatching {
-        val now = clock.now().toEpochMilliseconds()
         val item = ChecklistItem(
             id = ChecklistItemId.generate(),
             taskId = taskId,
@@ -23,7 +22,6 @@ class ChecklistUseCase(
     }
 
     suspend fun toggleItem(id: ChecklistItemId, currentTitle: String, taskId: String, currentlyCompleted: Boolean): Result<Unit> = runCatching {
-        val now = clock.now().toEpochMilliseconds()
         repository.upsert(
             ChecklistItem(
                 id = id,

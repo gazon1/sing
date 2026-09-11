@@ -30,10 +30,6 @@ data class OpenAiConfig(
         /** Model selected when settings has no preference. */
         const val DEFAULT_MODEL: String = "gpt-4o-mini"
 
-        /** System prompt shipped with the app. User-editable via Settings. */
-        const val DEFAULT_SYSTEM_PROMPT =
-            "You are a helpful productivity assistant. Be concise and actionable."
-
         /**
          * Builds an [OpenAiConfig] by reading the API key from secure storage
          * and provider/URL/model from settings. Pure-read; no side effects.

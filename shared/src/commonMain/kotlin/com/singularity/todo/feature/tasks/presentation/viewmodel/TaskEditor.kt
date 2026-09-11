@@ -178,7 +178,7 @@ class TaskEditorViewModel(
                 _events.emit(TaskEditorUiEvent.NavigateBack)
             }
             .onFailure {
-                _uiState.update { it.copy(saving = false) }
+                _uiState.update { it -> it.copy(saving = false) }
                 _events.emit(TaskEditorUiEvent.Error(it.message ?: "Failed to save"))
             }
     }
@@ -240,9 +240,9 @@ class TaskEditorViewModel(
                         description = task.description ?: "",
                         priority = task.priority,
                         dueDate = task.dueDate,
-                        dueTime = task.dueTime?.let { parseTime(it) },
+                        dueTime = task.dueTime?.let { it -> parseTime(it) },
                         projectId = task.projectId?.value,
-                        tagIds = task.tags.map { it.value },
+                        tagIds = task.tags.map { it -> it.value },
                         checklistItems = checklist.map { item ->
                             ChecklistItemUi(
                                 id = item.id.value,
@@ -252,7 +252,7 @@ class TaskEditorViewModel(
                         },
                         reminderOffset = reminder?.let { r ->
                             val abs = (-r.offsetMinutes).coerceAtLeast(0)
-                            ReminderOffset.entries.find { it.minutes == abs }
+                            ReminderOffset.entries.find { it -> it.minutes == abs }
                         },
                         originalTask = task,
                         loading = false,
@@ -273,9 +273,9 @@ class TaskEditorViewModel(
                 description = original.description ?: "",
                 priority = original.priority,
                 dueDate = original.dueDate,
-                dueTime = original.dueTime?.let { parseTime(it) },
+                dueTime = original.dueTime?.let { it -> parseTime(it) },
                 projectId = original.projectId?.value,
-                tagIds = original.tags.map { it.value },
+                tagIds = original.tags.map { it -> it.value },
                 checklistItems = emptyList(),
                 reminderOffset = null,
                 pendingAttachments = emptyList(),

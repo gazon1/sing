@@ -30,7 +30,7 @@ data class ProjectEditorUiState(
     val errorMessage: String? = null,
 ) {
     companion object {
-        val DEFAULT_COLOR = 0xFF1976D2.toInt() // blue
+        const val DEFAULT_COLOR = 0xFF1976D2.toInt() // blue
     }
 
     val isEditMode: Boolean get() = projectId != null

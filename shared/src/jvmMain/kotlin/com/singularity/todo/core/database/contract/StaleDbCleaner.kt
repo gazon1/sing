@@ -26,14 +26,12 @@ fun wipeIfNotRoomManaged(dbPath: String): Boolean {
     return runCatching {
         val driver: SQLiteDriver = BundledSQLiteDriver()
         val connection = driver.open(dbPath)
-        try {
+        connection.use { connection ->
             // Execute a query against room_master_table.
             // execSQL throws SQLiteException if the table/column does not exist.
             // This is the cheapest possible "does the table exist" probe.
             connection.execSQL("SELECT 1 FROM room_master_table LIMIT 1")
             false // table exists — Room database, leave it alone
-        } finally {
-            connection.close()
         }
     }.getOrElse {
         // table missing or query failed — not a Room database

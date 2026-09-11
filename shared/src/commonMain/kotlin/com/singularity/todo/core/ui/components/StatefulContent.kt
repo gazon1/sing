@@ -1,12 +1,11 @@
 package com.singularity.todo.core.ui.components
 
-import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.core.ui.preview.PreviewSamples
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.ui.preview.PreviewThemed
 
 /**
  * Unified content renderer for sealed UI states that follow the

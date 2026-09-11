@@ -149,10 +149,10 @@ sealed interface TaskDetailIntent {
 }
 
 // Re-export for convenience
-typealias ProjectsRepository = com.singularity.todo.feature.projects.ProjectsRepository
-typealias TagsRepository = com.singularity.todo.feature.tags.TagsRepository
-typealias ChecklistUseCase = com.singularity.todo.feature.checklist.ChecklistUseCase
-typealias ReminderRepository = com.singularity.todo.feature.reminders.ReminderRepository
-typealias AttachmentRepository = com.singularity.todo.core.attachments.AttachmentRepository
-typealias ProfileAwareCurrentUser = com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-typealias TimeZoneProvider = com.singularity.todo.core.platform.TimeZoneProvider
+typealias ProjectsRepository = ProjectsRepository
+typealias TagsRepository = TagsRepository
+typealias ChecklistUseCase = ChecklistUseCase
+typealias ReminderRepository = ReminderRepository
+typealias AttachmentRepository = AttachmentRepository
+typealias ProfileAwareCurrentUser = ProfileAwareCurrentUser
+typealias TimeZoneProvider = TimeZoneProvider

@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.tasks.presentation.components
+package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column

@@ -20,7 +20,6 @@ data class RefineTaskInput(val currentTitle: String, val description: String? = 
 data class RefineTaskOutput(val newTitle: String)
 
 class RefineTaskTool(
-    private val log: co.touchlab.kermit.Logger,
     private val promptExecutor: PromptExecutor,
     private val model: LLModel
 ) : SimpleTool<RefineTaskInput>(TypeToken.of(RefineTaskInput::class.java), NAME, DESCRIPTION) {

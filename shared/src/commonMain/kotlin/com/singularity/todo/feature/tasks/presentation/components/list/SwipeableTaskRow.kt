@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.tasks.presentation.components
+package com.singularity.todo.feature.tasks.presentation.components.list
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring

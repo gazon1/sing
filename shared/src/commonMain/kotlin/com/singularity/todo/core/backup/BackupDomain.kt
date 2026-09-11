@@ -37,8 +37,4 @@ object BackupDomain {
                 throw BackupError.ChecksumMismatch(manifest.payloadChecksum, actualChecksum)
         }
 
-    fun buildEntityCounts(
-        tasks: Int, notes: Int, projects: Int,
-        tags: Int, attachments: Int, taskTags: Int
-    ): EntityCounts = EntityCounts(tasks, notes, projects, tags, attachments, taskTags)
 }

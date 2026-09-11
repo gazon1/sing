@@ -3,7 +3,7 @@ package com.singularity.todo.feature.tasks.components
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.components.priorityColor
+import com.singularity.todo.feature.tasks.presentation.components.list.priorityColor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals

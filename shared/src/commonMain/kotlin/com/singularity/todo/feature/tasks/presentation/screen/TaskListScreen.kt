@@ -36,12 +36,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.feature.tasks.presentation.components.EmptyState
-import com.singularity.todo.feature.tasks.presentation.components.SwipeableTaskRow
-import com.singularity.todo.feature.tasks.presentation.components.TaskFilterChips
-import com.singularity.todo.feature.tasks.presentation.components.TaskListHeader
-import com.singularity.todo.feature.tasks.presentation.components.TaskRowCard
-import com.singularity.todo.feature.tasks.presentation.components.TaskRowFlat
+import com.singularity.todo.feature.tasks.presentation.components.list.EmptyState
+import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
+import com.singularity.todo.feature.tasks.presentation.components.list.TaskFilterChips
+import com.singularity.todo.feature.tasks.presentation.components.list.TaskListHeader
+import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import com.singularity.todo.feature.tasks.presentation.model.TaskListFilter
 import com.singularity.todo.feature.tasks.presentation.model.TaskListStats
 import com.singularity.todo.feature.tasks.presentation.model.TaskPriority
@@ -54,12 +53,11 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 /** Визуальный стиль строки задачи — переключаемый на уровне экрана, не строки. */
-enum class TaskRowStyle { FLAT, CARD }
 
 /**
  * Экран списка задач.
  *
- * Разбит на маленькие композаблы ([TaskListHeader], [TaskRowFlat]/[TaskRowCard],
+ * Разбит на маленькие композаблы ([TaskListHeader], [TaskRowFlat],
  * [SwipeableTaskRow], [EmptyState], [TaskFilterChips]) — сам экран отвечает
  * только за оркестрацию: state, callbacks, выбор стиля, обработку empty/snackbar.
  *
@@ -67,8 +65,6 @@ enum class TaskRowStyle { FLAT, CARD }
  * строки": вся визуальная логика изолирована в компонентах, экран не знает,
  * как именно они рисуются, только когда и какие.
  *
- * @param rowStyle FLAT — плотный список с разделителями (Todoist, Things),
- *                 CARD — приподнятые карточки (исходный дизайн)
  * @param initialFilter какой фильтр активен при первом запуске
  * @param onAddTask колбэк нажатия на FAB
  * @param onTaskClick колбэк клика по строке (открытие деталей)
@@ -76,7 +72,6 @@ enum class TaskRowStyle { FLAT, CARD }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskListScreen(
-    rowStyle: TaskRowStyle = TaskRowStyle.FLAT,
     initialFilter: TaskListFilter = TaskListFilter.ALL,
     onAddTask: () -> Unit = {},
     onTaskClick: (TaskUi) -> Unit = {},
@@ -98,7 +93,6 @@ fun TaskListScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val pullToRefreshState = rememberPullToRefreshState()
-    val isCardStyle = rowStyle == TaskRowStyle.CARD
 
     val stats by remember(tasks) { derivedStateOf { TaskListStats.from(tasks) } }
 
@@ -187,14 +181,11 @@ fun TaskListScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
-                            horizontal = if (isCardStyle) TaskListSpacing.Lg else TaskListSpacing.None,
+                            horizontal =  TaskListSpacing.None,
                             vertical = TaskListSpacing.Sm,
                         ),
-                        verticalArrangement = if (isCardStyle) {
-                            Arrangement.spacedBy(TaskListSpacing.Md)
-                        } else {
+                        verticalArrangement =
                             Arrangement.Top
-                        },
                     ) {
                         items(visibleTasks, key = { it.id }) { task ->
                             SwipeableTaskRow(
@@ -214,19 +205,9 @@ fun TaskListScreen(
                                         }
                                     }
                                 },
-                                backgroundShape = if (isCardStyle) {
-                                    TaskListShapes.CardRadius
-                                } else {
+                                backgroundShape =
                                     RoundedCornerShape(0.dp)
-                                },
                             ) {
-                                if (isCardStyle) {
-                                    TaskRowCard(
-                                        task = task,
-                                        onToggleCompleted = { tasks.toggleCompleted(task) },
-                                        onClick = { onTaskClick(task) },
-                                    )
-                                } else {
                                     TaskRowFlat(
                                         task = task,
                                         onToggleCompleted = { tasks.toggleCompleted(task) },
@@ -243,7 +224,7 @@ fun TaskListScreen(
             }
         }
     }
-}
+
 
 /** Точечно переключает isCompleted у задачи, сохраняя стабильность key для LazyColumn. */
 private fun SnapshotStateList<TaskUi>.toggleCompleted(task: TaskUi) {
@@ -255,22 +236,16 @@ private fun SnapshotStateList<TaskUi>.toggleCompleted(task: TaskUi) {
 @Composable
 private fun TaskListScreenFlatPreview() {
     MaterialTheme {
-        TaskListScreen(rowStyle = TaskRowStyle.FLAT)
+        TaskListScreen()
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14, heightDp = 720)
-@Composable
-private fun TaskListScreenCardPreview() {
-    MaterialTheme {
-        TaskListScreen(rowStyle = TaskRowStyle.CARD)
-    }
-}
+
 
 @Preview(showBackground = true, backgroundColor = 0xFF0B0E14, heightDp = 720)
 @Composable
 private fun TaskListScreenEmptyPreview() {
     MaterialTheme {
-        TaskListScreen(rowStyle = TaskRowStyle.FLAT, initialFilter = TaskListFilter.COMPLETED)
+        TaskListScreen( initialFilter = TaskListFilter.COMPLETED)
     }
 }

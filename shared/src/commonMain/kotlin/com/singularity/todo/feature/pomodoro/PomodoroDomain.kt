@@ -1,8 +1,5 @@
 package com.singularity.todo.feature.pomodoro
 
-import java.util.UUID
-import kotlin.time.Instant
-
 data class PomodoroConfig(
     val workMinutes: Int = 25,
     val shortBreakMinutes: Int = 5,

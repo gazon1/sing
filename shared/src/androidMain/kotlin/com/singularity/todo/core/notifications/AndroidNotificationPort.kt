@@ -131,7 +131,6 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         val key = intent.getStringExtra(AndroidNotificationPort.EXTRA_KEY) ?: return
         val title = intent.getStringExtra(AndroidNotificationPort.EXTRA_TITLE) ?: "Reminder"
         val body = intent.getStringExtra(AndroidNotificationPort.EXTRA_BODY) ?: ""
-        val payload = intent.getStringExtra(AndroidNotificationPort.EXTRA_PAYLOAD)
 
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

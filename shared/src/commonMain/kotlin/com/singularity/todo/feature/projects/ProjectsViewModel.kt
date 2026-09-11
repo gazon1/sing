@@ -39,7 +39,6 @@ sealed interface ProjectsUiState {
 
 class ProjectsViewModel(
     private val projectRepo: ProjectsRepository,
-    private val createProject: CreateProjectUseCase,
     private val currentUser: ProfileAwareCurrentUser,
     private val taskRepository: TaskRepository,
     private val projectReview: ProjectReviewUseCase? = null,
@@ -87,7 +86,6 @@ class ProjectsViewModel(
     }.stateIn(scope, sharingStarted(), ProjectsUiState.Loading)
 
     private val _aiResult = MutableSharedFlow<String>()
-    val aiResult = _aiResult.asSharedFlow()
 
     private val _events = MutableSharedFlow<ProjectsUiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<ProjectsUiEvent> = _events.asSharedFlow()

@@ -146,7 +146,6 @@ fun NoteEditorScreenContent(
     // linkRepo and currentUser must be provided when called from a @Preview (no Koin).
     // At runtime they come from the NoteEditorScreen wrapper via koinInject().
     val resolvedLinkRepo = linkRepo
-    val resolvedCurrentUser = currentUser
 
     // Session — created once per editing note
     val session = (editorState as? EditorState.Editing)?.let { editing ->
@@ -250,7 +249,7 @@ fun NoteEditorScreenContent(
             queryFlow = linkQueryFlow,
             onSearch = { q ->
                 val notes = resolvedLinkRepo
-                    ?.searchNotes(resolvedCurrentUser?.scopedUserId?.value ?: UserId(""), q)
+                    ?.searchNotes(currentUser?.scopedUserId?.value ?: UserId(""), q)
                     ?.map { LinkResult(it.id.value, it.title, LinkKind.Note) }
                     ?: emptyList()
                 val tasks = resolvedLinkRepo

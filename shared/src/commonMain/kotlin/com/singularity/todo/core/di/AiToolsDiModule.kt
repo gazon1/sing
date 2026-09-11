@@ -1,6 +1,5 @@
 package com.singularity.todo.core.di
 
-import co.touchlab.kermit.Logger
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.ai.KoogAgentService
@@ -63,7 +62,6 @@ import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
-import com.singularity.todo.feature.projects.CreateProjectUseCase
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.UsageRecorder
@@ -133,7 +131,7 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
 
     // ─── AI Tools ───
 
-    factory { RefineTaskTool(Logger.withTag("RefineTaskTool"), get(), get()) }
+    factory { RefineTaskTool(get(), get()) }
     factory { SmartRewriteTool(get(), get()) }
     factory { GenerateDescriptionTool(get(), get()) }
     factory { DecomposeTaskTool(get(), get()) }
@@ -227,7 +225,6 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
     viewModel {
         ProjectsViewModel(
             projectRepo = get<ProjectsRepository>(),
-            createProject = get<CreateProjectUseCase>(),
             currentUser = get<ProfileAwareCurrentUser>(),
             taskRepository = get<TaskRepository>(),
             projectReview = getOrNull(),

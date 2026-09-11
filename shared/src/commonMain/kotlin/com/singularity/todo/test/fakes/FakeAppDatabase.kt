@@ -5,8 +5,12 @@ import com.singularity.todo.core.attachments.AttachmentEntity
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.ChecklistItemEntity
+import com.singularity.todo.core.database.LlmUsageDao
+import com.singularity.todo.core.database.LlmUsageEntity
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.NoteEntity
+import com.singularity.todo.core.database.ProfileDao
+import com.singularity.todo.core.database.ProfileEntity
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ReminderDao
@@ -15,10 +19,6 @@ import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
-import com.singularity.todo.core.database.LlmUsageDao
-import com.singularity.todo.core.database.LlmUsageEntity
-import com.singularity.todo.core.database.ProfileDao
-import com.singularity.todo.core.database.ProfileEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import kotlinx.coroutines.flow.Flow

@@ -13,11 +13,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.feature.tasks.domain.model.ChecklistItemUi
+import com.singularity.todo.feature.tasks.domain.model.PendingAttachment
 import com.singularity.todo.feature.tasks.domain.model.TaskEditorMode
 import com.singularity.todo.feature.tasks.domain.model.TaskEditorUiState
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 /**
  * Main task editor body — LazyColumn scaffold that composes all sections.
@@ -218,4 +224,28 @@ private fun EditorContent(
         // Bottom spacer for keyboard
         item { Spacer(Modifier.height(80.dp)) }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TaskEditorContentPreview() {
+    val state = TaskEditorUiState(
+        mode = TaskEditorMode.New,
+        title = "Buy groceries",
+        description = "Milk, eggs, bread, butter",
+        priority = TaskPriority.High,
+        dueDate = LocalDate(2026, 9, 15),
+        dueTime = LocalTime(10, 0),
+        checklistItems = listOf(
+            ChecklistItemUi(id = "c1", title = "Milk", isCompleted = false),
+            ChecklistItemUi(id = "c2", title = "Eggs", isCompleted = true),
+        ),
+        newChecklistItem = "",
+        reminderOffset = ReminderOffset.FIFTEEN_MIN,
+        pendingAttachments = listOf(
+            PendingAttachment(path = "/path/file.pdf", name = "receipt.pdf", mimeType = "application/pdf"),
+        ),
+    )
+    val actions = TaskEditorActions { }
+    TaskEditorContent(state = state, actions = actions)
 }

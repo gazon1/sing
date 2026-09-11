@@ -195,7 +195,7 @@ internal fun RowScope.DefaultNoteCardBody(note: Note, isSelected: Boolean) {
  * Default trailing content for [NoteCard] — word count.
  */
 @Composable
-internal fun RowScope.DefaultNoteCardTrailing(note: Note) {
+internal fun DefaultNoteCardTrailing(note: Note) {
     Column(horizontalAlignment = Alignment.End) {
         if (note.wordCount > 0) {
             Text(

@@ -99,18 +99,18 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
                     androidx.compose.material3.Text("Archive completed tasks (tap to archive all)")
                 }
             }
-            when (val s = state) {
+            when (state) {
                 ArchiveUiState.Loading -> LoadingIndicator()
-                is ArchiveUiState.Error -> EmptyState(title = "Error", subtitle = s.message)
+                is ArchiveUiState.Error -> EmptyState(title = "Error", subtitle = state.message)
                 is ArchiveUiState.Content -> {
-                    if (s.tasks.isEmpty()) {
+                    if (state.tasks.isEmpty()) {
                         EmptyState(
                             title = "Archive is empty",
                             subtitle = "Tap the button above to archive completed tasks",
                         )
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(s.tasks, key = { it.id.value }) { task ->
+                            items(state.tasks, key = { it.id.value }) { task ->
                                 TaskCard(
                                     task = task,
                                     onClick = {},

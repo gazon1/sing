@@ -1,7 +1,6 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.files.FileSystem
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -24,8 +23,7 @@ class BackupRepositoryImpl(
     private val importer: BackupImporter,
     private val remoteService: RemoteBackupService,
     private val fs: FileSystem,
-    private val backupDir: String,
-    private val clock: Clock
+    private val backupDir: String
 ) : BackupRepository {
 
     override val backups: Flow<List<BackupMetadata>> = flow {

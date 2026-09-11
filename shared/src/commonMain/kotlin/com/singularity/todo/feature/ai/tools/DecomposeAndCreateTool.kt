@@ -76,8 +76,8 @@ class DecomposeAndCreateTool(
         val userId = profileAwareCurrentUser.scopedUserId.value
 
         // 1) plan via LLM
-        var subTitles: List<String> = emptyList()
-        var planSource = "empty"
+        var subTitles: List<String>
+        var planSource: String
         try {
             val p = prompt(Prompt.Empty, KoogClock.System) {
                 system(Prompts.decomposeTaskSystem)

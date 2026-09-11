@@ -774,7 +774,7 @@ fun FakeProfileAwareCurrentUser(
 class FakeAttachmentSaver : com.singularity.todo.feature.tasks.domain.model.AttachmentSaver {
     val saved = mutableListOf<Triple<String, String, String?>>()
 
-    override suspend fun save(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId, path: String, mimeType: String?): Result<Unit> = runCatching {
+    override suspend fun save(taskId: TaskId, path: String, mimeType: String?): Result<Unit> = runCatching {
         saved.add(Triple(taskId.value, path, mimeType))
     }
 }

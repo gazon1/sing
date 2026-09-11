@@ -39,12 +39,12 @@ class InMemoryStore<E : Any>(
 
     /** Upserts (insert or replace) [entity]. */
     fun upsert(entity: E) {
-        _state.value = _state.value + (keyOf(entity) to entity)
+        _state.value += (keyOf(entity) to entity)
     }
 
     /** Removes the entity with [id]. */
     fun remove(id: String) {
-        _state.value = _state.value - id
+        _state.value -= id
     }
 
     /** Clears all entities. */
@@ -57,7 +57,7 @@ class InMemoryStore<E : Any>(
      * Existing entries with the same id are replaced.
      */
     fun seed(items: Collection<E>) {
-        _state.value = _state.value + items.associateBy(keyOf)
+        _state.value += items.associateBy(keyOf)
     }
 
     /**

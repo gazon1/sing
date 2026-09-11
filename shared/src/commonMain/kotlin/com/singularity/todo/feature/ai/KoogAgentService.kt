@@ -6,16 +6,14 @@ import ai.koog.agents.core.tools.Tool
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.prompt
-import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.utils.time.KoogClock
 import com.singularity.todo.core.di.PromptExecutorPort
-import com.singularity.todo.core.llm.KnownModels
 import com.singularity.todo.core.llm.OpenAiConfig
+import com.singularity.todo.core.llm.resolveModel
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.prompts.Prompts
-import com.singularity.todo.core.llm.resolveModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -145,9 +143,6 @@ class FakeTextGen(
     private val trackGenerateCalls: Boolean = false,
 ) : TextGenPort {
     private val _generateCalls = mutableListOf<Triple<String, String?, String?>>()
-
-    /** Captured [generate] calls when [trackGenerateCalls] is enabled. */
-    val generateCalls: List<Triple<String, String?, String?>> get() = _generateCalls
 
     override suspend fun generate(
         prompt: String,
