@@ -2,14 +2,13 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailIntent
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailUi
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailUiEvent
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,136 +27,129 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
 class TaskDetailViewModel(
     private val deps: TaskDetailDeps,
+    private val taskId: TaskId,
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
-    private val _taskId = MutableStateFlow<TaskId?>(null)
-    private val _events = MutableSharedFlow<TaskDetailUiEvent>(extraBufferCapacity = 4)
+    private val _events = MutableSharedFlow<TaskDetailUiEvent>(replay = 0, extraBufferCapacity = 8)
     val events: SharedFlow<TaskDetailUiEvent> = _events.asSharedFlow()
 
-    private val titleDraft = MutableStateFlow<String?>(null)
-    private val descriptionDraft = MutableStateFlow<String?>(null)
+    private val titleEdits = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 8)
+    private val descriptionEdits = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 8)
 
-    private val _latestTask = MutableStateFlow<Task?>(null)
+    /** Visible for tests. TOCTOU: prefer to observe via state. */
+    internal val _latestTask = MutableStateFlow<Task?>(null)
 
-    private val _lastEditedAt = MutableStateFlow<Instant?>(null)
-    val lastEditedAt: StateFlow<Instant?> = _lastEditedAt
+    private val _lastEditedAt = MutableStateFlow<kotlin.time.Instant?>(null)
+    val lastEditedAt: StateFlow<kotlin.time.Instant?> = _lastEditedAt
 
     private val _recentlyDeleted = MutableStateFlow<Task?>(null)
 
     init {
+        // Debounce-race fix: combine ensures the edit is applied to the correct task version.
+        // If load hasn't completed yet, edits wait in the flow.
         scope.launch {
-            titleDraft
-                .debounce(300.milliseconds)
-                .filterNotNull()
-                .collect { title ->
-                    val current = _latestTask.value ?: return@collect
-                    deps.updateTask(current.copy(title = title))
-                        .onSuccess { _lastEditedAt.value = Clock.now() }
+            combine(
+                _latestTask.filterNotNull(),
+                titleEdits.debounce(300.milliseconds),
+            ) { task, title -> task to title }
+                .collect { (task, title) ->
+                    deps.updateTask(task.copy(title = title))
+                        .onSuccess { _lastEditedAt.value = deps.clock.now() }
                         .onFailure { emitError("Save failed") }
                 }
         }
         scope.launch {
-            descriptionDraft
-                .debounce(300.milliseconds)
-                .filterNotNull()
-                .collect { desc ->
-                    val current = _latestTask.value ?: return@collect
-                    deps.updateTask(current.copy(description = desc.ifBlank { null }))
-                        .onSuccess { _lastEditedAt.value = Clock.now() }
+            combine(
+                _latestTask.filterNotNull(),
+                descriptionEdits.debounce(300.milliseconds),
+            ) { task, desc -> task to desc }
+                .collect { (task, desc) ->
+                    deps.updateTask(task.copy(description = desc.ifBlank { null }))
+                        .onSuccess { _lastEditedAt.value = deps.clock.now() }
                         .onFailure { emitError("Save failed") }
                 }
         }
     }
 
-    val state: StateFlow<TaskDetailUiState> = _taskId
-        .flatMapLatest { id ->
-            if (id == null) {
-                flowOf<TaskDetailUiState>(TaskDetailUiState.Loading)
+    val state: StateFlow<TaskDetailUiState> = deps.taskRepo.watchTask(taskId)
+        .flatMapLatest { task ->
+            if (task == null) {
+                flowOf<TaskDetailUiState>(TaskDetailUiState.Error("Not found"))
             } else {
-                val taskFlow = deps.taskRepo.watchTask(id)
-                val projectFlow = taskFlow.map { task ->
-                    val projectId = task?.projectId
-                    if (projectId == null) flowOf<com.singularity.todo.feature.projects.Project?>(null)
-                    else deps.projectsRepo.watchProject(projectId)
-                }.flatMapLatest { it }
+                val projectFlow = task.projectId?.let { pid ->
+                    deps.projectsRepo.watchProject(pid)
+                } ?: flowOf(null)
 
                 val tagsFlow = deps.tagsRepo.watchTags(deps.currentUser.current.value)
-                val checklistFlow = deps.checklistUseCase.watchChecklist(id.value)
-                val reminderFlow = deps.reminderRepo.watchByTask(id, deps.currentUser.current)
-                val attachmentsFlow = deps.attachmentsRepo.watchByTask(id, deps.currentUser.current)
-                val subtasksFlow = deps.taskRepo.watchSubtasks(id, deps.currentUser.current)
+                val checklistFlow = deps.checklistUseCase.watchChecklist(taskId.value)
+                val reminderFlow = deps.reminderRepo.watchByTask(taskId, deps.currentUser.current)
+                val attachmentsFlow = deps.attachmentsRepo.watchByTask(taskId, deps.currentUser.current)
+                val subtasksFlow = deps.taskRepo.watchSubtasks(taskId, deps.currentUser.current)
 
-                combine(taskFlow, projectFlow, tagsFlow, checklistFlow, reminderFlow, attachmentsFlow, subtasksFlow) { values ->
+                combine(
+                    projectFlow,
+                    tagsFlow,
+                    checklistFlow,
+                    reminderFlow,
+                    attachmentsFlow,
+                    subtasksFlow,
+                ) { values ->
                     @Suppress("UNCHECKED_CAST")
-                    val task = values[0] as Task?
+                    val project = values[0] as com.singularity.todo.feature.projects.Project?
                     @Suppress("UNCHECKED_CAST")
-                    val project = values[1] as com.singularity.todo.feature.projects.Project?
+                    val allTags = values[1] as List<com.singularity.todo.feature.tags.Tag>
                     @Suppress("UNCHECKED_CAST")
-                    val allTags = values[2] as List<com.singularity.todo.feature.tags.Tag>
+                    val checklist = values[2] as List<com.singularity.todo.feature.checklist.ChecklistItem>
                     @Suppress("UNCHECKED_CAST")
-                    val checklist = values[3] as List<com.singularity.todo.feature.checklist.ChecklistItem>
+                    val reminders = values[3] as List<com.singularity.todo.feature.reminders.Reminder>
                     @Suppress("UNCHECKED_CAST")
-                    val reminders = values[4] as List<com.singularity.todo.feature.reminders.Reminder>
+                    val attachments = values[4] as List<com.singularity.todo.core.attachments.Attachment>
                     @Suppress("UNCHECKED_CAST")
-                    val attachments = values[5] as List<com.singularity.todo.core.attachments.Attachment>
-                    @Suppress("UNCHECKED_CAST")
-                    val subtasks = values[6] as List<Task>
+                    val subtasks = values[5] as List<Task>
 
                     _latestTask.value = task
-                    if (task == null) {
-                        TaskDetailUiState.Error("Not found")
-                    } else {
-                        TaskDetailUiState.Loaded(
-                            TaskDetailUi(
-                                task = task,
-                                project = project,
-                                tags = allTags.filter { it.id in task.tags },
-                                checklist = checklist,
-                                reminders = reminders,
-                                attachments = attachments,
-                                subtasks = subtasks,
-                            )
+                    TaskDetailUiState.Loaded(
+                        TaskDetailUi(
+                            task = task,
+                            project = project,
+                            tags = allTags.filter { it.id in task.tags },
+                            checklist = checklist,
+                            reminders = reminders,
+                            attachments = attachments,
+                            subtasks = subtasks,
                         )
-                    }
+                    )
                 }
             }
         }
         .catch { emit(TaskDetailUiState.Error(it.message ?: "Error")) }
         .stateIn(scope, SharingStarted.WhileSubscribed(5000), TaskDetailUiState.Loading)
 
-    fun start(taskId: TaskId) {
-        _taskId.value = taskId
-    }
-
-    fun onTitleChange(value: String) {
-        titleDraft.value = value
-    }
-
-    fun onDescriptionChange(value: String) {
-        descriptionDraft.value = value
-    }
-
+    /** Unified intent entry point. */
     fun onIntent(intent: TaskDetailIntent.Domain) {
         val current = _latestTask.value ?: return
         when (intent) {
             is TaskDetailIntent.Domain.ToggleComplete -> {
                 val completed = current.completedAt == null
-                val completedAt = if (completed) Clock.now() else null
+                val completedAt = if (completed) deps.clock.now() else null
                 mutate(current, silent = true) { copy(completedAt = completedAt) }
             }
-            is TaskDetailIntent.Domain.TitleChanged -> { /* debounced via titleDraft */ }
-            is TaskDetailIntent.Domain.DescriptionChanged -> { /* debounced via descriptionDraft */ }
+            is TaskDetailIntent.Domain.TitleChanged -> {
+                titleEdits.tryEmit(intent.title)
+            }
+            is TaskDetailIntent.Domain.DescriptionChanged -> {
+                descriptionEdits.tryEmit(intent.description)
+            }
             is TaskDetailIntent.Domain.SetDueDate ->
                 mutate(current) { copy(dueDate = intent.date) }
             is TaskDetailIntent.Domain.SetDueTime ->
-                mutate(current) { copy(dueTime = intent.time?.takeIf { it.isNotBlank() }) }
+                mutate(current) { copy(dueTime = intent.time?.toString()) }
             is TaskDetailIntent.Domain.SetPriority ->
                 mutate(current) { copy(priority = intent.priority) }
             is TaskDetailIntent.Domain.SetProject ->
@@ -172,34 +164,38 @@ class TaskDetailViewModel(
                 mutate(current, error = "Failed to set someday") { copy(someday = !someday) }
             is TaskDetailIntent.Domain.TogglePinned ->
                 mutate(current) { copy(isPinned = !isPinned) }
-            is TaskDetailIntent.Domain.ToggleChecklistItem ->
+            is TaskDetailIntent.Domain.ToggleChecklistItem -> {
                 scope.launch {
                     deps.checklistUseCase.toggleItem(current.id.value, intent.item.id)
                         .onFailure { emitError("Toggle failed") }
                 }
-            is TaskDetailIntent.Domain.DeleteChecklistItem ->
+            }
+            is TaskDetailIntent.Domain.DeleteChecklistItem -> {
                 scope.launch {
                     deps.checklistUseCase.deleteItem(intent.id)
                         .onFailure { emitError("Delete failed") }
                 }
-            is TaskDetailIntent.Domain.AddChecklistItem ->
+            }
+            is TaskDetailIntent.Domain.AddChecklistItem -> {
                 scope.launch {
                     if (intent.title.isBlank()) return@launch
                     deps.checklistUseCase.addItem(current.id.value, intent.title.trim())
                         .onSuccess { scope.launch { _events.emit(TaskDetailUiEvent.Saved("Item added")) } }
                         .onFailure { emitError("Add failed") }
                 }
+            }
             is TaskDetailIntent.Domain.ToggleSubtask -> {
                 val completed = intent.task.completedAt == null
-                val completedAt = if (completed) Clock.now() else null
+                val completedAt = if (completed) deps.clock.now() else null
                 mutate(intent.task, silent = true) { copy(completedAt = completedAt) }
             }
-            is TaskDetailIntent.Domain.DeleteSubtask ->
+            is TaskDetailIntent.Domain.DeleteSubtask -> {
                 scope.launch {
                     deps.taskRepo.softDelete(intent.task.id)
                         .onFailure { emitError("Delete subtask failed") }
                 }
-            is TaskDetailIntent.Domain.AddSubtask ->
+            }
+            is TaskDetailIntent.Domain.AddSubtask -> {
                 scope.launch {
                     if (intent.title.isBlank()) return@launch
                     deps.createTask(
@@ -212,6 +208,7 @@ class TaskDetailViewModel(
                         .onSuccess { scope.launch { _events.emit(TaskDetailUiEvent.Saved("Subtask added")) } }
                         .onFailure { emitError("Add subtask failed") }
                 }
+            }
             is TaskDetailIntent.Domain.SetReminder -> {
                 scope.launch {
                     if (intent.offset == com.singularity.todo.core.reminders.ReminderOffset.AT_DUE) {
@@ -219,7 +216,7 @@ class TaskDetailViewModel(
                             .onFailure { emitError("Failed to set reminder") }
                         return@launch
                     }
-                    val now = Clock.now().toEpochMilliseconds()
+                    val now = deps.clock.now().toEpochMilliseconds()
                     val fireAt = computeFireAt(current.dueDate, current.dueTime, intent.offset, now)
                     val reminder = com.singularity.todo.feature.reminders.Reminder(
                         id = com.singularity.todo.feature.reminders.ReminderId.generate(),
@@ -234,11 +231,12 @@ class TaskDetailViewModel(
                         .onFailure { emitError("Failed to set reminder") }
                 }
             }
-            TaskDetailIntent.Domain.DeleteReminder ->
+            TaskDetailIntent.Domain.DeleteReminder -> {
                 scope.launch {
                     deps.reminderRepo.deleteByTask(current.id, deps.currentUser.current)
                         .onFailure { emitError("Failed to remove reminder") }
                 }
+            }
             TaskDetailIntent.Domain.Delete -> {
                 scope.launch {
                     _recentlyDeleted.value = current
@@ -276,6 +274,16 @@ class TaskDetailViewModel(
         }
     }
 
+    /** Non-blocking title edit — queues for debounced flush. */
+    fun onTitleChange(value: String) {
+        titleEdits.tryEmit(value)
+    }
+
+    /** Non-blocking description edit — queues for debounced flush. */
+    fun onDescriptionChange(value: String) {
+        descriptionEdits.tryEmit(value)
+    }
+
     private fun mutate(
         current: Task,
         error: String = "Save failed",
@@ -283,7 +291,7 @@ class TaskDetailViewModel(
         transform: Task.() -> Task,
     ) = scope.launch {
         deps.updateTask(current.transform())
-            .onSuccess { if (!silent) _lastEditedAt.value = Clock.now() }
+            .onSuccess { if (!silent) _lastEditedAt.value = deps.clock.now() }
             .onFailure { emitError(error) }
     }
 

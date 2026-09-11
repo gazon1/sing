@@ -114,10 +114,8 @@ sealed interface AppDestination {
     }
 
     @Serializable
-    data class TaskEditor(
+    data class TaskDetailCreate(
         val initialDueDate: String? = null,
-        /** When non-null, the editor opens in edit mode for this task ID. */
-        val taskId: String? = null,
     ) : AppDestination {
         override val title = "New Task"
     }
@@ -164,7 +162,7 @@ val AppDestination.icon: ImageVector
         AppDestination.AiUsage -> Icons.Filled.BarChart
         AppDestination.ProfileSwitcher -> Icons.Filled.Person
         is AppDestination.TaskDetail -> Icons.Filled.Check
-        is AppDestination.TaskEditor -> Icons.Filled.Check
+        is AppDestination.TaskDetailCreate -> Icons.Filled.Check
         is AppDestination.NoteView -> Icons.Filled.Create
         is AppDestination.NoteEditor -> Icons.Filled.Create
         is AppDestination.ProjectEditor -> Icons.Filled.Check

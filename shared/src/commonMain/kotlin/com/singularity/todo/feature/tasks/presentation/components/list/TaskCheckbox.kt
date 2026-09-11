@@ -41,7 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.feature.tasks.presentation.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
@@ -184,7 +184,7 @@ private fun TaskCheckboxPreview() {
             TaskCheckbox(
                 isChecked = false,
                 onCheckedChange = {},
-                accentColor = priorityColor(TaskPriority.LOW),
+                accentColor = priorityColor(TaskPriority.Low),
             )
         }
     }

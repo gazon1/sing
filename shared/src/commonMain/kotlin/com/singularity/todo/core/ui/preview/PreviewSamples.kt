@@ -23,7 +23,7 @@ import com.singularity.todo.feature.reminders.ReminderType
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailUi
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority

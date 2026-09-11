@@ -27,6 +27,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 @Composable
 fun TaskSaveBar(
     isEnabled: Boolean,
+    isLoading: Boolean = false,
     onSaveClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {

@@ -26,6 +26,7 @@ object TaskColors {
     val PriorityLow = Color(0xFF6FCF97)
     val PriorityMedium = Color(0xFFF2C94C)
     val PriorityHigh = Color(0xFFEB5757)
+    val PriorityUrgent = Color(0xFFFF6B6B)
 }
 
 object TaskSpacing {

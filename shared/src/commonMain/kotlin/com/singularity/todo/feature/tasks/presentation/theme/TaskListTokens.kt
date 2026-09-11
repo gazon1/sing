@@ -36,6 +36,7 @@ object TaskListColors {
     val PriorityMedium = Color(0xFFF5A623)
     val PriorityLow = Color(0xFF5B8DEF)
     val PriorityNone = TextTertiary
+    val PriorityUrgent = Color(0xFFFF6B6B)
 }
 
 object TaskListShapes {

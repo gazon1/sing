@@ -1,29 +1,29 @@
 package com.singularity.todo.feature.tasks.domain.model
 
-import com.singularity.todo.core.attachments.AttachmentRepository
+import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 
 /**
- * Dependencies for [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel].
+ * Dependencies for legacy [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskEditorViewModel].
+ * Will be deleted together with TaskEditorViewModel.
  */
-data class TaskDetailDeps(
-    val taskRepo: TaskRepository,
-    val updateTask: UpdateTaskUseCase,
+data class TaskEditorDeps(
     val createTask: CreateTaskUseCase,
-    val projectsRepo: ProjectsRepository,
-    val tagsRepo: com.singularity.todo.feature.tags.TagsRepository,
-    val checklistUseCase: ChecklistUseCase,
-    val reminderRepo: ReminderRepository,
-    val attachmentsRepo: AttachmentRepository,
-    val currentUser: ProfileAwareCurrentUser,
-    val timeZoneProvider: TimeZoneProvider,
+    val updateTask: UpdateTaskUseCase,
     val clock: Clock,
+    val currentUser: ProfileAwareCurrentUser,
+    val taskRepository: TaskRepository,
+    val checklistUseCase: ChecklistUseCase,
+    val reminderRepository: ReminderRepository,
+    val attachmentSaver: AttachmentSaver,
+    val idGen: IdGenerator,
+    val timeZoneProvider: TimeZoneProvider,
 )

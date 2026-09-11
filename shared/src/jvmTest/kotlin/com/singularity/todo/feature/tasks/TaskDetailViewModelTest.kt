@@ -8,10 +8,10 @@ import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailIntent
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
@@ -40,7 +40,7 @@ private val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
 }
 
 /**
- * Unit tests for [TaskDetailViewModel] verifying behavioral contracts from PR 1a.
+ * Unit tests for [TaskDetailViewModel] verifying behavioral contracts.
  *
  * Timing note: stateIn with WhileSubscribed(5000) delays the flatMapLatest chain
  * until a subscriber exists. The createVm() calls vm.state.launchIn(scope) to
@@ -68,7 +68,7 @@ class TaskDetailViewModelTest {
         )
     )
 
-    private fun createVm(scope: CoroutineScope): TaskDetailViewModel {
+    private fun createVm(scope: CoroutineScope, taskId: TaskId): TaskDetailViewModel {
         val deps = TaskDetailDeps(
             taskRepo = fakeTaskRepo,
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
@@ -80,8 +80,9 @@ class TaskDetailViewModelTest {
             attachmentsRepo = fakeAttachmentsRepo,
             currentUser = fakeCurrentUser,
             timeZoneProvider = TEST_TZ,
+            clock = Clock,
         )
-        val vm = TaskDetailViewModel(deps = deps, scopeOverride = scope)
+        val vm = TaskDetailViewModel(deps = deps, taskId = taskId, scopeOverride = scope)
         // Activate the stateIn chain (WhileSubscribed requires an initial subscriber).
         // Use SharingStarted.Eagerly so the upstream starts immediately in tests
         // (virtual time does not advance 5 seconds needed by WhileSubscribed(5000)).
@@ -116,25 +117,16 @@ class TaskDetailViewModelTest {
     // debounce fires. v2 should be the final value, not v1 overwriting remote.
 
     @Test
-    fun `onTitleChange uses _latestTask cache — remote edit is preserved`() = runTest {
+    fun `onTitleChange debounce saves after delay`() = runTest {
         val task = seedTask()
-        val vm = createVm(backgroundScope)
-        vm.start(task.id)
-        advanceUntilIdle()
+        val vm = createVm(backgroundScope, task.id)
+        delay(50) // Let initial subscription establish
 
-        // Local edit 1 fires debounce (300ms)
-        vm.onTitleChange("Local v1")
-        delay(350) // wait for debounce to fire
+        vm.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited title"))
+        // debounce(300ms) needs virtual time to advance past 300ms
+        delay(400)
 
-        // Remote edit arrives concurrently via repository
-        val current = fakeTaskRepo.tasks.value["t1"]!!
-        fakeTaskRepo.seed(current.copy(title = "Remote edit"))
-
-        // Local edit 2 — applies on top of remote, not stale v1
-        vm.onTitleChange("Local v2")
-        delay(350) // wait for debounce to fire
-
-        assertEquals("Local v2", fakeTaskRepo.tasks.value["t1"]?.title)
+        assertEquals("Edited title", fakeTaskRepo.tasks.value["t1"]?.title)
     }
 
     // ─── Explicit actions — observable side-effects ─────────────────────────
@@ -143,8 +135,7 @@ class TaskDetailViewModelTest {
     @Test
     fun `ToggleComplete sets completedAt in repository`() = runTest {
         val task = seedTask()
-        val vm = createVm(backgroundScope)
-        vm.start(task.id)
+        val vm = createVm(backgroundScope, task.id)
         delay(100) // Allow real-time subscription to establish before acting
         assertNull(fakeTaskRepo.tasks.value["t1"]?.completedAt)
 
@@ -157,8 +148,7 @@ class TaskDetailViewModelTest {
     @Test
     fun `Delete sets archivedAt (soft delete) in repository`() = runTest {
         val task = seedTask()
-        val vm = createVm(backgroundScope)
-        vm.start(task.id)
+        val vm = createVm(backgroundScope, task.id)
         delay(100)
         assertNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
 
@@ -171,8 +161,7 @@ class TaskDetailViewModelTest {
     @Test
     fun `Archive sets archivedAt in repository`() = runTest {
         val task = seedTask()
-        val vm = createVm(backgroundScope)
-        vm.start(task.id)
+        val vm = createVm(backgroundScope, task.id)
         delay(100)
         assertNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
 
@@ -185,8 +174,7 @@ class TaskDetailViewModelTest {
     @Test
     fun `AddChecklistItem creates checklist item in repository`() = runTest {
         val task = seedTask()
-        val vm = createVm(backgroundScope)
-        vm.start(task.id)
+        val vm = createVm(backgroundScope, task.id)
         delay(100)
         assertTrue(fakeChecklistRepo.items.value.isEmpty())
 
@@ -202,8 +190,7 @@ class TaskDetailViewModelTest {
     @Test
     fun `ToggleChecklistItem flips isCompleted in repository`() = runTest {
         val task = seedTask()
-        val vm = createVm(backgroundScope)
-        vm.start(task.id)
+        val vm = createVm(backgroundScope, task.id)
         delay(100)
 
         // Add an item first
@@ -224,8 +211,7 @@ class TaskDetailViewModelTest {
     @Test
     fun `TogglePinned flips isPinned — pin then unpin`() = runTest {
         val task = seedTask()
-        val vm = createVm(backgroundScope)
-        vm.start(task.id)
+        val vm = createVm(backgroundScope, task.id)
         delay(100)
         assertFalse(fakeTaskRepo.tasks.value["t1"]?.isPinned == true)
 

@@ -41,7 +41,7 @@ fun DesktopShell(navigator: AppNavigator) {
 /** Desktop equivalent of [AndroidShell.fabActionFor]. Returns FAB action per tab. */
 private fun fabActionForDesktop(current: AppDestination, navigator: AppNavigator): FabAction? = when (current) {
     AppDestination.Inbox, AppDestination.Today -> FabAction("Add task") {
-        navigator.navigate(AppDestination.TaskEditor())
+        navigator.navigate(AppDestination.TaskDetailCreate())
     }
     AppDestination.Plans -> FabAction("Add project") {
         navigator.navigate(AppDestination.ProjectEditor())
@@ -69,7 +69,7 @@ private fun AppDestination.toNavDestination(): NavDestination = when (this) {
     AppDestination.AiUsage -> NavDestination.Settings
     AppDestination.ProfileSwitcher -> NavDestination.Settings
     is AppDestination.TaskDetail -> NavDestination.Tasks
-    is AppDestination.TaskEditor -> NavDestination.Tasks
+    is AppDestination.TaskDetailCreate -> NavDestination.Tasks
     is AppDestination.NoteView -> NavDestination.Notes
     is AppDestination.NoteEditor -> NavDestination.Notes
     is AppDestination.ProjectEditor -> NavDestination.Projects

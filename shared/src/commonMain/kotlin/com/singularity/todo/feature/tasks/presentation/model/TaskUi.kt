@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.model
 
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+
 /**
  * Иммутабельная UI-модель задачи.
  *
@@ -16,17 +18,13 @@ data class TaskUi(
     val project: String?,          // null -> "Без проекта"
     val dueLabel: String?,         // уже отформатированная дата: "Сб, 05 сент 2026"
     val isRecurring: Boolean = false,
-    val priority: TaskPriority = TaskPriority.NONE,
+    val priority: TaskPriority = TaskPriority.None,
     val isCompleted: Boolean = false,
     val isOverdue: Boolean = false, // вычисляется во VM; просроченная невыполненная задача
     val isSelected: Boolean = false,
 )
 
-enum class TaskPriority {
-    NONE, LOW, MEDIUM, HIGH;
-
-    val isActive: Boolean get() = this != NONE
-}
+enum class TaskListFilter { ALL, ACTIVE, COMPLETED }
 
 /** Счётчики для заголовка/фильтров — вычисляются из списка один раз. */
 data class TaskListStats(
@@ -42,6 +40,3 @@ data class TaskListStats(
         )
     }
 }
-
-/** Фильтр списка. ALL = видим всё, ACTIVE = только невыполненные, COMPLETED = только выполненные. */
-enum class TaskListFilter { ALL, ACTIVE, COMPLETED }

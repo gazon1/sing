@@ -12,7 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.feature.tasks.presentation.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
@@ -86,7 +86,7 @@ private fun TaskRowFlatPreview() {
                     project = "Финансы",
                     dueLabel = "Пн, 18 мая 2026",
                     isRecurring = true,
-                    priority = TaskPriority.HIGH,
+                    priority = TaskPriority.High,
                 ),
                 onToggleCompleted = {},
                 onClick = {},

@@ -1,9 +1,11 @@
 package com.singularity.todo.core.di
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.clock.DelayAutosaveScheduler
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.archive.ArchiveRepository
 import com.singularity.todo.feature.archive.ArchiveViewModel
@@ -22,13 +24,14 @@ import com.singularity.todo.feature.statistics.StatisticsViewModel
 import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
-import com.singularity.todo.feature.tasks.domain.model.TaskEditorDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
-import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskEditorViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -78,21 +81,31 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModelOf(::TaskDetailViewModel)
+    viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
+        TaskDetailViewModel(
+            deps = TaskDetailDeps(
+                taskRepo = get(),
+                updateTask = get(),
+                createTask = get(),
+                projectsRepo = get(),
+                tagsRepo = get(),
+                checklistUseCase = get(),
+                reminderRepo = get(),
+                attachmentsRepo = get(),
+                currentUser = get(),
+                timeZoneProvider = get(),
+                clock = get(),
+            ),
+            taskId = taskId,
+        )
+    }
 
     viewModel { (initialDueDate: kotlinx.datetime.LocalDate?) ->
-        TaskEditorViewModel(
-            deps = TaskEditorDeps(
+        TaskCreateViewModel(
+            deps = TaskCreateDeps(
                 createTask = get(),
-                updateTask = get(),
-                clock = get(),
                 currentUser = get(),
-                taskRepository = get(),
-                checklistUseCase = get(),
-                reminderRepository = get(),
-                attachmentSaver = get(),
-                idGen = get(),
-                timeZoneProvider = get(),
+                logger = Logger.withTag("TaskCreate"),
             ),
             initialDueDate = initialDueDate,
         )

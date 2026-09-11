@@ -25,7 +25,7 @@ import com.singularity.todo.feature.search.SearchScreen
 import com.singularity.todo.feature.settings.SettingsScreen
 import com.singularity.todo.feature.statistics.StatisticsScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen
-import com.singularity.todo.feature.tasks.presentation.screen.TaskEditorScreen
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailMode
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.screen.TasksScreen
 import com.singularity.todo.feature.tasks.domain.model.TasksScreenEntry
@@ -109,7 +109,7 @@ fun AppNavHost(
         composable<AppDestination.TaskDetail> { backStackEntry ->
             val route = backStackEntry.toRoute<AppDestination.TaskDetail>()
             TaskDetailScreen(
-                taskId = TaskId.fromString(route.taskId),
+                mode = TaskDetailMode.View(TaskId.fromString(route.taskId)),
                 onBack = navigator::popBackStack,
                 onNavigateToProject = { projectId ->
                     navigator.navigate(AppDestination.ProjectDetail(projectId.value))
@@ -119,11 +119,12 @@ fun AppNavHost(
                 },
             )
         }
-        composable<AppDestination.TaskEditor> { backStackEntry ->
-            val route = backStackEntry.toRoute<AppDestination.TaskEditor>()
-            TaskEditorScreen(
-                initialDueDate = route.initialDueDate?.let { kotlinx.datetime.LocalDate.parse(it) },
-                taskId = route.taskId,
+        composable<AppDestination.TaskDetailCreate> { backStackEntry ->
+            val route = backStackEntry.toRoute<AppDestination.TaskDetailCreate>()
+            TaskDetailScreen(
+                mode = com.singularity.todo.feature.tasks.presentation.state.TaskDetailMode.Create(
+                    initialDueDate = route.initialDueDate?.let { kotlinx.datetime.LocalDate.parse(it) },
+                ),
                 onBack = navigator::popBackStack,
             )
         }
@@ -183,7 +184,7 @@ private fun TasksRoute(entry: TasksScreenEntry, navigator: AppNavigator) {
         entry = entry,
         onNavigateToTask = { id -> navigator.navigate(AppDestination.TaskDetail(id)) },
         onNavigateToCreateTask = {
-            navigator.navigate(AppDestination.TaskEditor(entry.toInitialDueDateString()))
+            navigator.navigate(AppDestination.TaskDetailCreate(entry.toInitialDueDateString()))
         },
     )
 }

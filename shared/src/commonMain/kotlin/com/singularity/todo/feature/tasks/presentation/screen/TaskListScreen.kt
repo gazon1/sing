@@ -41,9 +41,9 @@ import com.singularity.todo.feature.tasks.presentation.components.list.Swipeable
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskFilterChips
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskListHeader
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskListFilter
 import com.singularity.todo.feature.tasks.presentation.model.TaskListStats
-import com.singularity.todo.feature.tasks.presentation.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListShapes
@@ -79,9 +79,9 @@ fun TaskListScreen(
     val tasks = remember {
         mutableStateListOf(
             TaskUi(1, "Позвонить родителям в сб или вс", "Семья", "Сб, 05 сент 2026", isRecurring = true, isOverdue = true),
-            TaskUi(2, "Написать пост в блог про ev framework", "Блог github pages", "Пн, 12 янв 2026", isRecurring = true, priority = TaskPriority.MEDIUM),
+            TaskUi(2, "Написать пост в блог про ev framework", "Блог github pages", "Пн, 12 янв 2026", isRecurring = true, priority = TaskPriority.Medium),
             TaskUi(3, "Написать заметки по статьям", null, "Пн, 10 нояб 2025", isCompleted = true),
-            TaskUi(4, "Отправить заявку на баллы фитмост от гпб", "Финансы", "Пн, 18 мая 2026", isRecurring = true, priority = TaskPriority.HIGH),
+            TaskUi(4, "Отправить заявку на баллы фитмост от гпб", "Финансы", "Пн, 18 мая 2026", isRecurring = true, priority = TaskPriority.High),
             TaskUi(5, "Помыть туалет и пол там", "Квартира", "Ср, 22 июл 2026", isRecurring = true),
             TaskUi(6, "Заказать сок, еду для готовки. Регулярно", "Квартира", "Пн, 20 июл 2026", isRecurring = true),
             TaskUi(7, "Постирать постельное. Регулярно", "Квартира", "Пт, 04 сент 2026", isRecurring = true),

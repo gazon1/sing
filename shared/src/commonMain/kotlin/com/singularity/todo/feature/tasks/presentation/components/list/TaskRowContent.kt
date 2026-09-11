@@ -16,7 +16,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.feature.tasks.presentation.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
@@ -99,7 +99,7 @@ private fun TaskRowContentPreview() {
                     project = "Семья",
                     dueLabel = "Сб, 05 сент 2026",
                     isRecurring = true,
-                    priority = TaskPriority.MEDIUM,
+                    priority = TaskPriority.Medium,
                 ),
                 onToggleCompleted = {},
             )
@@ -119,7 +119,7 @@ private fun TaskRowContentPreview() {
                     title = "Просроченная задача с высоким приоритетом",
                     project = "Финансы",
                     dueLabel = "Вчера",
-                    priority = TaskPriority.HIGH,
+                    priority = TaskPriority.High,
                     isOverdue = true,
                 ),
                 onToggleCompleted = {},

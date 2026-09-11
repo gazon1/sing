@@ -13,10 +13,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.feature.tasks.presentation.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+
+internal val TaskPriority.isActive: Boolean get() = this != TaskPriority.None
 
 /**
  * Маленький индикатор приоритета задачи.
@@ -42,31 +44,32 @@ fun PriorityIndicator(
 
 /** Единый источник правды для цвета приоритета во всём экране. */
 fun priorityColor(priority: TaskPriority): Color = when (priority) {
-    TaskPriority.HIGH -> TaskListColors.PriorityHigh
-    TaskPriority.MEDIUM -> TaskListColors.PriorityMedium
-    TaskPriority.LOW -> TaskListColors.PriorityLow
-    TaskPriority.NONE -> TaskListColors.PriorityNone
+    TaskPriority.High -> TaskListColors.PriorityHigh
+    TaskPriority.Medium -> TaskListColors.PriorityMedium
+    TaskPriority.Low -> TaskListColors.PriorityLow
+    TaskPriority.None -> TaskListColors.PriorityNone
+    TaskPriority.Urgent -> TaskListColors.PriorityUrgent
 }
 
 private fun priorityContentDescription(priority: TaskPriority): String = when (priority) {
-    TaskPriority.HIGH -> "Высокий приоритет"
-    TaskPriority.MEDIUM -> "Средний приоритет"
-    TaskPriority.LOW -> "Низкий приоритет"
-    TaskPriority.NONE -> "Без приоритета"
+    TaskPriority.High -> "Высокий приоритет"
+    TaskPriority.Medium -> "Средний приоритет"
+    TaskPriority.Low -> "Низкий приоритет"
+    TaskPriority.None -> "Без приоритета"
+    TaskPriority.Urgent -> "Срочный приоритет"
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14)
+@Preview
 @Composable
 private fun PriorityIndicatorPreview() {
-    MaterialTheme {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(TaskListSpacing.Md),
-            modifier = Modifier.size(200.dp, 40.dp),
-        ) {
-            PriorityIndicator(TaskPriority.NONE)
-            PriorityIndicator(TaskPriority.LOW)
-            PriorityIndicator(TaskPriority.MEDIUM)
-            PriorityIndicator(TaskPriority.HIGH)
-        }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(TaskListSpacing.Xs),
+        modifier = Modifier.size(200.dp, 48.dp),
+    ) {
+        PriorityIndicator(TaskPriority.None)
+        PriorityIndicator(TaskPriority.Low)
+        PriorityIndicator(TaskPriority.Medium)
+        PriorityIndicator(TaskPriority.High)
+        PriorityIndicator(TaskPriority.Urgent)
     }
 }

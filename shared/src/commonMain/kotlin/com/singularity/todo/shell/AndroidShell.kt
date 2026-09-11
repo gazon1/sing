@@ -136,7 +136,7 @@ private data class FabAction(val label: String, val onClick: () -> Unit)
 /** Pick the right FAB action for the current destination. Returns null to hide it. */
 private fun fabActionFor(current: AppDestination, navigator: AppNavigator): FabAction? = when (current) {
     AppDestination.Inbox, AppDestination.Today -> FabAction("Add task") {
-        navigator.navigate(AppDestination.TaskEditor())
+        navigator.navigate(AppDestination.TaskDetailCreate())
     }
     AppDestination.Plans -> FabAction("Add project") {
         navigator.navigate(AppDestination.ProjectEditor())

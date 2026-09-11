@@ -4,13 +4,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.singularity.todo.feature.tasks.presentation.state.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 
 /**
  * Приоритет — частный случай TaskAttributeCard, но с цветовой семантикой:
- * низкий/средний/высокий получают разный цвет иконки, чтобы приоритет
- * считывался с одного взгляда, без чтения текста.
+ * цвет иконки отражает уровень приоритета, чтобы читаться с одного взгляда.
+ *
+ * ВЫЗЫВАТЬ ТОЛЬКО когда priority != None; снаружи сделать if-guard.
  */
 @Composable
 fun TaskPriorityCard(
@@ -18,14 +19,10 @@ fun TaskPriorityCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val color = when (priority) {
-        TaskPriority.LOW -> TaskColors.PriorityLow
-        TaskPriority.MEDIUM -> TaskColors.PriorityMedium
-        TaskPriority.HIGH -> TaskColors.PriorityHigh
-    }
+    val (color, label) = priorityMeta(priority)
     TaskAttributeCard(
         icon = Icons.Outlined.ErrorOutline,
-        label = priority.label,
+        label = label,
         onClick = onClick,
         isActive = true,
         iconTint = color,
@@ -34,3 +31,13 @@ fun TaskPriorityCard(
         modifier = modifier
     )
 }
+
+private fun priorityMeta(priority: TaskPriority): PriorityMeta = when (priority) {
+    TaskPriority.None -> PriorityMeta(TaskColors.TextSecondary, "No priority")
+    TaskPriority.Low -> PriorityMeta(TaskColors.PriorityLow, "Low priority")
+    TaskPriority.Medium -> PriorityMeta(TaskColors.PriorityMedium, "Medium priority")
+    TaskPriority.High -> PriorityMeta(TaskColors.PriorityHigh, "High priority")
+    TaskPriority.Urgent -> PriorityMeta(TaskColors.PriorityUrgent, "Urgent")
+}
+
+private data class PriorityMeta(val color: androidx.compose.ui.graphics.Color, val label: String)

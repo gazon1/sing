@@ -11,8 +11,9 @@ import kotlin.test.assertNotEquals
 class PriorityColorTest {
 
     @Test
-    fun `None priority is unspecified`() {
-        assertEquals(Color.Unspecified, priorityColor(TaskPriority.None))
+    fun `None priority has a defined tertiary color`() {
+        // None maps to PriorityNone = TextTertiary = Color(0xFF5C6270), not Color.Unspecified
+        assertEquals(Color(0xFF5C6270), priorityColor(TaskPriority.None))
     }
 
     @Test
@@ -27,9 +28,9 @@ class PriorityColorTest {
     @Test
     fun `specific priority colors are stable`() {
         // Encoded ARGB values — change intentionally if palette changes.
-        assertEquals(0xFF4CAF50.toInt(), priorityColor(TaskPriority.Low).toArgb())
-        assertEquals(0xFFFF9800.toInt(), priorityColor(TaskPriority.Medium).toArgb())
-        assertEquals(0xFFF44336.toInt(), priorityColor(TaskPriority.High).toArgb())
-        assertEquals(0xFFE91E63.toInt(), priorityColor(TaskPriority.Urgent).toArgb())
+        assertEquals(0xFF5B8DEF.toInt(), priorityColor(TaskPriority.Low).toArgb())
+        assertEquals(0xFFF5A623.toInt(), priorityColor(TaskPriority.Medium).toArgb())
+        assertEquals(0xFFE5484D.toInt(), priorityColor(TaskPriority.High).toArgb())
+        assertEquals(0xFFFF6B6B.toInt(), priorityColor(TaskPriority.Urgent).toArgb())
     }
 }
