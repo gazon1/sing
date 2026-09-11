@@ -1,12 +1,15 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.attachments.AttachmentEntity
+import com.singularity.todo.core.database.LocalTimeFormats
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
+import com.singularity.todo.core.database.toLocalTimeOrNull
+import kotlinx.datetime.LocalTime
 import kotlinx.serialization.Serializable
 
 // ─── TaskDto ───────────────────────────────────────────────────────────────────
@@ -20,7 +23,8 @@ data class TaskDto(
     val kind: String = "Task",
     val projectId: String? = null,
     val dueDate: String? = null,
-    val dueTime: String? = null,
+    @Serializable(with = LocalTimeSerializer::class)
+    val dueTime: LocalTime? = null,
     val completedAt: Long? = null,
     val someday: Boolean = false,
     val archivedAt: Long? = null,
@@ -32,7 +36,7 @@ data class TaskDto(
 fun TaskEntity.toDto(): TaskDto = TaskDto(
     id = id, title = title, description = description,
     priority = priority.name, kind = kind.name,
-    projectId = projectId, dueDate = dueDate, dueTime = dueTime,
+    projectId = projectId, dueDate = dueDate, dueTime = dueTime.toLocalTimeOrNull(),
     completedAt = completedAt, someday = someday,
     archivedAt = archivedAt, isPinned = isPinned,
     createdAt = createdAt, updatedAt = updatedAt
@@ -42,7 +46,8 @@ fun TaskDto.toEntity(userId: String): TaskEntity = TaskEntity(
     id = id, title = title, description = description,
     priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.valueOf(priority),
     kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.valueOf(kind),
-    projectId = projectId, dueDate = dueDate, dueTime = dueTime,
+    projectId = projectId, dueDate = dueDate,
+    dueTime = dueTime?.let { LocalTimeFormats.format(it) },
     completedAt = completedAt, someday = someday,
     archivedAt = archivedAt, isPinned = isPinned,
     createdAt = createdAt, updatedAt = updatedAt,

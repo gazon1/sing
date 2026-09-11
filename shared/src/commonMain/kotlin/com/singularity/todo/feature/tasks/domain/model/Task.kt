@@ -44,7 +44,7 @@ data class Task(
     val parentTaskId: TaskId? = null,
     val tags: List<TagId> = emptyList(),
     val dueDate: kotlinx.datetime.LocalDate? = null,
-    val dueTime: String? = null, // "HH:mm"
+    val dueTime: kotlinx.datetime.LocalTime? = null, // "HH:mm:ss" via LocalTimeConverters / LocalTimeSerializer
     val completedAt: Instant? = null,
     val someday: Boolean = false,
     val archivedAt: Instant? = null,
@@ -66,7 +66,7 @@ data class CreateTaskInput(
     val parentTaskId: TaskId? = null,
     val tagIds: List<TagId> = emptyList(),
     val dueDate: kotlinx.datetime.LocalDate? = null,
-    val dueTime: String? = null,
+    val dueTime: kotlinx.datetime.LocalTime? = null,
     val someday: Boolean = false,
     val userId: UserId,
 )

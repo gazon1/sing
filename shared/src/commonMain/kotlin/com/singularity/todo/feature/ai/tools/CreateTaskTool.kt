@@ -56,7 +56,7 @@ class CreateTaskTool(
             parentTaskId = args.parentTaskId?.let { TaskId.fromString(it) },
             tags = args.tagIds.map { TagId.fromString(it) },
             dueDate = args.dueDate?.let { LocalDate.parse(it) },
-            dueTime = args.dueTime,
+            dueTime = args.dueTime?.let { com.singularity.todo.core.database.LocalTimeFormats.parse(it) },
             someday = args.someday,
             createdAt = now,
             updatedAt = now,

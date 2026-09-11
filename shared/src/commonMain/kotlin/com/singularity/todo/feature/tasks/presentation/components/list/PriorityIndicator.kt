@@ -7,14 +7,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
+import com.singularity.todo.feature.tasks.presentation.components.PriorityPalette
+import com.singularity.todo.feature.tasks.presentation.components.priorityMeta
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 
@@ -43,13 +43,8 @@ fun PriorityIndicator(
 }
 
 /** Единый источник правды для цвета приоритета во всём экране. */
-fun priorityColor(priority: TaskPriority): Color = when (priority) {
-    TaskPriority.High -> TaskListColors.PriorityHigh
-    TaskPriority.Medium -> TaskListColors.PriorityMedium
-    TaskPriority.Low -> TaskListColors.PriorityLow
-    TaskPriority.None -> TaskListColors.PriorityNone
-    TaskPriority.Urgent -> TaskListColors.PriorityUrgent
-}
+fun priorityColor(priority: TaskPriority): Color =
+    priorityMeta(priority, PriorityPalette.TaskListColors).color
 
 private fun priorityContentDescription(priority: TaskPriority): String = when (priority) {
     TaskPriority.High -> "Высокий приоритет"

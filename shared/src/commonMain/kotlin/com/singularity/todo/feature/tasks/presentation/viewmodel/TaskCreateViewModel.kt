@@ -30,9 +30,6 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
 
-/**
- * Dependencies for [TaskCreateViewModel].
- */
 data class TaskCreateDeps(
     val createTask: CreateTaskUseCase,
     val currentUser: ProfileAwareCurrentUser,
@@ -53,7 +50,6 @@ class TaskCreateViewModel(
     private val _draft = MutableStateFlow(initial)
     private val _isSaving = MutableStateFlow(false)
 
-    /** Fires once after successful save. Buffered so late collectors still get it. */
     private val _saved = Channel<Unit>(Channel.BUFFERED)
 
     val saved: kotlinx.coroutines.flow.Flow<Unit> = _saved.receiveAsFlow()
@@ -88,7 +84,7 @@ class TaskCreateViewModel(
                 _draft.value = _draft.value.copy(dueDate = option)
             }
             is TaskCreateIntent.SetDueTime -> {
-                _draft.value = _draft.value.copy(dueTime = intent.time?.toString())
+                _draft.value = _draft.value.copy(dueTime = intent.time)
             }
             is TaskCreateIntent.DueDateCleared -> {
                 _draft.value = _draft.value.copy(dueDate = DueDateOption.None, dueTime = null)
@@ -106,28 +102,30 @@ class TaskCreateViewModel(
 
     private suspend fun save() {
         _isSaving.value = true
-        val current = _draft.value
-        val userId = deps.currentUser.current
+        try {
+            val current = _draft.value
+            val userId = deps.currentUser.current
 
-        val input = toInput(current, userId)
-        when (input) {
-            is Either.Left -> {
-                deps.logger.e("TaskCreateViewModel") { "validation failed: ${input.error}" }
+            val input = toInput(current, userId)
+            when (input) {
+                is Either.Left -> {
+                    deps.logger.e("TaskCreateViewModel") { "validation failed: ${input.error}" }
+                }
+                is Either.Right -> {
+                    deps.createTask(input.value)
+                        .onSuccess {
+                            _saved.trySend(Unit)
+                        }
+                        .onFailure { e ->
+                            deps.logger.e("TaskCreateViewModel") { "save failed: $e" }
+                        }
+                }
             }
-            is Either.Right -> {
-                deps.createTask(input.value)
-                    .onSuccess {
-                        _saved.trySend(Unit)
-                    }
-                    .onFailure { e ->
-                        deps.logger.e("TaskCreateViewModel") { "save failed: $e" }
-                    }
-            }
+        } finally {
+            _isSaving.value = false
         }
-        _isSaving.value = false
     }
 
-    /** Returns null if draft is valid for saving, or an error message. */
     private fun validateForSave(draft: TaskDraft): String? {
         return if (draft.title.isBlank()) "Title is required" else null
     }

@@ -14,7 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -29,7 +28,7 @@ fun TaskEditorPriorityRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val (color, label) = priorityMeta(priority)
+    val (color, label) = priorityMeta(priority, PriorityPalette.TaskColors)
 
     Row(
         modifier = modifier
@@ -55,14 +54,4 @@ fun TaskEditorPriorityRow(
             },
         )
     }
-}
-
-internal data class PriorityMeta(val color: Color, val label: String)
-
-internal fun priorityMeta(priority: TaskPriority): PriorityMeta = when (priority) {
-    TaskPriority.None -> PriorityMeta(Color.Gray, "No priority")
-    TaskPriority.Low -> PriorityMeta(Color(0xFF4CAF50), "Low priority")
-    TaskPriority.Medium -> PriorityMeta(Color(0xFFFFC107), "Medium priority")
-    TaskPriority.High -> PriorityMeta(Color(0xFFFF9800), "High priority")
-    TaskPriority.Urgent -> PriorityMeta(Color(0xFFF44336), "Urgent")
 }

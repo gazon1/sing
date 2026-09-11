@@ -5,6 +5,8 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.components.PriorityPalette
+import com.singularity.todo.feature.tasks.presentation.components.priorityMeta
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 
 /**
@@ -19,7 +21,7 @@ fun TaskPriorityCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val (color, label) = priorityMeta(priority)
+    val (color, label) = priorityMeta(priority, PriorityPalette.TaskColors)
     TaskAttributeCard(
         icon = Icons.Outlined.ErrorOutline,
         label = label,
@@ -31,13 +33,3 @@ fun TaskPriorityCard(
         modifier = modifier
     )
 }
-
-private fun priorityMeta(priority: TaskPriority): PriorityMeta = when (priority) {
-    TaskPriority.None -> PriorityMeta(TaskColors.TextSecondary, "No priority")
-    TaskPriority.Low -> PriorityMeta(TaskColors.PriorityLow, "Low priority")
-    TaskPriority.Medium -> PriorityMeta(TaskColors.PriorityMedium, "Medium priority")
-    TaskPriority.High -> PriorityMeta(TaskColors.PriorityHigh, "High priority")
-    TaskPriority.Urgent -> PriorityMeta(TaskColors.PriorityUrgent, "Urgent")
-}
-
-private data class PriorityMeta(val color: androidx.compose.ui.graphics.Color, val label: String)

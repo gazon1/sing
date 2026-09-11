@@ -54,7 +54,7 @@ class UpdateTaskTool(
             projectId = args.projectId?.let { ProjectId.fromString(it) } ?: existing.projectId,
             tags = args.tagIds?.map { TagId.fromString(it) } ?: existing.tags,
             dueDate = args.dueDate?.let { if (it.isBlank()) null else LocalDate.parse(it) } ?: existing.dueDate,
-            dueTime = args.dueTime ?: existing.dueTime,
+            dueTime = args.dueTime?.let { if (it.isBlank()) null else com.singularity.todo.core.database.LocalTimeFormats.parse(it) } ?: existing.dueTime,
             someday = args.someday ?: existing.someday,
             updatedAt = clock.now(),
         )

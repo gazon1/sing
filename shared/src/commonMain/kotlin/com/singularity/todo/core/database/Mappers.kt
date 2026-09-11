@@ -8,6 +8,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.core.ids.UserId
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 /**
  * Epoch millis ↔ kotlinx.datetime types.
@@ -22,6 +23,14 @@ internal fun Instant?.toEpochMillisOrNull(): Long? = this?.toEpochMillis()
  */
 internal fun String?.toLocalDateOrNull(): LocalDate? = this?.let { LocalDate.parse(it) }
 internal fun LocalDate?.toIsoOrNull(): String? = this?.toString()
+
+/**
+ * ISO-8601 string (HH:mm:ss) ↔ kotlinx.datetime.LocalTime.
+ * Uses [LocalTimeFormats.ISO] for stable, sortable wire format.
+ */
+internal fun String?.toLocalTimeOrNull(): LocalTime? =
+    this?.takeIf { it.isNotBlank() }?.let { LocalTimeFormats.parse(it) }
+internal fun LocalTime?.toLocalTimeIsoOrNull(): String? = this?.let { LocalTimeFormats.format(it) }
 
 /**
  * Typed ID factory from String (non-null — fails if blank).
@@ -55,7 +64,7 @@ internal fun TaskEntity.toTask(): Task = Task(
     parentTaskId = parentTaskId?.toId(),
     tags = emptyList(),
     dueDate = dueDate.toLocalDateOrNull(),
-    dueTime = dueTime,
+    dueTime = dueTime.toLocalTimeOrNull(),
     completedAt = completedAt.toInstantOrNull(),
     someday = someday,
     archivedAt = archivedAt.toInstantOrNull(),

@@ -157,9 +157,7 @@ fun TaskCreateContent(
             onDismiss = { activeSheet = null },
         )
         CreateActiveSheet.Time -> TimePickerSheet(
-            initialTime = state.draft.dueTime?.let {
-                try { LocalTime.parse(it) } catch (_: Exception) { null }
-            },
+            initialTime = state.draft.dueTime,
             onTimeSelected = { time ->
                 onIntent(TaskCreateIntent.SetDueTime(time))
                 activeSheet = null
@@ -208,10 +206,9 @@ private fun dueDateLabel(option: DueDateOption): String = when (option) {
 private fun TaskCreateContentPreview(
     state: TaskCreateUiState = TaskCreateUiState(),
 ) {
-    com.singularity.todo.feature.tasks.presentation.theme.TaskColors
     TaskCreateContent(
         state = state,
-        snackbarHost = { SnackbarHost(hostState = SnackbarHostState()) },
+        snackbarHost = { SnackbarHost(hostState = remember { SnackbarHostState() }) },
         onIntent = { },
         onBack = { },
     )

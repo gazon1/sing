@@ -110,7 +110,7 @@ class WriteToolsTest {
         assertEquals(TaskPriority.High, created.priority)
         assertEquals(TaskKind.Task, created.kind)
         assertEquals("2026-09-15", created.dueDate.toString())
-        assertEquals("14:00", created.dueTime)
+        assertEquals(com.singularity.todo.core.database.LocalTimeFormats.parse("14:00:00"), created.dueTime)
         assertTrue(created.someday)
     }
 

@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.state
 import androidx.compose.runtime.Immutable
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 /**
  * Immutable UI state экрана создания задачи.
@@ -25,7 +26,7 @@ data class TaskDraft(
     val description: String = "",
     val priority: TaskPriority = TaskPriority.None,
     val dueDate: DueDateOption = DueDateOption.None,
-    val dueTime: String? = null, // "HH:mm"
+    val dueTime: LocalTime? = null,
     val projectId: String? = null,
     val tagIds: List<String> = emptyList(),
 )

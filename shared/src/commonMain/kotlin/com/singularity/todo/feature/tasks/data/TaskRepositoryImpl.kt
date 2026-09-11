@@ -6,6 +6,7 @@ import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toEpochMillisOrNull
 import com.singularity.todo.core.database.toIsoOrNull
+import com.singularity.todo.core.database.toLocalTimeIsoOrNull
 import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
@@ -133,7 +134,7 @@ private fun Task.toEntity(): TaskEntity = TaskEntity(
     projectId = projectId?.value,
     parentTaskId = parentTaskId?.value,
     dueDate = dueDate?.toIsoOrNull(),
-    dueTime = dueTime,
+    dueTime = dueTime.toLocalTimeIsoOrNull(),
     completedAt = completedAt.toEpochMillisOrNull(),
     someday = someday,
     archivedAt = archivedAt.toEpochMillisOrNull(),

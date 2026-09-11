@@ -8,6 +8,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlin.time.Instant
 
 // ─── Task fixtures ─────────────────────────────────────────────────────────────
@@ -32,7 +33,7 @@ fun testTask(
     projectId: ProjectId? = null,
     tags: List<TagId> = emptyList(),
     dueDate: LocalDate? = null,
-    dueTime: String? = null,
+    dueTime: LocalTime? = null,
     completedAt: Instant? = null,
     someday: Boolean = false,
     archivedAt: Instant? = null,

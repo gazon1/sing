@@ -235,9 +235,7 @@ fun TaskDetailViewContent(
             onDismiss = { activeSheet = null },
         )
         CreateActiveSheet.Time -> TimePickerSheet(
-            initialTime = ui.task.dueTime?.let {
-                try { kotlinx.datetime.LocalTime.parse(it) } catch (_: Exception) { null }
-            },
+            initialTime = ui.task.dueTime,
             onTimeSelected = { time ->
                 onIntent(TaskDetailIntent.Domain.SetDueTime(time))
                 activeSheet = null

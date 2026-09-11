@@ -149,7 +149,7 @@ class TaskDetailViewModel(
             is TaskDetailIntent.Domain.SetDueDate ->
                 mutate(current) { copy(dueDate = intent.date) }
             is TaskDetailIntent.Domain.SetDueTime ->
-                mutate(current) { copy(dueTime = intent.time?.toString()) }
+                mutate(current) { copy(dueTime = intent.time) }
             is TaskDetailIntent.Domain.SetPriority ->
                 mutate(current) { copy(priority = intent.priority) }
             is TaskDetailIntent.Domain.SetProject ->
@@ -301,7 +301,7 @@ class TaskDetailViewModel(
 
     private fun computeFireAt(
         dueDate: kotlinx.datetime.LocalDate?,
-        dueTime: String?,
+        dueTime: kotlinx.datetime.LocalTime?,
         offset: com.singularity.todo.core.reminders.ReminderOffset,
         nowEpochMs: Long,
     ): Long {

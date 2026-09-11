@@ -46,7 +46,7 @@ object TaskDomain {
         parentTaskId: TaskId? = null,
         tagIds: List<TagId> = emptyList(),
         dueDate: kotlinx.datetime.LocalDate? = null,
-        dueTime: String? = null,
+        dueTime: kotlinx.datetime.LocalTime? = null,
         someday: Boolean = false,
         userId: UserId,
     ): Either<AppError.Validation, CreateTaskInput> {
