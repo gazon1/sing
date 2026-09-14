@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
@@ -36,11 +37,15 @@ fun TaskRowFlat(
     onToggleCompleted: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    indentLevel: Int = 0,
     showDivider: Boolean = true,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val indentPadding = if (indentLevel > 0) {
+        Modifier.padding(start = (24 * indentLevel).dp)
+    } else Modifier
 
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(modifier = modifier.fillMaxWidth().then(indentPadding)) {
         TaskRowContent(
             task = task,
             onToggleCompleted = onToggleCompleted,
@@ -70,7 +75,7 @@ private fun TaskRowFlatPreview() {
         Column {
             TaskRowFlat(
                 task = TaskUi(
-                    id = 1,
+                    id = TaskId.fromString("1"),
                     title = "Позвонить родителям в сб или вс",
                     project = "Семья",
                     dueLabel = "Сб, 05 сент 2026",
@@ -81,7 +86,7 @@ private fun TaskRowFlatPreview() {
             )
             TaskRowFlat(
                 task = TaskUi(
-                    id = 2,
+                    id = TaskId.fromString("2"),
                     title = "Отправить заявку на баллы фитмост от гпб",
                     project = "Финансы",
                     dueLabel = "Пн, 18 мая 2026",
@@ -93,11 +98,13 @@ private fun TaskRowFlatPreview() {
             )
             TaskRowFlat(
                 task = TaskUi(
-                    id = 3,
-                    title = "Написать заметки по статьям",
+                    id = TaskId.fromString("child-1"),
+                    title = "Подзадача: черновик",
                     project = null,
                     dueLabel = "Пн, 10 нояб 2025",
-                    isCompleted = true,
+                    isCompleted = false,
+                    parentId = "parent-1",
+                    indentLevel = 1,
                 ),
                 onToggleCompleted = {},
                 onClick = {},

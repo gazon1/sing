@@ -6,6 +6,7 @@ import com.singularity.todo.core.llm.KnownModels
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.UsageRecorder
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.sync.SyncEngine
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
@@ -222,6 +223,9 @@ actual fun aiToolsModule(): Module = module {
             generateChecklist = getOrNull(),
             decomposeTask = getOrNull(),
             pickTime = getOrNull(),
+            projectRepo = get<ProjectsRepository>(),
+            clock = get<Clock>(),
+            syncEngine = getOrNull<SyncEngine>(),
         )
     }
 

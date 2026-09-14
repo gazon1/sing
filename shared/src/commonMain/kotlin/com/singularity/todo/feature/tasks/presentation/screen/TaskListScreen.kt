@@ -24,87 +24,96 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.components.Notification
+import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TasksUiEvent
+import com.singularity.todo.feature.tasks.presentation.components.BulkActionBar
+import com.singularity.todo.feature.tasks.presentation.components.FilterChipsRow
+import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
 import com.singularity.todo.feature.tasks.presentation.components.list.EmptyState
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskFilterChips
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskListHeader
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskListFilter
 import com.singularity.todo.feature.tasks.presentation.model.TaskListStats
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
+import com.singularity.todo.feature.tasks.presentation.nav.TasksRoute
+import com.singularity.todo.feature.tasks.presentation.nav.toDomainFilter
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListShapes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
+import org.koin.core.parameter.parametersOf
 import kotlin.time.Duration.Companion.milliseconds
 
-/** Визуальный стиль строки задачи — переключаемый на уровне экрана, не строки. */
-
 /**
- * Экран списка задач.
+ * Task list screen — the main entry point for Inbox / Today / ByProject lists.
  *
- * Разбит на маленькие композаблы ([TaskListHeader], [TaskRowFlat],
- * [SwipeableTaskRow], [EmptyState], [TaskFilterChips]) — сам экран отвечает
- * только за оркестрацию: state, callbacks, выбор стиля, обработку empty/snackbar.
+ * Uses [LocalTasksNavigator] for all navigation — no callback parameters needed.
+ * The [TasksRoute.List] route drives the initial domain filter.
  *
- * Это соответствует принципу "экран — оркестратор, а не место для вёрстки одной
- * строки": вся визуальная логика изолирована в компонентах, экран не знает,
- * как именно они рисуются, только когда и какие.
- *
- * @param initialFilter какой фильтр активен при первом запуске
- * @param onAddTask колбэк нажатия на FAB
- * @param onTaskClick колбэк клика по строке (открытие деталей)
+ * @param route The list route this screen was opened with — determines the initial
+ *              domain-level filter applied to [TasksViewModel].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskListScreen(
-    initialFilter: TaskListFilter = TaskListFilter.ALL,
-    onAddTask: () -> Unit = {},
-    onTaskClick: (TaskUi) -> Unit = {},
+    route: TasksRoute.List,
 ) {
-    val tasks = remember {
-        mutableStateListOf(
-            TaskUi(1, "Позвонить родителям в сб или вс", "Семья", "Сб, 05 сент 2026", isRecurring = true, isOverdue = true),
-            TaskUi(2, "Написать пост в блог про ev framework", "Блог github pages", "Пн, 12 янв 2026", isRecurring = true, priority = TaskPriority.Medium),
-            TaskUi(3, "Написать заметки по статьям", null, "Пн, 10 нояб 2025", isCompleted = true),
-            TaskUi(4, "Отправить заявку на баллы фитмост от гпб", "Финансы", "Пн, 18 мая 2026", isRecurring = true, priority = TaskPriority.High),
-            TaskUi(5, "Помыть туалет и пол там", "Квартира", "Ср, 22 июл 2026", isRecurring = true),
-            TaskUi(6, "Заказать сок, еду для готовки. Регулярно", "Квартира", "Пн, 20 июл 2026", isRecurring = true),
-            TaskUi(7, "Постирать постельное. Регулярно", "Квартира", "Пт, 04 сент 2026", isRecurring = true),
-        )
+    val navigator = LocalTasksNavigator.current
+    val vm: TasksViewModel = koinInject()
+
+    val state by vm.state.collectAsStateWithLifecycle()
+    val filter by vm.filter.collectAsStateWithLifecycle()
+    val statusFilter by vm.statusFilter.collectAsStateWithLifecycle()
+
+    // Apply the route's domain filter on first composition
+    val filterFromRoute: com.singularity.todo.feature.tasks.domain.model.TaskFilter = when (route) {
+        is com.singularity.todo.feature.tasks.presentation.nav.TasksRoute.Inbox ->
+            com.singularity.todo.feature.tasks.domain.model.TaskFilter.Inbox
+        is com.singularity.todo.feature.tasks.presentation.nav.TasksRoute.Today ->
+            com.singularity.todo.feature.tasks.domain.model.TaskFilter.Today
+        is com.singularity.todo.feature.tasks.presentation.nav.TasksRoute.ByProject ->
+            com.singularity.todo.feature.tasks.domain.model.TaskFilter.ByProject(route.projectId!!)
+    }
+    LaunchedEffect(filterFromRoute) {
+        vm.setFilter(filterFromRoute)
     }
 
-    var filter by remember { mutableStateOf(initialFilter) }
-    var isRefreshing by remember { mutableStateOf(false) }
+    // AI bottom sheet state
+    var aiSheetTask by remember { mutableStateOf<Task?>(null) }
+
+    // Undo snackbar state
+    var lastDeleted by remember { mutableStateOf<TaskUi?>(null) }
+    var snackbarJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    // Pull-to-refresh
+    var isRefreshing by remember { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
 
-    val stats by remember(tasks) { derivedStateOf { TaskListStats.from(tasks) } }
-
-    val visibleTasks by remember(tasks, filter) {
-        derivedStateOf {
-            when (filter) {
-                TaskListFilter.ALL -> tasks
-                TaskListFilter.ACTIVE -> tasks.filter { !it.isCompleted }
-                TaskListFilter.COMPLETED -> tasks.filter { it.isCompleted }
-            }
-        }
-    }
+    // Derived stats from current tasks
+    val currentTasks = (state as? com.singularity.todo.feature.tasks.domain.model.TasksUiState.Content)?.tasks ?: emptyList()
+    val stats by remember(currentTasks) { derivedStateOf { TaskListStats.from(currentTasks) } }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -113,7 +122,7 @@ fun TaskListScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = onAddTask,
+                onClick = { navigator.openCreate() },
                 containerColor = TaskListColors.Accent,
                 contentColor = TaskListColors.OnAccent,
                 shape = TaskListShapes.FabRadius,
@@ -121,23 +130,47 @@ fun TaskListScreen(
                 text = { Text("Новая задача") },
             )
         },
+        bottomBar = {
+            val currentState = state
+            if (currentState is com.singularity.todo.feature.tasks.domain.model.TasksUiState.Content && currentState.selectedIds.isNotEmpty()) {
+                BulkActionBar(
+                    selectedCount = currentState.selectedIds.size,
+                    onComplete = vm::bulkCompleteSelected,
+                    onDelete = vm::bulkDeleteSelected,
+                    onCancel = vm::exitSelectionMode,
+                )
+            }
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
+            // Header
+            val headerTitle = when (route) {
+                is TasksRoute.Inbox -> "Inbox"
+                is TasksRoute.Today -> "Сегодня"
+                is TasksRoute.ByProject -> "Проект" // project name injected via route if needed
+            }
             TaskListHeader(
-                title = "Сегодня",
+                title = headerTitle,
                 taskCount = stats.active,
-                onCalendarClick = {},
-                onMoreClick = {},
-                subtitle = "11 сентября 2026 · Чт",
+                onCalendarClick = { /* TODO: calendar picker */ },
+                onMoreClick = { /* TODO: more actions */ },
+                subtitle = null, // TODO: compute date subtitle
             )
 
-            TaskFilterChips(
+            // Domain-level filter chips (Today / Upcoming / Someday / Inbox / Pinned)
+            FilterChipsRow(
                 selected = filter,
-                onSelect = { filter = it },
+                onSelect = vm::setFilter,
+            )
+
+            // Status-level filter chips (All / Active / Completed)
+            TaskFilterChips(
+                selected = statusFilter,
+                onSelect = vm::setStatusFilter,
                 counts = mapOf(
                     TaskListFilter.ALL to stats.total,
                     TaskListFilter.ACTIVE to stats.active,
@@ -145,11 +178,13 @@ fun TaskListScreen(
                 ),
             )
 
+            // List content
             PullToRefreshBox(
                 isRefreshing = isRefreshing,
                 onRefresh = {
                     scope.launch {
                         isRefreshing = true
+                        vm.refresh()
                         delay(1200.milliseconds)
                         isRefreshing = false
                     }
@@ -166,56 +201,81 @@ fun TaskListScreen(
                     )
                 },
             ) {
-                if (visibleTasks.isEmpty()) {
-                    val isFilterActive = filter != TaskListFilter.ALL
-                    EmptyState(
-                        title = if (isFilterActive) "Здесь пусто" else "Задач пока нет",
-                        description = if (isFilterActive) {
-                            "В выбранном фильтре задач нет. Попробуйте «Все»."
-                        } else {
-                            "Нажмите «Новая задача» внизу, чтобы добавить первую."
-                        },
-                        icon = if (isFilterActive) Icons.Default.CheckCircle else Icons.Default.Add,
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            horizontal =  TaskListSpacing.None,
-                            vertical = TaskListSpacing.Sm,
-                        ),
-                        verticalArrangement =
-                            Arrangement.Top
-                    ) {
-                        items(visibleTasks, key = { it.id }) { task ->
-                            SwipeableTaskRow(
-                                onDelete = {
-                                    val index = tasks.indexOf(task)
-                                    if (index != -1) {
-                                        tasks.removeAt(index)
-                                        scope.launch {
-                                            val result = snackbarHostState.showSnackbar(
-                                                message = "Задача удалена",
-                                                actionLabel = "Отменить",
-                                                withDismissAction = true,
-                                            )
-                                            if (result == SnackbarResult.ActionPerformed) {
-                                                tasks.add(index, task)
-                                            }
-                                        }
-                                    }
+                when (val s = state) {
+                    is com.singularity.todo.feature.tasks.domain.model.TasksUiState.Loading -> {
+                        // TODO: LoadingIndicator — use shared component
+                    }
+                    is com.singularity.todo.feature.tasks.domain.model.TasksUiState.Empty -> {
+                        EmptyState(
+                            title = "Задач пока нет",
+                            description = "Нажмите «Новая задача» внизу, чтобы добавить первую.",
+                            icon = Icons.Default.CheckCircle,
+                        )
+                    }
+                    is com.singularity.todo.feature.tasks.domain.model.TasksUiState.Error -> {
+                        EmptyState(
+                            title = "Ошибка: ${s.message}",
+                            description = "Попробуйте обновить список.",
+                            icon = Icons.Default.CheckCircle,
+                        )
+                    }
+                    is com.singularity.todo.feature.tasks.domain.model.TasksUiState.Content -> {
+                        val tasks = s.tasks
+                        val contentState = s
+                        if (tasks.isEmpty()) {
+                            val isFilterActive = statusFilter != TaskListFilter.ALL
+                            EmptyState(
+                                title = if (isFilterActive) "Здесь пусто" else "Задач нет",
+                                description = if (isFilterActive) {
+                                    "В выбранном фильтре задач нет. Попробуйте «Все»."
+                                } else {
+                                    "Нажмите «Новая задача» внизу."
                                 },
-                                backgroundShape =
-                                    RoundedCornerShape(0.dp)
+                                icon = if (isFilterActive) Icons.Default.CheckCircle else Icons.Default.Add,
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(
+                                    horizontal = TaskListSpacing.None,
+                                    vertical = TaskListSpacing.Sm,
+                                ),
+                                verticalArrangement = Arrangement.Top,
                             ) {
-                                    TaskRowFlat(
-                                        task = task,
-                                        onToggleCompleted = { tasks.toggleCompleted(task) },
-                                        onClick = { onTaskClick(task) },
-                                        // последняя видимая строка — без разделителя,
-                                        // он и так пойдёт за пределы списка
-                                        showDivider = task != visibleTasks.last(),
-                                    )
+                                items(tasks, key = { it.id.value }) { task ->
+                                    SwipeableTaskRow(
+                                        onDelete = {
+                                            vm.delete(task.id)
+                                            lastDeleted = task
+                                            snackbarJob?.cancel()
+                                            snackbarJob = scope.launch {
+                                                val result = snackbarHostState.showSnackbar(
+                                                    message = "Задача удалена",
+                                                    actionLabel = "Отменить",
+                                                    withDismissAction = true,
+                                                )
+                                                if (result == SnackbarResult.ActionPerformed) {
+                                                    vm.restore(task.id)
+                                                }
+                                                lastDeleted = null
+                                            }
+                                        },
+                                        backgroundShape = RoundedCornerShape(0.dp),
+                                    ) {
+                                        TaskRowFlat(
+                                            task = task,
+                                            indentLevel = task.indentLevel,
+                                            onToggleCompleted = { vm.toggle(task.id) },
+                                            onClick = {
+                                                if (contentState.selectedIds.isNotEmpty()) {
+                                                    vm.toggleSelection(task.id)
+                                                } else {
+                                                    navigator.openDetail(task.id)
+                                                }
+                                            },
+                                            showDivider = task != tasks.last(),
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -225,27 +285,27 @@ fun TaskListScreen(
         }
     }
 
-
-/** Точечно переключает isCompleted у задачи, сохраняя стабильность key для LazyColumn. */
-private fun SnapshotStateList<TaskUi>.toggleCompleted(task: TaskUi) {
-    val index = indexOf(task)
-    if (index != -1) this[index] = task.copy(isCompleted = !task.isCompleted)
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14, heightDp = 720)
-@Composable
-private fun TaskListScreenFlatPreview() {
-    MaterialTheme {
-        TaskListScreen()
+    // AI bottom sheet
+    aiSheetTask?.let { task ->
+        TaskAiBottomSheet(
+            task = task,
+            onAction = {
+                aiSheetTask = null
+                vm.runAiAction(task, it)
+            },
+            onDismiss = { aiSheetTask = null },
+        )
     }
-}
 
-
-
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14, heightDp = 720)
-@Composable
-private fun TaskListScreenEmptyPreview() {
-    MaterialTheme {
-        TaskListScreen( initialFilter = TaskListFilter.COMPLETED)
-    }
+    // Notification host for AI results / errors
+    NotificationHost(
+        events = vm.events,
+        mapper = { event: TasksUiEvent ->
+            when (event) {
+                is TasksUiEvent.AiResult -> Notification.Text(title = "AI", text = event.message)
+                is TasksUiEvent.Error -> Notification.Error(message = event.message)
+                TasksUiEvent.NavigateBack -> Notification.None
+            }
+        },
+    )
 }

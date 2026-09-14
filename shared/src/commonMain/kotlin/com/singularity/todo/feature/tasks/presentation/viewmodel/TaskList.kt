@@ -2,17 +2,19 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.sync.SyncEngine
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.AiActionResult
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
-import com.singularity.todo.feature.tasks.domain.model.TaskGroup
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TasksUiEvent
 import com.singularity.todo.feature.tasks.domain.model.TasksUiState
@@ -21,21 +23,28 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.presentation.model.TaskListFilter
+import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import com.singularity.todo.feature.tasks.presentation.model.toTaskUi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TasksViewModel(
@@ -44,6 +53,9 @@ class TasksViewModel(
     private val updateTask: UpdateTaskUseCase,
     currentUser: ProfileAwareCurrentUser,
     private val mutations: TaskMutationsUseCase,
+    private val projectRepo: ProjectsRepository,
+    private val clock: Clock,
+    private val syncEngine: SyncEngine? = null,
     private val refineTask: RefineTaskUseCase? = null,
     private val generateDescription: GenerateDescriptionUseCase? = null,
     private val generateChecklist: GenerateChecklistUseCase? = null,
@@ -54,11 +66,20 @@ class TasksViewModel(
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
+    /** Pre-computed "today" — stable for the lifetime of the ViewModel. */
+    private val today: LocalDate = LocalDate.fromEpochDays(
+        clock.now().toEpochMilliseconds() / (24 * 60 * 60 * 1000)
+    )
+
     private val _filter = MutableStateFlow<TaskFilter>(TaskFilter.All)
     val filter: StateFlow<TaskFilter> = _filter.asStateFlow()
 
+    /** UI-side status filter (ALL / ACTIVE / COMPLETED) — independent of domain filter. */
+    private val _statusFilter = MutableStateFlow(TaskListFilter.ALL)
+    val statusFilter: StateFlow<TaskListFilter> = _statusFilter.asStateFlow()
+
     private val _aiResult = MutableSharedFlow<AiActionResult>()
-    val aiResult = _aiResult.asSharedFlow()
+    val aiResult: SharedFlow<AiActionResult> = _aiResult.asSharedFlow()
 
     private val _events = MutableSharedFlow<TasksUiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<TasksUiEvent> = _events.asSharedFlow()
@@ -68,33 +89,66 @@ class TasksViewModel(
 
     private val _expandedParentIds = MutableStateFlow<Set<TaskId>>(emptySet())
 
-    val state: StateFlow<TasksUiState> = combine(
-        combine(_filter, currentUser.scopedUserId) { f, uid -> f to uid }
-            .flatMapLatest { (filter, uid) -> taskRepo.watchTasks(uid, filter) },
-        _expandedParentIds,
+    // Cached project names — rebuilt when projects change
+    private var projectNamesCache: Map<String, String> = emptyMap()
+
+    // All tasks from repo, updated when filter or user changes
+    private val tasksFlow: kotlinx.coroutines.flow.Flow<List<Task>> = combine(
+        _filter,
+        currentUser.scopedUserId,
+    ) { filter, uid -> filter to uid }
+        .flatMapLatest { (filter, uid) -> taskRepo.watchTasks(uid, filter) }
+
+    @Suppress("UNCHECKED_CAST")
+    val state: StateFlow<TasksUiState> = (combine(
+        tasksFlow,
+        _statusFilter,
         _selectedIds,
-    ) { tasks, expandedIds, selectedIds ->
-        val groups = deriveTaskGroups(tasks, expandedIds)
-        if (groups.isEmpty()) TasksUiState.Empty(_filter.value)
-        else TasksUiState.Content(_filter.value, groups, selectedIds)
-    }
+        _expandedParentIds,
+    ) { tasks, statusFilter, selectedIds, expandedIds ->
+        val projects = projectRepo.watchProjects(currentUser.scopedUserId.first()).first()
+        projectNamesCache = projects.associate { it.id.value to it.name }
+        val filtered = when (statusFilter) {
+            TaskListFilter.ALL -> tasks
+            TaskListFilter.ACTIVE -> tasks.filter { it.completedAt == null }
+            TaskListFilter.COMPLETED -> tasks.filter { it.completedAt != null }
+        }
+        val taskUiList = buildFlatTaskList(filtered, expandedIds)
+        TasksUiState.Content(_filter.value, taskUiList, selectedIds)
+    } as Flow<TasksUiState>)
         .catch { emit(TasksUiState.Error(it.message ?: "Error")) }
         .stateIn(scope, sharingStarted(), TasksUiState.Loading)
 
-    private fun deriveTaskGroups(tasks: List<Task>, expandedIds: Set<TaskId>): List<TaskGroup> {
+    private fun buildFlatTaskList(tasks: List<Task>, expandedIds: Set<TaskId>): List<TaskUi> {
         val topLevel = tasks.filter { it.parentTaskId == null }
-        return topLevel.map { parent ->
-            val children = tasks.filter { it.parentTaskId == parent.id }
-            TaskGroup.TopLevel(parent, children, isExpanded = parent.id in expandedIds)
+        val result = mutableListOf<TaskUi>()
+        for (parent in topLevel) {
+            result.add(parent.toTaskUi(today, projectNamesCache))
+            if (parent.id in expandedIds) {
+                for (child in tasks) {
+                    if (child.parentTaskId == parent.id) {
+                        result.add(child.toTaskUi(today, projectNamesCache))
+                    }
+                }
+            }
         }
+        return result
     }
 
     fun setFilter(filter: TaskFilter) {
         _filter.value = filter
     }
 
+    fun setStatusFilter(filter: TaskListFilter) {
+        _statusFilter.value = filter
+    }
+
     fun delete(id: TaskId) = scope.launch {
         taskRepo.softDelete(id)
+    }
+
+    fun restore(id: TaskId) = scope.launch {
+        taskRepo.restore(id)
     }
 
     fun toggle(id: TaskId) = scope.launch {
@@ -133,6 +187,18 @@ class TasksViewModel(
     fun bulkDeleteSelected() = scope.launch {
         mutations.bulkDelete(_selectedIds.value.toList())
         exitSelectionMode()
+    }
+
+    fun refresh() {
+        scope.launch {
+            // TODO: when SyncEngine.pull() applies events to DB, replace with:
+            // syncEngine?.pull()
+            // For now, the reactive flow auto-updates on DB changes.
+            // Trigger a re-emit by briefly flipping the filter.
+            val current = _filter.value
+            _filter.value = TaskFilter.Trash
+            _filter.value = current
+        }
     }
 
     fun runAiAction(task: Task, action: TaskAiAction) = scope.launch {

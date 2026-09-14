@@ -19,6 +19,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -60,6 +61,9 @@ class TasksViewModelTest {
         updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
         currentUser = fakeCurrentUser,
         mutations = TaskMutationsUseCase(fakeTaskRepo),
+        projectRepo = FakeProjectsRepository(),
+        clock = Clock,
+        syncEngine = null,
         refineTask = refineTask,
         generateDescription = generateDescription,
         generateChecklist = generateChecklist,
@@ -163,6 +167,15 @@ class TasksViewModelTest {
         fakeTaskRepo.softDelete(TaskId.fromString("t1"))
         advanceUntilIdle()
         assertTrue(fakeTaskRepo.tasks.value["t1"]!!.isTrashed)
+    }
+
+    @Test
+    fun `restore clears archivedAt`() = runTest {
+        seedTask("t1", "My Task", isTrashed = true)
+        val vm = createVm()
+        vm.restore(TaskId.fromString("t1"))
+        advanceUntilIdle()
+        assertFalse(fakeTaskRepo.tasks.value["t1"]!!.isTrashed)
     }
 
     // ─── AI routing ────────────────────────────────────────────────────────

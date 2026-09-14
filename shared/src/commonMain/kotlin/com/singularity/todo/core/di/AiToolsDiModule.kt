@@ -66,6 +66,7 @@ import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.UsageRecorder
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.sync.SyncEngine
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -214,6 +215,9 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
             updateTask = get<UpdateTaskUseCase>(),
             currentUser = get<ProfileAwareCurrentUser>(),
             mutations = get<TaskMutationsUseCase>(),
+            projectRepo = get<ProjectsRepository>(),
+            clock = get<Clock>(),
+            syncEngine = getOrNull<SyncEngine>(),
             refineTask = getOrNull(),
             generateDescription = getOrNull(),
             generateChecklist = getOrNull(),

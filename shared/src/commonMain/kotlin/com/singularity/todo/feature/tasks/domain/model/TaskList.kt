@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.model
 
 import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 
 sealed interface TasksUiEvent {
     data class AiResult(val message: String) : TasksUiEvent
@@ -35,7 +36,7 @@ sealed interface TasksUiState {
     data class Empty(val filter: TaskFilter) : TasksUiState
     data class Content(
         val filter: TaskFilter,
-        val taskGroups: List<TaskGroup>,
+        val tasks: List<TaskUi>,
         val selectedIds: Set<TaskId> = emptySet(),
     ) : TasksUiState
     data class Error(val message: String) : TasksUiState

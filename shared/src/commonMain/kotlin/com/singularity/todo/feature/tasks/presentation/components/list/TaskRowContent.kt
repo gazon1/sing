@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
@@ -94,7 +95,7 @@ private fun TaskRowContentPreview() {
         Column {
             TaskRowContent(
                 task = TaskUi(
-                    id = 1,
+                    id = TaskId.fromString("1"),
                     title = "Позвонить родителям в сб или вс",
                     project = "Семья",
                     dueLabel = "Сб, 05 сент 2026",
@@ -105,7 +106,7 @@ private fun TaskRowContentPreview() {
             )
             TaskRowContent(
                 task = TaskUi(
-                    id = 2,
+                    id = TaskId.fromString("2"),
                     title = "Очень длинный заголовок задачи который занимает две строки и должен свернуться с эллипсисом",
                     project = null,
                     dueLabel = "Пн, 10 нояб 2025",
@@ -115,7 +116,7 @@ private fun TaskRowContentPreview() {
             )
             TaskRowContent(
                 task = TaskUi(
-                    id = 3,
+                    id = TaskId.fromString("3"),
                     title = "Просроченная задача с высоким приоритетом",
                     project = "Финансы",
                     dueLabel = "Вчера",

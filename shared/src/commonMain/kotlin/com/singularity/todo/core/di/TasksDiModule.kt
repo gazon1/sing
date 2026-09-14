@@ -7,6 +7,7 @@ import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.core.sync.SyncEngine
 import com.singularity.todo.feature.archive.ArchiveRepository
 import com.singularity.todo.feature.archive.ArchiveViewModel
 import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
@@ -17,6 +18,8 @@ import com.singularity.todo.feature.checklist.RoomChecklistRepository
 import com.singularity.todo.feature.pomodoro.InMemoryPomodoroRepository
 import com.singularity.todo.feature.pomodoro.PomodoroRepository
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
@@ -89,7 +92,18 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModelOf(::TasksViewModel)
+    viewModel {
+        TasksViewModel(
+            taskRepo = get<TaskRepository>(),
+            createTask = get<CreateTaskUseCase>(),
+            updateTask = get<UpdateTaskUseCase>(),
+            currentUser = get<ProfileAwareCurrentUser>(),
+            mutations = get<TaskMutationsUseCase>(),
+            projectRepo = get<ProjectsRepository>(),
+            clock = get<Clock>(),
+            syncEngine = getOrNull<SyncEngine>(),
+        )
+    }
 
     viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
         TaskDetailViewModel(
