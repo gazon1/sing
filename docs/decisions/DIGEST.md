@@ -57,6 +57,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `architecture`
 
+- ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **8 экранов мигрируют одновременно** — невозможно сделать постепенную миграцию из-за смены типа `_events` _(from `2026-09-05-ui-event-per-feature`)_
 - `ActiveSheet.kt`: 35 → ~15 lines (`toActiveSheet()` removed). _(from `2026-09-09-task-detail-intent-refactor`)_
 - All new screens MUST follow the `PublicScreen` / `PrivateContent` naming pattern _(from `2026-09-09-preview-with-koin-helper`)_
@@ -75,6 +76,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Consistent API across all shared components _(from `2026-09-09-content-slot-pattern`)_
 - `core/ui/components/` is now free of feature-domain imports _(from `2026-09-09-internal-link-picker-generic`)_
 - Cross-screen state (e.g. "did the user just save a note") must flow through navigation callbacks, not shared VM state _(from `2026-09-09-notes-vm-split`)_
+- Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Do NOT introduce `koinViewModel()` inside any `@Preview` — CI/preview harness does not start Koin _(from `2026-09-09-preview-with-koin-helper`)_
 - Each VM is small enough to understand fully (~60-150 lines) _(from `2026-09-09-notes-vm-split`)_
 - Easier to extend cards and editors without breaking call sites _(from `2026-09-09-content-slot-pattern`)_
@@ -82,8 +84,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Existing tests:** `DiGraphTest`, `JvmAiDiGraphTest`, `AppSmokeTest` обновлены и проходят. _(from `2026-09-06-di-module-split`)_
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them _(from `2026-09-09-preview-with-koin-helper`)_
 - Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
+- Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
+- Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Migration from plain lambdas requires updating call sites _(from `2026-09-09-content-slot-pattern`)_
+- Navigation между Detail и подзадачами/проектами становится _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **Negative**: 40+ files had import paths updated; test files also required path corrections _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - **Negative**: Deep `domain/model/` import chains if not careful (mitigated by `package com.singularity.todo.feature.tasks.domain.model.*`) _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - **New file count:** 8 новых файлов (7 модулей + decision). _(from `2026-09-06-di-module-split`)_
@@ -98,9 +104,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Positive**: `TaskDetailUiState.reduce()` is a pure function — covered by unit tests without mocks _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - `@Preview` composables are always `private` and call the `*Content` variant with manually constructed VMs _(from `2026-09-09-preview-with-koin-helper`)_
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
+- `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
 - Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
 - Single search + merged results = better UX (one tap instead of tab switching) _(from `2026-09-09-internal-link-picker-generic`)_
+- **`String`-encoded `initialDueDate`** — заменён на _(from `2026-09-14-tasks-feature-nested-nav3`)_
 
 ### `"architecture"`
 
@@ -109,19 +117,36 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `architecture`
 
 - `TagsScreen` больше не принимает callback — экран не подключён к навигации (menu destination `Tags` отсутствует в `AppDestination`). _(from `2026-09-07-fab-chrome-level`)_
+- `TaskCreateViewModel(initialDueDate)` — два последовательных _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `TaskDetailContent` is now `internal` (stateless, previewable without Koin). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailScreen.kt`: `when (action)` on 27 branches → `when (intent)` on 6 branches. Routing now uniform (all `activeSheet = …`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailUiEvent.kt`: 34 → ~18 lines (10 sheet-triggers removed). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailViewModel.kt`: 450 → ~270 lines, 37 public methods → 3 (`start`, `onTitleChange`, `onIntent`). _(from `2026-09-09-task-detail-intent-refactor`)_
+- `TaskDetailViewModel(taskId)` — Task A → back → Task B больше _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `TaskDetailViewModelTest`: updated 5 tests to call `vm.onIntent(Domain.X)` instead of `vm.setX(task, value)`. _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TasksFormatters.kt`: added `dueChipColors` formatter and `parseDueTime` utility. _(from `2026-09-09-task-detail-intent-refactor`)_
+- **`TasksRoute.Pop` как sentinel** — race condition (см. review rev. 1, _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - The "None (root)" option is rendered as a `TextButton` above the `LazyColumn`, not as part of `options` _(from `2026-09-09-parent-picker-contract`)_
 - Three Koin registrations instead of one _(from `2026-09-09-notes-vm-split`)_
 - Type-safe actions via `sealed class Action` with exhaustive `when` _(from `2026-09-09-content-slot-pattern`)_
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально _(from `2026-09-05-ui-event-per-feature`)_
+- Unit-тесты навигации tasks требуют `Robolectric` или `composeRule` — _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - `value class XxxActions` indirection — harder to read at first glance _(from `2026-09-09-content-slot-pattern`)_
 - VMs are independently testable with focused test suites _(from `2026-09-09-notes-vm-split`)_
+- В `JvmNav3State.kt` для `AppDestination.TasksGraph` / _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- В `TasksNavGraph.kt` (для nested `rememberNavBackStack`). _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Все остальные параметризованные VM (~20 callsites). _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Дополнительный уровень индирекции для новых разработчиков: «где я?». _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Если какой-то VM был неявно расчитан на per-Activity scope _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Необходимо зарегистрировать `TasksRoute` в двух `SerializersModule`: _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- **Один плоский AppDestination без nested graph** — не даёт feature _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Первая фича с nested graph — другие фичи (notes/projects/auth/settings) _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Рассмотреть переход на `LocalResultEventBus` + `ResultEffect<T>` для _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Сигнатуры экранов tasks упрощаются до 1-2 аргументов. _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Существующие unit-тесты для VM не затрагиваются (тестируют VM _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)` _(from `2026-09-05-ui-event-per-feature`)_
+- Чинится латентный bug для всех `koinViewModel { parametersOf(...) }` _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- **Чинится латентный VM scoping bug** для `TaskDetailViewModel`, _(from `2026-09-14-tasks-feature-nested-nav3`)_
 
 ### `"archive"`
 
@@ -143,6 +168,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Settings → Backup tab no longer crashes during composition. _(from `2026-09-07-backup-directory-via-koin-string`)_
 - The `desktopApp/build.gradle.kts` change (adding `implementation(project(":shared"))` with kotlinJvmTask) was also part of the desktop build fix. _(from `2026-09-07-backup-directory-via-koin-string`)_
 
+### `bug`
+
+- Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+
 ### `bugfix`
 
 - **4 VM registrations** (`TaskEditorViewModel`, `TasksByProjectViewModel`, `ProjectEditorViewModel`, `ProjectDetailViewModel`) now use `viewModel { (p) → ... }` instead of `factory { (p) → ... }` _(from `2026-09-09-di-factory-viewmodel-fix`)_
@@ -152,6 +181,19 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **No call-site changes** — `koinViewModel { parametersOf(...) }` works with both forms _(from `2026-09-09-di-factory-viewmodel-fix`)_
 - **State survives configuration change** on Android — rotation no longer resets these screens _(from `2026-09-09-di-factory-viewmodel-fix`)_
 - **Test impact** — tests that relied on a fresh VM instance per `get()` may need updating; prefer stateful testing over instance-fresh guarantees _(from `2026-09-09-di-factory-viewmodel-fix`)_
+
+### `bug`
+
+- Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- `TaskCreateViewModel(initialDueDate)` — два последовательных _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- `TaskDetailViewModel(taskId)` — Task A → back → Task B больше _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Все остальные параметризованные VM (~20 callsites). _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Если какой-то VM был неявно расчитан на per-Activity scope _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Рассмотреть переход на `LocalResultEventBus` + `ResultEffect<T>` для _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Существующие unit-тесты для VM не затрагиваются (тестируют VM _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Чинится латентный bug для всех `koinViewModel { parametersOf(...) }` _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 
 ### `build`
 
@@ -423,6 +465,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `koin`
 
+- ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **4 VM registrations** (`TaskEditorViewModel`, `TasksByProjectViewModel`, `ProjectEditorViewModel`, `ProjectDetailViewModel`) now use `viewModel { (p) → ... }` instead of `factory { (p) → ... }` _(from `2026-09-09-di-factory-viewmodel-fix`)_
 - **8 экранов мигрируют одновременно** — невозможно сделать постепенную миграцию из-за смены типа `_events` _(from `2026-09-05-ui-event-per-feature`)_
 - All changes are additive; no existing behavior is removed. _(from `2026-09-07-settings-ux-improvements`)_
@@ -439,19 +482,24 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `compose-ui-test:1.12.0` added to `libs.versions.toml` as `composeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - **`createTask` and `moveTaskToProject`** remain in VM (require repository writes) _(from `2026-09-09-project-detail-intent-refactor`)_
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
+- Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Do NOT introduce `koinViewModel()` inside any `@Preview` — CI/preview harness does not start Koin _(from `2026-09-09-preview-with-koin-helper`)_
 - Existing silent `catch (_: Exception)` (e.g., in `ToolFactories.kt` lines 58, 126, 181) remain unfixed — these require separate investigation (some appear to be copy-paste bugs, not intentional suppression). _(from `2026-09-06-kermit-logging-setup`)_
 - **Existing tests:** `DiGraphTest`, `JvmAiDiGraphTest`, `AppSmokeTest` обновлены и проходят. _(from `2026-09-06-di-module-split`)_
 - **Fake repo returns empty by default** — widget tests that check `LazyColumn` with `testTag` will fail when repo is empty (state = `Empty`). Test the `EmptyState` text instead, or seed data via `fakeNotesRepo.seed(note)`. _(from `2026-09-05-robolectric-widget-tests`)_
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them _(from `2026-09-09-preview-with-koin-helper`)_
+- Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `JvmAiDiGraphTest` keeps its `LLModel` override as a safety belt — if someone reintroduces `OpenAIModels.*`, this test fails at graph-build time. _(from `2026-09-05-koog-test-workarounds`)_
 - **JVM args for JDK 21+** — add `--add-opens=java.base/jdk.internal.access=ALL-UNNAMED` to `gradle.properties` (`org.gradle.jvmargs`) AND to `shared/build.gradle.kts` via `afterEvaluate` + `tasks.withType<Test>()` for the test worker process. _(from `2026-09-05-robolectric-widget-tests`)_
 - `koinBridge` is for one-shot startup reads only — **not for** hot-path code, **not for** long-running operations. _(from `2026-09-05-koin-suspend-bridge`)_
 - **`koinInject()` для репозиториев/сервисов остаётся** — не VM _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - Koin logs (`NoDefinitionFoundException`, etc.) now appear in Kermit's output via `KermitKoinLogger`. _(from `2026-09-06-kermit-logging-setup`)_
 - **`koinViewModel()` для VM в Composable** — `koinInject()` для VM антипаттерн _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
+- Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **`NavigateToTasks`** is no longer a VM event — screen handles it as routing _(from `2026-09-09-project-detail-intent-refactor`)_
 - Navigation interaction tests (click-to-navigate) are out of scope for this smoke test — they require handling NavBackStackEntry lifecycle in `runDesktopComposeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
+- Navigation между Detail и подзадачами/проектами становится _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **New file count:** 8 новых файлов (7 модулей + decision). _(from `2026-09-06-di-module-split`)_
 - **No call-site changes** — `koinViewModel { parametersOf(...) }` works with both forms _(from `2026-09-09-di-factory-viewmodel-fix`)_
 - **No pure reducer needed** — `ProjectDetailViewModel` is write-through like `TaskDetailViewModel` _(from `2026-09-09-project-detail-intent-refactor`)_
@@ -462,6 +510,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`ProjectDetailIntent`** is the canonical list of all project mutations — adding a new field mutation = one `Domain` case _(from `2026-09-09-project-detail-intent-refactor`)_
 - `ProjectDetailScreen` is fully functional: quick-add creates tasks, parent picker works, Remind/Attach/DueDate/Children sheets open, task click navigates to `TaskDetailScreen` _(from `2026-09-09-project-detail-rework-15-fixes`)_
 - **`ProjectDetailUiEvent`** now has only 2 cases: `NavigateBack` (post-delete) and `ShowError` _(from `2026-09-09-project-detail-intent-refactor`)_
+- `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `ProjectPickerSheet` is reactive — newly created projects appear without reopening the sheet _(from `2026-09-09-project-detail-rework-15-fixes`)_
 - **Raw `runBlocking` в модулях** — не допускается, `koinBridge` как единая точка входа _(from `2026-09-06-koin-bridge-audit`)_
 - `RefineTaskTool.kt:34-38` has identical try and catch branches (copy-paste bug) — not fixed in this PR. _(from `2026-09-06-kermit-logging-setup`)_
@@ -473,20 +522,38 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Smoke test now passes: `./gradlew :desktopApp:test` → BUILD SUCCESSFUL _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - `sourceSets { test { java.srcDirs("src/jvmTest") ... } }` added to `desktopApp/build.gradle.kts` to wire the `jvmTest` source set to the `test` task _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - **State survives configuration change** on Android — rotation no longer resets these screens _(from `2026-09-09-di-factory-viewmodel-fix`)_
+- **`String`-encoded `initialDueDate`** — заменён на _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- `TaskCreateViewModel(initialDueDate)` — два последовательных _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- `TaskDetailViewModel(taskId)` — Task A → back → Task B больше _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **`TaskEditorViewModel` special case** — `viewModel { (initialDueDate) -> ... }` + `koinViewModel { parametersOf(initialDueDate) }` _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
+- **`TasksRoute.Pop` как sentinel** — race condition (см. review rev. 1, _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **Test impact** — tests that relied on a fresh VM instance per `get()` may need updating; prefer stateful testing over instance-fresh guarantees _(from `2026-09-09-di-factory-viewmodel-fix`)_
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
 - The `desktopApp/build.gradle.kts` change (adding `implementation(project(":shared"))` with kotlinJvmTask) was also part of the desktop build fix. _(from `2026-09-07-backup-directory-via-koin-string`)_
 - **`toggleArchive`** no longer emits `Saved` — `lastEditedAt` drives "Saved X ago" UI via the `mutate{}` helper _(from `2026-09-09-project-detail-intent-refactor`)_
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально _(from `2026-09-05-ui-event-per-feature`)_
+- Unit-тесты навигации tasks требуют `Robolectric` или `composeRule` — _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **Use `UserId` from `feature.tasks`** — it's defined in `Ids.kt` there, imported explicitly. _(from `2026-09-05-robolectric-widget-tests`)_
 - **`viewModelOf(::VM)` для VM без nullable dep** — предпочтительный паттерн _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - **`viewModel { Vm(get(), get(), ...) }`** — для VM с nullable dep + getOrNull() (TasksViewModel, ProjectsViewModel) _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly. _(from `2026-09-05-robolectric-widget-tests`)_
 - When adding a new AI tool, **always** bind its use case with **explicit `get<ConcreteTool>()`** if the use case's parameter is `SimpleTool<T>`: _(from `2026-09-05-koog-test-workarounds`)_
 - When the script's grep is broken (a stray `runBlocking` appears), fix it immediately; the helper exists specifically so this is detectable. _(from `2026-09-05-koin-suspend-bridge`)_
+- В `JvmNav3State.kt` для `AppDestination.TasksGraph` / _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- В `TasksNavGraph.kt` (для nested `rememberNavBackStack`). _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Все остальные параметризованные VM (~20 callsites). _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Дополнительный уровень индирекции для новых разработчиков: «где я?». _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Если какой-то VM был неявно расчитан на per-Activity scope _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Необходимо зарегистрировать `TasksRoute` в двух `SerializersModule`: _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- **Один плоский AppDestination без nested graph** — не даёт feature _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Первая фича с nested graph — другие фичи (notes/projects/auth/settings) _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **Правило подтверждено:** `koinBridge` только для one-shot startup suspend reads _(from `2026-09-06-koin-bridge-audit`)_
+- Рассмотреть переход на `LocalResultEventBus` + `ResultEffect<T>` для _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Сигнатуры экранов tasks упрощаются до 1-2 аргументов. _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Существующие unit-тесты для VM не затрагиваются (тестируют VM _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)` _(from `2026-09-05-ui-event-per-feature`)_
+- Чинится латентный bug для всех `koinViewModel { parametersOf(...) }` _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- **Чинится латентный VM scoping bug** для `TaskDetailViewModel`, _(from `2026-09-14-tasks-feature-nested-nav3`)_
 
 ### `koog`
 
@@ -627,6 +694,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `navigation`
 
+- ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует. _(from `2026-09-07-fab-chrome-level`)_
 - `AppShell` — minor change: добавлен `FabAction` parameter. _(from `2026-09-07-fab-chrome-level`)_
 - Backlinks are now shown and functional _(from `2026-09-09-notes-view-edit-split`)_
@@ -635,18 +703,42 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Delete confirmation is handled in `NotePreview`, not buried in editor overflow menu _(from `2026-09-09-notes-view-edit-split`)_
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
+- Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
+- Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **Menu sheet visibility** is `rememberSaveable` state in `AndroidShell` — survives config changes, not part of the back stack. _(from `2026-09-05-android-bottom-nav`)_
 - `ModalShell` + `DrawerStyle.Modal` remain in `AppShell.kt`. They are not wired to any platform but are preserved for future modal drawer needs. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **`NavDestination` (drawer enum)** remains for the desktop drawer's grouping by `NavGroup` — not removed, just no longer wired to mobile. _(from `2026-09-05-android-bottom-nav`)_
 - Navigation now has one more route: `NoteView` ↔ `NoteEditor` ↔ `NotesScreen` _(from `2026-09-09-notes-view-edit-split`)_
+- Navigation между Detail и подзадачами/проектами становится _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Note metadata (word count, last updated) is visible without entering edit mode _(from `2026-09-09-notes-view-edit-split`)_
 - `NotePreview` must observe the note via `repo.watchNote()` — requires a Flow subscription _(from `2026-09-09-notes-view-edit-split`)_
 - **Per-tab backstacks** work as expected: open TaskDetail on Today, switch to Plans, switch back to Today → TaskDetail is restored. _(from `2026-09-05-android-bottom-nav`)_
+- `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
+- **`String`-encoded `initialDueDate`** — заменён на _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - `TagsScreen` больше не принимает callback — экран не подключён к навигации (menu destination `Tags` отсутствует в `AppDestination`). _(from `2026-09-07-fab-chrome-level`)_
+- `TaskCreateViewModel(initialDueDate)` — два последовательных _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- `TaskDetailViewModel(taskId)` — Task A → back → Task B больше _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- **`TasksRoute.Pop` как sentinel** — race condition (см. review rev. 1, _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **`TasksScreen`** unchanged — it already takes `onNavigateToTask` / `onNavigateToCreateTask` callbacks; the per-tab sub-navigation state now lives in `TasksRoute` inside `AppNavHost` via `rememberSaveable`. _(from `2026-09-05-android-bottom-nav`)_
+- Unit-тесты навигации tasks требуют `Robolectric` или `composeRule` — _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading _(from `2026-09-09-notes-view-edit-split`)_
+- В `JvmNav3State.kt` для `AppDestination.TasksGraph` / _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- В `TasksNavGraph.kt` (для nested `rememberNavBackStack`). _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Все остальные параметризованные VM (~20 callsites). _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Дополнительный уровень индирекции для новых разработчиков: «где я?». _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Если какой-то VM был неявно расчитан на per-Activity scope _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Необходимо зарегистрировать `TasksRoute` в двух `SerializersModule`: _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- **Один плоский AppDestination без nested graph** — не даёт feature _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Первая фича с nested graph — другие фичи (notes/projects/auth/settings) _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Рассмотреть переход на `LocalResultEventBus` + `ResultEffect<T>` для _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Сигнатуры экранов tasks упрощаются до 1-2 аргументов. _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Существующие unit-тесты для VM не затрагиваются (тестируют VM _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Чинится латентный bug для всех `koinViewModel { parametersOf(...) }` _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- **Чинится латентный VM scoping bug** для `TaskDetailViewModel`, _(from `2026-09-14-tasks-feature-nested-nav3`)_
 
 ### `notes`
 
@@ -1151,22 +1243,47 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `viewmodel`
 
+- ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - `ActiveSheet.kt`: 35 → ~15 lines (`toActiveSheet()` removed). _(from `2026-09-09-task-detail-intent-refactor`)_
 - Cross-screen state (e.g. "did the user just save a note") must flow through navigation callbacks, not shared VM state _(from `2026-09-09-notes-vm-split`)_
+- Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Each VM is small enough to understand fully (~60-150 lines) _(from `2026-09-09-notes-vm-split`)_
 - Editor session state is released when user navigates away _(from `2026-09-09-notes-vm-split`)_
+- Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
+- Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Navigation между Detail и подзадачами/проектами становится _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - New file `TaskDetailIntent.kt` (~120 lines). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables _(from `2026-09-09-notes-vm-split`)_
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
+- `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- **`String`-encoded `initialDueDate`** — заменён на _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- `TaskCreateViewModel(initialDueDate)` — два последовательных _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `TaskDetailContent` is now `internal` (stateless, previewable without Koin). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailScreen.kt`: `when (action)` on 27 branches → `when (intent)` on 6 branches. Routing now uniform (all `activeSheet = …`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailUiEvent.kt`: 34 → ~18 lines (10 sheet-triggers removed). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailViewModel.kt`: 450 → ~270 lines, 37 public methods → 3 (`start`, `onTitleChange`, `onIntent`). _(from `2026-09-09-task-detail-intent-refactor`)_
+- `TaskDetailViewModel(taskId)` — Task A → back → Task B больше _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `TaskDetailViewModelTest`: updated 5 tests to call `vm.onIntent(Domain.X)` instead of `vm.setX(task, value)`. _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TasksFormatters.kt`: added `dueChipColors` formatter and `parseDueTime` utility. _(from `2026-09-09-task-detail-intent-refactor`)_
+- **`TasksRoute.Pop` как sentinel** — race condition (см. review rev. 1, _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Three Koin registrations instead of one _(from `2026-09-09-notes-vm-split`)_
+- Unit-тесты навигации tasks требуют `Robolectric` или `composeRule` — _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - VMs are independently testable with focused test suites _(from `2026-09-09-notes-vm-split`)_
+- В `JvmNav3State.kt` для `AppDestination.TasksGraph` / _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- В `TasksNavGraph.kt` (для nested `rememberNavBackStack`). _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Все остальные параметризованные VM (~20 callsites). _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Дополнительный уровень индирекции для новых разработчиков: «где я?». _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Если какой-то VM был неявно расчитан на per-Activity scope _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Необходимо зарегистрировать `TasksRoute` в двух `SerializersModule`: _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- **Один плоский AppDestination без nested graph** — не даёт feature _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Первая фича с nested graph — другие фичи (notes/projects/auth/settings) _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Рассмотреть переход на `LocalResultEventBus` + `ResultEffect<T>` для _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Сигнатуры экранов tasks упрощаются до 1-2 аргументов. _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- Существующие unit-тесты для VM не затрагиваются (тестируют VM _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Чинится латентный bug для всех `koinViewModel { parametersOf(...) }` _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- **Чинится латентный VM scoping bug** для `TaskDetailViewModel`, _(from `2026-09-14-tasks-feature-nested-nav3`)_
 
 ### `vm`
 
@@ -1253,6 +1370,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-09-project-detail-rework-15-fixes` — projects  screen-architecture  preview  koin  reactive
 - `2026-09-09-projectdetail-write-through-fix` — project-detail  toctou  write-through  vm  regression
 - `2026-09-09-task-detail-intent-refactor` — architecture  viewmodel  compose  tasks
+- `2026-09-14-nav3-vm-store-decorator-fix` — architecture  navigation  koin  viewmodel  bug
+- `2026-09-14-tasks-feature-nested-nav3` — architecture  navigation  koin  viewmodel
 
 ## Active entries
 
@@ -1322,4 +1441,5 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-09-task-detail-intent-refactor` — TaskDetailViewModel: sealed Intent + single onIntent dispatcher
 - `2026-09-10-simplified-settings-vm` — _(no title)
 - `2026-09-11-nav3-kmp-migration` — _(no title)
-- `2026-09-11-navigation2-to-navigation3` — Navigation 2 → Navigation 3 Migration
+- `2026-09-14-nav3-vm-store-decorator-fix` — _(no title)
+- `2026-09-14-tasks-feature-nested-nav3` — _(no title)

@@ -11,22 +11,27 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskCreateContent
+import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailMode
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
+import kotlinx.datetime.LocalDate
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 /**
- * Thin host for TaskDetail Create mode.
- * Owns the VM lifecycle and handles navigation guard.
+ * Task create screen for the tasks nested navigation graph.
+ * Reads [LocalTasksNavigator] for all navigation — no callbacks needed.
+ *
+ * Uses [org.koin.compose.viewmodel.koinViewModel] with [parametersOf] for
+ * per-entry ViewModel scoping (requires [rememberViewModelStoreNavEntryDecorator]
+ * in the NavDisplay entry decorators).
  */
 @Composable
-fun TaskCreateHost(
-    mode: TaskDetailMode.Create,
-    onBack: () -> Unit,
+fun TaskCreateScreen(
+    initialDueDate: LocalDate?,
 ) {
-    val vm: TaskCreateViewModel = koinViewModel { parametersOf(mode.initialDueDate) }
+    val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate) }
+    val navigator = LocalTasksNavigator.current
 
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -37,7 +42,7 @@ fun TaskCreateHost(
     LaunchedEffect(vm) {
         vm.saved.collect {
             isNavigatingBack = true
-            onBack()
+            navigator.back()
         }
     }
 
@@ -48,14 +53,14 @@ fun TaskCreateHost(
     val guardedBack: () -> Unit = {
         if (isNavigatingBack) Unit
         else if (state.isDirty) showDiscard = true
-        else onBack()
+        else navigator.back()
     }
 
     if (showDiscard) {
         DiscardChangesDialog(
             onDiscard = {
                 showDiscard = false
-                onBack()
+                navigator.back()
             },
             onKeepEditing = { showDiscard = false },
         )
@@ -66,9 +71,7 @@ fun TaskCreateHost(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         onIntent = { intent ->
             when (intent) {
-                TaskCreateIntent.DiscardChanges -> { /* handled via showDiscard */
-                }
-
+                TaskCreateIntent.DiscardChanges -> { /* handled via showDiscard */ }
                 else -> vm.onIntent(intent)
             }
         },

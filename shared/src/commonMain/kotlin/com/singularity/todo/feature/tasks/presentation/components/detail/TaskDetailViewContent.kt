@@ -25,10 +25,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.formatTimestampsRelative
+import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorPrioritySheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
@@ -37,6 +43,7 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import kotlin.time.Instant
 
 /**
  * Content for TaskDetail View mode.
@@ -49,6 +56,7 @@ fun TaskDetailViewContent(
     ui: TaskDetailUi,
     onIntent: (TaskDetailIntent) -> Unit,
     onBack: () -> Unit,
+    onNavigateToProject: (ProjectId) -> Unit,
 ) {
     var activeSheet by remember { mutableStateOf<CreateActiveSheet?>(null) }
     var showMenu by remember { mutableStateOf(false) }
@@ -114,7 +122,7 @@ fun TaskDetailViewContent(
                     icon = Icons.AutoMirrored.Filled.CallSplit,
                     label = project.name,
                     isActive = true,
-                    onClick = { onIntent(TaskDetailIntent.NavigateToProject(project.id)) },
+                    onClick = { onNavigateToProject(project.id) },
                 )
             }
 
@@ -260,3 +268,49 @@ fun TaskDetailViewContent(
         null -> { /* no-op */ }
     }
 }
+
+// ─── Previews ────────────────────────────────────────────────────────────────
+
+@Composable
+private fun TaskDetailViewContentPreview(
+    ui: TaskDetailUi = TaskDetailUi(
+        task = Task(
+            id = TaskId("t1"),
+            title = "Buy groceries",
+            description = "Milk, eggs, bread",
+            priority = TaskPriority.Medium,
+            kind = TaskKind.Task,
+            createdAt = Instant.parse("2024-01-01T00:00:00Z"),
+            updatedAt = Instant.parse("2024-01-01T00:00:00Z"),
+            userId = UserId("u1"),
+        ),
+    ),
+) {
+    TaskDetailViewContent(
+        ui = ui,
+        onIntent = { },
+        onBack = { },
+        onNavigateToProject = { },
+    )
+}
+
+@Preview
+@Composable
+private fun TaskDetailViewContentDefaultPreview() = TaskDetailViewContentPreview()
+
+@Preview
+@Composable
+private fun TaskDetailViewContentHighPriorityPreview() = TaskDetailViewContentPreview(
+    ui = TaskDetailUi(
+        task = Task(
+            id = TaskId("t2"),
+            title = "URGENT: Deploy to production",
+            description = null,
+            priority = TaskPriority.Urgent,
+            kind = TaskKind.Task,
+            createdAt = Instant.parse("2024-01-01T00:00:00Z"),
+            updatedAt = Instant.parse("2024-01-01T00:00:00Z"),
+            userId = UserId("u1"),
+        ),
+    ),
+)

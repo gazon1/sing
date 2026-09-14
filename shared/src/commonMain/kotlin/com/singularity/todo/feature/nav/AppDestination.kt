@@ -15,6 +15,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation3.runtime.NavKey
+import com.singularity.todo.feature.projects.ProjectId
+import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 
 /**
@@ -109,11 +111,47 @@ sealed interface AppDestination : NavKey {
 
     // ─── Sub-routes (push on top of a top-level destination) ────────────────
 
+    /**
+     * Start route for the tasks nested graph. Used as `start` param in [TasksGraph].
+     */
+    @Serializable
+    sealed interface TasksStartRoute : NavKey {
+        @Serializable data object Inbox : TasksStartRoute
+        @Serializable data object Today : TasksStartRoute
+        @Serializable data object Create : TasksStartRoute
+        @Serializable data class ByProject(val projectId: String) : TasksStartRoute
+    }
+
+    /**
+     * Nested tasks graph. Contains its own NavBackStack[TasksRoute].
+     * Used for: FAB "Add task" from any screen, deep-links, and direct navigation.
+     */
+    @Serializable
+    data class TasksGraph(
+        val start: TasksStartRoute,
+        val initialDueDate: LocalDate? = null,
+    ) : AppDestination {
+        override val title = "Tasks"
+    }
+
+    /**
+     * Direct entry to tasks filtered by project. Delegates to [TasksGraph]
+     * internally with [TasksStartRoute.ByProject] as start.
+     */
+    @Serializable
+    data class TasksByProject(val projectId: String) : AppDestination {
+        override val title = "Project Tasks"
+    }
+
+    /** @deprecated Use TasksGraph(TasksStartRoute.Create) or navigate to TasksRoute.Create internally */
+    @Deprecated("Use TasksGraph(TasksStartRoute.Create) instead", replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Create)"))
     @Serializable
     data class TaskDetail(val taskId: String) : AppDestination {
         override val title = "Task"
     }
 
+    /** @deprecated Use TasksGraph(TasksStartRoute.Create, initialDueDate) instead */
+    @Deprecated("Use TasksGraph(TasksStartRoute.Create, initialDueDate) instead", replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Create, initialDueDate)"))
     @Serializable
     data class TaskDetailCreate(
         val initialDueDate: String? = null,
@@ -140,11 +178,6 @@ sealed interface AppDestination : NavKey {
     data class ProjectDetail(val projectId: String) : AppDestination {
         override val title = "Project"
     }
-
-    @Serializable
-    data class TasksByProject(val projectId: String) : AppDestination {
-        override val title = "Project Tasks"
-    }
 }
 
 /** UI metadata for [AppDestination]. Kept separate so the route stays pure-data. */
@@ -164,11 +197,12 @@ val AppDestination.icon: ImageVector
         AppDestination.ProfileSwitcher -> Icons.Filled.Person
         is AppDestination.TaskDetail -> Icons.Filled.Check
         is AppDestination.TaskDetailCreate -> Icons.Filled.Check
+        is AppDestination.TasksGraph -> Icons.Filled.Check
+        is AppDestination.TasksByProject -> Icons.Filled.Folder
         is AppDestination.NoteView -> Icons.Filled.Create
         is AppDestination.NoteEditor -> Icons.Filled.Create
         is AppDestination.ProjectEditor -> Icons.Filled.Check
         is AppDestination.ProjectDetail -> Icons.Filled.Check
-        is AppDestination.TasksByProject -> Icons.Filled.Folder
     }
 
 /** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */

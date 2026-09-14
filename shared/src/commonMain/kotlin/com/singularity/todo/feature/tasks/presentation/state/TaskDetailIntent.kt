@@ -14,7 +14,7 @@ import kotlinx.datetime.LocalTime
 /**
  * Единая точка входа для [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel].
  *
- * Routing-варианты (OpenSheet, Navigate*, Attachment.Pick) обрабатываются экраном,
+ * Routing-варианты (OpenSheet, Attachment.Pick) обрабатываются экраном,
  * доменные — [Domain].
  *
  * Разделение типизировано на уровне sealed-иерархии: попытка передать
@@ -29,12 +29,6 @@ sealed interface TaskDetailIntent {
 
     /** Close any open sheet / dialog. */
     data object CloseSheet : TaskDetailIntent
-
-    /** Navigate to a project's detail screen. */
-    data class NavigateToProject(val id: ProjectId) : TaskDetailIntent
-
-    /** Navigate to a task's detail screen (parent or subtask). */
-    data class NavigateToTask(val id: com.singularity.todo.feature.tasks.domain.model.TaskId) : TaskDetailIntent
 
     // ── Attachment: owned by screen (delegates to AttachmentsViewModel) ──
 

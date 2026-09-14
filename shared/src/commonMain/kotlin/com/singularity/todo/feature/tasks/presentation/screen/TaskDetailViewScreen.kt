@@ -5,11 +5,10 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
-import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailViewContent
+import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailMode
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
@@ -17,17 +16,15 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 /**
- * Thin host for TaskDetail View mode.
- * Owns the VM lifecycle and dispatches to TaskDetailViewContent.
+ * Task detail screen (View mode) for the tasks nested navigation graph.
+ * Reads [LocalTasksNavigator] for all navigation actions — no callbacks needed.
  */
 @Composable
-fun TaskDetailViewHost(
-    mode: TaskDetailMode.View,
-    onBack: () -> Unit,
-    onNavigateToProject: (ProjectId) -> Unit,
-    onNavigateToTask: (TaskId) -> Unit,
+fun TaskDetailViewScreen(
+    taskId: TaskId,
 ) {
-    val vm: TaskDetailViewModel = koinViewModel { parametersOf(mode.taskId) }
+    val vm: TaskDetailViewModel = koinViewModel { parametersOf(taskId) }
+    val navigator = LocalTasksNavigator.current
 
     val state by vm.state.collectAsStateWithLifecycle()
 
@@ -41,7 +38,7 @@ fun TaskDetailViewHost(
                 TaskDetailUiEvent.NavigateBack -> Notification.NavigateBack
             }
         },
-        onNavigateBack = onBack,
+        onNavigateBack = { navigator.back() },
     )
 
     when (val s = state) {
@@ -52,14 +49,12 @@ fun TaskDetailViewHost(
                 ui = s.ui,
                 onIntent = { intent ->
                     when (intent) {
-                        is TaskDetailIntent.NavigateToProject -> onNavigateToProject(intent.id)
-                        is TaskDetailIntent.NavigateToTask -> onNavigateToTask(intent.id)
                         is TaskDetailIntent.Domain -> vm.onIntent(intent)
-                        else -> { /* routing intents handled in content */
-                        }
+                        else -> { /* routing intents now use callbacks */ }
                     }
                 },
-                onBack = onBack,
+                onBack = { navigator.back() },
+                onNavigateToProject = { projectId -> navigator.openProject(projectId) },
             )
         }
     }

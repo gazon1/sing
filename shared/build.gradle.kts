@@ -55,6 +55,8 @@ kotlin {
             // Lifecycle
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            // lifecycle-viewmodel-navigation3: metadata (expect) in commonMain, actuals in android/jvm
+            implementation(libs.androidx.lifecycle.viewmodel.navigation3)
 
             // Coroutines
             implementation(libs.kotlinx.coroutines.core)
@@ -204,10 +206,11 @@ kotlin {
             // Koog OkHttp HTTP backend — JVM-only
             implementation(libs.koog.http.client.okhttp)
 
-            // Navigation 3 JVM (nav3-runtime-desktop has SavedStateConfiguration-based rememberNavBackStack)
+            // Navigation 3 JVM (JetBrains navigation3-ui-desktop has proper NavDisplay implementation)
             implementation(libs.androidx.navigation3.runtime.desktop)
-            // navigation3-ui-jvmstubs provides the real NavDisplay implementation for JVM
-            implementation(libs.androidx.navigation3.ui.jvmstubs)
+            implementation(libs.androidx.navigation3.ui.desktop)
+            // lifecycle-viewmodel-navigation3: rememberViewModelStoreNavEntryDecorator for JVM
+            implementation(libs.androidx.lifecycle.viewmodel.navigation3)
         }
 
         commonTest.dependencies {

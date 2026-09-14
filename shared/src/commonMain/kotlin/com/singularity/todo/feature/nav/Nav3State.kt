@@ -44,11 +44,26 @@ class Nav3State internal constructor(
     @Composable
     fun toDecoratedEntries(
         entryProvider: (AppDestination) -> NavEntry<AppDestination>
+    ): List<NavEntry<NavKey>> = toDecoratedEntries(entryProvider, emptyList())
+
+    /**
+     * Converts all active back stacks into a flat list of [NavEntry] objects,
+     * decorated with the provided [entryDecorators] for state preservation and ViewModel scoping.
+     *
+     * @param entryProvider A function that returns a [NavEntry] for each route key.
+     * @param entryDecorators Additional [NavEntryDecorator]s to apply (e.g. [rememberViewModelStoreNavEntryDecorator]).
+     */
+    @Composable
+    fun toDecoratedEntries(
+        entryProvider: (AppDestination) -> NavEntry<AppDestination>,
+        entryDecorators: List<androidx.navigation3.runtime.NavEntryDecorator<NavKey>>,
     ): List<NavEntry<NavKey>> {
         val decoratedEntries = backStacks.mapValues { (_, stack) ->
-            val decorators = listOf(
-                rememberSaveableStateHolderNavEntryDecorator<NavKey>(),
-            )
+            val decorators = buildList {
+                addAll(entryDecorators)
+                // Always include SaveableStateHolder for state preservation across tab swaps
+                add(rememberSaveableStateHolderNavEntryDecorator<NavKey>())
+            }
             rememberDecoratedNavEntries(
                 backStack = stack,
                 entryDecorators = decorators,
