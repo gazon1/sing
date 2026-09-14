@@ -1,11 +1,9 @@
-package com.singularity.todo.feature.tasks.presentation.screen
+package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -17,6 +15,7 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +25,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
@@ -34,20 +32,11 @@ import com.singularity.todo.core.ui.components.formatTimestampsRelative
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorPrioritySheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskAttributeCard
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskChecklistCard
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskCounterCard
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDescriptionField
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskPriorityCard
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskReminderGroup
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskTitleRow
 import com.singularity.todo.feature.tasks.presentation.state.CreateActiveSheet
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalTime
 
 /**
  * Content for TaskDetail View mode.
@@ -195,7 +184,7 @@ fun TaskDetailViewContent(
             val timestamps = formatTimestampsRelative(ui.task.createdAt, ui.task.updatedAt, Clock.now())
             Text(
                 text = "${timestamps.created} · ${timestamps.updated}",
-                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodySmall,
                 color = TaskColors.TextSecondary,
             )
 

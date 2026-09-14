@@ -1,11 +1,9 @@
-package com.singularity.todo.feature.tasks.presentation.screen
+package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -26,24 +24,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorPrioritySheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskAttributeCard
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskCreationTopBar
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDescriptionField
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSaveBar
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskTitleRow
 import com.singularity.todo.feature.tasks.presentation.state.CreateActiveSheet
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiState
+import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
-import kotlinx.datetime.LocalTime
 
 /**
  * Content for TaskDetail Create mode.
@@ -214,11 +207,11 @@ private fun TaskCreateContentPreview(
     )
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun TaskCreateContentDefaultPreview() = TaskCreateContentPreview(
     state = TaskCreateUiState(
-        draft = com.singularity.todo.feature.tasks.presentation.state.TaskDraft(
+        draft = TaskDraft(
             title = "",
             description = "",
             priority = TaskPriority.None,
@@ -230,11 +223,11 @@ private fun TaskCreateContentDefaultPreview() = TaskCreateContentPreview(
     ),
 )
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun TaskCreateContentErrorPreview() = TaskCreateContentPreview(
     state = TaskCreateUiState(
-        draft = com.singularity.todo.feature.tasks.presentation.state.TaskDraft(
+        draft = TaskDraft(
             title = "Buy groceries",
             priority = TaskPriority.Medium,
         ),
@@ -245,11 +238,11 @@ private fun TaskCreateContentErrorPreview() = TaskCreateContentPreview(
     ),
 )
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun TaskCreateContentSavingPreview() = TaskCreateContentPreview(
     state = TaskCreateUiState(
-        draft = com.singularity.todo.feature.tasks.presentation.state.TaskDraft(
+        draft = TaskDraft(
             title = "Buy groceries",
             priority = TaskPriority.High,
             dueDate = DueDateOption.Today,

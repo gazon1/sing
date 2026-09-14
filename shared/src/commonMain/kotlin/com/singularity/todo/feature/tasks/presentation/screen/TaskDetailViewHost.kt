@@ -7,12 +7,12 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailViewContent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailMode
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -55,7 +55,8 @@ fun TaskDetailViewHost(
                         is TaskDetailIntent.NavigateToProject -> onNavigateToProject(intent.id)
                         is TaskDetailIntent.NavigateToTask -> onNavigateToTask(intent.id)
                         is TaskDetailIntent.Domain -> vm.onIntent(intent)
-                        else -> { /* routing intents handled in content */ }
+                        else -> { /* routing intents handled in content */
+                        }
                     }
                 },
                 onBack = onBack,

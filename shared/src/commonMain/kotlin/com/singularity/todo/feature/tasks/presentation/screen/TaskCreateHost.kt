@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskCreateContent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailMode
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
@@ -65,7 +66,9 @@ fun TaskCreateHost(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         onIntent = { intent ->
             when (intent) {
-                TaskCreateIntent.DiscardChanges -> { /* handled via showDiscard */ }
+                TaskCreateIntent.DiscardChanges -> { /* handled via showDiscard */
+                }
+
                 else -> vm.onIntent(intent)
             }
         },
