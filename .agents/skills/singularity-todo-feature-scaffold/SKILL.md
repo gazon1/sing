@@ -222,21 +222,55 @@ viewModelOf(::FeatureViewModel)
 
 See `singularity-todo-koin-di` skill for full DI conventions.
 
-## Navigation (AppDestination.kt + AppNavHost.kt)
+## Navigation (AppDestination.kt + Nested Graph)
+
+This project uses **two-level Nav3 navigation**: a top-level `Nav3State` with `NavBackStack<AppDestination>` for tabs, and **nested graphs** per feature (tasks, projects, notes, settings, search) with their own `NavBackStack<FeatureRoute>`.
+
+### Top-level: `AppDestination` in `feature/nav/AppDestination.kt`
 
 ```kotlin
-// AppDestination.kt
-sealed interface AppDestination {
-    data object <Feature> : AppDestination
-}
+sealed interface AppDestination : NavKey {
+    val title: String
+    val icon: ImageVector
 
-// AppNavHost.kt
-composable<AppDestination.<Feature>> {
-    <Feature>Screen(
-        onNavigateTo<Feature> = { id -> navigator.navigate(AppDestination.<Feature>Detail(id)) }
-    )
+    @Serializable
+    data object Inbox : AppDestination { override val title = "Inbox"; override val icon = Icons.Default.Inbox }
+    @Serializable
+    data object Today : AppDestination { override val title = "Today"; override val icon = Icons.Default.Today }
+    // ...
 }
 ```
+
+### Feature nested graph: `*Route.kt` + `*NavGraph.kt` (expect/actual)
+
+Each feature has its own sealed `Route` hierarchy and `*NavGraph` expect/actual:
+
+```
+feature/<feature>/presentation/nav/
+├── <Feature>Route.kt      — sealed interface + data objects (e.g. TasksRoute.Inbox, TasksRoute.Detail)
+├── <Feature>NavGraph.kt   — expect fun <Feature>NavGraph(...)  ← commonMain
+├── <Feature>NavGraph.android.kt  — actual: navSavedStateConfig + rememberNavBackStack
+└── <Feature>NavGraph.jvm.kt      — actual: rememberInMemoryNavBackStack
+```
+
+**Never** use `AppDestination.<Feature>Detail(id)` for inner-screen navigation — use the feature's own `*Route` inside the nested graph. `AppDestination` variants like `AppDestination.TaskDetail` are only for top-level tab switching.
+
+### When to add a new nested graph
+
+1. Create `feature/<feature>/presentation/nav/<Feature>Route.kt`:
+   ```kotlin
+   @Serializable
+   sealed interface <Feature>Route : NavKey {
+       @Serializable data object List : <Feature>Route
+       @Serializable data class Detail(val id: <Feature>Id) : <Feature>Route
+   }
+   ```
+2. Create `feature/<feature>/presentation/nav/<Feature>NavGraph.kt` (expect)
+3. Create `*NavGraph.android.kt` + `*NavGraph.jvm.kt` (actual implementations)
+4. Add `AppDestination.<Feature>Graph` to `AppDestination` sealed interface
+5. Wire in `AppNavHost` using `entryProvider` + `navigatorForGraph`
+
+**See `singularity-todo-nav3-nested-graphs`** for full nested graph architecture details.
 
 ## Subinterface Pattern — when to split a Repository
 

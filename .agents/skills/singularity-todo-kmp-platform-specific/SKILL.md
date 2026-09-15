@@ -207,7 +207,21 @@ actual fun platformModule(): Module = module {
 }
 ```
 
-## Anti-patterns to avoid
+## Pattern 6: `savedstate-compose-desktop` is always a no-op
+
+The `savedstate-compose-desktop` artifact (Kotlin/JVM wrappers) provides **empty stub implementations** for all `saveable` APIs. Specifically:
+
+- `LocalSaveableStateRegistry` → `staticCompositionLocalOf<SaveableStateRegistry?> { null }`
+- `rememberSaveable { }` → behaves like plain `remember { }`
+
+This is **by design** (JetBrains/kotlin-wrappers#3057) — it lets Android Compose code compile on Desktop without modification, but `SaveableStateRegistry` never actually saves or restores anything on JVM.
+
+**Consequences for Nav3:**
+- `rememberNavBackStack(SavedStateConfiguration, start)` on Desktop — the configuration is read but `LocalSaveableStateRegistry` is always `null`, so writes go nowhere and reads always return `null`. The `SavedStateConfiguration` is dead weight.
+- On Desktop, always use `rememberInMemoryNavBackStack(start)` from `com.singularity.todo.feature.nav.rememberInMemoryNavBackStack` — it creates an in-memory `NavBackStack` without any serialization overhead.
+- `navSavedStateConfig(...)` from `com.singularity.todo.feature.nav.navSavedStateConfig` is **Android only** — it generates a `SavedStateConfiguration` with `SerializersModule` for process-death persistence that Desktop never uses.
+
+**See:** `docs/decisions/2026-09-16-nav3-desktop-in-memory-no-savedstate.md`
 
 ### ❌ Don't cast JVM-only types in commonMain
 
