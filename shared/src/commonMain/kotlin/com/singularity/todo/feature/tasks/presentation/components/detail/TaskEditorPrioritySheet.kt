@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.tasks.presentation.components
+package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.components.priorityMeta
 
 /**
  * Priority selection sheet with colored flag icons and radio buttons.

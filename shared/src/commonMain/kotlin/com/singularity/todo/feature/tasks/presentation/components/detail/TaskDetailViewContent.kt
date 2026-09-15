@@ -34,7 +34,6 @@ import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.formatTimestampsRelative
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.components.TaskEditorPrioritySheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.tasks.presentation.nav.TasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.CreateActiveSheet
