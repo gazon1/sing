@@ -467,7 +467,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **4 VM registrations** (`TaskEditorViewModel`, `TasksByProjectViewModel`, `ProjectEditorViewModel`, `ProjectDetailViewModel`) now use `viewModel { (p) → ... }` instead of `factory { (p) → ... }` _(from `2026-09-09-di-factory-viewmodel-fix`)_
+- 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
 - **8 экранов мигрируют одновременно** — невозможно сделать постепенную миграцию из-за смены типа `_events` _(from `2026-09-05-ui-event-per-feature`)_
+- Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
+- All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
 - All changes are additive; no existing behavior is removed. _(from `2026-09-07-settings-ux-improvements`)_
 - All new `catch` blocks in ViewModels, repositories, and use cases should inject `Logger` and call `log.e(e) { "..." }` or use `runCatchingLogged`. _(from `2026-09-06-kermit-logging-setup`)_
 - All new screens MUST follow the `PublicScreen` / `PrivateContent` naming pattern _(from `2026-09-09-preview-with-koin-helper`)_
@@ -483,6 +486,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **CollectEvents** в виджетах принимает `Flow<T : UiEvent>` — generic call site остаётся тем же _(from `2026-09-05-ui-event-per-feature`)_
 - `compose-ui-test:1.12.0` added to `libs.versions.toml` as `composeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - **`createTask` and `moveTaskToProject`** remain in VM (require repository writes) _(from `2026-09-09-project-detail-intent-refactor`)_
+- Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops. _(from `2026-09-15-projects-nested-nav3`)_
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
 - Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Do NOT introduce `koinViewModel()` inside any `@Preview` — CI/preview harness does not start Koin _(from `2026-09-09-preview-with-koin-helper`)_
@@ -490,6 +494,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Existing tests:** `DiGraphTest`, `JvmAiDiGraphTest`, `AppSmokeTest` обновлены и проходят. _(from `2026-09-06-di-module-split`)_
 - **Fake repo returns empty by default** — widget tests that check `LazyColumn` with `testTag` will fail when repo is empty (state = `Empty`). Test the `EmptyState` text instead, or seed data via `fakeNotesRepo.seed(note)`. _(from `2026-09-05-robolectric-widget-tests`)_
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them _(from `2026-09-09-preview-with-koin-helper`)_
+- Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
 - Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `JvmAiDiGraphTest` keeps its `LLModel` override as a safety belt — if someone reintroduces `OpenAIModels.*`, this test fails at graph-build time. _(from `2026-09-05-koog-test-workarounds`)_
 - **JVM args for JDK 21+** — add `--add-opens=java.base/jdk.internal.access=ALL-UNNAMED` to `gradle.properties` (`org.gradle.jvmargs`) AND to `shared/build.gradle.kts` via `afterEvaluate` + `tasks.withType<Test>()` for the test worker process. _(from `2026-09-05-robolectric-widget-tests`)_
@@ -512,6 +517,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`ProjectDetailIntent`** is the canonical list of all project mutations — adding a new field mutation = one `Domain` case _(from `2026-09-09-project-detail-intent-refactor`)_
 - `ProjectDetailScreen` is fully functional: quick-add creates tasks, parent picker works, Remind/Attach/DueDate/Children sheets open, task click navigates to `TaskDetailScreen` _(from `2026-09-09-project-detail-rework-15-fixes`)_
 - **`ProjectDetailUiEvent`** now has only 2 cases: `NavigateBack` (post-delete) and `ShowError` _(from `2026-09-09-project-detail-intent-refactor`)_
+- `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
 - `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `ProjectPickerSheet` is reactive — newly created projects appear without reopening the sheet _(from `2026-09-09-project-detail-rework-15-fixes`)_
 - **Raw `runBlocking` в модулях** — не допускается, `koinBridge` как единая точка входа _(from `2026-09-06-koin-bridge-audit`)_
@@ -701,8 +707,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `nav3`
 
+- 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
+- Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
+- All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling. _(from `2026-09-14-nav3-tasks-navigator`)_
+- Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops. _(from `2026-09-15-projects-nested-nav3`)_
+- Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
+- `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavGraph` is the `@Composable` nav host — it sets up `LocalTasksNavigator`, `LocalNavBackStack`, and the `BackHandler`. _(from `2026-09-14-nav3-tasks-navigator`)_
@@ -712,6 +724,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `navigation`
 
 - ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
+- Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
+- All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует. _(from `2026-09-07-fab-chrome-level`)_
@@ -719,11 +734,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Backlinks are now shown and functional _(from `2026-09-09-notes-view-edit-split`)_
 - **BottomBar taps** now have a single source of truth: `navigator.navigateTopLevel(dest)` — no `selectedIndex` to keep in sync. _(from `2026-09-05-android-bottom-nav`)_
 - Clear UX: notes list → tap note → read → optionally edit _(from `2026-09-09-notes-view-edit-split`)_
+- Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops. _(from `2026-09-15-projects-nested-nav3`)_
 - Delete confirmation is handled in `NotePreview`, not buried in editor overflow menu _(from `2026-09-09-notes-view-edit-split`)_
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
 - Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
+- Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
 - Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
@@ -735,6 +752,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Note metadata (word count, last updated) is visible without entering edit mode _(from `2026-09-09-notes-view-edit-split`)_
 - `NotePreview` must observe the note via `repo.watchNote()` — requires a Flow subscription _(from `2026-09-09-notes-view-edit-split`)_
 - **Per-tab backstacks** work as expected: open TaskDetail on Today, switch to Plans, switch back to Today → TaskDetail is restored. _(from `2026-09-05-android-bottom-nav`)_
+- `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
 - `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
@@ -858,12 +876,18 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `projects`
 
+- 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
+- Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
+- All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
 - All `@Preview` composables use `ProjectDetailContent(vm, ...)` with `FakeRepositories` — no preview crashes _(from `2026-09-09-project-detail-rework-15-fixes`)_
 - Architecture: screens own routing state (`sheetState`), VMs own domain logic, navigation callbacks are passed as parameters _(from `2026-09-09-project-detail-rework-15-fixes`)_
+- Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops. _(from `2026-09-15-projects-nested-nav3`)_
+- Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
 - `ParentOption` is a `@JvmInline value class` candidate if it grows beyond 3 fields (currently 3 — plain data class is fine) _(from `2026-09-09-parent-picker-contract`)_
 - Parent options are reactive (`StateFlow`) — picker updates automatically when projects change _(from `2026-09-09-parent-picker-contract`)_
 - `ParentPickerSheet` signature: `options: List<ParentOption>`, NOT `currentParentId: ProjectId?` _(from `2026-09-09-parent-picker-contract`)_
 - `ProjectDetailScreen` is fully functional: quick-add creates tasks, parent picker works, Remind/Attach/DueDate/Children sheets open, task click navigates to `TaskDetailScreen` _(from `2026-09-09-project-detail-rework-15-fixes`)_
+- `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
 - `ProjectPickerSheet` is reactive — newly created projects appear without reopening the sheet _(from `2026-09-09-project-detail-rework-15-fixes`)_
 - The "None (root)" option is rendered as a `TextButton` above the `LazyColumn`, not as part of `options` _(from `2026-09-09-parent-picker-contract`)_
 
@@ -890,15 +914,21 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `refactor`
 
+- 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
+- Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
+- All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling. _(from `2026-09-14-nav3-tasks-navigator`)_
 - **`createTask` and `moveTaskToProject`** remain in VM (require repository writes) _(from `2026-09-09-project-detail-intent-refactor`)_
+- Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops. _(from `2026-09-15-projects-nested-nav3`)_
+- Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
 - **`NavigateToTasks`** is no longer a VM event — screen handles it as routing _(from `2026-09-09-project-detail-intent-refactor`)_
 - **No pure reducer needed** — `ProjectDetailViewModel` is write-through like `TaskDetailViewModel` _(from `2026-09-09-project-detail-intent-refactor`)_
 - One new e2e test in `mcp-server` (`McpToolRoundTripTest`). _(from `2026-09-08-mcp-server-health-audit`)_
 - One new unit test file in `mcp-server` (`KoogJsonSchemaBuilderTest`). _(from `2026-09-08-mcp-server-health-audit`)_
 - **`ProjectDetailIntent`** is the canonical list of all project mutations — adding a new field mutation = one `Domain` case _(from `2026-09-09-project-detail-intent-refactor`)_
 - **`ProjectDetailUiEvent`** now has only 2 cases: `NavigateBack` (post-delete) and `ShowError` _(from `2026-09-09-project-detail-intent-refactor`)_
+- `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavGraph` is the `@Composable` nav host — it sets up `LocalTasksNavigator`, `LocalNavBackStack`, and the `BackHandler`. _(from `2026-09-14-nav3-tasks-navigator`)_
@@ -1404,6 +1434,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-nav3-tasks-navigator` — nav3  navigation  koin  refactor
 - `2026-09-14-nav3-vm-store-decorator-fix` — architecture  navigation  koin  viewmodel  bug
 - `2026-09-14-tasks-feature-nested-nav3` — architecture  navigation  koin  viewmodel
+- `2026-09-15-projects-nested-nav3` — nav3  navigation  koin  refactor  projects
 
 ## Active entries
 
@@ -1476,3 +1507,4 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-nav3-tasks-navigator` — Nav3: TasksNavigator replaces callback-passing in task screens
 - `2026-09-14-nav3-vm-store-decorator-fix` — _(no title)
 - `2026-09-14-tasks-feature-nested-nav3` — _(no title)
+- `2026-09-15-projects-nested-nav3` — Projects feature: nested Nav3 graph with ProjectsNavigator

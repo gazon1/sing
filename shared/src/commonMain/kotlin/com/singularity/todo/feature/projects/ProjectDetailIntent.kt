@@ -18,8 +18,6 @@ sealed interface ProjectDetailIntent {
     // ── Routing: owned by screen ────────────────────────────────────────────
 
     sealed interface Routing : ProjectDetailIntent {
-        data class NavigateToTasks(val projectId: ProjectId) : Routing
-        data class NavigateToTask(val taskId: TaskId) : Routing
         // Sheet openers — screen sets activeSheet routing state
         data object OpenColorSheet : Routing
         data object OpenIconSheet : Routing

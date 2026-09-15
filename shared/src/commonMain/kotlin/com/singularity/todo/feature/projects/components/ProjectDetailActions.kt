@@ -30,16 +30,6 @@ value class ProjectDetailActions(
     private val block: (ProjectDetailIntent) -> Unit,
 ) {
 
-    // ── Routing ──────────────────────────────────────────────────────────────
-
-    /** Navigate to the task list for this project. */
-    fun onNavigateToTasks(projectId: ProjectId) =
-        block(ProjectDetailIntent.Routing.NavigateToTasks(projectId))
-
-    /** Navigate to a specific task's detail screen. */
-    fun onNavigateToTask(taskId: TaskId) =
-        block(ProjectDetailIntent.Routing.NavigateToTask(taskId))
-
     // ── Sheet openers ───────────────────────────────────────────────────────
 
     fun onOpenColorSheet() = block(ProjectDetailIntent.Routing.OpenColorSheet)

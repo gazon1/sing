@@ -178,6 +178,25 @@ sealed interface AppDestination : NavKey {
     data class ProjectDetail(val projectId: String) : AppDestination {
         override val title = "Project"
     }
+
+    /**
+     * Nested projects graph. Contains its own NavBackStack[ProjectsRoute].
+     * Used for deep-links and future navigation flexibility.
+     */
+    @Serializable
+    data class ProjectsGraph(
+        val start: ProjectsStartRoute = ProjectsStartRoute.List,
+    ) : AppDestination {
+        override val title = "Projects"
+    }
+
+    /**
+     * Start route for the projects nested graph. Used as `start` param in [ProjectsGraph].
+     */
+    @Serializable
+    sealed interface ProjectsStartRoute : NavKey {
+        @Serializable data object List : ProjectsStartRoute
+    }
 }
 
 /** UI metadata for [AppDestination]. Kept separate so the route stays pure-data. */
@@ -203,6 +222,7 @@ val AppDestination.icon: ImageVector
         is AppDestination.NoteEditor -> Icons.Filled.Create
         is AppDestination.ProjectEditor -> Icons.Filled.Check
         is AppDestination.ProjectDetail -> Icons.Filled.Check
+        is AppDestination.ProjectsGraph -> Icons.Filled.Check
     }
 
 /** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */

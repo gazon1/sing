@@ -81,6 +81,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
 import com.singularity.todo.feature.projects.components.ProjectDetailActions
+import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
+import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavigator
+import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlin.time.Clock
@@ -110,19 +113,14 @@ import kotlin.time.Instant
 @Composable
 fun ProjectDetailScreen(
     projectId: ProjectId,
-    onBack: () -> Unit,
-    onNavigateToTasks: (ProjectId) -> Unit,
-    onNavigateToTask: (TaskId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val nav = LocalProjectsNavigator.current
     val viewModel: ProjectDetailViewModel = koinViewModel { parametersOf(projectId) }
     ProjectDetailContent(
         viewModel = viewModel,
         projectId = projectId,
         modifier = modifier,
-        onBack = onBack,
-        onNavigateToTasks = onNavigateToTasks,
-        onNavigateToTask = onNavigateToTask,
     )
 }
 
@@ -133,11 +131,9 @@ fun ProjectDetailScreen(
 fun ProjectDetailContent(
     viewModel: ProjectDetailViewModel,
     projectId: ProjectId,
-    onBack: () -> Unit,
-    onNavigateToTasks: (ProjectId) -> Unit,
-    onNavigateToTask: (TaskId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val nav = LocalProjectsNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
     val hideCompleted by viewModel.hideCompleted.collectAsStateWithLifecycle()
@@ -152,8 +148,6 @@ fun ProjectDetailContent(
     val actions = remember {
         ProjectDetailActions { intent ->
             when (intent) {
-                is ProjectDetailIntent.Routing.NavigateToTasks -> onNavigateToTasks(intent.projectId)
-                is ProjectDetailIntent.Routing.NavigateToTask -> onNavigateToTask(intent.taskId)
                 is ProjectDetailIntent.Routing.OpenColorSheet -> { sheetState = ActiveSheet.PickColor }
                 is ProjectDetailIntent.Routing.OpenIconSheet -> { sheetState = ActiveSheet.PickIcon }
                 is ProjectDetailIntent.Routing.OpenParentSheet -> { sheetState = ActiveSheet.PickParent(intent.currentParentId) }
@@ -177,7 +171,7 @@ fun ProjectDetailContent(
 
     CollectEvents(viewModel.events) { event ->
         when (event) {
-            ProjectDetailUiEvent.NavigateBack -> onBack()
+            ProjectDetailUiEvent.NavigateBack -> nav.back()
             is ProjectDetailUiEvent.ShowError -> { errorMessage = event.message }
         }
     }
@@ -189,7 +183,7 @@ fun ProjectDetailContent(
             TopAppBar(
                 title = { Text(state.title()) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { nav.back() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
@@ -266,6 +260,7 @@ fun ProjectDetailContent(
                     hideCompleted = hideCompleted,
                     availableTasks = availableTasks,
                     actions = actions,
+                    nav = nav,
                 )
             }
         }
@@ -514,6 +509,7 @@ private fun ProjectBodySection(
     hideCompleted: Boolean,
     availableTasks: List<Task>,
     actions: ProjectDetailActions,
+    nav: ProjectsNavigator,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // Quick-add input
@@ -558,7 +554,7 @@ private fun ProjectBodySection(
                 items(ui.tasks, key = { it.id.value }) { task ->
                     TaskCard(
                         task = task,
-                        onClick = { actions.onNavigateToTask(task.id) },
+                        onClick = { nav.openTask(task.id) },
                         actions = TaskCardActions.Empty,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
@@ -569,7 +565,7 @@ private fun ProjectBodySection(
         // "See all" link
         if (ui.totalCount > 5) {
             TextButton(
-                onClick = { actions.onNavigateToTasks(ui.project.id) },
+                onClick = { nav.openTasks(ui.project.id) },
                 modifier = Modifier.padding(horizontal = 16.dp),
             ) {
                 Text("See all ${ui.totalCount} tasks")
@@ -981,7 +977,7 @@ private val clock: Clock get() = Clock.System
 @androidx.compose.ui.tooling.preview.Preview
 @Suppress("VIEW_MODEL_IN_COMPOSABLE", "ViewModelConstructorInComposable") // Preview pattern: construct VM with Fake* deps directly
 @Composable
-private fun ProjectDetailContentPreview() {
+private fun ProjectDetailContentPreview() = ProjectsPreviewWrapper {
     val sample = PreviewSamples.project()
 
     // Build fake dependencies manually — no Koin needed in previews.
@@ -1007,13 +1003,12 @@ private fun ProjectDetailContentPreview() {
         clock = com.singularity.todo.core.platform.Clock,
     )
 
-    PreviewThemed {
-        ProjectDetailContent(
-            viewModel = vm,
-            projectId = sample.id,
-            onBack = {},
-            onNavigateToTasks = {},
-            onNavigateToTask = {},
-        )
+    ProjectsPreviewWrapper {
+        PreviewThemed {
+            ProjectDetailContent(
+                viewModel = vm,
+                projectId = sample.id,
+            )
+        }
     }
 }

@@ -25,14 +25,14 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.projects.components.ProjectCard
 import com.singularity.todo.feature.projects.components.ProjectCardActions
+import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
+import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProjectsScreen(
-    onNavigateToProject: (String) -> Unit,
-    onNavigateToCreateProject: () -> Unit,
-) {
+fun ProjectsScreen(modifier: Modifier = Modifier) {
+    val nav = LocalProjectsNavigator.current
     val viewModel: ProjectsViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -44,7 +44,8 @@ fun ProjectsScreen(
         ProjectsContent(
             state = state,
             modifier = Modifier.padding(padding),
-            onNavigateToProject = onNavigateToProject,
+            onNavigateToProject = { id -> nav.openDetail(ProjectId.fromString(id)) },
+            onCreateProject = { nav.openEditor(null) },
             onDelete = viewModel::delete,
             onReviewClick = viewModel::reviewProject,
         )
@@ -67,6 +68,7 @@ private fun ProjectsContent(
     state: ProjectsUiState,
     modifier: Modifier = Modifier,
     onNavigateToProject: (String) -> Unit,
+    onCreateProject: () -> Unit,
     onDelete: (ProjectId) -> Unit,
     onReviewClick: (Project) -> Unit,
 ) {
@@ -78,6 +80,7 @@ private fun ProjectsContent(
             projects = state.projects,
             modifier = modifier.fillMaxSize(),
             onNavigateToProject = onNavigateToProject,
+            onCreateProject = onCreateProject,
             onDelete = onDelete,
             onReviewClick = onReviewClick,
         )
@@ -89,6 +92,7 @@ private fun ProjectList(
     projects: List<ProjectWithCounts>,
     modifier: Modifier = Modifier,
     onNavigateToProject: (String) -> Unit,
+    onCreateProject: () -> Unit,
     onDelete: (ProjectId) -> Unit,
     onReviewClick: (Project) -> Unit,
 ) {
@@ -118,43 +122,52 @@ private fun ProjectList(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ProjectsScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    ProjectsContent(
-        state = ProjectsUiState.Content(
-            projects = listOf(
-                ProjectWithCounts(PreviewSamples.project("p1", "Inbox", 0xFF2196F3.toInt()), 5, 2),
-                ProjectWithCounts(PreviewSamples.project("p2", "Work", 0xFFF44336.toInt()), 12, 8),
-                ProjectWithCounts(PreviewSamples.project("p3", "Personal", 0xFF9C27B0.toInt()), 0, 0),
+private fun ProjectsScreenContentPreview() = ProjectsPreviewWrapper {
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        ProjectsContent(
+            state = ProjectsUiState.Content(
+                projects = listOf(
+                    ProjectWithCounts(PreviewSamples.project("p1", "Inbox", 0xFF2196F3.toInt()), 5, 2),
+                    ProjectWithCounts(PreviewSamples.project("p2", "Work", 0xFFF44336.toInt()), 12, 8),
+                    ProjectWithCounts(PreviewSamples.project("p3", "Personal", 0xFF9C27B0.toInt()), 0, 0),
+                ),
             ),
-        ),
-        onNavigateToProject = {},
-        onDelete = {},
-        onReviewClick = {},
-    )
+            onNavigateToProject = {},
+            onCreateProject = {},
+            onDelete = {},
+            onReviewClick = {},
+        )
+    }
 }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ProjectsScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    ProjectsContent(
-        state = ProjectsUiState.Empty(userId = UserId("anonymous")),
-        onNavigateToProject = {},
-        onDelete = {},
-        onReviewClick = {},
-    )
+private fun ProjectsScreenEmptyPreview() = ProjectsPreviewWrapper {
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        ProjectsContent(
+            state = ProjectsUiState.Empty(userId = UserId("anonymous")),
+            onNavigateToProject = {},
+            onCreateProject = {},
+            onDelete = {},
+            onReviewClick = {},
+        )
+    }
 }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ProjectsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    ProjectsContent(
-        state = ProjectsUiState.Content(
-            projects = listOf(
-                ProjectWithCounts(PreviewSamples.project("p1", "Archived", 0xFF607D8B.toInt()), 3, 1),
+private fun ProjectsScreenDarkPreview() = ProjectsPreviewWrapper {
+    PreviewThemed(darkTheme = true, useSurface = false) {
+        ProjectsContent(
+            state = ProjectsUiState.Content(
+                projects = listOf(
+                    ProjectWithCounts(PreviewSamples.project("p1", "Archived", 0xFF607D8B.toInt()), 3, 1),
+                ),
             ),
-        ),
-        onNavigateToProject = {},
-        onDelete = {},
-        onReviewClick = {},
-    )
+            onNavigateToProject = {},
+            onCreateProject = {},
+            onDelete = {},
+            onReviewClick = {},
+        )
+    }
 }

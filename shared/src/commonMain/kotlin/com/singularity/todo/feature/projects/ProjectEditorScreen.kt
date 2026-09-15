@@ -53,6 +53,8 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
+import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -66,14 +68,14 @@ import org.koin.core.parameter.parametersOf
 @Composable
 fun ProjectEditorScreen(
     projectId: ProjectId?,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val nav = LocalProjectsNavigator.current
     val viewModel: ProjectEditorViewModel = koinViewModel { parametersOf(projectId) }
     ProjectEditorContent(
         viewModel = viewModel,
         modifier = modifier,
-        onBack = onBack,
+        onBack = { nav.back() },
     )
 }
 
@@ -305,7 +307,7 @@ private fun ProjectEditorUiEvent.toNotification(): Notification = when (this) {
 @Suppress("ViewModelConstructorInComposable")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProjectEditorCreatePreview() {
+private fun ProjectEditorCreatePreview() = ProjectsPreviewWrapper {
     // Build fake dependencies manually — no Koin needed in previews.
     val fakeProjectsRepo = com.singularity.todo.test.fakes.FakeProjectsRepository()
     val fakeAuthRepo = com.singularity.todo.test.fakes.FakeAuthRepository()
@@ -328,7 +330,7 @@ private fun ProjectEditorCreatePreview() {
 @Suppress("ViewModelConstructorInComposable")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProjectEditorEditPreview() {
+private fun ProjectEditorEditPreview() = ProjectsPreviewWrapper {
     val sample = com.singularity.todo.core.ui.preview.PreviewSamples.project("p1", "Work")
     val fakeProjectsRepo = com.singularity.todo.test.fakes.FakeProjectsRepository().apply { seed(sample) }
     val fakeAuthRepo = com.singularity.todo.test.fakes.FakeAuthRepository()

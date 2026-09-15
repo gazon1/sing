@@ -16,6 +16,8 @@ import com.singularity.todo.feature.projects.ProjectDetailScreen
 import com.singularity.todo.feature.projects.ProjectEditorScreen
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.projects.ProjectsScreen
+import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
+import com.singularity.todo.feature.projects.presentation.nav.ProjectsRoute
 import com.singularity.todo.feature.search.SearchScreen
 import com.singularity.todo.feature.settings.SettingsScreen
 import com.singularity.todo.feature.statistics.StatisticsScreen
@@ -57,13 +59,9 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
         }
 
         entry<AppDestination.Plans> {
-            ProjectsScreen(
-                onNavigateToProject = { id ->
-                    nav.navigate(AppDestination.ProjectDetail(id))
-                },
-                onNavigateToCreateProject = {
-                    nav.navigate(AppDestination.ProjectEditor())
-                },
+            ProjectsNavGraph(
+                start = ProjectsRoute.List,
+                onExitGraph = { nav.goBack() },
             )
         }
 
@@ -141,22 +139,29 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
         }
 
         entry<AppDestination.ProjectEditor> { route ->
-            ProjectEditorScreen(
-                projectId = route.projectId?.let { ProjectId.fromString(it) },
-                onBack = { nav.goBack() },
+            ProjectsNavGraph(
+                start = ProjectsRoute.Editor(route.projectId?.let { ProjectId.fromString(it) }),
+                onExitGraph = { nav.goBack() },
             )
         }
 
         entry<AppDestination.ProjectDetail> { route ->
-            ProjectDetailScreen(
-                projectId = ProjectId.fromString(route.projectId),
-                onBack = { nav.goBack() },
-                onNavigateToTasks = { projectId ->
-                    nav.navigate(AppDestination.TasksByProject(projectId.value))
+            ProjectsNavGraph(
+                start = ProjectsRoute.Detail(ProjectId.fromString(route.projectId)),
+                onExitGraph = { dest ->
+                    when (dest) {
+                        is AppDestination.TasksByProject -> nav.navigate(dest)
+                        is AppDestination.TaskDetail -> nav.navigate(dest)
+                        else -> nav.goBack()
+                    }
                 },
-                onNavigateToTask = { taskId ->
-                    nav.navigate(AppDestination.TaskDetail(taskId.value))
-                },
+            )
+        }
+
+        entry<AppDestination.ProjectsGraph> { route ->
+            ProjectsNavGraph(
+                start = ProjectsRoute.List,
+                onExitGraph = { nav.goBack() },
             )
         }
 
