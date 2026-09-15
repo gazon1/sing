@@ -28,14 +28,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.formatTimestampsRelative
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import com.singularity.todo.feature.tasks.presentation.nav.PreviewTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.nav.TasksNavigator
+import com.singularity.todo.feature.tasks.presentation.nav.TasksPreviewWrapper
 import com.singularity.todo.feature.tasks.presentation.state.CreateActiveSheet
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
@@ -43,6 +48,7 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 
 /**
  * Content for TaskDetail View mode.
@@ -270,5 +276,40 @@ fun TaskDetailViewContent(
         CreateActiveSheet.Kind,
         CreateActiveSheet.Attachment,
         null -> { /* no-op */ }
+    }
+}
+
+// ─── Previews ────────────────────────────────────────────────────────────────
+
+@Preview
+@Composable
+private fun TaskDetailViewScreenPreview() = PreviewThemed(useSurface = false) {
+    TasksPreviewWrapper {
+        TaskDetailViewContent(
+            ui = PreviewSamples.taskDetailUi(),
+            events = MutableSharedFlow(),
+            recentlyDeleted = kotlinx.coroutines.flow.emptyFlow(),
+            onIntent = { },
+            navigator = PreviewTasksNavigator(),
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun TaskDetailViewScreenHighPriorityPreview() = PreviewThemed(useSurface = false) {
+    TasksPreviewWrapper {
+        TaskDetailViewContent(
+            ui = PreviewSamples.taskDetailUi(
+                task = PreviewSamples.task(
+                    title = "URGENT: Deploy to production",
+                    priority = TaskPriority.Urgent,
+                ),
+            ),
+            events = MutableSharedFlow(),
+            recentlyDeleted = kotlinx.coroutines.flow.emptyFlow(),
+            onIntent = { },
+            navigator = PreviewTasksNavigator(),
+        )
     }
 }

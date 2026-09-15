@@ -32,7 +32,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TasksUiEvent
+import com.singularity.todo.feature.tasks.domain.model.TasksUiState
 import com.singularity.todo.feature.tasks.presentation.components.BulkActionBar
 import com.singularity.todo.feature.tasks.presentation.components.FilterChipsRow
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
@@ -72,10 +74,10 @@ fun TaskListScreen(
 
     // Apply the route's domain filter on first composition.
     LaunchedEffect(route) {
-        val domainFilter: com.singularity.todo.feature.tasks.domain.model.TaskFilter = when (route) {
-            is TasksRoute.Inbox -> com.singularity.todo.feature.tasks.domain.model.TaskFilter.Inbox
-            is TasksRoute.Today -> com.singularity.todo.feature.tasks.domain.model.TaskFilter.Today
-            is TasksRoute.ByProject -> com.singularity.todo.feature.tasks.domain.model.TaskFilter.ByProject(
+        val domainFilter: TaskFilter = when (route) {
+            is TasksRoute.Inbox -> TaskFilter.Inbox
+            is TasksRoute.Today -> TaskFilter.Today
+            is TasksRoute.ByProject -> TaskFilter.ByProject(
                 route.projectId
             )
         }
@@ -102,7 +104,7 @@ fun TaskListScreen(
     }
 
     // Derived stats from current tasks
-    val currentTasks = (state as? com.singularity.todo.feature.tasks.domain.model.TasksUiState.Content)?.tasks ?: emptyList()
+    val currentTasks = (state as? TasksUiState.Content)?.tasks ?: emptyList()
     val stats by remember(currentTasks) { derivedStateOf { TaskListStats.from(currentTasks) } }
 
     Scaffold(
@@ -122,7 +124,7 @@ fun TaskListScreen(
         },
         bottomBar = {
             val currentState = state
-            if (currentState is com.singularity.todo.feature.tasks.domain.model.TasksUiState.Content && currentState.selectedIds.isNotEmpty()) {
+            if (currentState is TasksUiState.Content && currentState.selectedIds.isNotEmpty()) {
                 BulkActionBar(
                     selectedCount = currentState.selectedIds.size,
                     onComplete = vm::bulkCompleteSelected,
@@ -170,24 +172,24 @@ fun TaskListScreen(
 
             // List content — no PullToRefreshBox (data is reactive via Room flows)
             when (val s = state) {
-                is com.singularity.todo.feature.tasks.domain.model.TasksUiState.Loading -> {
+                is TasksUiState.Loading -> {
                     // TODO: LoadingIndicator
                 }
-                is com.singularity.todo.feature.tasks.domain.model.TasksUiState.Empty -> {
+                is TasksUiState.Empty -> {
                     EmptyState(
                         title = "Задач пока нет",
                         description = "Нажмите «Новая задача» внизу, чтобы добавить первую.",
                         icon = Icons.Default.CheckCircle,
                     )
                 }
-                is com.singularity.todo.feature.tasks.domain.model.TasksUiState.Error -> {
+                is TasksUiState.Error -> {
                     EmptyState(
                         title = "Ошибка: ${s.message}",
                         description = "Попробуйте обновить список.",
                         icon = Icons.Default.CheckCircle,
                     )
                 }
-                is com.singularity.todo.feature.tasks.domain.model.TasksUiState.Content -> {
+                is TasksUiState.Content -> {
                     val tasks = s.tasks
                     if (tasks.isEmpty()) {
                         val isFilterActive = statusFilter != TaskListFilter.ALL
