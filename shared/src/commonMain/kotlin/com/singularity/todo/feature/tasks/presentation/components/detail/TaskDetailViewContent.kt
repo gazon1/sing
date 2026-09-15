@@ -17,10 +17,14 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -29,6 +33,7 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.formatTimestampsRelative
+import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorPrioritySheet
@@ -38,36 +43,43 @@ import com.singularity.todo.feature.tasks.presentation.state.CreateActiveSheet
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent.UndoDelete
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.coroutines.flow.Flow
 
 /**
  * Content for TaskDetail View mode.
- * Owns local draft state for title/description (sync with VM via LaunchedEffect).
- * Owns sheet/dropdown state (not lifted to avoid Host explosion).
+ * Title/description drafts are owned by the ViewModel (not the Composable).
+ * Sheet/dropdown state is local to this composable.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskDetailViewContent(
     ui: TaskDetailUi,
     events: Flow<TaskDetailUiEvent>,
+    recentlyDeleted: Flow<Task?>,
     onIntent: (TaskDetailIntent) -> Unit,
     navigator: TasksNavigator,
 ) {
     var activeSheet by remember { mutableStateOf<CreateActiveSheet?>(null) }
     var showMenu by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Local drafts — sync with external VM state to avoid stale text fields.
-    var titleDraft by remember { mutableStateOf(ui.task.title) }
-    var descriptionDraft by remember { mutableStateOf(ui.task.description ?: "") }
-
-    LaunchedEffect(ui.task.title) {
-        if (titleDraft != ui.task.title) titleDraft = ui.task.title
-    }
-    LaunchedEffect(ui.task.description) {
-        val new = ui.task.description ?: ""
-        if (descriptionDraft != new) descriptionDraft = new
+    // Undo snackbar — owned by VM via recentlyDeleted StateFlow (UDF: Composable subscribes, VM decides content).
+    LaunchedEffect(Unit) {
+        recentlyDeleted.collect { task ->
+            if (task != null) {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Задача удалена",
+                    actionLabel = "Восстановить",
+                    withDismissAction = true,
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    onIntent(TaskDetailIntent.Domain.Restore)
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -77,6 +89,7 @@ fun TaskDetailViewContent(
                 onMoreClick = { showMenu = true },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = TaskColors.Background,
     ) { padding ->
         Column(
@@ -88,19 +101,17 @@ fun TaskDetailViewContent(
             verticalArrangement = Arrangement.spacedBy(TaskSpacing.md),
         ) {
             TaskTitleRow(
-                title = titleDraft,
+                title = ui.titleDraft,
                 isCompleted = ui.task.isCompleted,
                 onTitleChange = { newTitle ->
-                    titleDraft = newTitle
                     onIntent(TaskDetailIntent.Domain.TitleChanged(newTitle))
                 },
                 onCheckToggle = { onIntent(TaskDetailIntent.Domain.ToggleComplete) },
             )
 
             TaskDescriptionField(
-                description = descriptionDraft,
+                description = ui.descriptionDraft,
                 onDescriptionChange = { newDesc ->
-                    descriptionDraft = newDesc
                     onIntent(TaskDetailIntent.Domain.DescriptionChanged(newDesc))
                 },
             )

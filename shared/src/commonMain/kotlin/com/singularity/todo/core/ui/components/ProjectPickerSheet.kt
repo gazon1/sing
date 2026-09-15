@@ -18,12 +18,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
@@ -31,18 +26,18 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.CreateProjectUseCase
 import com.singularity.todo.feature.projects.Project
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import kotlinx.coroutines.flow.flowOf
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
-import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
-import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,12 +45,10 @@ import org.koin.compose.koinInject
 fun ProjectPickerSheet(
     onProjectSelected: (Project?) -> Unit,
     onDismiss: () -> Unit,
+    vm: ProjectPickerViewModel = koinInject(),
 ) {
-    val projectsRepo: ProjectsRepository = koinInject()
-    val currentUser: ProfileAwareCurrentUser = koinInject()
     ProjectPickerSheetContent(
-        projectsRepository = projectsRepo,
-        currentUser = currentUser,
+        vm = vm,
         onProjectSelected = onProjectSelected,
         onDismiss = onDismiss,
     )
@@ -64,22 +57,14 @@ fun ProjectPickerSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProjectPickerSheetContent(
-    projectsRepository: ProjectsRepository,
-    currentUser: ProfileAwareCurrentUser,
+    vm: ProjectPickerViewModel,
     onProjectSelected: (Project?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
-
-    var projects by remember { mutableStateOf<List<Project>>(emptyList()) }
-    var isCreating by remember { mutableStateOf(false) }
-    var newProjectName by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
-
-    val userId by currentUser.scopedUserId.collectAsStateWithLifecycle()
-    LaunchedEffect(userId) {
-        projectsRepository.watchProjects(userId).collect { projects = it }
-    }
+    val projects by vm.projects.collectAsStateWithLifecycle()
+    val draftName by vm.draftName.collectAsStateWithLifecycle()
+    val isCreating by vm.isCreating.collectAsStateWithLifecycle()
 
     TaskEditorSheetHost(
         title = "Select Project",
@@ -111,61 +96,38 @@ private fun ProjectPickerSheetContent(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         OutlinedTextField(
-                            value = newProjectName,
-                            onValueChange = { newProjectName = it },
+                            value = draftName,
+                            onValueChange = vm::setDraftName,
                             placeholder = { Text("New project name") },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(
+                            keyboardActions = KeyboardActions(
                                 onDone = {
-                                    if (newProjectName.isNotBlank()) {
-                                        scope.launch {
-                                            val uid = currentUser.scopedUserId.value
-                                            val newProject = Project(
-                                                id = ProjectId.generate(),
-                                                name = newProjectName.trim(),
-                                                color = 0xFF4CAF50.toInt(),
-                                                createdAt = Clock.now(),
-                                                updatedAt = Clock.now(),
-                                                userId = uid,
-                                            )
-                                            projectsRepository.create(newProject)
-                                            newProjectName = ""
-                                            isCreating = false
-                                        }
+                                    if (draftName.isNotBlank()) {
+                                        vm.confirmCreate()
+                                        focusManager.clearFocus()
                                     }
-                                    focusManager.clearFocus()
                                 },
                             ),
                         )
                         TextButton(
                             onClick = {
-                                if (newProjectName.isNotBlank()) {
-                                    scope.launch {
-                                        val uid = currentUser.scopedUserId.value
-                                        val newProject = Project(
-                                            id = ProjectId.generate(),
-                                            name = newProjectName.trim(),
-                                            color = 0xFF4CAF50.toInt(),
-                                            createdAt = Clock.now(),
-                                            updatedAt = Clock.now(),
-                                            userId = uid,
-                                        )
-                                        projectsRepository.create(newProject)
-                                        newProjectName = ""
-                                        isCreating = false
-                                    }
+                                if (draftName.isNotBlank()) {
+                                    vm.confirmCreate()
+                                    focusManager.clearFocus()
                                 }
-                                focusManager.clearFocus()
                             },
                         ) {
                             Text("Create")
                         }
+                        TextButton(onClick = { vm.setCreating(false) }) {
+                            Text("Cancel")
+                        }
                     }
                 } else {
                     TextButton(
-                        onClick = { isCreating = true },
+                        onClick = { vm.setCreating(true) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp, vertical = 4.dp),
@@ -199,20 +161,20 @@ private fun ProjectPickerSheetContent(
 }
 
 
-
 @Preview
 @Composable
 private fun ProjectPickerSheetLightPreview() = PreviewThemed(darkTheme = false) {
     val fakeProjectsRepo = FakeProjectsRepository()
     val fakeAuthRepo = FakeAuthRepository()
-    val fakeProfileRepo = FakeProfileRepository()
-    val fakeCurrentUser = FakeProfileAwareCurrentUser(
-        authRepository = fakeAuthRepo,
-        profileRepository = fakeProfileRepo,
+    val fakeCurrentUser = FakeProfileAwareCurrentUser(authRepository = fakeAuthRepo)
+    // FakeProjectsRepository.create() is already a no-op success.
+    val vm = ProjectPickerViewModel(
+        projectRepo = fakeProjectsRepo,
+        createProject = CreateProjectUseCase(fakeProjectsRepo, Clock),
+        currentUser = fakeCurrentUser,
     )
     ProjectPickerSheetContent(
-        projectsRepository = fakeProjectsRepo,
-        currentUser = fakeCurrentUser,
+        vm = vm,
         onProjectSelected = { _ -> },
         onDismiss = {},
     )

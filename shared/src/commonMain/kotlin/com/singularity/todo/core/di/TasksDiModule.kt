@@ -18,7 +18,6 @@ import com.singularity.todo.feature.pomodoro.InMemoryPomodoroRepository
 import com.singularity.todo.feature.pomodoro.PomodoroRepository
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
@@ -91,17 +90,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModel {
-        TasksViewModel(
-            taskRepo = get<TaskRepository>(),
-            createTask = get<CreateTaskUseCase>(),
-            updateTask = get<UpdateTaskUseCase>(),
-            currentUser = get<ProfileAwareCurrentUser>(),
-            mutations = get<TaskMutationsUseCase>(),
-            projectRepo = get<ProjectsRepository>(),
-            clock = get<Clock>(),
-        )
-    }
+    viewModelOf(::TasksViewModel)
 
     viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
         TaskDetailViewModel(

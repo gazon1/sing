@@ -27,9 +27,9 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.tasks.domain.TaskDomain
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -237,19 +238,22 @@ class FakeTaskRepository : TaskRepository {
     }
 
     override fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> =
-        store.state.map { map ->
-            map.values
-                .filter { it.userId == userId }
-                .filter { TaskDomain.matchesFilter(it, filter, kotlin.time.Instant.fromEpochMilliseconds(Clock.now().toEpochMilliseconds()).toLocalDateTime(TimeZone.currentSystemDefault()).date) }
-                .sortedWith(compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }))
-        }
+        store.state
+            .onStart { emit(store.state.value) }
+            .map { map ->
+                map.values
+                    .filter { it.userId == userId }
+                    .filter { TaskDomain.matchesFilter(it, filter, kotlin.time.Instant.fromEpochMilliseconds(Clock.now().toEpochMilliseconds()).toLocalDateTime(TimeZone.currentSystemDefault()).date) }
+                    .sortedWith(compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }))
+            }
 
-    override fun watchTask(id: TaskId): Flow<Task?> = store.state.map { it[id.value] }
+    override fun watchTask(id: TaskId): Flow<Task?> =
+        store.state.onStart { emit(store.state.value) }.map { it[id.value] }
 
     override fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> =
-        store.state.map { map ->
-            map.values.filter { it.parentTaskId == parentId && it.userId.value == userId.value }
-        }
+        store.state
+            .onStart { emit(store.state.value) }
+            .map { map -> map.values.filter { it.parentTaskId == parentId && it.userId.value == userId.value } }
 
     override fun getTagIds(taskId: TaskId): Flow<List<TagId>> =
         store.state.map { it[taskId.value]?.tags ?: emptyList() }

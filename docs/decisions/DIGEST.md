@@ -61,9 +61,21 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Users can now create projects directly from Plans via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
 - Users can now create tasks directly from Inbox/Today via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
 
+### `"architecture"`
+
+- **+100% testability** — all business logic is in pure Kotlin, testable without Compose. _(from `2026-09-15-viewmodel-state-ownership`)_
+- **−100% UDF violations** in this category — the rule is now written and enforced via skill. _(from `2026-09-15-viewmodel-state-ownership`)_
+
 ### `architecture`
 
 - ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
+
+### `"architecture"`
+
+- **+~20% lines in ViewModels** — state that was implicit in Composables must be made explicit in VMs. _(from `2026-09-15-viewmodel-state-ownership`)_
+
+### `architecture`
+
 - **8 экранов мигрируют одновременно** — невозможно сделать постепенную миграцию из-за смены типа `_events` _(from `2026-09-05-ui-event-per-feature`)_
 - `ActiveSheet.kt`: 35 → ~15 lines (`toActiveSheet()` removed). _(from `2026-09-09-task-detail-intent-refactor`)_
 - All new screens MUST follow the `PublicScreen` / `PrivateContent` naming pattern _(from `2026-09-09-preview-with-koin-helper`)_
@@ -96,6 +108,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
 - Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
+
+### `"architecture"`
+
+- **Migration cost** — 7 violations across 5 PRs. See the implementation plan for the sequence. _(from `2026-09-15-viewmodel-state-ownership`)_
+
+### `architecture`
+
 - Migration from plain lambdas requires updating call sites _(from `2026-09-09-content-slot-pattern`)_
 - Navigation между Detail и подзадачами/проектами становится _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **Negative**: 40+ files had import paths updated; test files also required path corrections _(from `2026-09-09-feature-tasks-clean-architecture`)_
@@ -111,6 +130,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Positive**: Strict layer boundaries enforced by package structure; pure domain logic testable without Android instrumentation _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - **Positive**: `TaskDetailUiState.reduce()` is a pure function — covered by unit tests without mocks _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - `@Preview` composables are always `private` and call the `*Content` variant with manually constructed VMs _(from `2026-09-09-preview-with-koin-helper`)_
+
+### `"architecture"`
+
+- Preview functions in `TaskDetailViewScreen` updated to pass `emptyFlow()` for `recentlyDeleted`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+
+### `architecture`
+
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
 - `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
@@ -129,9 +155,23 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskDetailContent` is now `internal` (stateless, previewable without Koin). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailScreen.kt`: `when (action)` on 27 branches → `when (intent)` on 6 branches. Routing now uniform (all `activeSheet = …`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailUiEvent.kt`: 34 → ~18 lines (10 sheet-triggers removed). _(from `2026-09-09-task-detail-intent-refactor`)_
+
+### `"architecture"`
+
+- `TaskDetailViewContent` now takes a `recentlyDeleted: Flow<Task?>` parameter — passed from `TaskDetailViewScreen`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+
+### `architecture`
+
 - `TaskDetailViewModel.kt`: 450 → ~270 lines, 37 public methods → 3 (`start`, `onTitleChange`, `onIntent`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailViewModel(taskId)` — Task A → back → Task B больше _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `TaskDetailViewModelTest`: updated 5 tests to call `vm.onIntent(Domain.X)` instead of `vm.setX(task, value)`. _(from `2026-09-09-task-detail-intent-refactor`)_
+
+### `"architecture"`
+
+- `TasksDiModule` removed now-unused `ProjectsRepository` import. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+
+### `architecture`
+
 - `TasksFormatters.kt`: added `dueChipColors` formatter and `parseDueTime` utility. _(from `2026-09-09-task-detail-intent-refactor`)_
 - **`TasksRoute.Pop` как sentinel** — race condition (см. review rev. 1, _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - The "None (root)" option is rendered as a `TextButton` above the `LazyColumn`, not as part of `options` _(from `2026-09-09-parent-picker-contract`)_
@@ -217,6 +257,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Positive**: Strict layer boundaries enforced by package structure; pure domain logic testable without Android instrumentation _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - **Positive**: `TaskDetailUiState.reduce()` is a pure function — covered by unit tests without mocks _(from `2026-09-09-feature-tasks-clean-architecture`)_
 
+### `"compose"`
+
+- **+100% testability** — all business logic is in pure Kotlin, testable without Compose. _(from `2026-09-15-viewmodel-state-ownership`)_
+- **−100% UDF violations** in this category — the rule is now written and enforced via skill. _(from `2026-09-15-viewmodel-state-ownership`)_
+- **+~20% lines in ViewModels** — state that was implicit in Composables must be made explicit in VMs. _(from `2026-09-15-viewmodel-state-ownership`)_
+
 ### `compose`
 
 - `ActiveSheet.kt`: 35 → ~15 lines (`toActiveSheet()` removed). _(from `2026-09-09-task-detail-intent-refactor`)_
@@ -237,6 +283,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them _(from `2026-09-09-preview-with-koin-helper`)_
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
 - **Menu sheet visibility** is `rememberSaveable` state in `AndroidShell` — survives config changes, not part of the back stack. _(from `2026-09-05-android-bottom-nav`)_
+
+### `"compose"`
+
+- **Migration cost** — 7 violations across 5 PRs. See the implementation plan for the sequence. _(from `2026-09-15-viewmodel-state-ownership`)_
+
+### `compose`
+
 - Migration from plain lambdas requires updating call sites _(from `2026-09-09-content-slot-pattern`)_
 - `ModalShell` + `DrawerStyle.Modal` remain in `AppShell.kt`. They are not wired to any platform but are preserved for future modal drawer needs. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **`NavDestination` (drawer enum)** remains for the desktop drawer's grouping by `NavGroup` — not removed, just no longer wired to mobile. _(from `2026-09-05-android-bottom-nav`)_
@@ -246,6 +299,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `@Preview` annotation is `@androidx.compose.ui.tooling.preview.Preview` — _(from `2026-09-06-compose-previews`)_
 - `@Preview` composables are always `private` and call the `*Content` variant with manually constructed VMs _(from `2026-09-09-preview-with-koin-helper`)_
 - Preview functions are `private` and placed at the end of the source file, _(from `2026-09-06-compose-previews`)_
+
+### `"compose"`
+
+- Preview functions in `TaskDetailViewScreen` updated to pass `emptyFlow()` for `recentlyDeleted`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+
+### `compose`
+
 - `PreviewParameterProvider` is avoided — individual preview functions used instead _(from `2026-09-06-compose-previews`)_
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - Smoke test now passes: `./gradlew :desktopApp:test` → BUILD SUCCESSFUL _(from `2026-09-06-desktop-smoke-test-with-koin`)_
@@ -253,8 +313,22 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskDetailContent` is now `internal` (stateless, previewable without Koin). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailScreen.kt`: `when (action)` on 27 branches → `when (intent)` on 6 branches. Routing now uniform (all `activeSheet = …`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailUiEvent.kt`: 34 → ~18 lines (10 sheet-triggers removed). _(from `2026-09-09-task-detail-intent-refactor`)_
+
+### `"compose"`
+
+- `TaskDetailViewContent` now takes a `recentlyDeleted: Flow<Task?>` parameter — passed from `TaskDetailViewScreen`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+
+### `compose`
+
 - `TaskDetailViewModel.kt`: 450 → ~270 lines, 37 public methods → 3 (`start`, `onTitleChange`, `onIntent`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailViewModelTest`: updated 5 tests to call `vm.onIntent(Domain.X)` instead of `vm.setX(task, value)`. _(from `2026-09-09-task-detail-intent-refactor`)_
+
+### `"compose"`
+
+- `TasksDiModule` removed now-unused `ProjectsRepository` import. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+
+### `compose`
+
 - `TasksFormatters.kt`: added `dueChipColors` formatter and `parseDueTime` utility. _(from `2026-09-09-task-detail-intent-refactor`)_
 - **`TasksScreen`** unchanged — it already takes `onNavigateToTask` / `onNavigateToCreateTask` callbacks; the per-tab sub-navigation state now lives in `TasksRoute` inside `AppNavHost` via `rememberSaveable`. _(from `2026-09-05-android-bottom-nav`)_
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
@@ -397,6 +471,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - Один прогон драйвера = реальная multi-step демонстрация MCP. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
 - При недоступности LLM в драйвере зашит fallback sub-task'ов. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
+
+### `"drafts"`
+
+- Preview functions in `TaskDetailViewScreen` updated to pass `emptyFlow()` for `recentlyDeleted`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+- `TaskDetailViewContent` now takes a `recentlyDeleted: Flow<Task?>` parameter — passed from `TaskDetailViewScreen`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+- `TasksDiModule` removed now-unused `ProjectsRepository` import. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
 
 ### `error-handling`
 
@@ -1138,12 +1218,33 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `AppDestination.TaskDetail` and `TaskDetailCreate` remain `@Deprecated` — they can be deleted in a follow-up cleanup commit. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
 - New file `TaskDetailIntent.kt` (~120 lines). _(from `2026-09-09-task-detail-intent-refactor`)_
+
+### `"tasks"`
+
+- Preview functions in `TaskDetailViewScreen` updated to pass `emptyFlow()` for `recentlyDeleted`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+
+### `tasks`
+
 - `ProjectsNavGraph` in `NavEntries` now maps `ProjectsStartRoute.Editor` to `ProjectsRoute.Editor`. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - `TaskDetailContent` is now `internal` (stateless, previewable without Koin). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailScreen.kt`: `when (action)` on 27 branches → `when (intent)` on 6 branches. Routing now uniform (all `activeSheet = …`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailUiEvent.kt`: 34 → ~18 lines (10 sheet-triggers removed). _(from `2026-09-09-task-detail-intent-refactor`)_
+
+### `"tasks"`
+
+- `TaskDetailViewContent` now takes a `recentlyDeleted: Flow<Task?>` parameter — passed from `TaskDetailViewScreen`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+
+### `tasks`
+
 - `TaskDetailViewModel.kt`: 450 → ~270 lines, 37 public methods → 3 (`start`, `onTitleChange`, `onIntent`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailViewModelTest`: updated 5 tests to call `vm.onIntent(Domain.X)` instead of `vm.setX(task, value)`. _(from `2026-09-09-task-detail-intent-refactor`)_
+
+### `"tasks"`
+
+- `TasksDiModule` removed now-unused `ProjectsRepository` import. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+
+### `tasks`
+
 - `TasksFormatters.kt`: added `dueChipColors` formatter and `parseDueTime` utility. _(from `2026-09-09-task-detail-intent-refactor`)_
 
 ### `"testing"`
@@ -1193,6 +1294,16 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskEntity` получает `@ColumnInfo("idempotency_key") val idempotencyKey: String?` _(from `2026-09-07-write-tools-in-koog-registry`)_
 - `TaskRepository` получает `findByIdempotencyKey(key, userId)` метод _(from `2026-09-07-write-tools-in-koog-registry`)_
 - Все 17+ tools следуют этому контракту _(from `2026-09-07-write-tools-in-koog-registry`)_
+
+### `"udf"`
+
+- **+100% testability** — all business logic is in pure Kotlin, testable without Compose. _(from `2026-09-15-viewmodel-state-ownership`)_
+- **−100% UDF violations** in this category — the rule is now written and enforced via skill. _(from `2026-09-15-viewmodel-state-ownership`)_
+- **+~20% lines in ViewModels** — state that was implicit in Composables must be made explicit in VMs. _(from `2026-09-15-viewmodel-state-ownership`)_
+- **Migration cost** — 7 violations across 5 PRs. See the implementation plan for the sequence. _(from `2026-09-15-viewmodel-state-ownership`)_
+- Preview functions in `TaskDetailViewScreen` updated to pass `emptyFlow()` for `recentlyDeleted`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+- `TaskDetailViewContent` now takes a `recentlyDeleted: Flow<Task?>` parameter — passed from `TaskDetailViewScreen`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+- `TasksDiModule` removed now-unused `ProjectsRepository` import. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
 
 ### `ui`
 
@@ -1272,8 +1383,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `"undo"`
 
+- Preview functions in `TaskDetailViewScreen` updated to pass `emptyFlow()` for `recentlyDeleted`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
 - `_recentlyDeleted` must be cleared in `onCleared()` to avoid leaking task data on configuration change. _(from `2026-09-08-task-restore-undo`)_
 - `restore()` re-uses the original `id` — idempotent by design. _(from `2026-09-08-task-restore-undo`)_
+- `TaskDetailViewContent` now takes a `recentlyDeleted: Flow<Task?>` parameter — passed from `TaskDetailViewScreen`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+- `TasksDiModule` removed now-unused `ProjectsRepository` import. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
 
 ### `_untagged_`
 
@@ -1416,6 +1530,16 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`ProjectDetailUiEvent`** now has only 2 cases: `NavigateBack` (post-delete) and `ShowError` _(from `2026-09-09-project-detail-intent-refactor`)_
 - Screen owns `activeSheet` routing state; VM only receives routing intents. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - **`singularity-todo-vm-koin-scoping` skill** — создан как single source of truth _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
+
+### `"vm-state"`
+
+- **+100% testability** — all business logic is in pure Kotlin, testable without Compose. _(from `2026-09-15-viewmodel-state-ownership`)_
+- **−100% UDF violations** in this category — the rule is now written and enforced via skill. _(from `2026-09-15-viewmodel-state-ownership`)_
+- **+~20% lines in ViewModels** — state that was implicit in Composables must be made explicit in VMs. _(from `2026-09-15-viewmodel-state-ownership`)_
+- **Migration cost** — 7 violations across 5 PRs. See the implementation plan for the sequence. _(from `2026-09-15-viewmodel-state-ownership`)_
+
+### `vm`
+
 - **`TaskEditorViewModel` special case** — `viewModel { (initialDueDate) -> ... }` + `koinViewModel { parametersOf(initialDueDate) }` _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - **`toggleArchive`** no longer emits `Saved` — `lastEditedAt` drives "Saved X ago" UI via the `mutate{}` helper _(from `2026-09-09-project-detail-intent-refactor`)_
 - **`viewModelOf(::VM)` для VM без nullable dep** — предпочтительный паттерн _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
@@ -1492,6 +1616,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-nav3-vm-store-decorator-fix` — architecture  navigation  koin  viewmodel  bug
 - `2026-09-14-tasks-feature-nested-nav3` — architecture  navigation  koin  viewmodel
 - `2026-09-15-projects-nested-nav3` — nav3  navigation  koin  refactor  projects
+- `2026-09-15-task-detail-drafts-undo-fix` — "architecture"  "compose"  "udf"  "tasks"  "drafts"  "undo"
+- `2026-09-15-viewmodel-state-ownership` — "architecture"  "compose"  "udf"  "vm-state"
 - `2026-09-16-android-shell-fab-fix` — navigation  nav3  android  fab
 - `2026-09-16-nav3-feature-graph-extensions` — navigation  nav3  tasks  notes
 - `2026-09-16-nav3-post-migration-fixes` — navigation  nav3
@@ -1571,6 +1697,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-tasks-feature-nested-nav3` — _(no title)
 - `2026-09-15-nav3-notes-navigator` — _(no title)
 - `2026-09-15-projects-nested-nav3` — Projects feature: nested Nav3 graph with ProjectsNavigator
+- `2026-09-15-task-detail-drafts-undo-fix` — TaskDetail drafts seed-from-task; TaskListScreen koinViewModel; undo snackbar wired
+- `2026-09-15-viewmodel-state-ownership` — ViewModel owns all domain state; Composable owns only routing and animation
 - `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation
 - `2026-09-16-nav3-feature-graph-extensions` — NotesNavGraph start parameter, TasksStartRoute.Detail, AppDestination additions
 - `2026-09-16-nav3-post-migration-fixes` — Nav3 post-migration fixes — NotesNavGraph start, preview wrappers, FAB cleanup

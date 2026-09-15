@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -45,10 +46,20 @@ class TaskDetailViewModel(
     /** Visible for tests. TOCTOU: prefer to observe via state. */
     internal val _latestTask = MutableStateFlow<Task?>(null)
 
+    /** Draft title owned by VM — used to avoid mirror-state in Composable. */
+    private val _draftTitle = MutableStateFlow("")
+    val titleDraft: StateFlow<String> = _draftTitle.asStateFlow()
+
+    /** Draft description owned by VM — used to avoid mirror-state in Composable. */
+    private val _draftDescription = MutableStateFlow("")
+    val descriptionDraft: StateFlow<String> = _draftDescription.asStateFlow()
+
     private val _lastEditedAt = MutableStateFlow<kotlin.time.Instant?>(null)
     val lastEditedAt: StateFlow<kotlin.time.Instant?> = _lastEditedAt
 
     private val _recentlyDeleted = MutableStateFlow<Task?>(null)
+    /** Public for TaskDetailViewContent to show undo snackbar after delete. */
+    val recentlyDeleted: StateFlow<Task?> = _recentlyDeleted.asStateFlow()
 
     /** Incremented on each retry() call to restart the watchTask subscription. */
     private val _retryVersion = MutableStateFlow(0)
@@ -106,6 +117,8 @@ class TaskDetailViewModel(
                     reminderFlow,
                     attachmentsFlow,
                     subtasksFlow,
+                    _draftTitle,
+                    _draftDescription,
                 ) { values ->
                     @Suppress("UNCHECKED_CAST")
                     val project = values[0] as com.singularity.todo.feature.projects.Project?
@@ -119,11 +132,26 @@ class TaskDetailViewModel(
                     val attachments = values[4] as List<com.singularity.todo.core.attachments.Attachment>
                     @Suppress("UNCHECKED_CAST")
                     val subtasks = values[5] as List<Task>
+                    @Suppress("UNCHECKED_CAST")
+                    val draftTitle = values[6] as String
+                    @Suppress("UNCHECKED_CAST")
+                    val draftDescription = values[7] as String
 
                     _latestTask.value = task
+                    // Seed draft fields from loaded task (only if empty — don't overwrite user's active draft).
+                    // This fixes the UX bug where user types the first letter and it replaces the real title
+                    // because the draft was initialized to "" instead of the task's actual title.
+                    if (_draftTitle.value.isEmpty()) {
+                        _draftTitle.value = task.title
+                    }
+                    if (_draftDescription.value.isEmpty()) {
+                        _draftDescription.value = task.description ?: ""
+                    }
                     TaskDetailUiState.Loaded(
                         TaskDetailUi(
                             task = task,
+                            titleDraft = draftTitle,
+                            descriptionDraft = draftDescription,
                             project = project,
                             tags = allTags.filter { it.id in task.tags },
                             checklist = checklist,

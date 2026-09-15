@@ -1,20 +1,30 @@
 ---
 name: singularity-todo-ui-event-vs-state
-description: How to model one-shot UI events (dialogs, navigation, snackbars) separately from continuous UI state in Singularity Todo ViewModels. Use when adding a MutableStateFlow for a dialog flag inside a Composable, when LaunchedEffect.collectLatest is used to format a domain result into a string, when remember mutableStateOf shadows VM-owned state, or when a screen has both a state StateFlow and a SharedFlow for AI results that should be merged. Documents the State vs Event dichotomy, the per-feature UiEvent sealed interface, Pulse events, and the CollectEvents helper.
+description: How to model one-shot UI events and state ownership separately from continuous UI state in Singularity Todo ViewModels. Use when adding a MutableStateFlow for a dialog flag inside a Composable, when LaunchedEffect.collectLatest is used to format a domain result into a string, when remember mutableStateOf shadows VM-owned state, or when a screen has both a state StateFlow and a SharedFlow for AI results that should be merged. Documents three categories of UI data, the per-feature UiEvent sealed interface, Pulse events, CollectEvents, routing state, draft ownership, and the mirror-state anti-patterns.
 ---
 
 # UI Event vs UI State — The Singularity Todo Pattern
 
 Compose has a notorious pitfall: every `var foo by remember { mutableStateOf<X?>(null) }` inside a Composable is **second state** that mirrors what's already in the ViewModel. This pattern spreads logic across two layers, makes the screen harder to test, and forces every screen to re-invent the same `LaunchedEffect { vm.X.collectLatest { localState = ... } }` plumbing.
 
-This project standardises on a strict split.
+This project standardises on a **three-category split** for all UI-related data. The categories are mutually exclusive:
 
-## The rule
-
-| Concern | Lives in | Replay on rotation? | Read pattern |
+| Category | Lives in | Replay on rotation? | Read pattern |
 |---|---|---|---|
 | **UI state** (the list of tasks, the current filter, the editor state, loading branch) | `StateFlow<UiState>` on the VM | Yes — the new collector sees the latest value | `collectAsStateWithLifecycle()` |
 | **One-shot events** (show "AI Result" dialog, navigate back, snackbar, saved pulse) | `SharedFlow<UiEvent>` on the VM | **No** — events fire once | `CollectEvents(vm.events) { … }` → `ResultDialog` / navigation lambda |
+| **Routing state** (which sheet/dialog/menu is open) | `remember { mutableStateOf }` in Composable | No — transient UI affordance | Local to the composable |
+
+Composable exceptions that are **not** routing state:
+- `Animatable` / `animateFloatAsState` for one-shot UI animations (saved-pill fade, etc.)
+- `MutableStateFlow<String>` used as a **write-port** — e.g. `queryFlow` in a search field. The Composable writes to it, the VM reads from it via `debounce + flatMapLatest`. This is a communication channel, not a duplicate of VM state.
+- Transient TextField input **before** `onValueChange` fires — the user is still typing and has not yet sent the value to the VM.
+
+## The rule (enforced)
+
+**Domain state must live in the ViewModel.** No `remember { mutableStateOf }` that copies a value already present in a VM `StateFlow`. No `LaunchedEffect` that mirrors VM state into a local variable. No repository calls from inside a Composable. The Composable subscribes; the ViewModel owns.
+
+See `docs/decisions/2026-09-15-viewmodel-state-ownership.md` for the canonical decision record with the full rationale and anti-pattern catalog.
 
 ## ⚠️ Per-feature UiEvent (not global)
 
@@ -277,6 +287,54 @@ What must **not** live in a Composable:
 
 ---
 
+## State Ownership Boundary
+
+The three categories above are **mutually exclusive**. The test for any piece of state is: "Does this come from a repository or use case? Does more than one Composable on the screen need it? Is it computed from VM state?" — if any answer is yes, it belongs in the VM.
+
+### The ownership table
+
+| Category | Where it lives | Example |
+|---|---|---|
+| Domain state (lists, filters, current entity, domain-derived values) | VM `StateFlow` | `state.tasks`, `_filter`, `_selectedIds`, `recentlyDeleted` |
+| Snapsnot from repo `Flow` | VM `StateFlow` via `combine + flatMapLatest` | `projectNamesFlow`, `parentOptionsFlow` |
+| Input draft (TextField value before `onValueChange` fires) | VM `MutableStateFlow<String>` alongside `_latest<Entity>` in the same `combine` | `_draftTitle`, `_draftDescription` |
+| Routing state | Composable `mutableStateOf` | `activeSheet: ActiveSheet?`, `menuExpanded`, `linkDialogVisible` |
+| Animation | Composable `Animatable` / `animateFloatAsState` | saved-pill alpha |
+| Business logic (filter, sort, validate) | VM | `filteredAvailableTasks(query)` |
+
+### Write-port exception
+
+`MutableStateFlow<String>` used as a **write-port** is allowed in Composable:
+
+```kotlin
+val queryFlow = remember { MutableStateFlow("") }
+// Composable writes to it
+OutlinedTextField(value = queryFlow.collectAsState().value, onValueChange = { queryFlow.value = it })
+// VM reads from it
+val results: StateFlow<List<LinkResult>> = queryFlow
+    .debounce(300.ms)
+    .distinctUntilChanged()
+    .flatMapLatest { searchUseCase(it, userId) }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+```
+
+This is a **communication channel**, not a mirror of VM state. The Composable produces, the VM consumes. The VM is still the sole source of truth for `results`.
+
+### Undo: `StateFlow`, not `SharedFlow`
+
+Per `2026-09-08-task-restore-undo`: `_recentlyDeleted` must be a `MutableStateFlow<TaskUi?>`, not a `SharedFlow`. A `SharedFlow` event can be missed on recomposition — the user would never see the undo snackbar. A `StateFlow` always has the latest value:
+
+```kotlin
+// ✅ CORRECT — StateFlow, not SharedFlow
+private val _recentlyDeleted = MutableStateFlow<TaskUi?>(null)
+val recentlyDeleted: StateFlow<TaskUi?> = _recentlyDeleted.asStateFlow()
+
+// ❌ WRONG — SharedFlow event can be missed
+private val _undoEvent = MutableSharedFlow<TaskUi>(extraBufferCapacity = 1)
+```
+
+---
+
 ## Debounced Edits — Silent Save Pattern
 
 For inline-editable fields (title, description), the debounced save must **not** emit a `Saved` event or pulse. The user is still typing — surfacing a "Saved" indicator on every keystroke is annoying UX and floods the event channel.
@@ -455,3 +513,137 @@ LaunchedEffect(userId) {
 ```
 
 The `Unit` key means "never restart". If the underlying data source changes, the collector stays on the old data. Always key `LaunchedEffect` on the minimum set of parameters that, when changed, require a fresh collection.
+
+---
+
+## Mirror-state Anti-patterns
+
+These are the most common UDF violations found in the codebase. Each example shows the **wrong** pattern (❌) and the **correct** replacement (✅).
+
+### TextField draft mirroring (`TaskDetailViewContent.kt:62-71`)
+
+```kotlin
+// ❌ WRONG — mirror-state: Composable owns a copy of the title
+var titleDraft by remember { mutableStateOf(ui.task.title) }
+var descriptionDraft by remember { mutableStateOf(ui.task.description) }
+LaunchedEffect(ui.task.title) { titleDraft = ui.task.title }
+LaunchedEffect(ui.task.description) { descriptionDraft = ui.task.description }
+TextField(value = titleDraft, onValueChange = { titleDraft = it })
+
+// ✅ CORRECT — VM owns _draftTitle; Composable reads from state
+TextField(
+    value = ui.draftTitle,
+    onValueChange = { vm.onIntent(Domain.UpdateTitle(it)) }
+)
+```
+
+In the VM:
+```kotlin
+private val _draftTitle = MutableStateFlow("")
+val draftTitle: StateFlow<String> = _draftTitle.asStateFlow()
+
+// _draftTitle lives in the same combine as _latest<Task>:
+val state: StateFlow<TaskDetailUiState> = combine(
+    _latest, _draftTitle, _draftDescription, ...
+) { latest, draftTitle, draftDesc, ... ->
+    TaskDetailUiState(latest, draftTitle, draftDesc, ...)
+}.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TaskDetailUiState.Loading)
+
+// Debounced silent save — no event, no pulse
+fun onIntent(intent: Domain) {
+    when (intent) {
+        is Domain.UpdateTitle -> {
+            _draftTitle.value = intent.text
+            debounceJob?.cancel()
+            debounceJob = viewModelScope.launch {
+                delay(300)
+                repo.updateTitle(intent.taskId, intent.text).getOrThrow()
+            }
+        }
+    }
+}
+```
+
+### Repository call from inside a Composable
+
+```kotlin
+// ❌ WRONG — repo called directly from Composable
+val linkRepo: InternalLinkRepository = koinInject()
+InternalLinkPickerSheet(
+    onSearch = { q ->
+        val notes = linkRepo.searchNotes(userId, q)
+            .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
+        val tasks = linkRepo.searchTasks(q)
+            .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
+        notes + tasks
+    },
+    ...
+)
+
+// ✅ CORRECT — VM exposes a search method; Composable calls it as a suspend lambda
+val vm: NoteEditor = koinViewModel()
+InternalLinkPickerSheet(
+    onSearch = { q -> vm.searchNotesForLink(q).first() + vm.searchTasksForLink(q).first() },
+    ...
+)
+```
+
+In the VM:
+```kotlin
+fun searchNotesForLink(query: String): Flow<List<LinkResult>> =
+    internalLinkRepo.searchNotes(currentUser.scopedUserId.value, query)
+        .map { notes -> notes.map { LinkResult(it.id.value, it.title, LinkKind.Note) } }
+
+fun searchTasksForLink(query: String): Flow<List<LinkResult>> =
+    internalLinkRepo.searchTasks(query)
+        .map { tasks -> tasks.map { LinkResult(it.id.value, it.title, LinkKind.Task) } }
+```
+
+### Business logic in `remember`
+
+```kotlin
+// ❌ WRONG — filtering is business logic in a Composable
+val filtered = remember(tasks, query) {
+    if (query.isBlank()) tasks.take(10)
+    else tasks.filter { it.title.contains(query, ignoreCase = true) }.take(10)
+}
+
+// ✅ CORRECT — VM exposes a filtered StateFlow
+val filteredTasks by vm.filteredAvailableTasks(queryFlow).collectAsStateWithLifecycle()
+```
+
+In the VM:
+```kotlin
+private val _queryForAddTask = MutableStateFlow("")
+val filteredAvailableTasks: (StateFlow<String>) -> StateFlow<List<Task>> = { queryFlow ->
+    combine(availableTasksFlow, queryFlow) { tasks, query ->
+        if (query.isBlank()) tasks.take(10)
+        else tasks.filter { it.title.contains(query, ignoreCase = true) }.take(10)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+}
+```
+
+### Undo state in Screen instead of VM
+
+```kotlin
+// ❌ WRONG — undo state held in Composable
+var lastDeleted by remember { mutableStateOf<TaskUi?>(null) }
+val snackbarJob by remember { mutableStateOf<Job?>(null) }
+scope.launch {
+    snackbarJob = snackbarHostState.showSnackbar("Task deleted", "Undo")
+    if (result == ActionPerformed) vm.restore(task.id)
+}
+
+// ✅ CORRECT — VM owns recentlyDeleted as StateFlow; Screen subscribes
+val recentlyDeleted by vm.recentlyDeleted.collectAsStateWithLifecycle()
+LaunchedEffect(Unit) {
+    vm.recentlyDeleted.collect { task ->
+        if (task != null) {
+            val result = snackbarHostState.showSnackbar("Task deleted", "Undo")
+            if (result == ActionPerformed) vm.restore(task.id)
+        }
+    }
+}
+```
+
+See `docs/decisions/2026-09-15-viewmodel-state-ownership.md` for the full anti-pattern catalog with references to the specific files and line numbers.

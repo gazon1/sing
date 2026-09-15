@@ -13,6 +13,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  */
 data class TaskDetailUi(
     val task: Task,
+    /** Draft title owned by VM — prevents mirror-state in Composable. */
+    val titleDraft: String = task.title,
+    /** Draft description owned by VM — prevents mirror-state in Composable. */
+    val descriptionDraft: String = task.description ?: "",
     val project: Project? = null,
     val tags: List<Tag> = emptyList(),
     val checklist: List<ChecklistItem> = emptyList(),

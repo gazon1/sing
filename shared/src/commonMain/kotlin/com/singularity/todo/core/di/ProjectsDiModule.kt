@@ -1,5 +1,6 @@
 package com.singularity.todo.core.di
 
+import com.singularity.todo.core.ui.components.ProjectPickerViewModel
 import com.singularity.todo.feature.projects.CreateProjectUseCase
 import com.singularity.todo.feature.projects.ProjectDetailViewModel
 import com.singularity.todo.feature.projects.ProjectEditorViewModel
@@ -53,4 +54,8 @@ fun projectsModule(): org.koin.core.module.Module = module {
             clock = get(),
         )
     }
+
+    // ─── Shared component ViewModels ─────────────────────────────────────────
+
+    viewModel { ProjectPickerViewModel(get(), get(), get()) }
 }

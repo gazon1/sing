@@ -72,6 +72,7 @@ fun TaskDetailViewScreen(
             is TaskDetailUiState.Loaded -> TaskDetailViewContent(
                 ui = s.ui,
                 events = vm.events,
+                recentlyDeleted = vm.recentlyDeleted,
                 onIntent = { intent ->
                     if (intent is TaskDetailIntent.Domain) vm.onIntent(intent)
                 },
@@ -123,7 +124,8 @@ private fun TaskDetailViewScreenPreview() = PreviewThemed(useSurface = false) {
         TaskDetailViewContent(
             ui = PreviewSamples.taskDetailUi(),
             events = MutableSharedFlow(),
-            onIntent = {},
+            recentlyDeleted = kotlinx.coroutines.flow.emptyFlow(),
+            onIntent = { },
             navigator = PreviewTasksNavigator(),
         )
     }
@@ -141,7 +143,8 @@ private fun TaskDetailViewScreenHighPriorityPreview() = PreviewThemed(useSurface
                 ),
             ),
             events = MutableSharedFlow(),
-            onIntent = {},
+            recentlyDeleted = kotlinx.coroutines.flow.emptyFlow(),
+            onIntent = { },
             navigator = PreviewTasksNavigator(),
         )
     }

@@ -87,6 +87,10 @@ class TasksViewModel(
 
     private val _expandedParentIds = MutableStateFlow<Set<TaskId>>(emptySet())
 
+    /** Snapshot of the most recently deleted task for undo. Lives in VM (not SharedFlow) because StateFlow survives recomposition. */
+    private val _recentlyDeleted = MutableStateFlow<TaskUi?>(null)
+    val recentlyDeleted: StateFlow<TaskUi?> = _recentlyDeleted.asStateFlow()
+
     // All tasks from repo, updated when filter or user changes
     private val tasksFlow: kotlinx.coroutines.flow.Flow<List<Task>> = combine(
         _filter,
@@ -144,16 +148,28 @@ class TasksViewModel(
         _filter.value = filter
     }
 
+    fun applyRoute(filter: TaskFilter) {
+        _filter.value = filter
+    }
+
     fun setStatusFilter(filter: TaskListFilter) {
         _statusFilter.value = filter
     }
 
-    fun delete(id: TaskId) = scope.launch {
-        taskRepo.softDelete(id)
+    fun delete(taskUi: TaskUi) = scope.launch {
+        _recentlyDeleted.value = taskUi
+        taskRepo.softDelete(taskUi.id)
     }
 
-    fun restore(id: TaskId) = scope.launch {
-        taskRepo.restore(id)
+    fun restore() = scope.launch {
+        val task = _recentlyDeleted.value ?: return@launch
+        taskRepo.restore(task.id)
+            .onSuccess { _recentlyDeleted.value = null }
+    }
+
+    /** Clears undo state without restoring. Called when snackbar dismisses without action. */
+    fun clearUndo() {
+        _recentlyDeleted.value = null
     }
 
     fun toggle(id: TaskId) = scope.launch {
