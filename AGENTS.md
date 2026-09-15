@@ -273,6 +273,7 @@ Skill-ов немного и они узкие. **Большинство арх�
 |---|---|
 | `singularity-todo-decisions-workflow` | Создание/обновление записей в `docs/decisions/`. Прочитать один раз для понимания формата. |
 | `singularity-todo-feature-scaffold` | Новая CRUD-фича (Task, Note, Project, Tag, ...) |
+| `singularity-todo-nav3-savedstate` | Любой `*NavGraph.kt`, добавление типа в `AppDestination` / sealed `*Route`. Шаблон `SavedStateConfiguration` с `polymorphic(NavKey::class) { subclass(...) }`. |
 | `singularity-todo-ai-tool` | Новый Koog `SimpleTool<T>` |
 | `singularity-todo-mcp-server` | MCP-сервер, Koog→MCP adapter, ToolRegistrar |
 | `singularity-todo-multi-profile` | Profile domain, ProfileRepository, ProfileAwareCurrentUser |

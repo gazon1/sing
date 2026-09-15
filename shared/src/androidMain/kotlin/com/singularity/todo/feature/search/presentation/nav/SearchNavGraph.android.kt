@@ -10,9 +10,9 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
-import androidx.savedstate.serialization.SavedStateConfiguration
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.nav.navSavedStateConfig
 import com.singularity.todo.feature.search.SearchScreen
 
 /**
@@ -22,13 +22,17 @@ import com.singularity.todo.feature.search.SearchScreen
  *
  * Uses [BackHandler] for system back gesture to exit the nested graph.
  * Uses [rememberViewModelStoreNavEntryDecorator] for per-entry VM scoping.
+ *
+ * Persistence: uses [navSavedStateConfig] so the back stack survives process death.
  */
 @Composable
 actual fun SearchNavGraph(
     navCallbacks: NavCallbacks,
     modifier: Modifier,
 ) {
-    val savedStateConfig = remember { SavedStateConfiguration { } }
+    val savedStateConfig = remember {
+        navSavedStateConfig(Search.serializer())
+    }
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<Search> = rememberNavBackStack(savedStateConfig, Search)
         as NavBackStack<Search>

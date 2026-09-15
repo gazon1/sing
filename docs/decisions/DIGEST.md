@@ -36,6 +36,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Always** read entity state from the write-through `_latest<Entity>` cache, never from `state.value` snapshot in mutation methods. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - **Always** update `_latest<Entity>` before any async operation that reads it. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - **Never** emit `Saved` events for debounced inline edits — update `_lastEditedAt` only. _(from `2026-09-09-projectdetail-write-through-fix`)_
+- **Always** mark every `NavKey` subtype that may appear in a stack as `@Serializable`. Without it, there is no `.serializer()` to pass to `subclass(...)`. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
+- **Always** provide a `serializersModule` that calls `polymorphic(NavKey::class) { subclass(...) }` for every concrete route type in the stack. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
+- **Never** write `SavedStateConfiguration { }` for any `rememberNavBackStack` call — the empty body silently falls back to `DEFAULT.serializersModule` and breaks the polymorphism contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 
 ## Per-tag
 
@@ -57,9 +60,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `android`
 
+- **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- **Android build unchanged**: `assembleDebug` still compiles all Android-specific NavGraphs with full `SavedStateConfiguration` for process-death survival. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- **Desktop in-memory only**: Closing and reopening the Desktop window resets all nested back stacks. This was already the behavior before this change — `LocalSaveableStateRegistry` was always `null`. The new code makes this explicit. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Smoke test: tap FAB on Inbox → verify CreateTask opens; tap FAB on Plans → verify CreateProject opens. _(from `2026-09-16-android-shell-fab-fix`)_
+- The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 - Users can now create projects directly from Plans via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
 - Users can now create tasks directly from Inbox/Today via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
+- When adding a new `data object` or `data class` to `AppDestination` (or any sealed route hierarchy that backs a `rememberNavBackStack`), **always** add the matching `subclass(...)` line in every relevant `serializersModule` — the compiler does not enforce this. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 
 ### `"architecture"`
 
@@ -81,7 +90,6 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **8 экранов мигрируют одновременно** — невозможно сделать постепенную миграцию из-за смены типа `_events` _(from `2026-09-05-ui-event-per-feature`)_
 - `ActiveSheet.kt`: 35 → ~15 lines (`toActiveSheet()` removed). _(from `2026-09-09-task-detail-intent-refactor`)_
 - All new screens MUST follow the `PublicScreen` / `PrivateContent` naming pattern _(from `2026-09-09-preview-with-koin-helper`)_
-- Android back stacks now survive process death. Smoke test required: open Inbox → Today → TaskDetail, force-stop via `adb shell am force-stop com.singularity.todo`, reopen — verify TaskDetail is restored. _(from `2026-09-16-nav3-shared-state-factory-and-local-app-navigator`)_
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует. _(from `2026-09-07-fab-chrome-level`)_
 - `AppShell` — minor change: добавлен `FabAction` parameter. _(from `2026-09-07-fab-chrome-level`)_
 - **Breaking:** `coreDomainModule()` удалён; заменён на `domainModule()` (includes everything). Test files обновлены. _(from `2026-09-06-di-module-split`)_
@@ -107,7 +115,6 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them _(from `2026-09-09-preview-with-koin-helper`)_
 - Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
 - Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
-- `JvmNav3State.kt` and the old per-platform `rememberNav3State` bodies are deleted. _(from `2026-09-16-nav3-shared-state-factory-and-local-app-navigator`)_
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
 - Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
@@ -404,8 +411,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `desktop`
 
+- **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- **Android build unchanged**: `assembleDebug` still compiles all Android-specific NavGraphs with full `SavedStateConfiguration` for process-death survival. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - `compose-ui-test:1.12.0` added to `libs.versions.toml` as `composeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
+- **Desktop in-memory only**: Closing and reopening the Desktop window resets all nested back stacks. This was already the behavior before this change — `LocalSaveableStateRegistry` was always `null`. The new code makes this explicit. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - `ModalShell` + `DrawerStyle.Modal` remain in `AppShell.kt`. They are not wired to any platform but are preserved for future modal drawer needs. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - Navigation interaction tests (click-to-navigate) are out of scope for this smoke test — they require handling NavBackStackEntry lifecycle in `runDesktopComposeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
@@ -608,6 +619,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `ErrorMapper.kt` маппит `McpToolError` в `CallToolResult` или бросает `McpException` _(from `2026-09-07-mcp-tool-error-model`)_
 - `McpToolError.kt` в `mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/` _(from `2026-09-07-mcp-tool-error-model`)_
 - Все write-tools используют `Result<T>` + `mapCatching` для differentiation `Internal` от `Validation`/etc. _(from `2026-09-07-mcp-tool-error-model`)_
+
+### `jvm`
+
+- **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- **Android build unchanged**: `assembleDebug` still compiles all Android-specific NavGraphs with full `SavedStateConfiguration` for process-death survival. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- **Desktop in-memory only**: Closing and reopening the Desktop window resets all nested back stacks. This was already the behavior before this change — `LocalSaveableStateRegistry` was always `null`. The new code makes this explicit. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
+- When adding a new `data object` or `data class` to `AppDestination` (or any sealed route hierarchy that backs a `rememberNavBackStack`), **always** add the matching `subclass(...)` line in every relevant `serializersModule` — the compiler does not enforce this. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 
 ### `kermit`
 
@@ -869,17 +889,19 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `nav3`
 
 - 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
+- **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
 - All `@Preview` composables compile without composition-local crashes. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
-- Android back stacks now survive process death. Smoke test required: open Inbox → Today → TaskDetail, force-stop via `adb shell am force-stop com.singularity.todo`, reopen — verify TaskDetail is restored. _(from `2026-09-16-nav3-shared-state-factory-and-local-app-navigator`)_
+- **Android build unchanged**: `assembleDebug` still compiles all Android-specific NavGraphs with full `SavedStateConfiguration` for process-death survival. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `AppDestination.TaskDetail` and `TaskDetailCreate` remain `@Deprecated` — they can be deleted in a follow-up cleanup commit. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops. _(from `2026-09-15-projects-nested-nav3`)_
+- **Desktop in-memory only**: Closing and reopening the Desktop window resets all nested back stacks. This was already the behavior before this change — `LocalSaveableStateRegistry` was always `null`. The new code makes this explicit. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - `fabActionForNav3` is simpler and more correct. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
-- `JvmNav3State.kt` and the old per-platform `rememberNav3State` bodies are deleted. _(from `2026-09-16-nav3-shared-state-factory-and-local-app-navigator`)_
 - `NavEntries.kt` wires `SettingsNavGraph(navCallbacks = nav)` and `SearchNavGraph(navCallbacks = nav)` instead of the raw screens. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - Notes deep-links from Search now land on the correct note preview. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - Preview for `AccountSettingsScreen` uses a separate `AccountSettingsScreenPreviewContent` composable that takes an explicit callback, since `LocalSettingsNavigator` is only available inside the graph. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
@@ -892,18 +914,22 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TasksNavGraph` is the `@Composable` nav host — it sets up `LocalTasksNavigator`, `LocalNavBackStack`, and the `BackHandler`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavigator` is the only class that mutates `NavBackStack<TasksRoute>`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksRoute` is the sealed interface defining all routes within the tasks graph (Inbox, Today, ByProject, Detail, Create). _(from `2026-09-14-nav3-tasks-navigator`)_
+- The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 - Users can now create projects directly from Plans via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
 - Users can now create tasks directly from Inbox/Today via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
+- When adding a new `data object` or `data class` to `AppDestination` (or any sealed route hierarchy that backs a `rememberNavBackStack`), **always** add the matching `subclass(...)` line in every relevant `serializersModule` — the compiler does not enforce this. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 
 ### `navigation`
 
 - ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
+- **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
 - All `@Preview` composables compile without composition-local crashes. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
-- Android back stacks now survive process death. Smoke test required: open Inbox → Today → TaskDetail, force-stop via `adb shell am force-stop com.singularity.todo`, reopen — verify TaskDetail is restored. _(from `2026-09-16-nav3-shared-state-factory-and-local-app-navigator`)_
+- **Android build unchanged**: `assembleDebug` still compiles all Android-specific NavGraphs with full `SavedStateConfiguration` for process-death survival. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `AppDestination.TaskDetail` and `TaskDetailCreate` remain `@Deprecated` — they can be deleted in a follow-up cleanup commit. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует. _(from `2026-09-07-fab-chrome-level`)_
@@ -915,12 +941,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Delete confirmation is handled in `NotePreview`, not buried in editor overflow menu _(from `2026-09-09-notes-view-edit-split`)_
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
+- **Desktop in-memory only**: Closing and reopening the Desktop window resets all nested back stacks. This was already the behavior before this change — `LocalSaveableStateRegistry` was always `null`. The new code makes this explicit. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - `fabActionForNav3` is simpler and more correct. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
 - Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
-- `JvmNav3State.kt` and the old per-platform `rememberNav3State` bodies are deleted. _(from `2026-09-16-nav3-shared-state-factory-and-local-app-navigator`)_
 - Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **Menu sheet visibility** is `rememberSaveable` state in `AndroidShell` — survives config changes, not part of the back stack. _(from `2026-09-05-android-bottom-nav`)_
@@ -951,10 +977,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TasksRoute` is the sealed interface defining all routes within the tasks graph (Inbox, Today, ByProject, Detail, Create). _(from `2026-09-14-nav3-tasks-navigator`)_
 - **`TasksRoute.Pop` как sentinel** — race condition (см. review rev. 1, _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **`TasksScreen`** unchanged — it already takes `onNavigateToTask` / `onNavigateToCreateTask` callbacks; the per-tab sub-navigation state now lives in `TasksRoute` inside `AppNavHost` via `rememberSaveable`. _(from `2026-09-05-android-bottom-nav`)_
+- The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 - Unit-тесты навигации tasks требуют `Robolectric` или `composeRule` — _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading _(from `2026-09-09-notes-view-edit-split`)_
 - Users can now create projects directly from Plans via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
 - Users can now create tasks directly from Inbox/Today via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
+- When adding a new `data object` or `data class` to `AppDestination` (or any sealed route hierarchy that backs a `rememberNavBackStack`), **always** add the matching `subclass(...)` line in every relevant `serializersModule` — the compiler does not enforce this. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 - В `JvmNav3State.kt` для `AppDestination.TasksGraph` / _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - В `TasksNavGraph.kt` (для nested `rememberNavBackStack`). _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Все остальные параметризованные VM (~20 callsites). _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
@@ -1236,6 +1264,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - Adding a new secret (e.g. another provider's API key) **always** follows the same pattern: new `KEY_*` constant, new config object, migration on first DataStore access, no DataStore copy. _(from `2026-09-05-secret-storage-split`)_
 - `AiApiKeyMigration` is wired through `koinBridge { ... }` inside the DataStore factory's `.also { ds -> ... }` block. See `koin-suspend-bridge` decision. _(from `2026-09-05-secret-storage-split`)_
+
+### `serialization`
+
+- The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
+- When adding a new `data object` or `data class` to `AppDestination` (or any sealed route hierarchy that backs a `rememberNavBackStack`), **always** add the matching `subclass(...)` line in every relevant `serializersModule` — the compiler does not enforce this. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 
 ### `settings`
 
@@ -1708,10 +1741,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-task-detail-drafts-undo-fix` — "architecture"  "compose"  "udf"  "tasks"  "drafts"  "undo"
 - `2026-09-15-viewmodel-state-ownership` — "architecture"  "compose"  "udf"  "vm-state"
 - `2026-09-16-android-shell-fab-fix` — navigation  nav3  android  fab
+- `2026-09-16-nav3-desktop-in-memory-no-savedstate` — navigation  nav3  jvm  desktop  android
 - `2026-09-16-nav3-feature-graph-extensions` — navigation  nav3  tasks  notes
 - `2026-09-16-nav3-post-migration-fixes` — navigation  nav3
+- `2026-09-16-nav3-savedstate-serializers-required` — navigation  nav3  serialization  jvm  android
 - `2026-09-16-nav3-settings-and-search-nested-graphs` — navigation  nav3  settings  search
-- `2026-09-16-nav3-shared-state-factory-and-local-app-navigator` — navigation  nav3  architecture
 
 ## Active entries
 
@@ -1791,7 +1825,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-task-detail-drafts-undo-fix` — TaskDetail drafts seed-from-task; TaskListScreen koinViewModel; undo snackbar wired
 - `2026-09-15-viewmodel-state-ownership` — ViewModel owns all domain state; Composable owns only routing and animation
 - `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation
+- `2026-09-16-nav3-desktop-in-memory-no-savedstate` — Nav3 Desktop uses in-memory NavBackStack; SavedStateConfiguration is Android-only
 - `2026-09-16-nav3-feature-graph-extensions` — NotesNavGraph start parameter, TasksStartRoute.Detail, AppDestination additions
 - `2026-09-16-nav3-post-migration-fixes` — Nav3 post-migration fixes — NotesNavGraph start, preview wrappers, FAB cleanup
+- `2026-09-16-nav3-savedstate-serializers-required` — Nav3 SavedStateConfiguration must register all NavKey subtypes polymorphically
 - `2026-09-16-nav3-settings-and-search-nested-graphs` — SettingsNavGraph and SearchNavGraph — single-route nested graphs
-- `2026-09-16-nav3-shared-state-factory-and-local-app-navigator` — LocalAppNavigator + shared rememberNav3State factory

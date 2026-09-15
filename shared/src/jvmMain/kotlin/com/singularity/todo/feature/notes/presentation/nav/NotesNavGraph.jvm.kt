@@ -6,11 +6,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
-import androidx.savedstate.serialization.SavedStateConfiguration
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
 import com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreen
 import com.singularity.todo.feature.notes.presentation.screen.NotePreviewScreen
 import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
@@ -18,13 +17,13 @@ import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
 /**
  * JVM Desktop implementation of [NotesNavGraph].
  *
+ * Uses an in-memory [NavBackStack] — no process death on Desktop, so
+ * [SavedStateConfiguration] is dead code and was removed.
+ *
  * On desktop there is no system back gesture — [NotesBackHandler] is a no-op.
  * Back navigation is handled via the outer app's toolbar / window controls.
  *
- * No [androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator] is used
- * on JVM desktop — the JVM does not have the ComponentActivity-based ViewModelStore scoping
- * issue that Android has. Each NavDisplay entry on desktop already has proper per-entry
- * ViewModel scoping, and there is no process-death lifecycle.
+ * No [rememberViewModelStoreNavEntryDecorator] is used on JVM desktop.
  */
 @Composable
 actual fun NotesNavGraph(
@@ -32,10 +31,7 @@ actual fun NotesNavGraph(
     start: NotesRoute,
     modifier: Modifier,
 ) {
-    val savedStateConfig = remember { SavedStateConfiguration { } }
-    @Suppress("UNCHECKED_CAST")
-    val backStack: NavBackStack<NotesRoute> = rememberNavBackStack(savedStateConfig, start)
-        as NavBackStack<NotesRoute>
+    val backStack: NavBackStack<NotesRoute> = rememberInMemoryNavBackStack(start)
 
     val onExitGraph: (AppDestination?) -> Unit = { dest ->
         if (dest != null) {
@@ -52,14 +48,9 @@ actual fun NotesNavGraph(
     CompositionLocalProvider(
         LocalNotesNavigator provides navigator,
     ) {
-        // Desktop has no system back gesture — BackHandler is a no-op on JVM.
-
         NavDisplay(
             backStack = backStack,
             modifier = modifier,
-            // No entryDecorators on JVM desktop.
-            // Desktop has no process-death, so SaveableStateHolder is unnecessary.
-            // Desktop has proper per-entry ViewModel scoping automatically.
             onBack = { navigator.back() },
             entryProvider = entryProvider {
                 entry<NotesRoute.List> { NotesListScreen(it) }

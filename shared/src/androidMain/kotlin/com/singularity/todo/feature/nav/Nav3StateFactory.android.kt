@@ -6,16 +6,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
-import androidx.savedstate.serialization.SavedStateConfiguration
 
 /**
  * Android implementation of [rememberNav3State].
  *
- * Uses [SavedStateConfiguration] { } so each tab's back-stack survives process death.
- * Previously this function used the no-arg [rememberNavBackStack] overload (no
- * SavedStateConfiguration), meaning back stacks were lost on rotation and process death.
- * That was a latent bug; this fix aligns Android with the JVM behaviour and with
- * the Koin per-entry VM scoping fix (ADR 2026-09-14).
+ * Uses [navSavedStateConfig] to construct a [SavedStateConfiguration] that registers every
+ * [AppDestination] concrete subtype at the [NavKey] polymorphic level. This enables
+ * `rememberNavBackStack` to serialize the back stack across process death and configuration
+ * changes via the standard Compose saved-state mechanism.
+ *
+ * The configuration is a no-op on Desktop (where it would be dead code), which is why
+ * the JVM implementation uses [rememberInMemoryNavBackStack] instead — see
+ * [Nav3StateFactory.jvm.kt].
+ *
+ * @see navSavedStateConfig
  */
 @Composable
 actual fun rememberNav3State(): Nav3State {
@@ -28,7 +32,30 @@ actual fun rememberNav3State(): Nav3State {
     }
 
     val savedStateConfig = remember {
-        SavedStateConfiguration { }
+        navSavedStateConfig(
+            // Top-level tab + menu data objects
+            AppDestination.Inbox.serializer(),
+            AppDestination.Today.serializer(),
+            AppDestination.Plans.serializer(),
+            AppDestination.Pomodoro.serializer(),
+            AppDestination.Statistics.serializer(),
+            AppDestination.Notes.serializer(),
+            AppDestination.AiChat.serializer(),
+            AppDestination.Search.serializer(),
+            AppDestination.Archive.serializer(),
+            AppDestination.Settings.serializer(),
+            AppDestination.AiUsage.serializer(),
+            AppDestination.ProfileSwitcher.serializer(),
+            // Sub-route data classes (push-on-top of a top-level destination)
+            AppDestination.TasksGraph.serializer(),
+            AppDestination.TasksByProject.serializer(),
+            AppDestination.TaskDetail.serializer(),
+            AppDestination.TaskDetailCreate.serializer(),
+            AppDestination.ProjectEditor.serializer(),
+            AppDestination.ProjectDetail.serializer(),
+            AppDestination.ProjectsGraph.serializer(),
+            AppDestination.NotesGraph.serializer(),
+        )
     }
 
     val backStacks = topLevelRoutes.associateWith { key ->

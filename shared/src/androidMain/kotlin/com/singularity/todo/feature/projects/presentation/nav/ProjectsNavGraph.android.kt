@@ -11,8 +11,8 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
-import androidx.savedstate.serialization.SavedStateConfiguration
 import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.navSavedStateConfig
 import com.singularity.todo.feature.projects.ProjectDetailScreen
 import com.singularity.todo.feature.projects.ProjectEditorScreen
 import com.singularity.todo.feature.projects.ProjectsScreen
@@ -25,6 +25,8 @@ import com.singularity.todo.feature.projects.ProjectsScreen
  * Uses [BackHandler] for system back gesture at the start route.
  * Uses [rememberViewModelStoreNavEntryDecorator] to fix the Koin bug where
  * LocalViewModelStoreOwner resolves to ComponentActivity instead of the NavEntry.
+ *
+ * Persistence: uses [navSavedStateConfig] so the back stack survives process death.
  */
 @Composable
 actual fun ProjectsNavGraph(
@@ -32,7 +34,13 @@ actual fun ProjectsNavGraph(
     onExitGraph: (AppDestination?) -> Unit,
     modifier: Modifier,
 ) {
-    val savedStateConfig = remember { SavedStateConfiguration { } }
+    val savedStateConfig = remember {
+        navSavedStateConfig(
+            ProjectsRoute.List.serializer(),
+            ProjectsRoute.Editor.serializer(),
+            ProjectsRoute.Detail.serializer(),
+        )
+    }
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<ProjectsRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<ProjectsRoute>
@@ -52,9 +60,6 @@ actual fun ProjectsNavGraph(
             modifier = modifier,
             onBack = { navigator.back() },
             entryDecorators = listOf(
-                // Koin bug workaround: without this, koinViewModel { parametersOf(projectId) }
-                // would resolve LocalViewModelStoreOwner to ComponentActivity instead of NavEntry,
-                // causing ProjectDetailViewModel(X) → back → ProjectDetailViewModel(Y) to show X's state.
                 rememberViewModelStoreNavEntryDecorator(),
             ),
             entryProvider = entryProvider {

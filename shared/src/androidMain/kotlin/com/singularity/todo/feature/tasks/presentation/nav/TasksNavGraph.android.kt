@@ -11,8 +11,8 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
-import androidx.savedstate.serialization.SavedStateConfiguration
 import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.navSavedStateConfig
 import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskListScreen
@@ -25,6 +25,8 @@ import com.singularity.todo.feature.tasks.presentation.screen.TaskListScreen
  * Uses [BackHandler] for system back gesture at the start route.
  * Uses [rememberViewModelStoreNavEntryDecorator] to fix the Koin bug where
  * LocalViewModelStoreOwner resolves to ComponentActivity instead of the NavEntry.
+ *
+ * Persistence: uses [navSavedStateConfig] so the back stack survives process death.
  */
 @Composable
 actual fun TasksNavGraph(
@@ -32,7 +34,15 @@ actual fun TasksNavGraph(
     onExitGraph: (AppDestination?) -> Unit,
     modifier: Modifier,
 ) {
-    val savedStateConfig = remember { SavedStateConfiguration { } }
+    val savedStateConfig = remember {
+        navSavedStateConfig(
+            TasksRoute.Inbox.serializer(),
+            TasksRoute.Today.serializer(),
+            TasksRoute.ByProject.serializer(),
+            TasksRoute.Detail.serializer(),
+            TasksRoute.Create.serializer(),
+        )
+    }
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<TasksRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<TasksRoute>

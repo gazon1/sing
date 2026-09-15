@@ -6,28 +6,30 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
-import androidx.savedstate.serialization.SavedStateConfiguration
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
 import com.singularity.todo.feature.search.SearchScreen
 
 /**
  * JVM Desktop implementation of [SearchNavGraph].
  *
+ * Uses an in-memory [NavBackStack] — no process death on Desktop, so
+ * [SavedStateConfiguration] is dead code and was removed.
+ *
  * On desktop there is no system back gesture — [BackHandler][androidx.activity.compose.BackHandler]
  * is a no-op. Back navigation is handled via the outer app's toolbar / window controls.
+ *
+ * No [rememberViewModelStoreNavEntryDecorator][androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator]
+ * is used on JVM desktop.
  */
 @Composable
 actual fun SearchNavGraph(
     navCallbacks: NavCallbacks,
     modifier: Modifier,
 ) {
-    val savedStateConfig = remember { SavedStateConfiguration { } }
-    @Suppress("UNCHECKED_CAST")
-    val backStack: NavBackStack<Search> = rememberNavBackStack(savedStateConfig, Search)
-        as NavBackStack<Search>
+    val backStack: NavBackStack<Search> = rememberInMemoryNavBackStack(Search)
 
     val onExitGraph: (AppDestination?) -> Unit = { dest ->
         if (dest != null) {
@@ -50,7 +52,6 @@ actual fun SearchNavGraph(
             backStack = backStack,
             modifier = modifier,
             onBack = { navigator.back() },
-            // No entryDecorators on JVM desktop.
             entryProvider = entryProvider {
                 entry<Search> { SearchScreen() }
             },
