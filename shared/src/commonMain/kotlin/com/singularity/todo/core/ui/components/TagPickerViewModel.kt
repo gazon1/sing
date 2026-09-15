@@ -7,6 +7,7 @@ import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,7 +31,9 @@ class TagPickerViewModel(
     private val settingsRepo: SettingsRepository,
     initialSelectedTagIds: Set<String> = emptySet(),
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(0) },
+    private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
+    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
     // ─── UI State ───────────────────────────────────────────────────────────────
 
@@ -46,7 +49,7 @@ class TagPickerViewModel(
     /** Reactive tag list — re-fetches when user changes. */
     val tags: StateFlow<List<Tag>> = settingsRepo.userId
         .flatMapLatest { uid -> tagsRepo.watchTags(uid) }
-        .stateIn(viewModelScope, sharingStarted(), emptyList())
+        .stateIn(scope, sharingStarted(), emptyList())
 
     // ─── Actions ────────────────────────────────────────────────────────────────
 
@@ -69,29 +72,27 @@ class TagPickerViewModel(
         }
     }
 
-    fun createTags() {
+    suspend fun createTags() {
         val names = _newTagName.value
             .split(",")
             .map { it.trim() }
             .filter { it.isNotBlank() }
         if (names.isEmpty()) return
 
-        viewModelScope.launch {
-            val uid = settingsRepo.userId.first()
-            for (name in names) {
-                val tag = Tag(
-                    id = TagId.generate(),
-                    name = name,
-                    color = 0xFF9E9E9E.toInt(),
-                    createdAt = Clock.now(),
-                    updatedAt = Clock.now(),
-                    userId = uid,
-                )
-                tagsRepo.create(tag)
-                _selected.value = _selected.value + tag.id.value
-            }
-            _newTagName.value = ""
-            _isCreating.value = false
+        val uid = settingsRepo.userId.first()
+        for (name in names) {
+            val tag = Tag(
+                id = TagId.generate(),
+                name = name,
+                color = 0xFF9E9E9E.toInt(),
+                createdAt = Clock.now(),
+                updatedAt = Clock.now(),
+                userId = uid,
+            )
+            tagsRepo.create(tag)
+            _selected.value = _selected.value + tag.id.value
         }
+        _newTagName.value = ""
+        _isCreating.value = false
     }
 }

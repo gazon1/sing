@@ -20,9 +20,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -68,6 +71,7 @@ private fun TagPickerSheetContent(
     onDismiss: () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
 
     TaskEditorSheetHost(
         title = "Select Tags",
@@ -112,7 +116,7 @@ private fun TagPickerSheetContent(
                         keyboardActions = KeyboardActions(
                             onDone = {
                                 if (newTagName.isNotBlank()) {
-                                    vm.createTags()
+                                    scope.launch { vm.createTags() }
                                 }
                                 focusManager.clearFocus()
                             },
@@ -121,7 +125,7 @@ private fun TagPickerSheetContent(
                     TextButton(
                         onClick = {
                             if (newTagName.isNotBlank()) {
-                                vm.createTags()
+                                scope.launch { vm.createTags() }
                             }
                             focusManager.clearFocus()
                         },

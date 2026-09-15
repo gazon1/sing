@@ -73,6 +73,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `"architecture"`
 
 - **+~20% lines in ViewModels** — state that was implicit in Composables must be made explicit in VMs. _(from `2026-09-15-viewmodel-state-ownership`)_
+- 4 new files: `AccountSettingsViewModel.kt`, `TagPickerViewModel.kt`, plus DI registrations. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
+- 6 modified files: `ProjectDetailViewModel.kt`, `ProjectDetailScreen.kt`, `ProjectPickerSheet.kt`, `AccountSettingsScreen.kt`, `SettingsScreen.kt`, `Modules.kt`. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
 
 ### `architecture`
 
@@ -88,6 +90,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `"architecture"`
 
 - Checklist items can be promoted to sub-tasks via "Convert to task" overflow action. _(from `2026-09-08-task-1-level-subtasks`)_
+- `collectAsState` replaced with `collectAsStateWithLifecycle` in previews. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
 
 ### `architecture`
 
@@ -149,6 +152,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `"architecture"`
 
 - Previews that don't use Koin continue to work since `searchNotesForLink`/`searchTasksForLink` are nullable. _(from `2026-09-15-noteeditor-udf-link-search`)_
+- Previews updated: `AccountSettingsScreenLightPreview` / `DarkPreview` now construct `AccountSettingsViewModel(FakeProfileRepository())`; `SettingsScreen` preview updated similarly. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
 
 ### `architecture`
 
@@ -276,6 +280,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **+100% testability** — all business logic is in pure Kotlin, testable without Compose. _(from `2026-09-15-viewmodel-state-ownership`)_
 - **−100% UDF violations** in this category — the rule is now written and enforced via skill. _(from `2026-09-15-viewmodel-state-ownership`)_
 - **+~20% lines in ViewModels** — state that was implicit in Composables must be made explicit in VMs. _(from `2026-09-15-viewmodel-state-ownership`)_
+- 4 new files: `AccountSettingsViewModel.kt`, `TagPickerViewModel.kt`, plus DI registrations. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
+- 6 modified files: `ProjectDetailViewModel.kt`, `ProjectDetailScreen.kt`, `ProjectPickerSheet.kt`, `AccountSettingsScreen.kt`, `SettingsScreen.kt`, `Modules.kt`. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
 
 ### `compose`
 
@@ -286,6 +292,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Backup confirm dialogs prevent accidental data loss. _(from `2026-09-07-settings-ux-improvements`)_
 - **BottomBar taps** now have a single source of truth: `navigator.navigateTopLevel(dest)` — no `selectedIndex` to keep in sync. _(from `2026-09-05-android-bottom-nav`)_
 - `Clock.System.now()` must not appear in preview code — use _(from `2026-09-06-compose-previews`)_
+
+### `"compose"`
+
+- `collectAsState` replaced with `collectAsStateWithLifecycle` in previews. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
+
+### `compose`
+
 - `compose-ui-test:1.12.0` added to `libs.versions.toml` as `composeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - Consistent API across all shared components _(from `2026-09-09-content-slot-pattern`)_
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
@@ -321,6 +334,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `compose`
 
 - `PreviewParameterProvider` is avoided — individual preview functions used instead _(from `2026-09-06-compose-previews`)_
+
+### `"compose"`
+
+- Previews updated: `AccountSettingsScreenLightPreview` / `DarkPreview` now construct `AccountSettingsViewModel(FakeProfileRepository())`; `SettingsScreen` preview updated similarly. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
+
+### `compose`
+
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - Smoke test now passes: `./gradlew :desktopApp:test` → BUILD SUCCESSFUL _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - `sourceSets { test { java.srcDirs("src/jvmTest") ... } }` added to `desktopApp/build.gradle.kts` to wire the `jvmTest` source set to the `test` task _(from `2026-09-06-desktop-smoke-test-with-koin`)_
@@ -393,11 +413,29 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Smoke test now passes: `./gradlew :desktopApp:test` → BUILD SUCCESSFUL _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - `sourceSets { test { java.srcDirs("src/jvmTest") ... } }` added to `desktopApp/build.gradle.kts` to wire the `jvmTest` source set to the `test` task _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 
+### `"di"`
+
+- 4 new files: `AccountSettingsViewModel.kt`, `TagPickerViewModel.kt`, plus DI registrations. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
+
 ### `di`
 
 - **4 VM registrations** (`TaskEditorViewModel`, `TasksByProjectViewModel`, `ProjectEditorViewModel`, `ProjectDetailViewModel`) now use `viewModel { (p) → ... }` instead of `factory { (p) → ... }` _(from `2026-09-09-di-factory-viewmodel-fix`)_
+
+### `"di"`
+
+- 6 modified files: `ProjectDetailViewModel.kt`, `ProjectDetailScreen.kt`, `ProjectPickerSheet.kt`, `AccountSettingsScreen.kt`, `SettingsScreen.kt`, `Modules.kt`. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
+
+### `di`
+
 - `BackupRepository` resolves correctly in all environments (JVM desktop, Android). _(from `2026-09-07-backup-directory-via-koin-string`)_
 - **Breaking:** `coreDomainModule()` удалён; заменён на `domainModule()` (includes everything). Test files обновлены. _(from `2026-09-06-di-module-split`)_
+
+### `"di"`
+
+- `collectAsState` replaced with `collectAsStateWithLifecycle` in previews. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
+
+### `di`
+
 - Cross-screen state (e.g. "did the user just save a note") must flow through navigation callbacks, not shared VM state _(from `2026-09-09-notes-vm-split`)_
 - Each VM is small enough to understand fully (~60-150 lines) _(from `2026-09-09-notes-vm-split`)_
 - Editor session state is released when user navigates away _(from `2026-09-09-notes-vm-split`)_
@@ -435,6 +473,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `"di"`
 
 - Previews that don't use Koin continue to work since `searchNotesForLink`/`searchTasksForLink` are nullable. _(from `2026-09-15-noteeditor-udf-link-search`)_
+- Previews updated: `AccountSettingsScreenLightPreview` / `DarkPreview` now construct `AccountSettingsViewModel(FakeProfileRepository())`; `SettingsScreen` preview updated similarly. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
 
 ### `di`
 
@@ -1342,10 +1381,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **+100% testability** — all business logic is in pure Kotlin, testable without Compose. _(from `2026-09-15-viewmodel-state-ownership`)_
 - **−100% UDF violations** in this category — the rule is now written and enforced via skill. _(from `2026-09-15-viewmodel-state-ownership`)_
 - **+~20% lines in ViewModels** — state that was implicit in Composables must be made explicit in VMs. _(from `2026-09-15-viewmodel-state-ownership`)_
+- 4 new files: `AccountSettingsViewModel.kt`, `TagPickerViewModel.kt`, plus DI registrations. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
+- 6 modified files: `ProjectDetailViewModel.kt`, `ProjectDetailScreen.kt`, `ProjectPickerSheet.kt`, `AccountSettingsScreen.kt`, `SettingsScreen.kt`, `Modules.kt`. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
+- `collectAsState` replaced with `collectAsStateWithLifecycle` in previews. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
 - **Migration cost** — 7 violations across 5 PRs. See the implementation plan for the sequence. _(from `2026-09-15-viewmodel-state-ownership`)_
 - `NoteEditor` now requires `InternalLinkRepository` in its constructor — updated `NotesDiModule` accordingly. _(from `2026-09-15-noteeditor-udf-link-search`)_
 - Preview functions in `TaskDetailViewScreen` updated to pass `emptyFlow()` for `recentlyDeleted`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
 - Previews that don't use Koin continue to work since `searchNotesForLink`/`searchTasksForLink` are nullable. _(from `2026-09-15-noteeditor-udf-link-search`)_
+- Previews updated: `AccountSettingsScreenLightPreview` / `DarkPreview` now construct `AccountSettingsViewModel(FakeProfileRepository())`; `SettingsScreen` preview updated similarly. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
 - `TaskDetailViewContent` now takes a `recentlyDeleted: Flow<Task?>` parameter — passed from `TaskDetailViewScreen`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
 - `TasksDiModule` removed now-unused `ProjectsRepository` import. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
 
@@ -1661,6 +1704,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-tasks-feature-nested-nav3` — architecture  navigation  koin  viewmodel
 - `2026-09-15-noteeditor-udf-link-search` — "architecture"  "udf"  "notes"  "di"
 - `2026-09-15-projects-nested-nav3` — nav3  navigation  koin  refactor  projects
+- `2026-09-15-projects-settings-profile-udf-fixes` — "architecture"  "udf"  "compose"  "di"
 - `2026-09-15-task-detail-drafts-undo-fix` — "architecture"  "compose"  "udf"  "tasks"  "drafts"  "undo"
 - `2026-09-15-viewmodel-state-ownership` — "architecture"  "compose"  "udf"  "vm-state"
 - `2026-09-16-android-shell-fab-fix` — navigation  nav3  android  fab
@@ -1743,6 +1787,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-nav3-notes-navigator` — _(no title)
 - `2026-09-15-noteeditor-udf-link-search` — NoteEditor UDF fix — delegate link search to ViewModel
 - `2026-09-15-projects-nested-nav3` — Projects feature: nested Nav3 graph with ProjectsNavigator
+- `2026-09-15-projects-settings-profile-udf-fixes` — PR 5 UDF fixes — ProjectDetail, ProjectPicker, AccountSettings, TagPicker
 - `2026-09-15-task-detail-drafts-undo-fix` — TaskDetail drafts seed-from-task; TaskListScreen koinViewModel; undo snackbar wired
 - `2026-09-15-viewmodel-state-ownership` — ViewModel owns all domain state; Composable owns only routing and animation
 - `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation

@@ -33,7 +33,7 @@ sealed interface TaskGroup {
 
 sealed interface TasksUiState {
     data object Loading : TasksUiState
-    data class Empty(val filter: TaskFilter) : TasksUiState
+    data object Empty : TasksUiState
     data class Content(
         val filter: TaskFilter,
         val tasks: List<TaskUi>,

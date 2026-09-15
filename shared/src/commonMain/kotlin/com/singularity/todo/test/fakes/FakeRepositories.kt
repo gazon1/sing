@@ -444,7 +444,9 @@ class FakeTagsRepository : com.singularity.todo.feature.tags.TagsRepository {
     fun clear() = store.clear()
 
     override fun watchTags(userId: String): Flow<List<com.singularity.todo.feature.tags.Tag>> =
-        store.state.map { list -> list.values.filter { it.userId == userId } }
+        store.state
+            .onStart { emit(store.state.value) }
+            .map { list -> list.values.filter { it.userId == userId } }
 
     override fun watchTag(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }

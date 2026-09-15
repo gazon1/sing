@@ -109,17 +109,30 @@ class TasksViewModel(
     val state: StateFlow<TasksUiState> = (combine(
         tasksFlow,
         projectNamesFlow,
+        _filter,
         _statusFilter,
         _selectedIds,
         _expandedParentIds,
-    ) { tasks, projectNames, statusFilter, selectedIds, expandedIds ->
+    ) { args: Array<*> ->
+        @Suppress("UNCHECKED_CAST")
+        val tasks = args[0] as List<Task>
+        @Suppress("UNCHECKED_CAST")
+        val projectNames = args[1] as Map<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val filter = args[2] as TaskFilter
+        @Suppress("UNCHECKED_CAST")
+        val statusFilter = args[3] as TaskListFilter
+        @Suppress("UNCHECKED_CAST")
+        val selectedIds = args[4] as Set<TaskId>
+        @Suppress("UNCHECKED_CAST")
+        val expandedIds = args[5] as Set<TaskId>
         val filtered = when (statusFilter) {
             TaskListFilter.ALL -> tasks
             TaskListFilter.ACTIVE -> tasks.filter { it.completedAt == null }
             TaskListFilter.COMPLETED -> tasks.filter { it.completedAt != null }
         }
         val taskUiList = buildFlatTaskList(filtered, expandedIds, projectNames)
-        TasksUiState.Content(_filter.value, taskUiList, selectedIds)
+        TasksUiState.Content(filter, taskUiList, selectedIds)
     } as Flow<TasksUiState>)
         .catch { emit(TasksUiState.Error(it.message ?: "Error")) }
         .stateIn(scope, sharingStarted(), TasksUiState.Loading)
