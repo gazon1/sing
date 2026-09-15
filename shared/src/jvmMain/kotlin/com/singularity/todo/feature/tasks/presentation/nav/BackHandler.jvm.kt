@@ -1,3 +1,5 @@
+@file:Suppress("EmptyMethod")
+
 package com.singularity.todo.feature.tasks.presentation.nav
 
 import androidx.compose.runtime.Composable

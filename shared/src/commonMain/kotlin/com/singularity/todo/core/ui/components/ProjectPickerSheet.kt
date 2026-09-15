@@ -26,15 +26,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.projects.CreateProjectUseCase
 import com.singularity.todo.feature.projects.Project
-import com.singularity.todo.feature.projects.ProjectId
-import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
-import kotlinx.coroutines.flow.flowOf
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository

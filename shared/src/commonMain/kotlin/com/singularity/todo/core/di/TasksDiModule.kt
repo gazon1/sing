@@ -5,7 +5,6 @@ import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.clock.DelayAutosaveScheduler
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.archive.ArchiveRepository
 import com.singularity.todo.feature.archive.ArchiveViewModel
@@ -16,8 +15,6 @@ import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.checklist.RoomChecklistRepository
 import com.singularity.todo.feature.pomodoro.InMemoryPomodoroRepository
 import com.singularity.todo.feature.pomodoro.PomodoroRepository
-import com.singularity.todo.feature.pomodoro.PomodoroTimer
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
@@ -90,7 +87,22 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModelOf(::TasksViewModel)
+    // NOTE: Using explicit viewModel {} block instead of viewModelOf so that
+    // sharingStarted and scopeOverride use their defaults. viewModelOf(::TasksViewModel)
+    // uses reflection to resolve all constructor parameters and can incorrectly match
+    // CoroutineScope beans (CoreDiModule) against the () -> SharingStarted parameter,
+    // causing ClassCastException at runtime.
+    viewModel {
+        TasksViewModel(
+            taskRepo = get(),
+            createTask = get(),
+            updateTask = get(),
+            currentUser = get(),
+            mutations = get(),
+            projectRepo = get(),
+            clock = get(),
+        )
+    }
 
     viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
         TaskDetailViewModel(

@@ -4,7 +4,9 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import kotlin.time.Instant
+import kotlinx.serialization.Serializable
 
+@Serializable
 @JvmInline
 value class TaskId(val value: String) {
     companion object {

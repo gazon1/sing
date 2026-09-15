@@ -102,10 +102,7 @@ kotlin {
             // Rich Text Editor
             implementation(libs.rich.editor.compose)
 
-            // OpenAI (legacy client — replaced by Koog in Phase 5)
             implementation(libs.openai.client)
-
-            // Koog AI Agent Framework (JetBrains) — Phase 5 real integration
             implementation(libs.koog.agents)
             implementation(libs.koog.prompt.executor.openai.client)
             implementation(libs.koog.prompt.llm)
@@ -121,9 +118,6 @@ kotlin {
             // Coil
             implementation(libs.coil.compose)
             implementation(libs.coil.core)
-
-            // Navigation Compose (type-safe routes)
-            implementation(libs.androidx.navigation.compose)
 
             // Utils
             implementation(libs.ulid)

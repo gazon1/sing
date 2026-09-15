@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.pomodoro
 
 import com.singularity.todo.feature.tasks.domain.model.Task
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

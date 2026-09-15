@@ -5,12 +5,8 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.savedstate.serialization.SavedStateConfiguration
-import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.DestinationKind
-import com.singularity.todo.feature.nav.Nav3State
 
 /**
  * Android implementation of [rememberNav3State].

@@ -1,7 +1,6 @@
 package com.singularity.todo.core.di
 
 import ai.koog.prompt.llm.LLModel
-import co.touchlab.kermit.Logger
 import com.singularity.todo.core.llm.KnownModels
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.UsageRecorder
@@ -61,14 +60,10 @@ import com.singularity.todo.feature.genui.transport.GenuiTransport
 import com.singularity.todo.feature.genui.transport.KoogGenuiTransport
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileSwitcherViewModel
-import com.singularity.todo.feature.projects.CreateProjectUseCase
 import com.singularity.todo.feature.projects.ProjectsRepository
 import com.singularity.todo.feature.projects.ProjectsViewModel
 import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
-import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
-import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf

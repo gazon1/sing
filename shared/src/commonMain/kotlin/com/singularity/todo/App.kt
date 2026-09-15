@@ -1,18 +1,11 @@
 package com.singularity.todo
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import com.singularity.todo.core.auth.AuthGuard
-import com.singularity.todo.core.settings.SettingsRepository
-import com.singularity.todo.core.ui.theme.SingularityAccents
-import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.nav.LocalAppNavigator
 import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
-import com.singularity.todo.feature.nav.rememberNav3State
-import org.koin.compose.koinInject
 
 /**
  * Root Composable — platform-specific actuals dispatch to the right shell.

@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
@@ -14,6 +15,10 @@ import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskListScreen
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclassesOfSealed
 
 /**
  * JVM Desktop implementation of [TasksNavGraph].
@@ -23,16 +28,36 @@ import com.singularity.todo.feature.tasks.presentation.screen.TaskListScreen
  *
  * No [rememberViewModelStoreNavEntryDecorator] is used on JVM desktop — the JVM
  * does not have the ComponentActivity-based ViewModelStore scoping issue
- * that Android has. Each NavDisplay entry on desktop already has proper
- * per-entry ViewModel scoping, and there is no process-death lifecycle.
+ * that Android has. Each NavDisplay entry on desktop already has proper per-entry
+ * ViewModel scoping, and there is no process-death lifecycle.
+ *
+ * **Serialization**: [SavedStateConfiguration] is initialized with a [SerializersModule]
+ * that registers all [TasksRoute] subtypes. [NavBackStackSerializer] uses
+ * [PolymorphicSerializer] for [NavKey], which needs to
+ * know about every concrete subtype — including nested ones (e.g. [TasksRoute.Inbox] via
+ * [TasksRoute.List]). [subclassesOfSealed] automatically discovers all subtypes.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Composable
 actual fun TasksNavGraph(
     start: TasksRoute,
     onExitGraph: (AppDestination?) -> Unit,
     modifier: Modifier,
 ) {
-    val savedStateConfig = remember { SavedStateConfiguration { } }
+    // Use the SavedStateConfiguration DSL (invoke {} block) to set serializersModule.
+    // This is the correct API: SavedStateConfiguration { serializersModule = ... }
+    val savedStateConfig = remember {
+        SavedStateConfiguration {
+            serializersModule = SerializersModule {
+                // Register TasksRoute and all its nested subtypes at the NavKey level.
+                // TasksRoute.List → Inbox, Today, ByProject
+                // TasksRoute.Detail, TasksRoute.Create
+                polymorphic(NavKey::class) {
+                    subclassesOfSealed<TasksRoute>()
+                }
+            }
+        }
+    }
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<TasksRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<TasksRoute>
@@ -64,6 +89,7 @@ actual fun TasksNavGraph(
     }
 }
 
+@OptIn(ExperimentalSerializationApi::class)
 @Composable
 actual fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute> {
     return entryProvider {

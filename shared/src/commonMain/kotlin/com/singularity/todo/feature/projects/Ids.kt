@@ -2,7 +2,9 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.ids.UserId
 import kotlin.time.Instant
+import kotlinx.serialization.Serializable
 
+@Serializable
 @JvmInline
 value class ProjectId(val value: String) {
     companion object {

@@ -9,12 +9,6 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
-import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.ai.prompts.Prompts
-import com.singularity.todo.feature.projects.ProjectId
-import com.singularity.todo.feature.tasks.domain.model.TaskFilter
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import kotlinx.coroutines.flow.first
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

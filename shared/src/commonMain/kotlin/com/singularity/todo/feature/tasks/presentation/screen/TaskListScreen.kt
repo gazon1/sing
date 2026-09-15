@@ -45,7 +45,6 @@ import com.singularity.todo.feature.tasks.presentation.model.TaskListFilter
 import com.singularity.todo.feature.tasks.presentation.model.TaskListStats
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.nav.TasksRoute
-import com.singularity.todo.feature.tasks.presentation.nav.toDomainFilter
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListShapes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
@@ -76,7 +75,9 @@ fun TaskListScreen(
         val domainFilter: com.singularity.todo.feature.tasks.domain.model.TaskFilter = when (route) {
             is TasksRoute.Inbox -> com.singularity.todo.feature.tasks.domain.model.TaskFilter.Inbox
             is TasksRoute.Today -> com.singularity.todo.feature.tasks.domain.model.TaskFilter.Today
-            is TasksRoute.ByProject -> com.singularity.todo.feature.tasks.domain.model.TaskFilter.ByProject(route.projectId!!)
+            is TasksRoute.ByProject -> com.singularity.todo.feature.tasks.domain.model.TaskFilter.ByProject(
+                route.projectId
+            )
         }
         vm.applyRoute(domainFilter)
     }
@@ -87,7 +88,7 @@ fun TaskListScreen(
     // Undo snackbar — owned by VM via recentlyDeleted StateFlow.
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(recentlyDeleted) {
-        val task = recentlyDeleted ?: return@LaunchedEffect
+        recentlyDeleted ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
             message = "Задача удалена",
             actionLabel = "Отменить",
@@ -188,7 +189,6 @@ fun TaskListScreen(
                 }
                 is com.singularity.todo.feature.tasks.domain.model.TasksUiState.Content -> {
                     val tasks = s.tasks
-                    val contentState = s
                     if (tasks.isEmpty()) {
                         val isFilterActive = statusFilter != TaskListFilter.ALL
                         EmptyState(
@@ -219,7 +219,7 @@ fun TaskListScreen(
                                         indentLevel = task.indentLevel,
                                         onToggleCompleted = { vm.toggle(task.id) },
                                         onClick = {
-                                            if (contentState.selectedIds.isNotEmpty()) {
+                                            if (s.selectedIds.isNotEmpty()) {
                                                 vm.toggleSelection(task.id)
                                             } else {
                                                 navigator.openDetail(task.id)

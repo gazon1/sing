@@ -2,7 +2,6 @@ package com.singularity.todo.core.ui.components
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.CreateProjectInput
 import com.singularity.todo.feature.projects.CreateProjectUseCase

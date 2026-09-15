@@ -56,9 +56,6 @@ openai-client = "4.1.0"
 # Theme / MaterialKolor
 materialkolor = "4.1.1"
 
-# Navigation 2 — REMOVE AFTER MIGRATION (kept for existing androidx-navigation-compose lib)
-androidx-navigation = "2.9.2"
-
 # Navigation 3 (KMP multiplatform) — aligned with terrakok/nav3-recipes
 # - androidx.navigation3 (Google) publishes the multiplatform runtime
 # - org.jetbrains.androidx.navigation3 (JetBrains) publishes platform-specific UI:
@@ -203,9 +200,6 @@ koin-compose-navigation3 = { module = "io.insert-koin:koin-compose-navigation3",
 # Koin Navigation 3 DSL (Android AAR — contains the actual navigation{} function for androidJvm)
 koin-compose-navigation3-android = { module = "io.insert-koin:koin-compose-navigation3-android", version.ref = "koin" }
 
-# Navigation Compose (type-safe routes, multiplatform) — REMOVE AFTER MIGRATION
-# TestNavHostController is included in the main artifact — no separate testing dep needed.
-androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "androidx-navigation" }
 
 # Utils
 ulid = { module = "com.github.f4b6a3:ulid-creator", version.ref = "ulid" }

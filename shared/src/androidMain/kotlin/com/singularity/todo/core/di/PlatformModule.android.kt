@@ -8,8 +8,8 @@ import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
-import com.singularity.todo.core.files.AndroidFileSystem
 import com.singularity.todo.core.files.AndroidFileRevealer
+import com.singularity.todo.core.files.AndroidFileSystem
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.notifications.AndroidNotificationPort
@@ -17,7 +17,6 @@ import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.AndroidSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
-import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.settings.AiApiKeyMigration
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel

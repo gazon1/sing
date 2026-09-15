@@ -57,5 +57,8 @@ fun projectsModule(): org.koin.core.module.Module = module {
 
     // ─── Shared component ViewModels ─────────────────────────────────────────
 
+    // NOTE: Using explicit viewModel {} block instead of viewModelOf so that
+    // sharingStarted and scopeOverride use their defaults (not resolved via
+    // reflection, which can incorrectly match CoroutineScope beans on Android).
     viewModel { ProjectPickerViewModel(get(), get(), get()) }
 }

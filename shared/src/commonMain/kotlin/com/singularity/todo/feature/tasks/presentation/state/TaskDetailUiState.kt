@@ -6,7 +6,6 @@ import com.singularity.todo.feature.projects.Project
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
  * Read model для экрана просмотра задачи.

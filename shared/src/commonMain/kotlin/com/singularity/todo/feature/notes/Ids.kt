@@ -2,7 +2,9 @@ package com.singularity.todo.feature.notes
 
 import com.singularity.todo.core.ids.UserId
 import kotlin.time.Instant
+import kotlinx.serialization.Serializable
 
+@Serializable
 @JvmInline
 value class NoteId(val value: String) {
     companion object {
