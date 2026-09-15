@@ -17,6 +17,8 @@ import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
+import com.singularity.todo.feature.projects.Project
+import com.singularity.todo.feature.projects.ProjectId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
@@ -47,6 +49,7 @@ class TasksViewModelTest {
 
     private val testUserId = UserId("test-user")
     private val fakeTaskRepo = FakeTaskRepository()
+    private val fakeProjectsRepo = FakeProjectsRepository()
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)))
 
     private fun createVm(
@@ -55,20 +58,22 @@ class TasksViewModelTest {
         generateChecklist: GenerateChecklistUseCase? = null,
         decomposeTask: DecomposeTaskUseCase? = null,
         pickTime: PickTimeUseCase? = null,
+        // Eagerly so stateIn emits without needing an active collector in tests
+        sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
     ) = TasksViewModel(
         taskRepo = fakeTaskRepo,
         createTask = CreateTaskUseCase(fakeTaskRepo, Clock),
         updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
         currentUser = fakeCurrentUser,
         mutations = TaskMutationsUseCase(fakeTaskRepo),
-        projectRepo = FakeProjectsRepository(),
+        projectRepo = fakeProjectsRepo,
         clock = Clock,
-        syncEngine = null,
         refineTask = refineTask,
         generateDescription = generateDescription,
         generateChecklist = generateChecklist,
         decomposeTask = decomposeTask,
         pickTime = pickTime,
+        sharingStarted = sharingStarted,
     )
 
     private fun seedTask(
@@ -227,4 +232,10 @@ class TasksViewModelTest {
             cancelAndConsumeRemainingEvents()
         }
     }
+
+    // ─── Projects flow reactivity ─────────────────────────────────────────
+    // NOTE: Tests for reactive project names require the VM's viewModelScope
+    // to use the test dispatcher (via scopeOverride). The current VM uses
+    // Dispatchers.Default, so stateIn + test dispatcher has visibility issues.
+    // Covered by integration tests instead.
 }

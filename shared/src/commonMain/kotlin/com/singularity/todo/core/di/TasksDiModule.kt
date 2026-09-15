@@ -7,7 +7,6 @@ import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.core.sync.SyncEngine
 import com.singularity.todo.feature.archive.ArchiveRepository
 import com.singularity.todo.feature.archive.ArchiveViewModel
 import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
@@ -101,7 +100,6 @@ fun tasksModule(): org.koin.core.module.Module = module {
             mutations = get<TaskMutationsUseCase>(),
             projectRepo = get<ProjectsRepository>(),
             clock = get<Clock>(),
-            syncEngine = getOrNull<SyncEngine>(),
         )
     }
 

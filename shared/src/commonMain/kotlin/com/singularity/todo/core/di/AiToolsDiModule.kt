@@ -50,7 +50,6 @@ import com.singularity.todo.feature.ai.usage.AiUsageViewModel
 import com.singularity.todo.feature.profile.ProfileSwitcherViewModel
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.ai.chat.ChatViewModel
-import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
 import com.singularity.todo.feature.projects.ProjectsViewModel
 import com.singularity.todo.feature.genui.GenuiEngine
 import com.singularity.todo.feature.genui.surface.SurfaceController
@@ -66,7 +65,6 @@ import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.UsageRecorder
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.core.sync.SyncEngine
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -207,24 +205,6 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
     }
 
     // ─── ViewModels with nullable AI deps ───────────────────────────────
-
-    viewModel {
-        TasksViewModel(
-            taskRepo = get<TaskRepository>(),
-            createTask = get<CreateTaskUseCase>(),
-            updateTask = get<UpdateTaskUseCase>(),
-            currentUser = get<ProfileAwareCurrentUser>(),
-            mutations = get<TaskMutationsUseCase>(),
-            projectRepo = get<ProjectsRepository>(),
-            clock = get<Clock>(),
-            syncEngine = getOrNull<SyncEngine>(),
-            refineTask = getOrNull(),
-            generateDescription = getOrNull(),
-            generateChecklist = getOrNull(),
-            decomposeTask = getOrNull(),
-            pickTime = getOrNull(),
-        )
-    }
 
     viewModel {
         ProjectsViewModel(

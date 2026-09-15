@@ -179,12 +179,13 @@ fun TaskListScreen(
             )
 
             // List content
-            PullToRefreshBox(
+                PullToRefreshBox(
                 isRefreshing = isRefreshing,
                 onRefresh = {
                     scope.launch {
                         isRefreshing = true
-                        vm.refresh()
+                        // Data is reactive via Room flows — no explicit refresh needed.
+                        // TODO: replace with syncEngine.pull() once it applies events to DB.
                         delay(1200.milliseconds)
                         isRefreshing = false
                     }
