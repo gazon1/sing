@@ -1,10 +1,10 @@
 package com.singularity.todo.core.di
 
-import com.singularity.todo.feature.notes.NoteEditor
-import com.singularity.todo.feature.notes.NotePreview
-import com.singularity.todo.feature.notes.NotesListViewModel
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.RoomNotesRepository
+import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
+import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
+import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.search.InternalLinkRepositoryImpl
 import org.koin.core.module.dsl.viewModel

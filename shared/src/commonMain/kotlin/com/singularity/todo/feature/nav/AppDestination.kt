@@ -160,16 +160,6 @@ sealed interface AppDestination : NavKey {
     }
 
     @Serializable
-    data class NoteView(val noteId: String) : AppDestination {
-        override val title = "Note"
-    }
-
-    @Serializable
-    data class NoteEditor(val noteId: String? = null) : AppDestination {
-        override val title = "New Note"
-    }
-
-    @Serializable
     data class ProjectEditor(val projectId: String? = null) : AppDestination {
         override val title = "New Project"
     }
@@ -218,8 +208,6 @@ val AppDestination.icon: ImageVector
         is AppDestination.TaskDetailCreate -> Icons.Filled.Check
         is AppDestination.TasksGraph -> Icons.Filled.Check
         is AppDestination.TasksByProject -> Icons.Filled.Folder
-        is AppDestination.NoteView -> Icons.Filled.Create
-        is AppDestination.NoteEditor -> Icons.Filled.Create
         is AppDestination.ProjectEditor -> Icons.Filled.Check
         is AppDestination.ProjectDetail -> Icons.Filled.Check
         is AppDestination.ProjectsGraph -> Icons.Filled.Check

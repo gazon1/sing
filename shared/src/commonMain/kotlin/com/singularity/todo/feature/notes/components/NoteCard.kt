@@ -107,7 +107,7 @@ internal fun NoteCardContent(
 
 /**
  * Card representation of a single note. Stateless — every piece of behavior is
- * supplied via [onClick] (whole-row tap) and [actions] (per-button callbacks).
+ * supplied via [onClick] (whole-row tap).
  *
  * Supports slot customization via [body] and [trailing] parameters following
  * Material 3 naming convention (`body` for main content, `trailing` for meta/actions).
@@ -121,7 +121,6 @@ fun NoteCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
     isSelected: Boolean = false,
-    actions: NoteCardActions = NoteCardActions.Empty,
     modifier: Modifier = Modifier,
     body: @Composable RowScope.() -> Unit = { DefaultNoteCardBody(note, isSelected) },
     trailing: @Composable RowScope.() -> Unit = { DefaultNoteCardTrailing(note) },

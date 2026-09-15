@@ -9,9 +9,8 @@ import com.singularity.todo.feature.notes.NoteSortOrder
  * Packed into a single [JvmInline value class][value class] so the screen composable
  * receives exactly one `actions` parameter instead of 10+ individual lambdas.
  *
- * 10 callbacks grouped as:
- * - **Navigation**: navigate to note detail
- * - **Mutations**: create, delete, toggle pin
+ * 8 callbacks grouped as:
+ * - **Mutations**: delete, toggle pin
  * - **List control**: set filter, set sort order
  * - **Selection mode**: enter, toggle, exit selection, delete selected
  */
@@ -21,11 +20,7 @@ value class NotesActions(
 ) {
     /** Sealed action hierarchy — enables exhaustive `when` with smart-cast. */
     sealed class Action {
-        // ── Navigation ────────────────────────────────────────────────────────
-        data class NavigateToNote(val id: NoteId) : Action()
-
         // ── Mutations ──────────────────────────────────────────────────────────
-        data class CreateNote(val title: String) : Action()
         data class Delete(val id: NoteId) : Action()
         data class TogglePin(val id: NoteId) : Action()
 
@@ -39,11 +34,6 @@ value class NotesActions(
         data object ExitSelection : Action()
         data object DeleteSelected : Action()
     }
-
-    // ── Navigation ─────────────────────────────────────────────────────────────
-
-    fun onNavigateToNote(id: NoteId) = block(Action.NavigateToNote(id))
-    fun onCreateNote(title: String) = block(Action.CreateNote(title))
 
     // ── Mutations ──────────────────────────────────────────────────────────────
 

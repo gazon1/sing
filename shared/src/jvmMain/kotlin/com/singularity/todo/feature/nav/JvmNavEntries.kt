@@ -6,16 +6,11 @@ import androidx.navigation3.runtime.entryProvider
 import com.singularity.todo.feature.ai.chat.ChatScreen
 import com.singularity.todo.feature.ai.usage.AiUsageScreen
 import com.singularity.todo.feature.archive.ArchiveScreen
-import com.singularity.todo.feature.notes.NoteEditorScreen
-import com.singularity.todo.feature.notes.NotePreviewScreen
-import com.singularity.todo.feature.notes.NotesScreen
+import com.singularity.todo.feature.notes.presentation.nav.NotesNavGraph
 import com.singularity.todo.feature.pomodoro.PomodoroScreen
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.profile.ProfileSwitcherScreen
-import com.singularity.todo.feature.projects.ProjectDetailScreen
-import com.singularity.todo.feature.projects.ProjectEditorScreen
 import com.singularity.todo.feature.projects.ProjectId
-import com.singularity.todo.feature.projects.ProjectsScreen
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsRoute
 import com.singularity.todo.feature.search.SearchScreen
@@ -79,11 +74,8 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
         // ─── Menu destinations ─────────────────────────────────────────────
 
         entry<AppDestination.Notes> {
-            NotesScreen(
-                onNavigateToNote = { id -> nav.navigate(AppDestination.NoteView(id)) },
-                onNavigateToCreateNote = {
-                    nav.navigate(AppDestination.NoteEditor())
-                },
+            NotesNavGraph(
+                navCallbacks = nav,
             )
         }
 
@@ -119,25 +111,6 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
 
         // ─── Sub-routes ────────────────────────────────────────────────────
 
-        entry<AppDestination.NoteView> { route ->
-            NotePreviewScreen(
-                noteId = route.noteId,
-                onBack = { nav.goBack() },
-                onEdit = { id -> nav.navigate(AppDestination.NoteEditor(id)) },
-                onNavigateToNote = { id -> nav.navigate(AppDestination.NoteView(id)) },
-                onNavigateToTask = { id -> nav.navigate(AppDestination.TaskDetail(id)) },
-            )
-        }
-
-        entry<AppDestination.NoteEditor> { route ->
-            NoteEditorScreen(
-                noteId = route.noteId,
-                onBack = { nav.goBack() },
-                onNavigateToNote = { id -> nav.navigate(AppDestination.NoteView(id)) },
-                onNavigateToTask = { id -> nav.navigate(AppDestination.TaskDetail(id)) },
-            )
-        }
-
         entry<AppDestination.ProjectEditor> { route ->
             ProjectsNavGraph(
                 start = ProjectsRoute.Editor(route.projectId?.let { ProjectId.fromString(it) }),
@@ -158,7 +131,7 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
             )
         }
 
-        entry<AppDestination.ProjectsGraph> { route ->
+        entry<AppDestination.ProjectsGraph> { _ ->
             ProjectsNavGraph(
                 start = ProjectsRoute.List,
                 onExitGraph = { nav.goBack() },

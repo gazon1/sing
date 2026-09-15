@@ -63,7 +63,7 @@ actual fun androidShellNav3() {
     val current: AppDestination = state.topLevelRoute as? AppDestination
         ?: AppDestination.Today
 
-    val fabAction = fabActionForNav3(current)
+    val fabAction = fabActionForNav3(current, navigator)
 
     Scaffold(
         bottomBar = {
@@ -137,10 +137,10 @@ actual fun androidShellNav3() {
 
 private data class FabAction(val label: String, val onClick: () -> Unit)
 
-private fun fabActionForNav3(current: AppDestination): FabAction? = when (current) {
+private fun fabActionForNav3(current: AppDestination, navigator: Navigator): FabAction? = when (current) {
     AppDestination.Inbox, AppDestination.Today -> FabAction("Add task") { }
     AppDestination.Plans -> FabAction("Add project") { }
-    AppDestination.Notes -> FabAction("Add note") { }
+    AppDestination.Notes -> FabAction("Add note") { navigator.navigate(AppDestination.Notes) }
     AppDestination.Pomodoro, AppDestination.Statistics, AppDestination.Archive -> null
     else -> null
 }

@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.notes
+package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -6,6 +6,14 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
+import com.singularity.todo.feature.notes.EditorState
+import com.singularity.todo.feature.notes.LinkRef
+import com.singularity.todo.feature.notes.NoteAiResult
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.NotesRepository
+import com.singularity.todo.feature.notes.NotesUiEvent
+import com.singularity.todo.feature.notes.extractOutgoingLinks
+import com.singularity.todo.feature.notes.formatNoteAiResult
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,23 +27,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-
-// ─── Editor screen state ──────────────────────────────────────────────────────
-
-sealed interface EditorState {
-    data object Empty : EditorState
-    data class Editing(
-        val id: String,
-        val title: String,
-        val html: String,
-        val isDirty: Boolean = false
-    ) : EditorState
-}
-
-sealed interface NoteAiResult {
-    data class Improved(val title: String, val body: String) : NoteAiResult
-    data class Error(val message: String) : NoteAiResult
-}
 
 // ─── ViewModel ───────────────────────────────────────────────────────────────
 

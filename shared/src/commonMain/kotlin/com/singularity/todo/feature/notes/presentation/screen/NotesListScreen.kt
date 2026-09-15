@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.notes
+package com.singularity.todo.feature.notes.presentation.screen
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -61,8 +61,19 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.notes.Note
+import com.singularity.todo.feature.notes.NoteFilter
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.NoteSortOrder
+import com.singularity.todo.feature.notes.NotesListState
+import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.notes.components.NoteCardContent
 import com.singularity.todo.feature.notes.components.NotesActions
+import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
+import com.singularity.todo.feature.notes.presentation.nav.NotesNavigator
+import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
+import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
+import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.core.ids.UserId
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -70,28 +81,25 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotesScreen(
-    onNavigateToNote: (String) -> Unit,
-    onNavigateToCreateNote: () -> Unit,
+fun NotesListScreen(
+    route: NotesRoute.List,
     viewModel: NotesListViewModel = koinViewModel(),
 ) {
+    val navigator = LocalNotesNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    val actions = NotesActions { action ->
-        when (action) {
-            is NotesActions.Action.NavigateToNote -> onNavigateToNote(action.id.value)
-            is NotesActions.Action.CreateNote -> {
-                val id = viewModel.createNoteWithTitle(action.title)
-                onNavigateToNote(id)
+    val actions = remember(navigator) {
+        NotesActions { action ->
+            when (action) {
+                is NotesActions.Action.Delete -> viewModel.delete(action.id)
+                is NotesActions.Action.TogglePin -> viewModel.togglePin(action.id)
+                is NotesActions.Action.SetFilter -> viewModel.setFilter(action.filter)
+                is NotesActions.Action.SetSortOrder -> viewModel.setSortOrder(action.order)
+                is NotesActions.Action.EnterSelection -> viewModel.enterSelectionMode(action.id)
+                is NotesActions.Action.ToggleSelection -> viewModel.toggleSelection(action.id)
+                is NotesActions.Action.ExitSelection -> viewModel.exitSelectionMode()
+                is NotesActions.Action.DeleteSelected -> viewModel.deleteSelected()
             }
-            is NotesActions.Action.Delete -> viewModel.delete(action.id)
-            is NotesActions.Action.TogglePin -> viewModel.togglePin(action.id)
-            is NotesActions.Action.SetFilter -> viewModel.setFilter(action.filter)
-            is NotesActions.Action.SetSortOrder -> viewModel.setSortOrder(action.order)
-            is NotesActions.Action.EnterSelection -> viewModel.enterSelectionMode(action.id)
-            is NotesActions.Action.ToggleSelection -> viewModel.toggleSelection(action.id)
-            is NotesActions.Action.ExitSelection -> viewModel.exitSelectionMode()
-            is NotesActions.Action.DeleteSelected -> viewModel.deleteSelected()
         }
     }
 
@@ -99,6 +107,8 @@ fun NotesScreen(
         state = state,
         currentFilter = viewModel.filter.collectAsStateWithLifecycle().value,
         currentSortOrder = viewModel.sortOrder.collectAsStateWithLifecycle().value,
+        navigator = navigator,
+        onCreateNote = { title -> NoteId.fromString(viewModel.createNoteWithTitle(title)) },
         actions = actions,
     )
 }
@@ -114,6 +124,8 @@ fun NotesScreenContent(
     state: NotesUiState,
     currentFilter: NoteFilter,
     currentSortOrder: NoteSortOrder,
+    navigator: NotesNavigator,
+    onCreateNote: (title: String) -> NoteId,
     modifier: Modifier = Modifier,
     actions: NotesActions = NotesActions.Empty,
 ) {
@@ -136,9 +148,7 @@ fun NotesScreenContent(
                             }
                         },
                         actions = {
-                            IconButton(onClick = {
-                                actions.onDeleteSelected()
-                            }) {
+                            IconButton(onClick = { actions.onDeleteSelected() }) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Delete selected",
@@ -178,7 +188,10 @@ fun NotesScreenContent(
                         onFilterChange = { actions.onSetFilter(it) },
                     )
                     QuickAddRow(
-                        onSubmit = { title -> actions.onCreateNote(title) },
+                        onSubmit = { title ->
+                            val id = onCreateNote(title)
+                            navigator.openEditor(id)
+                        },
                     )
                 }
                 HorizontalDivider()
@@ -191,7 +204,12 @@ fun NotesScreenContent(
                 subtitle = "Create your first note to get started",
                 modifier = Modifier.padding(padding),
                 actions = {
-                    FilledTonalButton(onClick = { actions.onCreateNote("") }) {
+                    FilledTonalButton(
+                        onClick = {
+                            val id = onCreateNote("")
+                            navigator.openEditor(id)
+                        },
+                    ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
                         Text("Create your first note")
@@ -210,6 +228,7 @@ fun NotesScreenContent(
                     unpinned = listState?.unpinned ?: emptyList(),
                     isSelectionMode = isSelectionMode,
                     selectedIds = listState?.selectedIds ?: emptySet(),
+                    navigator = navigator,
                     actions = actions,
                 )
             }
@@ -271,7 +290,7 @@ private fun SortDropdownMenu(
     }
 }
 
-// ─── Quick-add row ───────────────────────────────────────────────────────────
+// ─── Quick-add row ─────────────────────────────────────────────────────────---
 
 @Composable
 private fun QuickAddRow(
@@ -324,6 +343,7 @@ private fun NoteList(
     unpinned: List<Note>,
     isSelectionMode: Boolean,
     selectedIds: Set<NoteId>,
+    navigator: NotesNavigator,
     actions: NotesActions,
 ) {
     LazyColumn(
@@ -346,13 +366,11 @@ private fun NoteList(
                     note = note,
                     isSelected = note.id in selectedIds,
                     isSelectionMode = isSelectionMode,
-                    onClick = {
-                        if (isSelectionMode) actions.onToggleSelection(note.id)
-                        else actions.onNavigateToNote(note.id)
-                    },
+                    navigator = navigator,
                     onLongClick = { actions.onEnterSelection(note.id) },
                     onDelete = { actions.onDelete(note.id) },
                     onTogglePin = { actions.onTogglePin(note.id) },
+                    onToggleSelection = { actions.onToggleSelection(note.id) },
                 )
             }
         }
@@ -373,13 +391,11 @@ private fun NoteList(
                 note = note,
                 isSelected = note.id in selectedIds,
                 isSelectionMode = isSelectionMode,
-                onClick = {
-                    if (isSelectionMode) actions.onToggleSelection(note.id)
-                    else actions.onNavigateToNote(note.id)
-                },
+                navigator = navigator,
                 onLongClick = { actions.onEnterSelection(note.id) },
                 onDelete = { actions.onDelete(note.id) },
                 onTogglePin = { actions.onTogglePin(note.id) },
+                onToggleSelection = { actions.onToggleSelection(note.id) },
             )
         }
     }
@@ -393,10 +409,11 @@ fun SwipeableNoteCard(
     note: Note,
     isSelected: Boolean,
     isSelectionMode: Boolean,
-    onClick: () -> Unit,
+    navigator: NotesNavigator,
     onLongClick: () -> Unit,
     onDelete: () -> Unit,
     onTogglePin: () -> Unit,
+    onToggleSelection: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
@@ -422,7 +439,13 @@ fun SwipeableNoteCard(
             note = note,
             isSelected = isSelected,
             modifier = Modifier.combinedClickable(
-                onClick = onClick,
+                onClick = {
+                    if (isSelectionMode) {
+                        onToggleSelection()
+                    } else {
+                        navigator.openPreview(note.id)
+                    }
+                },
                 onLongClick = onLongClick,
             ),
         )
@@ -473,31 +496,39 @@ private fun SwipeBackground(dismissValue: SwipeToDismissBoxValue) {
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun NotesScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    NotesScreenContent(
-        state = NotesUiState.Content(
-            list = NotesListState(
-                pinned = listOf(
-                    PreviewSamples.note("n1", "Pinned Note", "**Pinned** content"),
-                ),
-                unpinned = listOf(
-                    PreviewSamples.note("n2", "Ideas", "Meeting notes and **brainstorming**"),
-                    PreviewSamples.note("n3", "Shopping list"),
+    NotesPreviewWrapper {
+        NotesScreenContent(
+            state = NotesUiState.Content(
+                list = NotesListState(
+                    pinned = listOf(
+                        PreviewSamples.note("n1", "Pinned Note", "**Pinned** content"),
+                    ),
+                    unpinned = listOf(
+                        PreviewSamples.note("n2", "Ideas", "Meeting notes and **brainstorming**"),
+                        PreviewSamples.note("n3", "Shopping list"),
+                    ),
                 ),
             ),
-        ),
-        currentFilter = NoteFilter.All,
-        currentSortOrder = NoteSortOrder.UpdatedDesc,
-        actions = NotesActions.Empty,
-    )
+            currentFilter = NoteFilter.All,
+            currentSortOrder = NoteSortOrder.UpdatedDesc,
+            navigator = LocalNotesNavigator.current,
+            onCreateNote = { NoteId.fromString("preview-note-id") },
+            actions = NotesActions.Empty,
+        )
+    }
 }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun NotesScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    NotesScreenContent(
-        state = NotesUiState.Empty(userId = UserId.anonymous),
-        currentFilter = NoteFilter.All,
-        currentSortOrder = NoteSortOrder.UpdatedDesc,
-        actions = NotesActions.Empty,
-    )
+    NotesPreviewWrapper {
+        NotesScreenContent(
+            state = NotesUiState.Empty(userId = UserId.anonymous),
+            currentFilter = NoteFilter.All,
+            currentSortOrder = NoteSortOrder.UpdatedDesc,
+            navigator = LocalNotesNavigator.current,
+            onCreateNote = { NoteId.fromString("preview-note-id") },
+            actions = NotesActions.Empty,
+        )
+    }
 }

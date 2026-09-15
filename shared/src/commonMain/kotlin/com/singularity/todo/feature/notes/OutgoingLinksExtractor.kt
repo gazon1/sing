@@ -8,7 +8,7 @@ package com.singularity.todo.feature.notes
  * tree is not possible because [com.mohamedrejeb.richeditor.model.RichParagraph] is `internal`,
  * so HTML is parsed instead — the format is deterministic and simple enough for regex.
  */
-internal fun extractOutgoingLinks(html: String): List<LinkRef> {
+fun extractOutgoingLinks(html: String): List<LinkRef> {
     val seen = mutableSetOf<LinkRef>()
     val regex = Regex("""<a\s[^>]*href="(note://[^"]+)"[^>]*>""")
     for (match in regex.findAll(html)) {

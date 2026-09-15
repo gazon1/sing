@@ -1,10 +1,17 @@
-package com.singularity.todo.feature.notes
+package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.ids.IdGenerator
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.notes.Note
+import com.singularity.todo.feature.notes.NoteFilter
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.NoteSortOrder
+import com.singularity.todo.feature.notes.NotesListState
+import com.singularity.todo.feature.notes.NotesRepository
+import com.singularity.todo.feature.notes.NotesUiState
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,43 +22,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-
-// ─── List screen state ────────────────────────────────────────────────────────
-
-/** Filter for the notes list. */
-enum class NoteFilter {
-    All, Pinned, Archived
-}
-
-/** Sort order for the notes list. */
-enum class NoteSortOrder {
-    UpdatedDesc, UpdatedAsc, TitleAsc, TitleDesc
-}
-
-/**
- * UI state for the notes list screen.
- *
- * @param pinned      Pinned notes (always visible at top regardless of filter).
- * @param unpinned    Non-pinned notes matching the current [filter].
- * @param filter     Active filter (All / Pinned / Archived).
- * @param sortOrder  Active sort order.
- * @param selectedIds Notes selected in multi-select mode.
- */
-data class NotesListState(
-    val pinned: List<Note> = emptyList(),
-    val unpinned: List<Note> = emptyList(),
-    val filter: NoteFilter = NoteFilter.All,
-    val sortOrder: NoteSortOrder = NoteSortOrder.UpdatedDesc,
-    val selectedIds: Set<NoteId> = emptySet(),
-    val isSelectionMode: Boolean = false,
-)
-
-sealed interface NotesUiState {
-    data object Loading : NotesUiState
-    data class Empty(val userId: UserId) : NotesUiState
-    data class Content(val list: NotesListState) : NotesUiState
-    data class Error(val message: String) : NotesUiState
-}
 
 // ─── ViewModel ───────────────────────────────────────────────────────────────
 

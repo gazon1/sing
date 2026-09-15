@@ -1229,6 +1229,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - 8 экранов мигрированы: Tasks, Notes, TaskDetail, TaskEditor, Projects, ProjectEditor, Chat, Archive _(from `2026-09-05-ui-decomposition`)_
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches. _(from `2026-09-06-modular-justfile`)_
 - `AiSettingsContributor` remains as the sole `SettingsContributor` implementation — used only for AI test/fetch ephemeral state. _(from `2026-09-10-simplified-settings-vm`)_
+- All notes screens now navigationally self-contained _(from `2026-09-15-nav3-notes-navigator`)_
 - `AppDestination.Habits` → `AppDestination.Pomodoro`, `AppDestination.Calendar` → `AppDestination.Statistics` _(from `2026-09-11-nav3-kmp-migration`)_
 - `AppDestination.TaskEditor` serialisation is backward compatible (extra field _(from `2026-09-05-task-editor-refactor`)_
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly). _(from `2026-09-10-simplified-settings-vm`)_
@@ -1252,10 +1253,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `just` must be installed (`just 1.57.0` is present in this environment). _(from `2026-09-06-modular-justfile`)_
 - **`koinInject()` в Screen** требует Koin контекст — widget тесты обходят это через Robolectric + `createComposeRule` без Koin _(from `2026-09-05-ui-tests-ultron`)_
 - Link tap detection requires cursor placement (no visual link highlight tap) — acceptable tradeoff given library limitation _(from `2026-09-07-notes-internal-links-backlinks`)_
+- `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for _(from `2026-09-15-nav3-notes-navigator`)_
+- `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph _(from `2026-09-15-nav3-notes-navigator`)_
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах _(from `2026-09-05-ui-decomposition`)_
 - Per-feature events устранили конфликты имён (до: `ShowDialog` everywhere; после: `TasksUiEvent.AiResult`, `NotesUiEvent.SaveFailed`) _(from `2026-09-05-ui-decomposition`)_
 - **`performTextClear`** не доступен в Robolectric — используется `performTextInput` напрямую _(from `2026-09-05-ui-tests-ultron`)_
 - Picker sheets визуально согласованы с остальными sheets (drag-handle, chrome) _(from `2026-09-07-task-detail-archive-overflow`)_
+- Pre-existing test failures (`RussianDateFormatterTest`, `TaskCreateViewModelTest`, _(from `2026-09-15-nav3-notes-navigator`)_
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`). _(from `2026-09-06-modular-justfile`)_
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов _(from `2026-09-05-uiautomator-compose-discovery`)_
 - `roborazzi` dependency added to `androidHostTest` in `shared/build.gradle.kts`. _(from `2026-09-08-roborazzi-snapshot-tests`)_
@@ -1507,4 +1511,5 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-nav3-tasks-navigator` — Nav3: TasksNavigator replaces callback-passing in task screens
 - `2026-09-14-nav3-vm-store-decorator-fix` — _(no title)
 - `2026-09-14-tasks-feature-nested-nav3` — _(no title)
+- `2026-09-15-nav3-notes-navigator` — _(no title)
 - `2026-09-15-projects-nested-nav3` — Projects feature: nested Nav3 graph with ProjectsNavigator

@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.notes
+package com.singularity.todo.feature.notes.presentation.screen
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -42,11 +42,23 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.notes.EditorSession
+import com.singularity.todo.feature.notes.EditorState
+import com.singularity.todo.feature.notes.LinkKind
+import com.singularity.todo.feature.notes.LinkResult
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.NotesUiEvent
+import com.singularity.todo.feature.notes.rememberEditorSession
 import com.singularity.todo.feature.notes.components.EditorToolbar
 import com.singularity.todo.feature.notes.components.InternalLinkPickerSheet
+import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
+import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
+import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
+import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -57,18 +69,20 @@ import kotlin.time.Duration.Companion.milliseconds
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteEditorScreen(
-    noteId: String?,
-    onBack: () -> Unit,
-    onNavigateToNote: (String) -> Unit = {},
-    onNavigateToTask: (String) -> Unit = {},
+    route: NotesRoute.Editor,
     viewModel: NoteEditor = koinViewModel(),
     linkRepo: InternalLinkRepository = koinInject(),
     currentUser: ProfileAwareCurrentUser = koinInject(),
 ) {
+    val navigator = LocalNotesNavigator.current
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(noteId) {
-        if (noteId != null) viewModel.openEditor(noteId) else viewModel.createNote()
+    LaunchedEffect(route.noteId) {
+        if (route.noteId != null) {
+            viewModel.openEditor(route.noteId.value)
+        } else {
+            viewModel.createNote()
+        }
     }
 
     // Saved-pill animation: on each successful save, show "Saved" for 1.5s.
@@ -88,11 +102,11 @@ fun NoteEditorScreen(
         onSaveNow = viewModel::saveNow,
         onBack = {
             viewModel.closeEditor()
-            onBack()
+            navigator.back()
         },
         onAiClick = viewModel::improveNote,
-        onNavigateToNote = onNavigateToNote,
-        onNavigateToTask = onNavigateToTask,
+        onNavigateToNote = { id -> navigator.openPreview(NoteId.fromString(id)) },
+        onNavigateToTask = { id -> navigator.openTask(TaskId.fromString(id)) },
         savedVisible = savedVisible,
         linkRepo = linkRepo,
         currentUser = currentUser,
@@ -101,7 +115,7 @@ fun NoteEditorScreen(
     NotificationHost(
         events = viewModel.events,
         mapper = { it.toNotification() },
-        onNavigateBack = onBack,
+        onNavigateBack = { navigator.back() },
         modifier = Modifier.testTag("note_editor_notification_host"),
     )
 }
@@ -109,7 +123,7 @@ fun NoteEditorScreen(
 private fun NotesUiEvent.toNotification(): Notification = when (this) {
     is NotesUiEvent.AiResult -> Notification.Text(title = "AI Result", text = text)
     is NotesUiEvent.SaveFailed -> Notification.Error(message)
-    NotesUiEvent.NavigateBack -> Notification.NavigateBack
+    NotesUiEvent.NavigateBack -> Notification.None
     NotesUiEvent.SavedPulse -> Notification.None
 }
 
@@ -136,18 +150,12 @@ fun NoteEditorScreenContent(
         label = "savedAlpha",
     )
 
-    // External URL link dialog state
     var linkDialogVisible by remember { mutableStateOf(false) }
     var linkUrl by remember { mutableStateOf("") }
-
-    // Internal link picker sheet state
     var internalLinkPickerVisible by remember { mutableStateOf(false) }
     val linkQueryFlow = remember { MutableStateFlow("") }
-    // linkRepo and currentUser must be provided when called from a @Preview (no Koin).
-    // At runtime they come from the NoteEditorScreen wrapper via koinInject().
     val resolvedLinkRepo = linkRepo
 
-    // Session — created once per editing note
     val session = (editorState as? EditorState.Editing)?.let { editing ->
         rememberEditorSession(editing, onBodyChange)
     }
@@ -197,7 +205,6 @@ fun NoteEditorScreenContent(
     ) { padding ->
         when (editorState) {
             EditorState.Empty -> {
-                // Loading state — handled by parent screen
                 androidx.compose.foundation.layout.Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -224,7 +231,6 @@ fun NoteEditorScreenContent(
         }
     }
 
-    // External URL link dialog
     if (linkDialogVisible) {
         LinkUrlDialog(
             url = linkUrl,
@@ -243,7 +249,6 @@ fun NoteEditorScreenContent(
         )
     }
 
-    // Internal link picker (Obsidian-style [[Note]] / [[Task]])
     if (internalLinkPickerVisible) {
         InternalLinkPickerSheet(
             queryFlow = linkQueryFlow,
@@ -289,7 +294,6 @@ private fun EditorTitleAndBody(
     val richTextState = session.richTextState
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Title field
         OutlinedTextField(
             value = session.titleFieldValue,
             onValueChange = onTitleChange,
@@ -301,7 +305,6 @@ private fun EditorTitleAndBody(
             singleLine = true,
         )
 
-        // Rich text editor with link tap detection via text selection
         RichTextEditor(
             state = richTextState,
             modifier = Modifier
@@ -378,41 +381,45 @@ private fun LinkUrlDialog(
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun NoteEditorScreenEditingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    NoteEditorScreenContent(
-        editorState = EditorState.Editing(
-            id = "n1",
-            title = "Meeting Notes",
-            html = "<p>Discussed <b>Q4 goals</b> with the team.</p>",
-            isDirty = false,
-        ),
-        onTitleChange = { _, _ -> },
-        onBodyChange = { _, _ -> },
-        onSaveNow = {},
-        onBack = {},
-        onAiClick = {},
-        onNavigateToNote = {},
-        onNavigateToTask = {},
-        savedVisible = false,
-    )
+    NotesPreviewWrapper {
+        NoteEditorScreenContent(
+            editorState = EditorState.Editing(
+                id = "n1",
+                title = "Meeting Notes",
+                html = "<p>Discussed <b>Q4 goals</b> with the team.</p>",
+                isDirty = false,
+            ),
+            onTitleChange = { _, _ -> },
+            onBodyChange = { _, _ -> },
+            onSaveNow = {},
+            onBack = {},
+            onAiClick = {},
+            onNavigateToNote = {},
+            onNavigateToTask = {},
+            savedVisible = false,
+        )
+    }
 }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun NoteEditorScreenDirtyPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    NoteEditorScreenContent(
-        editorState = EditorState.Editing(
-            id = "n2",
-            title = "Draft",
-            html = "<p>Work in progress...</p>",
-            isDirty = true,
-        ),
-        onTitleChange = { _, _ -> },
-        onBodyChange = { _, _ -> },
-        onSaveNow = {},
-        onBack = {},
-        onAiClick = {},
-        onNavigateToNote = {},
-        onNavigateToTask = {},
-        savedVisible = false,
-    )
+    NotesPreviewWrapper {
+        NoteEditorScreenContent(
+            editorState = EditorState.Editing(
+                id = "n2",
+                title = "Draft",
+                html = "<p>Work in progress...</p>",
+                isDirty = true,
+            ),
+            onTitleChange = { _, _ -> },
+            onBodyChange = { _, _ -> },
+            onSaveNow = {},
+            onBack = {},
+            onAiClick = {},
+            onNavigateToNote = {},
+            onNavigateToTask = {},
+            savedVisible = false,
+        )
+    }
 }

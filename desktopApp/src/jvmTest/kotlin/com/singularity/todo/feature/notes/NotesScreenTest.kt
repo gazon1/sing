@@ -5,14 +5,17 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.notes.presentation.nav.PreviewNotesNavigator
+import com.singularity.todo.feature.notes.presentation.screen.SwipeableNoteCard
 import org.junit.Test
 import kotlin.time.Instant
 
 /**
- * Desktop JVM Compose UI tests for [NoteCard].
+ * Desktop JVM Compose UI tests for [SwipeableNoteCard].
  *
- * [NoteCard] is a public Composable that renders a single note card.
- * We test it directly without Koin wiring — construct sample data inline.
+ * [SwipeableNoteCard] is a public Composable that renders a single note card
+ * with swipe-to-dismiss. We test it directly without Koin wiring — construct
+ * sample data inline and use [PreviewNotesNavigator] for navigation.
  *
  * Run with: ./gradlew :desktopApp:test
  */
@@ -78,10 +81,11 @@ class NotesScreenTest {
                 note = note,
                 isSelected = false,
                 isSelectionMode = false,
-                onClick = {},
+                navigator = PreviewNotesNavigator(),
                 onLongClick = {},
                 onDelete = {},
                 onTogglePin = {},
+                onToggleSelection = {},
             )
         }
 
@@ -98,10 +102,11 @@ class NotesScreenTest {
                 note = folderNote,
                 isSelected = false,
                 isSelectionMode = false,
-                onClick = {},
+                navigator = PreviewNotesNavigator(),
                 onLongClick = {},
                 onDelete = {},
                 onTogglePin = {},
+                onToggleSelection = {},
             )
         }
 
@@ -118,10 +123,11 @@ class NotesScreenTest {
                 note = archivedNote,
                 isSelected = false,
                 isSelectionMode = false,
-                onClick = {},
+                navigator = PreviewNotesNavigator(),
                 onLongClick = {},
                 onDelete = {},
                 onTogglePin = {},
+                onToggleSelection = {},
             )
         }
 

@@ -1,7 +1,5 @@
-package com.singularity.todo.feature.notes
+package com.singularity.todo.feature.notes.presentation.screen
 
-// Re-export NotePreviewState so preview functions in this file can reference it
-// without a runtime ClassNotFoundException during Compose Preview rendering.
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,36 +58,44 @@ import com.mohamedrejeb.richeditor.ui.material3.RichText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.notes.Note
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.extractPreviewText
+import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
+import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
+import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
+import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
+import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewState
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import org.koin.compose.viewmodel.koinViewModel
+import kotlin.time.Clock
+import kotlin.time.Instant
 
-// ─── Screen entry ─────────────────────────────────────────────────────────────
+// ─── Screen entry ──────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotePreviewScreen(
-    noteId: String,
-    onBack: () -> Unit,
-    onEdit: (String) -> Unit,
-    onNavigateToNote: (String) -> Unit,
-    onNavigateToTask: (String) -> Unit,
+    route: NotesRoute.Preview,
     viewModel: NotePreview = koinViewModel(),
 ) {
+    val navigator = LocalNotesNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     var deleteDialogVisible by remember { mutableStateOf(false) }
     var backlinksSheetVisible by remember { mutableStateOf(false) }
 
-    LaunchedEffect(noteId) {
-        viewModel.loadNote(noteId)
+    LaunchedEffect(route.noteId) {
+        viewModel.loadNote(route.noteId.value)
     }
 
     NotePreviewScreenContent(
         state = state,
-        onBack = onBack,
-        onEdit = { onEdit(noteId) },
+        onBack = { navigator.back() },
+        onEdit = { navigator.openEditor(route.noteId) },
         onDelete = { deleteDialogVisible = true },
         onBacklinksClick = { backlinksSheetVisible = true },
-        onNavigateToNote = onNavigateToNote,
-        onNavigateToTask = onNavigateToTask,
+        onNavigateToNote = { id -> navigator.openPreview(NoteId.fromString(id)) },
+        onNavigateToTask = { id -> navigator.openTask(TaskId.fromString(id)) },
     )
 
     // Delete confirmation dialog
@@ -103,7 +109,7 @@ fun NotePreviewScreen(
                     onClick = {
                         viewModel.delete()
                         deleteDialogVisible = false
-                        onBack()
+                        navigator.back()
                     },
                 ) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
@@ -124,7 +130,7 @@ fun NotePreviewScreen(
             backlinks = loadedState.backlinks,
             onNoteSelected = { id ->
                 backlinksSheetVisible = false
-                onNavigateToNote(id)
+                navigator.openPreview(NoteId.fromString(id))
             },
             onDismiss = { backlinksSheetVisible = false },
         )
@@ -393,8 +399,8 @@ private fun BacklinksSheet(
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-private fun formatRelativeShort(updatedAt: kotlin.time.Instant): String {
-    val now = kotlin.time.Clock.System.now()
+private fun formatRelativeShort(updatedAt: Instant): String {
+    val now = Clock.System.now()
     val diffMs = now.toEpochMilliseconds() - updatedAt.toEpochMilliseconds()
     return when {
         diffMs < 60_000 -> "Just now"
@@ -408,7 +414,7 @@ private fun formatRelativeShort(updatedAt: kotlin.time.Instant): String {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun NotePreviewLoadingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+private fun NotePreviewLoadingPreview() = NotesPreviewWrapper {
     NotePreviewScreenContent(
         state = NotePreviewState.Loading,
         onBack = {},
@@ -422,7 +428,7 @@ private fun NotePreviewLoadingPreview() = PreviewThemed(darkTheme = false, useSu
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun NotePreviewLoadedPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+private fun NotePreviewLoadedPreview() = NotesPreviewWrapper {
     val note = Note(
         id = NoteId.fromString("n1"),
         userId = UserId.anonymous,
@@ -430,8 +436,8 @@ private fun NotePreviewLoadedPreview() = PreviewThemed(darkTheme = false, useSur
         bodyHtml = "<p>Discussed <b>Q4 goals</b> with the team.</p>",
         wordCount = 8,
         charCount = 47,
-        createdAt = kotlin.time.Clock.System.now(),
-        updatedAt = kotlin.time.Clock.System.now(),
+        createdAt = Clock.System.now(),
+        updatedAt = Clock.System.now(),
     )
     NotePreviewScreenContent(
         state = NotePreviewState.Loaded(

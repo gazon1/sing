@@ -1,7 +1,10 @@
-package com.singularity.todo.feature.notes
+package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.singularity.todo.feature.notes.Note
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.Dispatchers
