@@ -51,7 +51,12 @@ actual fun ProjectsNavGraph(
             backStack = backStack,
             modifier = modifier,
             onBack = { navigator.back() },
-            entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
+            entryDecorators = listOf(
+                // Koin bug workaround: without this, koinViewModel { parametersOf(projectId) }
+                // would resolve LocalViewModelStoreOwner to ComponentActivity instead of NavEntry,
+                // causing ProjectDetailViewModel(X) → back → ProjectDetailViewModel(Y) to show X's state.
+                rememberViewModelStoreNavEntryDecorator(),
+            ),
             entryProvider = entryProvider {
                 entry<ProjectsRoute.List> { ProjectsScreen() }
                 entry<ProjectsRoute.Editor> { ProjectEditorScreen(it.projectId) }

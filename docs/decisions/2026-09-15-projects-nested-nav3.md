@@ -134,6 +134,22 @@ This ADR explicitly deviates from two prior decisions:
 
 2. **`2026-09-09-preview-with-koin-helper`** — `ProjectDetailActions` still carries sheet-openers as methods, and `ProjectDetailContent` still accepts callback parameters for previews. The `PublicScreen`/`PrivateContent` pattern is maintained; the only change is removal of `onNavigateToTasks` and `onNavigateToTask` from the actions bundle.
 
+## Caveats
+
+### `NavBackStack<T>` sealed interface type inference on JVM
+
+The `NavBackStack` constructor with a vararg of sealed interface instances can fail type inference on the JVM:
+
+```kotlin
+// May fail to infer T on JVM for sealed interface NavKey:
+NavBackStack(TasksRoute.Inbox(), TasksRoute.Inbox())
+
+// Workaround: explicit type parameter
+NavBackStack<TasksRoute>(TasksRoute.Inbox(), TasksRoute.Inbox())
+```
+
+This is a Kotlin/JVM limitation with sealed interfaces in generic varargs. Any new `ProjectsRoute` or `TasksRoute` sealed interface route must use the explicit `<T>` form in `PreviewProjectsNavigator` / `PreviewTasksNavigator`. See `ProjectsPreviewHelpers.kt` for the current workaround pattern.
+
 ## Links
 
 - `2026-09-14-tasks-feature-nested-nav3.md` — tasks feature migration (identical pattern)
