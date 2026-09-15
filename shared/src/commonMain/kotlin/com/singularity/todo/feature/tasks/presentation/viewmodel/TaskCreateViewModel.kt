@@ -3,6 +3,8 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.clock.AutosaveScheduler
+import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -22,6 +24,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -33,7 +37,13 @@ data class TaskCreateDeps(
     val createTask: CreateTaskUseCase,
     val currentUser: ProfileAwareCurrentUser,
     val logger: Logger,
-)
+    val draftStore: DraftStore,
+    val autosaveScheduler: AutosaveScheduler,
+) {
+    companion object {
+        const val DRAFT_KEY = "task_create_draft"
+    }
+}
 
 class TaskCreateViewModel(
     private val deps: TaskCreateDeps,
@@ -50,6 +60,30 @@ class TaskCreateViewModel(
     private val _isSaving = MutableStateFlow(false)
 
     private val _saved = Channel<Unit>(Channel.BUFFERED)
+
+    init {
+        // 1. Restore draft from DataStore — seed-if-empty pattern
+        scope.launch {
+            val key = "${deps.currentUser.current.value}:${TaskCreateDeps.DRAFT_KEY}"
+            runCatching { deps.draftStore.load<TaskDraft>(key, TaskDraft.serializer()) }
+                .getOrNull()
+                ?.let { restored ->
+                    if (_draft.value == initial) _draft.value = restored
+                }
+        }
+
+        // 2. Debounced silent save loop — combine with source StateFlow
+        scope.launch {
+            _draft.drop(1)
+                .debounce(500L)
+                .collect { draft ->
+                    val key = "${deps.currentUser.current.value}:${TaskCreateDeps.DRAFT_KEY}"
+                    runCatching {
+                        deps.draftStore.save(key, draft, TaskDraft.serializer())
+                    }.onFailure { deps.logger.e("TaskCreate") { "draft save failed: $it" } }
+                }
+        }
+    }
 
     val saved: kotlinx.coroutines.flow.Flow<Unit> = _saved.receiveAsFlow()
 
@@ -72,48 +106,67 @@ class TaskCreateViewModel(
             is TaskCreateIntent.TitleChanged -> {
                 _draft.value = _draft.value.copy(title = intent.title)
             }
+
             is TaskCreateIntent.DescriptionChanged -> {
                 _draft.value = _draft.value.copy(description = intent.description)
             }
+
             is TaskCreateIntent.SetPriority -> {
                 _draft.value = _draft.value.copy(priority = intent.priority)
             }
+
             is TaskCreateIntent.SetDueDate -> {
                 val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
                 _draft.value = _draft.value.copy(dueDate = option)
             }
+
             is TaskCreateIntent.SetDueTime -> {
                 _draft.value = _draft.value.copy(dueTime = intent.time)
             }
+
             is TaskCreateIntent.DueDateCleared -> {
                 _draft.value = _draft.value.copy(dueDate = DueDateOption.None, dueTime = null)
             }
+
             TaskCreateIntent.SaveClicked -> {
                 if (_isSaving.value) return
                 scope.launch { save() }
             }
+
             TaskCreateIntent.DiscardChanges -> {
                 _draft.value = initial
                 _isSaving.value = false
+                scope.launch {
+                    val key = "${deps.currentUser.current.value}:${TaskCreateDeps.DRAFT_KEY}"
+                    deps.draftStore.clear(key)
+                }
             }
         }
     }
 
     private suspend fun save() {
+        val current = _draft.value
+        if (current.title.isBlank()) {
+            deps.logger.d("TaskCreate") { "save skipped: title is blank, draft preserved" }
+            return
+        }
         _isSaving.value = true
         try {
-            val current = _draft.value
             val userId = deps.currentUser.current
-
             val input = toInput(current, userId)
             when (input) {
                 is Either.Left -> {
                     deps.logger.e("TaskCreateViewModel") { "validation failed: ${input.error}" }
                 }
+
                 is Either.Right -> {
                     deps.createTask(input.value)
                         .onSuccess {
                             _saved.trySend(Unit)
+                            scope.launch {
+                                val key = "${userId.value}:${TaskCreateDeps.DRAFT_KEY}"
+                                deps.draftStore.clear(key)
+                            }
                         }
                         .onFailure { e ->
                             deps.logger.e("TaskCreateViewModel") { "save failed: $e" }

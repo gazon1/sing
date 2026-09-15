@@ -110,6 +110,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - **CollectEvents** в виджетах принимает `Flow<T : UiEvent>` — generic call site остаётся тем же _(from `2026-09-05-ui-event-per-feature`)_
 - Consistent API across all shared components _(from `2026-09-09-content-slot-pattern`)_
+- `core/draft/DataStoreDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/draft/DraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/draft/FakeDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/serialization/StableJson.kt` _(from `2026-09-15-task-editor-unification`)_
 - `core/ui/components/` is now free of feature-domain imports _(from `2026-09-09-internal-link-picker-generic`)_
 - Cross-screen state (e.g. "did the user just save a note") must flow through navigation callbacks, not shared VM state _(from `2026-09-09-notes-vm-split`)_
 - Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
@@ -171,7 +175,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
+- `shared/src/jvmTest/.../TaskCreateDraftRestorationTest.kt` _(from `2026-09-15-task-editor-unification`)_
 - Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
+- `single<DraftStore> { DataStoreDraftStore(get()) }` in `CoreDiModule` _(from `2026-09-15-task-editor-unification`)_
 - Single search + merged results = better UX (one tap instead of tab switching) _(from `2026-09-09-internal-link-picker-generic`)_
 - **`String`-encoded `initialDueDate`** — заменён на _(from `2026-09-14-tasks-feature-nested-nav3`)_
 
@@ -182,10 +188,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `architecture`
 
 - `TagsScreen` больше не принимает callback — экран не подключён к навигации (menu destination `Tags` отсутствует в `AppDestination`). _(from `2026-09-07-fab-chrome-level`)_
+- `TaskCreateContent.kt` _(from `2026-09-15-task-editor-unification`)_
+- `TaskCreateDeps` expanded with `draftStore: DraftStore, autosaveScheduler: AutosaveScheduler` _(from `2026-09-15-task-editor-unification`)_
 - `TaskCreateViewModel(initialDueDate)` — два последовательных _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- `TaskCreationTopBar.kt` _(from `2026-09-15-task-editor-unification`)_
 - `TaskDetailContent` is now `internal` (stateless, previewable without Koin). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailScreen.kt`: `when (action)` on 27 branches → `when (intent)` on 6 branches. Routing now uniform (all `activeSheet = …`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailUiEvent.kt`: 34 → ~18 lines (10 sheet-triggers removed). _(from `2026-09-09-task-detail-intent-refactor`)_
+- `TaskDetailViewContent.kt` _(from `2026-09-15-task-editor-unification`)_
 
 ### `"architecture"`
 
@@ -314,6 +324,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - `compose-ui-test:1.12.0` added to `libs.versions.toml` as `composeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - Consistent API across all shared components _(from `2026-09-09-content-slot-pattern`)_
+- `core/draft/DataStoreDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/draft/DraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/draft/FakeDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/serialization/StableJson.kt` _(from `2026-09-15-task-editor-unification`)_
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
@@ -354,12 +368,18 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `compose`
 
+- `shared/src/jvmTest/.../TaskCreateDraftRestorationTest.kt` _(from `2026-09-15-task-editor-unification`)_
+- `single<DraftStore> { DataStoreDraftStore(get()) }` in `CoreDiModule` _(from `2026-09-15-task-editor-unification`)_
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - Smoke test now passes: `./gradlew :desktopApp:test` → BUILD SUCCESSFUL _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - `sourceSets { test { java.srcDirs("src/jvmTest") ... } }` added to `desktopApp/build.gradle.kts` to wire the `jvmTest` source set to the `test` task _(from `2026-09-06-desktop-smoke-test-with-koin`)_
+- `TaskCreateContent.kt` _(from `2026-09-15-task-editor-unification`)_
+- `TaskCreateDeps` expanded with `draftStore: DraftStore, autosaveScheduler: AutosaveScheduler` _(from `2026-09-15-task-editor-unification`)_
+- `TaskCreationTopBar.kt` _(from `2026-09-15-task-editor-unification`)_
 - `TaskDetailContent` is now `internal` (stateless, previewable without Koin). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailScreen.kt`: `when (action)` on 27 branches → `when (intent)` on 6 branches. Routing now uniform (all `activeSheet = …`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailUiEvent.kt`: 34 → ~18 lines (10 sheet-triggers removed). _(from `2026-09-09-task-detail-intent-refactor`)_
+- `TaskDetailViewContent.kt` _(from `2026-09-15-task-editor-unification`)_
 
 ### `"compose"`
 
@@ -403,9 +423,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
-- **detekt 1.23.8 vs Kotlin 2.3.21**: if Gradle plugin resolution fails due to Kotlin version mismatch, switch to `detekt 2.0.0-alpha.3` in `gradle/libs.versions.toml`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **detekt 2.0.0-alpha.3 vs Kotlin 2.3.21**: this version was chosen because stable 1.23.8 was compiled against Kotlin 2.0.21 and throws "detekt was compiled with Kotlin 2.0.21 but is currently running with 2.3.21". Upgrade to stable 2.x once released. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
-- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. **TODO: tracked in issue tracker — promote after baselines are clean (est. post-format PR).** _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
@@ -447,9 +467,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
-- **detekt 1.23.8 vs Kotlin 2.3.21**: if Gradle plugin resolution fails due to Kotlin version mismatch, switch to `detekt 2.0.0-alpha.3` in `gradle/libs.versions.toml`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **detekt 2.0.0-alpha.3 vs Kotlin 2.3.21**: this version was chosen because stable 1.23.8 was compiled against Kotlin 2.0.21 and throws "detekt was compiled with Kotlin 2.0.21 but is currently running with 2.3.21". Upgrade to stable 2.x once released. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
-- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. **TODO: tracked in issue tracker — promote after baselines are clean (est. post-format PR).** _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
@@ -580,9 +600,28 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Один прогон драйвера = реальная multi-step демонстрация MCP. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
 - При недоступности LLM в драйвере зашит fallback sub-task'ов. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
 
+### `drafts`
+
+- `core/draft/DataStoreDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/draft/DraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/draft/FakeDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/serialization/StableJson.kt` _(from `2026-09-15-task-editor-unification`)_
+
 ### `"drafts"`
 
 - Preview functions in `TaskDetailViewScreen` updated to pass `emptyFlow()` for `recentlyDeleted`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+
+### `drafts`
+
+- `shared/src/jvmTest/.../TaskCreateDraftRestorationTest.kt` _(from `2026-09-15-task-editor-unification`)_
+- `single<DraftStore> { DataStoreDraftStore(get()) }` in `CoreDiModule` _(from `2026-09-15-task-editor-unification`)_
+- `TaskCreateContent.kt` _(from `2026-09-15-task-editor-unification`)_
+- `TaskCreateDeps` expanded with `draftStore: DraftStore, autosaveScheduler: AutosaveScheduler` _(from `2026-09-15-task-editor-unification`)_
+- `TaskCreationTopBar.kt` _(from `2026-09-15-task-editor-unification`)_
+- `TaskDetailViewContent.kt` _(from `2026-09-15-task-editor-unification`)_
+
+### `"drafts"`
+
 - `TaskDetailViewContent` now takes a `recentlyDeleted: Flow<Task?>` parameter — passed from `TaskDetailViewScreen`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
 - `TasksDiModule` removed now-unused `ProjectsRepository` import. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
 
@@ -826,9 +865,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
-- **detekt 1.23.8 vs Kotlin 2.3.21**: if Gradle plugin resolution fails due to Kotlin version mismatch, switch to `detekt 2.0.0-alpha.3` in `gradle/libs.versions.toml`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **detekt 2.0.0-alpha.3 vs Kotlin 2.3.21**: this version was chosen because stable 1.23.8 was compiled against Kotlin 2.0.21 and throws "detekt was compiled with Kotlin 2.0.21 but is currently running with 2.3.21". Upgrade to stable 2.x once released. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
-- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. **TODO: tracked in issue tracker — promote after baselines are clean (est. post-format PR).** _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
@@ -838,9 +877,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
-- **detekt 1.23.8 vs Kotlin 2.3.21**: if Gradle plugin resolution fails due to Kotlin version mismatch, switch to `detekt 2.0.0-alpha.3` in `gradle/libs.versions.toml`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **detekt 2.0.0-alpha.3 vs Kotlin 2.3.21**: this version was chosen because stable 1.23.8 was compiled against Kotlin 2.0.21 and throws "detekt was compiled with Kotlin 2.0.21 but is currently running with 2.3.21". Upgrade to stable 2.x once released. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
-- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. **TODO: tracked in issue tracker — promote after baselines are clean (est. post-format PR).** _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
@@ -867,9 +906,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
-- **detekt 1.23.8 vs Kotlin 2.3.21**: if Gradle plugin resolution fails due to Kotlin version mismatch, switch to `detekt 2.0.0-alpha.3` in `gradle/libs.versions.toml`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **detekt 2.0.0-alpha.3 vs Kotlin 2.3.21**: this version was chosen because stable 1.23.8 was compiled against Kotlin 2.0.21 and throws "detekt was compiled with Kotlin 2.0.21 but is currently running with 2.3.21". Upgrade to stable 2.x once released. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
-- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. **TODO: tracked in issue tracker — promote after baselines are clean (est. post-format PR).** _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
@@ -1216,7 +1255,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
-- **detekt 1.23.8 vs Kotlin 2.3.21**: if Gradle plugin resolution fails due to Kotlin version mismatch, switch to `detekt 2.0.0-alpha.3` in `gradle/libs.versions.toml`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **detekt 2.0.0-alpha.3 vs Kotlin 2.3.21**: this version was chosen because stable 1.23.8 was compiled against Kotlin 2.0.21 and throws "detekt was compiled with Kotlin 2.0.21 but is currently running with 2.3.21". Upgrade to stable 2.x once released. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 
 ### `"quality"`
@@ -1225,7 +1264,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `quality`
 
-- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. **TODO: tracked in issue tracker — promote after baselines are clean (est. post-format PR).** _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
@@ -1405,6 +1444,19 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Baseline images stored in `shared/src/commonTest/resources/roborazzi/`. _(from `2026-09-08-roboazzi-snapshot-tests`)_
 - Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional. _(from `2026-09-08-roboazzi-snapshot-tests`)_
 
+### `state-restoration`
+
+- `core/draft/DataStoreDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/draft/DraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/draft/FakeDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/serialization/StableJson.kt` _(from `2026-09-15-task-editor-unification`)_
+- `shared/src/jvmTest/.../TaskCreateDraftRestorationTest.kt` _(from `2026-09-15-task-editor-unification`)_
+- `single<DraftStore> { DataStoreDraftStore(get()) }` in `CoreDiModule` _(from `2026-09-15-task-editor-unification`)_
+- `TaskCreateContent.kt` _(from `2026-09-15-task-editor-unification`)_
+- `TaskCreateDeps` expanded with `draftStore: DraftStore, autosaveScheduler: AutosaveScheduler` _(from `2026-09-15-task-editor-unification`)_
+- `TaskCreationTopBar.kt` _(from `2026-09-15-task-editor-unification`)_
+- `TaskDetailViewContent.kt` _(from `2026-09-15-task-editor-unification`)_
+
 ### `stdio`
 
 - `./gradlew :mcp-server:test` now includes a regression test (`McpServerEndToEndTest.server_blocks_until_stdin_closes`) that asserts `process.isAlive` after 3s of empty stdin. If anyone removes the blocking primitive, this test fails. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
@@ -1569,6 +1621,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `ui`
 
+- `core/draft/DataStoreDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/draft/DraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/draft/FakeDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/serialization/StableJson.kt` _(from `2026-09-15-task-editor-unification`)_
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
 - Easier to extend cards and editors without breaking call sites _(from `2026-09-09-content-slot-pattern`)_
@@ -1588,8 +1644,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`. _(from `2026-09-05-robolectric-widget-tests`)_
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor. _(from `2026-09-07-settings-fixes`)_
 - `SettingsViewModel.testConnection()` **always** short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`. _(from `2026-09-05-llm-provider-settings`)_
+- `shared/src/jvmTest/.../TaskCreateDraftRestorationTest.kt` _(from `2026-09-15-task-editor-unification`)_
+- `single<DraftStore> { DataStoreDraftStore(get()) }` in `CoreDiModule` _(from `2026-09-15-task-editor-unification`)_
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - `TagsScreen` больше не принимает callback — экран не подключён к навигации (menu destination `Tags` отсутствует в `AppDestination`). _(from `2026-09-07-fab-chrome-level`)_
+- `TaskCreateContent.kt` _(from `2026-09-15-task-editor-unification`)_
+- `TaskCreateDeps` expanded with `draftStore: DraftStore, autosaveScheduler: AutosaveScheduler` _(from `2026-09-15-task-editor-unification`)_
+- `TaskCreationTopBar.kt` _(from `2026-09-15-task-editor-unification`)_
+- `TaskDetailViewContent.kt` _(from `2026-09-15-task-editor-unification`)_
 - **`TasksScreen`** unchanged — it already takes `onNavigateToTask` / `onNavigateToCreateTask` callbacks; the per-tab sub-navigation state now lives in `TasksRoute` inside `AppNavHost` via `rememberSaveable`. _(from `2026-09-05-android-bottom-nav`)_
 
 ### `ui-test`
@@ -1851,6 +1913,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-projects-nested-nav3` — nav3  navigation  koin  refactor  projects
 - `2026-09-15-projects-settings-profile-udf-fixes` — "architecture"  "udf"  "compose"  "di"
 - `2026-09-15-task-detail-drafts-undo-fix` — "architecture"  "compose"  "udf"  "tasks"  "drafts"  "undo"
+- `2026-09-15-task-editor-unification` — architecture  compose  ui  drafts  state-restoration
 - `2026-09-15-viewmodel-state-ownership` — "architecture"  "compose"  "udf"  "vm-state"
 - `2026-09-16-android-shell-fab-fix` — navigation  nav3  android  fab
 - `2026-09-16-nav3-desktop-in-memory-no-savedstate` — navigation  nav3  jvm  desktop  android
@@ -1937,6 +2000,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-projects-nested-nav3` — Projects feature: nested Nav3 graph with ProjectsNavigator
 - `2026-09-15-projects-settings-profile-udf-fixes` — PR 5 UDF fixes — ProjectDetail, ProjectPicker, AccountSettings, TagPicker
 - `2026-09-15-task-detail-drafts-undo-fix` — TaskDetail drafts seed-from-task; TaskListScreen koinViewModel; undo snackbar wired
+- `2026-09-15-task-editor-unification` — Task Editor State Restoration + UI Unification
 - `2026-09-15-viewmodel-state-ownership` — ViewModel owns all domain state; Composable owns only routing and animation
 - `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation
 - `2026-09-16-nav3-desktop-in-memory-no-savedstate` — Nav3 Desktop uses in-memory NavBackStack; SavedStateConfiguration is Android-only

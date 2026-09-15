@@ -7,31 +7,32 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
-import com.singularity.todo.core.ui.preview.PreviewSamples
-import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.components.formatTimestampsRelative
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailViewContent
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
-import com.singularity.todo.feature.tasks.presentation.nav.PreviewTasksNavigator
-import com.singularity.todo.feature.tasks.presentation.nav.TasksPreviewWrapper
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -68,15 +69,67 @@ fun TaskDetailViewScreen(
                 message = s.message,
                 onRetry = { vm.retry() },
             )
-            is TaskDetailUiState.Loaded -> TaskDetailViewContent(
-                ui = s.ui,
-                events = vm.events,
-                recentlyDeleted = vm.recentlyDeleted,
-                onIntent = { intent ->
-                    if (intent is TaskDetailIntent.Domain) vm.onIntent(intent)
-                },
-                navigator = navigator,
-            )
+            is TaskDetailUiState.Loaded -> {
+                val ui = s.ui
+                TaskEditorContent(
+                    titleDraft = ui.titleDraft,
+                    onTitleChange = { vm.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
+                    isCompleted = ui.task.isCompleted,
+                    onCheckToggle = { vm.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
+                    descriptionDraft = ui.descriptionDraft,
+                    onDescriptionChange = { vm.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it)) },
+                    priority = ui.task.priority,
+                    onPrioritySelect = { vm.onIntent(TaskDetailIntent.Domain.SetPriority(it)) },
+                    onPriorityClear = null,
+                    dueDate = ui.task.dueDate,
+                    dueTime = ui.task.dueTime,
+                    onDueDateSelect = { vm.onIntent(TaskDetailIntent.Domain.SetDueDate(it)) },
+                    onDueDateClear = null,
+                    onDueTimeSelect = { vm.onIntent(TaskDetailIntent.Domain.SetDueTime(it)) },
+                    showDueDate = ui.task.dueDate != null,
+                    extraSections = {
+                        if (ui.checklist.isNotEmpty()) {
+                            com.singularity.todo.feature.tasks.presentation.components.detail.TaskChecklistCard(
+                                itemCount = ui.checklist.count { !it.isCompleted },
+                                onClick = { },
+                            )
+                        }
+                        ui.project?.let { project ->
+                            com.singularity.todo.feature.tasks.presentation.components.detail.TaskAttributeCard(
+                                icon = Icons.Filled.Folder,
+                                label = project.name,
+                                isActive = true,
+                                onClick = { navigator.openProject(project.id) },
+                            )
+                        }
+                        if (ui.tags.isNotEmpty()) {
+                            com.singularity.todo.feature.tasks.presentation.components.detail.TaskAttributeCard(
+                                icon = Icons.Filled.Label,
+                                label = ui.tags.joinToString { it.name },
+                                isActive = true,
+                                onClick = { },
+                            )
+                        }
+                        val ts = formatTimestampsRelative(ui.task.createdAt, ui.task.updatedAt, Clock.now())
+                        Text(
+                            text = "${ts.created} · ${ts.updated}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    },
+                    bottomBar = null,
+                    menuItems = listOf(
+                        TaskEditorMenuItem(
+                            label = "Архивировать",
+                            onClick = { vm.onIntent(TaskDetailIntent.Domain.Archive) },
+                        ),
+                        TaskEditorMenuItem(
+                            label = "Удалить",
+                            onClick = { vm.onIntent(TaskDetailIntent.Domain.Delete) },
+                        ),
+                    ),
+                    onBack = { navigator.back() },
+                )
+            }
         }
     }
 }
@@ -115,36 +168,5 @@ private fun ErrorState(
 }
 
 // ─── Previews ────────────────────────────────────────────────────────────────
-
-@Preview
-@Composable
-private fun TaskDetailViewScreenPreview() = PreviewThemed(useSurface = false) {
-    TasksPreviewWrapper {
-        TaskDetailViewContent(
-            ui = PreviewSamples.taskDetailUi(),
-            events = MutableSharedFlow(),
-            recentlyDeleted = kotlinx.coroutines.flow.emptyFlow(),
-            onIntent = { },
-            navigator = PreviewTasksNavigator(),
-        )
-    }
-}
-
-@Preview
-@Composable
-private fun TaskDetailViewScreenHighPriorityPreview() = PreviewThemed(useSurface = false) {
-    TasksPreviewWrapper {
-        TaskDetailViewContent(
-            ui = PreviewSamples.taskDetailUi(
-                task = PreviewSamples.task(
-                    title = "URGENT: Deploy to production",
-                    priority = TaskPriority.Urgent,
-                ),
-            ),
-            events = MutableSharedFlow(),
-            recentlyDeleted = kotlinx.coroutines.flow.emptyFlow(),
-            onIntent = { },
-            navigator = PreviewTasksNavigator(),
-        )
-    }
-}
+// TaskDetailViewScreen is tested via integration tests (Nav3 + VM).
+// Basic preview of the TaskEditorContent component is in TaskEditorContent.kt.

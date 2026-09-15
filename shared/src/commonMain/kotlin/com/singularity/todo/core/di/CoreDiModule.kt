@@ -19,6 +19,8 @@ import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.RemoteBackupService
 import com.singularity.todo.core.backup.StubRemoteBackupService
+import com.singularity.todo.core.draft.DataStoreDraftStore
+import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.platform.Clock
@@ -57,6 +59,11 @@ fun coreModule(): org.koin.core.module.Module = module {
     // DataStore<Preferences> is bound per-platform in PlatformModule.{android,jvm}.kt
     // (real file on Android, in-memory stub on JVM).
     single<SettingsRepository> { DataStoreSettingsRepository(get()) }
+
+    // ─── Drafts ──────────────────────────────────────────────────────────
+    // DraftStore uses the same per-platform DataStore<Preferences> binding.
+    // Drafts are not secrets — stored in regular DataStore, not SecureStoragePort.
+    single<DraftStore> { DataStoreDraftStore(get()) }
 
     // ─── Session / Auth ─────────────────────────────────────────────────
 

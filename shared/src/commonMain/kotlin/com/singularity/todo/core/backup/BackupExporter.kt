@@ -7,7 +7,7 @@ import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.platform.Clock
-import kotlinx.serialization.json.Json
+import com.singularity.todo.core.serialization.StableJson
 
 class BackupExporter(
     private val taskDao: TaskDao,
@@ -19,7 +19,7 @@ class BackupExporter(
     private val clock: Clock,
     private val fs: FileSystem
 ) {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = StableJson
 
     suspend fun export(options: ExportOptions): Result<BackupResult> = runCatching {
         val now = clock.now().toEpochMilliseconds()

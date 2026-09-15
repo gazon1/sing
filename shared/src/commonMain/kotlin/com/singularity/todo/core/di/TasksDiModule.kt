@@ -129,6 +129,8 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 createTask = get(),
                 currentUser = get(),
                 logger = Logger.withTag("TaskCreate"),
+                draftStore = get(),
+                autosaveScheduler = get(),
             ),
             initialDueDate = initialDueDate,
         )

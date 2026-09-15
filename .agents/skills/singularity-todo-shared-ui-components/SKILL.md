@@ -315,6 +315,88 @@ is TasksUiState.Error   -> EmptyState(title = "Error: ${s.message}")
 
 Removed: ~24 lines of duplicated Box+Alignment ceremony across 4 screens.
 
+### Worked example: `TaskEditorContent` — slot API for editor unification
+
+`TaskCreateScreen` and `TaskDetailViewScreen` both rendered near-identical task editor forms. Three files were unified into one:
+
+**Before** (two separate composables + a duplicate top bar):
+```
+TaskCreateContent.kt       — title row, description, priority/due chips, save bar
+TaskDetailViewContent.kt   — same structure + checklist/project/tags sections
+TaskCreationTopBar.kt      — duplicate of TaskDetailTopBar
+```
+
+**After** — one `TaskEditorContent` with slot parameters:
+
+```kotlin
+@Composable
+fun TaskEditorContent(
+    // State
+    titleDraft: String,
+    onTitleChange: (String) -> Unit,
+    titleLeading: (@Composable () -> Unit)? = null,        // checkbox for view mode
+    descriptionDraft: String,
+    onDescriptionChange: (String) -> Unit,
+    attributes: List<TaskEditorAttribute>,                   // priority, due date chips
+
+    // Slots
+    extraSections: (@Composable () -> Unit)? = null,         // checklist, project, tags, timestamps
+    bottomBar: (@Composable () -> Unit)? = null,            // save button (create) or null (view)
+    menuItems: List<TaskEditorMenuItem> = emptyList(),       // archive/delete dropdown
+
+    // Navigation
+    onBack: () -> Unit,
+)
+```
+
+**Call site for create mode:**
+```kotlin
+TaskEditorContent(
+    titleDraft = state.draft.title,
+    onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },
+    titleLeading = null,  // no checkbox in create mode
+    descriptionDraft = state.draft.description,
+    onDescriptionChange = { ... },
+    attributes = attributes,
+    extraSections = null,  // no view-only sections in create mode
+    bottomBar = { TaskSaveBar(isEnabled = state.isSaveEnabled, ...) },
+    menuItems = emptyList(),
+    onBack = guardedBack,
+)
+```
+
+**Call site for view mode:**
+```kotlin
+TaskEditorContent(
+    titleDraft = ui.titleDraft,
+    onTitleChange = { vm.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
+    titleLeading = { Checkbox(checked = ui.task.isCompleted, ...) },  // inline checkbox
+    descriptionDraft = ui.descriptionDraft,
+    onDescriptionChange = { ... },
+    attributes = attributes,
+    extraSections = {
+        if (ui.checklist.isNotEmpty()) TaskChecklistCard(...)
+        ui.project?.let { TaskAttributeCard(icon = Icons.Filled.Folder, label = it.name, ...) }
+        if (ui.tags.isNotEmpty()) TaskAttributeCard(...)
+        if (ui.subtasks.isNotEmpty()) TaskCounterCard(...)
+        if (ui.attachments.isNotEmpty()) TaskCounterCard(...)
+        Text(timestamps, style = MaterialTheme.typography.bodySmall)
+    },
+    bottomBar = null,  // no save bar in view mode
+    menuItems = listOf(
+        TaskEditorMenuItem(label = "Archive") { vm.onIntent(TaskDetailIntent.Domain.Archive) },
+        TaskEditorMenuItem(label = "Delete") { vm.onIntent(TaskDetailIntent.Domain.Delete) },
+    ),
+    onBack = { navigator.back() },
+)
+```
+
+**Key design decisions:**
+- `extraSections: @Composable () -> Unit?` — single slot for all view-only sections; avoids 7 separate slot parameters
+- `attributes: List<TaskEditorAttribute>` — iteration over stable list; `key: Any` in data class handles recomposition stability for lambda callbacks
+- `menuItems: List<TaskEditorMenuItem>` — declarative list instead of lambda-in-lambda (`dropdownMenu: (closeMenu: () -> Unit) -> Unit`)
+- `bottomBar: @Composable () -> Unit?` — null for view mode (no save bar), set for create mode
+
 ## Test placement reminder
 
 Components in `core/ui/components/` are presentation-only — do **not** add Robolectric / Compose-test tests for them. The widgets themselves are too thin to fail in interesting ways. What you test is the **pure helper next to them** (e.g. `priorityColorByIndex`, `toneColor`, `formatAiResult`). Tests for those go in `shared/src/commonTest/kotlin/…/` in the **same package** as the helper.
@@ -456,6 +538,7 @@ If(state is NotesUiState.Empty) {
 - `SettingsSection.kt` — `SettingsRow` with `trailing: @Composable RowScope.() -> Unit`
 - `TaskCard.kt` — `body` + `trailing` slots with `RowScope`
 - `BackTopAppBar.kt` — `actions` + `content` slots
+- `TaskEditorContent.kt` — canonical slot API: `extraSections`, `bottomBar`, `menuItems`, `titleLeading` slots; `TaskEditorAttribute` with `key: Any` for recomposition stability; `TaskEditorMenuItem` as declarative list
 
 See also:
 - `singularity-todo-ui-event-vs-state` — full State vs Event dichotomy rationale and migration recipe

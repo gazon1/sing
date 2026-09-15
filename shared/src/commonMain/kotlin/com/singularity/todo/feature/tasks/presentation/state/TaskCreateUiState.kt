@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import kotlinx.serialization.Serializable
 
 /**
  * Immutable UI state экрана создания задачи.
@@ -19,7 +20,9 @@ data class TaskCreateUiState(
 
 /**
  * Черновик создаваемой задачи.
+ * Persisted via [DraftStore] across process death.
  */
+@Serializable
 @Immutable
 data class TaskDraft(
     val title: String = "",
@@ -34,9 +37,10 @@ data class TaskDraft(
 /**
  * Варианты выбора даты для создания задачи.
  */
+@Serializable
 sealed interface DueDateOption {
-    data object None : DueDateOption
-    data object Today : DueDateOption
-    data object Tomorrow : DueDateOption
-    data class Custom(val date: LocalDate, val label: String) : DueDateOption
+    @Serializable data object None : DueDateOption
+    @Serializable data object Today : DueDateOption
+    @Serializable data object Tomorrow : DueDateOption
+    @Serializable data class Custom(val date: LocalDate, val label: String) : DueDateOption
 }

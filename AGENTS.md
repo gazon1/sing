@@ -297,8 +297,10 @@ Skill-ов немного и они узкие. **Большинство арх�
 | `singularity-todo-secure-storage` | SecureStoragePort, secret-tool, EncryptedSharedPreferences |
 | `singularity-todo-sync` | HLC, ConflictResolver, SyncOutbox, Supabase API |
 | `singularity-todo-notifications` | NotificationPort, ReminderScheduler |
-| `singularity-todo-shared-ui-components` | `SettingsSection`, `ResultDialog`, декомпозиция Composable |
+| `singularity-todo-shared-ui-components` | `SettingsSection`, `ResultDialog`, декомпозиция Composable; Slot API; `TaskEditorContent` |
 | `singularity-todo-pure-formatters` | Чистые хелперы формата (тестируются без Compose) |
+| `singularity-todo-stable-json` | Centralized `StableJson`; `encodeDefaults`, `ignoreUnknownKeys`; `@Serializable` patterns |
+| `singularity-todo-draft-restoration` | `DraftStore<T>`; DataStore implementation; seed-if-empty; debounce 500ms; clear on success/discard |
 | `singularity-todo-rich-editor` | Rich-text WYSIWYG для заметок |
 | `singularity-todo-room-migration` | Миграции Room-схемы |
 | `singularity-todo-ui-event-vs-state` | One-shot события vs continuous state в VM |

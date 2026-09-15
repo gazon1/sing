@@ -9,7 +9,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
+import com.singularity.todo.core.serialization.StableJson
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -46,7 +46,7 @@ class SyncEngine(
     syncCoroutineScope: CoroutineScope
 ) {
     private val scope = syncCoroutineScope
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = StableJson
 
     private val _status = MutableStateFlow<SyncEngineStatus>(SyncEngineStatus.Idle)
 

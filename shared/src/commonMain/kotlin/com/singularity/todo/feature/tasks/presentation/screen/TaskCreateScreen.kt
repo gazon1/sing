@@ -10,8 +10,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskCreateContent
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSaveBar
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
+import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import kotlinx.datetime.LocalDate
@@ -69,15 +72,31 @@ fun TaskCreateScreen(
         )
     }
 
-    TaskCreateContent(
-        state = state,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        onIntent = { intent ->
-            when (intent) {
-                TaskCreateIntent.DiscardChanges -> { /* handled via showDiscard */ }
-                else -> vm.onIntent(intent)
-            }
+    TaskEditorContent(
+        titleDraft = state.draft.title,
+        onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },
+        isCompleted = false,
+        onCheckToggle = { },
+        descriptionDraft = state.draft.description,
+        onDescriptionChange = { vm.onIntent(TaskCreateIntent.DescriptionChanged(it)) },
+        priority = state.draft.priority,
+        onPrioritySelect = { vm.onIntent(TaskCreateIntent.SetPriority(it)) },
+        onPriorityClear = { vm.onIntent(TaskCreateIntent.SetPriority(TaskPriority.None)) },
+        dueDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
+        dueTime = state.draft.dueTime,
+        onDueDateSelect = { vm.onIntent(TaskCreateIntent.SetDueDate(it)) },
+        onDueDateClear = { vm.onIntent(TaskCreateIntent.DueDateCleared) },
+        onDueTimeSelect = { vm.onIntent(TaskCreateIntent.SetDueTime(it)) },
+        showDueDate = true,
+        extraSections = null,
+        bottomBar = {
+            TaskSaveBar(
+                isEnabled = state.isSaveEnabled,
+                isLoading = state.isSaving,
+                onSaveClick = { vm.onIntent(TaskCreateIntent.SaveClicked) },
+            )
         },
+        menuItems = emptyList(),
         onBack = guardedBack,
     )
 }
