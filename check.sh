@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # check.sh — Full local verification for Singularity Todo KMP project
-# Runs: jvmTest → androidHostTest → desktopApp:test → assembleDebug
+# Runs: jvmTest → androidHostTest → desktopApp:test → assembleDebug → detekt
 # Optionally runs Android instrumentation on adb device if SKIP_ADB=0
 # Usage: SKIP_ADB=1 ./check.sh   # skip adb tests
 
@@ -35,7 +35,7 @@ echo -e "${YELLOW}=== [3/4] desktopApp:test ===${NC}"
 }
 echo -e "${GREEN}desktopApp:test passed${NC}"
 
-echo -e "${YELLOW}=== [4/4] androidApp:assembleDebug ===${NC}"
+echo -e "${YELLOW}=== [4/5] androidApp:assembleDebug ===${NC}"
 ./gradlew :androidApp:assembleDebug --no-daemon --quiet || {
     echo -e "${RED}assembleDebug FAILED${NC}"
     exit 1
@@ -44,7 +44,7 @@ echo -e "${GREEN}assembleDebug passed${NC}"
 
 echo -e "${YELLOW}=== [5/5] detekt (report-only, ignoreFailures=true) ===${NC}"
 ./gradlew :shared:detekt :desktopApp:detekt --no-daemon --quiet || {
-    echo -e "${YELLOW}  detekt reported violations (ignoreFailures=true — baseline not yet generated)${NC}"
+    echo -e "${YELLOW}  detekt reported violations (ignoreFailures=true — see baselines in config/detekt/)${NC}"
 }
 
 # Optional: Android instrumentation tests on real adb device

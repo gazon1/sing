@@ -236,7 +236,16 @@ ktlint:
   active: true
   code_style: ktlint_official
   auto_correct: true
+  # Note: Indentation auto_correct=true causes NPE in IntelliJ AsyncExecutionService
+  # on some JDK versions. Disable indent auto-fix; fix manually via editor settings.
+  indent:
+    active: true
+    auto_correct: false
   no-wildcard-imports:
     active: true
+    auto_correct: true
   max-line-length:
     active: false          # ktlint owns this; .editorconfig sets max_line_length = 140
+  parameter-list-wrapping:
+    active: true
+    auto_correct: true
