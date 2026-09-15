@@ -7,7 +7,9 @@ import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.notes.EditorState
+import com.singularity.todo.feature.notes.LinkKind
 import com.singularity.todo.feature.notes.LinkRef
+import com.singularity.todo.feature.notes.LinkResult
 import com.singularity.todo.feature.notes.NoteAiResult
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
@@ -15,6 +17,7 @@ import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.extractOutgoingLinks
 import com.singularity.todo.feature.notes.formatNoteAiResult
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,6 +45,7 @@ import kotlinx.coroutines.launch
  */
 open class NoteEditor(
     private val repo: NotesRepository,
+    private val linkRepo: InternalLinkRepository,
     currentUser: ProfileAwareCurrentUser,
     private val idGen: IdGenerator,
     private val autosaveScheduler: AutosaveScheduler,
@@ -208,6 +212,24 @@ open class NoteEditor(
                     _events.emit(NotesUiEvent.AiResult(formatNoteAiResult(r)))
                 }
         }
+    }
+
+    /**
+     * Searches notes for the internal link picker.
+     * Called by NoteEditorScreen via a suspend lambda on InternalLinkPickerSheet.
+     */
+    suspend fun searchNotesForLink(query: String): List<LinkResult> {
+        return linkRepo.searchNotes(userId.value, query)
+            .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
+    }
+
+    /**
+     * Searches tasks for the internal link picker.
+     * Called by NoteEditorScreen via a suspend lambda on InternalLinkPickerSheet.
+     */
+    suspend fun searchTasksForLink(query: String): List<LinkResult> {
+        return linkRepo.searchTasks(query)
+            .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
     }
 
     fun closeEditor() {

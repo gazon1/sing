@@ -33,6 +33,7 @@ fun notesModule(): org.koin.core.module.Module = module {
     viewModel {
         NoteEditor(
             repo = get(),
+            linkRepo = get(),
             currentUser = get(),
             idGen = get(),
             autosaveScheduler = get(),

@@ -55,12 +55,8 @@ import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.search.InternalLinkRepository
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.MutableStateFlow
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -71,8 +67,6 @@ import kotlin.time.Duration.Companion.milliseconds
 fun NoteEditorScreen(
     route: NotesRoute.Editor,
     viewModel: NoteEditor = koinViewModel(),
-    linkRepo: InternalLinkRepository = koinInject(),
-    currentUser: ProfileAwareCurrentUser = koinInject(),
 ) {
     val navigator = LocalNotesNavigator.current
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
@@ -108,8 +102,8 @@ fun NoteEditorScreen(
         onNavigateToNote = { id -> navigator.openPreview(NoteId.fromString(id)) },
         onNavigateToTask = { id -> navigator.openTask(TaskId.fromString(id)) },
         savedVisible = savedVisible,
-        linkRepo = linkRepo,
-        currentUser = currentUser,
+        searchNotesForLink = viewModel::searchNotesForLink,
+        searchTasksForLink = viewModel::searchTasksForLink,
     )
 
     NotificationHost(
@@ -141,8 +135,8 @@ fun NoteEditorScreenContent(
     onNavigateToNote: (String) -> Unit = {},
     onNavigateToTask: (String) -> Unit = {},
     savedVisible: Boolean = false,
-    linkRepo: InternalLinkRepository? = null,
-    currentUser: ProfileAwareCurrentUser? = null,
+    searchNotesForLink: (suspend (String) -> List<LinkResult>)? = null,
+    searchTasksForLink: (suspend (String) -> List<LinkResult>)? = null,
 ) {
     val savedAlpha by animateFloatAsState(
         targetValue = if (savedVisible) 1f else 0f,
@@ -154,7 +148,6 @@ fun NoteEditorScreenContent(
     var linkUrl by remember { mutableStateOf("") }
     var internalLinkPickerVisible by remember { mutableStateOf(false) }
     val linkQueryFlow = remember { MutableStateFlow("") }
-    val resolvedLinkRepo = linkRepo
 
     val session = (editorState as? EditorState.Editing)?.let { editing ->
         rememberEditorSession(editing, onBodyChange)
@@ -253,14 +246,8 @@ fun NoteEditorScreenContent(
         InternalLinkPickerSheet(
             queryFlow = linkQueryFlow,
             onSearch = { q ->
-                val notes = resolvedLinkRepo
-                    ?.searchNotes(currentUser?.scopedUserId?.value ?: UserId(""), q)
-                    ?.map { LinkResult(it.id.value, it.title, LinkKind.Note) }
-                    ?: emptyList()
-                val tasks = resolvedLinkRepo
-                    ?.searchTasks(q)
-                    ?.map { LinkResult(it.id.value, it.title, LinkKind.Task) }
-                    ?: emptyList()
+                val notes = searchNotesForLink?.invoke(q) ?: emptyList()
+                val tasks = searchTasksForLink?.invoke(q) ?: emptyList()
                 notes + tasks
             },
             onSelected = { result ->
