@@ -18,16 +18,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
@@ -41,7 +37,7 @@ import com.singularity.todo.shell.MenuBottomSheet
 import com.singularity.todo.core.ui.TestTags
 
 /**
- * Navigation 3 Android shell — the actual expect implementation for [androidShellNav3].
+ * Navigation 3 Android shell — the actual implementation called by [PlatformShell].
  *
  * Uses the terrakok nav3-recipes multiplestacks pattern:
  * - [rememberNavBackStack] per top-level route (Android SavedState)
@@ -49,14 +45,17 @@ import com.singularity.todo.core.ui.TestTags
  * - [Navigator] class handles navigation events (navigate + goBack)
  * - [NavDisplay] renders all active stacks
  *
- * [Nav3State] and [Navigator] are shared in commonMain. Platform-specific is only
- * the [rememberNav3State] factory (Android has a no-arg `rememberNavBackStack`).
+ * [Nav3State] and [Navigator] are owned by [App] and passed in as parameters.
+ * The [rememberNav3State] factory lives in commonMain as an expect/actual pair
+ * (see [Nav3StateFactory.kt]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-actual fun androidShellNav3() {
-    val state = rememberNav3State()
-    val navigator = remember(state) { Navigator(state) }
+fun androidShellNav3Root(
+    state: Nav3State,
+    navigator: Navigator,
+    navCallbacks: NavCallbacks,
+) {
     var menuVisible by rememberSaveable { mutableStateOf(false) }
 
     // topLevelRoute is MutableState<NavKey>, getValue triggers recomposition on change
@@ -112,10 +111,6 @@ actual fun androidShellNav3() {
         },
         contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
     ) { padding ->
-        val navCallbacks = NavCallbacks(
-            navigate = navigator::navigate,
-            goBack = navigator::goBack,
-        )
         val appEntryProvider = createAppEntryProvider(navCallbacks)
         NavDisplay(
             entries = state.toDecoratedEntries(appEntryProvider),
@@ -138,35 +133,13 @@ actual fun androidShellNav3() {
 private data class FabAction(val label: String, val onClick: () -> Unit)
 
 private fun fabActionForNav3(current: AppDestination, navigator: Navigator): FabAction? = when (current) {
-    AppDestination.Inbox, AppDestination.Today -> FabAction("Add task") { }
-    AppDestination.Plans -> FabAction("Add project") { }
-    AppDestination.Notes -> FabAction("Add note") { navigator.navigate(AppDestination.Notes) }
-    AppDestination.Pomodoro, AppDestination.Statistics, AppDestination.Archive -> null
+    AppDestination.Inbox, AppDestination.Today -> FabAction("Add task") {
+        navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create))
+    }
+    AppDestination.Plans -> FabAction("Add project") {
+        navigator.navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()))
+    }
+    // NotesNavGraph has its own note creation button — no shell FAB needed here.
+    AppDestination.Notes, AppDestination.Pomodoro, AppDestination.Statistics, AppDestination.Archive -> null
     else -> null
-}
-
-// ─── Android: rememberNavBackStack with no SavedStateConfiguration ────────────────
-
-/**
- * Creates the multi-back-stack [Nav3State] for the app.
- * On Android, [rememberNavBackStack] is called without SavedStateConfiguration
- * (the platform provides a no-arg overload).
- */
-@Composable
-private fun rememberNav3State(): Nav3State {
-    val startRoute: NavKey = AppDestination.Today
-    val topLevelRoutes: Set<NavKey> =
-        DestinationKind.tabs.toSet() + DestinationKind.menuEntries.toSet()
-
-    val topLevelRoute: MutableState<NavKey> = remember(startRoute) {
-        mutableStateOf(startRoute)
-    }
-
-    val backStacks = topLevelRoutes.associateWith { key ->
-        rememberNavBackStack(key)
-    }
-
-    return remember(startRoute, topLevelRoutes) {
-        Nav3State(startRoute, topLevelRoute, backStacks)
-    }
 }

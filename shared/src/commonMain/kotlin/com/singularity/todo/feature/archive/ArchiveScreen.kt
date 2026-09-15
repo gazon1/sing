@@ -23,6 +23,8 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.LocalAppNavigator
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
 import org.koin.compose.viewmodel.koinViewModel
@@ -31,6 +33,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val navigator = LocalAppNavigator.current
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -59,7 +62,7 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel()) {
                             items(s.tasks, key = { it.id.value }) { task ->
                                 TaskCard(
                                     task = task,
-                                    onClick = {},
+                                    onClick = { navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(task.id.value))) },
                                     actions = TaskCardActions.Empty,
                                 )
                             }

@@ -120,6 +120,7 @@ sealed interface AppDestination : NavKey {
         @Serializable data object Today : TasksStartRoute
         @Serializable data object Create : TasksStartRoute
         @Serializable data class ByProject(val projectId: String) : TasksStartRoute
+        @Serializable data class Detail(val taskId: String) : TasksStartRoute
     }
 
     /**
@@ -186,6 +187,27 @@ sealed interface AppDestination : NavKey {
     @Serializable
     sealed interface ProjectsStartRoute : NavKey {
         @Serializable data object List : ProjectsStartRoute
+        @Serializable data class Editor(val projectId: String? = null) : ProjectsStartRoute
+    }
+
+    /**
+     * Start route for the notes nested graph. Used as `start` param in [NotesGraph].
+     */
+    @Serializable
+    sealed interface NotesStartRoute : NavKey {
+        @Serializable data object List : NotesStartRoute
+        @Serializable data class Preview(val noteId: String) : NotesStartRoute
+    }
+
+    /**
+     * Nested notes graph. Contains its own NavBackStack[NotesRoute].
+     * Used for deep-links and direct navigation.
+     */
+    @Serializable
+    data class NotesGraph(
+        val start: NotesStartRoute = NotesStartRoute.List,
+    ) : AppDestination {
+        override val title = "Notes"
     }
 }
 
@@ -211,6 +233,9 @@ val AppDestination.icon: ImageVector
         is AppDestination.ProjectEditor -> Icons.Filled.Check
         is AppDestination.ProjectDetail -> Icons.Filled.Check
         is AppDestination.ProjectsGraph -> Icons.Filled.Check
+        is AppDestination.ProjectsStartRoute.Editor -> Icons.Filled.Check
+        is AppDestination.NotesGraph -> Icons.Filled.Create
+        is AppDestination.NotesStartRoute -> Icons.Filled.Create
     }
 
 /** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */

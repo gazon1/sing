@@ -1,15 +1,38 @@
 package com.singularity.todo
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.singularity.todo.core.auth.AuthGuard
+import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.ui.theme.SingularityAccents
+import com.singularity.todo.core.ui.theme.SingularityTheme
+import com.singularity.todo.feature.nav.LocalAppNavigator
+import com.singularity.todo.feature.nav.Nav3State
+import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.nav.Navigator
+import com.singularity.todo.feature.nav.rememberNav3State
+import org.koin.compose.koinInject
 
 /**
  * Root Composable — platform-specific actuals dispatch to the right shell.
  *
- * - androidMain: [App] → [androidShellNav3] (bottom nav + FAB + NavDisplay)
- * - jvmMain: [App] → [desktopShellNav3] (drawer + NavDisplay)
+ * - androidMain: [App] → [PlatformShell] → [androidShellNav3] (bottom nav + FAB + NavDisplay)
+ * - jvmMain: [App] → [PlatformShell] → [desktopShellNav3] (drawer + NavDisplay)
  *
- * The expect/actual at the App level (rather than at individual shell functions)
- * lets commonMain call the right shell without needing platform-branching logic.
+ * [Nav3State] and [Navigator] are owned here so [LocalAppNavigator] can be provided
+ * before [AuthGuard] — enabling [LoginScreen] (signed-out state) to read it.
  */
 expect @Composable
 fun App()
+
+/**
+ * Shell entry point that receives the navigation state built by [App].
+ * Each platform actual calls its shell function with the passed state.
+ */
+expect @Composable
+fun PlatformShell(
+    state: Nav3State,
+    navigator: Navigator,
+    navCallbacks: NavCallbacks,
+)

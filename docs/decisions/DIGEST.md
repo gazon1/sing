@@ -55,12 +55,19 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - The Test connection "probe" prompt is hard-coded: `"Reply with the single word: pong."` — change together with the system prompt if needed. _(from `2026-09-05-llm-provider-settings`)_
 - The unified `KoogPromptExecutorPort` lives in `commonMain` and exposes `val executor: PromptExecutor` publicly for the platform `single<PromptExecutor>` binding. _(from `2026-09-05-koog-both-platforms`)_
 
+### `android`
+
+- Smoke test: tap FAB on Inbox → verify CreateTask opens; tap FAB on Plans → verify CreateProject opens. _(from `2026-09-16-android-shell-fab-fix`)_
+- Users can now create projects directly from Plans via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
+- Users can now create tasks directly from Inbox/Today via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
+
 ### `architecture`
 
 - ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **8 экранов мигрируют одновременно** — невозможно сделать постепенную миграцию из-за смены типа `_events` _(from `2026-09-05-ui-event-per-feature`)_
 - `ActiveSheet.kt`: 35 → ~15 lines (`toActiveSheet()` removed). _(from `2026-09-09-task-detail-intent-refactor`)_
 - All new screens MUST follow the `PublicScreen` / `PrivateContent` naming pattern _(from `2026-09-09-preview-with-koin-helper`)_
+- Android back stacks now survive process death. Smoke test required: open Inbox → Today → TaskDetail, force-stop via `adb shell am force-stop com.singularity.todo`, reopen — verify TaskDetail is restored. _(from `2026-09-16-nav3-shared-state-factory-and-local-app-navigator`)_
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует. _(from `2026-09-07-fab-chrome-level`)_
 - `AppShell` — minor change: добавлен `FabAction` parameter. _(from `2026-09-07-fab-chrome-level`)_
 - **Breaking:** `coreDomainModule()` удалён; заменён на `domainModule()` (includes everything). Test files обновлены. _(from `2026-09-06-di-module-split`)_
@@ -85,6 +92,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them _(from `2026-09-09-preview-with-koin-helper`)_
 - Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
 - Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- `JvmNav3State.kt` and the old per-platform `rememberNav3State` bodies are deleted. _(from `2026-09-16-nav3-shared-state-factory-and-local-app-navigator`)_
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
 - Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
@@ -405,6 +413,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально _(from `2026-09-05-ui-event-per-feature`)_
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)` _(from `2026-09-05-ui-event-per-feature`)_
 
+### `fab`
+
+- Smoke test: tap FAB on Inbox → verify CreateTask opens; tap FAB on Plans → verify CreateProject opens. _(from `2026-09-16-android-shell-fab-fix`)_
+- Users can now create projects directly from Plans via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
+- Users can now create tasks directly from Inbox/Today via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
+
 ### `feature-tasks`
 
 - **Negative**: 40+ files had import paths updated; test files also required path corrections _(from `2026-09-09-feature-tasks-clean-architecture`)_
@@ -710,16 +724,29 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
 - Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
+- All `@Preview` composables compile without composition-local crashes. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
+- Android back stacks now survive process death. Smoke test required: open Inbox → Today → TaskDetail, force-stop via `adb shell am force-stop com.singularity.todo`, reopen — verify TaskDetail is restored. _(from `2026-09-16-nav3-shared-state-factory-and-local-app-navigator`)_
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling. _(from `2026-09-14-nav3-tasks-navigator`)_
+- `AppDestination.TaskDetail` and `TaskDetailCreate` remain `@Deprecated` — they can be deleted in a follow-up cleanup commit. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops. _(from `2026-09-15-projects-nested-nav3`)_
+- `fabActionForNav3` is simpler and more correct. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
+- `JvmNav3State.kt` and the old per-platform `rememberNav3State` bodies are deleted. _(from `2026-09-16-nav3-shared-state-factory-and-local-app-navigator`)_
+- `NavEntries.kt` wires `SettingsNavGraph(navCallbacks = nav)` and `SearchNavGraph(navCallbacks = nav)` instead of the raw screens. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
+- Notes deep-links from Search now land on the correct note preview. _(from `2026-09-16-nav3-post-migration-fixes`)_
+- Preview for `AccountSettingsScreen` uses a separate `AccountSettingsScreenPreviewContent` composable that takes an explicit callback, since `LocalSettingsNavigator` is only available inside the graph. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
+- `ProjectsNavGraph` in `NavEntries` now maps `ProjectsStartRoute.Editor` to `ProjectsRoute.Editor`. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`. _(from `2026-09-14-nav3-tasks-navigator`)_
+- `SettingsScreen` no longer accepts `onNavigateToProfileSwitcher` — `AccountSettingsScreen` navigates directly. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
+- Smoke test: tap FAB on Inbox → verify CreateTask opens; tap FAB on Plans → verify CreateProject opens. _(from `2026-09-16-android-shell-fab-fix`)_
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavGraph` is the `@Composable` nav host — it sets up `LocalTasksNavigator`, `LocalNavBackStack`, and the `BackHandler`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavigator` is the only class that mutates `NavBackStack<TasksRoute>`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksRoute` is the sealed interface defining all routes within the tasks graph (Inbox, Today, ByProject, Detail, Create). _(from `2026-09-14-nav3-tasks-navigator`)_
+- Users can now create projects directly from Plans via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
+- Users can now create tasks directly from Inbox/Today via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
 
 ### `navigation`
 
@@ -727,8 +754,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
 - Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
+- All `@Preview` composables compile without composition-local crashes. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
+- Android back stacks now survive process death. Smoke test required: open Inbox → Today → TaskDetail, force-stop via `adb shell am force-stop com.singularity.todo`, reopen — verify TaskDetail is restored. _(from `2026-09-16-nav3-shared-state-factory-and-local-app-navigator`)_
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling. _(from `2026-09-14-nav3-tasks-navigator`)_
+- `AppDestination.TaskDetail` and `TaskDetailCreate` remain `@Deprecated` — they can be deleted in a follow-up cleanup commit. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует. _(from `2026-09-07-fab-chrome-level`)_
 - `AppShell` — minor change: добавлен `FabAction` parameter. _(from `2026-09-07-fab-chrome-level`)_
 - Backlinks are now shown and functional _(from `2026-09-09-notes-view-edit-split`)_
@@ -740,22 +770,30 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
 - Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
+- `fabActionForNav3` is simpler and more correct. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
 - Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- `JvmNav3State.kt` and the old per-platform `rememberNav3State` bodies are deleted. _(from `2026-09-16-nav3-shared-state-factory-and-local-app-navigator`)_
 - Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **Menu sheet visibility** is `rememberSaveable` state in `AndroidShell` — survives config changes, not part of the back stack. _(from `2026-09-05-android-bottom-nav`)_
 - `ModalShell` + `DrawerStyle.Modal` remain in `AppShell.kt`. They are not wired to any platform but are preserved for future modal drawer needs. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **`NavDestination` (drawer enum)** remains for the desktop drawer's grouping by `NavGroup` — not removed, just no longer wired to mobile. _(from `2026-09-05-android-bottom-nav`)_
+- `NavEntries.kt` wires `SettingsNavGraph(navCallbacks = nav)` and `SearchNavGraph(navCallbacks = nav)` instead of the raw screens. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - Navigation now has one more route: `NoteView` ↔ `NoteEditor` ↔ `NotesScreen` _(from `2026-09-09-notes-view-edit-split`)_
 - Navigation между Detail и подзадачами/проектами становится _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Note metadata (word count, last updated) is visible without entering edit mode _(from `2026-09-09-notes-view-edit-split`)_
 - `NotePreview` must observe the note via `repo.watchNote()` — requires a Flow subscription _(from `2026-09-09-notes-view-edit-split`)_
+- Notes deep-links from Search now land on the correct note preview. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - **Per-tab backstacks** work as expected: open TaskDetail on Today, switch to Plans, switch back to Today → TaskDetail is restored. _(from `2026-09-05-android-bottom-nav`)_
+- Preview for `AccountSettingsScreen` uses a separate `AccountSettingsScreenPreviewContent` composable that takes an explicit callback, since `LocalSettingsNavigator` is only available inside the graph. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
 - `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- `ProjectsNavGraph` in `NavEntries` now maps `ProjectsStartRoute.Editor` to `ProjectsRoute.Editor`. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`. _(from `2026-09-14-nav3-tasks-navigator`)_
+- `SettingsScreen` no longer accepts `onNavigateToProfileSwitcher` — `AccountSettingsScreen` navigates directly. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
+- Smoke test: tap FAB on Inbox → verify CreateTask opens; tap FAB on Plans → verify CreateProject opens. _(from `2026-09-16-android-shell-fab-fix`)_
 - **`String`-encoded `initialDueDate`** — заменён на _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - `TagsScreen` больше не принимает callback — экран не подключён к навигации (menu destination `Tags` отсутствует в `AppDestination`). _(from `2026-09-07-fab-chrome-level`)_
 - `TaskCreateViewModel(initialDueDate)` — два последовательных _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
@@ -768,6 +806,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`TasksScreen`** unchanged — it already takes `onNavigateToTask` / `onNavigateToCreateTask` callbacks; the per-tab sub-navigation state now lives in `TasksRoute` inside `AppNavHost` via `rememberSaveable`. _(from `2026-09-05-android-bottom-nav`)_
 - Unit-тесты навигации tasks требуют `Robolectric` или `composeRule` — _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading _(from `2026-09-09-notes-view-edit-split`)_
+- Users can now create projects directly from Plans via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
+- Users can now create tasks directly from Inbox/Today via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
 - В `JvmNav3State.kt` для `AppDestination.TasksGraph` / _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - В `TasksNavGraph.kt` (для nested `rememberNavBackStack`). _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Все остальные параметризованные VM (~20 callsites). _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
@@ -784,6 +824,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `notes`
 
+- `AppDestination.TaskDetail` and `TaskDetailCreate` remain `@Deprecated` — they can be deleted in a follow-up cleanup commit. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - Backlinks are now shown and functional _(from `2026-09-09-notes-view-edit-split`)_
 - Caller must provide `MutableStateFlow<String>` and inject `InternalLinkRepository` and `ProfileAwareCurrentUser` — slightly more boilerplate at call site _(from `2026-09-09-internal-link-picker-generic`)_
 - Clear UX: notes list → tap note → read → optionally edit _(from `2026-09-09-notes-view-edit-split`)_
@@ -807,6 +848,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables _(from `2026-09-09-notes-vm-split`)_
 - One tap fewer than before for the common "capture a thought" workflow _(from `2026-09-09-notes-quick-add`)_
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
+- `ProjectsNavGraph` in `NavEntries` now maps `ProjectsStartRoute.Editor` to `ProjectsRoute.Editor`. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - Regex over HTML is less elegant than walking the paragraph tree, but the paragraph tree is internal _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
 - Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
@@ -1018,6 +1060,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `ProjectDetailScreen` is fully functional: quick-add creates tasks, parent picker works, Remind/Attach/DueDate/Children sheets open, task click navigates to `TaskDetailScreen` _(from `2026-09-09-project-detail-rework-15-fixes`)_
 - `ProjectPickerSheet` is reactive — newly created projects appear without reopening the sheet _(from `2026-09-09-project-detail-rework-15-fixes`)_
 
+### `search`
+
+- `NavEntries.kt` wires `SettingsNavGraph(navCallbacks = nav)` and `SearchNavGraph(navCallbacks = nav)` instead of the raw screens. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
+- Preview for `AccountSettingsScreen` uses a separate `AccountSettingsScreenPreviewContent` composable that takes an explicit callback, since `LocalSettingsNavigator` is only available inside the graph. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
+- `SettingsScreen` no longer accepts `onNavigateToProfileSwitcher` — `AccountSettingsScreen` navigates directly. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
+
 ### `secure-storage`
 
 - Adding a new secret (e.g. another provider's API key) **always** follows the same pattern: new `KEY_*` constant, new config object, migration on first DataStore access, no DataStore copy. _(from `2026-09-05-secret-storage-split`)_
@@ -1036,7 +1084,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `App.kt` инжектит `SettingsRepository` через Koin — это нормально, Koin доступен в Common startup. _(from `2026-09-07-settings-fixes`)_
 - Backup confirm dialogs prevent accidental data loss. _(from `2026-09-07-settings-ux-improvements`)_
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
+- `NavEntries.kt` wires `SettingsNavGraph(navCallbacks = nav)` and `SearchNavGraph(navCallbacks = nav)` instead of the raw screens. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
+- Preview for `AccountSettingsScreen` uses a separate `AccountSettingsScreenPreviewContent` composable that takes an explicit callback, since `LocalSettingsNavigator` is only available inside the graph. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor. _(from `2026-09-07-settings-fixes`)_
+- `SettingsScreen` no longer accepts `onNavigateToProfileSwitcher` — `AccountSettingsScreen` navigates directly. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - `SettingsViewModel.testConnection()` **always** short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`. _(from `2026-09-05-llm-provider-settings`)_
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
 - `TextGenPort.listModels` — добавлен в интерфейс, реализация в `KoogAgentService` и `FakeTextGen`. _(from `2026-09-07-settings-fixes`)_
@@ -1084,8 +1135,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `tasks`
 
 - `ActiveSheet.kt`: 35 → ~15 lines (`toActiveSheet()` removed). _(from `2026-09-09-task-detail-intent-refactor`)_
+- `AppDestination.TaskDetail` and `TaskDetailCreate` remain `@Deprecated` — they can be deleted in a follow-up cleanup commit. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
 - New file `TaskDetailIntent.kt` (~120 lines). _(from `2026-09-09-task-detail-intent-refactor`)_
+- `ProjectsNavGraph` in `NavEntries` now maps `ProjectsStartRoute.Editor` to `ProjectsRoute.Editor`. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - `TaskDetailContent` is now `internal` (stateless, previewable without Koin). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailScreen.kt`: `when (action)` on 27 branches → `when (intent)` on 6 branches. Routing now uniform (all `activeSheet = …`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailUiEvent.kt`: 34 → ~18 lines (10 sheet-triggers removed). _(from `2026-09-09-task-detail-intent-refactor`)_
@@ -1439,6 +1492,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-nav3-vm-store-decorator-fix` — architecture  navigation  koin  viewmodel  bug
 - `2026-09-14-tasks-feature-nested-nav3` — architecture  navigation  koin  viewmodel
 - `2026-09-15-projects-nested-nav3` — nav3  navigation  koin  refactor  projects
+- `2026-09-16-android-shell-fab-fix` — navigation  nav3  android  fab
+- `2026-09-16-nav3-feature-graph-extensions` — navigation  nav3  tasks  notes
+- `2026-09-16-nav3-post-migration-fixes` — navigation  nav3
+- `2026-09-16-nav3-settings-and-search-nested-graphs` — navigation  nav3  settings  search
+- `2026-09-16-nav3-shared-state-factory-and-local-app-navigator` — navigation  nav3  architecture
 
 ## Active entries
 
@@ -1513,3 +1571,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-tasks-feature-nested-nav3` — _(no title)
 - `2026-09-15-nav3-notes-navigator` — _(no title)
 - `2026-09-15-projects-nested-nav3` — Projects feature: nested Nav3 graph with ProjectsNavigator
+- `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation
+- `2026-09-16-nav3-feature-graph-extensions` — NotesNavGraph start parameter, TasksStartRoute.Detail, AppDestination additions
+- `2026-09-16-nav3-post-migration-fixes` — Nav3 post-migration fixes — NotesNavGraph start, preview wrappers, FAB cleanup
+- `2026-09-16-nav3-settings-and-search-nested-graphs` — SettingsNavGraph and SearchNavGraph — single-route nested graphs
+- `2026-09-16-nav3-shared-state-factory-and-local-app-navigator` — LocalAppNavigator + shared rememberNav3State factory

@@ -26,6 +26,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.feature.search.presentation.nav.LocalSearchNavigator
+import com.singularity.todo.feature.search.presentation.nav.PreviewSearchNavigator
+import com.singularity.todo.feature.search.presentation.nav.SearchNavigator
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
 import org.koin.compose.viewmodel.koinViewModel
@@ -35,6 +38,7 @@ import org.koin.compose.viewmodel.koinViewModel
 fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsState()
     val query by viewModel.query.collectAsState()
+    val navigator = LocalSearchNavigator.current
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Search") }) },
@@ -51,14 +55,17 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
             if (query.isBlank()) {
                 EmptyState(title = "Enter a search query")
             } else {
-                SearchResultsList(results = state.results)
+                SearchResultsList(results = state.results, navigator = navigator)
             }
         }
     }
 }
 
 @Composable
-private fun SearchResultsList(results: SearchResults) {
+private fun SearchResultsList(
+    results: SearchResults,
+    navigator: SearchNavigator,
+) {
     val hasAny = results.tasks.isNotEmpty() || results.notes.isNotEmpty() ||
         results.projects.isNotEmpty() || results.tags.isNotEmpty()
     if (!hasAny) {
@@ -72,19 +79,29 @@ private fun SearchResultsList(results: SearchResults) {
         if (results.tasks.isNotEmpty()) {
             item { SectionHeader("Tasks") }
             items(results.tasks.take(5)) { task ->
-                TaskCard(task = task, onClick = {}, actions = TaskCardActions.Empty)
+                TaskCard(
+                    task = task,
+                    onClick = { navigator.openTask(task.id) },
+                    actions = TaskCardActions.Empty,
+                )
             }
         }
         if (results.notes.isNotEmpty()) {
             item { SectionHeader("Notes") }
             items(results.notes.take(5)) { note ->
-                SimpleResultCard(title = note.title.ifBlank { "Untitled" }, onClick = {})
+                SimpleResultCard(
+                    title = note.title.ifBlank { "Untitled" },
+                    onClick = { navigator.openNote(note.id) },
+                )
             }
         }
         if (results.projects.isNotEmpty()) {
             item { SectionHeader("Projects") }
             items(results.projects.take(5)) { project ->
-                SimpleResultCard(title = project.name, onClick = {})
+                SimpleResultCard(
+                    title = project.name,
+                    onClick = { navigator.openProject(project.id) },
+                )
             }
         }
         if (results.tags.isNotEmpty()) {
@@ -110,10 +127,23 @@ private fun SimpleResultCard(title: String, onClick: () -> Unit) {
 
 // ===== Preview =====
 
+/**
+ * Stateless preview variant of [SearchResultsList] that takes an explicit [SearchNavigator]
+ * instead of [LocalSearchNavigator]. Used for previews since [LocalSearchNavigator] is only
+ * available inside [SearchNavGraph].
+ */
+@Composable
+private fun SearchResultsListPreviewContent(
+    results: SearchResults,
+    navigator: SearchNavigator,
+) {
+    SearchResultsList(results = results, navigator = navigator)
+}
+
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun SearchResultsListWithResultsPreview() = PreviewThemed(darkTheme = false) {
-    SearchResultsList(
+    SearchResultsListPreviewContent(
         results = SearchResults(
             tasks = listOf(
                 PreviewSamples.task("t1", "Buy groceries", TaskPriority.High),
@@ -129,14 +159,16 @@ private fun SearchResultsListWithResultsPreview() = PreviewThemed(darkTheme = fa
                 PreviewSamples.tag("tg1", "urgent", 0xFFF44336.toInt()),
             ),
         ),
+        navigator = PreviewSearchNavigator(),
     )
 }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun SearchResultsListEmptyDarkPreview() = PreviewThemed(darkTheme = true) {
-    SearchResultsList(
+    SearchResultsListPreviewContent(
         results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
+        navigator = PreviewSearchNavigator(),
     )
 }
 

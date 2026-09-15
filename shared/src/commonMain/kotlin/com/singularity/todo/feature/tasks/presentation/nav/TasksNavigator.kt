@@ -16,7 +16,7 @@ import kotlinx.datetime.LocalDate
  */
 open class TasksNavigator(
     private val backStack: NavBackStack<TasksRoute>,
-    private val onExitGraph: (AppDestination?) -> Unit,
+    protected val onExitGraph: (AppDestination?) -> Unit,
 ) {
 
     /** Push a task detail onto the stack. */

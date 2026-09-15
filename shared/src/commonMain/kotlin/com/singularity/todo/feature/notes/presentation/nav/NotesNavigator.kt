@@ -15,7 +15,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  */
 open class NotesNavigator(
     private val backStack: NavBackStack<NotesRoute>,
-    private val onExitGraph: (AppDestination?) -> Unit,
+    protected val onExitGraph: (AppDestination?) -> Unit,
 ) {
 
     /** Push a note preview onto the stack. */

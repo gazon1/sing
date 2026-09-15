@@ -29,11 +29,12 @@ import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
 @Composable
 actual fun NotesNavGraph(
     navCallbacks: NavCallbacks,
+    start: NotesRoute,
     modifier: Modifier,
 ) {
     val savedStateConfig = remember { SavedStateConfiguration { } }
     @Suppress("UNCHECKED_CAST")
-    val backStack: NavBackStack<NotesRoute> = rememberNavBackStack(savedStateConfig, *arrayOf(NotesRoute.List))
+    val backStack: NavBackStack<NotesRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<NotesRoute>
 
     val onExitGraph: (AppDestination?) -> Unit = { dest ->

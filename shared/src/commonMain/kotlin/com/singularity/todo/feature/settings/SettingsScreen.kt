@@ -65,7 +65,6 @@ private enum class SettingsTab(val label: String) {
 
 @Composable
 fun SettingsScreen(
-    onNavigateToProfileSwitcher: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val viewModel: SettingsViewModel = koinViewModel()
@@ -80,7 +79,6 @@ fun SettingsScreen(
             selectedTab = selectedTab,
             onSelectTab = { selectedTab = it },
             viewModel = viewModel,
-            onNavigateToProfileSwitcher = onNavigateToProfileSwitcher,
             modifier = modifier,
         )
     }
@@ -92,7 +90,6 @@ private fun SettingsContent(
     selectedTab: SettingsTab,
     onSelectTab: (SettingsTab) -> Unit,
     viewModel: SettingsViewModel,
-    onNavigateToProfileSwitcher: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val fileRevealer: FileRevealer = koinInject()
@@ -137,9 +134,7 @@ private fun SettingsContent(
                     onBack = { onSelectTab(SettingsTab.Interface) },
                     onSelectRestoreFile = { /* Platform shell provides file picker on Android */ },
                 )
-                SettingsTab.Account -> AccountSettingsScreen(
-                    onNavigateToProfileSwitcher = onNavigateToProfileSwitcher,
-                )
+                SettingsTab.Account -> AccountSettingsScreen()
             }
         }
     }
@@ -269,7 +264,6 @@ private fun SettingsContentPreview(
                     Text("Backup", modifier = Modifier.padding(16.dp))
                 }
                 SettingsTab.Account -> AccountSettingsScreen(
-                    onNavigateToProfileSwitcher = {},
                     profileRepository = FakeProfileRepository(),
                 )
             }

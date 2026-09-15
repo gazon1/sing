@@ -45,7 +45,6 @@ import kotlin.time.Instant
 @Composable
 fun PomodoroScreen(
     timer: PomodoroTimer,
-    onBack: () -> Unit,
 ) {
     val state by timer.state.collectAsStateWithLifecycle()
     val tasks by timer.tasks.collectAsStateWithLifecycle()

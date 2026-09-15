@@ -13,17 +13,16 @@ import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.Nav3State
 
 /**
- * Creates the multi-back-stack [Nav3State] for JVM Desktop.
+ * Android implementation of [rememberNav3State].
  *
- * On JVM, [rememberNavBackStack] requires a [SavedStateConfiguration] so the
- * navigation library can serialize back-stack state if needed. On Desktop the
- * state is kept in memory only (no process-death persistence), so we use the
- * default (empty) serializers module. If serialization is needed later,
- * add [kotlinx.serialization.modules.polymorphic] registrations for all
- * [AppDestination] subclasses.
+ * Uses [SavedStateConfiguration] { } so each tab's back-stack survives process death.
+ * Previously this function used the no-arg [rememberNavBackStack] overload (no
+ * SavedStateConfiguration), meaning back stacks were lost on rotation and process death.
+ * That was a latent bug; this fix aligns Android with the JVM behaviour and with
+ * the Koin per-entry VM scoping fix (ADR 2026-09-14).
  */
 @Composable
-fun rememberJvmNav3State(): Nav3State {
+actual fun rememberNav3State(): Nav3State {
     val startRoute: NavKey = AppDestination.Today
     val topLevelRoutes: Set<NavKey> =
         DestinationKind.tabs.toSet() + DestinationKind.menuEntries.toSet()
@@ -32,7 +31,6 @@ fun rememberJvmNav3State(): Nav3State {
         mutableStateOf(startRoute)
     }
 
-    // Use the default (empty) serializers module. The state is not persisted on Desktop.
     val savedStateConfig = remember {
         SavedStateConfiguration { }
     }

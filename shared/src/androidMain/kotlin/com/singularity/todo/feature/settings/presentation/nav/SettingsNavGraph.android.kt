@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.notes.presentation.nav
+package com.singularity.todo.feature.settings.presentation.nav
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
@@ -13,29 +13,25 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
-import com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreen
-import com.singularity.todo.feature.notes.presentation.screen.NotePreviewScreen
-import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
+import com.singularity.todo.feature.settings.SettingsScreen
 
 /**
- * Android implementation of [NotesNavGraph].
- * Creates a nested [NavDisplay] with its own [NavBackStack] for the notes feature,
- * providing [LocalNotesNavigator] to all descendant screens.
+ * Android implementation of [SettingsNavGraph].
+ * Creates a single-entry [NavDisplay] with [Settings] as the only entry,
+ * providing [LocalSettingsNavigator] to all descendant screens.
  *
- * Uses [BackHandler] for system back gesture at the start route.
- * Uses [rememberViewModelStoreNavEntryDecorator] to fix the Koin bug where
- * LocalViewModelStoreOwner resolves to ComponentActivity instead of the NavEntry.
+ * Uses [BackHandler] for system back gesture to exit the nested graph.
+ * Uses [rememberViewModelStoreNavEntryDecorator] for per-entry VM scoping.
  */
 @Composable
-actual fun NotesNavGraph(
+actual fun SettingsNavGraph(
     navCallbacks: NavCallbacks,
-    start: NotesRoute,
     modifier: Modifier,
 ) {
     val savedStateConfig = remember { SavedStateConfiguration { } }
     @Suppress("UNCHECKED_CAST")
-    val backStack: NavBackStack<NotesRoute> = rememberNavBackStack(savedStateConfig, start)
-        as NavBackStack<NotesRoute>
+    val backStack: NavBackStack<Settings> = rememberNavBackStack(savedStateConfig, Settings)
+        as NavBackStack<Settings>
 
     val onExitGraph: (AppDestination?) -> Unit = { dest ->
         if (dest != null) {
@@ -45,14 +41,13 @@ actual fun NotesNavGraph(
         }
     }
 
-    val navigator = remember(backStack, onExitGraph) {
-        NotesNavigator(backStack, onExitGraph)
+    val navigator = remember(onExitGraph) {
+        SettingsNavigator(onExitGraph)
     }
 
     CompositionLocalProvider(
-        LocalNotesNavigator provides navigator,
+        LocalSettingsNavigator provides navigator,
     ) {
-        // Intercept system back at the start route to exit the nested graph.
         BackHandler(enabled = backStack.size <= 1) { onExitGraph(null) }
 
         NavDisplay(
@@ -61,9 +56,7 @@ actual fun NotesNavGraph(
             onBack = { navigator.back() },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
             entryProvider = entryProvider {
-                entry<NotesRoute.List> { NotesListScreen(it) }
-                entry<NotesRoute.Preview> { route -> NotePreviewScreen(route) }
-                entry<NotesRoute.Editor> { route -> NoteEditorScreen(route) }
+                entry<Settings> { SettingsScreen() }
             },
         )
     }

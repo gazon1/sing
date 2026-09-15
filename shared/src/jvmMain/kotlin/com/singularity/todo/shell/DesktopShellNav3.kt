@@ -26,38 +26,35 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
+import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.createJvmEntryProvider
 import com.singularity.todo.feature.nav.icon
-import com.singularity.todo.feature.nav.rememberJvmNav3State
 import kotlinx.coroutines.launch
 
 /**
- * Navigation 3 Desktop shell — the actual expect implementation for [desktopShellNav3].
+ * Navigation 3 Desktop shell — the implementation called by [PlatformShell].
  *
  * Uses the same terrakok nav3-recipes multiplestacks pattern as Android:
- * - [rememberJvmNav3State] creates NavBackStacks with SavedStateConfiguration
- * - [Navigator] class handles navigation events (navigate + goBack)
+ * - [Nav3State] and [Navigator] are owned by [App] and passed in as parameters
  * - [NavDisplay] renders all active stacks
  *
  * Desktop UI: [ModalNavigationDrawer] with hamburger menu (instead of bottom bar on Android).
  * No FAB on Desktop.
  */
 @Composable
-fun DesktopShellNav3() {
-    val state = rememberJvmNav3State()
-    val navigator = remember(state) { Navigator(state) }
+fun DesktopShellNav3Root(
+    state: Nav3State,
+    navigator: Navigator,
+    navCallbacks: NavCallbacks,
+) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
     val current: AppDestination = state.topLevelRoute as? AppDestination
         ?: AppDestination.Today
 
-    val navCallbacks = NavCallbacks(
-        navigate = navigator::navigate,
-        goBack = navigator::goBack,
-    )
     val appEntryProvider = createJvmEntryProvider(navCallbacks)
 
     ModalNavigationDrawer(

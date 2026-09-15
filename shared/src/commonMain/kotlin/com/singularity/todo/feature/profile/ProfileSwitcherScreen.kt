@@ -59,7 +59,6 @@ private val PROFILE_COLORS = listOf(
 
 @Composable
 fun ProfileSwitcherScreen(
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: ProfileSwitcherViewModel = koinViewModel()

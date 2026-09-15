@@ -15,7 +15,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  */
 open class ProjectsNavigator(
     private val backStack: NavBackStack<ProjectsRoute>,
-    private val onExitGraph: (AppDestination?) -> Unit,
+    protected val onExitGraph: (AppDestination?) -> Unit,
 ) {
 
     /** Push a project detail onto the stack. */
@@ -40,7 +40,7 @@ open class ProjectsNavigator(
      * Exit the nested graph and navigate to a task detail in the outer graph.
      */
     open fun openTask(taskId: TaskId) {
-        onExitGraph(AppDestination.TaskDetail(taskId.value))
+        onExitGraph(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(taskId.value)))
     }
 
     /**

@@ -6,7 +6,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.feature.auth.LoginScreen
 import org.koin.compose.koinInject
-import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Navigation guard: routes the user to [LoginScreen] when the session is
@@ -16,6 +15,9 @@ import org.koin.compose.viewmodel.koinViewModel
  * This is the single place where the auth-required decision is made — every
  * feature ViewModel receives its userId from [CurrentUser] and never has to
  * branch on auth state itself.
+ *
+ * [LoginScreen] uses [com.singularity.todo.feature.nav.LocalAppNavigator] to
+ * navigate on success; no callbacks are needed here.
  */
 @Composable
 fun AuthGuard(
@@ -25,11 +27,7 @@ fun AuthGuard(
     val session by authRepository.session.collectAsStateWithLifecycle()
     when (session) {
         Session.Loading -> LoadingIndicator()
-        Session.SignedOut -> LoginScreen(
-            viewModel = koinViewModel(),
-            onSuccess = { /* AuthRepository.session transitions drive recomposition */ },
-            onContinueOffline = { /* LoginScreen calls authRepository.signInAnonymously() */ },
-        )
+        Session.SignedOut -> LoginScreen()
         is Session.SignedIn, is Session.Anonymous -> content()
     }
 }

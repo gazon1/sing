@@ -29,12 +29,12 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.LocalAppNavigator
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun LoginScreen(
-    onSuccess: () -> Unit,
-    onContinueOffline: () -> Unit,
     viewModel: AuthViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -43,9 +43,11 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var isSignUp by remember { mutableStateOf(false) }
 
+    val navigator = LocalAppNavigator.current
+
     CollectEvents(viewModel.events) { event ->
         when (event) {
-            is AuthUiEvent.NavigateToHome -> onSuccess()
+            is AuthUiEvent.NavigateToHome -> navigator.navigate(AppDestination.Today)
         }
     }
 
@@ -159,7 +161,6 @@ private fun LoginScreenFormPreview() = PreviewThemed(darkTheme = false) {
         onPasswordChange = {},
         onSignIn = {},
         onToggleMode = {},
-        onContinueOffline = {},
     )
 }
 
@@ -176,7 +177,6 @@ private fun LoginScreenLoadingPreview() = PreviewThemed(darkTheme = false) {
         onPasswordChange = {},
         onSignIn = {},
         onToggleMode = {},
-        onContinueOffline = {},
     )
 }
 
@@ -193,7 +193,6 @@ private fun LoginScreenDarkPreview() = PreviewThemed(darkTheme = true) {
         onPasswordChange = {},
         onSignIn = {},
         onToggleMode = {},
-        onContinueOffline = {},
     )
 }
 
@@ -212,7 +211,6 @@ private fun LoginScreenFormContent(
     onPasswordChange: (String) -> Unit,
     onSignIn: () -> Unit,
     onToggleMode: () -> Unit,
-    onContinueOffline: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -260,10 +258,6 @@ private fun LoginScreenFormContent(
             Spacer(modifier = Modifier.height(8.dp))
             TextButton(onClick = onToggleMode, modifier = Modifier.fillMaxWidth()) {
                 Text(if (isSignUp) "Already have an account? Sign In" else "Don't have an account? Sign Up")
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            TextButton(onClick = onContinueOffline, modifier = Modifier.fillMaxWidth()) {
-                Text("Continue Offline")
             }
         }
     }

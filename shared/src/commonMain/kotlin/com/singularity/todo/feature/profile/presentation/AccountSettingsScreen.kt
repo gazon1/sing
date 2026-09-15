@@ -29,25 +29,111 @@ import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileRepository
+import com.singularity.todo.feature.settings.presentation.nav.LocalSettingsNavigator
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import org.koin.compose.koinInject
 
 @Composable
 fun AccountSettingsScreen(
-    onNavigateToProfileSwitcher: () -> Unit,
     modifier: Modifier = Modifier,
     profileRepository: ProfileRepository = koinInject(),
 ) {
     val activeProfile by profileRepository.activeProfile().collectAsState(initial = null)
-    AccountSettingsScreenContent(
+    val settingsNavigator = LocalSettingsNavigator.current
+
+    Column(
+        modifier = modifier
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        activeProfile?.let { profile ->
+            SettingsSection(title = "Account") {
+                Text(
+                    text = "Active profile",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        text = profile.emoji,
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape),
+                    )
+                    Column {
+                        Text(
+                            text = profile.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            text = profile.id.value,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
+        SettingsSection(title = "Profiles") {
+            FilledTonalButton(
+                onClick = { settingsNavigator.openProfileSwitcher() },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.Person, contentDescription = null)
+                Text(
+                    text = "  Switch profile",
+                    modifier = Modifier.padding(end = 8.dp),
+                )
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+            }
+            Text(
+                text = "Switch to a different profile (Personal, AI Agent, etc.). Each profile has its own tasks, projects, and tags.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+// ===== Preview =====
+
+@Preview
+@Composable
+private fun AccountSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    val fakeProfileRepo = FakeProfileRepository()
+    val activeProfile by fakeProfileRepo.activeProfile().collectAsState(initial = null)
+    AccountSettingsScreenPreviewContent(
         activeProfile = activeProfile,
-        onNavigateToProfileSwitcher = onNavigateToProfileSwitcher,
-        modifier = modifier,
+        onNavigateToProfileSwitcher = {},
     )
 }
 
+@Preview
 @Composable
-private fun AccountSettingsScreenContent(
+private fun AccountSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    val fakeProfileRepo = FakeProfileRepository()
+    val activeProfile by fakeProfileRepo.activeProfile().collectAsState(initial = null)
+    AccountSettingsScreenPreviewContent(
+        activeProfile = activeProfile,
+        onNavigateToProfileSwitcher = {},
+    )
+}
+
+/**
+ * Stateless preview variant that takes an explicit callback instead of [LocalSettingsNavigator].
+ * Mirrors the layout of [AccountSettingsScreen] without requiring the nav graph context.
+ */
+@Composable
+private fun AccountSettingsScreenPreviewContent(
     activeProfile: Profile?,
     onNavigateToProfileSwitcher: () -> Unit,
     modifier: Modifier = Modifier,
@@ -113,28 +199,4 @@ private fun AccountSettingsScreenContent(
             )
         }
     }
-}
-
-// ===== Preview =====
-
-@Preview
-@Composable
-private fun AccountSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    val fakeProfileRepo = FakeProfileRepository()
-    val activeProfile by fakeProfileRepo.activeProfile().collectAsState(initial = null)
-    AccountSettingsScreenContent(
-        activeProfile = activeProfile,
-        onNavigateToProfileSwitcher = {},
-    )
-}
-
-@Preview
-@Composable
-private fun AccountSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    val fakeProfileRepo = FakeProfileRepository()
-    val activeProfile by fakeProfileRepo.activeProfile().collectAsState(initial = null)
-    AccountSettingsScreenContent(
-        activeProfile = activeProfile,
-        onNavigateToProfileSwitcher = {},
-    )
 }
