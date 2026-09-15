@@ -50,6 +50,9 @@ class TaskDetailViewModel(
 
     private val _recentlyDeleted = MutableStateFlow<Task?>(null)
 
+    /** Incremented on each retry() call to restart the watchTask subscription. */
+    private val _retryVersion = MutableStateFlow(0)
+
     init {
         // Debounce-race fix: combine ensures the edit is applied to the correct task version.
         // If load hasn't completed yet, edits wait in the flow.
@@ -77,7 +80,11 @@ class TaskDetailViewModel(
         }
     }
 
-    val state: StateFlow<TaskDetailUiState> = deps.taskRepo.watchTask(taskId)
+    val state: StateFlow<TaskDetailUiState> = combine(
+        flowOf(taskId),
+        _retryVersion,
+    ) { id, _ -> id }
+        .flatMapLatest { deps.taskRepo.watchTask(it) }
         .flatMapLatest { task ->
             if (task == null) {
                 flowOf<TaskDetailUiState>(TaskDetailUiState.Error("Not found"))
@@ -283,6 +290,9 @@ class TaskDetailViewModel(
     fun onDescriptionChange(value: String) {
         descriptionEdits.tryEmit(value)
     }
+
+    /** Re-triggers the watchTask subscription by bumping the retry version. */
+    fun retry() { _retryVersion.value++ }
 
     private fun mutate(
         current: Task,

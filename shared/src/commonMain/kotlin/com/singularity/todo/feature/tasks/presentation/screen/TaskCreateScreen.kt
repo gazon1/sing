@@ -51,9 +51,12 @@ fun TaskCreateScreen(
     }
 
     val guardedBack: () -> Unit = {
-        if (isNavigatingBack) Unit
-        else if (state.isDirty) showDiscard = true
-        else navigator.back()
+        when {
+            isNavigatingBack -> Unit
+            state.isSaving    -> Unit
+            state.isDirty     -> showDiscard = true
+            else              -> navigator.back()
+        }
     }
 
     if (showDiscard) {
