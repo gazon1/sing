@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.kover)
 }
 
 sourceSets {
@@ -67,6 +69,32 @@ compose.desktop {
 
             modules("jdk.unsupported")
             includeAllModules = false
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// detekt — static analysis + ktlint (via detekt-formatting plugin)
+// ---------------------------------------------------------------------------
+detekt {
+    config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+    baseline = rootProject.file("config/detekt/baseline-desktopApp.xml")
+    ignoreFailures = true               // report-only on day 1
+    source.setFrom("src/main/kotlin", "src/jvmTest/kotlin")
+}
+
+dependencies {
+    detektPlugins(libs.detekt.formatting)   // wires ktlint into detekt so detektFormat fixes both
+}
+
+// ---------------------------------------------------------------------------
+// kover — code coverage
+// ---------------------------------------------------------------------------
+kover {
+    reports {
+        total {
+            html { onCheck = true }
+            xml { onCheck = true }
         }
     }
 }

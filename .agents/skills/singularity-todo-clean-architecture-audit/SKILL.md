@@ -22,6 +22,12 @@ domain/ only imports from: core/, platform/
 ```bash
 FEATURE_DIR="shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks"
 
+# 0. Run detekt on the module (fastest way to catch many issues)
+echo "=== Run detekt ==="
+./gradlew :shared:detekt --no-configuration-cache --no-daemon 2>&1 | tail -5
+# Expected: "0 number of total findings" when baseline is clean
+# New violations will show with file:line:column
+
 # 1. Presentation must NOT import data implementations
 echo "=== Check: presentation does NOT import data ==="
 if grep -rn "feature\..*\.data\." "$FEATURE_DIR/presentation/"; then
@@ -97,6 +103,7 @@ After running automated checks, verify manually:
 - [ ] `sealed UiState` with Loading/Content/Error in each ViewModel
 - [ ] No `runBlocking` in ViewModel constructors
 - [ ] `Either<AppError, T>` or `Result<T>` used for error returns (not exceptions)
+- [ ] `just lint` reports 0 new violations (run `just detekt-fix` to auto-fix first)
 
 ## How to fix common failures
 
@@ -133,7 +140,14 @@ val state by viewModel.state.collectAsStateWithLifecycle()
 # Run all checks for a feature
 cd /home/max/AndroidStudioProjects/singularity_cllone_kmp
 FEATURE="tasks"
+./gradlew :shared:detekt --no-configuration-cache --no-daemon 2>&1 | tail -5
 grep -rn "feature\.$FEATURE\.data\." "shared/src/commonMain/kotlin/com/singularity/todo/feature/$FEATURE/presentation/" && echo "❌ data imported in presentation" || echo "✅"
 grep -rn "feature\.$FEATURE\.presentation" "shared/src/commonMain/kotlin/com/singularity/todo/feature/$FEATURE/domain/" && echo "❌ presentation imported in domain" || echo "✅"
 grep -rn "collectAsState()" "shared/src/commonMain/kotlin/com/singularity/todo/feature/$FEATURE/presentation/" && echo "❌ collectAsState used" || echo "✅"
 ```
+
+## Related Skills
+
+- `singularity-todo-quality-tools` — detekt, ktlint, kover run commands and config format
+- `singularity-todo-feature-scaffold` — feature checklist with lint step
+- `singularity-todo-kotlin-idioms` — Kotlin idioms that ktlint enforces

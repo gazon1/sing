@@ -114,6 +114,17 @@ runTest {
 
 # Desktop JVM UI test
 ./gradlew :desktopApp:jvmTest
+
+# ── Lint / Code quality ───────────────────────────────────────────────────────
+just lint              # detekt analysis (shared + desktopApp), report-only
+just detekt-fix       # auto-fix detekt rules + ktlint formatting in-place
+just detekt-baseline  # пересоздать baseline файлы
+just coverage         # kover XML coverage reports → shared/build/reports/kover/
+just tcheck           # tests + assembleDebug + lint (полный pipeline)
+
+# Direct gradle (если just недоступен)
+./gradlew :shared:detekt :desktopApp:detekt
+./gradlew :shared:koverXmlReport :desktopApp:koverXmlReport
 ```
 
 ---
@@ -292,6 +303,8 @@ Skill-ов немного и они узкие. **Большинство арх�
 | `singularity-todo-room-migration` | Миграции Room-схемы |
 | `singularity-todo-ui-event-vs-state` | One-shot события vs continuous state в VM |
 | `singularity-todo-preview-with-koin` | `@Preview` без Koin — VM-as-parameter pattern, FakeRepositories для preview |
+| `singularity-todo-quality-tools` | detekt 2.x + ktlint + kover: запуск, конфиг, baseline, auto-fix. `just lint`, `just detekt-fix`, `just coverage` |
+| `singularity-todo-clean-architecture-audit` | Проверка layer boundaries: grep-чеки + `just lint`. Прежде чем мержить feature. |
 
 **Удалённые skill-ы** (информация переехала в `docs/decisions/`):
 ~~`singularity-todo-koin-suspend-bridge`~~ — см. `2026-09-05-koin-suspend-bridge.md`.

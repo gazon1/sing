@@ -333,8 +333,12 @@ Before merging a feature change:
 - [ ] ViewModels depend only on `domain/port/` interfaces + `domain/usecase/`
 - [ ] `collectAsStateWithLifecycle()` used (not `collectAsState()`)
 - [ ] ViewModels contain `scopeOverride` for tests
+- [ ] **Run `just lint`** — detekt finds 0 new violations (baseline absorbs existing ones)
+- [ ] **Run `just detekt-fix`** — ktlint auto-fixes formatting; review the diff before staging
+- [ ] New feature code is covered by existing tests (kover aggregates coverage across commonMain + jvmMain + androidMain automatically)
 
 See `singularity-todo-clean-architecture-audit` for automated checks.
+See `singularity-todo-quality-tools` for full lint/coverage commands.
 
 ## Anti-patterns to Avoid
 

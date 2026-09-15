@@ -54,6 +54,13 @@ alias tah    := tests::android-host
 alias tcheck := tests::check
 alias tclean := tests::clean
 
+# ----- Lint shortcuts -----
+alias lint       := tests::lint
+alias detekt-fix := tests::detekt-fix
+
+# ----- Coverage shortcuts -----
+alias coverage := tests::coverage
+
 # ----- DB shortcuts -----
 alias db-a   := android::db-schema
 alias db-d   := desktop::db-schema

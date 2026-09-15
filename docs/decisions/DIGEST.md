@@ -62,10 +62,16 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- All Android NavGraph back stack declarations become `val backStack = rememberNavBackStackTyped(savedStateConfig, start)` — clean, typed, no suppression. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - **Android build unchanged**: `assembleDebug` still compiles all Android-specific NavGraphs with full `SavedStateConfiguration` for process-death survival. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- Any future code that calls `backStack.last()` on Android must explicitly cast. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - **Desktop in-memory only**: Closing and reopening the Desktop window resets all nested back stacks. This was already the behavior before this change — `LocalSaveableStateRegistry` was always `null`. The new code makes this explicit. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- Risk of `ClassCastException` if the type parameter is misused. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - Smoke test: tap FAB on Inbox → verify CreateTask opens; tap FAB on Plans → verify CreateProject opens. _(from `2026-09-16-android-shell-fab-fix`)_
+- `@Suppress("UNCHECKED_CAST")` removed from all 5 Android NavGraph files. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
+- The cast remains in all Android NavGraphs. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
+- The inline wrapper is `internal` to the Android source set — no API surface change. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - Users can now create projects directly from Plans via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
 - Users can now create tasks directly from Inbox/Today via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
 - When adding a new `data object` or `data class` to `AppDestination` (or any sealed route hierarchy that backs a `rememberNavBackStack`), **always** add the matching `subclass(...)` line in every relevant `serializersModule` — the compiler does not enforce this. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
@@ -392,6 +398,18 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - When the script's grep is broken (a stray `runBlocking` appears), fix it immediately; the helper exists specifically so this is detectable. _(from `2026-09-05-koin-suspend-bridge`)_
 - **Правило подтверждено:** `koinBridge` только для one-shot startup suspend reads _(from `2026-09-06-koin-bridge-audit`)_
 
+### `coverage`
+
+- **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **detekt 1.23.8 vs Kotlin 2.3.21**: if Gradle plugin resolution fails due to Kotlin version mismatch, switch to `detekt 2.0.0-alpha.3` in `gradle/libs.versions.toml`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+
 ### `dead-code`
 
 - One new e2e test in `mcp-server` (`McpToolRoundTripTest`). _(from `2026-09-08-mcp-server-health-audit`)_
@@ -423,6 +441,18 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - Smoke test now passes: `./gradlew :desktopApp:test` → BUILD SUCCESSFUL _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - `sourceSets { test { java.srcDirs("src/jvmTest") ... } }` added to `desktopApp/build.gradle.kts` to wire the `jvmTest` source set to the `test` task _(from `2026-09-06-desktop-smoke-test-with-koin`)_
+
+### `detekt`
+
+- **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **detekt 1.23.8 vs Kotlin 2.3.21**: if Gradle plugin resolution fails due to Kotlin version mismatch, switch to `detekt 2.0.0-alpha.3` in `gradle/libs.versions.toml`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 
 ### `"di"`
 
@@ -624,9 +654,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- All Android NavGraph back stack declarations become `val backStack = rememberNavBackStackTyped(savedStateConfig, start)` — clean, typed, no suppression. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - **Android build unchanged**: `assembleDebug` still compiles all Android-specific NavGraphs with full `SavedStateConfiguration` for process-death survival. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- Any future code that calls `backStack.last()` on Android must explicitly cast. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - **Desktop in-memory only**: Closing and reopening the Desktop window resets all nested back stacks. This was already the behavior before this change — `LocalSaveableStateRegistry` was always `null`. The new code makes this explicit. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- Risk of `ClassCastException` if the type parameter is misused. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
+- `@Suppress("UNCHECKED_CAST")` removed from all 5 Android NavGraph files. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
+- The cast remains in all Android NavGraphs. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
+- The inline wrapper is `internal` to the Android source set — no API surface change. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - When adding a new `data object` or `data class` to `AppDestination` (or any sealed route hierarchy that backs a `rememberNavBackStack`), **always** add the matching `subclass(...)` line in every relevant `serializersModule` — the compiler does not enforce this. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 
 ### `kermit`
@@ -785,6 +821,30 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `Runtime.getRuntime().addShutdownHook { server.close() }` becomes redundant for normal EOF exits — `onClose → done.complete() → done.join() returns → runBlocking exits → JVM exits cleanly`. We keep the shutdown hook only as a backstop for SIGTERM. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 
+### `kover`
+
+- **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **detekt 1.23.8 vs Kotlin 2.3.21**: if Gradle plugin resolution fails due to Kotlin version mismatch, switch to `detekt 2.0.0-alpha.3` in `gradle/libs.versions.toml`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+
+### `ktlint`
+
+- **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **detekt 1.23.8 vs Kotlin 2.3.21**: if Gradle plugin resolution fails due to Kotlin version mismatch, switch to `detekt 2.0.0-alpha.3` in `gradle/libs.versions.toml`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+
 ### `lifecycle`
 
 - `./gradlew :mcp-server:test` now includes a regression test (`McpServerEndToEndTest.server_blocks_until_stdin_closes`) that asserts `process.isAlive` after 3s of empty stdin. If anyone removes the blocking primitive, this test fails. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
@@ -801,6 +861,18 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
 - Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
 - Single search + merged results = better UX (one tap instead of tab switching) _(from `2026-09-09-internal-link-picker-generic`)_
+
+### `lint`
+
+- **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **detekt 1.23.8 vs Kotlin 2.3.21**: if Gradle plugin resolution fails due to Kotlin version mismatch, switch to `detekt 2.0.0-alpha.3` in `gradle/libs.versions.toml`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 
 ### `llm-usage`
 
@@ -893,10 +965,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
+- All Android NavGraph back stack declarations become `val backStack = rememberNavBackStackTyped(savedStateConfig, start)` — clean, typed, no suppression. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - All `@Preview` composables compile without composition-local crashes. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
 - **Android build unchanged**: `assembleDebug` still compiles all Android-specific NavGraphs with full `SavedStateConfiguration` for process-death survival. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling. _(from `2026-09-14-nav3-tasks-navigator`)_
+- Any future code that calls `backStack.last()` on Android must explicitly cast. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - `AppDestination.TaskDetail` and `TaskDetailCreate` remain `@Deprecated` — they can be deleted in a follow-up cleanup commit. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops. _(from `2026-09-15-projects-nested-nav3`)_
 - **Desktop in-memory only**: Closing and reopening the Desktop window resets all nested back stacks. This was already the behavior before this change — `LocalSaveableStateRegistry` was always `null`. The new code makes this explicit. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
@@ -907,14 +981,18 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Preview for `AccountSettingsScreen` uses a separate `AccountSettingsScreenPreviewContent` composable that takes an explicit callback, since `LocalSettingsNavigator` is only available inside the graph. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
 - `ProjectsNavGraph` in `NavEntries` now maps `ProjectsStartRoute.Editor` to `ProjectsRoute.Editor`. _(from `2026-09-16-nav3-feature-graph-extensions`)_
+- Risk of `ClassCastException` if the type parameter is misused. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `SettingsScreen` no longer accepts `onNavigateToProfileSwitcher` — `AccountSettingsScreen` navigates directly. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - Smoke test: tap FAB on Inbox → verify CreateTask opens; tap FAB on Plans → verify CreateProject opens. _(from `2026-09-16-android-shell-fab-fix`)_
+- `@Suppress("UNCHECKED_CAST")` removed from all 5 Android NavGraph files. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavGraph` is the `@Composable` nav host — it sets up `LocalTasksNavigator`, `LocalNavBackStack`, and the `BackHandler`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavigator` is the only class that mutates `NavBackStack<TasksRoute>`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksRoute` is the sealed interface defining all routes within the tasks graph (Inbox, Today, ByProject, Detail, Create). _(from `2026-09-14-nav3-tasks-navigator`)_
 - The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
+- The cast remains in all Android NavGraphs. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
+- The inline wrapper is `internal` to the Android source set — no API surface change. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - Users can now create projects directly from Plans via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
 - Users can now create tasks directly from Inbox/Today via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
 - When adding a new `data object` or `data class` to `AppDestination` (or any sealed route hierarchy that backs a `rememberNavBackStack`), **always** add the matching `subclass(...)` line in every relevant `serializersModule` — the compiler does not enforce this. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
@@ -927,10 +1005,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
+- All Android NavGraph back stack declarations become `val backStack = rememberNavBackStackTyped(savedStateConfig, start)` — clean, typed, no suppression. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - All `@Preview` composables compile without composition-local crashes. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
 - **Android build unchanged**: `assembleDebug` still compiles all Android-specific NavGraphs with full `SavedStateConfiguration` for process-death survival. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling. _(from `2026-09-14-nav3-tasks-navigator`)_
+- Any future code that calls `backStack.last()` on Android must explicitly cast. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - `AppDestination.TaskDetail` and `TaskDetailCreate` remain `@Deprecated` — they can be deleted in a follow-up cleanup commit. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует. _(from `2026-09-07-fab-chrome-level`)_
 - `AppShell` — minor change: добавлен `FabAction` parameter. _(from `2026-09-07-fab-chrome-level`)_
@@ -963,11 +1043,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
 - `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `ProjectsNavGraph` in `NavEntries` now maps `ProjectsStartRoute.Editor` to `ProjectsRoute.Editor`. _(from `2026-09-16-nav3-feature-graph-extensions`)_
+- Risk of `ClassCastException` if the type parameter is misused. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `SettingsScreen` no longer accepts `onNavigateToProfileSwitcher` — `AccountSettingsScreen` navigates directly. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - Smoke test: tap FAB on Inbox → verify CreateTask opens; tap FAB on Plans → verify CreateProject opens. _(from `2026-09-16-android-shell-fab-fix`)_
 - **`String`-encoded `initialDueDate`** — заменён на _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- `@Suppress("UNCHECKED_CAST")` removed from all 5 Android NavGraph files. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - `TagsScreen` больше не принимает callback — экран не подключён к навигации (menu destination `Tags` отсутствует в `AppDestination`). _(from `2026-09-07-fab-chrome-level`)_
 - `TaskCreateViewModel(initialDueDate)` — два последовательных _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods. _(from `2026-09-14-nav3-tasks-navigator`)_
@@ -978,6 +1060,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`TasksRoute.Pop` как sentinel** — race condition (см. review rev. 1, _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **`TasksScreen`** unchanged — it already takes `onNavigateToTask` / `onNavigateToCreateTask` callbacks; the per-tab sub-navigation state now lives in `TasksRoute` inside `AppNavHost` via `rememberSaveable`. _(from `2026-09-05-android-bottom-nav`)_
 - The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
+- The cast remains in all Android NavGraphs. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
+- The inline wrapper is `internal` to the Android source set — no API surface change. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - Unit-тесты навигации tasks требуют `Robolectric` или `composeRule` — _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading _(from `2026-09-09-notes-view-edit-split`)_
 - Users can now create projects directly from Plans via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
@@ -1126,7 +1210,25 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill. _(from `2026-09-08-roboazzi-snapshot-tests`)_
 - Baseline images stored in `shared/src/commonTest/resources/roborazzi/`. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+
+### `quality`
+
+- **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **detekt 1.23.8 vs Kotlin 2.3.21**: if Gradle plugin resolution fails due to Kotlin version mismatch, switch to `detekt 2.0.0-alpha.3` in `gradle/libs.versions.toml`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+
+### `"quality"`
+
 - Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+
+### `quality`
+
+- **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 
 ### `quick-add`
 
@@ -1360,6 +1462,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `tasks`
 
 - `TasksFormatters.kt`: added `dueChipColors` formatter and `parseDueTime` utility. _(from `2026-09-09-task-detail-intent-refactor`)_
+
+### `technical-debt`
+
+- All Android NavGraph back stack declarations become `val backStack = rememberNavBackStackTyped(savedStateConfig, start)` — clean, typed, no suppression. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
+- Any future code that calls `backStack.last()` on Android must explicitly cast. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
+- Risk of `ClassCastException` if the type parameter is misused. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
+- `@Suppress("UNCHECKED_CAST")` removed from all 5 Android NavGraph files. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
+- The cast remains in all Android NavGraphs. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
+- The inline wrapper is `internal` to the Android source set — no API surface change. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 
 ### `"testing"`
 
@@ -1735,6 +1846,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-nav3-tasks-navigator` — nav3  navigation  koin  refactor
 - `2026-09-14-nav3-vm-store-decorator-fix` — architecture  navigation  koin  viewmodel  bug
 - `2026-09-14-tasks-feature-nested-nav3` — architecture  navigation  koin  viewmodel
+- `2026-09-15-detekt-ktlint-kover-setup` — detekt  ktlint  kover  lint  coverage  quality
 - `2026-09-15-noteeditor-udf-link-search` — "architecture"  "udf"  "notes"  "di"
 - `2026-09-15-projects-nested-nav3` — nav3  navigation  koin  refactor  projects
 - `2026-09-15-projects-settings-profile-udf-fixes` — "architecture"  "udf"  "compose"  "di"
@@ -1746,6 +1858,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-nav3-post-migration-fixes` — navigation  nav3
 - `2026-09-16-nav3-savedstate-serializers-required` — navigation  nav3  serialization  jvm  android
 - `2026-09-16-nav3-settings-and-search-nested-graphs` — navigation  nav3  settings  search
+- `2026-09-16-nav3-type-asymmetry-adr` — navigation  nav3  android  jvm  technical-debt
 
 ## Active entries
 
@@ -1818,6 +1931,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-nav3-tasks-navigator` — Nav3: TasksNavigator replaces callback-passing in task screens
 - `2026-09-14-nav3-vm-store-decorator-fix` — _(no title)
 - `2026-09-14-tasks-feature-nested-nav3` — _(no title)
+- `2026-09-15-detekt-ktlint-kover-setup` — Integrate detekt, ktlint, and kotlinx-kover for code quality and coverage
 - `2026-09-15-nav3-notes-navigator` — _(no title)
 - `2026-09-15-noteeditor-udf-link-search` — NoteEditor UDF fix — delegate link search to ViewModel
 - `2026-09-15-projects-nested-nav3` — Projects feature: nested Nav3 graph with ProjectsNavigator
@@ -1830,3 +1944,4 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-nav3-post-migration-fixes` — Nav3 post-migration fixes — NotesNavGraph start, preview wrappers, FAB cleanup
 - `2026-09-16-nav3-savedstate-serializers-required` — Nav3 SavedStateConfiguration must register all NavKey subtypes polymorphically
 - `2026-09-16-nav3-settings-and-search-nested-graphs` — SettingsNavGraph and SearchNavGraph — single-route nested graphs
+- `2026-09-16-nav3-type-asymmetry-adr` — Nav3 type asymmetry: rememberInMemoryNavBackStack returns NavBackStack<T>, Android rememberNavBackStack returns NavBackStack<NavKey>

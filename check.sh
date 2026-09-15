@@ -42,6 +42,11 @@ echo -e "${YELLOW}=== [4/4] androidApp:assembleDebug ===${NC}"
 }
 echo -e "${GREEN}assembleDebug passed${NC}"
 
+echo -e "${YELLOW}=== [5/5] detekt (report-only, ignoreFailures=true) ===${NC}"
+./gradlew :shared:detekt :desktopApp:detekt --no-daemon --quiet || {
+    echo -e "${YELLOW}  detekt reported violations (ignoreFailures=true — baseline not yet generated)${NC}"
+}
+
 # Optional: Android instrumentation tests on real adb device
 if [[ "${SKIP_ADB:-0}" != "1" ]] && adb devices | grep -q "device$"; then
     echo ""

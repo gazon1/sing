@@ -1,0 +1,242 @@
+# detekt configuration for Singularity Todo KMP project
+# Version: detekt 2.0.0-alpha.3
+# Scope: shared (commonMain + androidMain + jvmMain + tests) + desktopApp
+#
+# Design: ktlint owns formatting (via detekt-rules-ktlint-wrapper plugin).
+# detekt owns logic, complexity, naming, performance, exceptions, style.
+# ktlint rules (MaxLineLength, WildcardImport, etc.) live in the `style` section.
+#
+# Run with:         just detekt
+# Auto-fix:        just detekt-fix
+# Generate baseline: just detekt-baseline
+#
+# Rules disabled here are either (a) covered by ktlint or (b) too noisy for a
+# 560-file codebase on day 1. Revisit after baselines are clean.
+
+config:
+  validation: true
+  warningsAsErrors: false
+  checkExhaustiveness: false
+  excludes: []
+
+processors:
+  active: true
+  exclude:
+    - 'KtFileCountProcessor'
+    - 'ClassCountProcessor'
+    - 'FunctionCountProcessor'
+    - 'PropertyCountProcessor'
+
+console-reports:
+  active: true
+  exclude:
+    - 'LiteIssuesReport'
+
+# ---------------------------------------------------------------------------
+# comments
+# ---------------------------------------------------------------------------
+comments:
+  active: true
+  UndocumentedPublicClass:
+    active: false          # documented via AGENTS.md + ARCHITECTURE.md
+    excludes:
+      - '**/test/**'
+      - '**/commonTest/**'
+      - '**/jvmTest/**'
+      - '**/androidHostTest/**'
+  UndocumentedPublicFunction:
+    active: false
+    excludes:
+      - '**/test/**'
+      - '**/commonTest/**'
+      - '**/jvmTest/**'
+      - '**/androidHostTest/**'
+  EndOfSentenceFormat:
+    active: true
+  AbsentOrWrongFileLicense:
+    active: false
+
+# ---------------------------------------------------------------------------
+# complexity
+# ---------------------------------------------------------------------------
+complexity:
+  active: true
+  LongMethod:
+    active: true
+    allowedLines: 80           # bumped from default 60
+  LongParameterList:
+    active: true
+    allowedFunctionParameters: 8   # bumped from default 5
+    allowedConstructorParameters: 8
+    ignoreDefaultParameters: false
+    ignoreDataClasses: true
+    ignoreAnnotatedParameter: []
+  CyclomaticComplexMethod:
+    active: true
+    allowedComplexity: 20      # bumped from default 14
+  TooManyFunctions:
+    active: true
+    allowedFunctionsPerFile: 25  # bumped from default 10
+    excludes:
+      - '**/test/**'
+      - '**/commonTest/**'
+      - '**/jvmTest/**'
+      - '**/androidHostTest/**'
+  NestedBlockDepth:
+    active: true
+    allowedDepth: 5           # bumped from default 4
+  LargeClass:
+    active: true
+    allowedLines: 600
+
+# ---------------------------------------------------------------------------
+# coroutines (detekt bundled rules)
+# ---------------------------------------------------------------------------
+coroutines:
+  active: true
+
+# ---------------------------------------------------------------------------
+# empty-blocks
+# ---------------------------------------------------------------------------
+empty-blocks:
+  active: true
+
+# ---------------------------------------------------------------------------
+# exceptions
+# ---------------------------------------------------------------------------
+exceptions:
+  active: true
+  TooGenericExceptionCaught:
+    active: true
+    excludes:
+      - '**/test/**'
+      - '**/commonTest/**'
+      - '**/jvmTest/**'
+      - '**/androidHostTest/**'
+    exceptionNames:
+      - 'Exception'
+      - 'Throwable'
+  TooGenericExceptionThrown:
+    active: true
+    exceptionNames:
+      - 'Exception'
+      - 'Throwable'
+      - 'Error'
+
+# ---------------------------------------------------------------------------
+# naming
+# ---------------------------------------------------------------------------
+naming:
+  active: true
+  MatchingDeclarationName:
+    active: false          # KMP files intentionally named Xxx.android.kt / Xxx.jvm.kt
+  InvalidPackageDeclaration:
+    active: true
+  EnumNaming:
+    active: true
+  FunctionNaming:
+    active: true
+    excludes:
+      - '**/test/**'
+      - '**/commonTest/**'
+      - '**/jvmTest/**'
+      - '**/androidHostTest/**'
+  TopLevelPropertyNaming:
+    active: true            # covers top-level constants and properties
+  VariableNaming:
+    active: true
+
+# ---------------------------------------------------------------------------
+# performance
+# ---------------------------------------------------------------------------
+performance:
+  active: true
+  SpreadOperator:
+    active: true
+  ArrayPrimitive:
+    active: true
+  ForEachOnRange:
+    active: true
+    excludes:
+      - '**/test/**'
+      - '**/commonTest/**'
+      - '**/jvmTest/**'
+      - '**/androidHostTest/**'
+
+# ---------------------------------------------------------------------------
+# potential-bugs
+# ---------------------------------------------------------------------------
+potential-bugs:
+  active: true
+  UnsafeCallOnNullableType:
+    active: true
+    excludes:
+      - '**/test/**'
+      - '**/commonTest/**'
+      - '**/jvmTest/**'
+      - '**/androidHostTest/**'
+  UnsafeCast:
+    active: true
+  ElseCaseInsteadOfExhaustiveWhen:
+    active: false          # was DuplicateCaseInWhenExpression in 1.x
+  EqualsAlwaysReturnsTrueOrFalse:
+    active: true
+  CastNullableToNonNullableType:
+    active: false
+  Deprecation:
+    active: false
+
+# ---------------------------------------------------------------------------
+# style
+# Note: ktlint rules (MaxLineLength, WildcardImport, etc.) live here too.
+# The detekt-rules-ktlint-wrapper plugin registers them.
+# ---------------------------------------------------------------------------
+style:
+  active: true
+  MaxLineLength:
+    active: false          # ktlint owns line length via .editorconfig (max_line_length = 140)
+  WildcardImport:
+    active: true
+    excludeImports: []
+  UnusedImport:
+    active: true
+  ReturnCount:
+    active: true
+    max: 4
+  EqualsOnSignatureLine:
+    active: true
+  TrailingWhitespace:
+    active: true
+  DestructuringDeclarationWithTooManyEntries:
+    active: false
+  MagicNumber:
+    active: false          # too noisy with Compose color/size/alpha defaults; revisit per-module
+  MandatoryBracesLoops:
+    active: false
+  ForbiddenAnnotation:
+    active: false
+  ForbiddenComment:
+    active: true
+    comments:
+      - { value: 'FIXME:', reason: 'Forbidden FIXME todo marker in comment, please fix the problem.' }
+      - { value: 'STOPSHIP:', reason: 'Forbidden STOPSHIP todo marker in comment, please address the problem before shipping the code.' }
+      - { value: 'TODO:', reason: 'Forbidden TODO todo marker in comment, please do the changes.' }
+    allowedPatterns: ''
+  UseAnyOrNoneInsteadOfFind:
+    active: true
+  UseIsNullOrEmpty:
+    active: true
+
+# ---------------------------------------------------------------------------
+# ktlint rules (via detekt-rules-ktlint-wrapper plugin)
+# ktlint rule IDs are in kebab-case (e.g. no-wildcard-imports, max-line-length)
+# See: detekt-rules-ktlint-wrapper/src/main/kotlin/dev/detekt/rules/ktlintwrapper/wrappers/
+# ---------------------------------------------------------------------------
+ktlint:
+  active: true
+  code_style: ktlint_official
+  auto_correct: true
+  no-wildcard-imports:
+    active: true
+  max-line-length:
+    active: false          # ktlint owns this; .editorconfig sets max_line_length = 140

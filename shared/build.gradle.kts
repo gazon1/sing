@@ -10,6 +10,9 @@ plugins {
 	alias(libs.plugins.ksp)
 	// Room 3 KSP plugin (schema export)
 	alias(libs.plugins.room3)
+	// Code quality
+	alias(libs.plugins.detekt)
+	alias(libs.plugins.kover)
 }
 
 kotlin {
@@ -280,6 +283,40 @@ configurations.all {
 // Room 3 KSP schema export
 room3 {
     schemaDirectory("$projectDir/schemas")
+}
+
+// ---------------------------------------------------------------------------
+// detekt — static analysis + ktlint (via detekt-formatting plugin)
+// ---------------------------------------------------------------------------
+detekt {
+    config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+    baseline = rootProject.file("config/detekt/baseline-shared.xml")
+    buildUponDefaultConfig = true
+    ignoreFailures = true               // report-only on day 1; tighten once baselines are clean
+    source.setFrom(
+        "src/commonMain/kotlin",
+        "src/commonTest/kotlin",
+        "src/jvmMain/kotlin",
+        "src/jvmTest/kotlin",
+        "src/androidMain/kotlin",
+        "src/androidHostTest/kotlin"
+    )
+}
+
+dependencies {
+    detektPlugins(libs.detekt.formatting)   // wires ktlint into detekt so detektFormat fixes both
+}
+
+// ---------------------------------------------------------------------------
+// kover — code coverage for all KMP source sets
+// ---------------------------------------------------------------------------
+kover {
+    reports {
+        total {
+            html { onCheck = true }
+            xml { onCheck = true }
+        }
+    }
 }
 
 // Robolectric JDK 21+ fix — open FileDescriptor reflection internals
