@@ -83,6 +83,26 @@ ktlint:
 - `no-trailing-spaces`
 - `final-newline` — trailing newline at end of file
 
+## TOML editing safety (gradle/libs.versions.toml)
+
+`libs.versions.toml` uses TOML which does **not support** duplicate section/key names. Before editing versions/libraries/plugins:
+
+```bash
+# Always verify before staging edits
+git diff gradle/libs.versions.toml
+```
+
+**Common mistake:** adding a second `[plugins]` or `[libraries]` section. Use the correct TOML structure:
+- All version pins go in `[versions]`
+- All library declarations go in `[libraries]`
+- All plugin declarations go in `[plugins]` (single section, no duplicates)
+
+**After any change:**
+```bash
+./gradlew :shared:detekt --no-configuration-cache --no-daemon 2>&1 | grep -i 'TOML\|error' | head -5
+```
+If you see "TOML syntax error" or "plugins previously defined at line X" — you created a duplicate section.
+
 ## Adding a new module (e.g. mcp-server)
 
 1. Add plugins to module's `build.gradle.kts`:
@@ -131,7 +151,7 @@ When the codebase is clean enough to enforce violations:
    ```bash
    ./gradlew :shared:detekt :desktopApp:detekt --no-daemon
    ```
-3. Commit as a separate PR with a note in the decision record
+3. Commit as a separate PR with a note in the decision record (`docs/decisions/2026-09-15-detekt-ktlint-kover-setup.md` — `ignoreFailures` consequence note)
 
 ## Common issues
 
