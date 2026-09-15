@@ -38,14 +38,14 @@ import kotlinx.coroutines.flow.flowOf
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectPickerSheet(
     onProjectSelected: (Project?) -> Unit,
     onDismiss: () -> Unit,
-    vm: ProjectPickerViewModel = koinInject(),
+    vm: ProjectPickerViewModel = koinViewModel(),
 ) {
     ProjectPickerSheetContent(
         vm = vm,

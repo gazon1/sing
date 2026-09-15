@@ -126,6 +126,13 @@ class ProjectDetailViewModel(
             project == null -> ProjectDetailUiState.Loading
             project.isDeleted -> ProjectDetailUiState.NotFound
             else -> {
+                // Seed drafts once from loaded project (preserves user's in-progress edits).
+                if (nameDraftImpl.value == null) {
+                    nameDraftImpl.value = project.name
+                }
+                if (descriptionDraftImpl.value == null) {
+                    descriptionDraftImpl.value = project.description ?: ""
+                }
                 val visibleTasks = if (hideCompleted) tasks.filter { it.completedAt == null } else tasks
                 ProjectDetailUiState.Content(
                     ProjectDetailUi(
@@ -147,8 +154,10 @@ class ProjectDetailViewModel(
     val lastEditedAt: StateFlow<Instant?> = _lastEditedAt
 
     /** Draft flows — written by onIntent, collected and debounced in init{}. */
-    private val nameDraft = MutableStateFlow<String?>(null)
-    private val descriptionDraft = MutableStateFlow<String?>(null)
+    private val nameDraftImpl = MutableStateFlow<String?>(null)
+    private val descriptionDraftImpl = MutableStateFlow<String?>(null)
+    val nameDraft: StateFlow<String?> = nameDraftImpl
+    val descriptionDraft: StateFlow<String?> = descriptionDraftImpl
 
     init {
         // Name debounce — reads _latestProject to avoid TOCTOU.
@@ -200,9 +209,9 @@ class ProjectDetailViewModel(
 
             // ── Inline edits — debounced, written to draft StateFlows ────────
             is ProjectDetailIntent.Domain.UpdateName ->
-                nameDraft.value = intent.name
+                nameDraftImpl.value = intent.name
             is ProjectDetailIntent.Domain.UpdateDescription ->
-                descriptionDraft.value = intent.description
+                descriptionDraftImpl.value = intent.description
 
             // ── Pickers ─────────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.UpdateColor -> {

@@ -142,7 +142,8 @@ fun ProjectDetailContent(
     var sheetState by remember { mutableStateOf<ActiveSheet?>(null) }
     var overflowMenuOpen by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val nameDraft by viewModel.nameDraft.collectAsStateWithLifecycle()
+    val descriptionDraft by viewModel.descriptionDraft.collectAsStateWithLifecycle()
 
     // Routing + domain dispatcher — routing handled here, domain delegated to VM.
     val actions = remember {
@@ -162,17 +163,13 @@ fun ProjectDetailContent(
         }
     }
 
-    LaunchedEffect(errorMessage) {
-        errorMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            errorMessage = null
-        }
-    }
-
-    CollectEvents(viewModel.events) { event ->
-        when (event) {
-            ProjectDetailUiEvent.NavigateBack -> nav.back()
-            is ProjectDetailUiEvent.ShowError -> { errorMessage = event.message }
+    // ShowError snackbar requires suspend — use LaunchedEffect directly.
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                ProjectDetailUiEvent.NavigateBack -> nav.back()
+                is ProjectDetailUiEvent.ShowError -> snackbarHostState.showSnackbar(event.message)
+            }
         }
     }
 
@@ -249,6 +246,8 @@ fun ProjectDetailContent(
                     ui = s.ui,
                     lastEditedAt = lastEditedAt,
                     now = clock.now(),
+                    nameDraft = nameDraft ?: "",
+                    descriptionDraft = descriptionDraft ?: "",
                     actions = actions,
                 )
                 ProjectMetaChipsRow(
@@ -355,15 +354,10 @@ private fun ProjectHeroSection(
     ui: ProjectDetailUi,
     lastEditedAt: Instant?,
     now: Instant,
+    nameDraft: String,
+    descriptionDraft: String,
     actions: ProjectDetailActions,
 ) {
-    var draftName by remember(ui.project.name) { mutableStateOf(ui.project.name) }
-    var draftDesc by remember(ui.project.description) { mutableStateOf(ui.project.description ?: "") }
-
-    // Sync drafts to VM debounce flows — UI stays responsive, debounce happens in VM.
-    LaunchedEffect(draftName) { actions.onUpdateName(draftName) }
-    LaunchedEffect(draftDesc) { actions.onUpdateDescription(draftDesc.ifBlank { null }) }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -394,8 +388,8 @@ private fun ProjectHeroSection(
 
             Column(modifier = Modifier.weight(1f)) {
                 BasicTextField(
-                    value = draftName,
-                    onValueChange = { draftName = it },
+                    value = nameDraft,
+                    onValueChange = { actions.onUpdateName(it) },
                     textStyle = MaterialTheme.typography.headlineSmall.copy(
                         color = MaterialTheme.colorScheme.onSurface,
                     ),
@@ -441,10 +435,10 @@ private fun ProjectHeroSection(
 
         // Description
         BasicTextField(
-            value = draftDesc,
-            onValueChange = { draftDesc = it },
+            value = descriptionDraft,
+            onValueChange = { actions.onUpdateDescription(it.ifBlank { null }) },
             textStyle = MaterialTheme.typography.bodyMedium.copy(
-                color = if (draftDesc.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (descriptionDraft.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant
                 else MaterialTheme.colorScheme.onSurface,
             ),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),

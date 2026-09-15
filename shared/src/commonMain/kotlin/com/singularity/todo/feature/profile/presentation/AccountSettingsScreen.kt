@@ -17,8 +17,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,17 +28,16 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.profile.Profile
-import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.settings.presentation.nav.LocalSettingsNavigator
 import com.singularity.todo.test.fakes.FakeProfileRepository
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun AccountSettingsScreen(
     modifier: Modifier = Modifier,
-    profileRepository: ProfileRepository = koinInject(),
+    vm: AccountSettingsViewModel = koinViewModel(),
 ) {
-    val activeProfile by profileRepository.activeProfile().collectAsState(initial = null)
+    val activeProfile by vm.activeProfile.collectAsStateWithLifecycle(initialValue = null)
     val settingsNavigator = LocalSettingsNavigator.current
 
     Column(
@@ -110,7 +109,7 @@ fun AccountSettingsScreen(
 @Composable
 private fun AccountSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     val fakeProfileRepo = FakeProfileRepository()
-    val activeProfile by fakeProfileRepo.activeProfile().collectAsState(initial = null)
+    val activeProfile by fakeProfileRepo.activeProfile().collectAsStateWithLifecycle(initialValue = null)
     AccountSettingsScreenPreviewContent(
         activeProfile = activeProfile,
         onNavigateToProfileSwitcher = {},
@@ -121,7 +120,7 @@ private fun AccountSettingsScreenLightPreview() = PreviewThemed(darkTheme = fals
 @Composable
 private fun AccountSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
     val fakeProfileRepo = FakeProfileRepository()
-    val activeProfile by fakeProfileRepo.activeProfile().collectAsState(initial = null)
+    val activeProfile by fakeProfileRepo.activeProfile().collectAsStateWithLifecycle(initialValue = null)
     AccountSettingsScreenPreviewContent(
         activeProfile = activeProfile,
         onNavigateToProfileSwitcher = {},

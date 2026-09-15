@@ -6,6 +6,8 @@ import com.singularity.todo.feature.ai.di.aiSettingsModule
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.profile.ProfileRepositoryImpl
+import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
+import com.singularity.todo.core.ui.components.TagPickerViewModel
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -40,6 +42,8 @@ fun domainModule(): List<Module> = buildList {
         single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get()) }
         single { ProfileAwareCurrentUser(get(), get()) }
         factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
+        factory { AccountSettingsViewModel(get()) }
+        factory { TagPickerViewModel(get(), get()) }
     })
     add(coreModule())
     add(aiToolsModule())

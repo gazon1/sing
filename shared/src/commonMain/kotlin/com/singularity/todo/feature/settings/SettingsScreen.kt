@@ -43,6 +43,7 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.backup.BackupScreen
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.profile.presentation.AccountSettingsScreen
+import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
 import com.singularity.todo.feature.settings.screens.AiProviderSettingsScreen
 import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
@@ -264,7 +265,7 @@ private fun SettingsContentPreview(
                     Text("Backup", modifier = Modifier.padding(16.dp))
                 }
                 SettingsTab.Account -> AccountSettingsScreen(
-                    profileRepository = FakeProfileRepository(),
+                    vm = AccountSettingsViewModel(FakeProfileRepository()),
                 )
             }
         }

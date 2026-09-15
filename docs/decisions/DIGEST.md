@@ -121,6 +121,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Negative**: Deep `domain/model/` import chains if not careful (mitigated by `package com.singularity.todo.feature.tasks.domain.model.*`) _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - **New file count:** 8 новых файлов (7 модулей + decision). _(from `2026-09-06-di-module-split`)_
 - New file `TaskDetailIntent.kt` (~120 lines). _(from `2026-09-09-task-detail-intent-refactor`)_
+
+### `"architecture"`
+
+- `NoteEditor` now requires `InternalLinkRepository` in its constructor — updated `NotesDiModule` accordingly. _(from `2026-09-15-noteeditor-udf-link-search`)_
+
+### `architecture`
+
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables _(from `2026-09-09-notes-vm-split`)_
 - **NotificationHost** — финальный widget для всех экранов, заменяет ~64 строк ручного glue кода _(from `2026-09-05-ui-event-per-feature`)_
 - `ParentOption` is a `@JvmInline value class` candidate if it grows beyond 3 fields (currently 3 — plain data class is fine) _(from `2026-09-09-parent-picker-contract`)_
@@ -138,6 +145,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `architecture`
 
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
+
+### `"architecture"`
+
+- Previews that don't use Koin continue to work since `searchNotesForLink`/`searchTasksForLink` are nullable. _(from `2026-09-15-noteeditor-udf-link-search`)_
+
+### `architecture`
+
 - `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
 - Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
@@ -408,8 +422,22 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`koinViewModel()` для VM в Composable** — `koinInject()` для VM антипаттерн _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - **New file count:** 8 новых файлов (7 модулей + decision). _(from `2026-09-06-di-module-split`)_
 - **No call-site changes** — `koinViewModel { parametersOf(...) }` works with both forms _(from `2026-09-09-di-factory-viewmodel-fix`)_
+
+### `"di"`
+
+- `NoteEditor` now requires `InternalLinkRepository` in its constructor — updated `NotesDiModule` accordingly. _(from `2026-09-15-noteeditor-udf-link-search`)_
+
+### `di`
+
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables _(from `2026-09-09-notes-vm-split`)_
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
+
+### `"di"`
+
+- Previews that don't use Koin continue to work since `searchNotesForLink`/`searchTasksForLink` are nullable. _(from `2026-09-15-noteeditor-udf-link-search`)_
+
+### `di`
+
 - **@Preview и widget-тесты не затрагиваются** — все preview используют `*Content` helpers (stateless) _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - **Raw `runBlocking` в модулях** — не допускается, `koinBridge` как единая точка входа _(from `2026-09-06-koin-bridge-audit`)_
 - Settings → Backup tab no longer crashes during composition. _(from `2026-09-07-backup-directory-via-koin-string`)_
@@ -921,6 +949,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - No new dependencies _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - No schema migration needed _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - `NoteDao.updateContent` сигнатура изменилась: добавлен параметр `html: String`. _(from `2026-09-07-note-editor-body-load`)_
+
+### `"notes"`
+
+- `NoteEditor` now requires `InternalLinkRepository` in its constructor — updated `NotesDiModule` accordingly. _(from `2026-09-15-noteeditor-udf-link-search`)_
+
+### `notes`
+
 - Note metadata (word count, last updated) is visible without entering edit mode _(from `2026-09-09-notes-view-edit-split`)_
 - `NotePreview` must observe the note via `repo.watchNote()` — requires a Flow subscription _(from `2026-09-09-notes-view-edit-split`)_
 - `NotesListViewModel` now requires `IdGenerator` as a third constructor parameter _(from `2026-09-09-notes-quick-add`)_
@@ -928,6 +963,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables _(from `2026-09-09-notes-vm-split`)_
 - One tap fewer than before for the common "capture a thought" workflow _(from `2026-09-09-notes-quick-add`)_
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
+
+### `"notes"`
+
+- Previews that don't use Koin continue to work since `searchNotesForLink`/`searchTasksForLink` are nullable. _(from `2026-09-15-noteeditor-udf-link-search`)_
+
+### `notes`
+
 - `ProjectsNavGraph` in `NavEntries` now maps `ProjectsStartRoute.Editor` to `ProjectsRoute.Editor`. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - Regex over HTML is less elegant than walking the paragraph tree, but the paragraph tree is internal _(from `2026-09-09-notes-outgoing-links-extraction`)_
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
@@ -1301,7 +1343,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **−100% UDF violations** in this category — the rule is now written and enforced via skill. _(from `2026-09-15-viewmodel-state-ownership`)_
 - **+~20% lines in ViewModels** — state that was implicit in Composables must be made explicit in VMs. _(from `2026-09-15-viewmodel-state-ownership`)_
 - **Migration cost** — 7 violations across 5 PRs. See the implementation plan for the sequence. _(from `2026-09-15-viewmodel-state-ownership`)_
+- `NoteEditor` now requires `InternalLinkRepository` in its constructor — updated `NotesDiModule` accordingly. _(from `2026-09-15-noteeditor-udf-link-search`)_
 - Preview functions in `TaskDetailViewScreen` updated to pass `emptyFlow()` for `recentlyDeleted`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+- Previews that don't use Koin continue to work since `searchNotesForLink`/`searchTasksForLink` are nullable. _(from `2026-09-15-noteeditor-udf-link-search`)_
 - `TaskDetailViewContent` now takes a `recentlyDeleted: Flow<Task?>` parameter — passed from `TaskDetailViewScreen`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
 - `TasksDiModule` removed now-unused `ProjectsRepository` import. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
 
@@ -1615,6 +1659,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-nav3-tasks-navigator` — nav3  navigation  koin  refactor
 - `2026-09-14-nav3-vm-store-decorator-fix` — architecture  navigation  koin  viewmodel  bug
 - `2026-09-14-tasks-feature-nested-nav3` — architecture  navigation  koin  viewmodel
+- `2026-09-15-noteeditor-udf-link-search` — "architecture"  "udf"  "notes"  "di"
 - `2026-09-15-projects-nested-nav3` — nav3  navigation  koin  refactor  projects
 - `2026-09-15-task-detail-drafts-undo-fix` — "architecture"  "compose"  "udf"  "tasks"  "drafts"  "undo"
 - `2026-09-15-viewmodel-state-ownership` — "architecture"  "compose"  "udf"  "vm-state"
@@ -1696,6 +1741,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-nav3-vm-store-decorator-fix` — _(no title)
 - `2026-09-14-tasks-feature-nested-nav3` — _(no title)
 - `2026-09-15-nav3-notes-navigator` — _(no title)
+- `2026-09-15-noteeditor-udf-link-search` — NoteEditor UDF fix — delegate link search to ViewModel
 - `2026-09-15-projects-nested-nav3` — Projects feature: nested Nav3 graph with ProjectsNavigator
 - `2026-09-15-task-detail-drafts-undo-fix` — TaskDetail drafts seed-from-task; TaskListScreen koinViewModel; undo snackbar wired
 - `2026-09-15-viewmodel-state-ownership` — ViewModel owns all domain state; Composable owns only routing and animation
