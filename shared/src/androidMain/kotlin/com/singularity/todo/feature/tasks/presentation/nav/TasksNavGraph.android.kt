@@ -34,6 +34,9 @@ actual fun TasksNavGraph(
     onExitGraph: (AppDestination?) -> Unit,
     modifier: Modifier,
 ) {
+    // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
+    // (which concrete NavKey subtypes exist), not a value to persist. It is constant
+    // across process death — only the NavBackStack content is serialized.
     val savedStateConfig = remember {
         navSavedStateConfig(
             TasksRoute.Inbox.serializer(),
