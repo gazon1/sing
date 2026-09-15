@@ -4,10 +4,10 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.serialization.StableJson
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.DeserializationStrategy
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationStrategy
 
 /**
@@ -18,13 +18,18 @@ import kotlinx.serialization.SerializationStrategy
  */
 class DataStoreDraftStore(
     private val dataStore: DataStore<Preferences>,
+    private val logger: Logger = Logger.withTag("DataStoreDraftStore"),
 ) : DraftStore {
 
     override suspend fun <T> load(key: String, deserializer: DeserializationStrategy<T>): T? {
         val json = dataStore.data.first()[stringPreferencesKey(key)] ?: return null
         return runCatching {
             StableJson.decodeFromString(deserializer, json)
-        }.getOrNull()
+        }.getOrNull().also { result ->
+            if (result == null) {
+                logger.w("DraftStore") { "decode failed for key=$key, draft dropped" }
+            }
+        }
     }
 
     override suspend fun <T> save(key: String, value: T, serializer: SerializationStrategy<T>) {

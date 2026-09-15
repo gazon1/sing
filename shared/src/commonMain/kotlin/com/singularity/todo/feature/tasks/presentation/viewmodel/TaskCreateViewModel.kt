@@ -75,7 +75,7 @@ class TaskCreateViewModel(
         // 2. Debounced silent save loop — combine with source StateFlow
         scope.launch {
             _draft.drop(1)
-                .debounce(500L)
+                .debounce { deps.autosaveScheduler.delayMs() }
                 .collect { draft ->
                     val key = "${deps.currentUser.current.value}:${TaskCreateDeps.DRAFT_KEY}"
                     runCatching {

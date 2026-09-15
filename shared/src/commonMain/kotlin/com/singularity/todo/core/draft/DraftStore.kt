@@ -1,7 +1,6 @@
 package com.singularity.todo.core.draft
 
 import kotlinx.serialization.DeserializationStrategy
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationStrategy
 
 /**

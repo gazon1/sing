@@ -63,7 +63,7 @@ fun coreModule(): org.koin.core.module.Module = module {
     // ─── Drafts ──────────────────────────────────────────────────────────
     // DraftStore uses the same per-platform DataStore<Preferences> binding.
     // Drafts are not secrets — stored in regular DataStore, not SecureStoragePort.
-    single<DraftStore> { DataStoreDraftStore(get()) }
+    single<DraftStore> { DataStoreDraftStore(get(), Logger.withTag("DraftStore")) }
 
     // ─── Session / Auth ─────────────────────────────────────────────────
 

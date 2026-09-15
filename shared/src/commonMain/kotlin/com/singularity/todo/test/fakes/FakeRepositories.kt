@@ -763,9 +763,25 @@ class FakeProfileRepository : ProfileRepository {
 
 /**
  * Builds a [ProfileAwareCurrentUser] from a [FakeAuthRepository] + [FakeProfileRepository].
+ *
+ * Use [initialUserId] to set the starting user ID — useful in tests where
+ * `scopedUserId.value` would otherwise be `UserId.anonymous` before the combine
+ * produces its first emission.
  */
 fun FakeProfileAwareCurrentUser(
-    authRepository: AuthRepository = FakeAuthRepository(),
+    initialUserId: UserId = UserId("test-user"),
+    profileRepository: ProfileRepository = FakeProfileRepository(),
+): ProfileAwareCurrentUser = ProfileAwareCurrentUser(
+    currentUser = CurrentUser(FakeAuthRepository(Session.Anonymous(initialUserId))),
+    profileRepository = profileRepository,
+)
+
+/**
+ * Overload that accepts an existing [AuthRepository] — for call sites that already
+ * have a [FakeAuthRepository] instance configured.
+ */
+fun FakeProfileAwareCurrentUser(
+    authRepository: AuthRepository,
     profileRepository: ProfileRepository = FakeProfileRepository(),
 ): ProfileAwareCurrentUser = ProfileAwareCurrentUser(
     currentUser = CurrentUser(authRepository),

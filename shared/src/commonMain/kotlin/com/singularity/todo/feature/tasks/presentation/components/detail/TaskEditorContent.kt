@@ -279,18 +279,6 @@ sealed interface TaskEditorSheet {
 // ─── Data classes ───────────────────────────────────────────────────────────
 
 /**
- * An attribute row displayed in the editor (e.g. Priority, Due Date).
- */
-data class TaskEditorAttribute(
-    val key: Any,
-    val icon: ImageVector,
-    val label: String,
-    val isActive: Boolean = true,
-    val onClick: () -> Unit,
-    val onClear: (() -> Unit)? = null,
-)
-
-/**
  * A dropdown menu item for archive/delete actions in View mode.
  */
 data class TaskEditorMenuItem(
