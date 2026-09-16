@@ -1706,9 +1706,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed. _(from `2026-09-08-instant-migration`)_
 - Developers should prefer `kotlinx.datetime.Instant` in new code. _(from `2026-09-08-instant-migration`)_
 - DI-граф упрощён: 5 factory → 1 _(from `2026-09-05-refactoring-summary`)_
+- `endTime` / `accentColor` — blocked on Room migration for `startAt`/`endAt`/`accentColor` fields in `Task` _(from `2026-09-16-calendar-post-merge-fixes`)_
 - Expand-day-list (tap day in month view to show all tasks). _(from `2026-09-16-calendar-feature`)_
+- `expect object Clock` rename to `PlatformClock` — deferred until a broader cleanup window _(from `2026-09-16-calendar-post-merge-fixes`)_
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes) _(from `2026-09-07-task-detail-archive-overflow`)_
 - Full filter panel with Project / Tags / Priority / Status. _(from `2026-09-16-calendar-feature`)_
+- Future developers understand which fields are stubbed vs. populated _(from `2026-09-16-calendar-post-merge-fixes`)_
 - Horizontal swipe between dates. _(from `2026-09-16-calendar-feature`)_
 - Internal links survive HTML round-trip (stored as `note://` / `task://` href) _(from `2026-09-07-notes-internal-links-backlinks`)_
 - `io.github.nickid:roborazzi:1.25.0` added to `libs.versions.toml`. _(from `2026-09-08-roborazzi-snapshot-tests`)_
@@ -1720,7 +1723,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Locale-aware first day of week. _(from `2026-09-16-calendar-feature`)_
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP). _(from `2026-09-16-tasks-upcoming-screen`)_
 - Nested nav3 graph keeps task-click navigation encapsulated. _(from `2026-09-16-calendar-feature`)_
+- None _(from `2026-09-16-calendar-post-merge-fixes`)_
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`. _(from `2026-09-16-calendar-feature`)_
+- No shadowing ambiguity in `CalendarDeps` _(from `2026-09-16-calendar-post-merge-fixes`)_
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for _(from `2026-09-15-nav3-notes-navigator`)_
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph _(from `2026-09-15-nav3-notes-navigator`)_
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах _(from `2026-09-05-ui-decomposition`)_
@@ -1748,6 +1753,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskFilter` remains untouched — Search feature is unaffected. _(from `2026-09-16-tasks-upcoming-screen`)_
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика _(from `2026-09-05-refactoring-summary`)_
 - Tests are ignored until the plugin resolution issue in the development environment is resolved. _(from `2026-09-08-roborazzi-snapshot-tests`)_
+- Theme switching now correctly recomposes the calendar palette _(from `2026-09-16-calendar-post-merge-fixes`)_
 - Two new top-level entries added: `justfile` and `.just/`. _(from `2026-09-06-modular-justfile`)_
 - UI Automator тесты **удалены** (`UIAutomatorTest.kt`). _(from `2026-09-05-uiautomator-compose-discovery`)_
 - `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests _(from `2026-09-16-tasks-upcoming-screen`)_
@@ -2026,6 +2032,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-viewmodel-state-ownership` — ViewModel owns all domain state; Composable owns only routing and animation
 - `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation
 - `2026-09-16-calendar-feature` — _(no title)
+- `2026-09-16-calendar-post-merge-fixes` — _(no title)
 - `2026-09-16-nav3-desktop-in-memory-no-savedstate` — Nav3 Desktop uses in-memory NavBackStack; SavedStateConfiguration is Android-only
 - `2026-09-16-nav3-feature-graph-extensions` — NotesNavGraph start parameter, TasksStartRoute.Detail, AppDestination additions
 - `2026-09-16-nav3-post-migration-fixes` — Nav3 post-migration fixes — NotesNavGraph start, preview wrappers, FAB cleanup
