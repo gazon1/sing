@@ -29,7 +29,13 @@ class LlmProviderTest {
     @Test fun everyProviderHasNonBlankDefaultUrlExceptCustom() {
         LlmProvider.entries
             .filter { it != LlmProvider.CUSTOM }
-            .forEach { assertEquals(expected = true, actual = it.defaultBaseUrl.isNotBlank(), message = "${it.id} has blank default URL") }
+            .forEach {
+                assertEquals(
+                    expected = true,
+                    actual = it.defaultBaseUrl.isNotBlank(),
+                    message = "${it.id} has blank default URL",
+                )
+            }
         assertEquals(expected = "", actual = LlmProvider.CUSTOM.defaultBaseUrl)
     }
 }

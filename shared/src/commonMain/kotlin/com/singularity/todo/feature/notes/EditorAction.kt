@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.notes
 
-
 /**
  * Formatting action for the rich-text toolbar.
  *
@@ -23,14 +22,15 @@ sealed interface EditorAction {
     // ─── Block elements ─────────────────────────────────────────────────────
     data object Bullet : EditorAction
     data object Ordered : EditorAction
-    data object Quote : EditorAction          // blockquote via toggleBlockquote()
+    data object Quote : EditorAction // blockquote via toggleBlockquote()
 
     // ─── Alignment ────────────────────────────────────────────────────────
-    data object AlignLeft   : EditorAction
+    data object AlignLeft : EditorAction
     data object AlignCenter : EditorAction
-    data object AlignRight  : EditorAction
+    data object AlignRight : EditorAction
 
     // ─── Links ────────────────────────────────────────────────────────────
+
     /** Opens a URL input dialog; inserts an external http(s) link. */
     data object ExternalLink : EditorAction
 
@@ -40,8 +40,13 @@ sealed interface EditorAction {
     companion object {
         /** Toolbar primary row — common formatting actions. */
         val primary: List<EditorAction> = listOf(
-            Bold, Italic, Underline, Strike,
-            H1, Bullet, Ordered,
+            Bold,
+            Italic,
+            Underline,
+            Strike,
+            H1,
+            Bullet,
+            Ordered,
         )
 
         /** Overflow menu actions — less common or dialog-triggered. */

@@ -26,11 +26,7 @@ import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
  * No [rememberViewModelStoreNavEntryDecorator] is used on JVM desktop.
  */
 @Composable
-actual fun NotesNavGraph(
-    navCallbacks: NavCallbacks,
-    start: NotesRoute,
-    modifier: Modifier,
-) {
+actual fun NotesNavGraph(navCallbacks: NavCallbacks, start: NotesRoute, modifier: Modifier) {
     val backStack: NavBackStack<NotesRoute> = rememberInMemoryNavBackStack(start)
 
     val onExitGraph: (AppDestination?) -> Unit = { dest ->

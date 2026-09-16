@@ -31,11 +31,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
@@ -49,8 +49,8 @@ import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
-import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.test.fakes.FakeProfileRepository
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -65,16 +65,16 @@ private enum class SettingsTab(val label: String) {
 }
 
 @Composable
-fun SettingsScreen(
-    modifier: Modifier = Modifier,
-) {
+fun SettingsScreen(modifier: Modifier = Modifier) {
     val viewModel: SettingsViewModel = koinViewModel()
     val uiState by viewModel.state.collectAsState()
     var selectedTab by remember { mutableStateOf(SettingsTab.Interface) }
 
     when (val state = uiState) {
         is SettingsUiState.Loading -> LoadingIndicator(modifier = modifier)
+
         is SettingsUiState.Error -> EmptyState(title = "Error", subtitle = state.cause.toString(), modifier = modifier)
+
         is SettingsUiState.Content -> SettingsContent(
             state = state,
             selectedTab = selectedTab,
@@ -113,28 +113,34 @@ private fun SettingsContent(
                     state = state,
                     onIntent = viewModel::processIntent,
                 )
+
                 SettingsTab.Notifications -> NotificationSettingsScreen(
                     state = state,
                     onIntent = viewModel::processIntent,
                 )
+
                 SettingsTab.AIProvider -> AiProviderSettingsScreen(
                     state = state,
                     onIntent = viewModel::processIntent,
                 )
+
                 SettingsTab.WorkSchedule -> WorkScheduleSettingsScreen(
                     state = state,
                     onIntent = viewModel::processIntent,
                 )
+
                 SettingsTab.Files -> FilesSettingsScreen(
                     attachmentsPath = attachmentsPath,
                     onOpenAttachmentsFolder = {
                         scope.launch { fileRevealer.revealAttachmentsFolder(attachmentsPath) }
                     },
                 )
+
                 SettingsTab.Backup -> BackupScreenWrapper(
                     onBack = { onSelectTab(SettingsTab.Interface) },
                     onSelectRestoreFile = { /* Platform shell provides file picker on Android */ },
                 )
+
                 SettingsTab.Account -> AccountSettingsScreen()
             }
         }
@@ -142,10 +148,7 @@ private fun SettingsContent(
 }
 
 @Composable
-private fun BackupScreenWrapper(
-    onBack: () -> Unit,
-    onSelectRestoreFile: () -> Unit,
-) {
+private fun BackupScreenWrapper(onBack: () -> Unit, onSelectRestoreFile: () -> Unit) {
     val backupVm: BackupViewModel = koinViewModel()
     val backupState by backupVm.state.collectAsState()
     BackupScreen(
@@ -182,15 +185,18 @@ private fun SettingsNavRail(
                 modifier = Modifier
                     .clickable { onSelect(tab) }
                     .padding(vertical = 12.dp, horizontal = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(
                     modifier = Modifier
                         .size(48.dp)
                         .background(
                             shape = CircleShape,
-                            color = if (tab == selectedTab) MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surface,
+                            color = if (tab == selectedTab) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            },
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -198,8 +204,12 @@ private fun SettingsNavRail(
                     // AI connection status badge on AI Provider tab
                     if (tab == SettingsTab.AIProvider) {
                         val badgeColor = when (aiTestResult) {
-                            is AiTestResult.Ok -> Color(0xFF4CAF50) // green
-                            is AiTestResult.Error -> Color(0xFFF44336) // red
+                            is AiTestResult.Ok -> Color(0xFF4CAF50)
+
+                            // green
+                            is AiTestResult.Error -> Color(0xFFF44336)
+
+                            // red
                             else -> Color(0xFF9E9E9E) // grey
                         }
                         Box(
@@ -214,7 +224,7 @@ private fun SettingsNavRail(
                 Text(
                     tab.label,
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }
@@ -244,26 +254,32 @@ private fun SettingsContentPreview(
                     state = state,
                     onIntent = {},
                 )
+
                 SettingsTab.Notifications -> NotificationSettingsScreen(
                     state = state,
                     onIntent = {},
                 )
+
                 SettingsTab.AIProvider -> AiProviderSettingsScreen(
                     state = state,
                     onIntent = {},
                 )
+
                 SettingsTab.WorkSchedule -> WorkScheduleSettingsScreen(
                     state = state,
                     onIntent = {},
                 )
+
                 SettingsTab.Files -> FilesSettingsScreen(
                     attachmentsPath = "/data/user/0/com.singularity.todo/files/attachments",
                     onOpenAttachmentsFolder = {},
                 )
+
                 SettingsTab.Backup -> {
                     // BackupScreen requires BackupViewModel - show placeholder in preview
                     Text("Backup", modifier = Modifier.padding(16.dp))
                 }
+
                 SettingsTab.Account -> AccountSettingsScreen(
                     vm = AccountSettingsViewModel(FakeProfileRepository()),
                 )

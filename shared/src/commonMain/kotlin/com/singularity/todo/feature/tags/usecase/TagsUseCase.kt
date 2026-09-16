@@ -19,7 +19,7 @@ class CreateTagUseCase(private val repo: TagsRepository, private val clock: Cloc
             color = input.color,
             createdAt = now,
             updatedAt = now,
-            userId = input.userId
+            userId = input.userId,
         )
         repo.create(tag).getOrThrow()
         tag.id

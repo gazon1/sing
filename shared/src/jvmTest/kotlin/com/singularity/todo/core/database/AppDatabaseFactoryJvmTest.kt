@@ -81,7 +81,7 @@ class AppDatabaseFactoryJvmTest {
                 id = "n1", userId = "u1", title = "T", bodyMarkdown = null, bodyHtml = null,
                 isFolder = false, parentNoteId = null, createdAt = now, updatedAt = now,
                 deletedAt = null, archivedAt = null,
-            )
+            ),
         )
 
         dao.softDelete("n1", ts = now + 1)
@@ -101,7 +101,7 @@ class AppDatabaseFactoryJvmTest {
                 id = "n1", userId = "u1", title = "T", bodyMarkdown = null, bodyHtml = null,
                 isFolder = false, parentNoteId = null, createdAt = now, updatedAt = now,
                 deletedAt = null, archivedAt = null,
-            )
+            ),
         )
         dao.softDelete("n1", ts = now + 1)
         dao.restore("n1", ts = now + 2)
@@ -120,7 +120,7 @@ class AppDatabaseFactoryJvmTest {
                 id = "n1", userId = "u1", title = "T", bodyMarkdown = null, bodyHtml = null,
                 isFolder = false, parentNoteId = null, createdAt = now, updatedAt = now,
                 deletedAt = null, archivedAt = null,
-            )
+            ),
         )
         db.taskDao().upsert(
             TaskEntity(
@@ -128,7 +128,7 @@ class AppDatabaseFactoryJvmTest {
                 dueDate = null, dueTime = null, completedAt = null, someday = false,
                 archivedAt = null, isPinned = false, createdAt = now, updatedAt = now,
                 userId = "u1",
-            )
+            ),
         )
         assertEquals(1, db.noteDao().watchAll("u1").first().size)
         assertEquals(1, db.taskDao().watchActive("u1").first().size)

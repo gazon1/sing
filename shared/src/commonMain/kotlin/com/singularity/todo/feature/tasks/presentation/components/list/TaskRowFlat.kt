@@ -43,7 +43,9 @@ fun TaskRowFlat(
     val interactionSource = remember { MutableInteractionSource() }
     val indentPadding = if (indentLevel > 0) {
         Modifier.padding(start = (24 * indentLevel).dp)
-    } else Modifier
+    } else {
+        Modifier
+    }
 
     Column(modifier = modifier.fillMaxWidth().then(indentPadding)) {
         TaskRowContent(

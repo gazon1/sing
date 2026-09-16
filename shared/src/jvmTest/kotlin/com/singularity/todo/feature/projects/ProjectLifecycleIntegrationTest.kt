@@ -1,12 +1,10 @@
 package com.singularity.todo.feature.projects
 
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
-import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.test.fakes.FakeAuthRepository
-import com.singularity.todo.test.fakes.FakeCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -14,7 +12,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -28,9 +25,7 @@ class ProjectLifecycleIntegrationTest {
     private val fakeProjectRepo = FakeProjectsRepository()
     private val fakeTaskRepo = FakeTaskRepository()
 
-    private fun createDeleteProjectUseCase(): DeleteProjectUseCase {
-        return DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo)
-    }
+    private fun createDeleteProjectUseCase(): DeleteProjectUseCase = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo)
 
     @Test
     fun `delete empty project → succeeds`() = runTest {
@@ -42,7 +37,7 @@ class ProjectLifecycleIntegrationTest {
                 color = 0xFF0000,
                 createdAt = Clock.now(),
                 updatedAt = Clock.now(),
-            )
+            ),
         )
         val useCase = createDeleteProjectUseCase()
 
@@ -66,7 +61,7 @@ class ProjectLifecycleIntegrationTest {
                 color = 0xFF0000,
                 createdAt = Clock.now(),
                 updatedAt = Clock.now(),
-            )
+            ),
         )
         fakeTaskRepo.seed(
             com.singularity.todo.feature.tasks.domain.model.Task(
@@ -76,7 +71,7 @@ class ProjectLifecycleIntegrationTest {
                 projectId = projectId,
                 createdAt = Clock.now(),
                 updatedAt = Clock.now(),
-            )
+            ),
         )
         val useCase = createDeleteProjectUseCase()
 

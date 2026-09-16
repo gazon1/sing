@@ -22,11 +22,7 @@ import com.singularity.todo.feature.genui.surface.SurfaceId
  * ```
  */
 @Composable
-fun GenuiRenderer(
-    surfaceId: SurfaceId,
-    ctx: DataContext,
-    modifier: Modifier = Modifier,
-) {
+fun GenuiRenderer(surfaceId: SurfaceId, ctx: DataContext, modifier: Modifier = Modifier) {
     val surfaces by ctx.surfaces.collectAsState()
     val surface = surfaces[surfaceId] ?: return
     RenderNode(nodeRef = surface.rootId, surface = surface, ctx = ctx, modifier = modifier)
@@ -38,12 +34,7 @@ fun GenuiRenderer(
  * pass it explicitly.
  */
 @Composable
-private fun RenderNode(
-    nodeRef: NodeRef,
-    surface: Surface,
-    ctx: DataContext,
-    modifier: Modifier = Modifier,
-) {
+private fun RenderNode(nodeRef: NodeRef, surface: Surface, ctx: DataContext, modifier: Modifier = Modifier) {
     val node = surface.components[nodeRef.id] ?: return
     ctx.registry.render(node, ctx, modifier)
 }

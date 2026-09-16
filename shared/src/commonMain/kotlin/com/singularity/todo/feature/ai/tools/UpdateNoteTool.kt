@@ -18,15 +18,10 @@ data class UpdateNoteInput(
 )
 
 @Serializable
-data class UpdateNoteOutput(
-    val noteId: String,
-    val updated: Boolean,
-)
+data class UpdateNoteOutput(val noteId: String, val updated: Boolean)
 
-class UpdateNoteTool(
-    private val notesRepository: NotesRepository,
-    private val clock: Clock,
-) : SimpleTool<UpdateNoteInput>(TypeToken.of(UpdateNoteInput::class.java), NAME, DESCRIPTION) {
+class UpdateNoteTool(private val notesRepository: NotesRepository, private val clock: Clock) :
+    SimpleTool<UpdateNoteInput>(TypeToken.of(UpdateNoteInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: UpdateNoteInput): String {
         val existing = notesRepository.watchNote(NoteId(args.noteId)).first()

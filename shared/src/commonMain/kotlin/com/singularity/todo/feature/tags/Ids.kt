@@ -1,7 +1,9 @@
 package com.singularity.todo.feature.tags
 
+import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
+@Serializable
 @JvmInline
 value class TagId(val value: String) {
     companion object {
@@ -19,11 +21,7 @@ data class Tag(
     val parentId: TagId? = null,
     val sortOrder: Int = 0,
     val deletedAt: Instant? = null,
-    val userId: String
+    val userId: String,
 )
 
-data class CreateTagInput(
-    val name: String,
-    val color: Int,
-    val userId: String
-)
+data class CreateTagInput(val name: String, val color: Int, val userId: String)

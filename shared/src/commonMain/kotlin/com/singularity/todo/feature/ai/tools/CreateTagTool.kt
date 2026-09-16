@@ -26,10 +26,7 @@ data class CreateTagInput(
 )
 
 @Serializable
-data class CreateTagOutput(
-    val tagId: String,
-    val name: String,
-)
+data class CreateTagOutput(val tagId: String, val name: String)
 
 class CreateTagTool(
     private val tagsRepository: TagsRepository,

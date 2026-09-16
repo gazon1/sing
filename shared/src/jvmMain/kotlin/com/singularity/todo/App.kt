@@ -1,10 +1,10 @@
 package com.singularity.todo
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.CompositionLocalProvider
 import com.singularity.todo.core.auth.AuthGuard
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.ui.theme.SingularityAccents
@@ -50,10 +50,6 @@ actual fun App() {
  * Delegates to the renamed [DesktopShellNav3Root] which owns the UI chrome.
  */
 @Composable
-actual fun PlatformShell(
-    state: Nav3State,
-    navigator: Navigator,
-    navCallbacks: NavCallbacks,
-) {
+actual fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks) {
     DesktopShellNav3Root(state, navigator, navCallbacks)
 }

@@ -40,7 +40,10 @@ data class TaskDraft(
 @Serializable
 sealed interface DueDateOption {
     @Serializable data object None : DueDateOption
+
     @Serializable data object Today : DueDateOption
+
     @Serializable data object Tomorrow : DueDateOption
+
     @Serializable data class Custom(val date: LocalDate, val label: String) : DueDateOption
 }

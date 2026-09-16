@@ -3,10 +3,7 @@ package com.singularity.todo.feature.checklist
 import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.first
 
-class ChecklistUseCase(
-    private val repository: ChecklistRepository,
-    private val clock: Clock,
-) {
+class ChecklistUseCase(private val repository: ChecklistRepository, private val clock: Clock) {
     fun watchChecklist(taskId: String) = repository.watchByTask(taskId)
 
     suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> = runCatching {
@@ -21,7 +18,12 @@ class ChecklistUseCase(
         item.id
     }
 
-    suspend fun toggleItem(id: ChecklistItemId, currentTitle: String, taskId: String, currentlyCompleted: Boolean): Result<Unit> = runCatching {
+    suspend fun toggleItem(
+        id: ChecklistItemId,
+        currentTitle: String,
+        taskId: String,
+        currentlyCompleted: Boolean,
+    ): Result<Unit> = runCatching {
         repository.upsert(
             ChecklistItem(
                 id = id,
@@ -29,7 +31,7 @@ class ChecklistUseCase(
                 title = currentTitle,
                 isCompleted = !currentlyCompleted,
                 sortOrder = 0,
-            )
+            ),
         ).getOrThrow()
     }
 
@@ -48,7 +50,7 @@ class ChecklistUseCase(
                 title = item.title,
                 isCompleted = !item.isCompleted,
                 sortOrder = item.sortOrder,
-            )
+            ),
         ).getOrThrow()
     }
 

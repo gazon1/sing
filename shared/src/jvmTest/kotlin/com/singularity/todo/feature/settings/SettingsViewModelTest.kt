@@ -5,15 +5,13 @@ import com.singularity.todo.core.security.FakeSecureStorage
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.feature.ai.AiSettingsContributor
-import com.singularity.todo.feature.ai.data.AiSettingsStore
 import com.singularity.todo.feature.ai.FakeTextGen
+import com.singularity.todo.feature.ai.data.AiSettingsStore
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.runCurrent
-
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs

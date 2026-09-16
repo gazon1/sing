@@ -26,11 +26,7 @@ import kotlinx.datetime.toLocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DatePickerSheet(
-    initialDate: LocalDate? = null,
-    onDateSelected: (LocalDate?) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun DatePickerSheet(initialDate: LocalDate? = null, onDateSelected: (LocalDate?) -> Unit, onDismiss: () -> Unit) {
     val initialMillis = initialDate?.atStartOfDayIn(TimeZone.UTC)?.toEpochMilliseconds()
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
@@ -85,4 +81,3 @@ fun DatePickerSheet(
         }
     }
 }
-

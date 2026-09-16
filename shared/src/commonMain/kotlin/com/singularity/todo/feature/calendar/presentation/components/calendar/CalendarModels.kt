@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.calendar.presentation.components.calendar
 
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
-import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import kotlinx.datetime.LocalDate
 
 /**

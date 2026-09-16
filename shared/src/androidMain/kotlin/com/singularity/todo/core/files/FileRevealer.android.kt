@@ -15,6 +15,7 @@ class AndroidFileRevealer(private val context: Context) : FileRevealer {
         if (!folder.exists()) folder.mkdirs()
 
         val uri = Uri.fromFile(folder)
+
         @Suppress("DEPRECATION")
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
             flags = (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)

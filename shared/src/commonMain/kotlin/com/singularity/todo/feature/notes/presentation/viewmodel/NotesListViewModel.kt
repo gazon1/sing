@@ -73,20 +73,18 @@ class NotesListViewModel(
                                 sortOrder = _sortOrder.value,
                                 selectedIds = _selectedIds.value,
                                 isSelectionMode = _isSelectionMode.value,
-                            )
+                            ),
                         )
                     }
                 }
         }
     }
 
-    private fun sortNotes(notes: List<Note>, order: NoteSortOrder): List<Note> {
-        return when (order) {
-            NoteSortOrder.UpdatedDesc -> notes.sortedByDescending { it.updatedAt }
-            NoteSortOrder.UpdatedAsc  -> notes.sortedBy { it.updatedAt }
-            NoteSortOrder.TitleAsc   -> notes.sortedBy { it.title.lowercase() }
-            NoteSortOrder.TitleDesc  -> notes.sortedByDescending { it.title.lowercase() }
-        }
+    private fun sortNotes(notes: List<Note>, order: NoteSortOrder): List<Note> = when (order) {
+        NoteSortOrder.UpdatedDesc -> notes.sortedByDescending { it.updatedAt }
+        NoteSortOrder.UpdatedAsc -> notes.sortedBy { it.updatedAt }
+        NoteSortOrder.TitleAsc -> notes.sortedBy { it.title.lowercase() }
+        NoteSortOrder.TitleDesc -> notes.sortedByDescending { it.title.lowercase() }
     }
 
     // ─── Filter / Sort ───────────────────────────────────────────────────────
@@ -104,7 +102,7 @@ class NotesListViewModel(
             val pinned = sorted.filter { it.isPinned }
             val unpinned = sorted.filter { !it.isPinned }
             _notes.value = current.copy(
-                list = current.list.copy(pinned = pinned, unpinned = unpinned, sortOrder = order)
+                list = current.list.copy(pinned = pinned, unpinned = unpinned, sortOrder = order),
             )
         }
     }

@@ -14,7 +14,7 @@ class KoinLoggingGraphTest {
             modules(
                 org.koin.dsl.module {
                     single { Logger.withTag("TestTag") }
-                }
+                },
             )
         }
         try {
@@ -31,7 +31,7 @@ class KoinLoggingGraphTest {
                 org.koin.dsl.module {
                     single { Logger.withTag("App") }
                     single { LoggerHolder(get()) }
-                }
+                },
             )
         }
         try {

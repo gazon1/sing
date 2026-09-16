@@ -13,13 +13,13 @@ enum class LlmProvider(val id: String, val defaultBaseUrl: String) {
     OPENAI_COMPATIBLE("openai-compatible", "https://api.openai.com/v1"),
     ANTHROPIC_COMPATIBLE("anthropic-compatible", "https://api.anthropic.com/v1"),
     OLLAMA("ollama", "http://localhost:11434/v1"),
-    CUSTOM("custom", "");
+    CUSTOM("custom", ""),
+    ;
 
     companion object {
         val DEFAULT: LlmProvider = OPENAI
 
         /** Resolves a stored id back to a provider, falling back to [DEFAULT] for unknown values. */
-        fun fromId(id: String?): LlmProvider =
-            entries.firstOrNull { it.id == id } ?: DEFAULT
+        fun fromId(id: String?): LlmProvider = entries.firstOrNull { it.id == id } ?: DEFAULT
     }
 }

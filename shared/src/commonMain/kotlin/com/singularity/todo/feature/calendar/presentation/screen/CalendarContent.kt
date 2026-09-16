@@ -11,15 +11,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.components.calendar.CalendarTopBar
 import com.singularity.todo.feature.calendar.presentation.components.calendar.MiniCalendarPanel
 import com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridView
 import com.singularity.todo.feature.calendar.presentation.components.calendar.TimeGridView
-import com.singularity.todo.feature.calendar.presentation.components.calendar.groupedByDate
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
-import com.singularity.todo.core.platform.todayInSystemZone
 import kotlinx.datetime.LocalDate
 
 /**
@@ -73,6 +72,7 @@ fun CalendarContent(
                         onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
                         modifier = Modifier.fillMaxSize(),
                     )
+
                     else -> TimeGridView(
                         dates = loadedState.visibleDates,
                         tasksByDate = loadedState.tasksByDate,

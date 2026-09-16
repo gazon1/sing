@@ -127,7 +127,7 @@ fun SwipeableTaskRow(
             Box(modifier = Modifier.fillMaxSize().background(TaskListColors.Background)) {
                 content()
             }
-        }
+        },
 
     )
 }

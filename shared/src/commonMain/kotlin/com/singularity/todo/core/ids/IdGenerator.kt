@@ -24,5 +24,5 @@ object UlidIdGenerator : IdGenerator {
  */
 class SequenceIdGenerator(private val prefix: String = "id") : IdGenerator {
     private var counter = 0
-    override fun next(): String = "${prefix}-${++counter}"
+    override fun next(): String = "$prefix-${++counter}"
 }

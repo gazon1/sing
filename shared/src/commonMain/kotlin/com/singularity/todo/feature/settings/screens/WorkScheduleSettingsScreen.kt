@@ -24,10 +24,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.feature.settings.SettingsUiState
 
 @Composable
@@ -109,12 +109,7 @@ fun WorkScheduleSettingsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TimeSlider(
-    label: String,
-    value: Int,
-    onValueChange: (Int) -> Unit,
-    formatter: (Int) -> String,
-) {
+private fun TimeSlider(label: String, value: Int, onValueChange: (Int) -> Unit, formatter: (Int) -> String) {
     var showDialog by remember { mutableStateOf(false) }
     val hour = value / 60
     val minute = value % 60
@@ -197,10 +192,10 @@ private fun formatHour(hour: Int): String = "%d:00".format(hour)
 private fun WorkScheduleSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     WorkScheduleSettingsScreen(
         state = SettingsUiState.Content(
-            workDayStartMinutes = 540,  // 09:00
-            workDayEndMinutes = 1080,  // 18:00
+            workDayStartMinutes = 540, // 09:00
+            workDayEndMinutes = 1080, // 18:00
             workLunchStartMinutes = 720, // 12:00
-            workLunchEndMinutes = 780,   // 13:00
+            workLunchEndMinutes = 780, // 13:00
             workWeekendSat = false,
             workWeekendSun = false,
             greetingMorningEnd = 12,
@@ -215,8 +210,8 @@ private fun WorkScheduleSettingsScreenLightPreview() = PreviewThemed(darkTheme =
 private fun WorkScheduleSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
     WorkScheduleSettingsScreen(
         state = SettingsUiState.Content(
-            workDayStartMinutes = 480,  // 08:00
-            workDayEndMinutes = 1200,  // 20:00
+            workDayStartMinutes = 480, // 08:00
+            workDayEndMinutes = 1200, // 20:00
             workWeekendSat = true,
             workWeekendSun = true,
         ),

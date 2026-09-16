@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.domain
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
@@ -10,7 +11,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlin.time.Instant
 
 /**
@@ -23,10 +24,12 @@ object TaskDomain {
      * Validates task title.
      * @return [Either.Right] with trimmed title on success, [Either.Left] with [AppError.Validation] on failure.
      */
-    fun validateTitle(title: String): Either<AppError.Validation, String> {
-        return if (title.isNotBlank()) Either.Right(title.trim())
-        else Either.Left(AppError.Validation("Title cannot be blank"))
-    }
+    fun validateTitle(title: String): Either<AppError.Validation, String> =
+        if (title.isNotBlank()) {
+            Either.Right(title.trim())
+        } else {
+            Either.Left(AppError.Validation("Title cannot be blank"))
+        }
 
     /**
      * Creates a new TaskId.
@@ -67,7 +70,7 @@ object TaskDomain {
                 dueTime = dueTime,
                 someday = someday,
                 userId = userId,
-            )
+            ),
         )
     }
 
@@ -101,21 +104,40 @@ object TaskDomain {
      * Checks if a task matches the given filter.
      * Pure predicate function - fully testable.
      */
-    fun matchesFilter(task: Task, filter: TaskFilter, today: kotlinx.datetime.LocalDate): Boolean {
-        return when (filter) {
-            is TaskFilter.Today -> task.dueDate == today && !task.isTrashed && !task.someday
-            is TaskFilter.Upcoming -> task.dueDate != null && task.dueDate > today && !task.isTrashed && !task.someday
-            is TaskFilter.Someday -> task.someday && !task.isTrashed
-            is TaskFilter.Inbox -> !task.someday && !task.isTrashed
-            is TaskFilter.Pinned -> task.isPinned && !task.isTrashed
-            is TaskFilter.Trash -> task.isTrashed
-            is TaskFilter.All -> !task.isTrashed
-            is TaskFilter.ByProject -> task.projectId == filter.id && !task.isTrashed
-            is TaskFilter.ByTag -> task.tags.contains(filter.id) && !task.isTrashed
-            is TaskFilter.Search -> task.title.contains(filter.query, ignoreCase = true) ||
-                    task.description?.contains(filter.query, ignoreCase = true) == true
-            is TaskFilter.ByDateRange -> task.dueDate != null &&
-                    task.dueDate >= filter.from && task.dueDate <= filter.to && !task.isTrashed
+    fun matchesFilter(task: Task, filter: TaskFilter, today: kotlinx.datetime.LocalDate): Boolean = when (filter) {
+        is TaskFilter.Today -> task.dueDate == today && !task.isTrashed && !task.someday
+
+        is TaskFilter.Upcoming -> task.dueDate != null && task.dueDate > today && !task.isTrashed && !task.someday
+
+        is TaskFilter.Someday -> task.someday && !task.isTrashed
+
+        is TaskFilter.Inbox -> !task.someday && !task.isTrashed
+
+        is TaskFilter.Pinned -> task.isPinned && !task.isTrashed
+
+        is TaskFilter.Trash -> task.isTrashed
+
+        is TaskFilter.All -> !task.isTrashed
+
+        is TaskFilter.ByProject -> task.projectId == filter.id && !task.isTrashed
+
+        is TaskFilter.ByTag -> task.tags.contains(filter.id) && !task.isTrashed
+
+        is TaskFilter.Search -> task.title.contains(filter.query, ignoreCase = true) ||
+            task.description?.contains(filter.query, ignoreCase = true) == true
+
+        is TaskFilter.ByDateRange ->
+            task.dueDate != null &&
+            task.dueDate >= filter.from && task.dueDate <= filter.to && !task.isTrashed
+
+        is TaskFilter.ByStatuses -> {
+            val trashed = task.isTrashed
+            !trashed && when {
+                TaskStatus.All in filter.statuses -> true
+                TaskStatus.Active in filter.statuses && !task.isCompleted -> true
+                TaskStatus.Completed in filter.statuses && task.isCompleted -> true
+                else -> false
+            }
         }
     }
 
@@ -123,15 +145,11 @@ object TaskDomain {
      * Validates that setting [childId] as a child of [parentId] would not violate
      * the 1-level hierarchy rule: a child task cannot itself have children.
      */
-    fun assertNoNesting(
-        parentId: TaskId,
-        childId: TaskId,
-        allTasks: List<Task>,
-    ): Either<AppError.Validation, Unit> {
+    fun assertNoNesting(parentId: TaskId, childId: TaskId, allTasks: List<Task>): Either<AppError.Validation, Unit> {
         val child = allTasks.find { it.id == childId } ?: return Either.Right(Unit)
         if (child.parentTaskId != null) {
             return Either.Left(
-                AppError.Validation("Sub-tasks can only be 1 level deep. \"${child.title}\" is already a sub-task.")
+                AppError.Validation("Sub-tasks can only be 1 level deep. \"${child.title}\" is already a sub-task."),
             )
         }
         return Either.Right(Unit)

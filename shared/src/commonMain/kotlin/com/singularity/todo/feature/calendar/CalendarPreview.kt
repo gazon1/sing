@@ -4,12 +4,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.calendar.domain.logic.visibleRange
-import com.singularity.todo.feature.calendar.domain.model.CalendarTaskStatus
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.components.calendar.groupedByDate
 import com.singularity.todo.feature.calendar.presentation.screen.CalendarContent
-import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
@@ -32,7 +30,13 @@ private object CalendarPreviewData {
         CalendarTaskUi(TaskId.generate(), "Делаю пилинг перчаткой в душе", d(17), isAllDay = true, isRecurring = true),
         CalendarTaskUi(TaskId.generate(), "Купить хлеб", d(18), isAllDay = true, isRecurring = true),
         CalendarTaskUi(TaskId.generate(), "Накачать статей из miniflux", d(18), isAllDay = true, isRecurring = true),
-        CalendarTaskUi(TaskId.generate(), "Предложить олегу прокатиться на велах", d(18), isAllDay = true, isRecurring = true),
+        CalendarTaskUi(
+            TaskId.generate(),
+            "Предложить олегу прокатиться на велах",
+            d(18),
+            isAllDay = true,
+            isRecurring = true,
+        ),
         CalendarTaskUi(TaskId.generate(), "Позвонить родителям", d(19), isAllDay = true, isRecurring = true),
     )
 

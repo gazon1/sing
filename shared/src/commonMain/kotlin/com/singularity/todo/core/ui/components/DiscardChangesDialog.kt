@@ -10,10 +10,7 @@ import androidx.compose.runtime.Composable
  * from an unsaved task (Create mode).
  */
 @Composable
-fun DiscardChangesDialog(
-    onDiscard: () -> Unit,
-    onKeepEditing: () -> Unit,
-) {
+fun DiscardChangesDialog(onDiscard: () -> Unit, onKeepEditing: () -> Unit) {
     AlertDialog(
         onDismissRequest = onKeepEditing,
         title = { Text("Discard changes?") },

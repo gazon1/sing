@@ -15,9 +15,9 @@ import kotlinx.coroutines.CompletableDeferred
  */
 class FakeAutosaveScheduler : AutosaveScheduler {
     private var deferred = CompletableDeferred<Unit>()
-    private var _delayMs: Long = 0L  // instant by default for tests
+    private var _delayMs: Long = 0L // instant by default for tests
 
-    suspend override fun awaitTick() = deferred.await()
+    override suspend fun awaitTick() = deferred.await()
 
     override fun delayMs(): Long = _delayMs
 

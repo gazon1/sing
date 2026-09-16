@@ -16,13 +16,7 @@ interface NotificationPort {
      * [payload] is passed back verbatim when the notification is tapped —
      * use it to carry the task/reminder ID.
      */
-    suspend fun scheduleAt(
-        key: String,
-        title: String,
-        body: String,
-        fireAtEpochMs: Long,
-        payload: String? = null
-    )
+    suspend fun scheduleAt(key: String, title: String, body: String, fireAtEpochMs: Long, payload: String? = null)
 
     /** Cancels a scheduled notification by its [key]. No-op if already gone. */
     suspend fun cancel(key: String)

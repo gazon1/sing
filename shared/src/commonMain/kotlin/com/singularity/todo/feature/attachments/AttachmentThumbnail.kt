@@ -20,7 +20,7 @@ fun AttachmentThumbnail(
     localPath: String?,
     remoteUrl: String?,
     modifier: Modifier = Modifier,
-    contentDescription: String? = null
+    contentDescription: String? = null,
 ) {
     val imageModel: Any? = when {
         localPath != null -> java.io.File(localPath)
@@ -30,26 +30,26 @@ fun AttachmentThumbnail(
 
     Box(
         modifier = modifier.clip(RoundedCornerShape(4.dp)),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         if (imageModel != null) {
             AsyncImage(
                 model = imageModel,
                 contentDescription = contentDescription,
                 modifier = Modifier.matchParentSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
             )
         } else {
             Box(
                 modifier = Modifier
                     .matchParentSize()
                     .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.Image,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

@@ -16,19 +16,39 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NOT NULL ORDER BY archived_at DESC")
     fun watchTrash(userId: String): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND someday = 1 ORDER BY created_at DESC")
+    @Query(
+        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND someday = 1 ORDER BY created_at DESC",
+    )
     fun watchSomeday(userId: String): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND due_date = :date ORDER BY is_pinned DESC, due_time ASC")
+    @Query(
+        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND due_date = :date ORDER BY is_pinned DESC, due_time ASC",
+    )
     fun watchByDate(userId: String, date: String): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND due_date > :today AND due_date <= :endDate ORDER BY due_date ASC, is_pinned DESC")
+    @Query(
+        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND due_date > :today AND due_date <= :endDate ORDER BY due_date ASC, is_pinned DESC",
+    )
     fun watchUpcoming(userId: String, today: String, endDate: String): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND project_id = :projectId ORDER BY is_pinned DESC, due_date ASC")
+    @Query(
+        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND project_id = :projectId ORDER BY is_pinned DESC, due_date ASC",
+    )
     fun watchByProject(userId: String, projectId: String): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND is_pinned = 1 ORDER BY is_pinned DESC, due_date ASC")
+    @Query(
+        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND due_date >= :from AND due_date <= :to ORDER BY due_date ASC, is_pinned DESC",
+    )
+    fun watchByDateRange(userId: String, from: String, to: String): Flow<List<TaskEntity>>
+
+    @Query(
+        "SELECT DISTINCT t.* FROM tasks t INNER JOIN task_tags tt ON t.id = tt.task_id WHERE t.user_id = :userId AND t.archived_at IS NULL AND tt.tag_id = :tagId ORDER BY t.due_date ASC, t.is_pinned DESC",
+    )
+    fun watchByTag(userId: String, tagId: String): Flow<List<TaskEntity>>
+
+    @Query(
+        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND is_pinned = 1 ORDER BY is_pinned DESC, due_date ASC",
+    )
     fun watchPinned(userId: String): Flow<List<TaskEntity>>
 
     @Query("UPDATE tasks SET is_pinned = :pinned, updated_at = :ts WHERE id = :id")
@@ -40,7 +60,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE title LIKE '%' || :q || '%' OR description LIKE '%' || :q || '%'")
     fun search(q: String): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE archived_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20")
+    @Query(
+        "SELECT * FROM tasks WHERE archived_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
+    )
     suspend fun searchByTitle(q: String): List<TaskEntity>
 
     @Upsert
@@ -70,25 +92,37 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TaskEntity>
 
-    @Query("UPDATE tasks SET archived_at = :ts, updated_at = :ts WHERE completed_at IS NOT NULL AND archived_at IS NULL")
+    @Query(
+        "UPDATE tasks SET archived_at = :ts, updated_at = :ts WHERE completed_at IS NOT NULL AND archived_at IS NULL",
+    )
     suspend fun archiveCompleted(ts: Long): Int
 }
 
 @Dao
 interface NoteDao {
-    @Query("SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL ORDER BY is_pinned DESC, sort_order ASC, updated_at DESC")
+    @Query(
+        "SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL ORDER BY is_pinned DESC, sort_order ASC, updated_at DESC",
+    )
     fun watchAll(userId: String): Flow<List<NoteEntity>>
 
-    @Query("SELECT * FROM notes WHERE user_id = :userId AND is_pinned = 1 AND deleted_at IS NULL ORDER BY pinned_at DESC")
+    @Query(
+        "SELECT * FROM notes WHERE user_id = :userId AND is_pinned = 1 AND deleted_at IS NULL ORDER BY pinned_at DESC",
+    )
     fun watchPinned(userId: String): Flow<List<NoteEntity>>
 
-    @Query("SELECT * FROM notes WHERE user_id = :userId AND archived_at IS NOT NULL AND deleted_at IS NULL ORDER BY archived_at DESC")
+    @Query(
+        "SELECT * FROM notes WHERE user_id = :userId AND archived_at IS NOT NULL AND deleted_at IS NULL ORDER BY archived_at DESC",
+    )
     fun watchArchived(userId: String): Flow<List<NoteEntity>>
 
-    @Query("SELECT * FROM notes WHERE user_id = :userId AND parent_note_id IS NULL AND is_folder = 0 AND deleted_at IS NULL ORDER BY sort_order ASC, updated_at DESC")
+    @Query(
+        "SELECT * FROM notes WHERE user_id = :userId AND parent_note_id IS NULL AND is_folder = 0 AND deleted_at IS NULL ORDER BY sort_order ASC, updated_at DESC",
+    )
     fun watchRootNotes(userId: String): Flow<List<NoteEntity>>
 
-    @Query("SELECT * FROM notes WHERE parent_note_id = :parentId AND deleted_at IS NULL ORDER BY sort_order ASC, title ASC")
+    @Query(
+        "SELECT * FROM notes WHERE parent_note_id = :parentId AND deleted_at IS NULL ORDER BY sort_order ASC, title ASC",
+    )
     fun watchChildren(parentId: String): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE id = :id")
@@ -100,15 +134,27 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE title LIKE '%' || :q || '%' OR body_markdown LIKE '%' || :q || '%'")
     fun search(q: String): Flow<List<NoteEntity>>
 
-    @Query("SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20")
+    @Query(
+        "SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
+    )
     suspend fun searchByTitle(userId: String, q: String): List<NoteEntity>
 
     @Upsert
     suspend fun upsert(note: NoteEntity)
 
     /** Atomic update — does NOT require a prior read. */
-    @Query("UPDATE notes SET title = :title, body_markdown = :markdown, body_html = :html, word_count = :wordCount, char_count = :charCount, updated_at = :updatedAt WHERE id = :id")
-    suspend fun updateContent(id: String, title: String, markdown: String, html: String, wordCount: Int, charCount: Int, updatedAt: Long)
+    @Query(
+        "UPDATE notes SET title = :title, body_markdown = :markdown, body_html = :html, word_count = :wordCount, char_count = :charCount, updated_at = :updatedAt WHERE id = :id",
+    )
+    suspend fun updateContent(
+        id: String,
+        title: String,
+        markdown: String,
+        html: String,
+        wordCount: Int,
+        charCount: Int,
+        updatedAt: Long,
+    )
 
     @Query("UPDATE notes SET is_pinned = :pinned, pinned_at = :pinnedAt, updated_at = :ts WHERE id = :id")
     suspend fun setPinned(id: String, pinned: Boolean, pinnedAt: Long?, ts: Long)
@@ -138,12 +184,14 @@ interface NoteDao {
     suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long)
 
     /** Notes that link TO the given noteId via note:// URL scheme. */
-    @Query("""
+    @Query(
+        """
         SELECT * FROM notes
         WHERE deleted_at IS NULL
         AND outgoing_links LIKE '%note://' || :noteId || '%'
         LIMIT 20
-    """)
+    """
+    )
     suspend fun getBacklinkNotes(noteId: String): List<NoteEntity>
 }
 
@@ -158,7 +206,8 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE id = :id")
     suspend fun getById(id: String): ProjectEntity?
 
-    @Query("""
+    @Query(
+        """
         SELECT p.*,
                COUNT(t.id) AS total_count,
                SUM(CASE WHEN t.completed_at IS NOT NULL THEN 1 ELSE 0 END) AS completed_count
@@ -167,7 +216,8 @@ interface ProjectDao {
         WHERE p.user_id = :userId AND p.is_deleted = 0
         GROUP BY p.id
         ORDER BY p.sort_order ASC, p.name ASC
-    """)
+    """
+    )
     fun watchAllWithCounts(userId: String): Flow<List<ProjectWithCountRow>>
 
     @Query("SELECT * FROM projects WHERE parent_id = :parentId AND is_deleted = 0 ORDER BY sort_order ASC, name ASC")
@@ -260,7 +310,8 @@ interface LlmUsageDao {
     @Query("SELECT * FROM llm_usage WHERE profile_id = :profileId ORDER BY created_at DESC LIMIT :limit")
     fun observeRecent(profileId: String, limit: Int): Flow<List<LlmUsageEntity>>
 
-    @Query("""
+    @Query(
+        """
         SELECT date(created_at / 1000, 'unixepoch') as date,
                SUM(total_tokens) as totalTokens,
                SUM(cost_usd_micros) as totalCostMicros,
@@ -270,10 +321,12 @@ interface LlmUsageDao {
           AND created_at >= :sinceEpochMs
         GROUP BY date(created_at / 1000, 'unixepoch')
         ORDER BY date DESC
-    """)
+    """
+    )
     fun observeByDay(profileId: String, sinceEpochMs: Long): Flow<List<DailyUsageRow>>
 
-    @Query("""
+    @Query(
+        """
         SELECT tool_name as toolName,
                SUM(total_tokens) as totalTokens,
                SUM(cost_usd_micros) as totalCostMicros,
@@ -282,10 +335,12 @@ interface LlmUsageDao {
         WHERE profile_id = :profileId
         GROUP BY tool_name
         ORDER BY SUM(total_tokens) DESC
-    """)
+    """
+    )
     fun observeByTool(profileId: String): Flow<List<ToolUsageRow>>
 
-    @Query("""
+    @Query(
+        """
         SELECT model_id as modelId,
                SUM(total_tokens) as totalTokens,
                SUM(cost_usd_micros) as totalCostMicros,
@@ -294,7 +349,8 @@ interface LlmUsageDao {
         WHERE profile_id = :profileId
         GROUP BY model_id
         ORDER BY SUM(total_tokens) DESC
-    """)
+    """
+    )
     fun observeByModel(profileId: String): Flow<List<ModelUsageRow>>
 
     @Query("DELETE FROM llm_usage WHERE created_at < :cutoffEpochMs")
@@ -302,28 +358,13 @@ interface LlmUsageDao {
 }
 
 /** Row type returned by observeByDay */
-data class DailyUsageRow(
-    val date: String,
-    val totalTokens: Long,
-    val totalCostMicros: Long?,
-    val callCount: Long,
-)
+data class DailyUsageRow(val date: String, val totalTokens: Long, val totalCostMicros: Long?, val callCount: Long)
 
 /** Row type returned by observeByTool */
-data class ToolUsageRow(
-    val toolName: String,
-    val totalTokens: Long,
-    val totalCostMicros: Long?,
-    val callCount: Long,
-)
+data class ToolUsageRow(val toolName: String, val totalTokens: Long, val totalCostMicros: Long?, val callCount: Long)
 
 /** Row type returned by observeByModel */
-data class ModelUsageRow(
-    val modelId: String,
-    val totalTokens: Long,
-    val totalCostMicros: Long?,
-    val callCount: Long,
-)
+data class ModelUsageRow(val modelId: String, val totalTokens: Long, val totalCostMicros: Long?, val callCount: Long)
 
 // ─── Profile DAO ───────────────────────────────────────────────────────────────
 

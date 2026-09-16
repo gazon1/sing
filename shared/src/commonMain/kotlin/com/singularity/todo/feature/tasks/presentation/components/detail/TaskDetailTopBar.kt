@@ -16,10 +16,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TaskDetailTopBar(
-    onBackClick: () -> Unit,
-    onMoreClick: () -> Unit,
-) {
+fun TaskDetailTopBar(onBackClick: () -> Unit, onMoreClick: () -> Unit) {
     TopAppBar(
         title = {},
         navigationIcon = {

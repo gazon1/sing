@@ -2,11 +2,11 @@ package com.singularity.todo.core.security
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import androidx.core.content.edit
 
 /**
  * Android implementation of [SecureStoragePort] using
@@ -25,7 +25,7 @@ class AndroidSecureStorage(context: Context) : SecureStoragePort {
             PREFS_NAME,
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
         )
     }
 
@@ -34,7 +34,7 @@ class AndroidSecureStorage(context: Context) : SecureStoragePort {
     }
 
     override suspend fun write(key: String, value: String) = withContext(Dispatchers.IO) {
-        prefs.edit {putString(key, value)}
+        prefs.edit { putString(key, value) }
     }
 
     override suspend fun delete(key: String) = withContext(Dispatchers.IO) {

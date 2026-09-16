@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -18,11 +16,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import com.singularity.todo.core.ui.components.ButtonSpinner
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.backup.BackupId
 import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import kotlinx.coroutines.flow.SharedFlow
@@ -81,33 +81,33 @@ fun BackupScreen(
                     IconButton(onClick = onBack, modifier = Modifier.testTag(TestTags.BACKUP_TOP_BAR_BACK)) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
-                }
+                },
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp),
         ) {
             // Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
                     onClick = onCreateBackup,
                     modifier = Modifier.weight(1f),
-                    enabled = !state.isWorking
+                    enabled = !state.isWorking,
                 ) {
                     Text("Create backup")
                 }
                 Button(
                     onClick = onSelectRestoreFile,
                     modifier = Modifier.weight(1f),
-                    enabled = !state.isWorking
+                    enabled = !state.isWorking,
                 ) {
                     Text("Restore…")
                 }
@@ -120,7 +120,7 @@ fun BackupScreen(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ButtonSpinner()
                     Spacer(modifier = Modifier.width(8.dp))
@@ -134,8 +134,8 @@ fun BackupScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("Last backup created", style = MaterialTheme.typography.labelMedium)
@@ -150,14 +150,14 @@ fun BackupScreen(
             Text(
                 "Local backups",
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 8.dp),
             )
 
             if (state.backups.isEmpty()) {
                 Text(
                     "No backups yet",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -166,7 +166,7 @@ fun BackupScreen(
                             backup = backup,
                             onRestore = { /* parent handles */ },
                             onPush = { onPush(backup.id) },
-                            onDelete = { onDelete(backup.id) }
+                            onDelete = { onDelete(backup.id) },
                         )
                     }
                 }
@@ -181,7 +181,7 @@ fun BackupListItem(
     onRestore: () -> Unit,
     onPush: () -> Unit,
     onDelete: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     var showRestoreConfirm by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -191,24 +191,24 @@ fun BackupListItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = backup.id.value,
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = formatDate(backup.createdAtEpochMillis),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = formatFileSize(backup.sizeBytes),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -267,8 +267,7 @@ fun BackupListItem(
     }
 }
 
-private fun formatDate(epochMillis: Long): String =
-    formatBackupDate(epochMillis, TimeZone.currentSystemDefault())
+private fun formatDate(epochMillis: Long): String = formatBackupDate(epochMillis, TimeZone.currentSystemDefault())
 
 // ===== Preview =====
 
@@ -282,32 +281,32 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
                     IconButton(onClick = {}) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
-                }
+                },
             )
         },
-        snackbarHost = { SnackbarHost(SnackbarHostState()) }
+        snackbarHost = { SnackbarHost(SnackbarHostState()) },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
                     onClick = {},
                     modifier = Modifier.weight(1f),
-                    enabled = !state.isWorking
+                    enabled = !state.isWorking,
                 ) {
                     Text("Create backup")
                 }
                 Button(
                     onClick = {},
                     modifier = Modifier.weight(1f),
-                    enabled = !state.isWorking
+                    enabled = !state.isWorking,
                 ) {
                     Text("Restore...")
                 }
@@ -319,7 +318,7 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ButtonSpinner()
                     Spacer(modifier = Modifier.width(8.dp))
@@ -332,8 +331,8 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("Last backup created", style = MaterialTheme.typography.labelMedium)
@@ -347,14 +346,14 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
             Text(
                 "Local backups",
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 8.dp),
             )
 
             if (state.backups.isEmpty()) {
                 Text(
                     "No backups yet",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -363,7 +362,7 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
                             backup = backup,
                             onRestore = {},
                             onPush = {},
-                            onDelete = {}
+                            onDelete = {},
                         )
                     }
                 }

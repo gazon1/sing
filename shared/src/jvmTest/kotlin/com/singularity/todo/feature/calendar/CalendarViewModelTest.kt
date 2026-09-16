@@ -16,7 +16,6 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Instant
@@ -60,8 +59,7 @@ class CalendarViewModelTest {
             taskRepo = fakeTaskRepo,
             currentUser = fakeCurrentUser,
             clock = object : kotlinx.datetime.Clock {
-                override fun now(): kotlin.time.Instant =
-                    kotlin.time.Clock.System.now()
+                override fun now(): kotlin.time.Instant = kotlin.time.Clock.System.now()
             },
             logger = Logger.withTag("CalendarTest"),
         ),

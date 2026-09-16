@@ -27,11 +27,7 @@ data class BackupUiState(
     val lastBackup: BackupSummary? = null,
 )
 
-data class BackupSummary(
-    val destPath: String,
-    val byteSize: Long,
-    val entityCount: Int
-)
+data class BackupSummary(val destPath: String, val byteSize: Long, val entityCount: Int)
 
 class BackupViewModel(
     private val repository: BackupRepository,
@@ -62,11 +58,13 @@ class BackupViewModel(
     fun export(destPath: String) {
         scope.launch {
             _state.update { it.copy(isWorking = true) }
-            val result = repository.export(exportOptions {
+            val result = repository.export(
+                exportOptions {
                 userId = effectiveUserId
                 this.destPath = destPath
                 includeAttachments = true
-            })
+            }
+            )
             result
                 .onSuccess { br ->
                     _state.update {
@@ -77,8 +75,8 @@ class BackupViewModel(
                                 byteSize = br.byteSize,
                                 entityCount = br.manifest.entityCounts.tasks +
                                     br.manifest.entityCounts.notes +
-                                    br.manifest.entityCounts.projects
-                            )
+                                    br.manifest.entityCounts.projects,
+                            ),
                         )
                     }
                 }

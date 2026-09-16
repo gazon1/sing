@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.reminders
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.notifications.FakeNotificationPort
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeReminderRepository
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -28,7 +28,7 @@ class ReminderSchedulerTest {
             type = ReminderType.Gentle,
             offsetMinutes = -15,
             fireAt = System.currentTimeMillis() - 1000,
-            recurringPattern = null
+            recurringPattern = null,
         )
         repo.upsert(reminder)
 
@@ -51,7 +51,7 @@ class ReminderSchedulerTest {
             type = ReminderType.Gentle,
             offsetMinutes = -5,
             fireAt = System.currentTimeMillis() - 500,
-            recurringPattern = null
+            recurringPattern = null,
         )
         repo.upsert(reminder)
 
@@ -73,7 +73,7 @@ class ReminderSchedulerTest {
             type = ReminderType.Gentle,
             offsetMinutes = -10,
             fireAt = System.currentTimeMillis() - 100,
-            recurringPattern = "0 9 * * *"
+            recurringPattern = "0 9 * * *",
         )
         repo.upsert(reminder)
 
@@ -95,7 +95,7 @@ class ReminderSchedulerTest {
             type = ReminderType.Gentle,
             offsetMinutes = 30,
             fireAt = System.currentTimeMillis() + 1_000_000,
-            recurringPattern = null
+            recurringPattern = null,
         )
         repo.upsert(futureReminder)
 

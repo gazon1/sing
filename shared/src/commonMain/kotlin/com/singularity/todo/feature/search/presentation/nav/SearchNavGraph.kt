@@ -22,7 +22,4 @@ import com.singularity.todo.feature.nav.NavCallbacks
  * @param modifier Compose modifier for the inner [NavDisplay][androidx.navigation3.ui.NavDisplay].
  */
 @Composable
-expect fun SearchNavGraph(
-    navCallbacks: NavCallbacks,
-    modifier: Modifier = Modifier,
-)
+expect fun SearchNavGraph(navCallbacks: NavCallbacks, modifier: Modifier = Modifier)

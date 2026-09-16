@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.reminders
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.notifications.NotificationPort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -71,7 +71,7 @@ class ReminderScheduler(
                 title = "Task Reminder",
                 body = "A task reminder is due",
                 fireAtEpochMs = reminder.fireAt,
-                payload = reminder.id.value
+                payload = reminder.id.value,
             )
 
             // Remove one-shot reminder after firing

@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.reminders
 
 import com.singularity.todo.core.database.ReminderDao
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -11,10 +11,7 @@ import kotlinx.coroutines.flow.map
  * Room-backed implementation of [ReminderRepository].
  * Delegates all persistence to [ReminderDao]; this class only maps entities → domain.
  */
-class RoomReminderRepository(
-    private val dao: ReminderDao,
-    private val clock: Clock,
-) : ReminderRepository {
+class RoomReminderRepository(private val dao: ReminderDao, private val clock: Clock) : ReminderRepository {
 
     override fun watchAll(userId: UserId): Flow<List<Reminder>> =
         dao.watchAll(userId.value).map { list -> list.map { it.toReminder() } }

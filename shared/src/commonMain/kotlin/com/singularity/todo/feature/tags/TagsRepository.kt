@@ -22,17 +22,12 @@ interface TagsRepository {
 /**
  * Room-backed production [TagsRepository].
  */
-class TagsRepositoryImpl(
-    private val tagDao: TagDao,
-    private val clock: Clock
-) : TagsRepository {
-    override fun watchTags(userId: String): Flow<List<Tag>> {
-        return tagDao.watchAll(userId).map { list -> list.map { it.toTag() } }
+class TagsRepositoryImpl(private val tagDao: TagDao, private val clock: Clock) : TagsRepository {
+    override fun watchTags(userId: String): Flow<List<Tag>> = tagDao.watchAll(userId).map { list ->
+        list.map { it.toTag() }
     }
 
-    override fun watchTag(id: TagId): Flow<Tag?> {
-        return tagDao.watchById(id.value).map { it?.toTag() }
-    }
+    override fun watchTag(id: TagId): Flow<Tag?> = tagDao.watchById(id.value).map { it?.toTag() }
 
     override suspend fun create(tag: Tag): Result<Unit> = runCatching {
         tagDao.upsert(tag.toEntity())
@@ -57,7 +52,7 @@ private fun TagEntity.toTag(): Tag = Tag(
     parentId = parentId?.let { TagId.fromString(it) },
     sortOrder = sortOrder,
     deletedAt = deletedAt.toInstantOrNull(),
-    userId = userId
+    userId = userId,
 )
 
 fun Tag.toEntity(): TagEntity = TagEntity(
@@ -69,5 +64,5 @@ fun Tag.toEntity(): TagEntity = TagEntity(
     updatedAt = updatedAt.toEpochMilliseconds(),
     parentId = parentId?.value,
     sortOrder = sortOrder,
-    deletedAt = deletedAt?.toEpochMilliseconds()
+    deletedAt = deletedAt?.toEpochMilliseconds(),
 )

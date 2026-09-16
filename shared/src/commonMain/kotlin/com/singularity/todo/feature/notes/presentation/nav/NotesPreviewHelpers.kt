@@ -13,12 +13,14 @@ import com.singularity.todo.feature.notes.NoteId
 class PreviewNotesNavigator(
     private val onOpenTask: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit = {},
 ) : NotesNavigator(
-    backStack = NavBackStack<NotesRoute>(NotesRoute.List, NotesRoute.List),
-    onExitGraph = {},
-) {
+        backStack = NavBackStack<NotesRoute>(NotesRoute.List, NotesRoute.List),
+        onExitGraph = {},
+    ) {
     override fun openPreview(noteId: NoteId) { /* no-op for preview */ }
     override fun openEditor(noteId: NoteId?) { /* no-op for preview */ }
-    override fun openTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) { onOpenTask(taskId) }
+    override fun openTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) {
+        onOpenTask(taskId)
+    }
     override fun back() { /* no-op for preview */ }
     override fun closeGraph() { /* no-op for preview */ }
 }
@@ -36,9 +38,7 @@ class PreviewNotesNavigator(
  * ```
  */
 @Composable
-fun NotesPreviewWrapper(
-    content: @Composable () -> Unit,
-) {
+fun NotesPreviewWrapper(content: @Composable () -> Unit) {
     androidx.compose.runtime.CompositionLocalProvider(
         LocalNotesNavigator provides PreviewNotesNavigator(),
         content = content,

@@ -110,8 +110,12 @@ fun coreModule(): org.koin.core.module.Module = module {
     // ─── Backup ─────────────────────────────────────────────────────────
 
     single { BackupExporter(get(), get(), get(), get(), get(), get(), get(), get()) }
-    single { BackupImporter(Logger.withTag("BackupImporter"), get(), get(), get(), get(),
-        get(), get(), get(), get()) }
+    single {
+        BackupImporter(
+            Logger.withTag("BackupImporter"), get(), get(), get(), get(),
+            get(), get(), get(), get(),
+        )
+    }
     single<RemoteBackupService> { StubRemoteBackupService() }
     single<BackupRepository> {
         BackupRepositoryImpl(

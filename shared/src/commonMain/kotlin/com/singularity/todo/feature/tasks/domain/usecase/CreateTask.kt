@@ -3,18 +3,15 @@ package com.singularity.todo.feature.tasks.domain.usecase
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.TaskDomain
+import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 
 /**
  * Creates a new task with domain validation and timestamp injection.
  */
-class CreateTaskUseCase(
-    private val repo: TaskRepository,
-    private val clock: Clock,
-) {
+class CreateTaskUseCase(private val repo: TaskRepository, private val clock: Clock) {
     suspend operator fun invoke(input: CreateTaskInput): Result<TaskId> {
         val validated: Either<AppError.Validation, CreateTaskInput> = TaskDomain.createInput(
             title = input.title,

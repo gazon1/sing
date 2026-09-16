@@ -1,7 +1,5 @@
 package com.singularity.todo.feature.tags
 
-import com.singularity.todo.core.ui.preview.PreviewSamples
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,14 +24,11 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.StatefulContent
-
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 
 @Composable
-private fun TagsContent(
-    state: TagsUiState,
-    modifier: Modifier = Modifier,
-    onDelete: (TagId) -> Unit,
-) {
+private fun TagsContent(state: TagsUiState, modifier: Modifier = Modifier, onDelete: (TagId) -> Unit) {
     StatefulContent(
         state = state.toContentState(),
         emptyTitle = "No tags yet",
@@ -47,8 +42,7 @@ private fun TagsContent(
     }
 }
 
-private fun TagsUiState.toContentState() =
-    ContentStateMapper.tags(this)
+private fun TagsUiState.toContentState() = ContentStateMapper.tags(this)
 
 @Composable
 private fun TagList(tags: List<Tag>, modifier: Modifier = Modifier, onDelete: (TagId) -> Unit) {

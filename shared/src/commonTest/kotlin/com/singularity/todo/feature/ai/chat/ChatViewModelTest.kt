@@ -88,6 +88,5 @@ private class ScriptedTextGen(private val scripted: Flow<String>) : TextGenPort 
 
     override fun streamChat(message: String): Flow<String> = scripted
 
-    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> =
-        Result.success(emptyList())
+    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = Result.success(emptyList())
 }

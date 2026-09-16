@@ -42,11 +42,7 @@ import kotlinx.coroutines.launch
  * No FAB on Desktop.
  */
 @Composable
-fun DesktopShellNav3Root(
-    state: Nav3State,
-    navigator: Navigator,
-    navCallbacks: NavCallbacks,
-) {
+fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
@@ -116,8 +112,11 @@ fun DesktopShellNav3Root(
                         navigationIcon = {
                             IconButton(onClick = {
                                 scope.launch {
-                                    if (drawerState.isClosed) drawerState.open()
-                                    else drawerState.close()
+                                    if (drawerState.isClosed) {
+                                        drawerState.open()
+                                    } else {
+                                        drawerState.close()
+                                    }
                                 }
                             }) {
                                 Icon(Icons.Default.Menu, contentDescription = "Menu")

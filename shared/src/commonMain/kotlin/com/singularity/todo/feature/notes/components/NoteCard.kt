@@ -35,11 +35,7 @@ import com.singularity.todo.feature.notes.extractPreviewText
  * Card with the appropriate color scheme and click/swipe modifiers.
  */
 @Composable
-internal fun NoteCardContent(
-    note: Note,
-    isSelected: Boolean,
-    modifier: Modifier = Modifier,
-) {
+internal fun NoteCardContent(note: Note, isSelected: Boolean, modifier: Modifier = Modifier) {
     val containerColor = when {
         isSelected -> MaterialTheme.colorScheme.primaryContainer
         note.isFolder -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)

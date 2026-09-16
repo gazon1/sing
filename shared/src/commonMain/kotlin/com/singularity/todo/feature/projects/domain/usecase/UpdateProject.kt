@@ -18,11 +18,10 @@ class UpdateProjectUseCase(private val repo: ProjectsRepository, private val clo
      * Read-modify-write update.
      * Enables atomic partial updates without a prior read in the caller.
      */
-    suspend operator fun invoke(id: ProjectId, transform: (Project) -> Project): Result<Unit> =
-        runCatchingResult {
-            val current = repo.getById(id)
-                ?: throw AppError.NotFound("Project $id not found")
-            val updated = transform(current).copy(updatedAt = clock.now())
-            repo.update(updated).getOrThrow()
-        }
+    suspend operator fun invoke(id: ProjectId, transform: (Project) -> Project): Result<Unit> = runCatchingResult {
+        val current = repo.getById(id)
+            ?: throw AppError.NotFound("Project $id not found")
+        val updated = transform(current).copy(updatedAt = clock.now())
+        repo.update(updated).getOrThrow()
+    }
 }

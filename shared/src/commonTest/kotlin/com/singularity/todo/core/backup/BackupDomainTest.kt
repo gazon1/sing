@@ -41,7 +41,7 @@ class BackupDomainTest {
             nowEpochMillis = 1000L,
             userId = userId,
             payloadBytes = payloadBytes,
-            counts = counts
+            counts = counts,
         )
 
         assertEquals(1, manifest.formatVersion)
@@ -58,8 +58,13 @@ class BackupDomainTest {
     fun validateManifestAcceptsValidManifest() {
         val userId = UserId.fromString("user-123")
         val payloadBytes = "{\"tasks\":[]}".toByteArray()
-        val manifest = BackupDomain.buildManifest("1.0.0", 1000L, userId, payloadBytes,
-            EntityCounts(tasks = 0))
+        val manifest = BackupDomain.buildManifest(
+            "1.0.0",
+            1000L,
+            userId,
+            payloadBytes,
+            EntityCounts(tasks = 0),
+        )
 
         val result = BackupDomain.validateManifest(manifest, payloadBytes)
         assertTrue(result.isSuccess)
@@ -75,7 +80,7 @@ class BackupDomainTest {
             userIdHash = "hash",
             schemaVersion = 1,
             entityCounts = EntityCounts(),
-            payloadChecksum = "abc"
+            payloadChecksum = "abc",
         )
         val result = BackupDomain.validateManifest(manifest, "{}".toByteArray())
         result.onFailure {
@@ -93,7 +98,7 @@ class BackupDomainTest {
             userIdHash = "hash",
             schemaVersion = 99,
             entityCounts = EntityCounts(),
-            payloadChecksum = "abc"
+            payloadChecksum = "abc",
         )
         val result = BackupDomain.validateManifest(manifest, "{}".toByteArray())
         result.onFailure {
@@ -111,7 +116,7 @@ class BackupDomainTest {
             userIdHash = "hash",
             schemaVersion = 1,
             entityCounts = EntityCounts(),
-            payloadChecksum = "wrong_checksum"
+            payloadChecksum = "wrong_checksum",
         )
         val result = BackupDomain.validateManifest(manifest, "{}".toByteArray())
         result.onFailure {

@@ -15,13 +15,17 @@ class PreviewProjectsNavigator(
     private val onOpenTasks: (ProjectId) -> Unit = {},
     private val onOpenTask: (TaskId) -> Unit = {},
 ) : ProjectsNavigator(
-    backStack = NavBackStack<ProjectsRoute>(ProjectsRoute.List, ProjectsRoute.List),
-    onExitGraph = {},
-) {
+        backStack = NavBackStack<ProjectsRoute>(ProjectsRoute.List, ProjectsRoute.List),
+        onExitGraph = {},
+    ) {
     override fun openDetail(id: ProjectId) { /* no-op for preview */ }
     override fun openEditor(id: ProjectId?) { /* no-op for preview */ }
-    override fun openTasks(projectId: ProjectId) { onOpenTasks(projectId) }
-    override fun openTask(taskId: TaskId) { onOpenTask(taskId) }
+    override fun openTasks(projectId: ProjectId) {
+        onOpenTasks(projectId)
+    }
+    override fun openTask(taskId: TaskId) {
+        onOpenTask(taskId)
+    }
     override fun back() { /* no-op for preview */ }
     override fun closeGraph() { /* no-op for preview */ }
 }
@@ -39,9 +43,7 @@ class PreviewProjectsNavigator(
  * ```
  */
 @Composable
-fun ProjectsPreviewWrapper(
-    content: @Composable () -> Unit,
-) {
+fun ProjectsPreviewWrapper(content: @Composable () -> Unit) {
     androidx.compose.runtime.CompositionLocalProvider(
         LocalProjectsNavigator provides PreviewProjectsNavigator(),
         content = content,

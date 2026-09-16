@@ -30,7 +30,8 @@ class SettingsViewModel(
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
     private val aiContributor: AiSettingsContributor?
-        @Suppress("DEPRECATION") get() =
+        @Suppress("DEPRECATION")
+        get() =
             contributors.filterIsInstance(AiSettingsContributor::class.java).firstOrNull()
 
     // ─── State ─────────────────────────────────────────────────────────────
@@ -60,7 +61,9 @@ class SettingsViewModel(
                 fontSizeScale = settings.fontSizeScale.let { (it as? MutableStateFlow)?.value ?: 1f },
             )
 
-        val ai = aiContributor?.observe()?.let { (it as? MutableStateFlow<*>)?.value as? SettingsSection.Ai } ?: SettingsSection.Ai()
+        val ai =
+            aiContributor?.observe()?.let { (it as? MutableStateFlow<*>)?.value as? SettingsSection.Ai }
+                ?: SettingsSection.Ai()
 
         return SettingsUiState.Content(
             appearance = appearance,
@@ -71,7 +74,10 @@ class SettingsViewModel(
             notificationsEnabled = settings.notificationsEnabled.let { (it as? MutableStateFlow)?.value ?: true },
             notificationSound = settings.notificationSound.let { (it as? MutableStateFlow)?.value ?: true },
             notificationVibration = settings.notificationVibration.let { (it as? MutableStateFlow)?.value ?: true },
-            reminderDefault = settings.reminderDefault.let { (it as? MutableStateFlow)?.value ?: com.singularity.todo.core.reminders.ReminderOffset.AT_DUE },
+            reminderDefault = settings.reminderDefault.let {
+                (it as? MutableStateFlow)?.value
+                    ?: com.singularity.todo.core.reminders.ReminderOffset.AT_DUE
+            },
             workDayStartMinutes = settings.workDayStartMinutes.let { (it as? MutableStateFlow)?.value ?: 540 },
             workDayEndMinutes = settings.workDayEndMinutes.let { (it as? MutableStateFlow)?.value ?: 1080 },
             workLunchStartMinutes = settings.workLunchStartMinutes.let { (it as? MutableStateFlow)?.value ?: 720 },
@@ -99,80 +105,114 @@ class SettingsViewModel(
             when (intent) {
                 is SettingsIntent.Appearance.UpdateDarkTheme -> {
                     settings.setDarkTheme(intent.value)
-                    updateState { it.copy(appearance = it.appearance.copy(darkTheme = intent.value), darkTheme = intent.value) }
+                    updateState {
+                        it.copy(
+                            appearance = it.appearance.copy(darkTheme = intent.value),
+                            darkTheme = intent.value,
+                        )
+                    }
                 }
+
                 is SettingsIntent.Appearance.UpdateAccentColor -> {
                     settings.setAccentColor(intent.value)
-                    updateState { it.copy(appearance = it.appearance.copy(accentColor = intent.value), accentColor = intent.value) }
+                    updateState {
+                        it.copy(
+                            appearance = it.appearance.copy(accentColor = intent.value),
+                            accentColor = intent.value,
+                        )
+                    }
                 }
+
                 is SettingsIntent.Appearance.UpdateFontSizeScale -> {
                     settings.setFontSizeScale(intent.value)
-                    updateState { it.copy(appearance = it.appearance.copy(fontSizeScale = intent.value), fontSizeScale = intent.value) }
+                    updateState {
+                        it.copy(
+                            appearance = it.appearance.copy(fontSizeScale = intent.value),
+                            fontSizeScale = intent.value,
+                        )
+                    }
                 }
+
                 is SettingsIntent.Notifications.UpdateEnabled -> {
                     settings.setNotificationsEnabled(intent.value)
                     updateState { it.copy(notificationsEnabled = intent.value) }
                 }
+
                 is SettingsIntent.Notifications.UpdateSound -> {
                     settings.setNotificationSound(intent.value)
                     updateState { it.copy(notificationSound = intent.value) }
                 }
+
                 is SettingsIntent.Notifications.UpdateVibration -> {
                     settings.setNotificationVibration(intent.value)
                     updateState { it.copy(notificationVibration = intent.value) }
                 }
+
                 is SettingsIntent.Notifications.UpdateReminderDefault -> {
                     settings.setReminderDefault(intent.value)
                     updateState { it.copy(reminderDefault = intent.value) }
                 }
+
                 is SettingsIntent.WorkSchedule.UpdateWorkDayStart -> {
                     settings.setWorkDayStartMinutes(intent.minutes)
                     updateState { it.copy(workDayStartMinutes = intent.minutes) }
                 }
+
                 is SettingsIntent.WorkSchedule.UpdateWorkDayEnd -> {
                     settings.setWorkDayEndMinutes(intent.minutes)
                     updateState { it.copy(workDayEndMinutes = intent.minutes) }
                 }
+
                 is SettingsIntent.WorkSchedule.UpdateWorkLunchStart -> {
                     settings.setWorkLunchStartMinutes(intent.minutes)
                     updateState { it.copy(workLunchStartMinutes = intent.minutes) }
                 }
+
                 is SettingsIntent.WorkSchedule.UpdateWorkLunchEnd -> {
                     settings.setWorkLunchEndMinutes(intent.minutes)
                     updateState { it.copy(workLunchEndMinutes = intent.minutes) }
                 }
+
                 is SettingsIntent.WorkSchedule.UpdateWeekendSat -> {
                     settings.setWorkWeekendSat(intent.value)
                     updateState { it.copy(workWeekendSat = intent.value) }
                 }
+
                 is SettingsIntent.WorkSchedule.UpdateWeekendSun -> {
                     settings.setWorkWeekendSun(intent.value)
                     updateState { it.copy(workWeekendSun = intent.value) }
                 }
+
                 is SettingsIntent.Greeting.UpdateMorningEnd -> {
                     settings.setGreetingMorningEnd(intent.hour)
                     updateState { it.copy(greetingMorningEnd = intent.hour) }
                 }
+
                 is SettingsIntent.Greeting.UpdateAfternoonEnd -> {
                     settings.setGreetingAfternoonEnd(intent.hour)
                     updateState { it.copy(greetingAfternoonEnd = intent.hour) }
                 }
+
                 is SettingsIntent.Ai.UpdateProvider,
                 is SettingsIntent.Ai.UpdateBaseUrl,
                 is SettingsIntent.Ai.UpdateModel,
-                is SettingsIntent.Ai.UpdateSystemPrompt -> {
+                is SettingsIntent.Ai.UpdateSystemPrompt,
+                -> {
                     @Suppress("UNCHECKED_CAST")
                     (aiContributor as? SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>)
                         ?.apply(intent)
                     reloadAiSection()
                 }
+
                 SettingsIntent.Ai.TestConnection,
-                SettingsIntent.Ai.FetchModels -> {
+                SettingsIntent.Ai.FetchModels,
+                -> {
                     @Suppress("UNCHECKED_CAST")
                     (aiContributor as? SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>)
                         ?.apply(intent as SettingsIntent.Ai)
                     reloadAiSection()
                 }
+
                 is SettingsIntent.Ai.UpdateApiKey -> {
                     aiContributor?.updateApiKey(intent.value)
                     reloadAiSection()

@@ -23,7 +23,7 @@ class BackupRepositoryImpl(
     private val importer: BackupImporter,
     private val remoteService: RemoteBackupService,
     private val fs: FileSystem,
-    private val backupDir: String
+    private val backupDir: String,
 ) : BackupRepository {
 
     override val backups: Flow<List<BackupMetadata>> = flow {
@@ -44,21 +44,19 @@ class BackupRepositoryImpl(
                 path = stat.path,
                 createdAtEpochMillis = stat.lastModifiedEpochMillis,
                 sizeBytes = stat.sizeBytes,
-                entityCounts = null // Parsed lazily on demand
+                entityCounts = null, // Parsed lazily on demand
             )
         }
     }
 
-    private fun pathEndsWithZip(path: String): Boolean =
-        path.endsWith(".zip", ignoreCase = true)
+    private fun pathEndsWithZip(path: String): Boolean = path.endsWith(".zip", ignoreCase = true)
 
     override suspend fun export(options: ExportOptions): Result<BackupResult> = runCatching {
         fs.ensureDir(backupDir)
         exporter.export(options).getOrThrow()
     }
 
-    override suspend fun import(options: ImportOptions): Result<RestoreResult> =
-        importer.import(options)
+    override suspend fun import(options: ImportOptions): Result<RestoreResult> = importer.import(options)
 
     override suspend fun delete(backupId: BackupId): Result<Unit> = runCatching {
         // Find by ID from backups list

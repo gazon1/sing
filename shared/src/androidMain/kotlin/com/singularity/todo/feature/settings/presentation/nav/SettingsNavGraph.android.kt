@@ -26,15 +26,13 @@ import com.singularity.todo.feature.settings.SettingsScreen
  * Persistence: uses [navSavedStateConfig] so the back stack survives process death.
  */
 @Composable
-actual fun SettingsNavGraph(
-    navCallbacks: NavCallbacks,
-    modifier: Modifier,
-) {
+actual fun SettingsNavGraph(navCallbacks: NavCallbacks, modifier: Modifier) {
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist.
     val savedStateConfig = remember {
         navSavedStateConfig(Settings.serializer())
     }
+
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<Settings> = rememberNavBackStack(savedStateConfig, Settings)
         as NavBackStack<Settings>

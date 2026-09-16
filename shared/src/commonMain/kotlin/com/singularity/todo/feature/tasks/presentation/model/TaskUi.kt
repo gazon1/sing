@@ -18,10 +18,10 @@ import kotlinx.datetime.LocalDate
 data class TaskUi(
     val id: TaskId,
     val title: String,
-    val project: String?,          // null -> "Без проекта"
-    val dueLabel: String?,         // pre-formatted date: "Сб, 05 сент 2026"
-    val parentId: String? = null,  // null = top-level, otherwise parent TaskId.value
-    val indentLevel: Int = 0,     // 0 for top-level, 1 for direct child
+    val project: String?, // null -> "Без проекта"
+    val dueLabel: String?, // pre-formatted date: "Сб, 05 сент 2026"
+    val parentId: String? = null, // null = top-level, otherwise parent TaskId.value
+    val indentLevel: Int = 0, // 0 for top-level, 1 for direct child
     val isRecurring: Boolean = false,
     val priority: TaskPriority = TaskPriority.None,
     val isCompleted: Boolean = false,
@@ -42,10 +42,7 @@ data class TaskUi(
  * [ProjectId.value][com.singularity.todo.feature.projects.domain.model.ProjectId.value] to
  * the project name string.
  */
-fun Task.toTaskUi(
-    today: LocalDate,
-    projectNamesById: Map<String, String>,
-): TaskUi = TaskUi(
+fun Task.toTaskUi(today: LocalDate, projectNamesById: Map<String, String>): TaskUi = TaskUi(
     id = this.id,
     title = this.title,
     project = this.projectId?.value?.let { projectNamesById[it] },
@@ -58,14 +55,8 @@ fun Task.toTaskUi(
     domainTask = this,
 )
 
-enum class TaskListFilter { ALL, ACTIVE, COMPLETED }
-
 /** Counters for the header / filter chips — computed from the list once. */
-data class TaskListStats(
-    val total: Int,
-    val active: Int,
-    val completed: Int,
-) {
+data class TaskListStats(val total: Int, val active: Int, val completed: Int) {
     companion object {
         fun from(tasks: List<TaskUi>): TaskListStats = TaskListStats(
             total = tasks.size,

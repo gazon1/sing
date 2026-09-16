@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.projects.domain.model
 
 import com.singularity.todo.core.ids.UserId
-import kotlin.time.Instant
 import kotlinx.serialization.Serializable
+import kotlin.time.Instant
 
 @Serializable
 @JvmInline
@@ -30,15 +30,11 @@ data class Project(
     val sortOrder: Int = 0,
     val idempotencyKey: String? = null,
     val externalId: String? = null,
-    val userId: UserId
+    val userId: UserId,
 )
 
 /** Domain projection of [Project] with task counts, used by [com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel] UI state. */
-data class ProjectWithCounts(
-    val project: Project,
-    val totalCount: Int,
-    val completedCount: Int,
-)
+data class ProjectWithCounts(val project: Project, val totalCount: Int, val completedCount: Int)
 
 data class CreateProjectInput(
     val name: String,

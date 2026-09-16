@@ -44,7 +44,10 @@ class FakeAppDatabase : AppDatabase() {
     private val _tags = MutableStateFlow<Map<String, TagEntity>>(emptyMap())
     private val _outbox = MutableStateFlow<Map<String, SyncOutboxEntity>>(emptyMap())
     private val _attachments = MutableStateFlow<Map<String, AttachmentEntity>>(emptyMap())
-    private val _reminders = MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>(emptyMap())
+    private val _reminders =
+        MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>(
+        emptyMap(),
+    )
     private val _checklist = MutableStateFlow<Map<String, ChecklistItemEntity>>(emptyMap())
     private val _llmUsage = MutableStateFlow<Map<String, LlmUsageEntity>>(emptyMap())
     private val _profiles = MutableStateFlow<Map<String, ProfileEntity>>(emptyMap())
@@ -77,18 +80,36 @@ class FakeAppDatabase : AppDatabase() {
     // ─── Seed helpers ────────────────────────────────────────────────────────
     // Each is a single mutation, no fixture DSL — easier to read in test setup.
 
-    fun seedTasks(items: List<TaskEntity>) { _tasks.value = items.associateBy { it.id } }
-    fun seedNotes(items: List<NoteEntity>) { _notes.value = items.associateBy { it.id } }
-    fun seedProjects(items: List<ProjectEntity>) { _projects.value = items.associateBy { it.id } }
-    fun seedTags(items: List<TagEntity>) { _tags.value = items.associateBy { it.id } }
-    fun seedOutbox(items: List<SyncOutboxEntity>) { _outbox.value = items.associateBy { it.patchId } }
-    fun seedAttachments(items: List<AttachmentEntity>) { _attachments.value = items.associateBy { it.id } }
+    fun seedTasks(items: List<TaskEntity>) {
+        _tasks.value = items.associateBy { it.id }
+    }
+    fun seedNotes(items: List<NoteEntity>) {
+        _notes.value = items.associateBy { it.id }
+    }
+    fun seedProjects(items: List<ProjectEntity>) {
+        _projects.value = items.associateBy { it.id }
+    }
+    fun seedTags(items: List<TagEntity>) {
+        _tags.value = items.associateBy { it.id }
+    }
+    fun seedOutbox(items: List<SyncOutboxEntity>) {
+        _outbox.value = items.associateBy { it.patchId }
+    }
+    fun seedAttachments(items: List<AttachmentEntity>) {
+        _attachments.value = items.associateBy { it.id }
+    }
     fun seedReminders(items: List<com.singularity.todo.core.database.TaskReminderEntity>) {
         _reminders.value = items.associateBy { it.userId to it.id }
     }
-    fun seedChecklist(items: List<ChecklistItemEntity>) { _checklist.value = items.associateBy { it.id } }
-    fun seedLlUsage(items: List<LlmUsageEntity>) { _llmUsage.value = items.associateBy { it.id } }
-    fun seedProfiles(items: List<ProfileEntity>) { _profiles.value = items.associateBy { it.id } }
+    fun seedChecklist(items: List<ChecklistItemEntity>) {
+        _checklist.value = items.associateBy { it.id }
+    }
+    fun seedLlUsage(items: List<LlmUsageEntity>) {
+        _llmUsage.value = items.associateBy { it.id }
+    }
+    fun seedProfiles(items: List<ProfileEntity>) {
+        _profiles.value = items.associateBy { it.id }
+    }
 }
 
 // ─── TaskDao ─────────────────────────────────────────────────────────────────
@@ -98,49 +119,76 @@ private class FakeTaskDao(
     private val crossRefs: MutableStateFlow<List<TaskTagCrossRef>>,
 ) : TaskDao {
 
-    override fun watchActive(userId: String): Flow<List<TaskEntity>> =
-        store.map { it.values.filter { t -> t.userId == userId && t.archivedAt == null }
-            .sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned })) }
+    override fun watchActive(userId: String): Flow<List<TaskEntity>> = store.map {
+        it.values.filter { t -> t.userId == userId && t.archivedAt == null }
+            .sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+    }
 
     override fun watchById(id: String): Flow<TaskEntity?> = store.map { it[id] }
 
-    override fun watchTrash(userId: String): Flow<List<TaskEntity>> =
-        store.map { it.values.filter { t -> t.userId == userId && t.archivedAt != null }
-            .sortedByDescending { it.archivedAt } }
+    override fun watchTrash(userId: String): Flow<List<TaskEntity>> = store.map {
+        it.values.filter { t -> t.userId == userId && t.archivedAt != null }
+            .sortedByDescending { it.archivedAt }
+    }
 
-    override fun watchSomeday(userId: String): Flow<List<TaskEntity>> =
-        store.map { it.values.filter { t -> t.userId == userId && t.someday && t.archivedAt == null }
-            .sortedByDescending { it.createdAt } }
+    override fun watchSomeday(userId: String): Flow<List<TaskEntity>> = store.map {
+        it.values.filter { t -> t.userId == userId && t.someday && t.archivedAt == null }
+            .sortedByDescending { it.createdAt }
+    }
 
-    override fun watchByDate(userId: String, date: String): Flow<List<TaskEntity>> =
-        store.map { it.values.filter { t -> t.userId == userId && t.archivedAt == null && t.dueDate == date }
-            .sortedWith(compareBy({ !it.isPinned }, { it.dueTime ?: "" })) }
+    override fun watchByDate(userId: String, date: String): Flow<List<TaskEntity>> = store.map {
+        it.values.filter { t -> t.userId == userId && t.archivedAt == null && t.dueDate == date }
+            .sortedWith(compareBy({ !it.isPinned }, { it.dueTime ?: "" }))
+    }
 
-    override fun watchUpcoming(userId: String, today: String, endDate: String): Flow<List<TaskEntity>> =
-        store.map { it.values.filter { t ->
+    override fun watchUpcoming(userId: String, today: String, endDate: String): Flow<List<TaskEntity>> = store.map {
+        it.values.filter { t ->
             val due = t.dueDate ?: return@filter false
             t.userId == userId && t.archivedAt == null && due > today && due <= endDate
-        }.sortedBy { it.dueDate } }
+        }.sortedBy { it.dueDate }
+    }
 
-    override fun watchByProject(userId: String, projectId: String): Flow<List<TaskEntity>> =
-        store.map { it.values.filter { t -> t.userId == userId && t.projectId == projectId && t.archivedAt == null }
-            .sortedWith(compareBy({ !it.isPinned }, { it.dueDate ?: "" })) }
+    override fun watchByProject(userId: String, projectId: String): Flow<List<TaskEntity>> = store.map {
+        it.values.filter { t -> t.userId == userId && t.projectId == projectId && t.archivedAt == null }
+            .sortedWith(compareBy({ !it.isPinned }, { it.dueDate ?: "" }))
+    }
 
-    override fun watchPinned(userId: String): Flow<List<TaskEntity>> =
-        store.map { it.values.filter { t -> t.userId == userId && t.isPinned && t.archivedAt == null }
-            .sortedWith(compareBy({ !it.isPinned }, { it.dueDate ?: "" })) }
+    override fun watchByDateRange(userId: String, from: String, to: String): Flow<List<TaskEntity>> = store.map {
+        it.values.filter { t ->
+            val due = t.dueDate ?: return@filter false
+            t.userId == userId && t.archivedAt == null && due >= from && due <= to
+        }.sortedBy { it.dueDate }
+    }
 
-    override fun search(q: String): Flow<List<TaskEntity>> =
-        store.map { it.values.filter { t ->
+    override fun watchByTag(userId: String, tagId: String): Flow<List<TaskEntity>> =
+        kotlinx.coroutines.flow.combine(store, crossRefs) { tasks, refs ->
+            val taskIds = refs.filter { it.tagId == tagId }.map { it.taskId }.toSet()
+            tasks.values.filter { t ->
+                t.userId == userId && t.archivedAt == null && t.id in taskIds
+            }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+        }
+
+    override fun watchPinned(userId: String): Flow<List<TaskEntity>> = store.map {
+        it.values.filter { t -> t.userId == userId && t.isPinned && t.archivedAt == null }
+            .sortedWith(compareBy({ !it.isPinned }, { it.dueDate ?: "" }))
+    }
+
+    override fun search(q: String): Flow<List<TaskEntity>> = store.map {
+        it.values.filter { t ->
             t.title.contains(q, ignoreCase = true) ||
                 (t.description?.contains(q, ignoreCase = true) == true)
-        } }
+        }
+    }
 
-    override suspend fun upsert(task: TaskEntity) { store.update { it + (task.id to task) } }
+    override suspend fun upsert(task: TaskEntity) {
+        store.update { it + (task.id to task) }
+    }
     override suspend fun softDelete(id: String, ts: Long) = mutateTask(id) { it.copy(archivedAt = ts, updatedAt = ts) }
     override suspend fun restore(id: String, ts: Long) = mutateTask(id) { it.copy(archivedAt = null, updatedAt = ts) }
     override suspend fun getById(id: String): TaskEntity? = store.value[id]
-    override suspend fun markComplete(id: String, ts: Long) = mutateTask(id) { it.copy(completedAt = ts, updatedAt = ts) }
+    override suspend fun markComplete(id: String, ts: Long) = mutateTask(
+        id,
+    ) { it.copy(completedAt = ts, updatedAt = ts) }
     override suspend fun archiveCompleted(ts: Long): Int {
         var count = 0
         store.update { current ->
@@ -148,13 +196,19 @@ private class FakeTaskDao(
                 if (task.completedAt != null && task.archivedAt == null) {
                     count++
                     task.copy(archivedAt = ts, updatedAt = ts)
-                } else task
+                } else {
+                    task
+                }
             }
         }
         return count
     }
-    override suspend fun markIncomplete(id: String, ts: Long) = mutateTask(id) { it.copy(completedAt = null, updatedAt = ts) }
-    override suspend fun setPinned(id: String, pinned: Boolean, ts: Long) = mutateTask(id) { it.copy(isPinned = pinned, updatedAt = ts) }
+    override suspend fun markIncomplete(id: String, ts: Long) = mutateTask(
+        id,
+    ) { it.copy(completedAt = null, updatedAt = ts) }
+    override suspend fun setPinned(id: String, pinned: Boolean, ts: Long) = mutateTask(
+        id,
+    ) { it.copy(isPinned = pinned, updatedAt = ts) }
 
     override suspend fun upsertTagCrossRef(ref: TaskTagCrossRef) {
         crossRefs.update { it + ref }
@@ -183,48 +237,74 @@ private class FakeTaskDao(
 
 // ─── NoteDao ──────────────────────────────────────────────────────────────────
 
-private class FakeNoteDao(
-    private val store: MutableStateFlow<Map<String, NoteEntity>>,
-) : NoteDao {
+private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEntity>>) : NoteDao {
 
-    override fun watchAll(userId: String): Flow<List<NoteEntity>> =
-        store.map { it.values.filter { n -> n.userId == userId && n.deletedAt == null }
-            .sortedWith(compareBy({ !it.isPinned }, { it.sortOrder }, { -it.updatedAt })) }
+    override fun watchAll(userId: String): Flow<List<NoteEntity>> = store.map {
+        it.values.filter { n -> n.userId == userId && n.deletedAt == null }
+            .sortedWith(compareBy({ !it.isPinned }, { it.sortOrder }, { -it.updatedAt }))
+    }
 
-    override fun watchPinned(userId: String): Flow<List<NoteEntity>> =
-        store.map { it.values.filter { n -> n.userId == userId && n.isPinned && n.deletedAt == null }
-            .sortedByDescending { it.pinnedAt } }
+    override fun watchPinned(userId: String): Flow<List<NoteEntity>> = store.map {
+        it.values.filter { n -> n.userId == userId && n.isPinned && n.deletedAt == null }
+            .sortedByDescending { it.pinnedAt }
+    }
 
-    override fun watchArchived(userId: String): Flow<List<NoteEntity>> =
-        store.map { it.values.filter { n -> n.userId == userId && n.archivedAt != null && n.deletedAt == null }
-            .sortedByDescending { it.archivedAt } }
+    override fun watchArchived(userId: String): Flow<List<NoteEntity>> = store.map {
+        it.values.filter { n -> n.userId == userId && n.archivedAt != null && n.deletedAt == null }
+            .sortedByDescending { it.archivedAt }
+    }
 
-    override fun watchRootNotes(userId: String): Flow<List<NoteEntity>> =
-        store.map { it.values.filter { n -> n.userId == userId && n.parentNoteId == null && !n.isFolder && n.deletedAt == null }
-            .sortedWith(compareBy({ it.sortOrder }, { -it.updatedAt })) }
+    override fun watchRootNotes(userId: String): Flow<List<NoteEntity>> = store.map {
+        it.values.filter { n ->
+            n.userId == userId && n.parentNoteId == null && !n.isFolder &&
+                n.deletedAt == null
+        }
+            .sortedWith(compareBy({ it.sortOrder }, { -it.updatedAt }))
+    }
 
     override fun watchById(id: String): Flow<NoteEntity?> = store.map { it[id] }
     override suspend fun getById(id: String): NoteEntity? = store.value[id]
 
-    override fun watchChildren(parentId: String): Flow<List<NoteEntity>> =
-        store.map { it.values.filter { n -> n.parentNoteId == parentId && n.deletedAt == null }
-            .sortedWith(compareBy({ it.sortOrder }, { it.title })) }
+    override fun watchChildren(parentId: String): Flow<List<NoteEntity>> = store.map {
+        it.values.filter { n -> n.parentNoteId == parentId && n.deletedAt == null }
+            .sortedWith(compareBy({ it.sortOrder }, { it.title }))
+    }
 
-    override fun search(q: String): Flow<List<NoteEntity>> =
-        store.map { it.values.filter { n ->
+    override fun search(q: String): Flow<List<NoteEntity>> = store.map {
+        it.values.filter { n ->
             n.title.contains(q, ignoreCase = true) ||
                 (n.bodyMarkdown?.contains(q, ignoreCase = true) == true)
-        } }
+        }
+    }
 
-    override suspend fun upsert(note: NoteEntity) { store.update { it + (note.id to note) } }
+    override suspend fun upsert(note: NoteEntity) {
+        store.update { it + (note.id to note) }
+    }
     override suspend fun softDelete(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
     override suspend fun restore(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = null, updatedAt = ts) }
     override suspend fun archive(id: String, ts: Long) = mutate(id) { it.copy(archivedAt = ts, updatedAt = ts) }
     override suspend fun unarchive(id: String, ts: Long) = mutate(id) { it.copy(archivedAt = null, updatedAt = ts) }
-    override suspend fun updateContent(id: String, title: String, markdown: String, html: String, wordCount: Int, charCount: Int, updatedAt: Long) {
+    override suspend fun updateContent(
+        id: String,
+        title: String,
+        markdown: String,
+        html: String,
+        wordCount: Int,
+        charCount: Int,
+        updatedAt: Long,
+    ) {
         store.update { current ->
             val existing = current[id] ?: return@update current
-            current + (id to existing.copy(title = title, bodyMarkdown = markdown, bodyHtml = html, wordCount = wordCount, charCount = charCount, updatedAt = updatedAt))
+            current + (
+                id to existing.copy(
+                title = title,
+                bodyMarkdown = markdown,
+                bodyHtml = html,
+                wordCount = wordCount,
+                charCount = charCount,
+                updatedAt = updatedAt,
+            )
+            )
         }
     }
     override suspend fun setPinned(id: String, pinned: Boolean, pinnedAt: Long?, ts: Long) =
@@ -236,17 +316,20 @@ private class FakeNoteDao(
     override suspend fun listAllForUser(userId: String): List<NoteEntity> =
         store.value.values.filter { it.userId == userId }
 
-    override suspend fun searchByTitle(userId: String, q: String): List<NoteEntity> =
-        store.value.values.filter { it.userId == userId && it.deletedAt == null && it.title.contains(q, ignoreCase = true) }
-            .sortedByDescending { it.updatedAt }.take(20)
+    override suspend fun searchByTitle(userId: String, q: String): List<NoteEntity> = store.value.values.filter {
+        it.userId == userId && it.deletedAt == null && it.title.contains(
+            q,
+            ignoreCase = true,
+        )
+    }
+        .sortedByDescending { it.updatedAt }.take(20)
 
     override suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long) =
         mutate(id) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
 
-    override suspend fun getBacklinkNotes(noteId: String): List<NoteEntity> =
-        store.value.values.filter { n ->
-            n.deletedAt == null && n.outgoingLinks.contains("note://$noteId")
-        }.take(20)
+    override suspend fun getBacklinkNotes(noteId: String): List<NoteEntity> = store.value.values.filter { n ->
+        n.deletedAt == null && n.outgoingLinks.contains("note://$noteId")
+    }.take(20)
 
     private fun mutate(id: String, fn: (NoteEntity) -> NoteEntity) {
         store.update { current ->
@@ -258,28 +341,28 @@ private class FakeNoteDao(
 
 // ─── ProjectDao ────────────────────────────────────────────────────────────────
 
-private class FakeProjectDao(
-    private val store: MutableStateFlow<Map<String, ProjectEntity>>,
-) : ProjectDao {
+private class FakeProjectDao(private val store: MutableStateFlow<Map<String, ProjectEntity>>) : ProjectDao {
 
-    override fun watchAll(userId: String): Flow<List<ProjectEntity>> =
-        store.map { it.values.filter { p -> p.userId == userId && !p.isDeleted }
-            .sortedWith(compareBy({ it.sortOrder }, { it.name })) }
+    override fun watchAll(userId: String): Flow<List<ProjectEntity>> = store.map {
+        it.values.filter { p -> p.userId == userId && !p.isDeleted }
+            .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+    }
 
     override fun watchById(id: String): Flow<ProjectEntity?> = store.map { it[id] }
     override suspend fun getById(id: String): ProjectEntity? = store.value[id]
-    override fun watchAllWithCounts(userId: String): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
-        store.map { map ->
-            map.values.filter { it.userId == userId && !it.isDeleted }
-                .sortedWith(compareBy({ it.sortOrder }, { it.name }))
-                .map { entity ->
-                    com.singularity.todo.core.database.ProjectWithCountRow(
-                        project = entity,
-                        totalCount = 0,
-                        completedCount = 0,
-                    )
-                }
-        }
+    override fun watchAllWithCounts(
+        userId: String,
+    ): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> = store.map { map ->
+        map.values.filter { it.userId == userId && !it.isDeleted }
+            .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+            .map { entity ->
+                com.singularity.todo.core.database.ProjectWithCountRow(
+                    project = entity,
+                    totalCount = 0,
+                    completedCount = 0,
+                )
+            }
+    }
     override fun watchByParent(parentId: String): Flow<List<ProjectEntity>> =
         store.map { it.values.filter { it.parentId == parentId && !it.isDeleted } }
     override suspend fun setParent(id: String, parentId: String?, ts: Long) =
@@ -290,8 +373,12 @@ private class FakeProjectDao(
         mutate(id) { it.copy(isDeleted = false, deletedAt = null, updatedAt = ts) }
     override suspend fun findByIdempotencyKey(key: String): ProjectEntity? =
         store.value.values.firstOrNull { it.idempotencyKey == key }
-    override suspend fun upsert(project: ProjectEntity) { store.update { it + (project.id to project) } }
-    override suspend fun softDelete(id: String, ts: Long) = mutate(id) { it.copy(isDeleted = true, deletedAt = ts, updatedAt = ts) }
+    override suspend fun upsert(project: ProjectEntity) {
+        store.update { it + (project.id to project) }
+    }
+    override suspend fun softDelete(id: String, ts: Long) = mutate(
+        id,
+    ) { it.copy(isDeleted = true, deletedAt = ts, updatedAt = ts) }
     override suspend fun listAllForUser(userId: String): List<ProjectEntity> =
         store.value.values.filter { it.userId == userId }
 
@@ -305,16 +392,17 @@ private class FakeProjectDao(
 
 // ─── TagDao ────────────────────────────────────────────────────────────────────
 
-private class FakeTagDao(
-    private val store: MutableStateFlow<Map<String, TagEntity>>,
-) : TagDao {
+private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEntity>>) : TagDao {
 
-    override fun watchAll(userId: String): Flow<List<TagEntity>> =
-        store.map { it.values.filter { t -> t.userId == userId && t.deletedAt == null }
-            .sortedWith(compareBy({ it.sortOrder }, { it.name })) }
+    override fun watchAll(userId: String): Flow<List<TagEntity>> = store.map {
+        it.values.filter { t -> t.userId == userId && t.deletedAt == null }
+            .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+    }
 
     override fun watchById(id: String): Flow<TagEntity?> = store.map { it[id] }
-    override suspend fun upsert(tag: TagEntity) { store.update { it + (tag.id to tag) } }
+    override suspend fun upsert(tag: TagEntity) {
+        store.update { it + (tag.id to tag) }
+    }
     override suspend fun softDelete(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
     override suspend fun listAllForUser(userId: String): List<TagEntity> =
         store.value.values.filter { it.userId == userId }
@@ -329,18 +417,18 @@ private class FakeTagDao(
 
 // ─── SyncOutboxDao ────────────────────────────────────────────────────────────
 
-private class FakeSyncOutboxDao(
-    private val store: MutableStateFlow<Map<String, SyncOutboxEntity>>,
-) : SyncOutboxDao {
+private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, SyncOutboxEntity>>) : SyncOutboxDao {
 
-    override fun watchPending(): Flow<List<SyncOutboxEntity>> =
-        store.map { it.values.sortedBy { it.createdAt } }
+    override fun watchPending(): Flow<List<SyncOutboxEntity>> = store.map { it.values.sortedBy { it.createdAt } }
 
-    override suspend fun getPending(): List<SyncOutboxEntity> =
-        store.value.values.sortedBy { it.createdAt }
+    override suspend fun getPending(): List<SyncOutboxEntity> = store.value.values.sortedBy { it.createdAt }
 
-    override suspend fun insert(entity: SyncOutboxEntity) { store.update { it + (entity.patchId to entity) } }
-    override suspend fun delete(id: String) { store.update { it - id } }
+    override suspend fun insert(entity: SyncOutboxEntity) {
+        store.update { it + (entity.patchId to entity) }
+    }
+    override suspend fun delete(id: String) {
+        store.update { it - id }
+    }
     override suspend fun markFailed(id: String, error: String) {
         store.update { current ->
             val existing = current[id] ?: return@update current
@@ -350,24 +438,29 @@ private class FakeSyncOutboxDao(
     override suspend fun deleteByEntity(entityId: String) {
         store.update { it.filterValues { e -> e.entityId != entityId } }
     }
-    override suspend fun clearAll() { store.value = emptyMap() }
+    override suspend fun clearAll() {
+        store.value = emptyMap()
+    }
 }
 
 // ─── AttachmentDao ────────────────────────────────────────────────────────────
 
-private class FakeAttachmentDao(
-    private val store: MutableStateFlow<Map<String, AttachmentEntity>>,
-) : AttachmentDao {
+private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, AttachmentEntity>>) : AttachmentDao {
 
-    override fun watchByTask(taskId: String): Flow<List<AttachmentEntity>> =
-        store.map { it.values.filter { a -> a.taskId == taskId && a.deletedAt == null }
-            .sortedByDescending { it.createdAt } }
+    override fun watchByTask(taskId: String): Flow<List<AttachmentEntity>> = store.map {
+        it.values.filter { a -> a.taskId == taskId && a.deletedAt == null }
+            .sortedByDescending { it.createdAt }
+    }
 
     override fun watchById(id: String): Flow<AttachmentEntity?> = store.map { it[id] }
 
-    override suspend fun upsert(entity: AttachmentEntity) { store.update { it + (entity.id to entity) } }
+    override suspend fun upsert(entity: AttachmentEntity) {
+        store.update { it + (entity.id to entity) }
+    }
     override suspend fun softDelete(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
-    override suspend fun delete(id: String) { store.update { it - id } }
+    override suspend fun delete(id: String) {
+        store.update { it - id }
+    }
 
     override fun watchBySyncStatus(status: String): Flow<List<AttachmentEntity>> =
         store.map { it.values.filter { a -> a.syncStatus == status && a.deletedAt == null } }
@@ -386,16 +479,23 @@ private class FakeAttachmentDao(
 // ─── ReminderDao ──────────────────────────────────────────────────────────────
 
 private class FakeReminderDao(
-    private val store: MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>,
+    private val store:
+    MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>,
 ) : ReminderDao {
 
     override fun watchAll(userId: String): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
         store.map { it.values.filter { r -> r.userId == userId }.sortedBy { it.fireAt } }
 
-    override fun watchByTask(taskId: String, userId: String): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
+    override fun watchByTask(
+        taskId: String,
+        userId: String,
+    ): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
         store.map { it.values.filter { r -> r.taskId == taskId && r.userId == userId }.sortedBy { it.fireAt } }
 
-    override fun watchDueBefore(now: Long, userId: String): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
+    override fun watchDueBefore(
+        now: Long,
+        userId: String,
+    ): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
         store.map { it.values.filter { r -> r.fireAt <= now && r.userId == userId }.sortedBy { it.fireAt } }
 
     override suspend fun upsert(reminder: com.singularity.todo.core.database.TaskReminderEntity) {
@@ -418,9 +518,7 @@ private class FakeReminderDao(
 
 // ─── ChecklistDao ───────────────────────────────────────────────────────────────
 
-private class FakeChecklistDao(
-    private val store: MutableStateFlow<Map<String, ChecklistItemEntity>>,
-) : ChecklistDao {
+private class FakeChecklistDao(private val store: MutableStateFlow<Map<String, ChecklistItemEntity>>) : ChecklistDao {
 
     override fun watchByTask(taskId: String): Flow<List<ChecklistItemEntity>> =
         store.map { it.values.filter { c -> c.taskId == taskId }.sortedBy { c -> c.sortOrder } }
@@ -440,9 +538,7 @@ private class FakeChecklistDao(
 
 // ─── LlmUsageDao ────────────────────────────────────────────────────────────────
 
-private class FakeLlmUsageDao(
-    private val store: MutableStateFlow<Map<String, LlmUsageEntity>>,
-) : LlmUsageDao {
+private class FakeLlmUsageDao(private val store: MutableStateFlow<Map<String, LlmUsageEntity>>) : LlmUsageDao {
 
     override suspend fun upsert(entity: LlmUsageEntity) {
         store.update { it + (entity.id to entity) }
@@ -451,21 +547,23 @@ private class FakeLlmUsageDao(
     override fun observeRecent(profileId: String, limit: Int): Flow<List<LlmUsageEntity>> =
         store.map { it.values.filter { e -> e.profileId == profileId }.sortedByDescending { it.createdAt }.take(limit) }
 
-    override fun observeByDay(profileId: String, sinceEpochMs: Long): Flow<List<com.singularity.todo.core.database.DailyUsageRow>> =
-        store.map { rows ->
-            rows.values
-                .filter { it.profileId == profileId && it.createdAt >= sinceEpochMs }
-                .groupBy { java.time.Instant.ofEpochMilli(it.createdAt).toString().take(10) }
-                .map { (date, items) ->
-                    com.singularity.todo.core.database.DailyUsageRow(
-                        date = date,
-                        totalTokens = items.sumOf { it.totalTokens }.toLong(),
-                        totalCostMicros = items.mapNotNull { it.costUsdMicros }.takeIf { it.isNotEmpty() }?.sum(),
-                        callCount = items.size.toLong(),
-                    )
-                }
-                .sortedByDescending { it.date }
-        }
+    override fun observeByDay(
+        profileId: String,
+        sinceEpochMs: Long,
+    ): Flow<List<com.singularity.todo.core.database.DailyUsageRow>> = store.map { rows ->
+        rows.values
+            .filter { it.profileId == profileId && it.createdAt >= sinceEpochMs }
+            .groupBy { java.time.Instant.ofEpochMilli(it.createdAt).toString().take(10) }
+            .map { (date, items) ->
+                com.singularity.todo.core.database.DailyUsageRow(
+                    date = date,
+                    totalTokens = items.sumOf { it.totalTokens }.toLong(),
+                    totalCostMicros = items.mapNotNull { it.costUsdMicros }.takeIf { it.isNotEmpty() }?.sum(),
+                    callCount = items.size.toLong(),
+                )
+            }
+            .sortedByDescending { it.date }
+    }
 
     override fun observeByTool(profileId: String): Flow<List<com.singularity.todo.core.database.ToolUsageRow>> =
         store.map { rows ->
@@ -506,17 +604,13 @@ private class FakeLlmUsageDao(
 
 // ─── ProfileDao ─────────────────────────────────────────────────────────────────
 
-private class FakeProfileDao(
-    private val store: MutableStateFlow<Map<String, ProfileEntity>>,
-) : ProfileDao {
+private class FakeProfileDao(private val store: MutableStateFlow<Map<String, ProfileEntity>>) : ProfileDao {
 
-    override fun all(): Flow<List<ProfileEntity>> =
-        store.map { it.values.sortedBy { p -> p.createdAt } }
+    override fun all(): Flow<List<ProfileEntity>> = store.map { it.values.sortedBy { p -> p.createdAt } }
 
     override suspend fun getById(id: String): ProfileEntity? = store.value[id]
 
-    override suspend fun getDefault(): ProfileEntity? =
-        store.value.values.find { it.isDefault }
+    override suspend fun getDefault(): ProfileEntity? = store.value.values.find { it.isDefault }
 
     override suspend fun allNames(): List<String> = store.value.keys.toList()
 

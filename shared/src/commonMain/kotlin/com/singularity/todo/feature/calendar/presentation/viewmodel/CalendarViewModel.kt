@@ -15,9 +15,7 @@ import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiEvent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -110,19 +108,23 @@ class CalendarViewModel(
             is CalendarIntent.ViewModeChanged -> {
                 _calendarState.value = _calendarState.value.copy(viewMode = intent.mode)
             }
+
             CalendarIntent.GoToday -> {
                 _calendarState.value = _calendarState.value.copy(anchor = today)
             }
+
             CalendarIntent.GoNext -> {
                 _calendarState.value = _calendarState.value.copy(
                     anchor = goNext(_calendarState.value.anchor, _calendarState.value.viewMode),
                 )
             }
+
             CalendarIntent.GoPrevious -> {
                 _calendarState.value = _calendarState.value.copy(
                     anchor = goPrevious(_calendarState.value.anchor, _calendarState.value.viewMode),
                 )
             }
+
             is CalendarIntent.DayClicked -> {
                 _calendarState.value = _calendarState.value.copy(
                     // When user clicks a day in month mode, switch to day view
@@ -134,14 +136,17 @@ class CalendarViewModel(
                     anchor = intent.date,
                 )
             }
+
             CalendarIntent.ToggleMiniCalendar -> {
                 _calendarState.value = _calendarState.value.copy(
                     isMiniOpen = !_calendarState.value.isMiniOpen,
                 )
             }
+
             CalendarIntent.DismissMiniCalendar -> {
                 _calendarState.value = _calendarState.value.copy(isMiniOpen = false)
             }
+
             is CalendarIntent.TaskClicked -> {
                 scope.launch {
                     _events.emit(CalendarUiEvent.NavigateToTask(intent.taskId))
@@ -151,11 +156,7 @@ class CalendarViewModel(
     }
 
     /** Internal calendar state (anchor, mode, mini panel). */
-    private data class CalendarState(
-        val anchor: LocalDate,
-        val viewMode: CalendarViewMode,
-        val isMiniOpen: Boolean,
-    ) {
+    private data class CalendarState(val anchor: LocalDate, val viewMode: CalendarViewMode, val isMiniOpen: Boolean) {
         fun toLoadedState(
             tasksByDate: Map<LocalDate, List<CalendarTaskUi>>,
             today: LocalDate,

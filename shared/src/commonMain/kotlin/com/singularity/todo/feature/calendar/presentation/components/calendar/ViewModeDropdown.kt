@@ -30,11 +30,7 @@ import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPal
 
 /** Dropdown selector for CalendarViewMode (Day / 4 days / Week / Month). */
 @Composable
-fun ViewModeDropdown(
-    selected: CalendarViewMode,
-    onSelect: (CalendarViewMode) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun ViewModeDropdown(selected: CalendarViewMode, onSelect: (CalendarViewMode) -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     val palette: CalendarPalette = LocalCalendarPalette.current
 

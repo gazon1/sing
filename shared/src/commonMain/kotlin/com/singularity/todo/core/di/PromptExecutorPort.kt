@@ -25,18 +25,10 @@ interface PromptExecutorPort {
     /**
      * Executes a prompt and returns a complete response.
      */
-    suspend fun execute(
-        prompt: ai.koog.prompt.Prompt,
-        model: LLModel,
-        tools: List<ToolDescriptor>,
-    ): Message.Assistant
+    suspend fun execute(prompt: ai.koog.prompt.Prompt, model: LLModel, tools: List<ToolDescriptor>): Message.Assistant
 
     /**
      * Streams token deltas from the model.
      */
-    fun executeStreaming(
-        prompt: ai.koog.prompt.Prompt,
-        model: LLModel,
-        tools: List<ToolDescriptor>,
-    ): Flow<StreamFrame>
+    fun executeStreaming(prompt: ai.koog.prompt.Prompt, model: LLModel, tools: List<ToolDescriptor>): Flow<StreamFrame>
 }

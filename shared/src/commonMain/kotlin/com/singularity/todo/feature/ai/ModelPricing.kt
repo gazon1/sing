@@ -5,10 +5,7 @@ package com.singularity.todo.feature.ai
  * Source: OpenAI / Anthropic / Ollama pricing pages, 2026-09-07.
  * Update this when prices change.
  */
-data class ModelPricing(
-    val inputPerMillionUsd: Double,
-    val outputPerMillionUsd: Double,
-) {
+data class ModelPricing(val inputPerMillionUsd: Double, val outputPerMillionUsd: Double) {
     /**
      * Calculates total cost in micros (USD * 10^-6).
      *
@@ -41,7 +38,6 @@ internal object ModelPricingTable {
         put("qwen2.5", ModelPricing(0.0, 0.0))
     }
 
-    fun priceOrNull(modelId: String, inputTokens: Int, outputTokens: Int): Long? {
-        return TABLE[modelId]?.priceTokens(inputTokens, outputTokens)
-    }
+    fun priceOrNull(modelId: String, inputTokens: Int, outputTokens: Int): Long? =
+        TABLE[modelId]?.priceTokens(inputTokens, outputTokens)
 }

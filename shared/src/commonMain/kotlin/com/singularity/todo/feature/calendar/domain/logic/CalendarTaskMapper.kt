@@ -20,11 +20,7 @@ object CalendarTaskMapper {
      * @param today Used to compute OVERDUE status.
      * @param isRecurring Whether this task has an active recurring reminder.
      */
-    fun toCalendarTaskUi(
-        task: Task,
-        today: LocalDate,
-        isRecurring: Boolean = false,
-    ): CalendarTaskUi {
+    fun toCalendarTaskUi(task: Task, today: LocalDate, isRecurring: Boolean = false): CalendarTaskUi {
         val status = when {
             task.isCompleted -> CalendarTaskStatus.DONE
             task.dueDate != null && task.dueDate < today -> CalendarTaskStatus.OVERDUE

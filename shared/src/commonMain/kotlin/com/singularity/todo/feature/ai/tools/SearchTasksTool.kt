@@ -2,10 +2,10 @@ package com.singularity.todo.feature.ai.tools
 
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 
@@ -15,10 +15,8 @@ data class SearchTasksInput(val query: String, val userId: String = "", val limi
 @Serializable
 data class SearchTasksOutput(val tasks: List<TaskSummary>)
 
-class SearchTasksTool(
-    private val taskRepository: TaskRepository,
-    private val currentUser: ProfileAwareCurrentUser,
-) : SimpleTool<SearchTasksInput>(TypeToken.of(SearchTasksInput::class.java), NAME, DESCRIPTION) {
+class SearchTasksTool(private val taskRepository: TaskRepository, private val currentUser: ProfileAwareCurrentUser) :
+    SimpleTool<SearchTasksInput>(TypeToken.of(SearchTasksInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: SearchTasksInput): String {
         val effectiveUserId = if (args.userId.isNotBlank()) UserId(args.userId) else currentUser.scopedUserId.value

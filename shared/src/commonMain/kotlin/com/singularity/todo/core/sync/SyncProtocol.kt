@@ -9,19 +9,13 @@ import kotlinx.serialization.json.JsonElement
  * Matches Flutter sync_core BatchPushRequest wire format.
  */
 @Serializable
-data class BatchPushRequest(
-    val protocolVersion: Int = 1,
-    val deviceId: String,
-    val patches: List<DeltaPatch>
-)
+data class BatchPushRequest(val protocolVersion: Int = 1, val deviceId: String, val patches: List<DeltaPatch>)
 
 /**
  * Batch push response from server.
  */
 @Serializable
-data class BatchPushResponse(
-    val results: List<PatchResult>
-)
+data class BatchPushResponse(val results: List<PatchResult>)
 
 /**
  * A delta patch representing a single entity change.
@@ -37,28 +31,31 @@ data class DeltaPatch(
     val isDelete: Boolean = false,
     val shadowChecksum: String? = null,
     val ops: List<FieldChange> = emptyList(),
-    val timestampMs: Long? = null
+    val timestampMs: Long? = null,
 )
 
 /**
  * A single field change within a DeltaPatch.
  */
 @Serializable
-data class FieldChange(
-    val field: String,
-    val op: FieldOp,
-    val value: JsonElement? = null
-)
+data class FieldChange(val field: String, val op: FieldOp, val value: JsonElement? = null)
 
 /**
  * Field operation types.
  */
 @Serializable
 enum class FieldOp {
-    @SerialName("set") SET,
-    @SerialName("unset") UNSET,
-    @SerialName("append") APPEND,
-    @SerialName("remove") REMOVE
+    @SerialName("set")
+    SET,
+
+    @SerialName("unset")
+    UNSET,
+
+    @SerialName("append")
+    APPEND,
+
+    @SerialName("remove")
+    REMOVE,
 }
 
 /**
@@ -73,7 +70,7 @@ data class PatchResult(
     val newVersion: Long? = null,
     val newState: JsonElement? = null,
     val serverState: JsonElement? = null,
-    val error: String? = null
+    val error: String? = null,
 ) {
     /** Whether this error can be retried. */
     val isRetriable: Boolean get() = !ok && error != "shadow_mismatch" && error != "too_old"
@@ -89,7 +86,7 @@ data class SyncEvent(
     val entityType: DocType,
     val eventType: SyncEventType,
     val data: JsonElement? = null,
-    val createdAt: Long
+    val createdAt: Long,
 )
 
 /**
@@ -97,10 +94,17 @@ data class SyncEvent(
  */
 @Serializable
 enum class SyncEventType {
-    @SerialName("created") CREATED,
-    @SerialName("updated") UPDATED,
-    @SerialName("deleted") DELETED,
-    @SerialName("restored") RESTORED
+    @SerialName("created")
+    CREATED,
+
+    @SerialName("updated")
+    UPDATED,
+
+    @SerialName("deleted")
+    DELETED,
+
+    @SerialName("restored")
+    RESTORED,
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -108,11 +112,29 @@ enum class SyncEventType {
 /**
  * Builds a DeltaPatch that sets a single field.
  */
-fun deltaPatchSet(patchId: String, entityId: String, entityType: DocType, baseVersion: Long, field: String, value: JsonElement): DeltaPatch =
-    DeltaPatch(patchId = patchId, entityId = entityId, entityType = entityType, baseVersion = baseVersion, ops = listOf(FieldChange(field, FieldOp.SET, value)))
+fun deltaPatchSet(
+    patchId: String,
+    entityId: String,
+    entityType: DocType,
+    baseVersion: Long,
+    field: String,
+    value: JsonElement,
+): DeltaPatch = DeltaPatch(
+    patchId = patchId,
+    entityId = entityId,
+    entityType = entityType,
+    baseVersion = baseVersion,
+    ops = listOf(FieldChange(field, FieldOp.SET, value)),
+)
 
 /**
  * Builds a delete DeltaPatch.
  */
 fun deltaPatchDelete(patchId: String, entityId: String, entityType: DocType, baseVersion: Long): DeltaPatch =
-    DeltaPatch(patchId = patchId, entityId = entityId, entityType = entityType, baseVersion = baseVersion, isDelete = true)
+    DeltaPatch(
+        patchId = patchId,
+        entityId = entityId,
+        entityType = entityType,
+        baseVersion = baseVersion,
+        isDelete = true,
+    )

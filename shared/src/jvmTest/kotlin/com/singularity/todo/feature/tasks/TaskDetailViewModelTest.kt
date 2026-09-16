@@ -4,8 +4,6 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.checklist.ChecklistUseCase
-import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -13,19 +11,18 @@ import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
+import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeReminderRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
-import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -64,8 +61,8 @@ class TaskDetailViewModelTest {
     private val fakeAttachmentsRepo = FakeAttachmentRepository()
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(
         FakeAuthRepository(
-            initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)
-        )
+            initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
+        ),
     )
 
     private fun createVm(scope: CoroutineScope, taskId: TaskId): TaskDetailViewModel {

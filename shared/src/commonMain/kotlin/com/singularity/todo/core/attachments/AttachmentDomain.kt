@@ -13,8 +13,7 @@ object AttachmentDomain {
     fun buildLocalPath(dir: String, taskId: String, id: String, ext: String): String =
         "$dir/$taskId/$id${if (ext.isNotBlank()) ".$ext" else ""}"
 
-    fun extractExtension(filename: String): String =
-        filename.substringAfterLast('.', "").lowercase()
+    fun extractExtension(filename: String): String = filename.substringAfterLast('.', "").lowercase()
 
     fun formatFileSize(bytes: Long): String = when {
         bytes < 1024 -> "$bytes B"

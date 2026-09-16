@@ -54,7 +54,10 @@ fun ProvideCalendarPalette(content: @Composable () -> Unit) {
 }
 
 /** Dark palette — tuned for the deep navy/blue-grey aesthetic of the reference screenshots. */
-private fun darkCalendarPalette(scheme: androidx.compose.material3.ColorScheme, accent: SingularityAccents): CalendarPalette {
+private fun darkCalendarPalette(
+    scheme: androidx.compose.material3.ColorScheme,
+    accent: SingularityAccents,
+): CalendarPalette {
     val accentColor = accent.color
     return CalendarPalette(
         background = Color(0xFF0B1220),
@@ -77,7 +80,10 @@ private fun darkCalendarPalette(scheme: androidx.compose.material3.ColorScheme, 
 }
 
 /** Light palette — derived from the app's [MaterialTheme.colorScheme]. */
-private fun lightCalendarPalette(scheme: androidx.compose.material3.ColorScheme, accent: SingularityAccents): CalendarPalette {
+private fun lightCalendarPalette(
+    scheme: androidx.compose.material3.ColorScheme,
+    accent: SingularityAccents,
+): CalendarPalette {
     val accentColor = accent.color
     return CalendarPalette(
         background = scheme.background,

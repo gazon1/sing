@@ -24,11 +24,7 @@ import com.singularity.todo.feature.tasks.presentation.components.priorityMeta
  * Priority selection sheet with colored flag icons and radio buttons.
  */
 @Composable
-fun TaskEditorPrioritySheet(
-    selected: TaskPriority,
-    onSelect: (TaskPriority) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun TaskEditorPrioritySheet(selected: TaskPriority, onSelect: (TaskPriority) -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),

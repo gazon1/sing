@@ -1,17 +1,17 @@
 package com.singularity.todo.feature.projects
 
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
 import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder
+import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.test.TestScope
@@ -41,18 +41,17 @@ class ProjectsViewModelTest {
     private val fakeProjectRepo = FakeProjectsRepository()
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(
-        FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId))
+        FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)),
     )
 
-    private fun TestScope.createVm(): ProjectsViewModel =
-        ProjectsViewModel(
-            projectRepo = fakeProjectRepo,
-            currentUser = fakeCurrentUser,
-            taskRepository = fakeTaskRepo,
-            deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),
-            scopeOverride = backgroundScope,
-            sharingStarted = { SharingStarted.Eagerly },
-        )
+    private fun TestScope.createVm(): ProjectsViewModel = ProjectsViewModel(
+        projectRepo = fakeProjectRepo,
+        currentUser = fakeCurrentUser,
+        taskRepository = fakeTaskRepo,
+        deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),
+        scopeOverride = backgroundScope,
+        sharingStarted = { SharingStarted.Eagerly },
+    )
 
     private fun TestScope.seedProject(
         id: String,
@@ -72,7 +71,7 @@ class ProjectsViewModelTest {
                 createdAt = now,
                 updatedAt = now,
                 userId = testUserId,
-            )
+            ),
         )
     }
 

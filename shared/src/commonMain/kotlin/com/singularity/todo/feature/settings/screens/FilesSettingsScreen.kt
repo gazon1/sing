@@ -29,11 +29,7 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
  * @param onOpenAttachmentsFolder called when the user taps "Attachments location" — should open the file manager.
  */
 @Composable
-fun FilesSettingsScreen(
-    attachmentsPath: String,
-    onOpenAttachmentsFolder: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun FilesSettingsScreen(attachmentsPath: String, onOpenAttachmentsFolder: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .padding(16.dp)

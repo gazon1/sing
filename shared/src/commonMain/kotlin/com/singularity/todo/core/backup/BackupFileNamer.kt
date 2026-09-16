@@ -11,6 +11,5 @@ interface BackupFileNamer {
 
 /** Production default — uses a timestamp in the filename. */
 object DefaultBackupFileNamer : BackupFileNamer {
-    override fun nextBackupName(timestampMs: Long): String =
-        "singularity_backup_${timestampMs}.zip"
+    override fun nextBackupName(timestampMs: Long): String = "singularity_backup_$timestampMs.zip"
 }

@@ -17,18 +17,14 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
  * Text — в оригинале это выглядело как кнопка, а не поле ввода.
  */
 @Composable
-fun TaskDescriptionField(
-    description: String,
-    onDescriptionChange: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun TaskDescriptionField(description: String, onDescriptionChange: (String) -> Unit, modifier: Modifier = Modifier) {
     BasicTextField(
         value = description,
         onValueChange = onDescriptionChange,
         textStyle = LocalTextStyle.current.copy(
             color = TaskColors.TextPrimary,
             fontSize = 16.sp,
-            lineHeight = 22.sp
+            lineHeight = 22.sp,
         ),
         cursorBrush = SolidColor(TaskColors.AccentBlue),
         modifier = modifier
@@ -40,10 +36,10 @@ fun TaskDescriptionField(
                     text = "Введите описание задачи...",
                     color = TaskColors.TextPlaceholder,
                     fontSize = 16.sp,
-                    lineHeight = 22.sp
+                    lineHeight = 22.sp,
                 )
             }
             innerTextField()
-        }
+        },
     )
 }

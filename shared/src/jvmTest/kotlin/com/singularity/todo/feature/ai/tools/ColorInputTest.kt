@@ -5,8 +5,8 @@ import kotlin.test.assertEquals
 
 class ColorInputTest {
 
-    private val DEFAULT = 0xFF2196F3.toInt()       // ARGB blue
-    private val FALLBACK = 0xFF9E9E9E.toInt()      // ARGB grey
+    private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue
+    private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey
 
     // Compare via unsigned Long because test values like 0xFF4CAF50 overflow signed Int.
     private fun argb(int: Int): Long = int.toLong() and 0xFFFFFFFFL

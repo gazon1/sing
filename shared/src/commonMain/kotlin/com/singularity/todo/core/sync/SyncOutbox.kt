@@ -17,10 +17,10 @@ data class SyncOutboxEntity(
     @PrimaryKey @ColumnInfo("patch_id") val patchId: String,
     @ColumnInfo("entity_id") val entityId: String,
     @ColumnInfo("entity_type") val entityType: String,
-    val payload: String,  // Serialized DeltaPatch JSON
+    val payload: String, // Serialized DeltaPatch JSON
     @ColumnInfo("created_at") val createdAt: Long,
     val attempts: Int = 0,
-    @ColumnInfo("last_error") val lastError: String? = null
+    @ColumnInfo("last_error") val lastError: String? = null,
 )
 
 /**

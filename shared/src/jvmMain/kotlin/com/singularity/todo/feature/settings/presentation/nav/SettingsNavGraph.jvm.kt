@@ -25,10 +25,7 @@ import com.singularity.todo.feature.settings.SettingsScreen
  * is used on JVM desktop.
  */
 @Composable
-actual fun SettingsNavGraph(
-    navCallbacks: NavCallbacks,
-    modifier: Modifier,
-) {
+actual fun SettingsNavGraph(navCallbacks: NavCallbacks, modifier: Modifier) {
     val backStack: NavBackStack<Settings> = rememberInMemoryNavBackStack(Settings)
 
     val onExitGraph: (AppDestination?) -> Unit = { dest ->

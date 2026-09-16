@@ -9,9 +9,7 @@ import com.singularity.todo.feature.nav.AppDestination
  *                    The optional [AppDestination] argument allows the inner graph
  *                    to signal a destination to navigate to in the outer graph.
  */
-open class SettingsNavigator(
-    protected val onExitGraph: (AppDestination?) -> Unit,
-) {
+open class SettingsNavigator(protected val onExitGraph: (AppDestination?) -> Unit) {
 
     /**
      * Navigate to the profile switcher screen (outside the settings graph).

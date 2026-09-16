@@ -65,16 +65,22 @@ class ProjectEditorViewModel(
         when (intent) {
             is ProjectEditorIntent.NameChanged ->
                 _state.value = _state.value.copy(name = intent.name, errorMessage = null)
+
             is ProjectEditorIntent.ColorChanged ->
                 _state.value = _state.value.copy(color = intent.color)
+
             is ProjectEditorIntent.IconChanged ->
                 _state.value = _state.value.copy(icon = intent.icon)
+
             is ProjectEditorIntent.DescriptionChanged ->
                 _state.value = _state.value.copy(description = intent.description)
+
             is ProjectEditorIntent.ParentChanged ->
                 _state.value = _state.value.copy(parentId = intent.parentId)
+
             ProjectEditorIntent.ErrorShown ->
                 _state.value = _state.value.copy(errorMessage = null)
+
             ProjectEditorIntent.Save -> save()
         }
     }
@@ -105,9 +111,9 @@ class ProjectEditorViewModel(
                     onFailure = {
                         _state.value = _state.value.copy(
                             saving = false,
-                            errorMessage = it.message ?: "Failed to create project"
+                            errorMessage = it.message ?: "Failed to create project",
                         )
-                    }
+                    },
                 )
             } else {
                 // Edit mode
@@ -124,9 +130,9 @@ class ProjectEditorViewModel(
                     onFailure = {
                         _state.value = _state.value.copy(
                             saving = false,
-                            errorMessage = it.message ?: "Failed to update project"
+                            errorMessage = it.message ?: "Failed to update project",
                         )
-                    }
+                    },
                 )
             }
         }

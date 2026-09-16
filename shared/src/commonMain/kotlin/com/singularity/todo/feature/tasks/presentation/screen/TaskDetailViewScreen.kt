@@ -25,7 +25,6 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.formatTimestampsRelative
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
@@ -41,9 +40,7 @@ import org.koin.core.parameter.parametersOf
  * Reads [LocalTasksNavigator] for all navigation actions — no callbacks needed.
  */
 @Composable
-fun TaskDetailViewScreen(
-    taskId: TaskId,
-) {
+fun TaskDetailViewScreen(taskId: TaskId) {
     val vm: TaskDetailViewModel = koinViewModel { parametersOf(taskId) }
     val navigator = LocalTasksNavigator.current
 
@@ -65,10 +62,12 @@ fun TaskDetailViewScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         when (val s = state) {
             TaskDetailUiState.Loading -> LoadingState()
+
             is TaskDetailUiState.Error -> ErrorState(
                 message = s.message,
                 onRetry = { vm.retry() },
             )
+
             is TaskDetailUiState.Loaded -> {
                 val ui = s.ui
                 TaskEditorContent(
@@ -145,10 +144,7 @@ private fun LoadingState() {
 }
 
 @Composable
-private fun ErrorState(
-    message: String,
-    onRetry: () -> Unit,
-) {
+private fun ErrorState(message: String, onRetry: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()

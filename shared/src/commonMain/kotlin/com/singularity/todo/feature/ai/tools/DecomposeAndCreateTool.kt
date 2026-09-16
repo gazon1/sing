@@ -1,13 +1,13 @@
 package com.singularity.todo.feature.ai.tools
 
 import ai.koog.agents.core.tools.SimpleTool
-import ai.koog.serialization.TypeToken
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.ai.prompts.Prompts
@@ -68,8 +68,10 @@ class DecomposeAndCreateTool(
     private val promptExecutor: PromptExecutor,
     private val model: LLModel,
 ) : SimpleTool<DecomposeAndCreateInput>(
-    TypeToken.of(DecomposeAndCreateInput::class.java), NAME, DESCRIPTION,
-) {
+        TypeToken.of(DecomposeAndCreateInput::class.java),
+        NAME,
+        DESCRIPTION,
+    ) {
 
     override suspend fun execute(args: DecomposeAndCreateInput): String {
         val now = clock.now()
@@ -127,14 +129,12 @@ class DecomposeAndCreateTool(
         return Json.encodeToString(DecomposeAndCreateOutput.serializer(), out)
     }
 
-    private fun parsePlan(text: String): List<String> {
-        return runCatching {
-            Json.decodeFromString<DecomposeTaskOutput>(text).subTasks
-        }.getOrElse {
-            text.lines()
-                .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }
-                .map { it.trim().removePrefix("- ").removePrefix("* ").removeSurrounding("\"") }
-        }
+    private fun parsePlan(text: String): List<String> = runCatching {
+        Json.decodeFromString<DecomposeTaskOutput>(text).subTasks
+    }.getOrElse {
+        text.lines()
+            .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }
+            .map { it.trim().removePrefix("- ").removePrefix("* ").removeSurrounding("\"") }
     }
 
     private fun extractText(response: Message.Assistant): String =

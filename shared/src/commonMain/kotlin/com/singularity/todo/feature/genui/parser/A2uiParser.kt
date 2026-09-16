@@ -113,28 +113,37 @@ class A2uiParser(private val json: Json = defaultJson) {
     }
 
     private fun parseNode(kind: String, obj: JsonObject): UiNode? = when (kind) {
-        "text"       -> obj["value"]?.jsonPrimitive?.content?.let { UiNode.Text(it, toneOf(obj["tone"])) }
-        "heading"    -> obj["text"]?.jsonPrimitive?.content?.let { t ->
+        "text" -> obj["value"]?.jsonPrimitive?.content?.let { UiNode.Text(it, toneOf(obj["tone"])) }
+
+        "heading" -> obj["text"]?.jsonPrimitive?.content?.let { t ->
             UiNode.Heading(t, obj["level"]?.jsonPrimitive?.content?.toIntOrNull() ?: 2)
         }
-        "button"     -> obj["label"]?.jsonPrimitive?.content?.let { l ->
+
+        "button" -> obj["label"]?.jsonPrimitive?.content?.let { l ->
             UiNode.Button(
                 label = l,
                 action = obj["action"]?.jsonPrimitive?.content,
                 data = obj["data"]?.jsonObject,
             )
         }
-        "column"     -> UiNode.Column(childrenOf(obj["children"]))
-        "row"        -> UiNode.Row(childrenOf(obj["children"]))
-        "card"       -> obj["child"]?.jsonPrimitive?.content?.let { UiNode.Card(NodeRef(it)) }
-        "list"       -> UiNode.ListView(
+
+        "column" -> UiNode.Column(childrenOf(obj["children"]))
+
+        "row" -> UiNode.Row(childrenOf(obj["children"]))
+
+        "card" -> obj["child"]?.jsonPrimitive?.content?.let { UiNode.Card(NodeRef(it)) }
+
+        "list" -> UiNode.ListView(
             children = childrenOf(obj["children"]),
             direction = directionOf(obj["direction"]),
         )
-        "divider"    -> UiNode.Divider
-        "badge"      -> obj["text"]?.jsonPrimitive?.content?.let { t ->
+
+        "divider" -> UiNode.Divider
+
+        "badge" -> obj["text"]?.jsonPrimitive?.content?.let { t ->
             UiNode.Badge(t, toneOf(obj["tone"]))
         }
+
         "text_field" -> obj["label"]?.jsonPrimitive?.content?.let { l ->
             UiNode.TextField(
                 label = l,
@@ -142,14 +151,16 @@ class A2uiParser(private val json: Json = defaultJson) {
                 initial = obj["initial"]?.jsonPrimitive?.content ?: "",
             )
         }
-        "checkbox"   -> obj["label"]?.jsonPrimitive?.content?.let { l ->
+
+        "checkbox" -> obj["label"]?.jsonPrimitive?.content?.let { l ->
             UiNode.Checkbox(
                 label = l,
                 path = pathOf(obj["path"]),
                 initial = obj["initial"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: false,
             )
         }
-        "tabs"       -> {
+
+        "tabs" -> {
             val tabsArray: JsonArray = obj["tabs"]?.jsonArray ?: return null
             val tabs: List<UiNode.Tab> = tabsArray.mapNotNull { el: JsonElement ->
                 val t: JsonObject = el.jsonObject
@@ -159,10 +170,13 @@ class A2uiParser(private val json: Json = defaultJson) {
             }
             UiNode.Tabs(tabs)
         }
-        "icon"       -> obj["name"]?.jsonPrimitive?.content?.let { UiNode.Icon(it) }
-        "modal"      -> obj["child"]?.jsonPrimitive?.content?.let { child ->
+
+        "icon" -> obj["name"]?.jsonPrimitive?.content?.let { UiNode.Icon(it) }
+
+        "modal" -> obj["child"]?.jsonPrimitive?.content?.let { child ->
             UiNode.Modal(NodeRef(child), pathOf(obj["openPath"]))
         }
+
         else -> null
     }
 
@@ -171,18 +185,15 @@ class A2uiParser(private val json: Json = defaultJson) {
         return arr.mapNotNull { it.jsonPrimitive.content }.map { NodeRef(it) }
     }
 
-    private fun pathOf(el: JsonElement?): UiPath =
-        el?.jsonPrimitive?.content?.let { UiPath.parse(it) } ?: UiPath.Root
+    private fun pathOf(el: JsonElement?): UiPath = el?.jsonPrimitive?.content?.let { UiPath.parse(it) } ?: UiPath.Root
 
-    private fun toneOf(el: JsonElement?): UiNode.Tone =
-        el?.jsonPrimitive?.content?.let { s ->
-            runCatching { UiNode.Tone.valueOf(s) }.getOrNull()
-        } ?: UiNode.Tone.Default
+    private fun toneOf(el: JsonElement?): UiNode.Tone = el?.jsonPrimitive?.content?.let { s ->
+        runCatching { UiNode.Tone.valueOf(s) }.getOrNull()
+    } ?: UiNode.Tone.Default
 
-    private fun directionOf(el: JsonElement?): UiNode.Direction =
-        el?.jsonPrimitive?.content?.let { s ->
-            runCatching { UiNode.Direction.valueOf(s) }.getOrNull()
-        } ?: UiNode.Direction.Vertical
+    private fun directionOf(el: JsonElement?): UiNode.Direction = el?.jsonPrimitive?.content?.let { s ->
+        runCatching { UiNode.Direction.valueOf(s) }.getOrNull()
+    } ?: UiNode.Direction.Vertical
 
     companion object {
         @OptIn(ExperimentalSerializationApi::class)

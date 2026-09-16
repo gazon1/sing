@@ -7,7 +7,9 @@ import kotlinx.coroutines.flow.firstOrNull
 @JvmInline
 value class ApiKey(val value: String) {
     val isConfigured: Boolean get() = value.isNotBlank()
-    companion object { val EMPTY = ApiKey("") }
+    companion object {
+        val EMPTY = ApiKey("")
+    }
 }
 
 /**
@@ -40,10 +42,7 @@ data class OpenAiConfig(
          * auto-fill behaviour so that `Test connection` and `streamChat` hit
          * the URL the user actually intends.
          */
-        suspend fun resolve(
-            secureStorage: SecureStoragePort,
-            settings: SettingsReader,
-        ): OpenAiConfig {
+        suspend fun resolve(secureStorage: SecureStoragePort, settings: SettingsReader): OpenAiConfig {
             val provider = LlmProvider.fromId(settings.aiProvider.firstOrNull())
             val storedUrl = settings.aiBaseUrl.firstOrNull().orEmpty()
             val baseUrl = resolveBaseUrl(storedUrl, provider)

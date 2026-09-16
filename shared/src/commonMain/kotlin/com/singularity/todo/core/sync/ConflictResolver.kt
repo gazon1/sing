@@ -21,12 +21,7 @@ object ConflictResolver {
      * @param localHlc HLC of local change (null if unknown)
      * @param remoteHlc HLC of remote change
      */
-    fun merge(
-        local: JsonElement,
-        remote: JsonElement,
-        localHlc: Hlc?,
-        remoteHlc: Hlc?
-    ): JsonElement {
+    fun merge(local: JsonElement, remote: JsonElement, localHlc: Hlc?, remoteHlc: Hlc?): JsonElement {
         if (local is JsonNull) return remote
         if (remote is JsonNull) return local
         if (local !is kotlinx.serialization.json.JsonObject || remote !is kotlinx.serialization.json.JsonObject) {
@@ -39,12 +34,15 @@ object ConflictResolver {
             for (key in allKeys) {
                 val l = local[key]
                 val r = remote[key]
-                put(key, when {
-                    r == null -> l ?: JsonNull
-                    l == null -> r
-                    remoteHlc != null && localHlc != null && remoteHlc > localHlc -> r
-                    else -> l
-                })
+                put(
+                    key,
+                    when {
+                        r == null -> l ?: JsonNull
+                        l == null -> r
+                        remoteHlc != null && localHlc != null && remoteHlc > localHlc -> r
+                        else -> l
+                    },
+                )
             }
         }
     }

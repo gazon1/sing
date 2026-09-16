@@ -1,24 +1,21 @@
 package com.singularity.todo.feature.projects
 
-import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
-import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
-import com.singularity.todo.test.fakes.FakeProjectsRepository
-import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class ProjectsUseCaseTest {
@@ -96,7 +93,7 @@ class ProjectsUseCaseTest {
     fun `update project name succeeds`() = runTest {
         // Create first
         val id = createProjectUseCase()(
-            CreateProjectInput(name = "Old", color = 0xFF2196F3.toInt(), userId = testUserId)
+            CreateProjectInput(name = "Old", color = 0xFF2196F3.toInt(), userId = testUserId),
         ).getOrNull()!!
 
         val result = updateProjectUseCase()(id) { it.copy(name = "New Name") }
@@ -119,7 +116,7 @@ class ProjectsUseCaseTest {
     @Test
     fun `delete empty project succeeds`() = runTest {
         val id = createProjectUseCase()(
-            CreateProjectInput(name = "Empty", color = 0xFF2196F3.toInt(), userId = testUserId)
+            CreateProjectInput(name = "Empty", color = 0xFF2196F3.toInt(), userId = testUserId),
         ).getOrNull()!!
 
         val result = deleteProjectUseCase()(id, testUserId)
@@ -129,7 +126,7 @@ class ProjectsUseCaseTest {
     @Test
     fun `delete project with tasks fails with Validation error`() = runTest {
         val id = createProjectUseCase()(
-            CreateProjectInput(name = "With Tasks", color = 0xFF2196F3.toInt(), userId = testUserId)
+            CreateProjectInput(name = "With Tasks", color = 0xFF2196F3.toInt(), userId = testUserId),
         ).getOrNull()!!
 
         // Seed a task belonging to this project
@@ -143,7 +140,7 @@ class ProjectsUseCaseTest {
                 projectId = id,
                 createdAt = now,
                 updatedAt = now,
-            )
+            ),
         )
 
         val result = deleteProjectUseCase()(id, testUserId)

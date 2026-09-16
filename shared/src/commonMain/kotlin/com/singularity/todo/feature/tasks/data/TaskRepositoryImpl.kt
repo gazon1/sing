@@ -26,33 +26,49 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class TaskRepositoryImpl(
-    private val taskDao: TaskDao,
-    private val clock: Clock,
-) : TaskRepository {
+class TaskRepositoryImpl(private val taskDao: TaskDao, private val clock: Clock) : TaskRepository {
 
     private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
     override val changes: SharedFlow<Task> = _changes.asSharedFlow()
 
     override fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> {
         val today = LocalDate.fromEpochDays(
-            clock.now().toEpochMilliseconds() / (24 * 60 * 60 * 1000)
+            clock.now().toEpochMilliseconds() / (24 * 60 * 60 * 1000),
         ).toString()
 
         return when (filter) {
             is TaskFilter.Today -> taskDao.watchByDate(userId.value, today).map { it.map { e -> e.toTask() } }
+
             is TaskFilter.Upcoming -> {
                 taskDao.watchUpcoming(userId.value, today, today).map { it.map { e -> e.toTask() } }
             }
+
             is TaskFilter.Someday -> taskDao.watchSomeday(userId.value).map { it.map { e -> e.toTask() } }
+
             is TaskFilter.Inbox -> taskDao.watchActive(userId.value).map { it.map { e -> e.toTask() } }
+
             is TaskFilter.Trash -> taskDao.watchTrash(userId.value).map { it.map { e -> e.toTask() } }
+
             is TaskFilter.All -> taskDao.watchActive(userId.value).map { it.map { e -> e.toTask() } }
-            is TaskFilter.ByProject -> taskDao.watchByProject(userId.value, filter.id.value).map { it.map { e -> e.toTask() } }
+
+            is TaskFilter.ByProject -> taskDao.watchByProject(
+                userId.value,
+                filter.id.value,
+            ).map { it.map { e -> e.toTask() } }
+
             is TaskFilter.Pinned -> taskDao.watchPinned(userId.value).map { it.map { e -> e.toTask() } }
-            is TaskFilter.ByTag -> flowOf(emptyList())
+
+            is TaskFilter.ByTag -> taskDao.watchByTag(userId.value, filter.id.value).map { it.map { e -> e.toTask() } }
+
             is TaskFilter.Search -> taskDao.search(filter.query).map { it.map { e -> e.toTask() } }
-            is TaskFilter.ByDateRange -> flowOf(emptyList()) // CalendarViewModel handles this via flatMapLatest
+
+            is TaskFilter.ByDateRange -> taskDao.watchByDateRange(
+                userId.value,
+                filter.from.toString(),
+                filter.to.toString(),
+            ).map { it.map { e -> e.toTask() } }
+
+            is TaskFilter.ByStatuses -> flowOf(emptyList()) // implemented in AgendaEngine; here as stub
         }
     }
 
@@ -60,15 +76,14 @@ class TaskRepositoryImpl(
         taskDao.watchByDate(userId.value, date.toString())
             .map { list -> list.map { it.toTask() } }
 
-    override fun watchTask(id: TaskId): Flow<Task?> {
-        return taskDao.watchById(id.value).map { it?.toTask() }
-    }
+    override fun watchTask(id: TaskId): Flow<Task?> = taskDao.watchById(id.value).map { it?.toTask() }
 
-    override fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> {
-        return taskDao.watchActive(userId.value).map { list ->
+    override fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> =
+        taskDao.watchActive(userId.value).map {
+            list,
+            ->
             list.filter { it.parentTaskId == parentId.value }.map { it.toTask() }
         }
-    }
 
     override suspend fun create(task: Task): Result<Unit> = runCatching {
         taskDao.upsert(task.toEntity())
@@ -109,15 +124,13 @@ class TaskRepositoryImpl(
         taskDao.setPinned(id.value, !task.isPinned, ts)
     }
 
-    override fun getTagIds(taskId: TaskId): Flow<List<TagId>> {
-        return taskDao.getTagIdsForTask(taskId.value).map { it.map { id -> TagId.fromString(id) } }
+    override fun getTagIds(taskId: TaskId): Flow<List<TagId>> = taskDao.getTagIdsForTask(taskId.value).map {
+        it.map { id -> TagId.fromString(id) }
     }
 
-    override suspend fun exists(id: TaskId): Boolean =
-        taskDao.watchById(id.value).first() != null
+    override suspend fun exists(id: TaskId): Boolean = taskDao.watchById(id.value).first() != null
 
-    override suspend fun getById(id: TaskId): Task? =
-        taskDao.getById(id.value)?.toTask()
+    override suspend fun getById(id: TaskId): Task? = taskDao.getById(id.value)?.toTask()
 
     override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
         val existing = taskDao.getTagIdsForTask(taskId.value).first()

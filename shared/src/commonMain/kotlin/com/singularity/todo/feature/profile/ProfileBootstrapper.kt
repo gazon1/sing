@@ -36,10 +36,7 @@ class ProfileBootstrapper(
      *                     it exists after seeding. Pass null to leave whatever
      *                     DataStore already had.
      */
-    suspend fun run(
-        seedExtras: List<SeedProfile> = emptyList(),
-        activateName: String? = null,
-    ) {
+    suspend fun run(seedExtras: List<SeedProfile> = emptyList(), activateName: String? = null) {
         val seedTuples = seedExtras.map { Triple(it.name, it.emoji, it.colorIdx) }
         repository.ensureDefaults(extraProfiles = seedTuples)
         if (activateName != null) {
@@ -56,11 +53,7 @@ class ProfileBootstrapper(
     }
 
     /** Compact carrier for the (name, emoji, colorIdx) tuple. */
-    data class SeedProfile(
-        val name: String,
-        val emoji: String,
-        val colorIdx: Int,
-    ) {
+    data class SeedProfile(val name: String, val emoji: String, val colorIdx: Int) {
         companion object {
             /** Default 'AI Agent' profile: 🤖 on green. */
             val AI_AGENT = SeedProfile(name = "AI Agent", emoji = "🤖", colorIdx = 1)

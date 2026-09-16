@@ -21,13 +21,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
  * и не давал понять, есть ли уже что-то добавлено.
  */
 @Composable
-fun TaskCounterCard(
-    icon: ImageVector,
-    label: String,
-    count: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun TaskCounterCard(icon: ImageVector, label: String, count: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
     TaskAttributeCard(
         icon = icon,
         label = label,
@@ -41,10 +35,10 @@ fun TaskCounterCard(
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "Добавить",
-                    tint = TaskColors.TextSecondary
+                    tint = TaskColors.TextSecondary,
                 )
             }
-        }
+        },
     )
 }
 
@@ -54,13 +48,13 @@ private fun CounterBadge(count: Int) {
         Text(
             text = count.toString(),
             color = TaskColors.TextSecondary,
-            fontSize = 14.sp
+            fontSize = 14.sp,
         )
         Spacer(Modifier.width(TaskSpacing.sm))
         Icon(
             imageVector = Icons.Default.Add,
             contentDescription = "Добавить ещё",
-            tint = TaskColors.TextSecondary
+            tint = TaskColors.TextSecondary,
         )
     }
 }

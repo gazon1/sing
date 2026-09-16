@@ -8,10 +8,7 @@ import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 
-class CreateProjectUseCase(
-    private val repo: ProjectsRepository,
-    private val clock: Clock,
-) {
+class CreateProjectUseCase(private val repo: ProjectsRepository, private val clock: Clock) {
     /**
      * Uses [ProjectsDomain.validateCreateInput] for typed validation.
      * Matches the [com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase] pattern

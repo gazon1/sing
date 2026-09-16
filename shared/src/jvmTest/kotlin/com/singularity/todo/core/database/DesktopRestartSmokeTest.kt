@@ -61,7 +61,7 @@ class DesktopRestartSmokeTest {
                     updatedAt = now,
                     deletedAt = null,
                     archivedAt = null,
-                )
+                ),
             )
             sessionA.noteDao().upsert(
                 NoteEntity(
@@ -76,7 +76,7 @@ class DesktopRestartSmokeTest {
                     updatedAt = now + 1,
                     deletedAt = null,
                     archivedAt = null,
-                )
+                ),
             )
             sessionA.taskDao().upsert(
                 TaskEntity(
@@ -84,7 +84,7 @@ class DesktopRestartSmokeTest {
                     dueDate = null, dueTime = null, completedAt = null, someday = false,
                     archivedAt = null, isPinned = true, createdAt = now, updatedAt = now,
                     userId = "u-1",
-                )
+                ),
             )
         } finally {
             sessionA.close()
@@ -121,9 +121,13 @@ class DesktopRestartSmokeTest {
         // The first build creates the DB; the second build must validate it
         // without re-running DDL.
         val a = AppDatabaseFactory.build(createSqlDriver(), dbPath)
-        try { /* session A */ } finally { a.close() }
+        try { /* session A */ } finally {
+            a.close()
+        }
         val b = AppDatabaseFactory.build(createSqlDriver(), dbPath)
-        try { /* session B */ } finally { b.close() }
+        try { /* session B */ } finally {
+            b.close()
+        }
 
         // Both sessions ended without `IllegalStateException: Room cannot
         // verify the data integrity` — that's the assertion.

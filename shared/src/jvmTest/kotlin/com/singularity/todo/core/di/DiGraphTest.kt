@@ -5,9 +5,9 @@ import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.settings.SettingsRepository
-import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
 import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.pomodoro.PomodoroRepository
+import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
 import org.junit.Test
 
 /**

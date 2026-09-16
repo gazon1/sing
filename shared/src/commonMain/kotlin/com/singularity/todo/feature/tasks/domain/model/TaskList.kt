@@ -23,22 +23,15 @@ sealed interface TaskEditorUiEvent {
 
 /** Groups tasks by parent relationship for hierarchical display. */
 sealed interface TaskGroup {
-    data class TopLevel(
-        val parent: Task,
-        val children: List<Task>,
-        val isExpanded: Boolean,
-    ) : TaskGroup
+    data class TopLevel(val parent: Task, val children: List<Task>, val isExpanded: Boolean) : TaskGroup
     data class Child(val task: Task) : TaskGroup
 }
 
 sealed interface TasksUiState {
     data object Loading : TasksUiState
     data object Empty : TasksUiState
-    data class Content(
-        val filter: TaskFilter,
-        val tasks: List<TaskUi>,
-        val selectedIds: Set<TaskId> = emptySet(),
-    ) : TasksUiState
+    data class Content(val filter: TaskFilter, val tasks: List<TaskUi>, val selectedIds: Set<TaskId> = emptySet()) :
+        TasksUiState
     data class Error(val message: String) : TasksUiState
 }
 

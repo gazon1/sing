@@ -48,13 +48,13 @@ import com.singularity.todo.feature.notes.LinkKind
 import com.singularity.todo.feature.notes.LinkResult
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesUiEvent
-import com.singularity.todo.feature.notes.rememberEditorSession
 import com.singularity.todo.feature.notes.components.EditorToolbar
 import com.singularity.todo.feature.notes.components.InternalLinkPickerSheet
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
+import com.singularity.todo.feature.notes.rememberEditorSession
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.koin.compose.viewmodel.koinViewModel
@@ -64,10 +64,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NoteEditorScreen(
-    route: NotesRoute.Editor,
-    viewModel: NoteEditor = koinViewModel(),
-) {
+fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewModel()) {
     val navigator = LocalNotesNavigator.current
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
 

@@ -31,13 +31,7 @@ class AndroidNotificationPort(private val context: Context) : NotificationPort {
 
     override val isAvailable: Boolean = true
 
-    override suspend fun scheduleAt(
-        key: String,
-        title: String,
-        body: String,
-        fireAtEpochMs: Long,
-        payload: String?
-    ) {
+    override suspend fun scheduleAt(key: String, title: String, body: String, fireAtEpochMs: Long, payload: String?) {
         val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
             action = ACTION_REMINDER
             putExtra(EXTRA_KEY, key)
@@ -50,7 +44,7 @@ class AndroidNotificationPort(private val context: Context) : NotificationPort {
             context,
             key.hashCode(),
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -58,20 +52,20 @@ class AndroidNotificationPort(private val context: Context) : NotificationPort {
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     fireAtEpochMs,
-                    pending
+                    pending,
                 )
             } else {
                 alarmManager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     fireAtEpochMs,
-                    pending
+                    pending,
                 )
             }
         } else {
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
                 fireAtEpochMs,
-                pending
+                pending,
             )
         }
     }
@@ -84,7 +78,7 @@ class AndroidNotificationPort(private val context: Context) : NotificationPort {
             context,
             key.hashCode(),
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         alarmManager.cancel(pending)
     }
@@ -97,7 +91,7 @@ class AndroidNotificationPort(private val context: Context) : NotificationPort {
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Task Reminders",
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             description = "Gentle reminders for tasks"
         }
@@ -139,7 +133,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             context,
             key.hashCode(),
             context.packageManager.getLaunchIntentForPackage(context.packageName),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
         val notification = android.app.Notification.Builder(context, AndroidNotificationPort.CHANNEL_ID)

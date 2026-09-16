@@ -1,8 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.components
 
-import com.singularity.todo.core.ui.preview.PreviewSamples
-import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
@@ -33,7 +30,10 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.AiActionButton
 import com.singularity.todo.core.ui.components.DeleteActionButton
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 
 /**
  * Card representation of a single task. Stateless — every piece of behavior is
@@ -62,10 +62,11 @@ fun TaskCard(
             .testTag(TestTags.taskItem(task.title))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         colors = CardDefaults.cardColors(
-            containerColor = if (task.isPinned)
+            containerColor = if (task.isPinned) {
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            else
+            } else {
                 MaterialTheme.colorScheme.surface
+            },
         ),
     ) {
         Row(
@@ -108,13 +109,16 @@ internal fun DefaultTaskCardTrailing(task: Task, actions: TaskCardActions) {
 private fun ToggleButton(isCompleted: Boolean, onClick: () -> Unit, taskTitle: String = "") {
     IconButton(
         onClick = onClick,
-        modifier = Modifier.testTag(TestTags.taskCheckbox(taskTitle))
+        modifier = Modifier.testTag(TestTags.taskCheckbox(taskTitle)),
     ) {
         Icon(
             imageVector = if (isCompleted) Icons.Filled.Check else Icons.Filled.Star,
             contentDescription = "Toggle complete",
-            tint = if (isCompleted) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (isCompleted) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
         )
     }
 }
@@ -145,8 +149,11 @@ private fun PinButton(isPinned: Boolean, onClick: () -> Unit) {
         Icon(
             imageVector = Icons.Filled.PushPin,
             contentDescription = if (isPinned) "Unpin" else "Pin",
-            tint = if (isPinned) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (isPinned) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
         )
     }
 }

@@ -26,11 +26,7 @@ import com.singularity.todo.feature.projects.presentation.screen.ProjectsScreen
  * No [rememberViewModelStoreNavEntryDecorator] is used on JVM desktop.
  */
 @Composable
-actual fun ProjectsNavGraph(
-    start: ProjectsRoute,
-    onExitGraph: (AppDestination?) -> Unit,
-    modifier: Modifier,
-) {
+actual fun ProjectsNavGraph(start: ProjectsRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
     val backStack: NavBackStack<ProjectsRoute> = rememberInMemoryNavBackStack(start)
 
     val navigator = remember(backStack, onExitGraph) {
@@ -54,10 +50,8 @@ actual fun ProjectsNavGraph(
 }
 
 @Composable
-actual fun projectsEntryProvider(): (ProjectsRoute) -> NavEntry<ProjectsRoute> {
-    return entryProvider {
-        entry<ProjectsRoute.List> { ProjectsScreen() }
-        entry<ProjectsRoute.Editor> { ProjectEditorScreen(it.projectId) }
-        entry<ProjectsRoute.Detail> { ProjectDetailScreen(it.projectId) }
-    }
+actual fun projectsEntryProvider(): (ProjectsRoute) -> NavEntry<ProjectsRoute> = entryProvider {
+    entry<ProjectsRoute.List> { ProjectsScreen() }
+    entry<ProjectsRoute.Editor> { ProjectEditorScreen(it.projectId) }
+    entry<ProjectsRoute.Detail> { ProjectDetailScreen(it.projectId) }
 }

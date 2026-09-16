@@ -1,13 +1,13 @@
 package com.singularity.todo.feature.calendar
 
+import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.goNext
 import com.singularity.todo.feature.calendar.domain.logic.goPrevious
 import com.singularity.todo.feature.calendar.domain.logic.headerLabel
+import com.singularity.todo.feature.calendar.domain.logic.lastDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.monthGridDates
 import com.singularity.todo.feature.calendar.domain.logic.visibleRange
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
-import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
-import com.singularity.todo.feature.calendar.domain.logic.lastDayOfMonth
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlin.test.Test

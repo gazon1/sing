@@ -19,15 +19,10 @@ data class UpdateProjectInput(
 )
 
 @Serializable
-data class UpdateProjectOutput(
-    val projectId: String,
-    val updated: Boolean,
-)
+data class UpdateProjectOutput(val projectId: String, val updated: Boolean)
 
-class UpdateProjectTool(
-    private val projectsRepository: ProjectsRepository,
-    private val clock: Clock,
-) : SimpleTool<UpdateProjectInput>(TypeToken.of(UpdateProjectInput::class.java), NAME, DESCRIPTION) {
+class UpdateProjectTool(private val projectsRepository: ProjectsRepository, private val clock: Clock) :
+    SimpleTool<UpdateProjectInput>(TypeToken.of(UpdateProjectInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: UpdateProjectInput): String {
         val existing = projectsRepository.watchProject(ProjectId(args.projectId)).first()

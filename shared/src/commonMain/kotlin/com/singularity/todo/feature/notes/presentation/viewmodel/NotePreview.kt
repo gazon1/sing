@@ -59,10 +59,7 @@ class NotePreview(
 
 sealed interface NotePreviewState {
     data object Loading : NotePreviewState
-    data class Loaded(
-        val note: Note,
-        val backlinks: List<Note>,
-    ) : NotePreviewState {
+    data class Loaded(val note: Note, val backlinks: List<Note>) : NotePreviewState {
         val backlinkCount: Int get() = backlinks.size
     }
 }

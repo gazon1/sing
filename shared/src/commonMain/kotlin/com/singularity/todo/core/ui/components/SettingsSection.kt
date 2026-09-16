@@ -34,11 +34,7 @@ typealias SettingsRowTrailing = @Composable RowScope.() -> Unit
  * pattern that previously lived in every Settings sub-screen.
  */
 @Composable
-fun SettingsSection(
-    title: String,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
+fun SettingsSection(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Card(modifier = modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -73,8 +69,11 @@ fun SettingsRow(
     Row(
         modifier = modifier
             .then(
-                if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick)
-                else Modifier
+                if (onClick != null) {
+                    Modifier.clickable(role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier
+                },
             )
             .fillMaxWidth()
             .padding(vertical = 12.dp),

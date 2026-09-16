@@ -15,16 +15,13 @@ import kotlinx.coroutines.flow.first
  * This validation lives in the use case rather than the ViewModel so it can be
  * reused by any caller (shell, AI tools, etc.).
  */
-class DeleteProjectUseCase(
-    private val projectRepo: ProjectsRepository,
-    private val taskRepo: TaskRepository,
-) {
+class DeleteProjectUseCase(private val projectRepo: ProjectsRepository, private val taskRepo: TaskRepository) {
     suspend operator fun invoke(id: ProjectId, userId: UserId): Result<Unit> = runCatching {
         // Guard: reject if project has tasks
         val tasks = taskRepo.watchTasks(userId, TaskFilter.ByProject(id)).first()
         if (tasks.isNotEmpty()) {
             throw AppError.Validation(
-                "Cannot delete a project that has tasks. Archive or delete the tasks first."
+                "Cannot delete a project that has tasks. Archive or delete the tasks first.",
             )
         }
         projectRepo.delete(id).getOrThrow()

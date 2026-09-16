@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.StaticConfig
 import kotlin.test.Test
-import kotlin.test.assertEquals
 
 /**
  * Basic sanity tests for Kermit Logger API.

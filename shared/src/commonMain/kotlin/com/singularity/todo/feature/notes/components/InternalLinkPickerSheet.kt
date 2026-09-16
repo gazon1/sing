@@ -139,6 +139,7 @@ fun InternalLinkPickerSheet(
                             modifier = Modifier.align(Alignment.Center),
                         )
                     }
+
                     queryFlow.collectAsState().value.isBlank() -> {
                         Text(
                             "Type to search notes and tasks",
@@ -149,6 +150,7 @@ fun InternalLinkPickerSheet(
                                 .padding(16.dp),
                         )
                     }
+
                     shownResults.isEmpty() -> {
                         Text(
                             "No results found",
@@ -159,6 +161,7 @@ fun InternalLinkPickerSheet(
                                 .padding(16.dp),
                         )
                     }
+
                     else -> {
                         LazyColumn {
                             items(shownResults, key = { "${it.kind}_${it.id}" }) { result ->
@@ -176,10 +179,7 @@ fun InternalLinkPickerSheet(
 }
 
 @Composable
-private fun LinkResultItem(
-    result: LinkResult,
-    onClick: () -> Unit,
-) {
+private fun LinkResultItem(result: LinkResult, onClick: () -> Unit) {
     val icon = when (result.kind) {
         LinkKind.Note -> Icons.AutoMirrored.Filled.Note
         LinkKind.Task -> Icons.Default.Task

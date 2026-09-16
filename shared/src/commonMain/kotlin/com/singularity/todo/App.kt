@@ -16,16 +16,12 @@ import com.singularity.todo.feature.nav.Navigator
  * [Nav3State] and [Navigator] are owned here so [LocalAppNavigator] can be provided
  * before [AuthGuard] — enabling [LoginScreen] (signed-out state) to read it.
  */
-expect @Composable
+@Composable expect
 fun App()
 
 /**
  * Shell entry point that receives the navigation state built by [App].
  * Each platform actual calls its shell function with the passed state.
  */
-expect @Composable
-fun PlatformShell(
-    state: Nav3State,
-    navigator: Navigator,
-    navCallbacks: NavCallbacks,
-)
+@Composable expect
+fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks)

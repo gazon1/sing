@@ -16,11 +16,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
  * ВЫЗЫВАТЬ ТОЛЬКО когда priority != None; снаружи сделать if-guard.
  */
 @Composable
-fun TaskPriorityCard(
-    priority: TaskPriority,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun TaskPriorityCard(priority: TaskPriority, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val (color, label) = priorityMeta(priority, PriorityPalette.TaskColors)
     TaskAttributeCard(
         icon = Icons.Outlined.ErrorOutline,
@@ -30,6 +26,6 @@ fun TaskPriorityCard(
         iconTint = color,
         textColor = TaskColors.TextPrimary,
         containerColor = TaskColors.Surface,
-        modifier = modifier
+        modifier = modifier,
     )
 }

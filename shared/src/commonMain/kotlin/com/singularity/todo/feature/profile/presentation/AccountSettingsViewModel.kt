@@ -11,9 +11,7 @@ import kotlinx.coroutines.flow.Flow
  * Owns [activeProfile] — the Composable subscribes rather than calling
  * the repository directly.
  */
-class AccountSettingsViewModel(
-    profileRepository: ProfileRepository,
-) : ViewModel() {
+class AccountSettingsViewModel(profileRepository: ProfileRepository) : ViewModel() {
 
     val activeProfile: Flow<Profile?> = profileRepository.activeProfile()
 }

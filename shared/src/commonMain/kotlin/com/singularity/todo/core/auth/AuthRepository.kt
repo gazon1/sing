@@ -31,7 +31,7 @@ interface AuthRepository {
 class SupabaseAuthRepository(
     private val log: Logger,
     private val sessionStore: SessionStore,
-    sessionCoroutineContext: CoroutineContext
+    sessionCoroutineContext: CoroutineContext,
 ) : AuthRepository {
 
     private val sessionScope = CoroutineScope(sessionCoroutineContext + SupervisorJob())

@@ -38,29 +38,29 @@ fun TaskAttributeCard(
     iconTint: Color = if (isActive) TaskColors.AccentBlue else TaskColors.TextSecondary,
     textColor: Color = if (isActive) TaskColors.TextPrimary else TaskColors.TextSecondary,
     containerColor: Color = if (isActive) TaskColors.AccentBlueContainer else TaskColors.Surface,
-    trailingContent: (@Composable () -> Unit)? = null
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     Surface(
         color = containerColor,
         shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick),
     ) {
         Row(
             modifier = Modifier
                 .padding(
                     horizontal = TaskSpacing.cardPaddingHorizontal,
-                    vertical = TaskSpacing.cardPaddingVertical
+                    vertical = TaskSpacing.cardPaddingVertical,
                 )
                 .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = iconTint,
-                modifier = Modifier.size(TaskSpacing.iconSize)
+                modifier = Modifier.size(TaskSpacing.iconSize),
             )
             Spacer(Modifier.width(TaskSpacing.lg))
             Text(
@@ -68,7 +68,7 @@ fun TaskAttributeCard(
                 color = textColor,
                 fontSize = 16.sp,
                 fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             if (trailingContent != null) {
                 trailingContent()

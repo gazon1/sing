@@ -13,9 +13,7 @@ interface AttachmentUploadService {
  * Stub implementation — no-op. Returns the local path as the "remote" URL.
  */
 class StubAttachmentUploadService : AttachmentUploadService {
-    override suspend fun upload(attachment: Attachment): Result<String> =
-        Result.success(attachment.localPath ?: "")
+    override suspend fun upload(attachment: Attachment): Result<String> = Result.success(attachment.localPath ?: "")
 
-    override suspend fun download(remotePath: String, targetPath: String): Result<Unit> =
-        Result.success(Unit)
+    override suspend fun download(remotePath: String, targetPath: String): Result<Unit> = Result.success(Unit)
 }

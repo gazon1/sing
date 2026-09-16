@@ -1,9 +1,9 @@
 package com.singularity.todo.core.attachments
 
 import com.singularity.todo.core.files.MimeTypes
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -15,21 +15,16 @@ interface AttachmentRepository {
         taskId: TaskId,
         userId: UserId,
         sourcePath: String,
-        mimeType: String?
+        mimeType: String?,
     ): Result<Attachment>
-    suspend fun addUrlAttachment(
-        taskId: TaskId,
-        userId: UserId,
-        url: String,
-        title: String?
-    ): Result<Attachment>
+    suspend fun addUrlAttachment(taskId: TaskId, userId: UserId, url: String, title: String?): Result<Attachment>
 }
 
 class AttachmentRepositoryImpl(
     private val dao: AttachmentDao,
     private val storage: AttachmentStorage,
     private val uploadService: AttachmentUploadService,
-    private val clock: Clock
+    private val clock: Clock,
 ) : AttachmentRepository {
 
     override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Attachment>> =
@@ -50,7 +45,7 @@ class AttachmentRepositoryImpl(
         taskId: TaskId,
         userId: UserId,
         sourcePath: String,
-        mimeType: String?
+        mimeType: String?,
     ): Result<Attachment> = runCatching {
         val id = AttachmentDomain.generateAttachmentId()
         val ext = AttachmentDomain.extractExtension(sourcePath)
@@ -72,7 +67,7 @@ class AttachmentRepositoryImpl(
             checksum = checksum,
             syncStatus = AttachmentSyncStatus.Pending,
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
         )
 
         dao.upsert(attachment.toEntity())
@@ -83,7 +78,7 @@ class AttachmentRepositoryImpl(
         taskId: TaskId,
         userId: UserId,
         url: String,
-        title: String?
+        title: String?,
     ): Result<Attachment> = runCatching {
         AttachmentDomain.validateUrl(url).getOrThrow()
 
@@ -99,7 +94,7 @@ class AttachmentRepositoryImpl(
             title = title ?: "",
             syncStatus = AttachmentSyncStatus.Pending,
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
         )
 
         dao.upsert(attachment.toEntity())
@@ -124,7 +119,7 @@ private fun AttachmentEntity.toAttachment(): Attachment = Attachment(
     syncStatus = AttachmentSyncStatus.fromString(syncStatus),
     createdAt = kotlin.time.Instant.fromEpochMilliseconds(createdAt),
     updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt),
-    deletedAt = deletedAt?.let { kotlin.time.Instant.fromEpochMilliseconds(it) }
+    deletedAt = deletedAt?.let { kotlin.time.Instant.fromEpochMilliseconds(it) },
 )
 
 private fun Attachment.toEntity(): AttachmentEntity = AttachmentEntity(
@@ -144,5 +139,5 @@ private fun Attachment.toEntity(): AttachmentEntity = AttachmentEntity(
     updatedAt = updatedAt.toEpochMilliseconds(),
     deletedAt = deletedAt?.toEpochMilliseconds(),
     serverVersion = serverVersion,
-    hlc = hlc
+    hlc = hlc,
 )

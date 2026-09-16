@@ -44,11 +44,7 @@ object AdrStorage {
 
     // ─── Frontmatter parsing ───────────────────────────────────────────────────
 
-    data class AdrFrontmatter(
-        val title: String,
-        val date: String,
-        val tags: List<String>,
-    )
+    data class AdrFrontmatter(val title: String, val date: String, val tags: List<String>)
 
     fun parseFrontmatter(content: String): AdrFrontmatter? {
         val start = content.indexOf("---")
@@ -61,7 +57,9 @@ object AdrStorage {
         for (line in yaml.lines()) {
             when {
                 line.startsWith("title:") -> title = line.removePrefix("title:").trim().trim('"')
+
                 line.startsWith("date:") -> date = line.removePrefix("date:").trim()
+
                 line.startsWith("tags:") -> {
                     val rest = line.removePrefix("tags:").trim().removeSurrounding("[", "]")
                     if (rest.isNotEmpty()) {
@@ -119,12 +117,7 @@ object AdrStorage {
     // ─── Data classes ─────────────────────────────────────────────────────────
 
     @Serializable
-    data class AdrSummary(
-        val slug: String,
-        val title: String,
-        val date: String,
-        val tags: List<String>,
-    )
+    data class AdrSummary(val slug: String, val title: String, val date: String, val tags: List<String>)
 
     @Serializable
     data class AdrFile(
@@ -149,11 +142,7 @@ object AdrStorage {
     )
 
     @Serializable
-    data class WriteAdrOutput(
-        val slug: String,
-        val path: String,
-        val title: String,
-    )
+    data class WriteAdrOutput(val slug: String, val path: String, val title: String)
 }
 
 // ─── Tools ─────────────────────────────────────────────────────────────────────
@@ -161,11 +150,12 @@ object AdrStorage {
 @Serializable
 data class ListAdrsInput(val limit: Int = 50)
 
-class ListAdrsTool : SimpleTool<ListAdrsInput>(
-    TypeToken.of(ListAdrsInput::class.java),
-    NAME,
-    DESCRIPTION,
-) {
+class ListAdrsTool :
+    SimpleTool<ListAdrsInput>(
+        TypeToken.of(ListAdrsInput::class.java),
+        NAME,
+        DESCRIPTION,
+    ) {
     override suspend fun execute(args: ListAdrsInput): String {
         val adrs = AdrStorage.listAdrs().take(args.limit)
         return Json.encodeToString(
@@ -183,11 +173,12 @@ class ListAdrsTool : SimpleTool<ListAdrsInput>(
 @Serializable
 data class ReadAdrInput(val slug: String)
 
-class ReadAdrTool : SimpleTool<ReadAdrInput>(
-    TypeToken.of(ReadAdrInput::class.java),
-    NAME,
-    DESCRIPTION,
-) {
+class ReadAdrTool :
+    SimpleTool<ReadAdrInput>(
+        TypeToken.of(ReadAdrInput::class.java),
+        NAME,
+        DESCRIPTION,
+    ) {
     override suspend fun execute(args: ReadAdrInput): String {
         val adr = AdrStorage.readAdr(args.slug)
             ?: return Json.encodeToString(
@@ -207,18 +198,14 @@ class ReadAdrTool : SimpleTool<ReadAdrInput>(
 }
 
 @Serializable
-data class WriteAdrInput(
-    val slug: String,
-    val title: String,
-    val tags: List<String> = emptyList(),
-    val body: String,
-)
+data class WriteAdrInput(val slug: String, val title: String, val tags: List<String> = emptyList(), val body: String)
 
-class WriteAdrTool : SimpleTool<WriteAdrInput>(
-    TypeToken.of(WriteAdrInput::class.java),
-    NAME,
-    DESCRIPTION,
-) {
+class WriteAdrTool :
+    SimpleTool<WriteAdrInput>(
+        TypeToken.of(WriteAdrInput::class.java),
+        NAME,
+        DESCRIPTION,
+    ) {
     override suspend fun execute(args: WriteAdrInput): String {
         val path = AdrStorage.writeAdr(args.slug, args.title, args.tags, args.body)
         return Json.encodeToString(

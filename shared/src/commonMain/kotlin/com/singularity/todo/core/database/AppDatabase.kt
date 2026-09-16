@@ -1,9 +1,9 @@
 package com.singularity.todo.core.database
 
-import androidx.room3.Database
-import androidx.room3.RoomDatabase
 import androidx.room3.AutoMigration
 import androidx.room3.ColumnTypeConverters
+import androidx.room3.Database
+import androidx.room3.RoomDatabase
 import com.singularity.todo.core.attachments.AttachmentConverters
 import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentEntity
@@ -37,7 +37,7 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         AutoMigration(from = 9, to = 10, spec = Migration9To10::class),
         AutoMigration(from = 10, to = 11, spec = Migration10To11::class),
     ],
-    exportSchema = true
+    exportSchema = true,
 )
 @ColumnTypeConverters(AttachmentConverters::class)
 abstract class AppDatabase : RoomDatabase() {

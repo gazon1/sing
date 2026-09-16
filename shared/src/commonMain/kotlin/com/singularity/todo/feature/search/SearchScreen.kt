@@ -1,8 +1,5 @@
 package com.singularity.todo.feature.search
 
-import com.singularity.todo.core.ui.preview.PreviewSamples
-import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,9 +23,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.search.presentation.nav.LocalSearchNavigator
 import com.singularity.todo.feature.search.presentation.nav.PreviewSearchNavigator
 import com.singularity.todo.feature.search.presentation.nav.SearchNavigator
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
 import org.koin.compose.viewmodel.koinViewModel
@@ -62,10 +62,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
 }
 
 @Composable
-private fun SearchResultsList(
-    results: SearchResults,
-    navigator: SearchNavigator,
-) {
+private fun SearchResultsList(results: SearchResults, navigator: SearchNavigator) {
     val hasAny = results.tasks.isNotEmpty() || results.notes.isNotEmpty() ||
         results.projects.isNotEmpty() || results.tags.isNotEmpty()
     if (!hasAny) {
@@ -133,10 +130,7 @@ private fun SimpleResultCard(title: String, onClick: () -> Unit) {
  * available inside [SearchNavGraph].
  */
 @Composable
-private fun SearchResultsListPreviewContent(
-    results: SearchResults,
-    navigator: SearchNavigator,
-) {
+private fun SearchResultsListPreviewContent(results: SearchResults, navigator: SearchNavigator) {
     SearchResultsList(results = results, navigator = navigator)
 }
 

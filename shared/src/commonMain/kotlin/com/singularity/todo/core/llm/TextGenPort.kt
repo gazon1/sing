@@ -15,11 +15,7 @@ interface TextGenPort {
      *
      * Returns a [Flow] of string chunks (streaming), or a single result.
      */
-    suspend fun generate(
-        prompt: String,
-        systemPrompt: String? = null,
-        model: String? = null
-    ): Result<String>
+    suspend fun generate(prompt: String, systemPrompt: String? = null, model: String? = null): Result<String>
 
     /**
      * Streams a chat response token-by-token.

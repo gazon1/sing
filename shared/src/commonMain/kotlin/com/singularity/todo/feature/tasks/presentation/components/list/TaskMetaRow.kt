@@ -103,7 +103,12 @@ private fun TaskMetaRowPreview() {
             TaskMetaRow("Сб, 05 сент 2026", "Семья", isRecurring = true, isOverdue = false)
             TaskMetaRow("Пн, 12 янв 2026", "Блог github pages", isRecurring = true, isOverdue = true)
             TaskMetaRow("Пн, 10 нояб 2025", null, isRecurring = false, isOverdue = true)
-            TaskMetaRow(null, "Очень длинное название проекта которое точно не влезет в строку", isRecurring = false, isOverdue = false)
+            TaskMetaRow(
+                null,
+                "Очень длинное название проекта которое точно не влезет в строку",
+                isRecurring = false,
+                isOverdue = false,
+            )
             TaskMetaRow(null, "Без проекта", isRecurring = false, isOverdue = false)
         }
     }

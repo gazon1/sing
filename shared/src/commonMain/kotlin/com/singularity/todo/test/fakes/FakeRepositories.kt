@@ -11,6 +11,10 @@ import com.singularity.todo.core.backup.BackupResult
 import com.singularity.todo.core.backup.ExportOptions
 import com.singularity.todo.core.backup.ImportOptions
 import com.singularity.todo.core.backup.RestoreResult
+import com.singularity.todo.core.database.ProjectEntity
+import com.singularity.todo.core.database.ProjectWithCountRow
+import com.singularity.todo.core.database.SyncColumns
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.checklist.ChecklistItem
@@ -20,21 +24,17 @@ import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.ProfileRepository
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.projects.domain.model.Project
-import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.core.database.ProjectEntity
-import com.singularity.todo.core.database.ProjectWithCountRow
-import com.singularity.todo.core.database.SyncColumns
-import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -50,9 +50,7 @@ import kotlinx.datetime.toLocalDateTime
 
 // ─── SessionStore ─────────────────────────────────────────────────────────────
 
-class FakeSessionStore(
-    initialUserId: String = "test-user"
-) : SessionStore {
+class FakeSessionStore(initialUserId: String = "test-user") : SessionStore {
     override val accessToken = MutableStateFlow<String?>(null)
     override val refreshToken = MutableStateFlow<String?>(null)
     override val userEmail = MutableStateFlow<String?>(null)
@@ -79,9 +77,7 @@ class FakeSessionStore(
 
 // ─── SettingsRepository ────────────────────────────────────────────────────────
 
-class FakeSettingsRepository(
-    initialUserId: String = "test-user"
-) : SettingsRepository {
+class FakeSettingsRepository(initialUserId: String = "test-user") : SettingsRepository {
     private val _darkTheme = MutableStateFlow(false)
     private val _accentColor = MutableStateFlow("blue")
     private val _fontSizeScale = MutableStateFlow(1f)
@@ -124,26 +120,69 @@ class FakeSettingsRepository(
     override val greetingAfternoonEnd: Flow<Int> = _greetingAfternoonEnd
     override val userId: Flow<String> = _userId
 
-    override suspend fun setDarkTheme(value: Boolean) { _darkTheme.value = value }
-    override suspend fun setAccentColor(value: String) { _accentColor.value = value }
-    override suspend fun setFontSizeScale(value: Float) { _fontSizeScale.value = value }
-    override suspend fun setAiProvider(value: String) { _aiProvider.value = value }
-    override suspend fun setAiModel(value: String) { _aiModel.value = value }
-    override suspend fun setAiBaseUrl(value: String) { _aiBaseUrl.value = value }
-    override suspend fun setAiSystemPrompt(value: String) { _aiSystemPrompt.value = value }
-    override suspend fun setNotificationsEnabled(value: Boolean) { _notificationsEnabled.value = value }
-    override suspend fun setNotificationSound(value: Boolean) { _notificationSound.value = value }
-    override suspend fun setNotificationVibration(value: Boolean) { _notificationVibration.value = value }
-    override suspend fun setReminderDefault(value: com.singularity.todo.core.reminders.ReminderOffset) { _reminderDefault.value = value }
-    override suspend fun setWorkDayStartMinutes(value: Int) { _workDayStartMinutes.value = value }
-    override suspend fun setWorkDayEndMinutes(value: Int) { _workDayEndMinutes.value = value }
-    override suspend fun setWorkLunchStartMinutes(value: Int) { _workLunchStartMinutes.value = value }
-    override suspend fun setWorkLunchEndMinutes(value: Int) { _workLunchEndMinutes.value = value }
-    override suspend fun setWorkWeekendSat(value: Boolean) { _workWeekendSat.value = value }
-    override suspend fun setWorkWeekendSun(value: Boolean) { _workWeekendSun.value = value }
-    override suspend fun setGreetingMorningEnd(hour: Int) { _greetingMorningEnd.value = hour }
-    override suspend fun setGreetingAfternoonEnd(hour: Int) { _greetingAfternoonEnd.value = hour }
-    override suspend fun setUserId(value: String) { _userId.value = value }
+    override suspend fun setDarkTheme(value: Boolean) {
+        _darkTheme.value = value
+    }
+    override suspend fun setAccentColor(value: String) {
+        _accentColor.value = value
+    }
+    override suspend fun setFontSizeScale(value: Float) {
+        _fontSizeScale.value = value
+    }
+    override suspend fun setAiProvider(value: String) {
+        _aiProvider.value = value
+    }
+    override suspend fun setAiModel(value: String) {
+        _aiModel.value = value
+    }
+    override suspend fun setAiBaseUrl(value: String) {
+        _aiBaseUrl.value = value
+    }
+    override suspend fun setAiSystemPrompt(value: String) {
+        _aiSystemPrompt.value = value
+    }
+    override suspend fun setNotificationsEnabled(value: Boolean) {
+        _notificationsEnabled.value = value
+    }
+    override suspend fun setNotificationSound(value: Boolean) {
+        _notificationSound.value = value
+    }
+    override suspend fun setNotificationVibration(value: Boolean) {
+        _notificationVibration.value = value
+    }
+    override suspend fun setReminderDefault(
+        value: com.singularity.todo.core.reminders.ReminderOffset,
+    ) {
+        _reminderDefault.value =
+        value
+    }
+    override suspend fun setWorkDayStartMinutes(value: Int) {
+        _workDayStartMinutes.value = value
+    }
+    override suspend fun setWorkDayEndMinutes(value: Int) {
+        _workDayEndMinutes.value = value
+    }
+    override suspend fun setWorkLunchStartMinutes(value: Int) {
+        _workLunchStartMinutes.value = value
+    }
+    override suspend fun setWorkLunchEndMinutes(value: Int) {
+        _workLunchEndMinutes.value = value
+    }
+    override suspend fun setWorkWeekendSat(value: Boolean) {
+        _workWeekendSat.value = value
+    }
+    override suspend fun setWorkWeekendSun(value: Boolean) {
+        _workWeekendSun.value = value
+    }
+    override suspend fun setGreetingMorningEnd(hour: Int) {
+        _greetingMorningEnd.value = hour
+    }
+    override suspend fun setGreetingAfternoonEnd(hour: Int) {
+        _greetingAfternoonEnd.value = hour
+    }
+    override suspend fun setUserId(value: String) {
+        _userId.value = value
+    }
 }
 
 // ─── BackupRepository ─────────────────────────────────────────────────────────
@@ -243,33 +282,38 @@ class FakeTaskRepository : TaskRepository {
         }
     }
 
-    override fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> =
-        store.state
-            .onStart { emit(store.state.value) }
-            .map { map ->
-                map.values
-                    .filter { it.userId == userId }
-                    .filter { TaskDomain.matchesFilter(it, filter, kotlin.time.Instant.fromEpochMilliseconds(Clock.now().toEpochMilliseconds()).toLocalDateTime(TimeZone.currentSystemDefault()).date) }
-                    .sortedWith(compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }))
-            }
+    override fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> = store.state
+        .onStart { emit(store.state.value) }
+        .map { map ->
+            map.values
+                .filter { it.userId == userId }
+                .filter {
+                    TaskDomain.matchesFilter(
+                        it,
+                        filter,
+                        kotlin.time.Instant.fromEpochMilliseconds(
+                            Clock.now().toEpochMilliseconds(),
+                        ).toLocalDateTime(TimeZone.currentSystemDefault()).date,
+                    )
+                }
+                .sortedWith(compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }))
+        }
 
     override fun watchTask(id: TaskId): Flow<Task?> =
         store.state.onStart { emit(store.state.value) }.map { it[id.value] }
 
-    override fun watchTasksByDate(userId: UserId, date: kotlinx.datetime.LocalDate): Flow<List<Task>> =
-        store.state
-            .onStart { emit(store.state.value) }
-            .map { map ->
-                map.values
-                    .filter { it.userId == userId }
-                    .filter { !it.isTrashed && !it.someday && it.dueDate == date }
-                    .sortedWith(compareBy({ !it.isPinned }))
-            }
+    override fun watchTasksByDate(userId: UserId, date: kotlinx.datetime.LocalDate): Flow<List<Task>> = store.state
+        .onStart { emit(store.state.value) }
+        .map { map ->
+            map.values
+                .filter { it.userId == userId }
+                .filter { !it.isTrashed && !it.someday && it.dueDate == date }
+                .sortedWith(compareBy({ !it.isPinned }))
+        }
 
-    override fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> =
-        store.state
-            .onStart { emit(store.state.value) }
-            .map { map -> map.values.filter { it.parentTaskId == parentId && it.userId.value == userId.value } }
+    override fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> = store.state
+        .onStart { emit(store.state.value) }
+        .map { map -> map.values.filter { it.parentTaskId == parentId && it.userId.value == userId.value } }
 
     override fun getTagIds(taskId: TaskId): Flow<List<TagId>> =
         store.state.map { it[taskId.value]?.tags ?: emptyList() }
@@ -311,9 +355,7 @@ class FakeChecklistRepository : ChecklistRepository {
 
 // ─── ReminderRepository ──────────────────────────────────────────────────────
 
-class FakeReminderRepository(
-    initialUserId: UserId = UserId("test-user"),
-) : ReminderRepository {
+class FakeReminderRepository(initialUserId: UserId = UserId("test-user")) : ReminderRepository {
     internal val reminders = MutableStateFlow<Map<String, Reminder>>(emptyMap())
 
     fun seed(vararg reminders: Reminder) {
@@ -326,8 +368,9 @@ class FakeReminderRepository(
     override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Reminder>> =
         reminders.map { map -> map.values.filter { it.taskId == taskId && it.userId == userId }.sortedBy { it.fireAt } }
 
-    override fun watchDueBefore(nowEpochMs: Long, userId: UserId): Flow<List<Reminder>> =
-        reminders.map { map -> map.values.filter { it.fireAt <= nowEpochMs && it.userId == userId }.sortedBy { it.fireAt } }
+    override fun watchDueBefore(nowEpochMs: Long, userId: UserId): Flow<List<Reminder>> = reminders.map { map ->
+        map.values.filter { it.fireAt <= nowEpochMs && it.userId == userId }.sortedBy { it.fireAt }
+    }
 
     override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatching {
         reminders.value += (reminder.id.value to reminder)
@@ -348,9 +391,7 @@ class FakeReminderRepository(
 
 // ─── AuthRepository ───────────────────────────────────────────────────────────
 
-class FakeAuthRepository(
-    initialSession: Session = Session.Anonymous(UserId.anonymous)
-) : AuthRepository {
+class FakeAuthRepository(initialSession: Session = Session.Anonymous(UserId.anonymous)) : AuthRepository {
     private val _session = MutableStateFlow(initialSession)
     override val session: StateFlow<Session> = _session.asStateFlow()
 
@@ -384,45 +425,47 @@ class FakeProjectsRepository : ProjectsRepository {
     override fun watchProject(id: ProjectId): Flow<Project?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
-    override suspend fun getById(id: ProjectId): Project? =
-        store[id.value]
+    override suspend fun getById(id: ProjectId): Project? = store[id.value]
 
     override fun changes(id: ProjectId): Flow<Project?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
-    override fun watchProjectsWithCounts(userId: UserId): Flow<List<ProjectWithCountRow>> =
-        store.state.map { list ->
-            list.values
-                .filter { it.userId == userId && !it.isDeleted }
-                .map { p ->
-                    ProjectWithCountRow(
-                        project = ProjectEntity(
-                            id = p.id.value, userId = p.userId.value, name = p.name, color = p.color,
-                            icon = p.icon, description = p.description, createdAt = p.createdAt.toEpochMilliseconds(),
-                            updatedAt = p.updatedAt.toEpochMilliseconds(), isDefault = p.isDefault,
-                            dueDate = p.dueDate?.toString(), team = p.team, isDeleted = p.isDeleted,
-                            deletedAt = p.deletedAt?.toEpochMilliseconds(), parentId = p.parentId?.value,
-                            sortOrder = p.sortOrder, idempotencyKey = p.idempotencyKey, externalId = p.externalId,
-                            sync = SyncColumns(),
-                        ),
-                        totalCount = 0,
-                        completedCount = 0,
-                    )
-                }
-        }
+    override fun watchProjectsWithCounts(userId: UserId): Flow<List<ProjectWithCountRow>> = store.state.map { list ->
+        list.values
+            .filter { it.userId == userId && !it.isDeleted }
+            .map { p ->
+                ProjectWithCountRow(
+                    project = ProjectEntity(
+                        id = p.id.value, userId = p.userId.value, name = p.name, color = p.color,
+                        icon = p.icon, description = p.description, createdAt = p.createdAt.toEpochMilliseconds(),
+                        updatedAt = p.updatedAt.toEpochMilliseconds(), isDefault = p.isDefault,
+                        dueDate = p.dueDate?.toString(), team = p.team, isDeleted = p.isDeleted,
+                        deletedAt = p.deletedAt?.toEpochMilliseconds(), parentId = p.parentId?.value,
+                        sortOrder = p.sortOrder, idempotencyKey = p.idempotencyKey, externalId = p.externalId,
+                        sync = SyncColumns(),
+                    ),
+                    totalCount = 0,
+                    completedCount = 0,
+                )
+            }
+    }
 
     override fun watchByParent(parentId: ProjectId): Flow<List<Project>> =
         store.state.map { list -> list.values.filter { it.parentId == parentId && !it.isDeleted } }
 
     override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {
         store[id.value]?.let { existing ->
-            store.upsert(existing.copy(parentId = parentId, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)))
+            store.upsert(
+                existing.copy(parentId = parentId, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)),
+            )
         }
     }
 
     override suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long) {
         store[id.value]?.let { existing ->
-            store.upsert(existing.copy(sortOrder = sortOrder, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)))
+            store.upsert(
+                existing.copy(sortOrder = sortOrder, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)),
+            )
         }
     }
 
@@ -459,10 +502,9 @@ class FakeTagsRepository : com.singularity.todo.feature.tags.TagsRepository {
     fun add(tag: com.singularity.todo.feature.tags.Tag) = store.upsert(tag)
     fun clear() = store.clear()
 
-    override fun watchTags(userId: String): Flow<List<com.singularity.todo.feature.tags.Tag>> =
-        store.state
-            .onStart { emit(store.state.value) }
-            .map { list -> list.values.filter { it.userId == userId } }
+    override fun watchTags(userId: String): Flow<List<com.singularity.todo.feature.tags.Tag>> = store.state
+        .onStart { emit(store.state.value) }
+        .map { list -> list.values.filter { it.userId == userId } }
 
     override fun watchTag(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
@@ -487,12 +529,16 @@ class FakeAttachmentRepository : com.singularity.todo.core.attachments.Attachmen
 
     fun seed(vararg attachments: com.singularity.todo.core.attachments.Attachment) = store.seed(attachments.toList())
 
-    override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
+    override fun watchByTask(
+        taskId: TaskId,
+        userId: UserId,
+    ): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
         store.state.map { list -> list.values.filter { it.taskId == taskId && it.userId == userId } }
 
-    override suspend fun create(attachment: com.singularity.todo.core.attachments.Attachment): Result<Unit> = runCatching {
-        store.upsert(attachment)
-    }
+    override suspend fun create(attachment: com.singularity.todo.core.attachments.Attachment): Result<Unit> =
+        runCatching {
+            store.upsert(attachment)
+        }
 
     override suspend fun delete(id: com.singularity.todo.core.attachments.AttachmentId): Result<Unit> = runCatching {
         store.remove(id.value)
@@ -557,17 +603,36 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
         store.state.map { list -> list.values.filter { it.userId == userId && it.isPinned && it.deletedAt == null } }
 
     override fun watchArchived(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        store.state.map { list -> list.values.filter { it.userId == userId && it.archivedAt != null && it.deletedAt == null } }
+        store.state.map { list ->
+            list.values.filter {
+                it.userId == userId && it.archivedAt != null &&
+                    it.deletedAt == null
+            }
+        }
 
     override fun watchRootNotes(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        store.state.map { list -> list.values.filter { it.userId == userId && it.parentNoteId == null && !it.isFolder && it.deletedAt == null } }
+        store.state.map { list ->
+            list.values.filter {
+                it.userId == userId && it.parentNoteId == null && !it.isFolder &&
+                    it.deletedAt == null
+            }
+        }
 
-    override fun watchNote(id: com.singularity.todo.feature.notes.NoteId): Flow<com.singularity.todo.feature.notes.Note?> =
+    override fun watchNote(
+        id: com.singularity.todo.feature.notes.NoteId,
+    ): Flow<com.singularity.todo.feature.notes.Note?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
     override fun searchNotes(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
         store.state.map { list ->
-            list.values.filter { note -> note.deletedAt == null && (note.title.contains(query, ignoreCase = true) || (note.bodyMarkdown?.contains(query, ignoreCase = true) == true)) }
+            list.values.filter { note ->
+                note.deletedAt == null && (
+                    note.title.contains(
+                    query,
+                    ignoreCase = true,
+                ) || (note.bodyMarkdown?.contains(query, ignoreCase = true) == true)
+                )
+            }
         }
 
     override suspend fun create(note: com.singularity.todo.feature.notes.Note): Result<Unit> = runCatching {
@@ -601,7 +666,10 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
         id
     }
 
-    override suspend fun createNoteWithTitle(userId: UserId, title: String): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
+    override suspend fun createNoteWithTitle(
+        userId: UserId,
+        title: String,
+    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
         val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
         val now = Clock.now()
         val note = com.singularity.todo.feature.notes.Note(
@@ -634,7 +702,7 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
                     wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
                     charCount = bodyMarkdown.length,
                     updatedAt = Clock.now(),
-                )
+                ),
             )
         }
     }
@@ -663,25 +731,33 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
         }
     }
 
-    override suspend fun setPinned(id: com.singularity.todo.feature.notes.NoteId, pinned: Boolean): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(isPinned = pinned, pinnedAt = if (pinned) Clock.now() else null))
+    override suspend fun setPinned(id: com.singularity.todo.feature.notes.NoteId, pinned: Boolean): Result<Unit> =
+        runCatching {
+            store[id.value]?.let { existing ->
+                store.upsert(existing.copy(isPinned = pinned, pinnedAt = if (pinned) Clock.now() else null))
+            }
         }
-    }
 
-    override suspend fun setColor(id: com.singularity.todo.feature.notes.NoteId, color: com.singularity.todo.feature.notes.NoteColor?): Result<Unit> = runCatching {
+    override suspend fun setColor(
+        id: com.singularity.todo.feature.notes.NoteId,
+        color: com.singularity.todo.feature.notes.NoteColor?,
+    ): Result<Unit> = runCatching {
         store[id.value]?.let { existing ->
             store.upsert(existing.copy(color = color))
         }
     }
 
-    override suspend fun setSortOrder(id: com.singularity.todo.feature.notes.NoteId, sortOrder: Int): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(sortOrder = sortOrder))
+    override suspend fun setSortOrder(id: com.singularity.todo.feature.notes.NoteId, sortOrder: Int): Result<Unit> =
+        runCatching {
+            store[id.value]?.let { existing ->
+                store.upsert(existing.copy(sortOrder = sortOrder))
+            }
         }
-    }
 
-    override suspend fun setOutgoingLinks(id: com.singularity.todo.feature.notes.NoteId, links: List<String>): Result<Unit> = runCatching {
+    override suspend fun setOutgoingLinks(
+        id: com.singularity.todo.feature.notes.NoteId,
+        links: List<String>,
+    ): Result<Unit> = runCatching {
         store[id.value]?.let { existing ->
             store.upsert(existing.copy(outgoingLinks = links))
         }
@@ -706,8 +782,8 @@ class FakeProfileRepository : ProfileRepository {
                 isDefault = true,
                 createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
                 updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-            )
-        )
+            ),
+        ),
     )
 
     private val _activeProfileId = MutableStateFlow(ProfileId.default)
@@ -723,21 +799,24 @@ class FakeProfileRepository : ProfileRepository {
     override suspend fun create(name: String, emoji: String, colorIdx: Int): ProfileId {
         val id = ProfileId.generate()
         _profiles.value += Profile(
-                    id = id,
-                    name = name,
-                    emoji = emoji,
-                    colorIdx = colorIdx,
-                    isDefault = false,
-                    createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
-                    updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
-                )
+            id = id,
+            name = name,
+            emoji = emoji,
+            colorIdx = colorIdx,
+            isDefault = false,
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+        )
         return id
     }
 
     override suspend fun update(id: ProfileId, name: String, emoji: String, colorIdx: Int) {
         _profiles.value = _profiles.value.map {
-            if (it.id == id) it.copy(name = name, emoji = emoji, colorIdx = colorIdx)
-            else it
+            if (it.id == id) {
+                it.copy(name = name, emoji = emoji, colorIdx = colorIdx)
+            } else {
+                it
+            }
         }
     }
 
@@ -756,8 +835,7 @@ class FakeProfileRepository : ProfileRepository {
         _activeProfileId.value = id
     }
 
-    override suspend fun getById(id: ProfileId): Profile? =
-        _profiles.value.find { it.id == id }
+    override suspend fun getById(id: ProfileId): Profile? = _profiles.value.find { it.id == id }
 
     override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
         // In-memory fake: just append any missing extras; default already present
@@ -765,14 +843,14 @@ class FakeProfileRepository : ProfileRepository {
         for ((name, emoji, colorIdx) in extraProfiles) {
             if (_profiles.value.any { it.name == name }) continue
             _profiles.value += Profile(
-                            id = ProfileId.generate(),
-                            name = name,
-                            emoji = emoji,
-                            colorIdx = colorIdx,
-                            isDefault = false,
-                            createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
-                            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
-                        )
+                id = ProfileId.generate(),
+                name = name,
+                emoji = emoji,
+                colorIdx = colorIdx,
+                isDefault = false,
+                createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            )
         }
     }
 }

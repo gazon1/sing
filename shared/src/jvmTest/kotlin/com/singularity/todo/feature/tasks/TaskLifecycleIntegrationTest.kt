@@ -5,11 +5,7 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
-import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
-import com.singularity.todo.test.fakes.FakeCurrentUser
-import com.singularity.todo.test.fakes.FakeReminderRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -18,7 +14,6 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
@@ -53,7 +48,7 @@ class TaskLifecycleIntegrationTest {
                 isPinned = isPinned,
                 createdAt = now,
                 updatedAt = now,
-            )
+            ),
         )
     }
 
@@ -66,13 +61,15 @@ class TaskLifecycleIntegrationTest {
         val checklistUseCase = ChecklistUseCase(checklistRepo, Clock)
         val taskId = TaskId.fromString("t-checklist")
 
-        taskRepo.seed(Task(
+        taskRepo.seed(
+            Task(
             id = taskId,
             userId = testUserId,
             title = "Shopping",
             createdAt = Clock.now(),
             updatedAt = Clock.now(),
-        ))
+        )
+        )
 
         val itemId = checklistUseCase.addItem(taskId.value, "Milk").getOrThrow()
         advanceUntilIdle()
@@ -90,13 +87,15 @@ class TaskLifecycleIntegrationTest {
         val checklistUseCase = ChecklistUseCase(checklistRepo, Clock)
         val taskId = TaskId.fromString("t-multi")
 
-        taskRepo.seed(Task(
+        taskRepo.seed(
+            Task(
             id = taskId,
             userId = testUserId,
             title = "Multi",
             createdAt = Clock.now(),
             updatedAt = Clock.now(),
-        ))
+        )
+        )
 
         checklistUseCase.addItem(taskId.value, "Milk")
         checklistUseCase.addItem(taskId.value, "Bread")
@@ -113,13 +112,15 @@ class TaskLifecycleIntegrationTest {
         val checklistUseCase = ChecklistUseCase(checklistRepo, Clock)
         val taskId = TaskId.fromString("t-toggle")
 
-        taskRepo.seed(Task(
+        taskRepo.seed(
+            Task(
             id = taskId,
             userId = testUserId,
             title = "Toggle test",
             createdAt = Clock.now(),
             updatedAt = Clock.now(),
-        ))
+        )
+        )
 
         val itemId = checklistUseCase.addItem(taskId.value, "Step 1").getOrThrow()
         advanceUntilIdle()
@@ -141,13 +142,15 @@ class TaskLifecycleIntegrationTest {
         val checklistUseCase = ChecklistUseCase(checklistRepo, Clock)
         val taskId = TaskId.fromString("t-del")
 
-        taskRepo.seed(Task(
+        taskRepo.seed(
+            Task(
             id = taskId,
             userId = testUserId,
             title = "Delete test",
             createdAt = Clock.now(),
             updatedAt = Clock.now(),
-        ))
+        )
+        )
 
         val itemId = checklistUseCase.addItem(taskId.value, "Temp item").getOrThrow()
         advanceUntilIdle()

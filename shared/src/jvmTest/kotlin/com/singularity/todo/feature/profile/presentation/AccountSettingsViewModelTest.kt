@@ -1,10 +1,8 @@
 package com.singularity.todo.feature.profile.presentation
 
-import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals

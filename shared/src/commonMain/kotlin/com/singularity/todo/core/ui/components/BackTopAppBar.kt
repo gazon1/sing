@@ -1,6 +1,5 @@
 package com.singularity.todo.core.ui.components
 
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
@@ -14,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.ui.preview.PreviewThemed
 
 /**
  * Scaffold + TopAppBar with a back-arrow navigation icon.
@@ -83,7 +83,11 @@ private fun BackTopAppBarDarkPreview() = PreviewThemed(darkTheme = true, useSurf
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun BackTopAppBarPurpleDarkPreview() = PreviewThemed(darkTheme = true, accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple, useSurface = false) {
+private fun BackTopAppBarPurpleDarkPreview() = PreviewThemed(
+    darkTheme = true,
+    accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
+    useSurface = false,
+) {
     BackTopAppBar(
         title = "Settings",
         onBack = {},

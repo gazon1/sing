@@ -15,9 +15,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /**
@@ -60,7 +60,7 @@ class TasksDomainTest {
     fun `createInput - valid input returns Right with trimmed title`() {
         val result = TaskDomain.createInput(
             title = "  Buy groceries  ",
-            userId = UserId.anonymous
+            userId = UserId.anonymous,
         )
         assertIs<Either.Right<CreateTaskInput>>(result)
         assertEquals("Buy groceries", result.value.title)
@@ -82,7 +82,7 @@ class TasksDomainTest {
             dueDate = dueDate,
             dueTime = com.singularity.todo.core.database.LocalTimeFormats.parse("14:00:00"),
             someday = false,
-            userId = UserId.anonymous
+            userId = UserId.anonymous,
         )
 
         assertIs<Either.Right<CreateTaskInput>>(result)
@@ -102,7 +102,7 @@ class TasksDomainTest {
     fun `buildTask - creates task with correct fields`() {
         val input = CreateTaskInput(
             title = "Test task",
-            userId = UserId.fromString("user-1")
+            userId = UserId.fromString("user-1"),
         )
         val createdAt = Instant.fromEpochMilliseconds(1000)
         val updatedAt = Instant.fromEpochMilliseconds(2000)
@@ -128,7 +128,7 @@ class TasksDomainTest {
         projectId: ProjectId? = null,
         tags: List<TagId> = emptyList(),
         title: String = "Task",
-        description: String? = null
+        description: String? = null,
     ) = Task(
         id = TaskId.generate(),
         title = title,
@@ -140,7 +140,7 @@ class TasksDomainTest {
         projectId = projectId,
         tags = tags,
         createdAt = Instant.fromEpochMilliseconds(0),
-        updatedAt = Instant.fromEpochMilliseconds(0)
+        updatedAt = Instant.fromEpochMilliseconds(0),
     )
 
     @Test
@@ -162,7 +162,7 @@ class TasksDomainTest {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(
             dueDate = today,
-            archivedAt = Instant.fromEpochMilliseconds(1)
+            archivedAt = Instant.fromEpochMilliseconds(1),
         )
         assertFalse(TaskDomain.matchesFilter(task, TaskFilter.Today, today))
     }

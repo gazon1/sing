@@ -29,20 +29,10 @@ data class DailyUsage(
 )
 
 /** Per-tool aggregated usage. */
-data class ToolUsage(
-    val toolName: String,
-    val totalTokens: Long,
-    val totalCostUsdMicros: Long?,
-    val callCount: Long,
-)
+data class ToolUsage(val toolName: String, val totalTokens: Long, val totalCostUsdMicros: Long?, val callCount: Long)
 
 /** Per-model aggregated usage. */
-data class ModelUsage(
-    val modelId: String,
-    val totalTokens: Long,
-    val totalCostUsdMicros: Long?,
-    val callCount: Long,
-)
+data class ModelUsage(val modelId: String, val totalTokens: Long, val totalCostUsdMicros: Long?, val callCount: Long)
 
 /**
  * Port for recording and observing AI token usage.

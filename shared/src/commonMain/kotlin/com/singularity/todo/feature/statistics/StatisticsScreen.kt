@@ -28,9 +28,7 @@ import java.time.LocalDate
 import kotlin.time.Instant
 
 @Composable
-fun StatisticsScreen(
-    viewModel: StatisticsViewModel = koinViewModel(),
-) {
+fun StatisticsScreen(viewModel: StatisticsViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Column(
@@ -104,7 +102,9 @@ fun StatisticsScreen(
                 buckets.forEachIndexed { index, bucket ->
                     val barHeight = if (maxCount > 0) {
                         (bucket.completedCount.toFloat() / maxCount) * chartHeight
-                    } else 0f
+                    } else {
+                        0f
+                    }
 
                     drawRect(
                         color = Color(0xFF4CAF50),
@@ -133,11 +133,7 @@ fun StatisticsScreen(
 }
 
 @Composable
-private fun StatCard(
-    title: String,
-    value: String,
-    modifier: Modifier = Modifier,
-) {
+private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
     Card(modifier = modifier) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -231,7 +227,9 @@ private fun StatisticsContentPreview(state: StatisticsUiState) {
                 buckets.forEachIndexed { index, bucket ->
                     val barHeight = if (maxCount > 0) {
                         (bucket.completedCount.toFloat() / maxCount) * chartHeight
-                    } else 0f
+                    } else {
+                        0f
+                    }
 
                     drawRect(
                         color = Color(0xFF4CAF50),

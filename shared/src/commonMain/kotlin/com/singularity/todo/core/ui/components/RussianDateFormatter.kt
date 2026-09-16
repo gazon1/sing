@@ -10,7 +10,9 @@ import kotlinx.datetime.Month
  */
 internal fun formatRussianDueDate(date: LocalDate?): String? {
     if (date == null) return null
-    return "${shortWeekday(date.dayOfWeek)}, ${date.dayOfMonth.toString().padStart(2, '0')} ${shortMonth(date.month)} ${date.year}"
+    return "${shortWeekday(
+        date.dayOfWeek,
+    )}, ${date.dayOfMonth.toString().padStart(2, '0')} ${shortMonth(date.month)} ${date.year}"
 }
 
 private fun shortWeekday(d: DayOfWeek): String = when (d) {

@@ -11,11 +11,7 @@ import kotlinx.serialization.json.Json
 data class DeleteTaskInput(val taskId: String)
 
 @Serializable
-data class DeleteTaskOutput(
-    val taskId: String,
-    val deleted: Boolean,
-    val error: String? = null,
-)
+data class DeleteTaskOutput(val taskId: String, val deleted: Boolean, val error: String? = null)
 
 class DeleteTaskTool(private val taskRepository: TaskRepository) :
     SimpleTool<DeleteTaskInput>(TypeToken.of(DeleteTaskInput::class.java), NAME, DESCRIPTION) {

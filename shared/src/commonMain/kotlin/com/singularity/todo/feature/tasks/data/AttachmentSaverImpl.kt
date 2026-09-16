@@ -14,12 +14,11 @@ class AttachmentSaverImpl(
     private val currentUser: ProfileAwareCurrentUser,
 ) : AttachmentSaver {
 
-    override suspend fun save(taskId: TaskId, path: String, mimeType: String?): Result<Unit> {
-        return repository.saveFileAttachment(
+    override suspend fun save(taskId: TaskId, path: String, mimeType: String?): Result<Unit> =
+        repository.saveFileAttachment(
             taskId = taskId,
             userId = currentUser.current,
             sourcePath = path,
             mimeType = mimeType,
         ).map { }
-    }
 }

@@ -3,8 +3,8 @@ package com.singularity.todo.feature.tasks.domain.model
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
-import kotlin.time.Instant
 import kotlinx.serialization.Serializable
+import kotlin.time.Instant
 
 @Serializable
 @JvmInline
@@ -16,11 +16,16 @@ value class TaskId(val value: String) {
 }
 
 enum class TaskPriority {
-    None, Low, Medium, High, Urgent
+    None,
+    Low,
+    Medium,
+    High,
+    Urgent,
 }
 
 enum class TaskKind {
-    Task, Note
+    Task,
+    Note,
 }
 
 sealed interface TaskFilter {
@@ -34,8 +39,12 @@ sealed interface TaskFilter {
     data class ByProject(val id: ProjectId) : TaskFilter
     data class ByTag(val id: TagId) : TaskFilter
     data class Search(val query: String) : TaskFilter
+
     /** Calendar screen: all tasks with dueDate within [from]..[to] (inclusive). */
     data class ByDateRange(val from: kotlinx.datetime.LocalDate, val to: kotlinx.datetime.LocalDate) : TaskFilter
+
+    /** Filters by completion status set (Active / Completed / or both = All). */
+    data class ByStatuses(val statuses: Set<TaskStatus>) : TaskFilter
 }
 
 data class Task(
@@ -55,7 +64,7 @@ data class Task(
     val isPinned: Boolean = false,
     val createdAt: Instant,
     val updatedAt: Instant,
-    val userId: UserId
+    val userId: UserId,
 ) {
     val isCompleted: Boolean get() = completedAt != null
     val isTrashed: Boolean get() = archivedAt != null

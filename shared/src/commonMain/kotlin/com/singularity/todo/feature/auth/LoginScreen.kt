@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.auth
 
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import com.singularity.todo.core.ui.components.ButtonSpinner
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,15 +26,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
-fun LoginScreen(
-    viewModel: AuthViewModel = koinViewModel(),
-) {
+fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsState()
 
     var email by remember { mutableStateOf("") }
@@ -56,11 +54,11 @@ fun LoginScreen(
             .fillMaxSize()
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         Text(
             text = "Singularity Todo",
-            style = MaterialTheme.typography.headlineLarge
+            style = MaterialTheme.typography.headlineLarge,
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -73,7 +71,7 @@ fun LoginScreen(
                 .fillMaxWidth()
                 .testTag(TestTags.AUTH_EMAIL_INPUT),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true
+            singleLine = true,
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -87,7 +85,7 @@ fun LoginScreen(
                 .testTag(TestTags.AUTH_PASSWORD_INPUT),
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            singleLine = true
+            singleLine = true,
         )
 
         if (state is AuthUiState.Error) {
@@ -96,7 +94,7 @@ fun LoginScreen(
                 text = (state as AuthUiState.Error).message,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT)
+                modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),
             )
         }
 
@@ -107,12 +105,15 @@ fun LoginScreen(
         } else {
             Button(
                 onClick = {
-                    if (isSignUp) viewModel.signUp(email, password)
-                    else viewModel.signIn(email, password)
+                    if (isSignUp) {
+                        viewModel.signUp(email, password)
+                    } else {
+                        viewModel.signIn(email, password)
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag(TestTags.AUTH_SIGN_IN_BUTTON)
+                    .testTag(TestTags.AUTH_SIGN_IN_BUTTON),
             ) {
                 Text(if (isSignUp) "Sign Up" else "Sign In")
             }
@@ -123,11 +124,14 @@ fun LoginScreen(
                 onClick = { isSignUp = !isSignUp },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag(TestTags.AUTH_TOGGLE_MODE_BUTTON)
+                    .testTag(TestTags.AUTH_TOGGLE_MODE_BUTTON),
             ) {
                 Text(
-                    if (isSignUp) "Already have an account? Sign In"
-                    else "Don't have an account? Sign Up"
+                    if (isSignUp) {
+                        "Already have an account? Sign In"
+                    } else {
+                        "Don't have an account? Sign Up"
+                    },
                 )
             }
 
@@ -137,7 +141,7 @@ fun LoginScreen(
                 onClick = { viewModel.signInAnonymously() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag(TestTags.AUTH_CONTINUE_OFFLINE_BUTTON)
+                    .testTag(TestTags.AUTH_CONTINUE_OFFLINE_BUTTON),
             ) {
                 Text("Continue Offline")
             }
@@ -217,7 +221,7 @@ private fun LoginScreenFormContent(
             .fillMaxSize()
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         Text(text = "Singularity Todo", style = MaterialTheme.typography.headlineLarge)
         Spacer(modifier = Modifier.height(32.dp))
@@ -227,7 +231,7 @@ private fun LoginScreenFormContent(
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true
+            singleLine = true,
         )
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedTextField(
@@ -237,14 +241,14 @@ private fun LoginScreenFormContent(
             modifier = Modifier.fillMaxWidth(),
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            singleLine = true
+            singleLine = true,
         )
         if (errorMessage != null) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = errorMessage,
                 color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
             )
         }
         Spacer(modifier = Modifier.height(24.dp))
@@ -253,7 +257,7 @@ private fun LoginScreenFormContent(
         } else {
             Button(
                 onClick = onSignIn,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) { Text(if (isSignUp) "Sign Up" else "Sign In") }
             Spacer(modifier = Modifier.height(8.dp))
             TextButton(onClick = onToggleMode, modifier = Modifier.fillMaxWidth()) {

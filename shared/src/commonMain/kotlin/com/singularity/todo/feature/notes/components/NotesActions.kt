@@ -15,9 +15,7 @@ import com.singularity.todo.feature.notes.NoteSortOrder
  * - **Selection mode**: enter, toggle, exit selection, delete selected
  */
 @JvmInline
-value class NotesActions(
-    val block: (Action) -> Unit,
-) {
+value class NotesActions(val block: (Action) -> Unit) {
     /** Sealed action hierarchy — enables exhaustive `when` with smart-cast. */
     sealed class Action {
         // ── Mutations ──────────────────────────────────────────────────────────

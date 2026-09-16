@@ -89,4 +89,3 @@ inline fun <reified I : @Serializable Any, reified O : @Serializable Any> dataTo
 // ─── Pre-built LLM tool factories ──────────────────────────────────────────────
 
 // ─── Data tool factories ────────────────────────────────────────────────────────
-

@@ -48,8 +48,7 @@ class JvmSecureStorage : SecureStoragePort {
         fallbackDelete(key)
     }
 
-    override fun isHardwareBacked(): Boolean =
-        IS_LINUX && secretToolAvailable()
+    override fun isHardwareBacked(): Boolean = IS_LINUX && secretToolAvailable()
 
     // ─── libsecret via secret-tool CLI ───────────────────────────────────────
 
@@ -77,8 +76,11 @@ class JvmSecureStorage : SecureStoragePort {
         if (!IS_LINUX || !secretToolAvailable()) return false
         return runCatching {
             val p = ProcessBuilder(
-                "secret-tool", "store",
-                "--label=singularity:$key", "key", key
+                "secret-tool",
+                "store",
+                "--label=singularity:$key",
+                "key",
+                key,
             ).also { it.redirectErrorStream(true) }.start()
             p.outputStream.writer().use { it.write(value) }
             p.outputStream.close()
@@ -107,7 +109,7 @@ class JvmSecureStorage : SecureStoragePort {
             System.getProperty("user.home")!!.toCharArray(),
             SALT,
             ITERATIONS,
-            KEY_BITS
+            KEY_BITS,
         )
         val key = factory.generateSecret(spec)
         return SecretKeySpec(key.encoded, "AES")
@@ -121,9 +123,11 @@ class JvmSecureStorage : SecureStoragePort {
                 repeat(count) {
                     val k = dis.readUTF()
                     val ivLen = dis.readInt()
-                    val iv = ByteArray(ivLen); dis.readFully(iv)
+                    val iv = ByteArray(ivLen);
+                    dis.readFully(iv)
                     val ctLen = dis.readInt()
-                    val ct = ByteArray(ctLen); dis.readFully(ct)
+                    val ct = ByteArray(ctLen);
+                    dis.readFully(ct)
                     if (k == key) {
                         val cipher = Cipher.getInstance(AES_TRANSFORM)
                         cipher.init(Cipher.DECRYPT_MODE, deriveKey(), GCMParameterSpec(TAG_BITS, iv))
@@ -144,15 +148,18 @@ class JvmSecureStorage : SecureStoragePort {
                     repeat(count) {
                         val k = dis.readUTF()
                         val ivLen = dis.readInt()
-                        val iv = ByteArray(ivLen); dis.readFully(iv)
+                        val iv = ByteArray(ivLen);
+                        dis.readFully(iv)
                         val ctLen = dis.readInt()
-                        val ct = ByteArray(ctLen); dis.readFully(ct)
+                        val ct = ByteArray(ctLen);
+                        dis.readFully(ct)
                         if (k != key) entries[k] = iv to ct
                     }
                 }
             }
         }
-        val iv = ByteArray(12); rng.nextBytes(iv)
+        val iv = ByteArray(12);
+        rng.nextBytes(iv)
         val cipher = Cipher.getInstance(AES_TRANSFORM)
         cipher.init(Cipher.ENCRYPT_MODE, deriveKey(), GCMParameterSpec(TAG_BITS, iv))
         val ct = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
@@ -163,8 +170,10 @@ class JvmSecureStorage : SecureStoragePort {
             for ((k, pair) in entries) {
                 val (iv2, ct2) = pair
                 dos.writeUTF(k)
-                dos.writeInt(iv2.size); dos.write(iv2)
-                dos.writeInt(ct2.size); dos.write(ct2)
+                dos.writeInt(iv2.size);
+                dos.write(iv2)
+                dos.writeInt(ct2.size);
+                dos.write(ct2)
             }
         }
     }
@@ -178,9 +187,11 @@ class JvmSecureStorage : SecureStoragePort {
                     repeat(count) {
                         val k = dis.readUTF()
                         val ivLen = dis.readInt()
-                        val iv = ByteArray(ivLen); dis.readFully(iv)
+                        val iv = ByteArray(ivLen);
+                        dis.readFully(iv)
                         val ctLen = dis.readInt()
-                        val ct = ByteArray(ctLen); dis.readFully(ct)
+                        val ct = ByteArray(ctLen);
+                        dis.readFully(ct)
                         if (k != key) entries[k] = iv to ct
                     }
                 }
@@ -191,8 +202,10 @@ class JvmSecureStorage : SecureStoragePort {
             for ((k, pair) in entries) {
                 val (iv2, ct2) = pair
                 dos.writeUTF(k)
-                dos.writeInt(iv2.size); dos.write(iv2)
-                dos.writeInt(ct2.size); dos.write(ct2)
+                dos.writeInt(iv2.size);
+                dos.write(iv2)
+                dos.writeInt(ct2.size);
+                dos.write(ct2)
             }
         }
     }

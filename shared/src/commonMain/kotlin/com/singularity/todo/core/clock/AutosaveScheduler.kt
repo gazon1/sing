@@ -17,9 +17,7 @@ interface AutosaveScheduler {
 /**
  * Real implementation using [kotlinx.coroutines.delay].
  */
-class DelayAutosaveScheduler(
-    private val delayMs: Long = 500L,
-) : AutosaveScheduler {
+class DelayAutosaveScheduler(private val delayMs: Long = 500L) : AutosaveScheduler {
     override suspend fun awaitTick() {
         kotlinx.coroutines.delay(delayMs.milliseconds)
     }

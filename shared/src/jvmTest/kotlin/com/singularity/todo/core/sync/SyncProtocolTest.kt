@@ -9,7 +9,10 @@ import org.junit.Test
 
 class SyncProtocolTest {
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true;
+        encodeDefaults = true
+    }
 
     @Test
     fun `DeltaPatch serializes and deserializes`() {
@@ -21,8 +24,8 @@ class SyncProtocolTest {
             isDelete = false,
             shadowChecksum = "abc123",
             ops = listOf(
-                FieldChange("title", FieldOp.SET, JsonPrimitive("New Title"))
-            )
+                FieldChange("title", FieldOp.SET, JsonPrimitive("New Title")),
+            ),
         )
 
         val serialized = json.encodeToString(patch)
@@ -48,9 +51,9 @@ class SyncProtocolTest {
                     patchId = "p1",
                     entityId = "e1",
                     entityType = DocType.Note,
-                    baseVersion = 0L
-                )
-            )
+                    baseVersion = 0L,
+                ),
+            ),
         )
 
         val serialized = json.encodeToString(request)
@@ -78,7 +81,7 @@ class SyncProtocolTest {
             entityId = "e1",
             entityType = DocType.Project,
             eventType = SyncEventType.UPDATED,
-            createdAt = System.currentTimeMillis()
+            createdAt = System.currentTimeMillis(),
         )
 
         val serialized = json.encodeToString(event)
@@ -100,7 +103,14 @@ class SyncProtocolTest {
 
     @Test
     fun `helper functions create correct patches`() {
-        val patch = deltaPatchSet("pid1", "eid1", DocType.Task, 5L, "title", kotlinx.serialization.json.JsonPrimitive("New Title"))
+        val patch = deltaPatchSet(
+            "pid1",
+            "eid1",
+            DocType.Task,
+            5L,
+            "title",
+            kotlinx.serialization.json.JsonPrimitive("New Title"),
+        )
 
         assertEquals("pid1", patch.patchId)
         assertEquals("eid1", patch.entityId)

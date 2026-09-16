@@ -12,9 +12,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  *                    The optional [AppDestination] argument allows the inner graph
  *                    to signal a destination to navigate to in the outer graph.
  */
-open class SearchNavigator(
-    protected val onExitGraph: (AppDestination?) -> Unit,
-) {
+open class SearchNavigator(protected val onExitGraph: (AppDestination?) -> Unit) {
 
     /**
      * Open a task detail in the tasks graph.

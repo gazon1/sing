@@ -9,6 +9,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 sealed interface CalendarUiEvent {
     /** Navigate to the task detail screen. */
     data class NavigateToTask(val taskId: TaskId) : CalendarUiEvent
+
     /** Show an error message. */
     data class ShowError(val message: String) : CalendarUiEvent
 }

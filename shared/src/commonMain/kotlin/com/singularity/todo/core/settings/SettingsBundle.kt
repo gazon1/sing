@@ -45,6 +45,7 @@ sealed interface SettingsIntent {
         data class UpdateBaseUrl(val value: String) : Ai
         data class UpdateModel(val value: String) : Ai
         data class UpdateSystemPrompt(val value: String) : Ai
+
         /** API key — written directly to SecureStorage, never debounced through apply(). */
         data class UpdateApiKey(val value: String) : Ai
         data object TestConnection : Ai

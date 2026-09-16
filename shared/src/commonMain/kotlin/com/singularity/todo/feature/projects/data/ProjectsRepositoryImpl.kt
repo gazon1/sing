@@ -7,8 +7,8 @@ import com.singularity.todo.core.database.toEpochMillisOrNull
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.database.toLocalDateOrNull
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -18,33 +18,27 @@ import kotlinx.coroutines.flow.map
 /**
  * Room-backed production [ProjectsRepository].
  */
-class ProjectsRepositoryImpl(
-    private val projectDao: ProjectDao,
-    private val clock: Clock
-) : ProjectsRepository {
-    override fun watchProjects(userId: UserId): Flow<List<Project>> {
-        return projectDao.watchAll(userId.value).map { list -> list.map { it.toProject() } }
+class ProjectsRepositoryImpl(private val projectDao: ProjectDao, private val clock: Clock) : ProjectsRepository {
+    override fun watchProjects(userId: UserId): Flow<List<Project>> = projectDao.watchAll(userId.value).map { list ->
+        list.map { it.toProject() }
     }
 
-    override fun watchProject(id: ProjectId): Flow<Project?> {
-        return projectDao.watchById(id.value).map { it?.toProject() }
-    }
+    override fun watchProject(id: ProjectId): Flow<Project?> = projectDao.watchById(id.value).map { it?.toProject() }
 
-    override suspend fun getById(id: ProjectId): Project? {
-        return projectDao.getById(id.value)?.toProject()
-    }
+    override suspend fun getById(id: ProjectId): Project? = projectDao.getById(id.value)?.toProject()
 
-    override fun changes(id: ProjectId): Flow<Project?> {
-        return projectDao.watchById(id.value).map { it?.toProject() }
-    }
+    override fun changes(id: ProjectId): Flow<Project?> = projectDao.watchById(id.value).map { it?.toProject() }
 
-    override fun watchProjectsWithCounts(userId: UserId): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> {
-        return projectDao.watchAllWithCounts(userId.value)
-    }
+    override fun watchProjectsWithCounts(
+        userId: UserId,
+    ): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> = projectDao.watchAllWithCounts(userId.value)
 
-    override fun watchByParent(parentId: ProjectId): Flow<List<Project>> {
-        return projectDao.watchByParent(parentId.value).map { list -> list.map { it.toProject() } }
-    }
+    override fun watchByParent(parentId: ProjectId): Flow<List<Project>> =
+        projectDao.watchByParent(parentId.value).map {
+            list,
+            ->
+            list.map { it.toProject() }
+        }
 
     override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {
         projectDao.setParent(id.value, parentId?.value, updatedAt)
@@ -59,9 +53,7 @@ class ProjectsRepositoryImpl(
         projectDao.restore(id.value, ts)
     }
 
-    override suspend fun findByIdempotencyKey(key: String): Project? {
-        return projectDao.findByIdempotencyKey(key)?.toProject()
-    }
+    override suspend fun findByIdempotencyKey(key: String): Project? = projectDao.findByIdempotencyKey(key)?.toProject()
 
     override suspend fun create(project: Project): Result<Unit> = runCatching {
         projectDao.upsert(project.toEntity())
@@ -94,7 +86,7 @@ internal fun ProjectEntity.toProject(): Project = Project(
     sortOrder = sortOrder,
     idempotencyKey = idempotencyKey,
     externalId = externalId,
-    userId = UserId(userId)
+    userId = UserId(userId),
 )
 
 internal fun Project.toEntity(): ProjectEntity = ProjectEntity(
@@ -114,5 +106,5 @@ internal fun Project.toEntity(): ProjectEntity = ProjectEntity(
     parentId = parentId?.value,
     sortOrder = sortOrder,
     idempotencyKey = idempotencyKey,
-    externalId = externalId
+    externalId = externalId,
 )

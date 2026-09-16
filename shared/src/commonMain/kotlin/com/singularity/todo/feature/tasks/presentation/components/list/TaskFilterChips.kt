@@ -19,7 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.feature.tasks.presentation.model.TaskListFilter
+import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListShapes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
@@ -37,15 +37,15 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
  */
 @Composable
 fun TaskFilterChips(
-    selected: TaskListFilter,
-    onSelect: (TaskListFilter) -> Unit,
-    counts: Map<TaskListFilter, Int> = emptyMap(),
+    selected: TaskStatus,
+    onSelect: (TaskStatus) -> Unit,
+    counts: Map<TaskStatus, Int> = emptyMap(),
     modifier: Modifier = Modifier,
 ) {
     val filters = listOf(
-        TaskListFilter.ALL to "Все",
-        TaskListFilter.ACTIVE to "Активные",
-        TaskListFilter.COMPLETED to "Выполненные",
+        TaskStatus.All to "Все",
+        TaskStatus.Active to "Активные",
+        TaskStatus.Completed to "Выполненные",
     )
 
     LazyRow(
@@ -68,12 +68,7 @@ fun TaskFilterChips(
 }
 
 @Composable
-private fun FilterChip(
-    label: String,
-    count: Int,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun FilterChip(label: String, count: Int, isSelected: Boolean, onClick: () -> Unit) {
     val background by animateColorAsState(
         targetValue = if (isSelected) TaskListColors.Accent else TaskListColors.Surface,
         label = "chipBg",
@@ -114,12 +109,12 @@ private fun TaskFilterChipsPreview() {
     MaterialTheme {
         Row {
             TaskFilterChips(
-                selected = TaskListFilter.ALL,
+                selected = TaskStatus.All,
                 onSelect = {},
                 counts = mapOf(
-                    TaskListFilter.ALL to 12,
-                    TaskListFilter.ACTIVE to 7,
-                    TaskListFilter.COMPLETED to 5,
+                    TaskStatus.All to 12,
+                    TaskStatus.Active to 7,
+                    TaskStatus.Completed to 5,
                 ),
             )
         }

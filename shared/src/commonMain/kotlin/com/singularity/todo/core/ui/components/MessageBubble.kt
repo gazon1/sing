@@ -1,6 +1,5 @@
 package com.singularity.todo.core.ui.components
 
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 
 /** Speaker of a chat message bubble. */
 enum class BubbleRole { User, Assistant }
@@ -29,11 +29,7 @@ internal fun bubbleLabel(role: BubbleRole): String = when (role) {
  * `feature/ai/chat/ChatScreen.kt` (column with role label).
  */
 @Composable
-fun MessageBubble(
-    role: BubbleRole,
-    content: String,
-    modifier: Modifier = Modifier,
-) {
+fun MessageBubble(role: BubbleRole, content: String, modifier: Modifier = Modifier) {
     val isUser = role == BubbleRole.User
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -65,7 +61,10 @@ private fun MessageBubbleUserLightPreview() = PreviewThemed(darkTheme = false) {
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun MessageBubbleAssistantDarkPreview() = PreviewThemed(darkTheme = true) {
-    MessageBubble(role = BubbleRole.Assistant, content = "Sure! I can help you prioritize your tasks based on due dates and priority levels.")
+    MessageBubble(
+        role = BubbleRole.Assistant,
+        content = "Sure! I can help you prioritize your tasks based on due dates and priority levels.",
+    )
 }
 
 @androidx.compose.ui.tooling.preview.Preview
@@ -76,6 +75,9 @@ private fun MessageBubbleUserDarkPreview() = PreviewThemed(darkTheme = true) {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun MessageBubbleAssistantPurpleDarkPreview() = PreviewThemed(darkTheme = true, accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple) {
+private fun MessageBubbleAssistantPurpleDarkPreview() = PreviewThemed(
+    darkTheme = true,
+    accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
+) {
     MessageBubble(role = BubbleRole.Assistant, content = "I've organized them by priority. Check your Inbox!")
 }

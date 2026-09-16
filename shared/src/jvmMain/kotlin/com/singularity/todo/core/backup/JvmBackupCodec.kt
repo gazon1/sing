@@ -17,7 +17,7 @@ class JvmBackupCodec : BackupCodec {
         payloadBytes: ByteArray,
         attachments: List<Pair<String, ByteArray>>,
         destPath: String,
-        fs: FileSystem
+        fs: FileSystem,
     ): Result<Unit> = runCatching {
         fs.ensureDir(destPath.substringBeforeLast('/', ""))
 
@@ -44,36 +44,37 @@ class JvmBackupCodec : BackupCodec {
         fs.writeBytes(destPath, baos.toByteArray())
     }
 
-    override suspend fun import(sourcePath: String, fs: FileSystem): Result<BackupCodec.CodecReadResult> =
-        runCatching {
-            if (!fs.exists(sourcePath)) throw BackupError.FileNotFound(sourcePath)
-            val bytes = fs.readBytes(sourcePath)
+    override suspend fun import(sourcePath: String, fs: FileSystem): Result<BackupCodec.CodecReadResult> = runCatching {
+        if (!fs.exists(sourcePath)) throw BackupError.FileNotFound(sourcePath)
+        val bytes = fs.readBytes(sourcePath)
 
-            var manifest: ByteArray? = null
-            var payload: ByteArray? = null
-            val attachments = mutableMapOf<String, ByteArray>()
+        var manifest: ByteArray? = null
+        var payload: ByteArray? = null
+        val attachments = mutableMapOf<String, ByteArray>()
 
-            ZipInputStream(ByteArrayInputStream(bytes)).use { zis ->
-                var entry: ZipEntry? = zis.nextEntry
-                while (entry != null) {
-                    val data = zis.readBytes()
-                    when (entry.name) {
-                        BackupFormat.ENTRY_MANIFEST -> manifest = data
-                        BackupFormat.ENTRY_PAYLOAD -> payload = data
-                        else -> if (entry.name.startsWith(BackupFormat.DIR_ATTACHMENTS)) {
-                            attachments[entry.name.removePrefix(BackupFormat.DIR_ATTACHMENTS)] = data
-                        }
+        ZipInputStream(ByteArrayInputStream(bytes)).use { zis ->
+            var entry: ZipEntry? = zis.nextEntry
+            while (entry != null) {
+                val data = zis.readBytes()
+                when (entry.name) {
+                    BackupFormat.ENTRY_MANIFEST -> manifest = data
+
+                    BackupFormat.ENTRY_PAYLOAD -> payload = data
+
+                    else -> if (entry.name.startsWith(BackupFormat.DIR_ATTACHMENTS)) {
+                        attachments[entry.name.removePrefix(BackupFormat.DIR_ATTACHMENTS)] = data
                     }
-                    entry = zis.nextEntry
                 }
+                entry = zis.nextEntry
             }
-
-            BackupCodec.CodecReadResult(
-                manifestBytes = manifest
-                    ?: throw BackupError.MalformedManifest("missing manifest.json"),
-                payloadBytes = payload
-                    ?: throw BackupError.MalformedManifest("missing payload.json"),
-                attachments = attachments
-            )
         }
+
+        BackupCodec.CodecReadResult(
+            manifestBytes = manifest
+                ?: throw BackupError.MalformedManifest("missing manifest.json"),
+            payloadBytes = payload
+                ?: throw BackupError.MalformedManifest("missing payload.json"),
+            attachments = attachments,
+        )
+    }
 }

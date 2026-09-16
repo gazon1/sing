@@ -92,11 +92,7 @@ fun EmptyState(
 }
 
 @Composable
-fun EmptyStateCompact(
-    text: String,
-    modifier: Modifier = Modifier,
-    icon: ImageVector = Icons.Filled.Check,
-) {
+fun EmptyStateCompact(text: String, modifier: Modifier = Modifier, icon: ImageVector = Icons.Filled.Check) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(TaskListSpacing.Sm),

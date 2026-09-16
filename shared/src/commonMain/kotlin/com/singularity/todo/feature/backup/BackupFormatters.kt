@@ -21,7 +21,10 @@ internal fun formatFileSize(bytes: Long): String = when {
 internal fun formatBackupDate(epochMillis: Long, zone: TimeZone): String {
     val ldt = kotlin.time.Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(zone)
     return "%04d-%02d-%02d %02d:%02d".format(
-        ldt.year, ldt.month.number, ldt.day,
-        ldt.hour, ldt.minute
+        ldt.year,
+        ldt.month.number,
+        ldt.day,
+        ldt.hour,
+        ldt.minute,
     )
 }

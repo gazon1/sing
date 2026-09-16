@@ -9,10 +9,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 /**
  * Updates a task with automatic updatedAt timestamp injection.
  */
-class UpdateTaskUseCase(
-    private val repo: TaskRepository,
-    private val clock: Clock,
-) {
+class UpdateTaskUseCase(private val repo: TaskRepository, private val clock: Clock) {
     /** Full-entity update. */
     suspend operator fun invoke(task: Task): Result<Unit> {
         val updated = task.copy(updatedAt = clock.now())

@@ -23,10 +23,10 @@ import com.singularity.todo.feature.reminders.ReminderType
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import kotlinx.datetime.LocalDate
 import kotlin.time.Instant
 
@@ -115,11 +115,7 @@ internal object PreviewSamples {
         userId = UserId(projectUserId),
     )
 
-    fun tag(
-        id: String = "tg1",
-        name: String = "work",
-        color: Int = 0xFFE91E63.toInt(),
-    ): Tag = Tag(
+    fun tag(id: String = "tg1", name: String = "work", color: Int = 0xFFE91E63.toInt()): Tag = Tag(
         id = TagId(id),
         name = name,
         color = color,
@@ -128,11 +124,7 @@ internal object PreviewSamples {
         userId = projectUserId,
     )
 
-    fun note(
-        id: String = "n1",
-        title: String = "Ideas",
-        body: String = "Hello **markdown**",
-    ): Note = Note(
+    fun note(id: String = "n1", title: String = "Ideas", body: String = "Hello **markdown**"): Note = Note(
         id = NoteId(id),
         userId = userId,
         title = title,
@@ -143,10 +135,7 @@ internal object PreviewSamples {
     )
 
     /** Note in a folder (non-leaf). */
-    fun folderNote(
-        id: String = "n2",
-        title: String = "Work",
-    ): Note = Note(
+    fun folderNote(id: String = "n2", title: String = "Work"): Note = Note(
         id = NoteId(id),
         userId = userId,
         title = title,
@@ -159,20 +148,17 @@ internal object PreviewSamples {
     )
 
     /** Archived note (soft-deleted, visible in archive). */
-    fun archivedNote(
-        id: String = "n3",
-        title: String = "Old Note",
-        body: String = "This note was archived.",
-    ): Note = Note(
-        id = NoteId(id),
-        userId = userId,
-        title = title,
-        bodyMarkdown = body,
-        bodyHtml = "<p>This note was archived.</p>",
-        createdAt = now,
-        updatedAt = now,
-        archivedAt = now,
-    )
+    fun archivedNote(id: String = "n3", title: String = "Old Note", body: String = "This note was archived."): Note =
+        Note(
+            id = NoteId(id),
+            userId = userId,
+            title = title,
+            bodyMarkdown = body,
+            bodyHtml = "<p>This note was archived.</p>",
+            createdAt = now,
+            updatedAt = now,
+            archivedAt = now,
+        )
 
     fun reminder(offsetMinutes: Int = 15): Reminder = Reminder(
         id = ReminderId.generate(),
@@ -184,10 +170,7 @@ internal object PreviewSamples {
         recurringPattern = null,
     )
 
-    fun attachment(
-        type: AttachmentType = AttachmentType.File,
-        title: String = "report.pdf",
-    ): Attachment = Attachment(
+    fun attachment(type: AttachmentType = AttachmentType.File, title: String = "report.pdf"): Attachment = Attachment(
         id = AttachmentId.generate(),
         taskId = TaskId("t1"),
         userId = userId,
@@ -199,10 +182,7 @@ internal object PreviewSamples {
         updatedAt = now,
     )
 
-    fun checklistItem(
-        title: String = "Sub-task",
-        done: Boolean = false,
-    ): ChecklistItem = ChecklistItem(
+    fun checklistItem(title: String = "Sub-task", done: Boolean = false): ChecklistItem = ChecklistItem(
         id = ChecklistItemId.generate(),
         taskId = "t1",
         title = title,

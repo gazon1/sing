@@ -36,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.feature.calendar.domain.logic.dayOfWeekShort
 import com.singularity.todo.feature.calendar.domain.logic.displayName
 import com.singularity.todo.feature.calendar.domain.logic.monthGridDates
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
@@ -186,11 +185,7 @@ private fun MiniDateCell(
 }
 
 @Composable
-private fun FilterRow(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit,
-) {
+private fun FilterRow(icon: ImageVector, label: String, onClick: () -> Unit) {
     val palette = LocalCalendarPalette.current
 
     Row(

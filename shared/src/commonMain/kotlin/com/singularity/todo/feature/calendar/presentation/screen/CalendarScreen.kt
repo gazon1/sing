@@ -5,15 +5,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.nav.LocalCalendarNavigator
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiEvent
 import com.singularity.todo.feature.calendar.presentation.theme.ProvideCalendarPalette
 import com.singularity.todo.feature.calendar.presentation.viewmodel.CalendarViewModel
-import com.singularity.todo.core.platform.todayInSystemZone
 import kotlinx.datetime.LocalDate
-import org.koin.core.parameter.parametersOf
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * Root composable for the Calendar screen.
@@ -24,10 +24,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param anchorDate The date to anchor the calendar view on (1st of the displayed month).
  */
 @Composable
-fun CalendarScreen(
-    anchorDate: LocalDate,
-    modifier: Modifier = Modifier,
-) {
+fun CalendarScreen(anchorDate: LocalDate, modifier: Modifier = Modifier) {
     val vm: CalendarViewModel = koinViewModel {
         parametersOf(anchorDate.year, anchorDate.monthNumber, CalendarViewMode.MONTH)
     }

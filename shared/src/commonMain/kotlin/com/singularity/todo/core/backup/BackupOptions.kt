@@ -34,20 +34,14 @@ data class ExportOptions(
     val userId: UserId,
     val destPath: String,
     val includeAttachments: Boolean = true,
-    val appVersion: String = "0.0.11"
+    val appVersion: String = "0.0.11",
 )
 
-data class ImportOptions(
-    val sourcePath: String,
-    val targetUserId: UserId,
-    val overwriteExisting: Boolean = true
-)
+data class ImportOptions(val sourcePath: String, val targetUserId: UserId, val overwriteExisting: Boolean = true)
 
-fun exportOptions(block: ExportOptionsBuilder.() -> Unit): ExportOptions =
-    ExportOptionsBuilder().apply(block).build()
+fun exportOptions(block: ExportOptionsBuilder.() -> Unit): ExportOptions = ExportOptionsBuilder().apply(block).build()
 
-fun importOptions(block: ImportOptionsBuilder.() -> Unit): ImportOptions =
-    ImportOptionsBuilder().apply(block).build()
+fun importOptions(block: ImportOptionsBuilder.() -> Unit): ImportOptions = ImportOptionsBuilder().apply(block).build()
 
 @JvmInline
 value class BackupId(val value: String) {

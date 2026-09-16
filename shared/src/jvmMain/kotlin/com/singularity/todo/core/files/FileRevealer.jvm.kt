@@ -19,6 +19,5 @@ class JvmFileRevealer : FileRevealer {
         }
     }
 
-    override fun attachmentsBasePath(): String =
-        System.getProperty("user.home") + "/.singularity-todo/attachments"
+    override fun attachmentsBasePath(): String = System.getProperty("user.home") + "/.singularity-todo/attachments"
 }

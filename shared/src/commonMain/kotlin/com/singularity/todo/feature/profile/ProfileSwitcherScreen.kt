@@ -36,9 +36,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.LoadingIndicator
@@ -58,18 +58,13 @@ private val PROFILE_COLORS = listOf(
 )
 
 @Composable
-fun ProfileSwitcherScreen(
-    modifier: Modifier = Modifier,
-) {
+fun ProfileSwitcherScreen(modifier: Modifier = Modifier) {
     val viewModel: ProfileSwitcherViewModel = koinViewModel()
     ProfileSwitcherContent(viewModel = viewModel, modifier = modifier)
 }
 
 @Composable
-private fun ProfileSwitcherContent(
-    viewModel: ProfileSwitcherViewModel,
-    modifier: Modifier = Modifier,
-) {
+private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var profileToDelete by remember { mutableStateOf<Profile?>(null) }
@@ -113,7 +108,9 @@ private fun ProfileSwitcherContent(
                     onSelect = { viewModel.switchTo(profile.id) },
                     onDelete = if (!profile.isDefault && state.profiles.size > 1) {
                         { profileToDelete = profile }
-                    } else null,
+                    } else {
+                        null
+                    },
                 )
             }
         }
@@ -154,12 +151,7 @@ private fun ProfileSwitcherContent(
 }
 
 @Composable
-private fun ProfileCard(
-    profile: Profile,
-    isActive: Boolean,
-    onSelect: () -> Unit,
-    onDelete: (() -> Unit)?,
-) {
+private fun ProfileCard(profile: Profile, isActive: Boolean, onSelect: () -> Unit, onDelete: (() -> Unit)?) {
     Card(
         modifier = Modifier
             .fillMaxWidth()

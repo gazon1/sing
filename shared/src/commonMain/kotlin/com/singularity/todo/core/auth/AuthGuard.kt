@@ -20,10 +20,7 @@ import org.koin.compose.koinInject
  * navigate on success; no callbacks are needed here.
  */
 @Composable
-fun AuthGuard(
-    authRepository: AuthRepository = koinInject(),
-    content: @Composable () -> Unit,
-) {
+fun AuthGuard(authRepository: AuthRepository = koinInject(), content: @Composable () -> Unit) {
     val session by authRepository.session.collectAsStateWithLifecycle()
     when (session) {
         Session.Loading -> LoadingIndicator()

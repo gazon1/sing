@@ -3,8 +3,8 @@ package com.singularity.todo.feature.ai.usage
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.observability.DailyUsage
-import com.singularity.todo.core.observability.ToolUsage
 import com.singularity.todo.core.observability.ModelUsage
+import com.singularity.todo.core.observability.ToolUsage
 import com.singularity.todo.core.observability.UsageRecorder
 import com.singularity.todo.feature.profile.ProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,10 +24,7 @@ data class AiUsageUiState(
     val totalCostUsdMicros: Long? = null,
 )
 
-class AiUsageViewModel(
-    private val usageRecorder: UsageRecorder,
-    profileRepository: ProfileRepository,
-) : ViewModel() {
+class AiUsageViewModel(private val usageRecorder: UsageRecorder, profileRepository: ProfileRepository) : ViewModel() {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<AiUsageUiState> = combine(
@@ -58,5 +55,4 @@ class AiUsageViewModel(
         SharingStarted.WhileSubscribed(5_000),
         AiUsageUiState(),
     )
-
 }

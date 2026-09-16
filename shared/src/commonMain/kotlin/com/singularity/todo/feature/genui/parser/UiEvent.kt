@@ -12,17 +12,11 @@ import com.singularity.todo.feature.genui.surface.SurfaceId
 sealed interface UiEvent {
 
     /** Creates a new surface with an initial set of components. */
-    data class CreateSurface(
-        val surfaceId: SurfaceId,
-        val rootId: NodeRef,
-        val components: Map<String, UiNode>,
-    ) : UiEvent
+    data class CreateSurface(val surfaceId: SurfaceId, val rootId: NodeRef, val components: Map<String, UiNode>) :
+        UiEvent
 
     /** Adds or updates components within an existing surface. */
-    data class UpdateComponents(
-        val surfaceId: SurfaceId,
-        val components: Map<String, UiNode>,
-    ) : UiEvent
+    data class UpdateComponents(val surfaceId: SurfaceId, val components: Map<String, UiNode>) : UiEvent
 
     /** Updates data values in the surface's data model. */
     data class UpdateData(
@@ -32,13 +26,8 @@ sealed interface UiEvent {
     ) : UiEvent
 
     /** Deletes an entire surface. */
-    data class DeleteSurface(
-        val surfaceId: SurfaceId,
-    ) : UiEvent
+    data class DeleteSurface(val surfaceId: SurfaceId) : UiEvent
 
     /** An error occurred while parsing — contains the raw invalid input. */
-    data class ParseError(
-        val input: String,
-        val message: String,
-    ) : UiEvent
+    data class ParseError(val input: String, val message: String) : UiEvent
 }

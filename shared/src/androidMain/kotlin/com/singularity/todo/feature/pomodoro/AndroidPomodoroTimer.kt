@@ -19,7 +19,8 @@ class AndroidPomodoroTimer(
     private val taskRepository: TaskRepository,
     private val currentUser: CurrentUser,
     private val config: PomodoroConfig = PomodoroConfig(),
-) : ViewModel(), PomodoroTimer {
+) : ViewModel(),
+    PomodoroTimer {
 
     private val _state = MutableStateFlow(PomodoroState(remainingSeconds = config.workMinutes * 60))
     override val state: StateFlow<PomodoroState> = _state.asStateFlow()
@@ -81,7 +82,7 @@ class AndroidPomodoroTimer(
                     startedAt = System.currentTimeMillis() - (config.workMinutes * 60 * 1000L),
                     endedAt = System.currentTimeMillis(),
                     completedCycles = current.completedCycles,
-                )
+                ),
             )
         }
         _state.value = nextPhase(current, config)

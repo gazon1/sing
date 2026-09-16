@@ -103,7 +103,7 @@ open class NoteEditor(
                 id = note.id.value,
                 title = note.title,
                 html = html,
-                isDirty = false
+                isDirty = false,
             )
         }
     }
@@ -122,7 +122,7 @@ open class NoteEditor(
             id = id.value,
             title = "",
             html = "",
-            isDirty = false
+            isDirty = false,
         )
         return id.value
     }
@@ -171,7 +171,7 @@ open class NoteEditor(
                 NoteId.fromString(id),
                 title,
                 markdown,
-                html
+                html,
             ).getOrThrow()
 
             // Extract and persist outgoing wikilinks from the HTML
@@ -218,19 +218,15 @@ open class NoteEditor(
      * Searches notes for the internal link picker.
      * Called by NoteEditorScreen via a suspend lambda on InternalLinkPickerSheet.
      */
-    suspend fun searchNotesForLink(query: String): List<LinkResult> {
-        return linkRepo.searchNotes(userId.value, query)
-            .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
-    }
+    suspend fun searchNotesForLink(query: String): List<LinkResult> = linkRepo.searchNotes(userId.value, query)
+        .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
 
     /**
      * Searches tasks for the internal link picker.
      * Called by NoteEditorScreen via a suspend lambda on InternalLinkPickerSheet.
      */
-    suspend fun searchTasksForLink(query: String): List<LinkResult> {
-        return linkRepo.searchTasks(query)
-            .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
-    }
+    suspend fun searchTasksForLink(query: String): List<LinkResult> = linkRepo.searchTasks(query)
+        .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
 
     fun closeEditor() {
         autosaveJob?.cancel()

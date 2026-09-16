@@ -29,9 +29,7 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
-fun AiUsageScreen(
-    modifier: Modifier = Modifier,
-) {
+fun AiUsageScreen(modifier: Modifier = Modifier) {
     val viewModel: AiUsageViewModel = koinViewModel()
     val state by viewModel.uiState.collectAsState()
 
@@ -112,11 +110,7 @@ fun AiUsageScreen(
 }
 
 @Composable
-private fun UsageHeaderCard(
-    totalTokens: Long,
-    totalCostMicros: Long?,
-    profileName: String,
-) {
+private fun UsageHeaderCard(totalTokens: Long, totalCostMicros: Long?, profileName: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(

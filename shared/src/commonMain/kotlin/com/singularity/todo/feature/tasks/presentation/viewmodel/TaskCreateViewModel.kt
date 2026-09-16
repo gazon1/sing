@@ -53,7 +53,7 @@ class TaskCreateViewModel(
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
     private val initial: TaskDraft = TaskDraft(
-        dueDate = initialDueDate?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
+        dueDate = initialDueDate?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None,
     )
 
     private val _draft = MutableStateFlow(initial)
@@ -178,18 +178,19 @@ class TaskCreateViewModel(
         }
     }
 
-    private fun validateForSave(draft: TaskDraft): String? {
-        return if (draft.title.isBlank()) "Title is required" else null
-    }
+    private fun validateForSave(draft: TaskDraft): String? = if (draft.title.isBlank()) "Title is required" else null
 
     private fun toInput(draft: TaskDraft, userId: UserId): Either<String, CreateTaskInput> {
         val dueDate: LocalDate? = when (val d = draft.dueDate) {
             is DueDateOption.Custom -> d.date
+
             DueDateOption.Today -> com.singularity.todo.core.platform.todayInSystemZone()
+
             DueDateOption.Tomorrow -> {
                 val today = com.singularity.todo.core.platform.todayInSystemZone()
                 today.plus(1, DateTimeUnit.DAY)
             }
+
             DueDateOption.None -> null
         }
         val result: Either<com.singularity.todo.core.error.AppError.Validation, CreateTaskInput> =

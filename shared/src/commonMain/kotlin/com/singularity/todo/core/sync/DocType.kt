@@ -8,7 +8,8 @@ enum class DocType(val key: String) {
     Task("task"),
     Note("note"),
     Project("project"),
-    Tag("tag");
+    Tag("tag"),
+    ;
 
     companion object {
         fun fromKey(key: String): DocType = entries.first { it.key == key }

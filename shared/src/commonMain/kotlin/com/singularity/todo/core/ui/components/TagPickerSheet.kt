@@ -75,7 +75,10 @@ private fun TagPickerSheetContent(
     TaskEditorSheetHost(
         title = "Select Tags",
         onClose = onDismiss,
-        onConfirm = { onTagsSelected(selected); onDismiss() },
+        onConfirm = {
+            onTagsSelected(selected);
+            onDismiss()
+        },
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             FlowRow(

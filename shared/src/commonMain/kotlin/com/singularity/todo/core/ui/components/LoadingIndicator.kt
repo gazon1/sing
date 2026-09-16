@@ -1,12 +1,12 @@
 package com.singularity.todo.core.ui.components
 
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.ui.preview.PreviewThemed
 
 /**
  * Centered spinner used by every screen's loading branch.

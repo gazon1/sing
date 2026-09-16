@@ -19,6 +19,5 @@ class StubRemoteBackupService : RemoteBackupService {
     override suspend fun download(remoteRef: String, destPath: String, userId: UserId): Result<Unit> =
         Result.success(Unit) // Stub: remoteRef is local path
 
-    override suspend fun list(userId: UserId): Result<List<String>> =
-        Result.success(emptyList())
+    override suspend fun list(userId: UserId): Result<List<String>> = Result.success(emptyList())
 }

@@ -14,10 +14,7 @@ import kotlin.time.Instant
  * Room-based [UsageRecorder] implementation.
  * Persists [ToolUsageEvent] rows to the [LlmUsageDao] and exposes aggregated flows.
  */
-class RoomUsageRecorder(
-    private val llmUsageDao: LlmUsageDao,
-    private val clock: Clock,
-) : UsageRecorder {
+class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock: Clock) : UsageRecorder {
 
     override suspend fun record(event: ToolUsageEvent) {
         val entity = LlmUsageEntity(
@@ -36,11 +33,12 @@ class RoomUsageRecorder(
         llmUsageDao.upsert(entity)
     }
 
-    override fun observeRecent(profileId: String, limit: Int): Flow<List<ToolUsageEvent>> {
-        return llmUsageDao.observeRecent(profileId, limit).map { rows ->
+    override fun observeRecent(profileId: String, limit: Int): Flow<List<ToolUsageEvent>> =
+        llmUsageDao.observeRecent(profileId, limit).map {
+            rows,
+            ->
             rows.map { it.toEvent() }
         }
-    }
 
     override fun observeByDay(profileId: String, days: Int): Flow<List<DailyUsage>> {
         val sinceEpochMs = clock.now().toEpochMilliseconds() - (days.toLong() * 86_400_000)
@@ -49,16 +47,16 @@ class RoomUsageRecorder(
         }
     }
 
-    override fun observeByTool(profileId: String): Flow<List<ToolUsage>> {
-        return llmUsageDao.observeByTool(profileId).map { rows ->
-            rows.map { it.toToolUsage() }
-        }
+    override fun observeByTool(profileId: String): Flow<List<ToolUsage>> = llmUsageDao.observeByTool(profileId).map {
+        rows,
+        ->
+        rows.map { it.toToolUsage() }
     }
 
-    override fun observeByModel(profileId: String): Flow<List<ModelUsage>> {
-        return llmUsageDao.observeByModel(profileId).map { rows ->
-            rows.map { it.toModelUsage() }
-        }
+    override fun observeByModel(profileId: String): Flow<List<ModelUsage>> = llmUsageDao.observeByModel(profileId).map {
+        rows,
+        ->
+        rows.map { it.toModelUsage() }
     }
 
     override suspend fun prune(olderThanDays: Int) {

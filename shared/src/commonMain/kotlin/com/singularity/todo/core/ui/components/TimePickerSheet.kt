@@ -12,8 +12,8 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.rememberBottomSheetState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -22,11 +22,7 @@ import kotlinx.datetime.LocalTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimePickerSheet(
-    initialTime: LocalTime? = null,
-    onTimeSelected: (LocalTime?) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun TimePickerSheet(initialTime: LocalTime? = null, onTimeSelected: (LocalTime?) -> Unit, onDismiss: () -> Unit) {
     val timePickerState = rememberTimePickerState(
         initialHour = initialTime?.hour ?: 12,
         initialMinute = initialTime?.minute ?: 0,

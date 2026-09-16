@@ -17,10 +17,9 @@ data class StatisticsSnapshot(
     val computedAt: Long,
 )
 
-
 internal fun computeStatistics(
     completedTasks: List<Pair<String, Long>>, // taskId to completedAt epoch
-    overdueTasks: List<Pair<String, Long>>,    // taskId to dueDate epoch
+    overdueTasks: List<Pair<String, Long>>, // taskId to dueDate epoch
     nowEpochMs: Long,
     rangeDays: Int = 7,
 ): StatisticsSnapshot {

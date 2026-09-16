@@ -28,19 +28,25 @@ fun monthGridDates(anyDateInMonth: LocalDate): List<LocalDate> {
 /** Returns the visible date range for the given [viewMode] and [anchor] date. */
 fun visibleRange(anchor: LocalDate, viewMode: CalendarViewMode): List<LocalDate> = when (viewMode) {
     CalendarViewMode.DAY -> listOf(anchor)
+
     CalendarViewMode.FOUR_DAYS -> (0..3).map { anchor.plus(it, DateTimeUnit.DAY) }
+
     CalendarViewMode.WEEK -> {
         val weekStart = anchor.minus(anchor.dayOfWeek.ordinal, DateTimeUnit.DAY)
         (0..6).map { weekStart.plus(it, DateTimeUnit.DAY) }
     }
+
     CalendarViewMode.MONTH -> monthGridDates(anchor)
 }
 
 /** Advances [date] by one step in the given [viewMode]. */
 fun goNext(date: LocalDate, viewMode: CalendarViewMode): LocalDate = when (viewMode) {
     CalendarViewMode.DAY -> date.plus(1, DateTimeUnit.DAY)
+
     CalendarViewMode.FOUR_DAYS -> date.plus(4, DateTimeUnit.DAY)
+
     CalendarViewMode.WEEK -> date.plus(7, DateTimeUnit.DAY)
+
     CalendarViewMode.MONTH -> {
         val nextMonthOrdinal = date.month.ordinal + 1
         if (nextMonthOrdinal == 12) {
@@ -54,8 +60,11 @@ fun goNext(date: LocalDate, viewMode: CalendarViewMode): LocalDate = when (viewM
 /** Rewinds [date] by one step in the given [viewMode]. */
 fun goPrevious(date: LocalDate, viewMode: CalendarViewMode): LocalDate = when (viewMode) {
     CalendarViewMode.DAY -> date.minus(1, DateTimeUnit.DAY)
+
     CalendarViewMode.FOUR_DAYS -> date.minus(4, DateTimeUnit.DAY)
+
     CalendarViewMode.WEEK -> date.minus(7, DateTimeUnit.DAY)
+
     CalendarViewMode.MONTH -> {
         val prevMonthOrdinal = date.month.ordinal - 1
         if (prevMonthOrdinal == -1) {
@@ -74,7 +83,9 @@ fun headerLabel(anchor: LocalDate, viewMode: CalendarViewMode): String {
     val range = visibleRange(anchor, viewMode)
     return when (viewMode) {
         CalendarViewMode.MONTH -> "${anchor.month.displayName()} ${anchor.year}"
+
         CalendarViewMode.DAY -> "${anchor.month.displayName()} ${anchor.dayOfMonth}, ${anchor.year}"
+
         else -> {
             val start = range.first()
             val end = range.last()

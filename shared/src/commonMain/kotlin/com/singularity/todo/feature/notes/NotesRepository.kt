@@ -6,8 +6,8 @@ import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toEpochMillisOrNull
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -32,7 +32,14 @@ interface NotesRepository {
     suspend fun update(note: Note): Result<Unit>
 
     // ─── Editor mutations (id + fields — autosave path) ─────────────────────
-    suspend fun createWithContent(userId: UserId, id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<NoteId>
+    suspend fun createWithContent(
+        userId: UserId,
+        id: NoteId,
+        title: String,
+        bodyMarkdown: String,
+        bodyHtml: String,
+    ): Result<NoteId>
+
     /** Creates a note with an initial title (quick-add path). Returns the new id. */
     suspend fun createNoteWithTitle(userId: UserId, title: String): Result<NoteId>
     suspend fun updateContent(id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<Unit>
@@ -49,6 +56,7 @@ interface NotesRepository {
     suspend fun setSortOrder(id: NoteId, sortOrder: Int): Result<Unit>
 
     // ─── Internal links (wikilinks) ─────────────────────────────────────────
+
     /** Updates the outgoing links column for a note. Called after each save. */
     suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit>
 }
@@ -56,10 +64,7 @@ interface NotesRepository {
 /**
  * Room-backed production [NotesRepository].
  */
-class RoomNotesRepository(
-    private val noteDao: NoteDao,
-    private val clock: Clock
-) : NotesRepository {
+class RoomNotesRepository(private val noteDao: NoteDao, private val clock: Clock) : NotesRepository {
 
     override fun watchNotes(userId: UserId): Flow<List<Note>> =
         noteDao.watchAll(userId.value).map { list -> list.map { it.toNote() } }
@@ -73,8 +78,7 @@ class RoomNotesRepository(
     override fun watchRootNotes(userId: UserId): Flow<List<Note>> =
         noteDao.watchRootNotes(userId.value).map { list -> list.map { it.toNote() } }
 
-    override fun watchNote(id: NoteId): Flow<Note?> =
-        noteDao.watchById(id.value).map { it?.toNote() }
+    override fun watchNote(id: NoteId): Flow<Note?> = noteDao.watchById(id.value).map { it?.toNote() }
 
     override fun searchNotes(query: String): Flow<List<Note>> =
         noteDao.search(query).map { list -> list.map { it.toNote() } }
@@ -113,7 +117,7 @@ class RoomNotesRepository(
                 updatedAt = now,
                 deletedAt = null,
                 archivedAt = null,
-            )
+            ),
         )
         id
     }
@@ -139,7 +143,7 @@ class RoomNotesRepository(
                 updatedAt = now,
                 deletedAt = null,
                 archivedAt = null,
-            )
+            ),
         )
         id
     }
@@ -151,7 +155,15 @@ class RoomNotesRepository(
         bodyHtml: String,
     ): Result<Unit> = runCatching {
         val wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() }
-        noteDao.updateContent(id.value, title, bodyMarkdown, bodyHtml, wordCount, bodyMarkdown.length, clock.now().toEpochMilliseconds())
+        noteDao.updateContent(
+            id.value,
+            title,
+            bodyMarkdown,
+            bodyHtml,
+            wordCount,
+            bodyMarkdown.length,
+            clock.now().toEpochMilliseconds(),
+        )
     }
 
     override suspend fun softDelete(id: NoteId): Result<Unit> = runCatching {
@@ -240,12 +252,15 @@ private fun String.parseLinksJson(): List<String> {
     return result
 }
 
-private fun List<String>.toLinksJson(): String =
-    if (isEmpty()) "[]" else buildString {
-        append('[')
-        forEachIndexed { index, link ->
-            if (index > 0) append(',')
-            append('"').append(link).append('"')
-        }
-        append(']')
+private fun List<String>.toLinksJson(): String = if (isEmpty()) {
+    "[]"
+} else {
+    buildString {
+    append('[')
+    forEachIndexed { index, link ->
+        if (index > 0) append(',')
+        append('"').append(link).append('"')
     }
+    append(']')
+}
+}

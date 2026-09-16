@@ -44,7 +44,7 @@ fun AttachmentSheet(
     attachments: List<Attachment>,
     viewModel: AttachmentsViewModel,
     onDismiss: () -> Unit,
-    onPickFile: () -> Unit
+    onPickFile: () -> Unit,
 ) {
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
 
@@ -55,18 +55,18 @@ fun AttachmentSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp)
+                .padding(bottom = 32.dp),
         ) {
             Text(
                 text = "Attachments",
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(bottom = 16.dp),
             )
 
             // Existing attachments
@@ -75,12 +75,12 @@ fun AttachmentSheet(
                     text = "Current attachments",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
                 attachments.forEach { attachment ->
                     AttachmentTile(
                         attachment = attachment,
-                        onDelete = { viewModel.delete(attachment.id) }
+                        onDelete = { viewModel.delete(attachment.id) },
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -91,7 +91,7 @@ fun AttachmentSheet(
                 text = "Add link",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 8.dp),
             )
 
             OutlinedTextField(
@@ -103,8 +103,8 @@ fun AttachmentSheet(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Next
-                )
+                    imeAction = ImeAction.Next,
+                ),
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -116,14 +116,14 @@ fun AttachmentSheet(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(
                     onClick = {
@@ -133,7 +133,7 @@ fun AttachmentSheet(
                             titleInput = ""
                         }
                     },
-                    enabled = urlInput.isNotBlank()
+                    enabled = urlInput.isNotBlank(),
                 ) {
                     Text("Add link")
                 }
@@ -144,7 +144,7 @@ fun AttachmentSheet(
             // File picker button
             Button(
                 onClick = onPickFile,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Default.Photo, null)
                 Spacer(modifier = Modifier.width(8.dp))

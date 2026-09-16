@@ -41,11 +41,10 @@ object MimeTypes {
         "tar" to "application/x-tar",
         "gz" to "application/gzip",
         // Other
-        "" to "application/octet-stream"
+        "" to "application/octet-stream",
     )
 
-    fun fromExtension(ext: String): String =
-        TABLE[ext.lowercase()] ?: "application/octet-stream"
+    fun fromExtension(ext: String): String = TABLE[ext.lowercase()] ?: "application/octet-stream"
 
     fun isImage(mime: String): Boolean = mime.startsWith("image/")
     fun isDocument(mime: String): Boolean = mime == "application/pdf" ||

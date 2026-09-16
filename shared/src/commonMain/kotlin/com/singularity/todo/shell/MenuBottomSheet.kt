@@ -7,12 +7,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
@@ -20,10 +20,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.icon
-import com.singularity.todo.core.ui.TestTags
 
 /**
  * Bottom-sheet menu shown when the user taps the "Menu" bottom-bar item.
@@ -42,10 +42,7 @@ import com.singularity.todo.core.ui.TestTags
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MenuBottomSheet(
-    onDismiss: () -> Unit,
-    onSelect: (AppDestination) -> Unit,
-) {
+fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
 
     LaunchedEffect(Unit) { sheetState.show() }
@@ -96,10 +93,7 @@ private fun SectionHeader(title: String) {
  * When you add a new destination to `AppDestination`, append it to
  * [DestinationKind.menuEntries] and it shows up automatically.
  */
-private data class MenuSection(
-    val title: String,
-    val items: List<MenuItem>,
-)
+private data class MenuSection(val title: String, val items: List<MenuItem>)
 
 private data class MenuItem(
     val label: String,
@@ -111,8 +105,7 @@ private data class MenuItem(
      * slot, or `null` if the item has no icon. Returning `null` hides the
      * icon slot — same as Compose's own nullable-content convention.
      */
-    fun iconContent(): (@Composable () -> Unit)? =
-        icon?.let { icon -> { Icon(icon, contentDescription = null) } }
+    fun iconContent(): (@Composable () -> Unit)? = icon?.let { icon -> { Icon(icon, contentDescription = null) } }
 }
 
 /** Static menu structure — Account/Search are placeholder sections for now. */

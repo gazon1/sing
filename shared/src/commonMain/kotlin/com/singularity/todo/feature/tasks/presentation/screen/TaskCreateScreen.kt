@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.screen
 
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,9 +29,7 @@ import org.koin.core.parameter.parametersOf
  * in the NavDisplay entry decorators).
  */
 @Composable
-fun TaskCreateScreen(
-    initialDueDate: LocalDate?,
-) {
+fun TaskCreateScreen(initialDueDate: LocalDate?) {
     val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate) }
     val navigator = LocalTasksNavigator.current
 
@@ -56,9 +53,9 @@ fun TaskCreateScreen(
     val guardedBack: () -> Unit = {
         when {
             isNavigatingBack -> Unit
-            state.isSaving    -> Unit
-            state.isDirty     -> showDiscard = true
-            else              -> navigator.back()
+            state.isSaving -> Unit
+            state.isDirty -> showDiscard = true
+            else -> navigator.back()
         }
     }
 

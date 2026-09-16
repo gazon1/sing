@@ -2,7 +2,6 @@ package com.singularity.todo.feature.calendar.presentation.components.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -67,6 +66,7 @@ fun TaskChip(
                 tint = palette.textMuted,
                 modifier = Modifier.size(12.dp),
             )
+
             task.isRecurring -> Icon(
                 Icons.Default.Autorenew,
                 contentDescription = null,

@@ -7,7 +7,6 @@ import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -28,14 +27,12 @@ class TagPickerViewModelTest {
         tagsRepo: FakeTagsRepository = FakeTagsRepository(),
         settingsRepo: FakeSettingsRepository = FakeSettingsRepository("test-user"),
         initialSelectedTagIds: Set<String> = emptySet(),
-    ): TagPickerViewModel {
-        return TagPickerViewModel(
-            tagsRepo = tagsRepo,
-            settingsRepo = settingsRepo,
-            initialSelectedTagIds = initialSelectedTagIds,
-            sharingStarted = { kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(0) },
-        )
-    }
+    ): TagPickerViewModel = TagPickerViewModel(
+        tagsRepo = tagsRepo,
+        settingsRepo = settingsRepo,
+        initialSelectedTagIds = initialSelectedTagIds,
+        sharingStarted = { kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(0) },
+    )
 
     private fun tag(id: String, name: String, userId: String = "test-user"): Tag = Tag(
         id = TagId.fromString(id),

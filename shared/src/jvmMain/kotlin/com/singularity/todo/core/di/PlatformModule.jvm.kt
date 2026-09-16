@@ -8,8 +8,8 @@ import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSystem
-import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.files.JvmFileRevealer
+import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.JvmSecureStorage

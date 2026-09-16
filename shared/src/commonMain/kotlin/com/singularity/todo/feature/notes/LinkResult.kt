@@ -8,11 +8,7 @@ package com.singularity.todo.feature.notes
  * @param title User-visible title shown in the list.
  * @param kind Discriminator for icon and URL scheme.
  */
-data class LinkResult(
-    val id: String,
-    val title: String,
-    val kind: LinkKind,
-)
+data class LinkResult(val id: String, val title: String, val kind: LinkKind)
 
 enum class LinkKind {
     Note,

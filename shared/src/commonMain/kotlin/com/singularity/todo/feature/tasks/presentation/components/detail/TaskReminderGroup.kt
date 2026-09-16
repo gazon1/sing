@@ -41,70 +41,65 @@ fun TaskReminderGroup(
     onReminderClick: () -> Unit,
     onRepeatClick: () -> Unit,
     onDeadlineClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         color = TaskColors.Surface,
         shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
     ) {
         Column {
             ReminderGroupRow(
                 icon = Icons.Outlined.NotificationsNone,
                 label = "Напомнить",
                 value = reminder,
-                onClick = onReminderClick
+                onClick = onReminderClick,
             )
             RowDivider()
             ReminderGroupRow(
                 icon = Icons.Default.Refresh,
                 label = "Повторять",
                 value = repeatRule,
-                onClick = onRepeatClick
+                onClick = onRepeatClick,
             )
             RowDivider()
             ReminderGroupRow(
                 icon = Icons.Outlined.Flag,
                 label = "Крайний срок",
                 value = deadline,
-                onClick = onDeadlineClick
+                onClick = onDeadlineClick,
             )
         }
     }
 }
 
 @Composable
-private fun ReminderGroupRow(
-    icon: ImageVector,
-    label: String,
-    value: String?,
-    onClick: () -> Unit
-) {
+private fun ReminderGroupRow(icon: ImageVector, label: String, value: String?, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = TaskSpacing.cardPaddingHorizontal, vertical = TaskSpacing.md),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = if (value != null) TaskColors.AccentBlue else TaskColors.TextSecondary,
-            modifier = Modifier.size(TaskSpacing.iconSize)
+            modifier = Modifier.size(TaskSpacing.iconSize),
         )
         Spacer(Modifier.width(TaskSpacing.lg))
         Text(
             text = value ?: label,
             color = if (value != null) TaskColors.TextPrimary else TaskColors.TextSecondary,
             fontSize = 16.sp,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
             tint = TaskColors.TextPlaceholder,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(20.dp),
         )
     }
 }
@@ -114,6 +109,6 @@ private fun RowDivider() {
     HorizontalDivider(
         color = TaskColors.Outline,
         thickness = 1.dp,
-        modifier = Modifier.padding(start = TaskSpacing.cardPaddingHorizontal + TaskSpacing.iconSize + TaskSpacing.lg)
+        modifier = Modifier.padding(start = TaskSpacing.cardPaddingHorizontal + TaskSpacing.iconSize + TaskSpacing.lg),
     )
 }

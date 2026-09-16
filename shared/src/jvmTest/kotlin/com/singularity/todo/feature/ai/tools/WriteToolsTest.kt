@@ -1,18 +1,16 @@
 package com.singularity.todo.feature.ai.tools
 
+import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.notes.Note
-import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import com.singularity.todo.core.auth.Session
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json

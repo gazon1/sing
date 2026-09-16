@@ -1,8 +1,5 @@
 package com.singularity.todo.feature.projects.presentation.screen
 
-import com.singularity.todo.core.ui.preview.PreviewSamples
-import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.core.ids.UserId
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,10 +16,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
@@ -78,8 +78,11 @@ private fun ProjectsContent(
 ) {
     when (state) {
         is ProjectsUiState.Loading -> LoadingIndicator(modifier = modifier)
+
         is ProjectsUiState.Empty -> EmptyState(title = "No projects yet", modifier = modifier)
+
         is ProjectsUiState.Error -> EmptyState(title = "Error: ${state.message}", modifier = modifier)
+
         is ProjectsUiState.Content -> ProjectList(
             projects = state.projects,
             modifier = modifier.fillMaxSize(),

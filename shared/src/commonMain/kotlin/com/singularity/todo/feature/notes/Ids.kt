@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.notes
 
 import com.singularity.todo.core.ids.UserId
-import kotlin.time.Instant
 import kotlinx.serialization.Serializable
+import kotlin.time.Instant
 
 @Serializable
 @JvmInline
@@ -21,13 +21,13 @@ value class NoteId(val value: String) {
 value class NoteColor(val value: Int) {
     companion object {
         val Yellow = NoteColor(0xFFFFF9C4.toInt())
-        val Blue   = NoteColor(0xFFBBDEFB.toInt())
-        val Green  = NoteColor(0xFFC8E6C9.toInt())
-        val Red    = NoteColor(0xFFFFCDD2.toInt())
+        val Blue = NoteColor(0xFFBBDEFB.toInt())
+        val Green = NoteColor(0xFFC8E6C9.toInt())
+        val Red = NoteColor(0xFFFFCDD2.toInt())
         val Purple = NoteColor(0xFFE1BEE7.toInt())
         val Orange = NoteColor(0xFFFFE0B2.toInt())
-        val Grey   = NoteColor(0xFFCFD8DC.toInt())
-        val None   = NoteColor(0)
+        val Grey = NoteColor(0xFFCFD8DC.toInt())
+        val None = NoteColor(0)
     }
 }
 
@@ -61,7 +61,7 @@ data class CreateNoteInput(
     val bodyMarkdown: String? = null,
     val isFolder: Boolean = false,
     val parentNoteId: NoteId? = null,
-    val userId: UserId
+    val userId: UserId,
 )
 
 // ─── Editor state ───────────────────────────────────────────────────────────
@@ -69,12 +69,7 @@ data class CreateNoteInput(
 /** UI state for the note editor screen. */
 sealed interface EditorState {
     data object Empty : EditorState
-    data class Editing(
-        val id: String,
-        val title: String,
-        val html: String,
-        val isDirty: Boolean = false
-    ) : EditorState
+    data class Editing(val id: String, val title: String, val html: String, val isDirty: Boolean = false) : EditorState
 }
 
 /** Result of an AI note improvement action. */
@@ -87,12 +82,17 @@ sealed interface NoteAiResult {
 
 /** Filter for the notes list. */
 enum class NoteFilter {
-    All, Pinned, Archived
+    All,
+    Pinned,
+    Archived,
 }
 
 /** Sort order for the notes list. */
 enum class NoteSortOrder {
-    UpdatedDesc, UpdatedAsc, TitleAsc, TitleDesc
+    UpdatedDesc,
+    UpdatedAsc,
+    TitleAsc,
+    TitleDesc,
 }
 
 /** List-specific state for notes. */

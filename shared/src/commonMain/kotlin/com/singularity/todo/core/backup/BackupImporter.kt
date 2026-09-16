@@ -20,7 +20,7 @@ class BackupImporter(
     private val attachmentStorage: AttachmentStorage,
     private val codec: BackupCodec,
     private val clock: Clock,
-    private val fs: FileSystem
+    private val fs: FileSystem,
 ) {
     private val json = StableJson
 
@@ -33,14 +33,14 @@ class BackupImporter(
         // 2. Validate manifest
         val manifest: BackupManifest = json.decodeFromString(
             BackupManifest.serializer(),
-            read.manifestBytes.decodeToString()
+            read.manifestBytes.decodeToString(),
         )
         BackupDomain.validateManifest(manifest, read.payloadBytes).getOrThrow()
 
         // 3. Decode payload
         val payload: BackupPayload = json.decodeFromString(
             BackupPayload.serializer(),
-            read.payloadBytes.decodeToString()
+            read.payloadBytes.decodeToString(),
         )
 
         // 4. Apply migrations if needed
@@ -55,24 +55,36 @@ class BackupImporter(
 
         // 5. Restore entities
         for (task in migratedPayload.tasks) {
-            taskDao.upsert(task.toEntity(options.targetUserId.value).copy(
-                updatedAt = now, createdAt = task.createdAt
-            ))
+            taskDao.upsert(
+                task.toEntity(options.targetUserId.value).copy(
+                updatedAt = now,
+                createdAt = task.createdAt,
+            )
+            )
         }
         for (note in migratedPayload.notes) {
-            noteDao.upsert(note.toEntity(options.targetUserId.value).copy(
-                updatedAt = now, createdAt = note.createdAt
-            ))
+            noteDao.upsert(
+                note.toEntity(options.targetUserId.value).copy(
+                updatedAt = now,
+                createdAt = note.createdAt,
+            )
+            )
         }
         for (project in migratedPayload.projects) {
-            projectDao.upsert(project.toEntity(options.targetUserId.value).copy(
-                updatedAt = now, createdAt = project.createdAt
-            ))
+            projectDao.upsert(
+                project.toEntity(options.targetUserId.value).copy(
+                updatedAt = now,
+                createdAt = project.createdAt,
+            )
+            )
         }
         for (tag in migratedPayload.tags) {
-            tagDao.upsert(tag.toEntity(options.targetUserId.value).copy(
-                updatedAt = now, createdAt = tag.createdAt
-            ))
+            tagDao.upsert(
+                tag.toEntity(options.targetUserId.value).copy(
+                updatedAt = now,
+                createdAt = tag.createdAt,
+            )
+            )
         }
         for (taskTag in migratedPayload.taskTags) {
             taskDao.upsertTagCrossRef(taskTag.toEntity())
@@ -103,7 +115,7 @@ class BackupImporter(
             manifest = manifest,
             entityCounts = manifest.entityCounts,
             restoredAttachmentCount = restoredCount,
-            missingAttachmentIds = missingIds
+            missingAttachmentIds = missingIds,
         )
     }
 }

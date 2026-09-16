@@ -74,10 +74,7 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotePreviewScreen(
-    route: NotesRoute.Preview,
-    viewModel: NotePreview = koinViewModel(),
-) {
+fun NotePreviewScreen(route: NotesRoute.Preview, viewModel: NotePreview = koinViewModel()) {
     val navigator = LocalNotesNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     var deleteDialogVisible by remember { mutableStateOf(false) }
@@ -149,7 +146,6 @@ fun NotePreviewScreenContent(
     onNavigateToNote: (String) -> Unit,
     onNavigateToTask: (String) -> Unit,
 ) {
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -325,11 +321,7 @@ private fun MetaChipsRow(note: Note, modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BacklinksSheet(
-    backlinks: List<Note>,
-    onNoteSelected: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun BacklinksSheet(backlinks: List<Note>, onNoteSelected: (String) -> Unit, onDismiss: () -> Unit) {
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
     ModalBottomSheet(
         onDismissRequest = onDismiss,

@@ -2,24 +2,22 @@ package com.singularity.todo.feature.ai.tools
 
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -55,15 +53,16 @@ class ReadToolsProfileAwareTest {
     private suspend fun resolveScopedUserId(
         currentUser: ProfileAwareCurrentUser,
         profileRepository: FakeProfileRepository,
-    ): UserId {
-        return combine(
-            currentUser.userId,
-            profileRepository.activeProfileId,
-        ) { userId, profileId ->
-            if (profileId == ProfileId.default) userId
-            else UserId.fromString("${profileId.value}/${userId.value}")
-        }.first()
-    }
+    ): UserId = combine(
+        currentUser.userId,
+        profileRepository.activeProfileId,
+    ) { userId, profileId ->
+        if (profileId == ProfileId.default) {
+            userId
+        } else {
+            UserId.fromString("${profileId.value}/${userId.value}")
+        }
+    }.first()
 
     private fun seedTask(
         repo: FakeTaskRepository,
@@ -89,9 +88,7 @@ class ReadToolsProfileAwareTest {
         repo.add(task)
     }
 
-    private fun buildProfileAware(
-        authUserId: String,
-    ): Pair<ProfileAwareCurrentUser, FakeProfileRepository> {
+    private fun buildProfileAware(authUserId: String): Pair<ProfileAwareCurrentUser, FakeProfileRepository> {
         val auth = FakeAuthRepository(initialSession = Session.Anonymous(UserId.fromString(authUserId)))
         val profiles = FakeProfileRepository()
         return ProfileAwareCurrentUser(
@@ -105,7 +102,7 @@ class ReadToolsProfileAwareTest {
     @Test
     fun list_tasks_uses_profile_scoped_userId_when_userId_is_blank() = runTest {
         val (currentUser, profiles) = buildProfileAware(
-            authUserId = "u-1"
+            authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
         val repo = FakeTaskRepository()
@@ -114,7 +111,7 @@ class ReadToolsProfileAwareTest {
         // actually emit for the AI Agent profile.
         val scoped = resolveScopedUserId(currentUser, profiles)
         seedTask(repo, scoped, "AI-Agent task A")
-        seedTask(repo, UserId("local-user"), "Personal-only task")  // must NOT show up
+        seedTask(repo, UserId("local-user"), "Personal-only task") // must NOT show up
 
         val tool = ListTasksTool(repo, currentUser)
         val output = tool.execute(ListTasksInput(userId = "", limit = 50))
@@ -128,7 +125,7 @@ class ReadToolsProfileAwareTest {
     @Test
     fun list_tasks_uses_explicit_userId_when_provided() = runTest {
         val (currentUser, _) = buildProfileAware(
-            authUserId = "u-1"
+            authUserId = "u-1",
         )
         val repo = FakeTaskRepository()
         seedTask(repo, UserId("u-1"), "scoped-personal task")
@@ -146,7 +143,7 @@ class ReadToolsProfileAwareTest {
     @Test
     fun list_linked_tasks_uses_profile_scoped_userId_when_blank() = runTest {
         val (currentUser, profiles) = buildProfileAware(
-            authUserId = "u-1"
+            authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
         val repo = FakeTaskRepository()
@@ -169,7 +166,7 @@ class ReadToolsProfileAwareTest {
     @Test
     fun search_tasks_uses_profile_scoped_userId_when_blank() = runTest {
         val (currentUser, profiles) = buildProfileAware(
-            authUserId = "u-1"
+            authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
         val repo = FakeTaskRepository()
@@ -191,7 +188,7 @@ class ReadToolsProfileAwareTest {
         // Regression guard for the historical bug where blank userId silently
         // resolved to "local-user" — leaking personal data into agent queries.
         val (currentUser, profiles) = buildProfileAware(
-            authUserId = "u-1"
+            authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
         val repo = FakeTaskRepository()

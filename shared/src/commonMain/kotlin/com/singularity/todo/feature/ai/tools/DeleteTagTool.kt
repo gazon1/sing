@@ -11,11 +11,7 @@ import kotlinx.serialization.json.Json
 data class DeleteTagInput(val tagId: String)
 
 @Serializable
-data class DeleteTagOutput(
-    val tagId: String,
-    val deleted: Boolean,
-    val error: String? = null,
-)
+data class DeleteTagOutput(val tagId: String, val deleted: Boolean, val error: String? = null)
 
 class DeleteTagTool(private val tagsRepository: TagsRepository) :
     SimpleTool<DeleteTagInput>(TypeToken.of(DeleteTagInput::class.java), NAME, DESCRIPTION) {

@@ -34,11 +34,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
  * мета-строку за пределы экрана или ломать высоту строки.
  */
 @Composable
-fun TaskRowContent(
-    task: TaskUi,
-    onToggleCompleted: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun TaskRowContent(task: TaskUi, onToggleCompleted: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         verticalAlignment = Alignment.Top,
         modifier = modifier.fillMaxWidth(),

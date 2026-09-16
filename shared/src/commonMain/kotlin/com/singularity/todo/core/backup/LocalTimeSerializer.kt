@@ -23,6 +23,5 @@ object LocalTimeSerializer : KSerializer<LocalTime> {
         encoder.encodeString(LocalTimeFormats.format(value))
     }
 
-    override fun deserialize(decoder: Decoder): LocalTime =
-        LocalTimeFormats.parse(decoder.decodeString())
+    override fun deserialize(decoder: Decoder): LocalTime = LocalTimeFormats.parse(decoder.decodeString())
 }

@@ -24,8 +24,8 @@ data class SyncColumns(
 @Entity(
     tableName = "tasks",
     indices = [
-        Index("user_id"), Index("due_date"), Index("archived_at"), Index("project_id")
-    ]
+        Index("user_id"), Index("due_date"), Index("archived_at"), Index("project_id"),
+    ],
 )
 data class TaskEntity(
     @PrimaryKey val id: String,
@@ -44,17 +44,17 @@ data class TaskEntity(
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("user_id") val userId: String,
-    @Embedded val sync: SyncColumns = SyncColumns()
+    @Embedded val sync: SyncColumns = SyncColumns(),
 )
 
 @Entity(
     tableName = "task_tags",
     primaryKeys = ["task_id", "tag_id"],
-    indices = [Index("task_id"), Index("tag_id")]
+    indices = [Index("task_id"), Index("tag_id")],
 )
 data class TaskTagCrossRef(
     @ColumnInfo("task_id") val taskId: String,
-    @ColumnInfo("tag_id") val tagId: String
+    @ColumnInfo("tag_id") val tagId: String,
 )
 
 @Entity(
@@ -66,7 +66,7 @@ data class TaskTagCrossRef(
         Index("is_pinned"),
         Index("archived_at"),
         Index("sort_order"),
-    ]
+    ],
 )
 data class NoteEntity(
     @PrimaryKey val id: String,
@@ -87,12 +87,12 @@ data class NoteEntity(
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("deleted_at") val deletedAt: Long?,
     @ColumnInfo("archived_at") val archivedAt: Long?,
-    @Embedded val sync: SyncColumns = SyncColumns()
+    @Embedded val sync: SyncColumns = SyncColumns(),
 )
 
 @Entity(
     tableName = "projects",
-    indices = [Index("user_id"), Index("deleted_at"), Index(value = ["idempotency_key"], unique = true)]
+    indices = [Index("user_id"), Index("deleted_at"), Index(value = ["idempotency_key"], unique = true)],
 )
 data class ProjectEntity(
     @PrimaryKey val id: String,
@@ -112,12 +112,12 @@ data class ProjectEntity(
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
     @ColumnInfo("idempotency_key") val idempotencyKey: String? = null,
     @ColumnInfo("external_id") val externalId: String?,
-    @Embedded val sync: SyncColumns = SyncColumns()
+    @Embedded val sync: SyncColumns = SyncColumns(),
 )
 
 @Entity(
     tableName = "tags",
-    indices = [Index("user_id"), Index("deleted_at")]
+    indices = [Index("user_id"), Index("deleted_at")],
 )
 data class TagEntity(
     @PrimaryKey val id: String,
@@ -129,7 +129,7 @@ data class TagEntity(
     @ColumnInfo("parent_id") val parentId: String?,
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
     @ColumnInfo("deleted_at") val deletedAt: Long?,
-    @Embedded val sync: SyncColumns = SyncColumns()
+    @Embedded val sync: SyncColumns = SyncColumns(),
 )
 
 /** Row type returned by ProjectDao.watchAllWithCounts — embeds ProjectEntity with aggregate counts. */
@@ -149,15 +149,15 @@ data class ProjectWithCountRow(
 @Entity(
     tableName = "task_reminders",
     primaryKeys = ["user_id", "id"],
-    indices = [Index("user_id"), Index("task_id"), Index("fire_at")]
+    indices = [Index("user_id"), Index("task_id"), Index("fire_at")],
 )
 data class TaskReminderEntity(
     val id: String,
     @ColumnInfo("task_id") val taskId: String,
     @ColumnInfo("user_id") val userId: String,
-    val type: String,          // "gentle" | "annoying"
-    @ColumnInfo("offset_minutes") val offsetMinutes: Int,  // minutes before due (negative = after)
-    @ColumnInfo("fire_at") val fireAt: Long,              // epoch millis
+    val type: String, // "gentle" | "annoying"
+    @ColumnInfo("offset_minutes") val offsetMinutes: Int, // minutes before due (negative = after)
+    @ColumnInfo("fire_at") val fireAt: Long, // epoch millis
     @ColumnInfo("recurring_pattern") val recurringPattern: String?, // null or cron expr
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
@@ -169,7 +169,7 @@ data class TaskReminderEntity(
 @Entity(
     tableName = "checklist_items",
     primaryKeys = ["id"],
-    indices = [Index("task_id")]
+    indices = [Index("task_id")],
 )
 data class ChecklistItemEntity(
     val id: String,
@@ -192,7 +192,7 @@ data class ChecklistItemEntity(
         Index(value = ["profile_id"]),
         Index(value = ["tool_name"]),
         Index(value = ["model_id"]),
-    ]
+    ],
 )
 data class LlmUsageEntity(
     @PrimaryKey val id: String,

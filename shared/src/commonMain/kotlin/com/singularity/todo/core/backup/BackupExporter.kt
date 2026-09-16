@@ -17,7 +17,7 @@ class BackupExporter(
     private val attachmentDao: AttachmentDao,
     private val codec: BackupCodec,
     private val clock: Clock,
-    private val fs: FileSystem
+    private val fs: FileSystem,
 ) {
     private val json = StableJson
 
@@ -39,7 +39,7 @@ class BackupExporter(
             projects = projects.map { it.toDto() },
             tags = tags.map { it.toDto() },
             attachments = attachments.map { it.toDto() },
-            taskTags = emptyList() // TODO: implement task tag cross-refs
+            taskTags = emptyList(), // TODO: implement task tag cross-refs
         )
 
         // 3. Serialize payload
@@ -53,14 +53,14 @@ class BackupExporter(
             projects = projects.size,
             tags = tags.size,
             attachments = attachments.size,
-            taskTags = 0
+            taskTags = 0,
         )
         val manifest = BackupDomain.buildManifest(
             appVersion = options.appVersion,
             nowEpochMillis = now,
             userId = options.userId,
             payloadBytes = payloadBytes,
-            counts = counts
+            counts = counts,
         )
         val manifestBytes = json.encodeToString(BackupManifest.serializer(), manifest)
             .encodeToByteArray()
@@ -86,7 +86,7 @@ class BackupExporter(
         BackupResult(
             manifest = manifest,
             destPath = options.destPath,
-            byteSize = byteSize
+            byteSize = byteSize,
         )
     }
 }

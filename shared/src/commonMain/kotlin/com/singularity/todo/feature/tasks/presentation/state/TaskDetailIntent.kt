@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
+import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -7,7 +8,6 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.core.reminders.ReminderOffset
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -35,6 +35,7 @@ sealed interface TaskDetailIntent {
     sealed interface Attachment : TaskDetailIntent {
         data class Delete(val attachmentId: com.singularity.todo.core.attachments.AttachmentId) : Attachment
         data class Click(val attachmentId: com.singularity.todo.core.attachments.AttachmentId) : Attachment
+
         /** Pick a file from the system file picker. */
         data object PickFile : Attachment
     }

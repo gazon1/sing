@@ -10,6 +10,11 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
+import com.singularity.todo.feature.projects.presentation.model.ParentOption
+import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -17,11 +22,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
-import com.singularity.todo.feature.projects.presentation.model.ParentOption
-import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
-import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
-import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
-import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -88,10 +88,13 @@ class ProjectDetailViewModel(
         projectFlow,
         projectRepo.watchProjects(currentUser.scopedUserId.value),
     ) { project, allProjects ->
-        if (project == null) emptyList()
-        else allProjects
+        if (project == null) {
+            emptyList()
+        } else {
+            allProjects
             .filter { it.id != project.id && it.parentId == null && !it.isDeleted }
             .map { ParentOption(it.id, it.name, it.id == project.parentId) }
+        }
     }.stateIn(scope, sharingStarted(), emptyList())
 
     /**
@@ -106,7 +109,7 @@ class ProjectDetailViewModel(
                     .filter { it.projectId != null && it.projectId != projectId && it.completedAt == null }
                     .sortedWith(
                         compareBy<Task, kotlinx.datetime.LocalDate?>(nullsLast()) { it.dueDate }
-                            .thenByDescending { it.updatedAt }
+                            .thenByDescending { it.updatedAt },
                     )
             }
             .stateIn(scope, sharingStarted(), emptyList())
@@ -114,26 +117,37 @@ class ProjectDetailViewModel(
     val state: StateFlow<ProjectDetailUiState> = combine(
         projectFlow,
         projectFlow.flatMapLatest { project ->
-            if (project == null) flowOf(emptyList())
-            else taskRepo.watchTasks(
+            if (project == null) {
+                flowOf(emptyList())
+            } else {
+                taskRepo.watchTasks(
                 currentUser.scopedUserId.value,
-                TaskFilter.ByProject(projectId)
+                TaskFilter.ByProject(projectId),
             )
+            }
         },
         projectFlow.flatMapLatest { project ->
-            if (project == null) flowOf(emptyList())
-            else projectRepo.watchByParent(projectId)
+            if (project == null) {
+                flowOf(emptyList())
+            } else {
+                projectRepo.watchByParent(projectId)
+            }
         },
         projectFlow.flatMapLatest { p ->
-            if (p == null || p.parentId == null) flowOf(null)
-            else projectRepo.watchProject(p.parentId)
+            if (p == null || p.parentId == null) {
+                flowOf(null)
+            } else {
+                projectRepo.watchProject(p.parentId)
+            }
         },
         _hideCompleted,
     ) { project, tasks, childProjects, parent, hideCompleted ->
         _latestProject.value = project
         when {
             project == null -> ProjectDetailUiState.Loading
+
             project.isDeleted -> ProjectDetailUiState.NotFound
+
             else -> {
                 // Seed drafts once from loaded project (preserves user's in-progress edits).
                 if (nameDraftImpl.value == null) {
@@ -151,7 +165,7 @@ class ProjectDetailViewModel(
                         completedCount = tasks.count { it.completedAt != null },
                         childProjects = childProjects,
                         parent = parent,
-                    )
+                    ),
                 )
             }
         }
@@ -219,6 +233,7 @@ class ProjectDetailViewModel(
             // ── Inline edits — debounced, written to draft StateFlows ────────
             is ProjectDetailIntent.Domain.UpdateName ->
                 nameDraftImpl.value = intent.name
+
             is ProjectDetailIntent.Domain.UpdateDescription ->
                 descriptionDraftImpl.value = intent.description
 
@@ -227,14 +242,17 @@ class ProjectDetailViewModel(
                 val current = _latestProject.value ?: return
                 mutate(current) { copy(color = intent.color) }
             }
+
             is ProjectDetailIntent.Domain.UpdateIcon -> {
                 val current = _latestProject.value ?: return
                 mutate(current) { copy(icon = intent.icon) }
             }
+
             is ProjectDetailIntent.Domain.UpdateParent -> {
                 val current = _latestProject.value ?: return
                 mutate(current) { copy(parentId = intent.parentId) }
             }
+
             is ProjectDetailIntent.Domain.UpdateDueDate -> {
                 val current = _latestProject.value ?: return
                 mutate(current) { copy(dueDate = intent.dueDate) }
@@ -245,14 +263,17 @@ class ProjectDetailViewModel(
                 val current = _latestProject.value ?: return
                 mutate(current) { copy(isDeleted = !isDeleted) }
             }
+
             is ProjectDetailIntent.Domain.Delete ->
                 viewModelScope.launch {
                     deleteProject(projectId, currentUser.scopedUserId.value)
                         .onSuccess { _events.emit(ProjectDetailUiEvent.NavigateBack) }
                         .onFailure { error ->
-                            _events.emit(ProjectDetailUiEvent.ShowError(
-                                (error as? AppError)?.message ?: error.message ?: "Delete failed"
-                            ))
+                            _events.emit(
+                                ProjectDetailUiEvent.ShowError(
+                                (error as? AppError)?.message ?: error.message ?: "Delete failed",
+                            )
+                            )
                         }
                 }
 
@@ -267,21 +288,26 @@ class ProjectDetailViewModel(
                             userId = currentUser.scopedUserId.value,
                             projectId = projectId,
                             kind = TaskKind.Task,
-                        )
+                        ),
                     ).onFailure { error ->
-                        _events.emit(ProjectDetailUiEvent.ShowError(
-                            (error as? AppError)?.message ?: error.message ?: "Create task failed"
-                        ))
+                        _events.emit(
+                            ProjectDetailUiEvent.ShowError(
+                            (error as? AppError)?.message ?: error.message ?: "Create task failed",
+                        )
+                        )
                     }
                 }
             }
+
             is ProjectDetailIntent.Domain.MoveTaskToProject ->
                 viewModelScope.launch {
                     updateTask.invoke(intent.taskId) { it.copy(projectId = projectId) }
                         .onFailure { error ->
-                            _events.emit(ProjectDetailUiEvent.ShowError(
-                                (error as? AppError)?.message ?: error.message ?: "Move task failed"
-                            ))
+                            _events.emit(
+                                ProjectDetailUiEvent.ShowError(
+                                (error as? AppError)?.message ?: error.message ?: "Move task failed",
+                            )
+                            )
                         }
                 }
         }
@@ -293,10 +319,7 @@ class ProjectDetailViewModel(
      * Applies a mutation to [current] via [transform] and persists via [updateProject].
      * Uses [_latestProject] as the source of truth to avoid TOCTOU.
      */
-    private fun mutate(
-        current: Project,
-        transform: Project.() -> Project,
-    ) {
+    private fun mutate(current: Project, transform: Project.() -> Project) {
         viewModelScope.launch {
             updateProject(projectId, transform)
                 .onSuccess { _lastEditedAt.value = clock.now() }

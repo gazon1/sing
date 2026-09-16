@@ -14,9 +14,7 @@ data class ProfileSwitcherUiState(
     val isLoading: Boolean = true,
 )
 
-class ProfileSwitcherViewModel(
-    private val profileRepository: ProfileRepository,
-) : ViewModel() {
+class ProfileSwitcherViewModel(private val profileRepository: ProfileRepository) : ViewModel() {
 
     val uiState: StateFlow<ProfileSwitcherUiState> = combine(
         profileRepository.all(),

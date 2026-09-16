@@ -4,8 +4,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.singularity.todo.core.security.FakeSecureStorage
 import com.singularity.todo.core.llm.OpenAiConfig
+import com.singularity.todo.core.security.FakeSecureStorage
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -62,7 +62,7 @@ class AiApiKeyMigrationTest {
  */
 private fun newDataStore(): DataStore<Preferences> {
     val state = kotlinx.coroutines.flow.MutableStateFlow<Preferences>(
-        androidx.datastore.preferences.core.emptyPreferences()
+        androidx.datastore.preferences.core.emptyPreferences(),
     )
     return object : DataStore<Preferences> {
         override val data: kotlinx.coroutines.flow.Flow<Preferences> = state

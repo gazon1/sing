@@ -39,7 +39,7 @@ class DataModelTest {
         val root = model.snapshot()
         assertEquals(
             JsonPrimitive("Alice"),
-            root["user"]?.jsonObject?.get("name")
+            root["user"]?.jsonObject?.get("name"),
         )
     }
 

@@ -7,9 +7,6 @@ import androidx.compose.runtime.Composable
  * Android implementation: delegates to [BackHandler].
  */
 @Composable
-public actual fun TasksBackHandler(
-    enabled: Boolean,
-    onBack: () -> Unit,
-) {
+public actual fun TasksBackHandler(enabled: Boolean, onBack: () -> Unit) {
     BackHandler(enabled = enabled, onBack = onBack)
 }

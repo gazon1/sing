@@ -21,10 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * @param keyOf Function to extract the string key from an entity.
  * @param initial Initial map state.
  */
-class InMemoryStore<E : Any>(
-    private val keyOf: (E) -> String,
-    initial: Map<String, E> = emptyMap(),
-) {
+class InMemoryStore<E : Any>(private val keyOf: (E) -> String, initial: Map<String, E> = emptyMap()) {
     private val _state = MutableStateFlow(initial)
     val state: StateFlow<Map<String, E>> = _state.asStateFlow()
 

@@ -36,17 +36,19 @@ class GenuiEngine(
      * @param input the user's text prompt
      * @param systemPrompt LLM system prompt (includes BasicCatalog appendix)
      */
-    fun submit(surfaceId: SurfaceId, input: String, systemPrompt: String): Flow<Map<SurfaceId, com.singularity.todo.feature.genui.surface.Surface>> {
-        return kotlinx.coroutines.flow.flow {
-            // We collect from transport and emit controller.surfaces after each event
-            transport.send(input, systemPrompt).collect { line ->
-                parser.parseLine(line)?.let { event ->
-                    controller.apply(event)
-                }
+    fun submit(
+        surfaceId: SurfaceId,
+        input: String,
+        systemPrompt: String,
+    ): Flow<Map<SurfaceId, com.singularity.todo.feature.genui.surface.Surface>> = kotlinx.coroutines.flow.flow {
+        // We collect from transport and emit controller.surfaces after each event
+        transport.send(input, systemPrompt).collect { line ->
+            parser.parseLine(line)?.let { event ->
+                controller.apply(event)
             }
-            // After the stream ends, emit final state
-            emit(controller.surfaces.value)
         }
+        // After the stream ends, emit final state
+        emit(controller.surfaces.value)
     }
 
     /** Direct access to the surfaces state stream. */

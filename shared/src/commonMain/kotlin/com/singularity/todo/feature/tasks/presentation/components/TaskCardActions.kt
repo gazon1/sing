@@ -7,9 +7,7 @@ package com.singularity.todo.feature.tasks.presentation.components
  * breaking call sites.
  */
 @JvmInline
-value class TaskCardActions(
-    val block: (Action) -> Unit,
-) {
+value class TaskCardActions(val block: (Action) -> Unit) {
     enum class Action { Toggle, Delete, Ai, Pin }
 
     fun onToggle() = block(Action.Toggle)

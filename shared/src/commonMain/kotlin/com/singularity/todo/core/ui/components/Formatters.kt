@@ -20,15 +20,22 @@ import kotlin.time.Instant
  */
 
 /** Hex → Compose [Color]. [0L] means "no color" / unspecified. */
-internal fun hexColor(value: Long): Color =
-    if (value == 0L) Color.Unspecified else Color(value)
+internal fun hexColor(value: Long): Color = if (value == 0L) Color.Unspecified else Color(value)
 
 /** Priority badge color by ordinal index. `4 == None` returns unspecified. */
 internal fun priorityColorByIndex(index: Int): Color = when (index) {
-    0 -> Color(0xFF4CAF50) // Low    - green
-    1 -> Color(0xFFFF9800) // Medium - orange
-    2 -> Color(0xFFF44336) // High   - red
-    3 -> Color(0xFFE91E63) // Urgent - pink
+    0 -> Color(0xFF4CAF50)
+
+    // Low    - green
+    1 -> Color(0xFFFF9800)
+
+    // Medium - orange
+    2 -> Color(0xFFF44336)
+
+    // High   - red
+    3 -> Color(0xFFE91E63)
+
+    // Urgent - pink
     else -> Color.Unspecified
 }
 
@@ -36,6 +43,7 @@ internal fun priorityColorByIndex(index: Int): Color = when (index) {
  * Visual state for the due-date chip on the task detail screen.
  * Used to determine background / text colour (overdue = error, today = warning, future = neutral).
  */
+
 /**
  * Returns the background and foreground colors for a due-date chip,
  * based on its visual state.
@@ -44,22 +52,24 @@ internal fun priorityColorByIndex(index: Int): Color = when (index) {
  */
 @Composable
 @ReadOnlyComposable
-internal fun dueChipColors(state: DueVisualState?): Pair<Color, Color> {
-    return when (state) {
-        DueVisualState.Overdue ->
-            MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-        DueVisualState.Today ->
-            MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        else ->
-            MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
-    }
+internal fun dueChipColors(state: DueVisualState?): Pair<Color, Color> = when (state) {
+    DueVisualState.Overdue ->
+        MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+
+    DueVisualState.Today ->
+        MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+
+    else ->
+        MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 internal enum class DueVisualState {
     /** Past due date. */
     Overdue,
+
     /** Due today. */
     Today,
+
     /** Future date. */
     Future,
 }
@@ -68,10 +78,7 @@ internal enum class DueVisualState {
  * Result of [formatDueChip]. Contains the display text and the visual state
  * for the chip background / tint.
  */
-internal data class DueChipModel(
-    val text: String,
-    val state: DueVisualState,
-)
+internal data class DueChipModel(val text: String, val state: DueVisualState)
 
 /**
  * Formats a due-date and optional time into the chip label shown on the
@@ -81,11 +88,7 @@ internal data class DueChipModel(
  * [today] must be the current local date (passed in to avoid hardcoding `Clock` here —
  * pure functions must not call `Clock` directly).
  */
-internal fun formatDueChip(
-    date: LocalDate?,
-    time: String?,
-    today: LocalDate,
-): DueChipModel? {
+internal fun formatDueChip(date: LocalDate?, time: String?, today: LocalDate): DueChipModel? {
     if (date == null) return null
 
     val datePart = when (date) {
@@ -115,11 +118,7 @@ internal fun formatDueChip(
  *
  * [fireAt] is epoch millis. [zone] is the user's local timezone.
  */
-internal fun formatReminderTime(
-    fireAt: Long,
-    offsetMinutes: Int,
-    zone: kotlinx.datetime.TimeZone,
-): String {
+internal fun formatReminderTime(fireAt: Long, offsetMinutes: Int, zone: kotlinx.datetime.TimeZone): String {
     val instant = Instant.fromEpochMilliseconds(fireAt)
     val local = instant.toLocalDateTime(zone)
     val timeStr = "${local.hour.toString().padStart(2, '0')}:${local.minute.toString().padStart(2, '0')}"
@@ -159,20 +158,13 @@ private fun shortMonth(month: kotlinx.datetime.Month): String = when (month) {
  * - createdAt: "Created Sep 8"
  * - updatedAt: "Updated 2m ago" (relative), or "Updated Sep 8" if >7 days old
  */
-internal fun formatTimestampsRelative(
-    createdAt: Instant,
-    updatedAt: Instant,
-    now: Instant,
-): TimestampsModel {
+internal fun formatTimestampsRelative(createdAt: Instant, updatedAt: Instant, now: Instant): TimestampsModel {
     val createdStr = formatCreatedDate(createdAt)
     val updatedStr = formatUpdatedRelative(updatedAt, now)
     return TimestampsModel(created = createdStr, updated = updatedStr)
 }
 
-internal data class TimestampsModel(
-    val created: String,
-    val updated: String,
-)
+internal data class TimestampsModel(val created: String, val updated: String)
 
 private fun formatCreatedDate(instant: Instant): String {
     val local = instant.toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
@@ -187,9 +179,13 @@ private fun formatUpdatedRelative(instant: Instant, now: Instant): String {
 
     return when {
         diffMinutes < 1 -> "Updated just now"
+
         diffMinutes < 60 -> "Updated ${diffMinutes}m ago"
+
         diffHours < 24 -> "Updated ${diffHours}h ago"
+
         diffDays <= 7 -> "Updated ${diffDays}d ago"
+
         else -> {
             val local = instant.toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
             "Updated ${shortMonth(local.month)} ${local.day}"

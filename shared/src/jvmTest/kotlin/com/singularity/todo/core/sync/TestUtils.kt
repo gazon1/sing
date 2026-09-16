@@ -9,8 +9,7 @@ import kotlinx.serialization.json.buildJsonObject
 /**
  * DSL builder for Session in tests.
  */
-fun session(block: SessionBuilder.() -> Unit = {}): Session =
-    SessionBuilder().apply(block).build()
+fun session(block: SessionBuilder.() -> Unit = {}): Session = SessionBuilder().apply(block).build()
 
 class SessionBuilder {
     var signedIn = false
@@ -27,8 +26,7 @@ class SessionBuilder {
 /**
  * DSL builder for DeltaPatch in tests.
  */
-fun deltaPatch(block: DeltaPatchBuilder.() -> Unit): DeltaPatch =
-    DeltaPatchBuilder().apply(block).build()
+fun deltaPatch(block: DeltaPatchBuilder.() -> Unit): DeltaPatch = DeltaPatchBuilder().apply(block).build()
 
 class DeltaPatchBuilder {
     var patchId = "p1"
@@ -54,15 +52,14 @@ class DeltaPatchBuilder {
         baseVersion = baseVersion,
         isDelete = isDelete,
         shadowChecksum = shadowChecksum,
-        ops = ops
+        ops = ops,
     )
 }
 
 /**
  * DSL builder for SyncEvent in tests.
  */
-fun syncEvent(block: SyncEventBuilder.() -> Unit): SyncEvent =
-    SyncEventBuilder().apply(block).build()
+fun syncEvent(block: SyncEventBuilder.() -> Unit): SyncEvent = SyncEventBuilder().apply(block).build()
 
 class SyncEventBuilder {
     var serverLsn = 1L
@@ -76,24 +73,23 @@ class SyncEventBuilder {
         entityId = entityId,
         entityType = entityType,
         eventType = eventType,
-        createdAt = createdAt
+        createdAt = createdAt,
     )
 }
 
 /**
  * Creates a JsonObject for testing.
  */
-fun jsonObject(vararg pairs: Pair<String, String>): JsonObject =
-    buildJsonObject {
-        pairs.forEach { (k, v) -> put(k, JsonPrimitive(v)) }
-    }
+fun jsonObject(vararg pairs: Pair<String, String>): JsonObject = buildJsonObject {
+    pairs.forEach { (k, v) -> put(k, JsonPrimitive(v)) }
+}
 
 /**
  * Fake SyncApiClient for tests — no network needed.
  */
 class FakeSyncApiClient(
     private val pushResponse: BatchPushResponse = BatchPushResponse(emptyList()),
-    private val pullEvents: List<SyncEvent> = emptyList()
+    private val pullEvents: List<SyncEvent> = emptyList(),
 ) : SyncApiClient {
     val pushCalls = mutableListOf<BatchPushRequest>()
     val pullCalls = mutableListOf<Pair<String, Long>>()

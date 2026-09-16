@@ -18,7 +18,6 @@ import com.singularity.todo.core.ui.TestTags
  * On Android the [testTag] is visible to UI Automator via `android_ui_resolve`.
  * For full UI Automator support also ensure accessibility labels are set.
  */
-fun Modifier.genuiTag(name: String, description: String): Modifier =
-    this
-        .testTag(TestTags.genUi(name))
-        .semantics { contentDescription = description }
+fun Modifier.genuiTag(name: String, description: String): Modifier = this
+    .testTag(TestTags.genUi(name))
+    .semantics { contentDescription = description }

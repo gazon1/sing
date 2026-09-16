@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.CalendarToday
@@ -22,7 +21,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,18 +30,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
+import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
-import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
-import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -141,7 +136,7 @@ fun TaskEditorContent(
                         Modifier.padding(
                             horizontal = TaskSpacing.cardPaddingHorizontal,
                             vertical = TaskSpacing.cardPaddingVertical,
-                        )
+                        ),
                     ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -225,7 +220,10 @@ fun TaskEditorContent(
             menuItems.forEach { item ->
                 DropdownMenuItem(
                     text = { Text(item.label) },
-                    onClick = { showMenu = false; item.onClick() },
+                    onClick = {
+                        showMenu = false;
+                        item.onClick()
+                    },
                 )
             }
         }
@@ -241,6 +239,7 @@ fun TaskEditorContent(
             },
             onDismiss = { activeSheet = null },
         )
+
         is TaskEditorSheet.Time -> TimePickerSheet(
             initialTime = dueTime,
             onTimeSelected = { time ->
@@ -249,6 +248,7 @@ fun TaskEditorContent(
             },
             onDismiss = { activeSheet = null },
         )
+
         is TaskEditorSheet.Priority -> TaskEditorSheetHost(
             title = "Приоритет",
             onClose = { activeSheet = null },
@@ -261,6 +261,7 @@ fun TaskEditorContent(
                 },
             )
         }
+
         null -> { /* no-op */ }
     }
 }
@@ -281,10 +282,7 @@ sealed interface TaskEditorSheet {
 /**
  * A dropdown menu item for archive/delete actions in View mode.
  */
-data class TaskEditorMenuItem(
-    val label: String,
-    val onClick: () -> Unit,
-)
+data class TaskEditorMenuItem(val label: String, val onClick: () -> Unit)
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

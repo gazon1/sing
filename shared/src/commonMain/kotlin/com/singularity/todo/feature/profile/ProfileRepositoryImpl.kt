@@ -42,15 +42,13 @@ class ProfileRepositoryImpl(
         }
         .stateIn(scope, SharingStarted.Eagerly, ProfileId.default)
 
-    override fun all(): Flow<List<Profile>> =
-        profileDao.all().map { entities -> entities.map { it.toDomain() } }
+    override fun all(): Flow<List<Profile>> = profileDao.all().map { entities -> entities.map { it.toDomain() } }
 
-    override fun activeProfile(): Flow<Profile> =
-        _activeProfileId.map { id ->
-            profileDao.getById(id.value)?.toDomain()
-                ?: profileDao.getDefault()?.toDomain()
-                ?: Profile.createDefault(clock)
-        }
+    override fun activeProfile(): Flow<Profile> = _activeProfileId.map { id ->
+        profileDao.getById(id.value)?.toDomain()
+            ?: profileDao.getDefault()?.toDomain()
+            ?: Profile.createDefault(clock)
+    }
 
     override val activeProfileId: StateFlow<ProfileId> = _activeProfileId
 
@@ -98,13 +96,12 @@ class ProfileRepositoryImpl(
     }
 
     override suspend fun switchTo(id: ProfileId) {
-         profileDao.getById(id.value)
+        profileDao.getById(id.value)
             ?: throw IllegalArgumentException("Profile not found: ${id.value}")
         dataStore.edit { it[ACTIVE_PROFILE_ID] = id.value }
     }
 
-    override suspend fun getById(id: ProfileId): Profile? =
-        profileDao.getById(id.value)?.toDomain()
+    override suspend fun getById(id: ProfileId): Profile? = profileDao.getById(id.value)?.toDomain()
 
     override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
         // Idempotent: if a default profile already exists, leave it.
@@ -156,5 +153,4 @@ private fun ProfileEntity.toDomain(): Profile = Profile(
     updatedAt = Instant.fromEpochMilliseconds(updatedAt),
 )
 
-private fun instantToEpochMillis(instant: Instant): Long =
-    instant.toEpochMilliseconds()
+private fun instantToEpochMillis(instant: Instant): Long = instant.toEpochMilliseconds()

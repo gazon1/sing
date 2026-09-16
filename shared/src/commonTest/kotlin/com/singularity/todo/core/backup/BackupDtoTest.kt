@@ -4,11 +4,11 @@ import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TaskEntity
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import com.singularity.todo.feature.tasks.domain.model.TaskKind
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 
 class BackupDtoTest {
 
@@ -37,8 +37,8 @@ class BackupDtoTest {
                 syncError = "err",
                 lastSyncedAt = now,
                 deviceId = "device",
-                hlc = "hlc-val"
-            )
+                hlc = "hlc-val",
+            ),
         )
 
         val dto = entity.toDto()
@@ -76,7 +76,7 @@ class BackupDtoTest {
             updatedAt = now,
             deletedAt = null,
             archivedAt = null,
-            sync = SyncColumns()
+            sync = SyncColumns(),
         )
 
         val dto = entity.toDto()
@@ -109,7 +109,7 @@ class BackupDtoTest {
             sortOrder = 0,
             idempotencyKey = null,
             externalId = null,
-            sync = SyncColumns()
+            sync = SyncColumns(),
         )
 
         val dto = entity.toDto()

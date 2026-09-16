@@ -15,25 +15,34 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed interface UiPath {
     /** The root of the data model (no path segments). */
-    @Serializable @SerialName("root")
+    @Serializable
+    @SerialName("root")
     data object Root : UiPath
 
     /** Index into an array node, followed by [tail]. */
-    @Serializable @SerialName("child")
+    @Serializable
+    @SerialName("child")
     data class Child(val index: Int, val tail: UiPath) : UiPath
 
     /** Property access on an object node, followed by [tail]. */
-    @Serializable @SerialName("prop")
+    @Serializable
+    @SerialName("prop")
     data class Prop(val name: String, val tail: UiPath) : UiPath
 
     /** Last segment of a path (no tail). */
-    @Serializable @SerialName("leaf")
+    @Serializable
+    @SerialName("leaf")
     data class Leaf(val segment: Segment) : UiPath
 
     @Serializable
     sealed interface Segment {
-        @Serializable @SerialName("idx") data class Index(val value: Int) : Segment
-        @Serializable @SerialName("key") data class Key(val value: String) : Segment
+        @Serializable
+        @SerialName("idx")
+        data class Index(val value: Int) : Segment
+
+        @Serializable
+        @SerialName("key")
+        data class Key(val value: String) : Segment
     }
 
     companion object {
@@ -82,13 +91,11 @@ fun UiPath.toSegmentList(): List<String> {
 }
 
 /** Returns the string representation of this path (RFC 6901 style, without leading /). */
-fun UiPath.toPointer(): String {
-    return when (this) {
-        UiPath.Root -> ""
-        is UiPath.Child -> "${this.index}${tailSuffix()}"
-        is UiPath.Prop -> "${this.name}${tailSuffix()}"
-        is UiPath.Leaf -> this.segment.toString()
-    }
+fun UiPath.toPointer(): String = when (this) {
+    UiPath.Root -> ""
+    is UiPath.Child -> "${this.index}${tailSuffix()}"
+    is UiPath.Prop -> "${this.name}${tailSuffix()}"
+    is UiPath.Leaf -> this.segment.toString()
 }
 
 private fun UiPath.tailSuffix(): String {
@@ -101,5 +108,3 @@ private fun UiPath.tailSuffix(): String {
     if (tail is UiPath.Root) return ""
     return "/" + tail.toPointer()
 }
-
-

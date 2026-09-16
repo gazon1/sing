@@ -28,11 +28,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.theme.SingularityAccents
-import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.feature.settings.SettingsUiState
 
 @Composable
@@ -69,10 +69,7 @@ fun InterfaceSettingsScreen(
 }
 
 @Composable
-private fun AccentColorPicker(
-    selected: String,
-    onSelect: (String) -> Unit,
-) {
+private fun AccentColorPicker(selected: String, onSelect: (String) -> Unit) {
     SettingsSection(title = "Accent Color") {
         // Live preview — mini task card showing the selected accent
         val currentAccent = SingularityAccents.fromString(selected)
@@ -116,11 +113,7 @@ private fun AccentColorPicker(
 }
 
 @Composable
-private fun AccentSwatch(
-    accent: SingularityAccents,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun AccentSwatch(accent: SingularityAccents, selected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(40.dp)
@@ -131,7 +124,7 @@ private fun AccentSwatch(
                     Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
                 } else {
                     Modifier
-                }
+                },
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,

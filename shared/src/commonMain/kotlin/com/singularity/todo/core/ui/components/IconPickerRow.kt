@@ -1,6 +1,5 @@
 package com.singularity.todo.core.ui.components
 
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 
 /**
  * A tappable row that shows an icon and a label.
@@ -73,13 +73,25 @@ fun IconPickerRow(
 private fun IconPickerRowLightPreview() = PreviewThemed(darkTheme = false) {
     Column {
         IconPickerRow(
-            icon = { Icon(Icons.Filled.DateRange, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            icon = {
+                Icon(
+                    Icons.Filled.DateRange,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
             label = "Due date",
             hasValue = true,
             onClick = {},
         )
         IconPickerRow(
-            icon = { Icon(Icons.Filled.DateRange, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            icon = {
+                Icon(
+                    Icons.Filled.DateRange,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
             label = "Due date",
             hasValue = false,
             onClick = {},

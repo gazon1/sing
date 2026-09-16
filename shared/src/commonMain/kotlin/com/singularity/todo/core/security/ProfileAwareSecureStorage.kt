@@ -19,12 +19,13 @@ class ProfileAwareSecureStorage(
     private val prefixKey: Boolean = true,
 ) : SecureStoragePort {
 
-    private fun prefixed(key: String): String =
-        if (!prefixKey) key
-        else "profiles/${profileRepository.activeProfileId.value.value}/$key"
+    private fun prefixed(key: String): String = if (!prefixKey) {
+        key
+    } else {
+        "profiles/${profileRepository.activeProfileId.value.value}/$key"
+    }
 
-    override suspend fun read(key: String): String? =
-        delegate.read(prefixed(key))
+    override suspend fun read(key: String): String? = delegate.read(prefixed(key))
 
     override suspend fun write(key: String, value: String) {
         delegate.write(prefixed(key), value)

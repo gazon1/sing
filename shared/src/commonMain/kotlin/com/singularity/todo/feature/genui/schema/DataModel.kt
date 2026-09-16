@@ -52,16 +52,19 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
         while (true) {
             when (p) {
                 is UiPath.Root -> return current
+
                 is UiPath.Child -> {
                     val arr = current as? JsonArray
                     current = arr?.getOrNull(p.index) ?: return null
                     p = p.tail
                 }
+
                 is UiPath.Prop -> {
                     val obj = current as? JsonObject
                     current = obj?.get(p.name) ?: return null
                     p = p.tail
                 }
+
                 is UiPath.Leaf -> return current
             }
         }

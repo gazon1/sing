@@ -26,15 +26,13 @@ import com.singularity.todo.feature.search.SearchScreen
  * Persistence: uses [navSavedStateConfig] so the back stack survives process death.
  */
 @Composable
-actual fun SearchNavGraph(
-    navCallbacks: NavCallbacks,
-    modifier: Modifier,
-) {
+actual fun SearchNavGraph(navCallbacks: NavCallbacks, modifier: Modifier) {
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist.
     val savedStateConfig = remember {
         navSavedStateConfig(Search.serializer())
     }
+
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<Search> = rememberNavBackStack(savedStateConfig, Search)
         as NavBackStack<Search>

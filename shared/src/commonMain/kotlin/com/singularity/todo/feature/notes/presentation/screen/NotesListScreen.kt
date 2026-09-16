@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.EmptyState
@@ -74,17 +75,13 @@ import com.singularity.todo.feature.notes.presentation.nav.NotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
-import com.singularity.todo.core.ids.UserId
 import org.koin.compose.viewmodel.koinViewModel
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotesListScreen(
-    route: NotesRoute.List,
-    viewModel: NotesListViewModel = koinViewModel(),
-) {
+fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koinViewModel()) {
     val navigator = LocalNotesNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -115,8 +112,7 @@ fun NotesListScreen(
 
 // ─── Content ────────────────────────────────────────────────────────────────
 
-private fun NotesUiState.toContentState() =
-    ContentStateMapper.notes(this)
+private fun NotesUiState.toContentState() = ContentStateMapper.notes(this)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -237,10 +233,7 @@ fun NotesScreenContent(
 }
 
 @Composable
-private fun FilterChipRow(
-    currentFilter: NoteFilter,
-    onFilterChange: (NoteFilter) -> Unit,
-) {
+private fun FilterChipRow(currentFilter: NoteFilter, onFilterChange: (NoteFilter) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -284,7 +277,9 @@ private fun SortDropdownMenu(
                 onClick = { onSelect(order) },
                 leadingIcon = if (currentOrder == order) {
                     { Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null) }
-                } else null,
+                } else {
+                    null
+                },
             )
         }
     }
@@ -293,9 +288,7 @@ private fun SortDropdownMenu(
 // ─── Quick-add row ─────────────────────────────────────────────────────────---
 
 @Composable
-private fun QuickAddRow(
-    onSubmit: (String) -> Unit,
-) {
+private fun QuickAddRow(onSubmit: (String) -> Unit) {
     var text by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
 
@@ -419,8 +412,14 @@ fun SwipeableNoteCard(
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> { onTogglePin(); false }
-                SwipeToDismissBoxValue.EndToStart -> { onDelete(); false }
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    onTogglePin();
+                    false
+                }
+                SwipeToDismissBoxValue.EndToStart -> {
+                    onDelete();
+                    false
+                }
                 SwipeToDismissBoxValue.Settled -> false
             }
         },

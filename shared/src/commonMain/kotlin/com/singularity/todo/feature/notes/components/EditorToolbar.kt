@@ -11,13 +11,13 @@ import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.FormatAlignCenter
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.FormatUnderlined
-import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Title
@@ -52,74 +52,111 @@ import com.singularity.todo.feature.notes.EditorAction
  * directly with a real [RichTextState] (no UI runtime required).
  */
 internal fun RichTextState.apply(action: EditorAction): RichTextState = when (action) {
-    EditorAction.Bold        -> apply { toggleSpanStyle(SpanStyle(fontWeight = FontWeight.Bold)) }
-    EditorAction.Italic      -> apply { toggleSpanStyle(SpanStyle(fontStyle = FontStyle.Italic)) }
-    EditorAction.Underline   -> apply { toggleSpanStyle(SpanStyle(textDecoration = TextDecoration.Underline)) }
-    EditorAction.Strike      -> apply { toggleSpanStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) }
-    EditorAction.Code        -> apply { toggleCodeSpan() }
-    EditorAction.H1          -> apply { setHeadingStyle(HeadingStyle.H1) }
-    EditorAction.H2          -> apply { setHeadingStyle(HeadingStyle.H2) }
-    EditorAction.H3          -> apply { setHeadingStyle(HeadingStyle.H3) }
-    EditorAction.Bullet      -> apply { toggleUnorderedList() }
-    EditorAction.Ordered     -> apply { toggleOrderedList() }
+    EditorAction.Bold -> apply { toggleSpanStyle(SpanStyle(fontWeight = FontWeight.Bold)) }
+
+    EditorAction.Italic -> apply { toggleSpanStyle(SpanStyle(fontStyle = FontStyle.Italic)) }
+
+    EditorAction.Underline -> apply { toggleSpanStyle(SpanStyle(textDecoration = TextDecoration.Underline)) }
+
+    EditorAction.Strike -> apply { toggleSpanStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) }
+
+    EditorAction.Code -> apply { toggleCodeSpan() }
+
+    EditorAction.H1 -> apply { setHeadingStyle(HeadingStyle.H1) }
+
+    EditorAction.H2 -> apply { setHeadingStyle(HeadingStyle.H2) }
+
+    EditorAction.H3 -> apply { setHeadingStyle(HeadingStyle.H3) }
+
+    EditorAction.Bullet -> apply { toggleUnorderedList() }
+
+    EditorAction.Ordered -> apply { toggleOrderedList() }
+
     // Quote: the richeditor library has no first-class blockquote toggle.
     // Blockquotes are supported in HTML round-trip but require explicit HTML editing.
-    EditorAction.Quote       -> this
-    EditorAction.ExternalLink -> this  // handled via dialog, not toolbar
-    EditorAction.InternalLink -> this  // handled via dialog, not toolbar
-    EditorAction.AlignLeft   -> apply { toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Start)) }
+    EditorAction.Quote -> this
+
+    EditorAction.ExternalLink -> this
+
+    // handled via dialog, not toolbar
+    EditorAction.InternalLink -> this
+
+    // handled via dialog, not toolbar
+    EditorAction.AlignLeft -> apply { toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Start)) }
+
     EditorAction.AlignCenter -> apply { toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center)) }
-    EditorAction.AlignRight  -> apply { toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.End)) }
+
+    EditorAction.AlignRight -> apply { toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.End)) }
 }
 
 /** Pure predicate that mirrors the visual "active" state for each toolbar button. */
 internal fun RichTextState.isActive(action: EditorAction): Boolean = when (action) {
-    EditorAction.Bold        -> currentSpanStyle.fontWeight?.let { it >= FontWeight.Bold } ?: false
-    EditorAction.Italic      -> currentSpanStyle.fontStyle == FontStyle.Italic
-    EditorAction.Underline   -> currentSpanStyle.textDecoration?.contains(TextDecoration.Underline) ?: false
-    EditorAction.Strike      -> currentSpanStyle.textDecoration?.contains(TextDecoration.LineThrough) ?: false
-    EditorAction.Code        -> isCodeSpan
-    EditorAction.H1          -> currentHeadingStyle == HeadingStyle.H1
-    EditorAction.H2          -> currentHeadingStyle == HeadingStyle.H2
-    EditorAction.H3          -> currentHeadingStyle == HeadingStyle.H3
-    EditorAction.Bullet      -> isUnorderedList
-    EditorAction.Ordered     -> isOrderedList
-    EditorAction.Quote       -> false  // no blockquote state in library
+    EditorAction.Bold -> currentSpanStyle.fontWeight?.let { it >= FontWeight.Bold } ?: false
+
+    EditorAction.Italic -> currentSpanStyle.fontStyle == FontStyle.Italic
+
+    EditorAction.Underline -> currentSpanStyle.textDecoration?.contains(TextDecoration.Underline) ?: false
+
+    EditorAction.Strike -> currentSpanStyle.textDecoration?.contains(TextDecoration.LineThrough) ?: false
+
+    EditorAction.Code -> isCodeSpan
+
+    EditorAction.H1 -> currentHeadingStyle == HeadingStyle.H1
+
+    EditorAction.H2 -> currentHeadingStyle == HeadingStyle.H2
+
+    EditorAction.H3 -> currentHeadingStyle == HeadingStyle.H3
+
+    EditorAction.Bullet -> isUnorderedList
+
+    EditorAction.Ordered -> isOrderedList
+
+    EditorAction.Quote -> false
+
+    // no blockquote state in library
     EditorAction.ExternalLink -> isLink
+
     EditorAction.InternalLink -> false
-    EditorAction.AlignLeft   -> currentParagraphStyle.textAlign == TextAlign.Start || currentParagraphStyle.textAlign == TextAlign.Left
+
+    EditorAction.AlignLeft ->
+        currentParagraphStyle.textAlign == TextAlign.Start ||
+        currentParagraphStyle.textAlign == TextAlign.Left
+
     EditorAction.AlignCenter -> currentParagraphStyle.textAlign == TextAlign.Center
-    EditorAction.AlignRight  -> currentParagraphStyle.textAlign == TextAlign.End
+
+    EditorAction.AlignRight -> currentParagraphStyle.textAlign == TextAlign.End
 }
 
 /** One button in the toolbar. */
-private data class ToolbarButton(
-    val action: EditorAction,
-    val icon: ImageVector,
-    val label: String,
-)
+private data class ToolbarButton(val action: EditorAction, val icon: ImageVector, val label: String)
 
 private val primaryButtons = listOf(
-    ToolbarButton(EditorAction.Bold,        Icons.Filled.FormatBold,                              "Bold"),
-    ToolbarButton(EditorAction.Italic,      Icons.Filled.FormatItalic,                            "Italic"),
-    ToolbarButton(EditorAction.Underline,   Icons.Filled.FormatUnderlined,                        "Underline"),
-    ToolbarButton(EditorAction.Strike,      Icons.Filled.FormatStrikethrough,                     "Strikethrough"),
-    ToolbarButton(EditorAction.H1,          Icons.Filled.Title,                                  "Heading 1"),
-    ToolbarButton(EditorAction.Bullet,      Icons.AutoMirrored.Filled.FormatListBulleted,        "Bullet list"),
-    ToolbarButton(EditorAction.Ordered,     Icons.Filled.FormatListNumbered,                      "Numbered list"),
+    ToolbarButton(EditorAction.Bold, Icons.Filled.FormatBold, "Bold"),
+    ToolbarButton(EditorAction.Italic, Icons.Filled.FormatItalic, "Italic"),
+    ToolbarButton(EditorAction.Underline, Icons.Filled.FormatUnderlined, "Underline"),
+    ToolbarButton(EditorAction.Strike, Icons.Filled.FormatStrikethrough, "Strikethrough"),
+    ToolbarButton(EditorAction.H1, Icons.Filled.Title, "Heading 1"),
+    ToolbarButton(EditorAction.Bullet, Icons.AutoMirrored.Filled.FormatListBulleted, "Bullet list"),
+    ToolbarButton(EditorAction.Ordered, Icons.Filled.FormatListNumbered, "Numbered list"),
 )
 
 private val overflowButtons = listOf(
-    ToolbarButton(EditorAction.H2,           Icons.Filled.Title,                                  "Heading 2"),
-    ToolbarButton(EditorAction.H3,           Icons.Filled.Title,                                  "Heading 3"),
-    ToolbarButton(EditorAction.Code,          Icons.Filled.Code,                                   "Inline code"),
-    ToolbarButton(EditorAction.AlignLeft,
-        Icons.AutoMirrored.Filled.FormatAlignLeft,                        "Align left"),
-    ToolbarButton(EditorAction.AlignCenter,  Icons.Filled.FormatAlignCenter,                      "Align center"),
-    ToolbarButton(EditorAction.AlignRight,
-        Icons.AutoMirrored.Filled.FormatAlignRight,                       "Align right"),
-    ToolbarButton(EditorAction.ExternalLink, Icons.Filled.Link,                                  "External link"),
-    ToolbarButton(EditorAction.InternalLink, Icons.Filled.Link,                                  "Internal link"),
+    ToolbarButton(EditorAction.H2, Icons.Filled.Title, "Heading 2"),
+    ToolbarButton(EditorAction.H3, Icons.Filled.Title, "Heading 3"),
+    ToolbarButton(EditorAction.Code, Icons.Filled.Code, "Inline code"),
+    ToolbarButton(
+        EditorAction.AlignLeft,
+        Icons.AutoMirrored.Filled.FormatAlignLeft,
+        "Align left",
+    ),
+    ToolbarButton(EditorAction.AlignCenter, Icons.Filled.FormatAlignCenter, "Align center"),
+    ToolbarButton(
+        EditorAction.AlignRight,
+        Icons.AutoMirrored.Filled.FormatAlignRight,
+        "Align right",
+    ),
+    ToolbarButton(EditorAction.ExternalLink, Icons.Filled.Link, "External link"),
+    ToolbarButton(EditorAction.InternalLink, Icons.Filled.Link, "Internal link"),
 )
 
 /**
@@ -155,8 +192,11 @@ fun EditorToolbar(
                     onHtmlChange()
                 },
                 colors = IconButtonDefaults.iconButtonColors(
-                    contentColor = if (isActive) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    contentColor = if (isActive) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 ),
             ) {
                 Icon(
@@ -221,10 +261,12 @@ fun EditorToolbar(
                                 overflowExpanded = false
                                 onLinkClick()
                             }
+
                             is EditorAction.InternalLink -> {
                                 overflowExpanded = false
                                 onInternalLinkClick()
                             }
+
                             else -> {
                                 richTextState.apply(button.action)
                                 onHtmlChange()
@@ -235,8 +277,11 @@ fun EditorToolbar(
                         Icon(
                             button.icon,
                             contentDescription = null,
-                            tint = if (isActive) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (isActive) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                         )
                     },
                 )

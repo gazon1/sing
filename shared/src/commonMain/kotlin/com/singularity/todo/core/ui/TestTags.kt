@@ -89,10 +89,12 @@ object TestTags {
     const val NOTES_BACKLINKS_BUTTON = "notes_backlinks_button"
 
     // ─── Projects ───────────────────────────────────────────────────────────
+
     /** Dynamic: project_card_<name> */
     fun projectCard(name: String) = "project_card_${name.lowercase().replace(" ", "_")}"
 
     // ─── AI ─────────────────────────────────────────────────────────────────
+
     /** Dynamic: genui_<name> */
     fun genUi(name: String) = "genui_$name"
 }

@@ -49,6 +49,7 @@ fun <T> StatefulContent(
         is ContentState.Loading -> {
             LoadingIndicator(modifier = modifier)
         }
+
         is ContentState.Empty -> {
             EmptyState(
                 title = emptyTitle,
@@ -56,12 +57,14 @@ fun <T> StatefulContent(
                 modifier = modifier,
             )
         }
+
         is ContentState.Error -> {
             EmptyState(
                 title = "Error: ${state.message}",
                 modifier = modifier,
             )
         }
+
         is ContentState.Ready -> {
             content(state.value)
         }

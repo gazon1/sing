@@ -37,17 +37,15 @@ object ProjectsDomain {
      * @param parent the candidate parent project, or null for root-level.
      * @return [Either.Right] with [parent] on success, [Either.Left] if parent already has a parent.
      */
-    fun assertParentIsRoot(
-        parent: Project?,
-    ): Either<AppError.Validation, Project?> {
+    fun assertParentIsRoot(parent: Project?): Either<AppError.Validation, Project?> {
         if (parent == null) return Either.Right(null)
         return if (parent.parentId == null) {
             Either.Right(parent)
         } else {
             Either.Left(
                 AppError.Validation(
-                    "Only root projects can be parents. \"${parent.name}\" is already a sub-project."
-                )
+                    "Only root projects can be parents. \"${parent.name}\" is already a sub-project.",
+                ),
             )
         }
     }

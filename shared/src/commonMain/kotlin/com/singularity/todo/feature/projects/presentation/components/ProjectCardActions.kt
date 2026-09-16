@@ -6,9 +6,7 @@ package com.singularity.todo.feature.projects.presentation.components
  * (delete / review / pin / archive / …) without breaking call sites.
  */
 @JvmInline
-value class ProjectCardActions(
-    val block: (Action) -> Unit,
-) {
+value class ProjectCardActions(val block: (Action) -> Unit) {
     enum class Action { Delete, Review }
 
     fun onDelete() = block(Action.Delete)

@@ -9,11 +9,7 @@ import com.singularity.todo.core.ids.UserId
 sealed interface Session {
     data object Loading : Session
     data object SignedOut : Session
-    data class SignedIn(
-        val userId: UserId,
-        val email: String,
-        val accessToken: String,
-        val refreshToken: String
-    ) : Session
+    data class SignedIn(val userId: UserId, val email: String, val accessToken: String, val refreshToken: String) :
+        Session
     data class Anonymous(val userId: UserId) : Session
 }

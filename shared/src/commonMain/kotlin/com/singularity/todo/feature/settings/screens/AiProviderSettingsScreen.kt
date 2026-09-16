@@ -5,8 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -35,9 +35,9 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.llm.OpenAiConfig
+import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.feature.settings.SettingsUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -262,6 +262,7 @@ private fun AiTestResultBanner(result: AiTestResult, modifier: Modifier = Modifi
             // No banner — the button itself shows progress.
             Unit
         }
+
         is AiTestResult.Ok -> {
             Card(
                 modifier = modifier.fillMaxWidth(),
@@ -274,6 +275,7 @@ private fun AiTestResultBanner(result: AiTestResult, modifier: Modifier = Modifi
                 )
             }
         }
+
         is AiTestResult.Error -> {
             Card(
                 modifier = modifier.fillMaxWidth(),

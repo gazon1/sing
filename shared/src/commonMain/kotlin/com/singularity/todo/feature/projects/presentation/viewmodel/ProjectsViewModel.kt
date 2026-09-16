@@ -2,19 +2,19 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.singularity.todo.core.database.toProject
+import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.core.database.toProject
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.tasks.domain.model.TaskFilter
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -66,14 +66,20 @@ class ProjectsViewModel(
                     completedCount = row.completedCount,
                 )
             }
-            val filtered = if (query.isBlank()) domainRows
-            else domainRows.filter { it.project.name.contains(query, ignoreCase = true) }
+            val filtered = if (query.isBlank()) {
+                domainRows
+            } else {
+                domainRows.filter { it.project.name.contains(query, ignoreCase = true) }
+            }
             val sorted = when (sort) {
                 ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
                 ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
             }
-            if (sorted.isEmpty()) ProjectsUiState.Empty(uid)
-            else ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
+            if (sorted.isEmpty()) {
+                ProjectsUiState.Empty(uid)
+            } else {
+                ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
+            }
         }
     }.catch { cause ->
         emit(ProjectsUiState.Error(cause.message ?: "Error"))

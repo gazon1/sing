@@ -14,10 +14,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
  *
  * Pass the appropriate [Palette] to avoid mixing tints across screens.
  */
-data class PriorityMeta(
-    val color: Color,
-    val label: String,
-)
+data class PriorityMeta(val color: Color, val label: String)
 
 enum class PriorityPalette { TaskColors, TaskListColors }
 
@@ -30,6 +27,7 @@ internal fun priorityMeta(priority: TaskPriority, palette: PriorityPalette = Pri
             TaskPriority.High -> TaskColors.PriorityHigh
             TaskPriority.Urgent -> TaskColors.PriorityUrgent
         }
+
         PriorityPalette.TaskListColors -> when (priority) {
             TaskPriority.None -> TaskListColors.PriorityNone
             TaskPriority.Low -> TaskListColors.PriorityLow

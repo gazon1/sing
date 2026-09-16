@@ -19,10 +19,7 @@ data class CreateNoteInput(
 )
 
 @Serializable
-data class CreateNoteOutput(
-    val noteId: String,
-    val title: String,
-)
+data class CreateNoteOutput(val noteId: String, val title: String)
 
 class CreateNoteTool(
     private val notesRepository: NotesRepository,

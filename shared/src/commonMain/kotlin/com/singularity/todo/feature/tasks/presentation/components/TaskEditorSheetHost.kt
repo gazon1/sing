@@ -101,10 +101,7 @@ fun TaskEditorSheetHost(
  * Confirmation dialog variant for discard/discard+save choices.
  */
 @Composable
-fun TaskEditorDiscardDialog(
-    onDiscard: () -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun TaskEditorDiscardDialog(onDiscard: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Discard changes?") },

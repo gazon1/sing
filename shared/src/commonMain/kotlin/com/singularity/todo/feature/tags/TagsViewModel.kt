@@ -33,8 +33,11 @@ class TagsViewModel(
     val state: StateFlow<TagsUiState> = userIdFlow
         .flatMapLatest { uid -> tagRepo.watchTags(uid.value) }
         .map { tags ->
-            if (tags.isEmpty()) TagsUiState.Empty("")
-            else TagsUiState.Content(tags)
+            if (tags.isEmpty()) {
+                TagsUiState.Empty("")
+            } else {
+                TagsUiState.Content(tags)
+            }
         }
         .catch { emit(TagsUiState.Error(it.message ?: "Error")) }
         .stateIn(scope, SharingStarted.WhileSubscribed(5000), TagsUiState.Loading)

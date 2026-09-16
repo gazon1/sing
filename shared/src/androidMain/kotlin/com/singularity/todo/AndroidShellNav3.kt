@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.navigation3.ui.NavDisplay
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.MenuButtonTitle
@@ -34,7 +35,6 @@ import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.createAppEntryProvider
 import com.singularity.todo.feature.nav.icon
 import com.singularity.todo.shell.MenuBottomSheet
-import com.singularity.todo.core.ui.TestTags
 
 /**
  * Navigation 3 Android shell — the actual implementation called by [PlatformShell].
@@ -51,11 +51,7 @@ import com.singularity.todo.core.ui.TestTags
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun androidShellNav3Root(
-    state: Nav3State,
-    navigator: Navigator,
-    navCallbacks: NavCallbacks,
-) {
+fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks) {
     var menuVisible by rememberSaveable { mutableStateOf(false) }
 
     // topLevelRoute is MutableState<NavKey>, getValue triggers recomposition on change
@@ -80,7 +76,7 @@ fun androidShellNav3Root(
                             Icon(
                                 destination.icon,
                                 contentDescription = destination.title,
-                                modifier = Modifier.testTag(TestTags.navTab(destination.title.lowercase()))
+                                modifier = Modifier.testTag(TestTags.navTab(destination.title.lowercase())),
                             )
                         },
                         label = { Text(destination.title) },
@@ -93,7 +89,7 @@ fun androidShellNav3Root(
                         Icon(
                             Icons.Default.Menu,
                             contentDescription = MenuButtonTitle,
-                            modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON)
+                            modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
                         )
                     },
                     label = { Text(MenuButtonTitle) },
@@ -136,10 +132,13 @@ private fun fabActionForNav3(current: AppDestination, navigator: Navigator): Fab
     AppDestination.Inbox, AppDestination.Today -> FabAction("Add task") {
         navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create))
     }
+
     AppDestination.Plans -> FabAction("Add project") {
         navigator.navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()))
     }
+
     // NotesNavGraph has its own note creation button — no shell FAB needed here.
     AppDestination.Notes, AppDestination.Pomodoro, AppDestination.Statistics, AppDestination.Archive -> null
+
     else -> null
 }

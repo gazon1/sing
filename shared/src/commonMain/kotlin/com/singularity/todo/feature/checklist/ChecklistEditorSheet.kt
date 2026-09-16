@@ -39,10 +39,7 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChecklistEditorSheet(
-    taskId: String,
-    onDismiss: () -> Unit,
-) {
+fun ChecklistEditorSheet(taskId: String, onDismiss: () -> Unit) {
     val vm: ChecklistEditorViewModel = koinViewModel()
     val state by vm.state.collectAsStateWithLifecycle()
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
@@ -116,7 +113,13 @@ fun ChecklistEditorSheet(
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null,
-                                color = if (item.isCompleted) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface,
+                                color = if (item.isCompleted) {
+                                    MaterialTheme.colorScheme.onSurface.copy(
+                                    alpha = 0.5f,
+                                )
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
                             ),
                         )
                         IconButton(

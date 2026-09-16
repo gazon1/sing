@@ -18,27 +18,24 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 
 @Composable
-fun TaskMoreOptionsRow(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun TaskMoreOptionsRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = TaskSpacing.lg),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = Icons.Default.Add,
             contentDescription = null,
-            tint = TaskColors.TextSecondary
+            tint = TaskColors.TextSecondary,
         )
         Spacer(Modifier.width(TaskSpacing.lg))
         Text(
             text = "Больше параметров",
             color = TaskColors.TextSecondary,
-            fontSize = 16.sp
+            fontSize = 16.sp,
         )
     }
 }

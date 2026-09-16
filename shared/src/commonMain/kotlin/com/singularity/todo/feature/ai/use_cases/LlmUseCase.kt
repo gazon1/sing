@@ -45,66 +45,87 @@ abstract class LlmUseCase<I, O>(protected val tool: SimpleTool<I>, protected val
 
 // ─── Concrete use cases ─────────────────────────────────────────────────────────
 
-class RefineTaskUseCase(tool: RefineTaskTool) : LlmUseCase<RefineTaskInput, RefineTaskOutput>(
-    tool, RefineTaskOutput.serializer()
-) {
+class RefineTaskUseCase(tool: RefineTaskTool) :
+    LlmUseCase<RefineTaskInput, RefineTaskOutput>(
+        tool,
+        RefineTaskOutput.serializer(),
+    ) {
     suspend operator fun invoke(currentTitle: String, description: String? = null): Result<String> =
         execute(RefineTaskInput(currentTitle, description)).map { it.newTitle }
 }
 
-class SmartRewriteUseCase(tool: SmartRewriteTool) : LlmUseCase<SmartRewriteInput, SmartRewriteOutput>(
-    tool, SmartRewriteOutput.serializer()
-) {
+class SmartRewriteUseCase(tool: SmartRewriteTool) :
+    LlmUseCase<SmartRewriteInput, SmartRewriteOutput>(
+        tool,
+        SmartRewriteOutput.serializer(),
+    ) {
     suspend operator fun invoke(rawIdea: String): Result<String> =
         execute(SmartRewriteInput(rawIdea)).map { it.newTitle }
 }
 
-class GenerateDescriptionUseCase(tool: GenerateDescriptionTool) : LlmUseCase<GenerateDescriptionInput, GenerateDescriptionOutput>(
-    tool, GenerateDescriptionOutput.serializer()
-) {
+class GenerateDescriptionUseCase(tool: GenerateDescriptionTool) :
+    LlmUseCase<GenerateDescriptionInput, GenerateDescriptionOutput>(
+        tool,
+        GenerateDescriptionOutput.serializer(),
+    ) {
     suspend operator fun invoke(title: String): Result<String> =
         execute(GenerateDescriptionInput(title)).map { it.description }
 }
 
-class GenerateChecklistUseCase(tool: GenerateChecklistTool) : LlmUseCase<GenerateChecklistInput, GenerateChecklistOutput>(
-    tool, GenerateChecklistOutput.serializer()
-) {
+class GenerateChecklistUseCase(tool: GenerateChecklistTool) :
+    LlmUseCase<GenerateChecklistInput, GenerateChecklistOutput>(
+        tool,
+        GenerateChecklistOutput.serializer(),
+    ) {
     suspend operator fun invoke(title: String, description: String? = null): Result<List<String>> =
         execute(GenerateChecklistInput(title, description)).map { it.steps }
 }
 
-class PickTimeUseCase(tool: PickTimeTool) : LlmUseCase<PickTimeInput, PickTimeOutput>(
-    tool, PickTimeOutput.serializer()
-) {
+class PickTimeUseCase(tool: PickTimeTool) :
+    LlmUseCase<PickTimeInput, PickTimeOutput>(
+        tool,
+        PickTimeOutput.serializer(),
+    ) {
     suspend operator fun invoke(title: String, description: String? = null): Result<String> =
         execute(PickTimeInput(title, description)).map { it.suggestedTime }
 }
 
-class ClusterTasksUseCase(tool: ClusterTasksTool) : LlmUseCase<ClusterTasksInput, ClusterTasksOutput>(
-    tool, ClusterTasksOutput.serializer()
-) {
+class ClusterTasksUseCase(tool: ClusterTasksTool) :
+    LlmUseCase<ClusterTasksInput, ClusterTasksOutput>(
+        tool,
+        ClusterTasksOutput.serializer(),
+    ) {
     suspend operator fun invoke(tasks: List<String>): Result<Map<String, List<String>>> =
         execute(ClusterTasksInput(tasks)).map { it.clusters }
 }
 
-class ClusterNotesUseCase(tool: ClusterNotesTool) : LlmUseCase<ClusterNotesInput, ClusterNotesOutput>(
-    tool, ClusterNotesOutput.serializer()
-) {
+class ClusterNotesUseCase(tool: ClusterNotesTool) :
+    LlmUseCase<ClusterNotesInput, ClusterNotesOutput>(
+        tool,
+        ClusterNotesOutput.serializer(),
+    ) {
     suspend operator fun invoke(notes: List<String>): Result<Map<String, List<String>>> =
         execute(ClusterNotesInput(notes)).map { it.clusters }
 }
 
-class DecomposeTaskUseCase(tool: DecomposeTaskTool) : LlmUseCase<DecomposeTaskInput, DecomposeTaskOutput>(
-    tool, DecomposeTaskOutput.serializer()
-) {
+class DecomposeTaskUseCase(tool: DecomposeTaskTool) :
+    LlmUseCase<DecomposeTaskInput, DecomposeTaskOutput>(
+        tool,
+        DecomposeTaskOutput.serializer(),
+    ) {
     suspend operator fun invoke(title: String, description: String? = null): Result<List<String>> =
         execute(DecomposeTaskInput(title, description)).map { it.subTasks }
 }
 
-class ImproveNoteUseCase(tool: SimpleTool<com.singularity.todo.feature.ai.tools.ImproveNoteInput>) : LlmUseCase<com.singularity.todo.feature.ai.tools.ImproveNoteInput, com.singularity.todo.feature.ai.tools.ImproveNoteOutput>(
-    tool, com.singularity.todo.feature.ai.tools.ImproveNoteOutput.serializer()
-) {
-    suspend operator fun invoke(title: String, body: String): Result<com.singularity.todo.feature.ai.tools.ImproveNoteOutput> =
+class ImproveNoteUseCase(tool: SimpleTool<com.singularity.todo.feature.ai.tools.ImproveNoteInput>) :
+    LlmUseCase<com.singularity.todo.feature.ai.tools.ImproveNoteInput, com.singularity.todo.feature.ai.tools.ImproveNoteOutput>(
+        tool,
+        com.singularity.todo.feature.ai.tools.ImproveNoteOutput.serializer(),
+    ) {
+    suspend operator fun invoke(
+        title: String,
+        body: String,
+    ): Result<com.singularity.todo.feature.ai.tools.ImproveNoteOutput> =
         execute(com.singularity.todo.feature.ai.tools.ImproveNoteInput(title, body))
 }
 

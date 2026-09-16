@@ -30,11 +30,7 @@ data class CreateTaskInput(
 )
 
 @Serializable
-data class CreateTaskOutput(
-    val taskId: String,
-    val title: String,
-    val description: String?,
-)
+data class CreateTaskOutput(val taskId: String, val title: String, val description: String?)
 
 class CreateTaskTool(
     private val taskRepository: TaskRepository,

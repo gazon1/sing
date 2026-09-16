@@ -72,8 +72,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
-import com.singularity.todo.core.ui.preview.PreviewSamples
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
@@ -81,7 +79,6 @@ import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavigator
-import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
@@ -137,11 +134,7 @@ fun ProjectDetailScreen(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalTime::class)
 @Composable
-fun ProjectDetailContent(
-    viewModel: ProjectDetailViewModel,
-    projectId: ProjectId,
-    modifier: Modifier = Modifier,
-) {
+fun ProjectDetailContent(viewModel: ProjectDetailViewModel, projectId: ProjectId, modifier: Modifier = Modifier) {
     val nav = LocalProjectsNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
@@ -159,15 +152,44 @@ fun ProjectDetailContent(
     val actions = remember {
         ProjectDetailActions { intent ->
             when (intent) {
-                is ProjectDetailIntent.Routing.OpenColorSheet -> { sheetState = ActiveSheet.PickColor }
-                is ProjectDetailIntent.Routing.OpenIconSheet -> { sheetState = ActiveSheet.PickIcon }
-                is ProjectDetailIntent.Routing.OpenParentSheet -> { sheetState = ActiveSheet.PickParent(intent.currentParentId) }
-                is ProjectDetailIntent.Routing.OpenDueDateSheet -> { sheetState = ActiveSheet.PickDueDate }
-                is ProjectDetailIntent.Routing.OpenChildrenSheet -> { sheetState = ActiveSheet.ShowChildren }
-                is ProjectDetailIntent.Routing.OpenDeleteSheet -> { sheetState = ActiveSheet.ConfirmDelete }
-                is ProjectDetailIntent.Routing.OpenArchiveSheet -> { sheetState = ActiveSheet.ConfirmArchive }
-                is ProjectDetailIntent.Routing.OpenReminderSheet -> { sheetState = ActiveSheet.PickReminder }
-                is ProjectDetailIntent.Routing.OpenAttachmentSheet -> { sheetState = ActiveSheet.AddAttachment }
+                is ProjectDetailIntent.Routing.OpenColorSheet -> {
+                    sheetState = ActiveSheet.PickColor
+                }
+
+                is ProjectDetailIntent.Routing.OpenIconSheet -> {
+                    sheetState = ActiveSheet.PickIcon
+                }
+
+                is ProjectDetailIntent.Routing.OpenParentSheet -> {
+                    sheetState = ActiveSheet.PickParent(
+                    intent.currentParentId,
+                )
+                }
+
+                is ProjectDetailIntent.Routing.OpenDueDateSheet -> {
+                    sheetState = ActiveSheet.PickDueDate
+                }
+
+                is ProjectDetailIntent.Routing.OpenChildrenSheet -> {
+                    sheetState = ActiveSheet.ShowChildren
+                }
+
+                is ProjectDetailIntent.Routing.OpenDeleteSheet -> {
+                    sheetState = ActiveSheet.ConfirmDelete
+                }
+
+                is ProjectDetailIntent.Routing.OpenArchiveSheet -> {
+                    sheetState = ActiveSheet.ConfirmArchive
+                }
+
+                is ProjectDetailIntent.Routing.OpenReminderSheet -> {
+                    sheetState = ActiveSheet.PickReminder
+                }
+
+                is ProjectDetailIntent.Routing.OpenAttachmentSheet -> {
+                    sheetState = ActiveSheet.AddAttachment
+                }
+
                 is ProjectDetailIntent.Domain -> viewModel.onIntent(intent)
             }
         }
@@ -227,7 +249,7 @@ fun ProjectDetailContent(
                             )
                         }
                     }
-                }
+                },
             )
         },
         bottomBar = {
@@ -242,10 +264,12 @@ fun ProjectDetailContent(
     ) { padding ->
         when (val s = state) {
             ProjectDetailUiState.Loading -> LoadingIndicator(Modifier.padding(padding))
+
             ProjectDetailUiState.NotFound -> EmptyState(
                 title = "Project not found",
                 modifier = Modifier.padding(padding),
             )
+
             is ProjectDetailUiState.Content -> Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -284,6 +308,7 @@ fun ProjectDetailContent(
         ) {
             when (sheetState) {
                 null -> Unit
+
                 is ActiveSheet.PickColor -> ColorPickerSheet(
                     currentColor = (state as? ProjectDetailUiState.Content)?.ui?.project?.color
                         ?: ProjectColorPalette.default,
@@ -293,6 +318,7 @@ fun ProjectDetailContent(
                     },
                     onDismiss = { sheetState = null },
                 )
+
                 is ActiveSheet.PickIcon -> IconPickerSheet(
                     currentIcon = (state as? ProjectDetailUiState.Content)?.ui?.project?.icon,
                     onPick = { icon ->
@@ -301,6 +327,7 @@ fun ProjectDetailContent(
                     },
                     onDismiss = { sheetState = null },
                 )
+
                 is ActiveSheet.PickParent -> ParentPickerSheet(
                     options = parentOptions,
                     onPick = { parentId ->
@@ -309,6 +336,7 @@ fun ProjectDetailContent(
                     },
                     onDismiss = { sheetState = null },
                 )
+
                 is ActiveSheet.ConfirmDelete -> ConfirmDeleteSheet(
                     projectName = (state as? ProjectDetailUiState.Content)?.ui?.project?.name ?: "",
                     onConfirm = {
@@ -317,6 +345,7 @@ fun ProjectDetailContent(
                     },
                     onDismiss = { sheetState = null },
                 )
+
                 is ActiveSheet.ConfirmArchive -> ConfirmArchiveSheet(
                     isArchived = (state as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true,
                     onConfirm = {
@@ -325,13 +354,18 @@ fun ProjectDetailContent(
                     },
                     onDismiss = { sheetState = null },
                 )
+
                 is ActiveSheet.PickReminder -> ReminderPickerSheet(
-                    onPick = { /* reminder set on project — future enhancement */ sheetState = null },
+                    onPick = {
+                        /* reminder set on project — future enhancement */ sheetState = null
+                    },
                     onDismiss = { sheetState = null },
                 )
+
                 is ActiveSheet.AddAttachment -> AttachmentPlaceholderSheet(
                     onDismiss = { sheetState = null },
                 )
+
                 is ActiveSheet.PickDueDate -> DatePickerSheet(
                     initialDate = (state as? ProjectDetailUiState.Content)?.ui?.project?.dueDate,
                     onDateSelected = { date ->
@@ -340,6 +374,7 @@ fun ProjectDetailContent(
                     },
                     onDismiss = { sheetState = null },
                 )
+
                 is ActiveSheet.ShowChildren -> ChildProjectsSheet(
                     children = (state as? ProjectDetailUiState.Content)?.ui?.childProjects ?: emptyList(),
                     onDismiss = { sheetState = null },
@@ -448,8 +483,11 @@ private fun ProjectHeroSection(
             value = descriptionDraft,
             onValueChange = { actions.onUpdateDescription(it.ifBlank { null }) },
             textStyle = MaterialTheme.typography.bodyMedium.copy(
-                color = if (descriptionDraft.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant
-                else MaterialTheme.colorScheme.onSurface,
+                color = if (descriptionDraft.isEmpty()) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
             ),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             modifier = Modifier.fillMaxWidth(),
@@ -459,10 +497,7 @@ private fun ProjectHeroSection(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ProjectMetaChipsRow(
-    ui: ProjectDetailUi,
-    actions: ProjectDetailActions,
-) {
+private fun ProjectMetaChipsRow(ui: ProjectDetailUi, actions: ProjectDetailActions) {
     FlowRow(
         modifier = Modifier
             .fillMaxWidth()
@@ -580,10 +615,7 @@ private fun ProjectBodySection(
 }
 
 @Composable
-private fun ProjectBottomActionBar(
-    isArchived: Boolean,
-    actions: ProjectDetailActions,
-) {
+private fun ProjectBottomActionBar(isArchived: Boolean, actions: ProjectDetailActions) {
     BottomAppBar(modifier = Modifier.fillMaxWidth()) {
         IconButton(onClick = actions::onOpenReminderSheet) {
             Icon(Icons.Filled.Notifications, "Remind")
@@ -671,8 +703,11 @@ private fun AddExistingTaskPopup(
     onDismiss: () -> Unit,
 ) {
     val filtered = remember(tasks, query) {
-        if (query.isBlank()) tasks.take(10)
-        else tasks.filter { it.title.contains(query, ignoreCase = true) }.take(10)
+        if (query.isBlank()) {
+            tasks.take(10)
+        } else {
+            tasks.filter { it.title.contains(query, ignoreCase = true) }.take(10)
+        }
     }
 
     ModalBottomSheet(
@@ -731,11 +766,7 @@ private sealed interface ActiveSheet {
 }
 
 @Composable
-private fun ColorPickerSheet(
-    currentColor: Int,
-    onPick: (Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun ColorPickerSheet(currentColor: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
     Column(modifier = Modifier.padding(24.dp)) {
         Text("Color", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(16.dp))
@@ -769,11 +800,7 @@ private fun ColorPickerSheet(
 }
 
 @Composable
-private fun IconPickerSheet(
-    currentIcon: String?,
-    onPick: (String?) -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun IconPickerSheet(currentIcon: String?, onPick: (String?) -> Unit, onDismiss: () -> Unit) {
     Column(modifier = Modifier.padding(24.dp)) {
         Text("Icon", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(16.dp))
@@ -785,15 +812,21 @@ private fun IconPickerSheet(
                 Icon(
                     icon,
                     contentDescription = key,
-                    tint = if (key == currentIcon) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (key == currentIcon) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
                         .clickable { onPick(key) }
                         .background(
-                            if (key == currentIcon) MaterialTheme.colorScheme.primaryContainer
-                            else Color.Transparent,
+                            if (key == currentIcon) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                Color.Transparent
+                            },
                             CircleShape,
                         )
                         .padding(8.dp),
@@ -806,11 +839,7 @@ private fun IconPickerSheet(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ParentPickerSheet(
-    options: List<ParentOption>,
-    onPick: (ProjectId?) -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun ParentPickerSheet(options: List<ParentOption>, onPick: (ProjectId?) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text("Parent project", style = MaterialTheme.typography.titleMedium)
@@ -837,11 +866,7 @@ private fun ParentPickerSheet(
 }
 
 @Composable
-private fun ConfirmDeleteSheet(
-    projectName: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun ConfirmDeleteSheet(projectName: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Delete project?") },
@@ -858,15 +883,15 @@ private fun ConfirmDeleteSheet(
 }
 
 @Composable
-private fun ConfirmArchiveSheet(
-    isArchived: Boolean,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun ConfirmArchiveSheet(isArchived: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (isArchived) "Unarchive project?" else "Archive project?") },
-        text = { Text(if (isArchived) "This will restore the project." else "Archived projects are hidden from the list.") },
+        text = {
+            Text(
+                if (isArchived) "This will restore the project." else "Archived projects are hidden from the list.",
+            )
+        },
         confirmButton = {
             TextButton(onClick = onConfirm) {
                 Text(if (isArchived) "Unarchive" else "Archive")
@@ -880,10 +905,7 @@ private fun ConfirmArchiveSheet(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReminderPickerSheet(
-    onPick: (kotlinx.datetime.LocalDate?) -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun ReminderPickerSheet(onPick: (kotlinx.datetime.LocalDate?) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(24.dp)) {
             ReminderPicker(
@@ -901,9 +923,7 @@ private fun ReminderPickerSheet(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AttachmentPlaceholderSheet(
-    onDismiss: () -> Unit,
-) {
+private fun AttachmentPlaceholderSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -915,7 +935,7 @@ private fun AttachmentPlaceholderSheet(
             Spacer(Modifier.height(16.dp))
             Text(
                 "Attachments for projects are a future enhancement. " +
-                "Please use task-level attachments via TaskDetail.",
+                    "Please use task-level attachments via TaskDetail.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -930,10 +950,7 @@ private fun AttachmentPlaceholderSheet(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChildProjectsSheet(
-    children: List<Project>,
-    onDismiss: () -> Unit,
-) {
+private fun ChildProjectsSheet(children: List<Project>, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text("Sub-projects", style = MaterialTheme.typography.titleMedium)
@@ -973,4 +990,3 @@ fun formatSavedRelative(now: Instant, lastEdited: Instant): String {
         else -> "Saved ${diffMs / 3_600_000}h ago"
     }
 }
-

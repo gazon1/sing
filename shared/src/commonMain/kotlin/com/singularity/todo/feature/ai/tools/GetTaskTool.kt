@@ -16,7 +16,7 @@ data class GetTaskOutput(
     val title: String,
     val description: String?,
     val isCompleted: Boolean,
-    val projectId: String?
+    val projectId: String?,
 )
 
 class GetTaskTool(private val taskRepository: TaskRepository) :

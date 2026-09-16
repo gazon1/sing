@@ -29,11 +29,7 @@ import com.singularity.todo.feature.projects.presentation.screen.ProjectsScreen
  * Persistence: uses [navSavedStateConfig] so the back stack survives process death.
  */
 @Composable
-actual fun ProjectsNavGraph(
-    start: ProjectsRoute,
-    onExitGraph: (AppDestination?) -> Unit,
-    modifier: Modifier,
-) {
+actual fun ProjectsNavGraph(start: ProjectsRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist.
     val savedStateConfig = remember {
@@ -43,6 +39,7 @@ actual fun ProjectsNavGraph(
             ProjectsRoute.Detail.serializer(),
         )
     }
+
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<ProjectsRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<ProjectsRoute>
@@ -74,10 +71,8 @@ actual fun ProjectsNavGraph(
 }
 
 @Composable
-actual fun projectsEntryProvider(): (ProjectsRoute) -> NavEntry<ProjectsRoute> {
-    return entryProvider {
-        entry<ProjectsRoute.List> { ProjectsScreen() }
-        entry<ProjectsRoute.Editor> { ProjectEditorScreen(it.projectId) }
-        entry<ProjectsRoute.Detail> { ProjectDetailScreen(it.projectId) }
-    }
+actual fun projectsEntryProvider(): (ProjectsRoute) -> NavEntry<ProjectsRoute> = entryProvider {
+    entry<ProjectsRoute.List> { ProjectsScreen() }
+    entry<ProjectsRoute.Editor> { ProjectEditorScreen(it.projectId) }
+    entry<ProjectsRoute.Detail> { ProjectDetailScreen(it.projectId) }
 }

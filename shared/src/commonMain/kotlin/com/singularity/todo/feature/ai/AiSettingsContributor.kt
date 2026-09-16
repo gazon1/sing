@@ -20,9 +20,8 @@ import kotlinx.coroutines.flow.Flow
  * [SettingsViewModel] discovers this contributor via `getAll<SettingsContributor>()`
  * and merges its [observe] stream into the unified settings state.
  */
-class AiSettingsContributor(
-    private val store: AiSettingsStore,
-) : SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai> {
+class AiSettingsContributor(private val store: AiSettingsStore) :
+    SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai> {
 
     override val section: SettingsSection.Ai = SettingsSection.Ai()
 

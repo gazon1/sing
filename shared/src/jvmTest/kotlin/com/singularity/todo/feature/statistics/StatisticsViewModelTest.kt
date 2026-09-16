@@ -1,19 +1,16 @@
 package com.singularity.todo.feature.statistics
 
+import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import com.singularity.todo.core.platform.Clock
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -41,7 +38,7 @@ class StatisticsViewModelTest {
         val vm = StatisticsViewModel(
             taskRepository = repo,
             currentUser = FakeProfileAwareCurrentUser(
-                FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId))
+                FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)),
             ),
             clock = Clock,
         )
@@ -60,7 +57,7 @@ class StatisticsViewModelTest {
         val vm = StatisticsViewModel(
             taskRepository = FakeTaskRepository(),
             currentUser = FakeProfileAwareCurrentUser(
-                FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId))
+                FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)),
             ),
             clock = Clock,
         )

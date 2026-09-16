@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.map
 @Suppress("UNCHECKED_CAST") // Safe: type is verified at runtime via `when (T::class)`
 inline fun <reified T> DataStore<Preferences>.keyOf(
     name: String,
-    default: T
+    default: T,
 ): Preferences.Key<T> = when (T::class) {
     Boolean::class -> booleanPreferencesKey(name) as Preferences.Key<T>
     Float::class -> floatPreferencesKey(name) as Preferences.Key<T>
@@ -205,14 +205,28 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
 
     // ── Setters ───────────────────────────────────────────────────────────────
 
-    override suspend fun setDarkTheme(value: Boolean) { dataStore.edit { it[DARK_THEME] = value } }
-    override suspend fun setAccentColor(value: String) { dataStore.edit { it[ACCENT_COLOR] = value } }
-    override suspend fun setFontSizeScale(value: Float) { dataStore.edit { it[FONT_SIZE_SCALE] = value } }
+    override suspend fun setDarkTheme(value: Boolean) {
+        dataStore.edit { it[DARK_THEME] = value }
+    }
+    override suspend fun setAccentColor(value: String) {
+        dataStore.edit { it[ACCENT_COLOR] = value }
+    }
+    override suspend fun setFontSizeScale(value: Float) {
+        dataStore.edit { it[FONT_SIZE_SCALE] = value }
+    }
 
-    override suspend fun setAiProvider(value: String) { dataStore.edit { it[AI_PROVIDER] = value } }
-    override suspend fun setAiModel(value: String) { dataStore.edit { it[AI_MODEL] = value } }
-    override suspend fun setAiBaseUrl(value: String) { dataStore.edit { it[AI_BASE_URL] = value } }
-    override suspend fun setAiSystemPrompt(value: String) { dataStore.edit { it[AI_SYSTEM_PROMPT] = value } }
+    override suspend fun setAiProvider(value: String) {
+        dataStore.edit { it[AI_PROVIDER] = value }
+    }
+    override suspend fun setAiModel(value: String) {
+        dataStore.edit { it[AI_MODEL] = value }
+    }
+    override suspend fun setAiBaseUrl(value: String) {
+        dataStore.edit { it[AI_BASE_URL] = value }
+    }
+    override suspend fun setAiSystemPrompt(value: String) {
+        dataStore.edit { it[AI_SYSTEM_PROMPT] = value }
+    }
 
     override suspend fun setNotificationsEnabled(value: Boolean) {
         dataStore.edit { it[NOTIFICATIONS_ENABLED] = value }
@@ -253,5 +267,7 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
         dataStore.edit { it[GREETING_AFTERNOON_END] = hour.coerceIn(0, 23) }
     }
 
-    override suspend fun setUserId(value: String) { dataStore.edit { it[USER_ID] = value } }
+    override suspend fun setUserId(value: String) {
+        dataStore.edit { it[USER_ID] = value }
+    }
 }

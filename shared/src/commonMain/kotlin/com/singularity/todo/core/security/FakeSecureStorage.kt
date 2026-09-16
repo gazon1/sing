@@ -9,7 +9,7 @@ import kotlinx.coroutines.sync.withLock
  */
 class FakeSecureStorage(
     private val backing: MutableMap<String, String> = mutableMapOf(),
-    private val hardwareBacked: Boolean = true
+    private val hardwareBacked: Boolean = true,
 ) : SecureStoragePort {
 
     private val mutex = Mutex()

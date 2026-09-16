@@ -29,15 +29,10 @@ data class UpdateTaskInput(
 )
 
 @Serializable
-data class UpdateTaskOutput(
-    val taskId: String,
-    val updated: Boolean,
-)
+data class UpdateTaskOutput(val taskId: String, val updated: Boolean)
 
-class UpdateTaskTool(
-    private val taskRepository: TaskRepository,
-    private val clock: Clock,
-) : SimpleTool<UpdateTaskInput>(TypeToken.of(UpdateTaskInput::class.java), NAME, DESCRIPTION) {
+class UpdateTaskTool(private val taskRepository: TaskRepository, private val clock: Clock) :
+    SimpleTool<UpdateTaskInput>(TypeToken.of(UpdateTaskInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: UpdateTaskInput): String {
         val existing = taskRepository.watchTask(TaskId(args.taskId)).first()
@@ -49,12 +44,27 @@ class UpdateTaskTool(
         val updated = existing.copy(
             title = args.title ?: existing.title,
             description = args.description ?: existing.description,
-            priority = args.priority?.let { runCatching { TaskPriority.valueOf(it) }.getOrDefault(existing.priority) } ?: existing.priority,
+            priority = args.priority?.let {
+                runCatching {
+                    TaskPriority.valueOf(
+                        it,
+                    )
+                }.getOrDefault(existing.priority)
+            } ?: existing.priority,
             kind = args.kind?.let { runCatching { TaskKind.valueOf(it) }.getOrDefault(existing.kind) } ?: existing.kind,
             projectId = args.projectId?.let { ProjectId.fromString(it) } ?: existing.projectId,
             tags = args.tagIds?.map { TagId.fromString(it) } ?: existing.tags,
             dueDate = args.dueDate?.let { if (it.isBlank()) null else LocalDate.parse(it) } ?: existing.dueDate,
-            dueTime = args.dueTime?.let { if (it.isBlank()) null else com.singularity.todo.core.database.LocalTimeFormats.parse(it) } ?: existing.dueTime,
+            dueTime =
+                args.dueTime?.let {
+                    if (it.isBlank()) {
+                        null
+                    } else {
+                        com.singularity.todo.core.database.LocalTimeFormats.parse(
+                        it,
+                    )
+                    }
+                } ?: existing.dueTime,
             someday = args.someday ?: existing.someday,
             updatedAt = clock.now(),
         )

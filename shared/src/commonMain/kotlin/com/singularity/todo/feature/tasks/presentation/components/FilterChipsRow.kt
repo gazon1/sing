@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.components
 
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 
 /**
@@ -20,11 +20,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
  * outside the task screen if filters are added or removed.
  */
 @Composable
-fun FilterChipsRow(
-    selected: TaskFilter,
-    onSelect: (TaskFilter) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun FilterChipsRow(selected: TaskFilter, onSelect: (TaskFilter) -> Unit, modifier: Modifier = Modifier) {
     val entries = listOf(
         TaskFilter.Today,
         TaskFilter.Upcoming,
@@ -60,6 +56,7 @@ private fun TaskFilter.label(): String = when (this) {
     is TaskFilter.ByTag -> "Tag"
     is TaskFilter.Search -> "Search"
     is TaskFilter.ByDateRange -> "Date Range"
+    is TaskFilter.ByStatuses -> "By Status"
 }
 
 // ===== Preview =====

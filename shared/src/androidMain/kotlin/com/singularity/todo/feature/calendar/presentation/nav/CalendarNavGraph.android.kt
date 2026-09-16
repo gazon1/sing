@@ -11,9 +11,9 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import com.singularity.todo.feature.calendar.presentation.screen.CalendarScreen
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.navSavedStateConfig
-import com.singularity.todo.feature.calendar.presentation.screen.CalendarScreen
 
 /**
  * Android implementation of [CalendarNavGraph].
@@ -27,17 +27,14 @@ import com.singularity.todo.feature.calendar.presentation.screen.CalendarScreen
  * Persistence: uses [navSavedStateConfig] so the back stack survives process death.
  */
 @Composable
-actual fun CalendarNavGraph(
-    start: CalendarRoute,
-    onExitGraph: (AppDestination?) -> Unit,
-    modifier: Modifier,
-) {
+actual fun CalendarNavGraph(start: CalendarRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
     val savedStateConfig = remember {
         navSavedStateConfig(
             CalendarRoute.Month.serializer(),
             CalendarRoute.Day.serializer(),
         )
     }
+
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<CalendarRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<CalendarRoute>
@@ -65,9 +62,7 @@ actual fun CalendarNavGraph(
 }
 
 @Composable
-actual fun calendarEntryProvider(): (CalendarRoute) -> NavEntry<CalendarRoute> {
-    return entryProvider {
-        entry<CalendarRoute.Month> { route -> CalendarScreen(route.date) }
-        entry<CalendarRoute.Day> { route -> CalendarScreen(route.date) }
-    }
+actual fun calendarEntryProvider(): (CalendarRoute) -> NavEntry<CalendarRoute> = entryProvider {
+    entry<CalendarRoute.Month> { route -> CalendarScreen(route.date) }
+    entry<CalendarRoute.Day> { route -> CalendarScreen(route.date) }
 }

@@ -45,8 +45,7 @@ class ColorizedWriter : LogWriter() {
 
     private object ColorizedFormatter : MessageStringFormatter {
         override fun formatSeverity(severity: Severity): String = "$severity:"
-        override fun formatTag(tag: Tag): String =
-            if (tag.tag.isEmpty()) "" else "(${tag.tag})"
+        override fun formatTag(tag: Tag): String = if (tag.tag.isEmpty()) "" else "(${tag.tag})"
     }
 
     private companion object {

@@ -50,7 +50,9 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel()) {
             }
             when (val s = state) {
                 ArchiveUiState.Loading -> LoadingIndicator()
+
                 is ArchiveUiState.Error -> EmptyState(title = "Error", subtitle = s.message)
+
                 is ArchiveUiState.Content -> {
                     if (s.tasks.isEmpty()) {
                         EmptyState(
@@ -62,7 +64,11 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel()) {
                             items(s.tasks, key = { it.id.value }) { task ->
                                 TaskCard(
                                     task = task,
-                                    onClick = { navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(task.id.value))) },
+                                    onClick = {
+                                        navigator.navigate(
+                                            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(task.id.value)),
+                                        )
+                                    },
                                     actions = TaskCardActions.Empty,
                                 )
                             }
@@ -104,7 +110,9 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
             }
             when (state) {
                 ArchiveUiState.Loading -> LoadingIndicator()
+
                 is ArchiveUiState.Error -> EmptyState(title = "Error", subtitle = state.message)
+
                 is ArchiveUiState.Content -> {
                     if (state.tasks.isEmpty()) {
                         EmptyState(

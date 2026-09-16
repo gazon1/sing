@@ -53,18 +53,16 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
+import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiEvent
-import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiState
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
-import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
-import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -76,10 +74,7 @@ import org.koin.core.parameter.parametersOf
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ProjectEditorScreen(
-    projectId: ProjectId?,
-    modifier: Modifier = Modifier,
-) {
+fun ProjectEditorScreen(projectId: ProjectId?, modifier: Modifier = Modifier) {
     val nav = LocalProjectsNavigator.current
     val viewModel: ProjectEditorViewModel = koinViewModel { parametersOf(projectId) }
     ProjectEditorContent(
@@ -93,11 +88,7 @@ fun ProjectEditorScreen(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ProjectEditorContent(
-    viewModel: ProjectEditorViewModel,
-    modifier: Modifier = Modifier,
-    onBack: () -> Unit,
-) {
+fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier = Modifier, onBack: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showIconPicker by remember { mutableStateOf(false) }
     var showParentPicker by remember { mutableStateOf(false) }
@@ -183,7 +174,9 @@ fun ProjectEditorContent(
                                 .then(
                                     if (state.color == color) {
                                         Modifier.border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                                    } else Modifier
+                                    } else {
+                                        Modifier
+                                    },
                                 )
                                 .clickable { viewModel.processIntent(ProjectEditorIntent.ColorChanged(color)) },
                         ) {
@@ -235,7 +228,7 @@ fun ProjectEditorContent(
         ResultDialog(
             title = "Error",
             text = state.errorMessage ?: "",
-            onDismiss = { viewModel.processIntent(ProjectEditorIntent.ErrorShown) }
+            onDismiss = { viewModel.processIntent(ProjectEditorIntent.ErrorShown) },
         )
     }
 
@@ -264,8 +257,11 @@ fun ProjectEditorContent(
                                     showIconPicker = false
                                 }
                                 .background(
-                                    if (key == state.icon) MaterialTheme.colorScheme.primaryContainer
-                                    else Color.Transparent,
+                                    if (key == state.icon) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        Color.Transparent
+                                    },
                                     CircleShape,
                                 ),
                             contentAlignment = Alignment.Center,
@@ -298,7 +294,13 @@ fun ProjectEditorContent(
                         showParentPicker = false
                     },
                     label = { Text("None (root project)") },
-                    leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Filled.Folder,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    },
                 )
                 Spacer(Modifier.height(24.dp))
             }

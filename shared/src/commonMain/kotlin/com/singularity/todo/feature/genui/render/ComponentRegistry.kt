@@ -58,18 +58,33 @@ class ComponentRegistry {
 val UiNode.kind: String
     get() = when (this) {
         is UiNode.Text -> "text"
+
         is UiNode.Heading -> "heading"
+
         is UiNode.Button -> "button"
+
         is UiNode.Column -> "column"
+
         is UiNode.Row -> "row"
+
         is UiNode.Card -> "card"
+
         is UiNode.ListView -> "list"
+
         is UiNode.Divider -> "divider"
+
         is UiNode.Badge -> "badge"
+
         is UiNode.TextField -> "text_field"
+
         is UiNode.Checkbox -> "checkbox"
+
         is UiNode.Tabs -> "tabs"
-        is UiNode.Tab -> "tab"       // nested inside Tabs; not registered separately
+
+        is UiNode.Tab -> "tab"
+
+        // nested inside Tabs; not registered separately
         is UiNode.Icon -> "icon"
+
         is UiNode.Modal -> "modal"
     }

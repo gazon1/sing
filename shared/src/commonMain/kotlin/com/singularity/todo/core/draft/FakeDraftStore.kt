@@ -18,17 +18,15 @@ class FakeDraftStore : DraftStore {
     private val map = mutableMapOf<String, String>()
     private val mutex = Mutex()
 
-    override suspend fun <T> load(key: String, deserializer: DeserializationStrategy<T>): T? =
-        mutex.withLock {
-            map[key]?.let { json ->
-                runCatching { StableJson.decodeFromString(deserializer, json) }.getOrNull()
-            }
+    override suspend fun <T> load(key: String, deserializer: DeserializationStrategy<T>): T? = mutex.withLock {
+        map[key]?.let { json ->
+            runCatching { StableJson.decodeFromString(deserializer, json) }.getOrNull()
         }
+    }
 
-    override suspend fun <T> save(key: String, value: T, serializer: SerializationStrategy<T>) =
-        mutex.withLock {
-            map[key] = StableJson.encodeToString(serializer, value)
-        }
+    override suspend fun <T> save(key: String, value: T, serializer: SerializationStrategy<T>) = mutex.withLock {
+        map[key] = StableJson.encodeToString(serializer, value)
+    }
 
     override suspend fun clear(key: String) {
         mutex.withLock { map.remove(key) }

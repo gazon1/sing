@@ -16,11 +16,7 @@ data class ChecklistEditorState(
     val errorMessage: String? = null,
 )
 
-data class ChecklistItemUi(
-    val id: ChecklistItemId,
-    val title: String,
-    val isCompleted: Boolean,
-)
+data class ChecklistItemUi(val id: ChecklistItemId, val title: String, val isCompleted: Boolean)
 
 sealed interface ChecklistEditorIntent {
     data object Load : ChecklistEditorIntent
@@ -31,9 +27,7 @@ sealed interface ChecklistEditorIntent {
     data object ErrorShown : ChecklistEditorIntent
 }
 
-class ChecklistEditorViewModel(
-    private val checklistUseCase: ChecklistUseCase,
-) : ViewModel() {
+class ChecklistEditorViewModel(private val checklistUseCase: ChecklistUseCase) : ViewModel() {
 
     private val _state = MutableStateFlow(ChecklistEditorState())
     val state: StateFlow<ChecklistEditorState> = _state.asStateFlow()
@@ -44,7 +38,7 @@ class ChecklistEditorViewModel(
             checklistUseCase.watchChecklist(taskId).collect { items ->
                 _state.update { st ->
                     st.copy(
-                        items = items.map { ChecklistItemUi(it.id, it.title, it.isCompleted) }
+                        items = items.map { ChecklistItemUi(it.id, it.title, it.isCompleted) },
                     )
                 }
             }

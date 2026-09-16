@@ -10,5 +10,5 @@ data class BackupPayload(
     val projects: List<ProjectDto> = emptyList(),
     val tags: List<TagDto> = emptyList(),
     val attachments: List<AttachmentDto> = emptyList(),
-    val taskTags: List<TaskTagDto> = emptyList()
+    val taskTags: List<TaskTagDto> = emptyList(),
 )

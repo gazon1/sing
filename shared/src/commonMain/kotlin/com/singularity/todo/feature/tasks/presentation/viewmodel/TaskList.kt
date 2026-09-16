@@ -15,6 +15,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import com.singularity.todo.feature.tasks.domain.model.TasksUiEvent
 import com.singularity.todo.feature.tasks.domain.model.TasksUiState
 import com.singularity.todo.feature.tasks.domain.model.formatAiResult
@@ -22,7 +23,6 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
-import com.singularity.todo.feature.tasks.presentation.model.TaskListFilter
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.tasks.presentation.model.toTaskUi
 import kotlinx.coroutines.CoroutineScope
@@ -65,15 +65,15 @@ class TasksViewModel(
 
     /** Pre-computed "today" — stable for the lifetime of the ViewModel. */
     private val today: LocalDate = LocalDate.fromEpochDays(
-        clock.now().toEpochMilliseconds() / (24 * 60 * 60 * 1000)
+        clock.now().toEpochMilliseconds() / (24 * 60 * 60 * 1000),
     )
 
     private val _filter = MutableStateFlow<TaskFilter>(TaskFilter.All)
     val filter: StateFlow<TaskFilter> = _filter.asStateFlow()
 
     /** UI-side status filter (ALL / ACTIVE / COMPLETED) — independent of domain filter. */
-    private val _statusFilter = MutableStateFlow(TaskListFilter.ALL)
-    val statusFilter: StateFlow<TaskListFilter> = _statusFilter.asStateFlow()
+    private val _statusFilter = MutableStateFlow(TaskStatus.All)
+    val statusFilter: StateFlow<TaskStatus> = _statusFilter.asStateFlow()
 
     private val _aiResult = MutableSharedFlow<AiActionResult>()
     val aiResult: SharedFlow<AiActionResult> = _aiResult.asSharedFlow()
@@ -105,7 +105,8 @@ class TasksViewModel(
             .stateIn(scope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     @Suppress("UNCHECKED_CAST")
-    val state: StateFlow<TasksUiState> = (combine(
+    val state: StateFlow<TasksUiState> = (
+        combine(
         tasksFlow,
         projectNamesFlow,
         _filter,
@@ -115,24 +116,30 @@ class TasksViewModel(
     ) { args: Array<*> ->
         @Suppress("UNCHECKED_CAST")
         val tasks = args[0] as List<Task>
+
         @Suppress("UNCHECKED_CAST")
         val projectNames = args[1] as Map<String, String>
+
         @Suppress("UNCHECKED_CAST")
         val filter = args[2] as TaskFilter
+
         @Suppress("UNCHECKED_CAST")
-        val statusFilter = args[3] as TaskListFilter
+        val statusFilter = args[3] as TaskStatus
+
         @Suppress("UNCHECKED_CAST")
         val selectedIds = args[4] as Set<TaskId>
+
         @Suppress("UNCHECKED_CAST")
         val expandedIds = args[5] as Set<TaskId>
         val filtered = when (statusFilter) {
-            TaskListFilter.ALL -> tasks
-            TaskListFilter.ACTIVE -> tasks.filter { it.completedAt == null }
-            TaskListFilter.COMPLETED -> tasks.filter { it.completedAt != null }
+            TaskStatus.All -> tasks
+            TaskStatus.Active -> tasks.filter { it.completedAt == null }
+            TaskStatus.Completed -> tasks.filter { it.completedAt != null }
         }
         val taskUiList = buildFlatTaskList(filtered, expandedIds, projectNames)
         TasksUiState.Content(filter, taskUiList, selectedIds)
-    } as Flow<TasksUiState>)
+    } as Flow<TasksUiState>
+    )
         .catch { emit(TasksUiState.Error(it.message ?: "Error")) }
         .stateIn(scope, sharingStarted(), TasksUiState.Loading)
 
@@ -164,7 +171,7 @@ class TasksViewModel(
         _filter.value = filter
     }
 
-    fun setStatusFilter(filter: TaskListFilter) {
+    fun setStatusFilter(filter: TaskStatus) {
         _statusFilter.value = filter
     }
 
@@ -224,15 +231,33 @@ class TasksViewModel(
 
     fun runAiAction(task: Task, action: TaskAiAction) = scope.launch {
         val result: AiActionResult = when (action) {
-            TaskAiAction.RefineTitle -> refineTask?.invoke(task.title, task.description)?.toResult(AiActionResult::RefineTitle)
+            TaskAiAction.RefineTitle -> refineTask?.invoke(
+                task.title,
+                task.description,
+            )?.toResult(AiActionResult::RefineTitle)
                 ?: AiActionResult.Error("AI not available")
-            TaskAiAction.GenerateDescription -> generateDescription?.invoke(task.title)?.toResult(AiActionResult::GenerateDescription)
+
+            TaskAiAction.GenerateDescription -> generateDescription?.invoke(
+                task.title,
+            )?.toResult(AiActionResult::GenerateDescription)
                 ?: AiActionResult.Error("AI not available")
-            TaskAiAction.GenerateChecklist -> generateChecklist?.invoke(task.title, task.description)?.toResult(AiActionResult::GenerateChecklist)
+
+            TaskAiAction.GenerateChecklist -> generateChecklist?.invoke(
+                task.title,
+                task.description,
+            )?.toResult(AiActionResult::GenerateChecklist)
                 ?: AiActionResult.Error("AI not available")
-            TaskAiAction.Decompose -> decomposeTask?.invoke(task.title, task.description)?.toResult(AiActionResult::DecomposeTask)
+
+            TaskAiAction.Decompose -> decomposeTask?.invoke(
+                task.title,
+                task.description,
+            )?.toResult(AiActionResult::DecomposeTask)
                 ?: AiActionResult.Error("AI not available")
-            TaskAiAction.SuggestTime -> pickTime?.invoke(task.title, task.description)?.toResult(AiActionResult::PickTime)
+
+            TaskAiAction.SuggestTime -> pickTime?.invoke(
+                task.title,
+                task.description,
+            )?.toResult(AiActionResult::PickTime)
                 ?: AiActionResult.Error("AI not available")
         }
         _aiResult.emit(result)

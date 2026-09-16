@@ -101,5 +101,3 @@ private fun ColorCircle(color: Color, iconKey: String?) {
         )
     }
 }
-
-

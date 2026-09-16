@@ -57,6 +57,7 @@ class TaskDetailViewModel(
     val lastEditedAt: StateFlow<kotlin.time.Instant?> = _lastEditedAt
 
     private val _recentlyDeleted = MutableStateFlow<Task?>(null)
+
     /** Public for TaskDetailViewContent to show undo snackbar after delete. */
     val recentlyDeleted: StateFlow<Task?> = _recentlyDeleted.asStateFlow()
 
@@ -121,18 +122,25 @@ class TaskDetailViewModel(
                 ) { values ->
                     @Suppress("UNCHECKED_CAST")
                     val project = values[0] as com.singularity.todo.feature.projects.domain.model.Project?
+
                     @Suppress("UNCHECKED_CAST")
                     val allTags = values[1] as List<com.singularity.todo.feature.tags.Tag>
+
                     @Suppress("UNCHECKED_CAST")
                     val checklist = values[2] as List<com.singularity.todo.feature.checklist.ChecklistItem>
+
                     @Suppress("UNCHECKED_CAST")
                     val reminders = values[3] as List<com.singularity.todo.feature.reminders.Reminder>
+
                     @Suppress("UNCHECKED_CAST")
                     val attachments = values[4] as List<com.singularity.todo.core.attachments.Attachment>
+
                     @Suppress("UNCHECKED_CAST")
                     val subtasks = values[5] as List<Task>
+
                     @Suppress("UNCHECKED_CAST")
                     val draftTitle = values[6] as String
+
                     @Suppress("UNCHECKED_CAST")
                     val draftDescription = values[7] as String
 
@@ -157,7 +165,7 @@ class TaskDetailViewModel(
                             reminders = reminders,
                             attachments = attachments,
                             subtasks = subtasks,
-                        )
+                        ),
                     )
                 }
             }
@@ -174,42 +182,56 @@ class TaskDetailViewModel(
                 val completedAt = if (completed) deps.clock.now() else null
                 mutate(current, silent = true) { copy(completedAt = completedAt) }
             }
+
             is TaskDetailIntent.Domain.TitleChanged -> {
                 titleEdits.tryEmit(intent.title)
             }
+
             is TaskDetailIntent.Domain.DescriptionChanged -> {
                 descriptionEdits.tryEmit(intent.description)
             }
+
             is TaskDetailIntent.Domain.SetDueDate ->
                 mutate(current) { copy(dueDate = intent.date) }
+
             is TaskDetailIntent.Domain.SetDueTime ->
                 mutate(current) { copy(dueTime = intent.time) }
+
             is TaskDetailIntent.Domain.SetPriority ->
                 mutate(current) { copy(priority = intent.priority) }
+
             is TaskDetailIntent.Domain.SetProject ->
                 mutate(current) { copy(projectId = intent.projectId) }
+
             is TaskDetailIntent.Domain.SetTags ->
                 mutate(current) { copy(tags = intent.tagIds) }
+
             is TaskDetailIntent.Domain.RemoveTag ->
                 mutate(current) { copy(tags = current.tags - intent.tagId) }
+
             is TaskDetailIntent.Domain.SetKind ->
                 mutate(current, error = "Failed to set kind") { copy(kind = intent.kind) }
+
             is TaskDetailIntent.Domain.ToggleSomeday ->
                 mutate(current, error = "Failed to set someday") { copy(someday = !someday) }
+
             is TaskDetailIntent.Domain.TogglePinned ->
                 mutate(current) { copy(isPinned = !isPinned) }
+
             is TaskDetailIntent.Domain.ToggleChecklistItem -> {
                 scope.launch {
                     deps.checklistUseCase.toggleItem(current.id.value, intent.item.id)
                         .onFailure { emitError("Toggle failed") }
                 }
             }
+
             is TaskDetailIntent.Domain.DeleteChecklistItem -> {
                 scope.launch {
                     deps.checklistUseCase.deleteItem(intent.id)
                         .onFailure { emitError("Delete failed") }
                 }
             }
+
             is TaskDetailIntent.Domain.AddChecklistItem -> {
                 scope.launch {
                     if (intent.title.isBlank()) return@launch
@@ -218,17 +240,20 @@ class TaskDetailViewModel(
                         .onFailure { emitError("Add failed") }
                 }
             }
+
             is TaskDetailIntent.Domain.ToggleSubtask -> {
                 val completed = intent.task.completedAt == null
                 val completedAt = if (completed) deps.clock.now() else null
                 mutate(intent.task, silent = true) { copy(completedAt = completedAt) }
             }
+
             is TaskDetailIntent.Domain.DeleteSubtask -> {
                 scope.launch {
                     deps.taskRepo.softDelete(intent.task.id)
                         .onFailure { emitError("Delete subtask failed") }
                 }
             }
+
             is TaskDetailIntent.Domain.AddSubtask -> {
                 scope.launch {
                     if (intent.title.isBlank()) return@launch
@@ -237,12 +262,13 @@ class TaskDetailViewModel(
                             title = intent.title.trim(),
                             userId = deps.currentUser.current,
                             parentTaskId = current.id,
-                        )
+                        ),
                     )
                         .onSuccess { scope.launch { _events.emit(TaskDetailUiEvent.Saved("Subtask added")) } }
                         .onFailure { emitError("Add subtask failed") }
                 }
             }
+
             is TaskDetailIntent.Domain.SetReminder -> {
                 scope.launch {
                     if (intent.offset == com.singularity.todo.core.reminders.ReminderOffset.AT_DUE) {
@@ -265,12 +291,14 @@ class TaskDetailViewModel(
                         .onFailure { emitError("Failed to set reminder") }
                 }
             }
+
             TaskDetailIntent.Domain.DeleteReminder -> {
                 scope.launch {
                     deps.reminderRepo.deleteByTask(current.id, deps.currentUser.current)
                         .onFailure { emitError("Failed to remove reminder") }
                 }
             }
+
             TaskDetailIntent.Domain.Delete -> {
                 scope.launch {
                     _recentlyDeleted.value = current
@@ -282,6 +310,7 @@ class TaskDetailViewModel(
                         }
                 }
             }
+
             TaskDetailIntent.Domain.Archive -> {
                 scope.launch {
                     deps.taskRepo.softDelete(current.id)
@@ -294,6 +323,7 @@ class TaskDetailViewModel(
                         .onFailure { emitError("Archive failed") }
                 }
             }
+
             TaskDetailIntent.Domain.Restore -> {
                 scope.launch {
                     val task = _recentlyDeleted.value ?: return@launch
@@ -319,7 +349,9 @@ class TaskDetailViewModel(
     }
 
     /** Re-triggers the watchTask subscription by bumping the retry version. */
-    fun retry() { _retryVersion.value++ }
+    fun retry() {
+        _retryVersion.value++
+    }
 
     private fun mutate(
         current: Task,

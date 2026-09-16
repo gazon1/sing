@@ -11,11 +11,7 @@ import kotlinx.serialization.json.Json
 data class DeleteNoteInput(val noteId: String)
 
 @Serializable
-data class DeleteNoteOutput(
-    val noteId: String,
-    val deleted: Boolean,
-    val error: String? = null,
-)
+data class DeleteNoteOutput(val noteId: String, val deleted: Boolean, val error: String? = null)
 
 class DeleteNoteTool(private val notesRepository: NotesRepository) :
     SimpleTool<DeleteNoteInput>(TypeToken.of(DeleteNoteInput::class.java), NAME, DESCRIPTION) {

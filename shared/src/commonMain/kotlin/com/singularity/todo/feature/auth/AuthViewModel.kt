@@ -12,9 +12,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class AuthViewModel(
-    private val authRepository: AuthRepository
-) : ViewModel() {
+class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
 
     private val _state = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
@@ -35,7 +33,7 @@ class AuthViewModel(
                 },
                 onFailure = {
                     _state.value = AuthUiState.Error(it.message ?: "Sign in failed")
-                }
+                },
             )
         }
     }
@@ -51,7 +49,7 @@ class AuthViewModel(
                 },
                 onFailure = {
                     _state.value = AuthUiState.Error(it.message ?: "Sign up failed")
-                }
+                },
             )
         }
     }
@@ -67,7 +65,7 @@ class AuthViewModel(
                 },
                 onFailure = {
                     _state.value = AuthUiState.Error(it.message ?: "Failed")
-                }
+                },
             )
         }
     }

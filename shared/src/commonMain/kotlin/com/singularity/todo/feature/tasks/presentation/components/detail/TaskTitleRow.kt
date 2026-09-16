@@ -32,18 +32,18 @@ fun TaskTitleRow(
     isCompleted: Boolean,
     onTitleChange: (String) -> Unit,
     onCheckToggle: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onCheckToggle) {
             Icon(
                 imageVector = if (isCompleted) Icons.Filled.CheckCircle else Icons.Outlined.CheckBoxOutlineBlank,
                 contentDescription = if (isCompleted) "Задача выполнена" else "Отметить как выполненную",
                 tint = if (isCompleted) TaskColors.AccentBlue else TaskColors.TextSecondary,
-                modifier = Modifier.size(TaskSpacing.iconSizeLarge)
+                modifier = Modifier.size(TaskSpacing.iconSizeLarge),
             )
         }
         Spacer(modifier = Modifier.width(TaskSpacing.md))
@@ -53,7 +53,7 @@ fun TaskTitleRow(
             textStyle = LocalTextStyle.current.copy(
                 color = TaskColors.TextPrimary,
                 fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
             ),
             cursorBrush = SolidColor(TaskColors.AccentBlue),
             singleLine = true,
@@ -64,11 +64,11 @@ fun TaskTitleRow(
                         text = "Название задачи",
                         color = TaskColors.TextPlaceholder,
                         fontSize = 22.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
                 innerTextField()
-            }
+            },
         )
     }
 }

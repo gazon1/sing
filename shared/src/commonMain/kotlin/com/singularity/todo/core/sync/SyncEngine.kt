@@ -4,30 +4,23 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.IdGenerator
+import com.singularity.todo.core.serialization.StableJson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-import com.singularity.todo.core.serialization.StableJson
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Result of a push operation.
  */
-data class PushResult(
-    val pushed: Int,
-    val failed: Int,
-    val errors: List<String> = emptyList()
-)
+data class PushResult(val pushed: Int, val failed: Int, val errors: List<String> = emptyList())
 
 /**
  * Result of a pull operation.
  */
-data class PullResult(
-    val received: Int,
-    val errors: List<String> = emptyList()
-)
+data class PullResult(val received: Int, val errors: List<String> = emptyList())
 
 /**
  * Sync engine — orchestrates push and pull operations.
@@ -43,7 +36,7 @@ class SyncEngine(
     private val outboxDao: SyncOutboxDao,
     private val hlcFactory: HlcFactory,
     private val idGenerator: IdGenerator,
-    syncCoroutineScope: CoroutineScope
+    syncCoroutineScope: CoroutineScope,
 ) {
     private val scope = syncCoroutineScope
     private val json = StableJson
@@ -77,9 +70,11 @@ class SyncEngine(
                             }
                         }
                     }
+
                     is Session.Anonymous,
                     is Session.SignedOut,
-                    is Session.Loading -> {
+                    is Session.Loading,
+                    -> {
                         pushJob?.cancel()
                         pushJob = null
                     }
@@ -102,8 +97,8 @@ class SyncEngine(
                 entityId = entity.id,
                 entityType = entity.docType.key,
                 payload = payload,
-                createdAt = System.currentTimeMillis()
-            )
+                createdAt = System.currentTimeMillis(),
+            ),
         )
     }
 
@@ -129,7 +124,7 @@ class SyncEngine(
 
         val request = BatchPushRequest(
             deviceId = idGenerator.next(),
-            patches = patches
+            patches = patches,
         )
 
         return try {
@@ -213,7 +208,7 @@ class SyncEngine(
             isDelete = false,
             shadowChecksum = checksum,
             ops = emptyList(),
-            timestampMs = System.currentTimeMillis()
+            timestampMs = System.currentTimeMillis(),
         )
     }
 }

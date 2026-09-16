@@ -1,14 +1,9 @@
 package com.singularity.todo.core.di
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.singularity.todo.core.security.FakeSecureStorage
-import com.singularity.todo.core.security.SecureStoragePort
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.koin.dsl.module
-import org.koin.test.check.checkModules
 import org.robolectric.annotation.Config
 
 /**

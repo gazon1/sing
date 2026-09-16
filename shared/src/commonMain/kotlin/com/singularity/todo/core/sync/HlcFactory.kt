@@ -16,10 +16,7 @@ import kotlinx.coroutines.launch
  * If accessed before loaded, callers block via [Deferred.getCompleted] which is instantaneous
  * after the first await completes.
  */
-class HlcFactory(
-    private val sessionStore: SessionStore,
-    private val clock: Clock
-) {
+class HlcFactory(private val sessionStore: SessionStore, private val clock: Clock) {
     private val nodeIdDeferred: Deferred<String> = CoroutineScope(Dispatchers.IO + SupervisorJob()).let { scope ->
         kotlinx.coroutines.CompletableDeferred<String>().also { deferred ->
             scope.launch {

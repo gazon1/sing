@@ -15,8 +15,8 @@ import androidx.compose.ui.unit.dp
  */
 object TaskListColors {
     // Поверхности
-    val Background = Color(0xFF0B0E14)      // чуть темнее и холоднее чем Zinc900 — меньше "серости"
-    val Surface = Color(0xFF161A22)         // карточка / hover-подложка
+    val Background = Color(0xFF0B0E14) // чуть темнее и холоднее чем Zinc900 — меньше "серости"
+    val Surface = Color(0xFF161A22) // карточка / hover-подложка
     val SurfaceElevated = Color(0xFF1D222C) // приподнятое состояние (pressed)
     val Divider = Color(0xFF232833)
 
@@ -26,7 +26,7 @@ object TaskListColors {
     val TextTertiary = Color(0xFF5C6270)
 
     // Акценты
-    val Accent = Color(0xFF5B8DEF)           // основной синий, чуть мягче исходного Blue500
+    val Accent = Color(0xFF5B8DEF) // основной синий, чуть мягче исходного Blue500
     val OnAccent = Color(0xFFFFFFFF)
     val Danger = Color(0xFFE5484D)
     val Success = Color(0xFF4CC38A)

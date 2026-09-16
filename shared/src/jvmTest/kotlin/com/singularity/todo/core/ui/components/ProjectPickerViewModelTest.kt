@@ -4,13 +4,12 @@ import app.cash.turbine.test
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
-import com.singularity.todo.test.fakes.FakeProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flowOf
@@ -184,12 +183,14 @@ private class FakeProjectsRepository : ProjectsRepository {
     }
 
     override fun watchProjects(userId: UserId) = flowOf(
-        store.values.filter { it.userId == userId && !it.isDeleted }
+        store.values.filter { it.userId == userId && !it.isDeleted },
     )
     override fun watchProject(id: ProjectId) = flowOf(store[id.value])
     override suspend fun getById(id: ProjectId) = store[id.value]
     override fun changes(id: ProjectId) = flowOf(store[id.value])
-    override fun watchProjectsWithCounts(userId: UserId) = flowOf(emptyList<com.singularity.todo.core.database.ProjectWithCountRow>())
+    override fun watchProjectsWithCounts(userId: UserId) = flowOf(
+        emptyList<com.singularity.todo.core.database.ProjectWithCountRow>(),
+    )
     override fun watchByParent(parentId: ProjectId) = flowOf(emptyList<Project>())
     override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {}
     override suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long) {}
@@ -206,7 +207,9 @@ private class FailingProjectsRepository : ProjectsRepository {
     override fun watchProject(id: ProjectId) = flowOf<Project?>(null)
     override suspend fun getById(id: ProjectId): Project? = null
     override fun changes(id: ProjectId) = flowOf<Project?>(null)
-    override fun watchProjectsWithCounts(userId: UserId) = flowOf(emptyList<com.singularity.todo.core.database.ProjectWithCountRow>())
+    override fun watchProjectsWithCounts(userId: UserId) = flowOf(
+        emptyList<com.singularity.todo.core.database.ProjectWithCountRow>(),
+    )
     override fun watchByParent(parentId: ProjectId) = flowOf(emptyList<Project>())
     override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {}
     override suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long) {}

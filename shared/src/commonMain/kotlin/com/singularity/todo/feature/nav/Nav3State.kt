@@ -21,7 +21,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 class Nav3State internal constructor(
     val startRoute: NavKey,
     private val topLevelRouteState: MutableState<NavKey>,
-    private val backStacks: Map<NavKey, NavBackStack<NavKey>>
+    private val backStacks: Map<NavKey, NavBackStack<NavKey>>,
 ) {
     /** The set of all top-level routes (tabs + menu entries). */
     val topLevelRoutes: Set<NavKey> = backStacks.keys
@@ -31,7 +31,9 @@ class Nav3State internal constructor(
 
     var topLevelRoute: NavKey
         get() = topLevelRouteState.value
-        set(value) { topLevelRouteState.value = value }
+        set(value) {
+            topLevelRouteState.value = value
+        }
 
     /**
      * Converts all active back stacks into a flat list of [NavEntry] objects,
@@ -40,9 +42,8 @@ class Nav3State internal constructor(
      * @param entryProvider A function that returns a [NavEntry] for each route key.
      */
     @Composable
-    fun toDecoratedEntries(
-        entryProvider: (AppDestination) -> NavEntry<AppDestination>
-    ): List<NavEntry<NavKey>> = toDecoratedEntries(entryProvider, emptyList())
+    fun toDecoratedEntries(entryProvider: (AppDestination) -> NavEntry<AppDestination>): List<NavEntry<NavKey>> =
+        toDecoratedEntries(entryProvider, emptyList())
 
     /**
      * Converts all active back stacks into a flat list of [NavEntry] objects,
@@ -75,9 +76,11 @@ class Nav3State internal constructor(
             .flatMap { decoratedEntries[it] ?: emptyList() }
     }
 
-    private fun getTopLevelRoutesInUse(): List<NavKey> =
-        if (topLevelRoute == startRoute) listOf(startRoute)
-        else listOf(startRoute, topLevelRoute)
+    private fun getTopLevelRoutesInUse(): List<NavKey> = if (topLevelRoute == startRoute) {
+        listOf(startRoute)
+    } else {
+        listOf(startRoute, topLevelRoute)
+    }
 }
 
 /**
@@ -85,15 +88,13 @@ class Nav3State internal constructor(
  *
  * @param state The [Nav3State] instance to mutate.
  */
+
 /**
  * Navigation callbacks passed to [createAppEntryProvider] / [createJvmEntryProvider] so entries
  * can trigger navigation without needing a [Navigator] instance (avoids internal class visibility
  * issues). Placed here so both androidMain and jvmMain can import it.
  */
-data class NavCallbacks(
-    val navigate: (AppDestination) -> Unit,
-    val goBack: () -> Unit,
-)
+data class NavCallbacks(val navigate: (AppDestination) -> Unit, val goBack: () -> Unit)
 
 class Navigator(private val state: Nav3State) {
     /**

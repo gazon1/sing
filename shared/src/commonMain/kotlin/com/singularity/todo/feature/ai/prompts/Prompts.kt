@@ -74,11 +74,9 @@ object Prompts {
     fun refineUser(currentTitle: String, description: String?): String =
         "Title: $currentTitle\nDescription: ${description ?: "(none)"}"
 
-    fun smartRewriteUser(rawIdea: String): String =
-        "Raw idea: $rawIdea"
+    fun smartRewriteUser(rawIdea: String): String = "Raw idea: $rawIdea"
 
-    fun generateDescriptionUser(title: String): String =
-        "Task: $title"
+    fun generateDescriptionUser(title: String): String = "Task: $title"
 
     fun decomposeTaskUser(title: String, description: String?): String =
         "Task: $title\nDescription: ${description ?: "(none)"}"
@@ -89,14 +87,11 @@ object Prompts {
     fun pickTimeUser(title: String, description: String?): String =
         "Task: $title\nDescription: ${description ?: "(none)"}"
 
-    fun clusterTasksUser(tasks: List<String>): String =
-        "Tasks:\n${tasks.joinToString("\n") { "- $it" }}"
+    fun clusterTasksUser(tasks: List<String>): String = "Tasks:\n${tasks.joinToString("\n") { "- $it" }}"
 
-    fun clusterNotesUser(notes: List<String>): String =
-        "Notes:\n${notes.joinToString("\n") { "- $it" }}"
+    fun clusterNotesUser(notes: List<String>): String = "Notes:\n${notes.joinToString("\n") { "- $it" }}"
 
-    fun weeklyPlanUser(tasks: List<String>): String =
-        "Current tasks:\n${tasks.joinToString("\n") { "- $it" }}"
+    fun weeklyPlanUser(tasks: List<String>): String = "Current tasks:\n${tasks.joinToString("\n") { "- $it" }}"
 
     fun projectReviewUser(projectName: String, tasks: List<String>): String =
         "Project: $projectName\nTasks:\n${tasks.joinToString("\n") { "- $it" }}"

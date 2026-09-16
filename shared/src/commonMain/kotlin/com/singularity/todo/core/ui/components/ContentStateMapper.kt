@@ -24,19 +24,17 @@ import com.singularity.todo.feature.tags.TagsUiState
  */
 object ContentStateMapper {
 
-    fun notes(state: NotesUiState): ContentState<List<com.singularity.todo.feature.notes.Note>> =
-        when (state) {
-            is NotesUiState.Loading -> ContentState.Loading
-            is NotesUiState.Empty -> ContentState.Empty
-            is NotesUiState.Error -> ContentState.Error(state.message)
-            is NotesUiState.Content -> ContentState.Ready(state.list.pinned + state.list.unpinned)
-        }
+    fun notes(state: NotesUiState): ContentState<List<com.singularity.todo.feature.notes.Note>> = when (state) {
+        is NotesUiState.Loading -> ContentState.Loading
+        is NotesUiState.Empty -> ContentState.Empty
+        is NotesUiState.Error -> ContentState.Error(state.message)
+        is NotesUiState.Content -> ContentState.Ready(state.list.pinned + state.list.unpinned)
+    }
 
-    fun tags(state: TagsUiState): ContentState<List<com.singularity.todo.feature.tags.Tag>> =
-        when (state) {
-            is TagsUiState.Loading -> ContentState.Loading
-            is TagsUiState.Empty -> ContentState.Empty
-            is TagsUiState.Error -> ContentState.Error(state.message)
-            is TagsUiState.Content -> ContentState.Ready(state.tags)
-        }
+    fun tags(state: TagsUiState): ContentState<List<com.singularity.todo.feature.tags.Tag>> = when (state) {
+        is TagsUiState.Loading -> ContentState.Loading
+        is TagsUiState.Empty -> ContentState.Empty
+        is TagsUiState.Error -> ContentState.Error(state.message)
+        is TagsUiState.Content -> ContentState.Ready(state.tags)
+    }
 }

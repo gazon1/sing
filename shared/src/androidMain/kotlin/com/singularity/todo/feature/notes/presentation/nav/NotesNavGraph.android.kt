@@ -29,11 +29,7 @@ import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
  * Persistence: uses [navSavedStateConfig] so the back stack survives process death.
  */
 @Composable
-actual fun NotesNavGraph(
-    navCallbacks: NavCallbacks,
-    start: NotesRoute,
-    modifier: Modifier,
-) {
+actual fun NotesNavGraph(navCallbacks: NavCallbacks, start: NotesRoute, modifier: Modifier) {
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist.
     val savedStateConfig = remember {
@@ -43,6 +39,7 @@ actual fun NotesNavGraph(
             NotesRoute.Editor.serializer(),
         )
     }
+
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<NotesRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<NotesRoute>

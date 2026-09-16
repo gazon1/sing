@@ -25,10 +25,7 @@ import com.singularity.todo.feature.search.SearchScreen
  * is used on JVM desktop.
  */
 @Composable
-actual fun SearchNavGraph(
-    navCallbacks: NavCallbacks,
-    modifier: Modifier,
-) {
+actual fun SearchNavGraph(navCallbacks: NavCallbacks, modifier: Modifier) {
     val backStack: NavBackStack<Search> = rememberInMemoryNavBackStack(Search)
 
     val onExitGraph: (AppDestination?) -> Unit = { dest ->

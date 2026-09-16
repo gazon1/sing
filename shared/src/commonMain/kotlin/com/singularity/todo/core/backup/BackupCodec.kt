@@ -12,7 +12,7 @@ interface BackupCodec {
         payloadBytes: ByteArray,
         attachments: List<Pair<String, ByteArray>>,
         destPath: String,
-        fs: FileSystem
+        fs: FileSystem,
     ): Result<Unit>
 
     suspend fun import(sourcePath: String, fs: FileSystem): Result<CodecReadResult>
@@ -20,7 +20,7 @@ interface BackupCodec {
     data class CodecReadResult(
         val manifestBytes: ByteArray,
         val payloadBytes: ByteArray,
-        val attachments: Map<String, ByteArray>
+        val attachments: Map<String, ByteArray>,
     ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true

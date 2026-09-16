@@ -4,8 +4,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.llm.OpenAiConfig
+import com.singularity.todo.core.security.SecureStoragePort
 import kotlinx.coroutines.flow.first
 
 /**
@@ -28,10 +28,7 @@ object AiApiKeyMigration {
      * Idempotent — safe to call on every startup. Returns `true` if a key
      * was migrated in this call, `false` otherwise.
      */
-    suspend fun run(
-        dataStore: DataStore<Preferences>,
-        secureStorage: SecureStoragePort,
-    ): Boolean {
+    suspend fun run(dataStore: DataStore<Preferences>, secureStorage: SecureStoragePort): Boolean {
         // Don't overwrite an already-configured secure key.
         val existing = secureStorage.read(OpenAiConfig.KEY_OPENAI)
         if (!existing.isNullOrBlank()) return false

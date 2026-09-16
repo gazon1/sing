@@ -9,15 +9,10 @@ package com.singularity.todo.core.ui.components
  */
 sealed interface Notification {
     /** Generic informational dialog with optional text. */
-    data class Text(
-        val title: String,
-        val text: String?,
-    ) : Notification
+    data class Text(val title: String, val text: String?) : Notification
 
     /** Error dialog. */
-    data class Error(
-        val message: String,
-    ) : Notification
+    data class Error(val message: String) : Notification
 
     /** Request to navigate back. */
     data object NavigateBack : Notification

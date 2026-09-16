@@ -6,10 +6,7 @@ import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-class RoomChecklistRepository(
-    private val dao: ChecklistDao,
-    private val clock: Clock,
-) : ChecklistRepository {
+class RoomChecklistRepository(private val dao: ChecklistDao, private val clock: Clock) : ChecklistRepository {
 
     override fun watchByTask(taskId: String): Flow<List<ChecklistItem>> =
         dao.watchByTask(taskId).map { list -> list.map { it.toItem() } }
@@ -34,7 +31,7 @@ class RoomChecklistRepository(
                     sortOrder = index,
                     createdAt = now,
                     updatedAt = now,
-                )
+                ),
             )
         }
     }

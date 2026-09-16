@@ -10,8 +10,8 @@ import androidx.room3.PrimaryKey
     indices = [
         Index("task_id"),
         Index("user_id"),
-        Index("sync_status")
-    ]
+        Index("sync_status"),
+    ],
 )
 data class AttachmentEntity(
     @PrimaryKey val id: String,
@@ -31,5 +31,5 @@ data class AttachmentEntity(
     @ColumnInfo("deleted_at") val deletedAt: Long? = null, // epoch millis
     // Sync columns
     @ColumnInfo("server_version") val serverVersion: Long = 0L,
-    @ColumnInfo("hlc") val hlc: String? = null
+    @ColumnInfo("hlc") val hlc: String? = null,
 )

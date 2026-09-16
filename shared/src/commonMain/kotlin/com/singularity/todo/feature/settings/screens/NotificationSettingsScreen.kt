@@ -17,11 +17,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.core.reminders.ReminderOffset
-import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.feature.settings.SettingsUiState
 
 @Composable
@@ -67,10 +67,7 @@ fun NotificationSettingsScreen(
 }
 
 @Composable
-private fun ReminderDefaultsSection(
-    selected: ReminderOffset,
-    onSelect: (ReminderOffset) -> Unit,
-) {
+private fun ReminderDefaultsSection(selected: ReminderOffset, onSelect: (ReminderOffset) -> Unit) {
     SettingsSection(title = "Default Reminder") {
         ReminderOffset.entries.forEach { offset ->
             ReminderRadioRow(
@@ -87,8 +84,11 @@ private fun ReminderRadioRow(label: String, selected: Boolean, onClick: () -> Un
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 2.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            else MaterialTheme.colorScheme.surface,
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            },
         ),
     ) {
         Row(

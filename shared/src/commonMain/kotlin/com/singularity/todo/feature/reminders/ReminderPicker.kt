@@ -22,16 +22,12 @@ import com.singularity.todo.core.reminders.ReminderOffset
  * Does not persist — callers handle the [onSelect] callback.
  */
 @Composable
-fun ReminderPicker(
-    selected: ReminderOffset,
-    onSelect: (ReminderOffset) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun ReminderPicker(selected: ReminderOffset, onSelect: (ReminderOffset) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             "Remind me",
             style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 8.dp),
         )
         ReminderOffset.entries.forEach { offset ->
             Row(
@@ -41,19 +37,19 @@ fun ReminderPicker(
                     .selectable(
                         selected = selected == offset,
                         onClick = { onSelect(offset) },
-                        role = Role.RadioButton
+                        role = Role.RadioButton,
                     )
                     .padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 RadioButton(
                     selected = selected == offset,
-                    onClick = null // handled by selectable
+                    onClick = null, // handled by selectable
                 )
                 Text(
                     offset.label,
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(start = 8.dp)
+                    modifier = Modifier.padding(start = 8.dp),
                 )
             }
         }

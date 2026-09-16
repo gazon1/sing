@@ -1,7 +1,7 @@
 package com.singularity.todo.core.attachments
 
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 data class Attachment(
     val id: AttachmentId,
@@ -21,7 +21,7 @@ data class Attachment(
     val deletedAt: kotlin.time.Instant? = null,
     // Sync columns
     val serverVersion: Long = 0L,
-    val hlc: String? = null
+    val hlc: String? = null,
 ) {
     val isImage: Boolean get() =
         type == AttachmentType.Image || mimeType?.startsWith("image/") == true

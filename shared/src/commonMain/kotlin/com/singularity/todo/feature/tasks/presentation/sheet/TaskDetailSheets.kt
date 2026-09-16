@@ -198,11 +198,7 @@ fun ReminderPickerSheetContent(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KindSheet(
-    currentKind: TaskKind,
-    onSelect: (TaskKind) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun KindSheet(currentKind: TaskKind, onSelect: (TaskKind) -> Unit, onDismiss: () -> Unit) {
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
 
     LaunchedEffect(Unit) { sheetState.show() }

@@ -39,15 +39,17 @@ fun parseColor(raw: String?, defaultColor: Int): Int {
     } else {
         // Try decimal ARGB int first; fall back to hex digits (no '#' but still parseable)
         val asDec: Long? = rawTrim.toLongOrNull()
-        asDec?.// narrow Long → Int; on 64-bit JVMs any 32-bit value fits, so cast is safe.
-        toInt()
+        asDec // narrow Long → Int; on 64-bit JVMs any 32-bit value fits, so cast is safe.
+            ?.toInt()
             ?: when (hexOrEmpty.length) {
                 6 -> {
                     ("FF$hexOrEmpty").toLong(16).toInt()
                 }
+
                 8 -> {
                     hexOrEmpty.toLong(16).toInt()
                 }
+
                 else -> {
                     defaultColor
                 }

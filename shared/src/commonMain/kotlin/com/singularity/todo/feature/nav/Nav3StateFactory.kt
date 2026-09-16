@@ -19,5 +19,5 @@ import androidx.compose.runtime.Composable
  * shell can render [androidx.navigation3.ui.NavDisplay] independently of who
  * created the state.
  */
-expect @Composable
+@Composable expect
 fun rememberNav3State(): Nav3State

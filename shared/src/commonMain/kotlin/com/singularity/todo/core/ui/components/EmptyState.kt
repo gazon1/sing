@@ -1,6 +1,5 @@
 package com.singularity.todo.core.ui.components
 
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 
 /**
  * Type alias for the `actions` slot in [EmptyState] — allows callers to pass
@@ -67,11 +67,7 @@ inline fun If(condition: Boolean, content: @Composable () -> Unit) {
  * [ifFalse] when false.
  */
 @Composable
-inline fun IfElse(
-    condition: Boolean,
-    ifTrue: @Composable () -> Unit,
-    ifFalse: @Composable () -> Unit,
-) {
+inline fun IfElse(condition: Boolean, ifTrue: @Composable () -> Unit, ifFalse: @Composable () -> Unit) {
     if (condition) ifTrue() else ifFalse()
 }
 

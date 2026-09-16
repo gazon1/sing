@@ -2,8 +2,8 @@ package com.singularity.todo.feature.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -61,7 +61,11 @@ class SearchViewModel(
             _state.value = _state.value.copy(isSearching = false, results = results)
             results
         }
-        .stateIn(scope, SharingStarted.WhileSubscribed(5000), SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
+        .stateIn(
+            scope,
+            SharingStarted.WhileSubscribed(5000),
+            SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
+        )
 
     init {
         scope.launch {

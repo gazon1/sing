@@ -45,37 +45,33 @@ class KoogAgentService(
 
     private val agentTools: ToolRegistry = ToolRegistry.builder().tools(tools).build()
 
-    private fun createAgent(systemPrompt: String, modelId: String): AIAgent<String, String> =
-        AIAgent.builder()
-            .promptExecutor(promptExecutor)
-            .systemPrompt(systemPrompt)
-            .toolRegistry(agentTools)
-            .llmModel(resolveModel(modelId))
-            .build()
+    private fun createAgent(systemPrompt: String, modelId: String): AIAgent<String, String> = AIAgent.builder()
+        .promptExecutor(promptExecutor)
+        .systemPrompt(systemPrompt)
+        .toolRegistry(agentTools)
+        .llmModel(resolveModel(modelId))
+        .build()
 
     private suspend fun requireApiKey(): String? =
         secureStorage.read(OpenAiConfig.KEY_OPENAI)?.takeIf { it.isNotBlank() }
 
-    override suspend fun generate(
-        prompt: String,
-        systemPrompt: String?,
-        model: String?,
-    ): Result<String> = runCatching {
-        requireApiKey()
-            ?: return@runCatching "(AI unavailable: API key not configured.)"
+    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
+        runCatching {
+            requireApiKey()
+                ?: return@runCatching "(AI unavailable: API key not configured.)"
 
-        val effectiveSystemPrompt = systemPrompt
-            ?: settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
-        val effectiveModel = model
-            ?: settings.aiModel.first().ifBlank { OpenAiConfig.DEFAULT_MODEL }
+            val effectiveSystemPrompt = systemPrompt
+                ?: settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
+            val effectiveModel = model
+                ?: settings.aiModel.first().ifBlank { OpenAiConfig.DEFAULT_MODEL }
 
-        val agent = createAgent(effectiveSystemPrompt, effectiveModel)
-        try {
-            agent.run(prompt)
-        } finally {
-            agent.close()
+            val agent = createAgent(effectiveSystemPrompt, effectiveModel)
+            try {
+                agent.run(prompt)
+            } finally {
+                agent.close()
+            }
         }
-    }
 
     /**
      * Streams chat responses token-by-token using [PromptExecutorPort.executeStreaming].
@@ -110,23 +106,22 @@ class KoogAgentService(
             }
     }
 
-    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> =
-        runCatching {
-            val url = URI("$baseUrl/models").toURL()
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.setRequestProperty("Authorization", "Bearer $apiKey")
-            conn.setRequestProperty("Accept", "application/json")
-            conn.connectTimeout = 10_000
-            conn.readTimeout = 15_000
-            try {
-                val response = conn.inputStream.bufferedReader().readText()
-                val parsed = Json.parseToJsonElement(response)
-                parsed.jsonArray.mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.content }
-            } finally {
-                conn.disconnect()
-            }
+    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = runCatching {
+        val url = URI("$baseUrl/models").toURL()
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "GET"
+        conn.setRequestProperty("Authorization", "Bearer $apiKey")
+        conn.setRequestProperty("Accept", "application/json")
+        conn.connectTimeout = 10_000
+        conn.readTimeout = 15_000
+        try {
+            val response = conn.inputStream.bufferedReader().readText()
+            val parsed = Json.parseToJsonElement(response)
+            parsed.jsonArray.mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.content }
+        } finally {
+            conn.disconnect()
         }
+    }
 }
 
 /**
@@ -144,18 +139,12 @@ class FakeTextGen(
 ) : TextGenPort {
     private val _generateCalls = mutableListOf<Triple<String, String?, String?>>()
 
-    override suspend fun generate(
-        prompt: String,
-        systemPrompt: String?,
-        model: String?,
-    ): Result<String> {
+    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> {
         if (trackGenerateCalls) _generateCalls += Triple(prompt, systemPrompt, model)
         return failureMessage?.let { Result.failure(RuntimeException(it)) } ?: Result.success(success)
     }
 
-    override fun streamChat(message: String): Flow<String> =
-        kotlinx.coroutines.flow.flowOf(success)
+    override fun streamChat(message: String): Flow<String> = kotlinx.coroutines.flow.flowOf(success)
 
-    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> =
-        Result.success(emptyList())
+    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = Result.success(emptyList())
 }

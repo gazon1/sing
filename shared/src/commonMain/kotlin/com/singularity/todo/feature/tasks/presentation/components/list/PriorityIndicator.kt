@@ -29,10 +29,7 @@ internal val TaskPriority.isActive: Boolean get() = this != TaskPriority.None
  * и [TaskRowContent], чтобы цвет приоритета был согласован по всей строке.
  */
 @Composable
-fun PriorityIndicator(
-    priority: TaskPriority,
-    modifier: Modifier = Modifier,
-) {
+fun PriorityIndicator(priority: TaskPriority, modifier: Modifier = Modifier) {
     val color = priorityColor(priority)
     Icon(
         imageVector = if (priority.isActive) Icons.Filled.Star else Icons.Outlined.StarOutline,
@@ -43,8 +40,7 @@ fun PriorityIndicator(
 }
 
 /** Единый источник правды для цвета приоритета во всём экране. */
-fun priorityColor(priority: TaskPriority): Color =
-    priorityMeta(priority, PriorityPalette.TaskListColors).color
+fun priorityColor(priority: TaskPriority): Color = priorityMeta(priority, PriorityPalette.TaskListColors).color
 
 private fun priorityContentDescription(priority: TaskPriority): String = when (priority) {
     TaskPriority.High -> "Высокий приоритет"

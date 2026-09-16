@@ -13,7 +13,4 @@ import androidx.compose.runtime.Composable
  * @param onBack Called when the system back gesture is triggered while enabled.
  */
 @Composable
-public expect fun ProjectsBackHandler(
-    enabled: Boolean,
-    onBack: () -> Unit,
-)
+public expect fun ProjectsBackHandler(enabled: Boolean, onBack: () -> Unit)

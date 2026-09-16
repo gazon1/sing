@@ -2,9 +2,9 @@ package com.singularity.todo.core.di
 
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.TagsRepositoryImpl
+import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.tags.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tags.usecase.UpdateTagUseCase
-import com.singularity.todo.feature.tags.TagsViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 

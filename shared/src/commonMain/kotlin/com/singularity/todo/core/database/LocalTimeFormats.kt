@@ -28,6 +28,5 @@ object LocalTimeFormats {
     }
 
     /** Formats as `HH:mm:ss` (zero-padded). */
-    fun format(time: LocalTime): String =
-        "%02d:%02d:%02d".format(time.hour, time.minute, time.second)
+    fun format(time: LocalTime): String = "%02d:%02d:%02d".format(time.hour, time.minute, time.second)
 }

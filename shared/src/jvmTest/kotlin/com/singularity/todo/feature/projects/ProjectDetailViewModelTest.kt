@@ -1,19 +1,17 @@
 package com.singularity.todo.feature.projects
 
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
-import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProfileRepository
@@ -23,7 +21,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -44,7 +41,7 @@ class ProjectDetailViewModelTest {
     private val fakeProjectsRepo = FakeProjectsRepository()
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeAuthRepo = FakeAuthRepository(
-        initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)
+        initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
     )
     private val fakeProfileRepo = FakeProfileRepository()
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(fakeAuthRepo, fakeProfileRepo)
@@ -105,11 +102,7 @@ class ProjectDetailViewModelTest {
     /**
      * Waits up to [timeoutMs] for [condition] to return non-null, checking every [intervalMs].
      */
-    private suspend fun <T> spinWait(
-        timeoutMs: Long = 2000,
-        intervalMs: Long = 20,
-        condition: () -> T?,
-    ): T? {
+    private suspend fun <T> spinWait(timeoutMs: Long = 2000, intervalMs: Long = 20, condition: () -> T?): T? {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             val value = condition()

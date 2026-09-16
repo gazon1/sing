@@ -21,7 +21,8 @@ sealed interface ProjectDetailIntent {
         // Sheet openers — screen sets activeSheet routing state
         data object OpenColorSheet : Routing
         data object OpenIconSheet : Routing
-        data class OpenParentSheet(val currentParentId: com.singularity.todo.feature.projects.domain.model.ProjectId?) : Routing
+        data class OpenParentSheet(val currentParentId: com.singularity.todo.feature.projects.domain.model.ProjectId?) :
+            Routing
         data object OpenDueDateSheet : Routing
         data object OpenChildrenSheet : Routing
         data object OpenDeleteSheet : Routing

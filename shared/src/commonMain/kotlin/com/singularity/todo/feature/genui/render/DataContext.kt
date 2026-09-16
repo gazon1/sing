@@ -17,6 +17,7 @@ import kotlinx.serialization.json.JsonObject
  */
 interface DataContext {
     val surfaceId: SurfaceId
+
     /** Registry used to dispatch rendering of child nodes. */
     val registry: ComponentRegistry
     val surfaces: StateFlow<Map<SurfaceId, Surface>>

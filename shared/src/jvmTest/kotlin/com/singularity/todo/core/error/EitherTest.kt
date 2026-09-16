@@ -27,7 +27,7 @@ class EitherTest {
         val result: Either<String, Int> = Either.Left("error")
         val folded = result.fold(
             left = { "LEFT: $it" },
-            right = { "RIGHT: $it" }
+            right = { "RIGHT: $it" },
         )
         assertEquals("LEFT: error", folded)
     }
@@ -37,7 +37,7 @@ class EitherTest {
         val result: Either<String, Int> = Either.Right(42)
         val folded = result.fold(
             left = { "LEFT: $it" },
-            right = { "RIGHT: $it" }
+            right = { "RIGHT: $it" },
         )
         assertEquals("RIGHT: 42", folded)
     }

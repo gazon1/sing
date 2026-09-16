@@ -1,12 +1,12 @@
 package com.singularity.todo.core.ui.components
 
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -47,6 +47,7 @@ fun <T> NotificationHost(
                 onDismiss = { notification = null },
             )
         }
+
         is Notification.Error -> {
             ResultDialog(
                 title = "Error",
@@ -54,14 +55,18 @@ fun <T> NotificationHost(
                 onDismiss = { notification = null },
             )
         }
+
         Notification.NavigateBack -> {
             notification = null
             onNavigateBack?.invoke()
         }
+
         Notification.Dismiss -> {
             notification = null
         }
+
         Notification.None -> { /* handled via other UI (e.g. animation) */ }
+
         null -> { /* nothing to show */ }
     }
 }

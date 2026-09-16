@@ -53,11 +53,9 @@ class EditorSession(
      * Finds the URL of a link at the given character offset.
      * Returns null when the offset falls outside any recorded link range.
      */
-    fun findLinkAt(charOffset: Int): String? {
-        return insertedLinks.find { (range, _) ->
-            charOffset in range
-        }?.second
-    }
+    fun findLinkAt(charOffset: Int): String? = insertedLinks.find { (range, _) ->
+        charOffset in range
+    }?.second
 
     /**
      * Dispatches the current HTML to the ViewModel if it differs from what

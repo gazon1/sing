@@ -29,10 +29,7 @@ data class CreateProjectInput(
 )
 
 @Serializable
-data class CreateProjectOutput(
-    val projectId: String,
-    val name: String,
-)
+data class CreateProjectOutput(val projectId: String, val name: String)
 
 class CreateProjectTool(
     private val projectsRepository: ProjectsRepository,

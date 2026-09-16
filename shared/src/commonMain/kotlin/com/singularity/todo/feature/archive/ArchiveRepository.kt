@@ -12,10 +12,7 @@ interface ArchiveRepository {
     suspend fun archiveCompletedTasks(): Result<Int>
 }
 
-class TaskDaoArchiveRepository(
-    private val taskDao: TaskDao,
-    private val clock: Clock,
-) : ArchiveRepository {
+class TaskDaoArchiveRepository(private val taskDao: TaskDao, private val clock: Clock) : ArchiveRepository {
     override suspend fun archiveCompletedTasks(): Result<Int> = runCatching {
         taskDao.archiveCompleted(clock.now().toEpochMilliseconds())
     }

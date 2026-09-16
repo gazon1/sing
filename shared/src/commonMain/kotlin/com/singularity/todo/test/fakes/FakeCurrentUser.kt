@@ -14,10 +14,7 @@ import com.singularity.todo.core.auth.Session
  * val vm = TasksViewModel(..., currentUser = currentUser, ...)
  * ```
  */
-fun FakeCurrentUser(
-    authRepository: AuthRepository = FakeAuthRepository(),
-): CurrentUser = CurrentUser(authRepository)
+fun FakeCurrentUser(authRepository: AuthRepository = FakeAuthRepository()): CurrentUser = CurrentUser(authRepository)
 
 /** Variant that starts the session in [SignedOut][Session.SignedOut] for guard tests. */
-fun FakeCurrentUserSignedOut(): CurrentUser =
-    CurrentUser(FakeAuthRepository(initialSession = Session.SignedOut))
+fun FakeCurrentUserSignedOut(): CurrentUser = CurrentUser(FakeAuthRepository(initialSession = Session.SignedOut))

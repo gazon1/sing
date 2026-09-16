@@ -14,10 +14,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-data class StatisticsUiState(
-    val snapshot: StatisticsSnapshot? = null,
-    val loading: Boolean = true,
-)
+data class StatisticsUiState(val snapshot: StatisticsSnapshot? = null, val loading: Boolean = true)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatisticsViewModel(

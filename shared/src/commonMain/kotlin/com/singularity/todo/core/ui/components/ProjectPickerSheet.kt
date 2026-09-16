@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
@@ -70,7 +70,10 @@ private fun ProjectPickerSheetContent(
             // No project (Inbox)
             item {
                 TextButton(
-                    onClick = { onProjectSelected(null); onDismiss() },
+                    onClick = {
+                        onProjectSelected(null);
+                        onDismiss()
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
@@ -148,14 +151,16 @@ private fun ProjectPickerSheetContent(
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onProjectSelected(project); onDismiss() }
+                        .clickable {
+                            onProjectSelected(project);
+                            onDismiss()
+                        }
                         .padding(horizontal = 24.dp, vertical = 14.dp),
                 )
             }
         }
     }
 }
-
 
 @Preview
 @Composable

@@ -6,16 +6,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 @Composable
-fun TaskChecklistCard(
-    itemCount: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun TaskChecklistCard(itemCount: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
     TaskCounterCard(
         icon = Icons.AutoMirrored.Filled.List,
         label = "Чек-лист",
         count = itemCount,
         onClick = onClick,
-        modifier = modifier
+        modifier = modifier,
     )
 }

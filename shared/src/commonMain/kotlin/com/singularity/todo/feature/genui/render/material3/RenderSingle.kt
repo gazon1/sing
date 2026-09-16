@@ -16,11 +16,7 @@ import com.singularity.todo.feature.genui.render.DataContext
  * the previous O(N) `collectAsState()` calls that lived inside every renderer.
  */
 @Composable
-internal fun RenderSingle(
-    ref: NodeRef,
-    ctx: DataContext,
-    modifier: Modifier = Modifier,
-) {
+internal fun RenderSingle(ref: NodeRef, ctx: DataContext, modifier: Modifier = Modifier) {
     val surfaces by ctx.surfaces.collectAsState()
     val surface = surfaces[ctx.surfaceId] ?: return
     val node = surface.components[ref.id] ?: return

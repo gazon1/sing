@@ -2,16 +2,14 @@ package com.singularity.todo.feature.ai.tools
 
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class ListProjectsInput(
-    val limit: Int = 50,
-)
+data class ListProjectsInput(val limit: Int = 50)
 
 @Serializable
 data class ListProjectsOutput(val projects: List<ProjectSummary>)

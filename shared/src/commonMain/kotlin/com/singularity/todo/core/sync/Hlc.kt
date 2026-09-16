@@ -18,8 +18,7 @@ value class Hlc(val encoded: String) : Comparable<Hlc> {
     val counter: Int get() = encoded.split(':').getOrNull(1)?.toIntOrNull() ?: 0
     val node: String get() = encoded.substringAfterLast(':')
 
-    override fun compareTo(other: Hlc): Int =
-        compareValuesBy(this, other, Hlc::physical, Hlc::counter, Hlc::node)
+    override fun compareTo(other: Hlc): Int = compareValuesBy(this, other, Hlc::physical, Hlc::counter, Hlc::node)
 
     override fun toString(): String = encoded
 
@@ -48,7 +47,9 @@ value class Hlc(val encoded: String) : Comparable<Hlc> {
                     max(local.counter, remote.counter) + 1
 
                 local.physical -> local.counter + 1
+
                 remote.physical -> remote.counter + 1
+
                 else -> 0
             }
 

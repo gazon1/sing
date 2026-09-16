@@ -4,8 +4,8 @@ import com.singularity.todo.core.attachments.AttachmentEntity
 import com.singularity.todo.core.database.LocalTimeFormats
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.ProjectEntity
-import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.SyncColumns
+import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.toLocalTimeOrNull
@@ -30,7 +30,7 @@ data class TaskDto(
     val archivedAt: Long? = null,
     val isPinned: Boolean = false,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
 )
 
 fun TaskEntity.toDto(): TaskDto = TaskDto(
@@ -39,7 +39,7 @@ fun TaskEntity.toDto(): TaskDto = TaskDto(
     projectId = projectId, dueDate = dueDate, dueTime = dueTime.toLocalTimeOrNull(),
     completedAt = completedAt, someday = someday,
     archivedAt = archivedAt, isPinned = isPinned,
-    createdAt = createdAt, updatedAt = updatedAt
+    createdAt = createdAt, updatedAt = updatedAt,
 )
 
 fun TaskDto.toEntity(userId: String): TaskEntity = TaskEntity(
@@ -52,7 +52,7 @@ fun TaskDto.toEntity(userId: String): TaskEntity = TaskEntity(
     archivedAt = archivedAt, isPinned = isPinned,
     createdAt = createdAt, updatedAt = updatedAt,
     userId = userId,
-    sync = SyncColumns()
+    sync = SyncColumns(),
 )
 
 // ─── NoteDto ───────────────────────────────────────────────────────────────────
@@ -68,14 +68,14 @@ data class NoteDto(
     val createdAt: Long,
     val updatedAt: Long,
     val deletedAt: Long? = null,
-    val archivedAt: Long? = null
+    val archivedAt: Long? = null,
 )
 
 fun NoteEntity.toDto(): NoteDto = NoteDto(
     id = id, title = title, bodyMarkdown = bodyMarkdown,
     bodyHtml = bodyHtml, isFolder = isFolder,
     parentNoteId = parentNoteId, createdAt = createdAt,
-    updatedAt = updatedAt, deletedAt = deletedAt, archivedAt = archivedAt
+    updatedAt = updatedAt, deletedAt = deletedAt, archivedAt = archivedAt,
 )
 
 fun NoteDto.toEntity(userId: String): NoteEntity = NoteEntity(
@@ -84,7 +84,7 @@ fun NoteDto.toEntity(userId: String): NoteEntity = NoteEntity(
     isFolder = isFolder, parentNoteId = parentNoteId,
     createdAt = createdAt, updatedAt = updatedAt,
     deletedAt = deletedAt, archivedAt = archivedAt,
-    sync = SyncColumns()
+    sync = SyncColumns(),
 )
 
 // ─── ProjectDto ───────────────────────────────────────────────────────────────
@@ -106,7 +106,7 @@ data class ProjectDto(
     val parentId: String? = null,
     val sortOrder: Int = 0,
     val idempotencyKey: String? = null,
-    val externalId: String? = null
+    val externalId: String? = null,
 )
 
 fun ProjectEntity.toDto(): ProjectDto = ProjectDto(
@@ -114,7 +114,7 @@ fun ProjectEntity.toDto(): ProjectDto = ProjectDto(
     description = description, createdAt = createdAt, updatedAt = updatedAt,
     isDefault = isDefault, dueDate = dueDate, team = team,
     isDeleted = isDeleted, deletedAt = deletedAt, parentId = parentId,
-    sortOrder = sortOrder, idempotencyKey = idempotencyKey, externalId = externalId
+    sortOrder = sortOrder, idempotencyKey = idempotencyKey, externalId = externalId,
 )
 
 fun ProjectDto.toEntity(userId: String): ProjectEntity = ProjectEntity(
@@ -124,7 +124,7 @@ fun ProjectDto.toEntity(userId: String): ProjectEntity = ProjectEntity(
     isDefault = isDefault, dueDate = dueDate, team = team,
     isDeleted = isDeleted, deletedAt = deletedAt, parentId = parentId,
     sortOrder = sortOrder, idempotencyKey = idempotencyKey, externalId = externalId,
-    sync = SyncColumns()
+    sync = SyncColumns(),
 )
 
 // ─── TagDto ────────────────────────────────────────────────────────────────────
@@ -138,20 +138,25 @@ data class TagDto(
     val updatedAt: Long,
     val parentId: String? = null,
     val sortOrder: Int = 0,
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
 )
 
 fun TagEntity.toDto(): TagDto = TagDto(
-    id = id, name = name, color = color,
-    createdAt = createdAt, updatedAt = updatedAt,
-    parentId = parentId, sortOrder = sortOrder, deletedAt = deletedAt
+    id = id,
+    name = name,
+    color = color,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    parentId = parentId,
+    sortOrder = sortOrder,
+    deletedAt = deletedAt,
 )
 
 fun TagDto.toEntity(userId: String): TagEntity = TagEntity(
     id = id, userId = userId, name = name, color = color,
     createdAt = createdAt, updatedAt = updatedAt,
     parentId = parentId, sortOrder = sortOrder, deletedAt = deletedAt,
-    sync = SyncColumns()
+    sync = SyncColumns(),
 )
 
 // ─── AttachmentDto ─────────────────────────────────────────────────────────────
@@ -171,7 +176,7 @@ data class AttachmentDto(
     val syncStatus: String = "Pending",
     val createdAt: Long,
     val updatedAt: Long,
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
 )
 
 fun AttachmentEntity.toDto(): AttachmentDto = AttachmentDto(
@@ -180,7 +185,7 @@ fun AttachmentEntity.toDto(): AttachmentDto = AttachmentDto(
     remoteUrl = remoteUrl, fileSizeBytes = fileSizeBytes,
     mimeType = mimeType, checksum = checksum,
     syncStatus = syncStatus, createdAt = createdAt,
-    updatedAt = updatedAt, deletedAt = deletedAt
+    updatedAt = updatedAt, deletedAt = deletedAt,
 )
 
 fun AttachmentDto.toEntity(userId: String): AttachmentEntity = AttachmentEntity(
@@ -190,16 +195,13 @@ fun AttachmentDto.toEntity(userId: String): AttachmentEntity = AttachmentEntity(
     mimeType = mimeType, checksum = checksum,
     syncStatus = syncStatus, createdAt = createdAt,
     updatedAt = updatedAt, deletedAt = deletedAt,
-    serverVersion = 0L, hlc = null
+    serverVersion = 0L, hlc = null,
 )
 
 // ─── TaskTagDto ───────────────────────────────────────────────────────────────
 
 @Serializable
-data class TaskTagDto(
-    val taskId: String,
-    val tagId: String
-)
+data class TaskTagDto(val taskId: String, val tagId: String)
 
 fun TaskTagCrossRef.toDto(): TaskTagDto = TaskTagDto(taskId = taskId, tagId = tagId)
 

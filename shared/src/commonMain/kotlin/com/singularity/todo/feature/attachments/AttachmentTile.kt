@@ -1,7 +1,5 @@
 package com.singularity.todo.feature.attachments
 
-import com.singularity.todo.core.ui.preview.PreviewSamples
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,26 +21,25 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentDomain
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 
 @Composable
-fun AttachmentTile(
-    attachment: Attachment,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun AttachmentTile(attachment: Attachment, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         // Icon/thumbnail
         when {
             attachment.isImage -> AttachmentThumbnail(
                 localPath = attachment.localPath,
                 remoteUrl = attachment.remoteUrl,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(40.dp),
             )
+
             else -> Icon(
                 imageVector = when {
                     attachment.isUrl -> Icons.Default.Link
@@ -50,7 +47,7 @@ fun AttachmentTile(
                 },
                 contentDescription = null,
                 modifier = Modifier.size(40.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
@@ -62,7 +59,7 @@ fun AttachmentTile(
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
 
         // File size (for file attachments)
@@ -70,7 +67,7 @@ fun AttachmentTile(
             Text(
                 text = AttachmentDomain.formatFileSize(attachment.fileSizeBytes),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
@@ -80,7 +77,7 @@ fun AttachmentTile(
             Icon(
                 imageVector = Icons.Default.Delete,
                 contentDescription = "Delete attachment",
-                tint = MaterialTheme.colorScheme.error
+                tint = MaterialTheme.colorScheme.error,
             )
         }
     }

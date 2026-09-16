@@ -21,11 +21,8 @@ import kotlinx.coroutines.launch
  * Composable stays thin — every action is expressed as an [Intent] and the
  * ViewModel is the single source of truth for messages, input, and loading.
  */
-class ChatViewModel(
-    private val log: Logger,
-    private val agent: TextGenPort,
-    private val idGen: IdGenerator,
-) : ViewModel() {
+class ChatViewModel(private val log: Logger, private val agent: TextGenPort, private val idGen: IdGenerator) :
+    ViewModel() {
 
     data class State(
         val messages: List<ChatMessage> = emptyList(),
@@ -91,8 +88,4 @@ class ChatViewModel(
 
 enum class ChatRole { User, Assistant }
 
-data class ChatMessage(
-    val id: String,
-    val role: ChatRole,
-    val content: String,
-)
+data class ChatMessage(val id: String, val role: ChatRole, val content: String)

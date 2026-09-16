@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.projects.presentation.components
 
-import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
@@ -26,9 +26,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  * @see ProjectDetailIntent — исчерпывающий список всех операций.
  */
 @JvmInline
-value class ProjectDetailActions(
-    private val block: (ProjectDetailIntent) -> Unit,
-) {
+value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Unit) {
 
     // ── Sheet openers ───────────────────────────────────────────────────────
 
@@ -45,46 +43,35 @@ value class ProjectDetailActions(
 
     // ── Visibility ──────────────────────────────────────────────────────────
 
-    fun onToggleHideCompleted() =
-        block(ProjectDetailIntent.Domain.ToggleHideCompleted)
+    fun onToggleHideCompleted() = block(ProjectDetailIntent.Domain.ToggleHideCompleted)
 
     // ── Inline edits ────────────────────────────────────────────────────────
 
-    fun onUpdateName(name: String) =
-        block(ProjectDetailIntent.Domain.UpdateName(name))
+    fun onUpdateName(name: String) = block(ProjectDetailIntent.Domain.UpdateName(name))
 
-    fun onUpdateDescription(description: String?) =
-        block(ProjectDetailIntent.Domain.UpdateDescription(description))
+    fun onUpdateDescription(description: String?) = block(ProjectDetailIntent.Domain.UpdateDescription(description))
 
     // ── Pickers ─────────────────────────────────────────────────────────────
 
-    fun onUpdateColor(color: Int) =
-        block(ProjectDetailIntent.Domain.UpdateColor(color))
+    fun onUpdateColor(color: Int) = block(ProjectDetailIntent.Domain.UpdateColor(color))
 
-    fun onUpdateIcon(icon: String?) =
-        block(ProjectDetailIntent.Domain.UpdateIcon(icon))
+    fun onUpdateIcon(icon: String?) = block(ProjectDetailIntent.Domain.UpdateIcon(icon))
 
-    fun onUpdateParent(parentId: ProjectId?) =
-        block(ProjectDetailIntent.Domain.UpdateParent(parentId))
+    fun onUpdateParent(parentId: ProjectId?) = block(ProjectDetailIntent.Domain.UpdateParent(parentId))
 
-    fun onUpdateDueDate(dueDate: kotlinx.datetime.LocalDate?) =
-        block(ProjectDetailIntent.Domain.UpdateDueDate(dueDate))
+    fun onUpdateDueDate(dueDate: kotlinx.datetime.LocalDate?) = block(ProjectDetailIntent.Domain.UpdateDueDate(dueDate))
 
     // ── Lifecycle ───────────────────────────────────────────────────────────
 
-    fun onToggleArchive() =
-        block(ProjectDetailIntent.Domain.ToggleArchive)
+    fun onToggleArchive() = block(ProjectDetailIntent.Domain.ToggleArchive)
 
-    fun onDelete() =
-        block(ProjectDetailIntent.Domain.Delete)
+    fun onDelete() = block(ProjectDetailIntent.Domain.Delete)
 
     // ── Tasks ─────────────────────────────────────────────────────────────
 
-    fun onCreateTask(title: String) =
-        block(ProjectDetailIntent.Domain.CreateTask(title))
+    fun onCreateTask(title: String) = block(ProjectDetailIntent.Domain.CreateTask(title))
 
-    fun onMoveTaskToProject(taskId: TaskId) =
-        block(ProjectDetailIntent.Domain.MoveTaskToProject(taskId))
+    fun onMoveTaskToProject(taskId: TaskId) = block(ProjectDetailIntent.Domain.MoveTaskToProject(taskId))
 
     companion object {
         /** No-op actions — для превью и тестов. */

@@ -125,9 +125,17 @@ private fun ChatScreenLightPreview() = PreviewThemed(darkTheme = false, useSurfa
             ChatMessagesList(
                 messages = listOf(
                     ChatMessage("m1", ChatRole.User, "Hello, what can you help me with?"),
-                    ChatMessage("m2", ChatRole.Assistant, "Hi! I can help you manage your tasks, take notes, and organize your projects."),
+                    ChatMessage(
+                        "m2",
+                        ChatRole.Assistant,
+                        "Hi! I can help you manage your tasks, take notes, and organize your projects.",
+                    ),
                     ChatMessage("m3", ChatRole.User, "Can you show me my tasks for today?"),
-                    ChatMessage("m4", ChatRole.Assistant, "You have 3 tasks due today: Buy groceries, Finish project report, and Send follow-up emails."),
+                    ChatMessage(
+                        "m4",
+                        ChatRole.Assistant,
+                        "You have 3 tasks due today: Buy groceries, Finish project report, and Send follow-up emails.",
+                    ),
                 ),
                 isLoading = false,
                 modifier = Modifier.weight(1f),
@@ -157,7 +165,11 @@ private fun ChatScreenLoadingPreview() = PreviewThemed(darkTheme = false, useSur
             ChatMessagesList(
                 messages = listOf(
                     ChatMessage("m1", ChatRole.User, "Can you explain Kotlin coroutines?"),
-                    ChatMessage("m2", ChatRole.Assistant, "Kotlin Coroutines are a way to handle asynchronous programming in a sequential manner. They allow you to write code that looks synchronous but can pause and resume without blocking."),
+                    ChatMessage(
+                        "m2",
+                        ChatRole.Assistant,
+                        "Kotlin Coroutines are a way to handle asynchronous programming in a sequential manner. They allow you to write code that looks synchronous but can pause and resume without blocking.",
+                    ),
                 ),
                 isLoading = true,
                 modifier = Modifier.weight(1f),
