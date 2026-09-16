@@ -9,6 +9,10 @@ import androidx.compose.ui.unit.DpOffset
 /**
  * JVM Desktop implementation of [Modifier.onSecondaryClick].
  * Uses the Compose pointer event API to detect right mouse button presses.
+ *
+ * NOTE: `onPointerEvent` is marked [ExperimentalPointerInputApi] in JetBrains Compose Multiplatform,
+ * but the annotation class itself is not part of the multiplatform ABI (it lives in AndroidX
+ * compose-ui which is JVM-only). We suppress the usage warning so this compiles cleanly.
  */
 @Suppress("OPT_IN_USAGE_ERROR")
 actual fun Modifier.onSecondaryClick(onClick: (DpOffset) -> Unit): Modifier =

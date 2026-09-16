@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
@@ -28,7 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.ui.NavDisplay
-import com.singularity.todo.core.ui.menu.MenuBarHost
+import com.singularity.todo.core.ui.menu.ComposeTopMenuBar
 import com.singularity.todo.core.ui.menu.MenuNode
 import com.singularity.todo.core.ui.menu.buildMenuNodes
 import com.singularity.todo.feature.nav.AppDestination
@@ -52,7 +53,7 @@ import kotlin.system.exitProcess
  * Desktop UI: [ModalNavigationDrawer] with hamburger menu (instead of bottom bar on Android).
  * No FAB on Desktop.
  *
- * Window menu bar is added at the top using [MenuBarHost].
+ * Window menu bar is added at the top using [ComposeTopMenuBar].
  */
 @Composable
 fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks) {
@@ -107,10 +108,6 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                 }
             })
         }
-    }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        MenuBarHost(entries = menuEntries)
     }
 
     ModalNavigationDrawer(
@@ -169,22 +166,36 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
         content = {
             Scaffold(
                 topBar = {
-                    TopAppBar(
-                        title = { Text(current.title) },
-                        navigationIcon = {
-                            IconButton(onClick = {
-                                scope.launch {
-                                    if (drawerState.isClosed) {
-                                        drawerState.open()
-                                    } else {
-                                        drawerState.close()
+                    Column {
+                        TopAppBar(
+                            title = { Text(current.title) },
+                            navigationIcon = {
+                                IconButton(onClick = {
+                                    scope.launch {
+                                        if (drawerState.isClosed) {
+                                            drawerState.open()
+                                        } else {
+                                            drawerState.close()
+                                        }
+                                    }
+                                }) {
+                                    Icon(Icons.Default.Menu, contentDescription = "Menu")
+                                }
+                            },
+                            actions = {
+                                val action = fabActionForNav3(current, navigator)
+                                if (action != null) {
+                                    IconButton(onClick = action.onClick) {
+                                        Icon(
+                                            Icons.Default.Add,
+                                            contentDescription = action.label,
+                                        )
                                     }
                                 }
-                            }) {
-                                Icon(Icons.Default.Menu, contentDescription = "Menu")
-                            }
-                        },
-                    )
+                            },
+                        )
+                        ComposeTopMenuBar(entries = menuEntries)
+                    }
                 },
             ) { padding ->
                 NavDisplay(
@@ -223,4 +234,21 @@ private fun openGitHub() {
     } catch (_: Exception) {
         // Desktop browsing not supported on this platform
     }
+}
+
+private data class FabAction(val label: String, val onClick: () -> Unit)
+
+private fun fabActionForNav3(current: AppDestination, navigator: Navigator): FabAction? = when (current) {
+    AppDestination.Inbox, AppDestination.Today -> FabAction("Add task") {
+        navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create))
+    }
+
+    AppDestination.Plans -> FabAction("Add project") {
+        navigator.navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()))
+    }
+
+    // NotesNavGraph has its own note creation button — no shell FAB needed here.
+    AppDestination.Notes, AppDestination.Pomodoro, AppDestination.Statistics, AppDestination.Archive -> null
+
+    else -> null
 }

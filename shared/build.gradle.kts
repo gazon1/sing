@@ -171,6 +171,9 @@ kotlin {
         }
 
         jvmMain.dependencies {
+            // Desktop UI — LocalAwtWindow for AwtMenuBarInstaller.
+            implementation(libs.compose.ui.desktop)
+
             // Bundled SQLite — same driver as Android, no external native dep required.
             implementation(libs.androidx.sqlite.bundled)
 

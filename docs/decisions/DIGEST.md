@@ -277,10 +277,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `bugfix`
 
 - **4 VM registrations** (`TaskEditorViewModel`, `TasksByProjectViewModel`, `ProjectEditorViewModel`, `ProjectDetailViewModel`) now use `viewModel { (p) → ... }` instead of `factory { (p) → ... }` _(from `2026-09-09-di-factory-viewmodel-fix`)_
+- Agenda context menu: Pin, Delete, Expand, Complete are functional. _(from `2026-09-16-desktop-menus-bugfixes`)_
+- `AgendaDeps` extension for AI actions is the next step for AI menu items. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - All 3 tools now require `ProfileAwareCurrentUser` in DI — tested via _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
+- `compose-ui-desktop` is now a required `jvmMain` dependency for `shared`. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - `list_tasks`, `list_linked_tasks`, and `search_tasks` now return correct results _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
 - MCP clients that validate `$schema` as a URI will no longer reject tool schemas. _(from `2026-09-08-mcp-schema-and-profile-userid-fixes`)_
+- Menu bar appears in OS-native window chrome on all three desktop platforms. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - **No call-site changes** — `koinViewModel { parametersOf(...) }` works with both forms _(from `2026-09-09-di-factory-viewmodel-fix`)_
+- Right-click context menu works again on task rows in the agenda. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - **State survives configuration change** on Android — rotation no longer resets these screens _(from `2026-09-09-di-factory-viewmodel-fix`)_
 - **Test impact** — tests that relied on a fresh VM instance per `get()` may need updating; prefer stateful testing over instance-fresh guarantees _(from `2026-09-09-di-factory-viewmodel-fix`)_
 
@@ -476,8 +481,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - 23 of 28 context menu items are wired to `actions.onDismiss()` — future iterations wire the _(from `2026-09-15-desktop-menus`)_
 - **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- Agenda context menu: Pin, Delete, Expand, Complete are functional. _(from `2026-09-16-desktop-menus-bugfixes`)_
+- `AgendaDeps` extension for AI actions is the next step for AI menu items. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - **Android build unchanged**: `assembleDebug` still compiles all Android-specific NavGraphs with full `SavedStateConfiguration` for process-death survival. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - `compose-material:material = 1.12.0` added to `libs.versions.toml` and `desktopApp/build.gradle.kts` _(from `2026-09-15-desktop-menus`)_
+- `compose-ui-desktop` is now a required `jvmMain` dependency for `shared`. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - `compose-ui-test:1.12.0` added to `libs.versions.toml` as `composeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - `ContextMenuOpenState` data class in `jvmMain/core/ui/menu/` holds the screen `DpOffset`. _(from `2026-09-15-desktop-menus`)_
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
@@ -485,11 +493,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `DesktopShellNav3.kt` owns `showAbout` state and `menuEntries` — natural location since _(from `2026-09-15-desktop-menus`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - Hover delay (300ms) on submenus via `LaunchedEffect(isHovered) { delay(300); onOpenSubMenu() }`. _(from `2026-09-15-desktop-menus`)_
+- Menu bar appears in OS-native window chrome on all three desktop platforms. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - `MenuBarHost` is a stub (Material 2 not available in current Compose version). _(from `2026-09-15-desktop-menus`)_
 - `ModalShell` + `DrawerStyle.Modal` remain in `AppShell.kt`. They are not wired to any platform but are preserved for future modal drawer needs. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - Navigation interaction tests (click-to-navigate) are out of scope for this smoke test — they require handling NavBackStackEntry lifecycle in `runDesktopComposeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - `onSecondaryClick` is a no-op on Android; touch long-press is handled separately by the caller. _(from `2026-09-15-desktop-menus`)_
 - `openGitHub()` uses `java.awt.Desktop.browse(URI(...))`; `exitProcess(0)` for quit. _(from `2026-09-15-desktop-menus`)_
+- Right-click context menu works again on task rows in the agenda. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - Smoke test now passes: `./gradlew :desktopApp:test` → BUILD SUCCESSFUL _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - `sourceSets { test { java.srcDirs("src/jvmTest") ... } }` added to `desktopApp/build.gradle.kts` to wire the `jvmTest` source set to the `test` task _(from `2026-09-06-desktop-smoke-test-with-koin`)_
@@ -737,10 +747,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- Agenda context menu: Pin, Delete, Expand, Complete are functional. _(from `2026-09-16-desktop-menus-bugfixes`)_
+- `AgendaDeps` extension for AI actions is the next step for AI menu items. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - All Android NavGraph back stack declarations become `val backStack = rememberNavBackStackTyped(savedStateConfig, start)` — clean, typed, no suppression. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - **Android build unchanged**: `assembleDebug` still compiles all Android-specific NavGraphs with full `SavedStateConfiguration` for process-death survival. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Any future code that calls `backStack.last()` on Android must explicitly cast. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
+- `compose-ui-desktop` is now a required `jvmMain` dependency for `shared`. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - **Desktop in-memory only**: Closing and reopening the Desktop window resets all nested back stacks. This was already the behavior before this change — `LocalSaveableStateRegistry` was always `null`. The new code makes this explicit. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- Menu bar appears in OS-native window chrome on all three desktop platforms. _(from `2026-09-16-desktop-menus-bugfixes`)_
+- Right-click context menu works again on task rows in the agenda. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - Risk of `ClassCastException` if the type parameter is misused. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - `@Suppress("UNCHECKED_CAST")` removed from all 5 Android NavGraph files. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
@@ -1036,13 +1051,18 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `menu`
 
 - 23 of 28 context menu items are wired to `actions.onDismiss()` — future iterations wire the _(from `2026-09-15-desktop-menus`)_
+- Agenda context menu: Pin, Delete, Expand, Complete are functional. _(from `2026-09-16-desktop-menus-bugfixes`)_
+- `AgendaDeps` extension for AI actions is the next step for AI menu items. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - `compose-material:material = 1.12.0` added to `libs.versions.toml` and `desktopApp/build.gradle.kts` _(from `2026-09-15-desktop-menus`)_
+- `compose-ui-desktop` is now a required `jvmMain` dependency for `shared`. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - `ContextMenuOpenState` data class in `jvmMain/core/ui/menu/` holds the screen `DpOffset`. _(from `2026-09-15-desktop-menus`)_
 - `DesktopShellNav3.kt` owns `showAbout` state and `menuEntries` — natural location since _(from `2026-09-15-desktop-menus`)_
 - Hover delay (300ms) on submenus via `LaunchedEffect(isHovered) { delay(300); onOpenSubMenu() }`. _(from `2026-09-15-desktop-menus`)_
+- Menu bar appears in OS-native window chrome on all three desktop platforms. _(from `2026-09-16-desktop-menus-bugfixes`)_
 - `MenuBarHost` is a stub (Material 2 not available in current Compose version). _(from `2026-09-15-desktop-menus`)_
 - `onSecondaryClick` is a no-op on Android; touch long-press is handled separately by the caller. _(from `2026-09-15-desktop-menus`)_
 - `openGitHub()` uses `java.awt.Desktop.browse(URI(...))`; `exitProcess(0)` for quit. _(from `2026-09-15-desktop-menus`)_
+- Right-click context menu works again on task rows in the agenda. _(from `2026-09-16-desktop-menus-bugfixes`)_
 
 ### `multi-profile`
 
@@ -2038,6 +2058,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-agenda-engine` — agenda  tasks  dsl  architecture
 - `2026-09-16-agendaengine-post-mr1-nav-cleanup` — agenda  navigation  cleanup  deprecated
 - `2026-09-16-android-shell-fab-fix` — navigation  nav3  android  fab
+- `2026-09-16-desktop-menus-bugfixes` — desktop  jvm  menu  bugfix
 - `2026-09-16-nav3-desktop-in-memory-no-savedstate` — navigation  nav3  jvm  desktop  android
 - `2026-09-16-nav3-feature-graph-extensions` — navigation  nav3  tasks  notes
 - `2026-09-16-nav3-post-migration-fixes` — navigation  nav3
@@ -2132,6 +2153,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation
 - `2026-09-16-calendar-feature` — _(no title)
 - `2026-09-16-calendar-post-merge-fixes` — _(no title)
+- `2026-09-16-desktop-menus-bugfixes` — Desktop menus: MenuBar AWT, right-click fix, agenda wiring
 - `2026-09-16-nav3-desktop-in-memory-no-savedstate` — Nav3 Desktop uses in-memory NavBackStack; SavedStateConfiguration is Android-only
 - `2026-09-16-nav3-feature-graph-extensions` — NotesNavGraph start parameter, TasksStartRoute.Detail, AppDestination additions
 - `2026-09-16-nav3-post-migration-fixes` — Nav3 post-migration fixes — NotesNavGraph start, preview wrappers, FAB cleanup

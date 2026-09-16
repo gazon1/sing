@@ -5,14 +5,14 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import org.junit.Test
 
 /**
- * Desktop JVM smoke tests for [MenuBarHost].
+ * Desktop JVM smoke tests for [AwtMenuBarInstaller].
  *
- * [MenuBarHost] is currently a stub because Material 2 `MenuBar` is not available
- * in the current Compose Multiplatform version. These tests verify the stub
- * renders without crashing.
+ * [AwtMenuBarInstaller] installs a native AWT menu bar on the current [java.awt.Frame].
+ * In tests (no real AWT window), [LocalAwtWindow] returns null and the function
+ * early-returns — verifying no crash in this path.
  *
- * When a proper MenuBar implementation is added, expand these tests to verify
- * File / Edit / View / Help submenus and the quit shortcut.
+ * Integration tests with a real window would verify File / Edit / View / Help
+ * submenus and the Ctrl+Q quit shortcut.
  */
 class MenuBarTest {
 
@@ -30,24 +30,24 @@ class MenuBarTest {
 
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun menu_bar_host_renders_without_crash() = runDesktopComposeUiTest {
+    fun menu_bar_installer_renders_without_crash() = runDesktopComposeUiTest {
         setContent {
-            MenuBarHost(entries = buildSampleMenu())
+            AwtMenuBarInstaller(entries = buildSampleMenu())
         }
-        // Stub renders nothing — no assertion needed beyond no crash.
+        // No real AWT Frame in test — verifies early-return path, no crash.
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun menu_bar_host_with_empty_entries_renders() = runDesktopComposeUiTest {
+    fun menu_bar_installer_with_empty_entries_renders() = runDesktopComposeUiTest {
         setContent {
-            MenuBarHost(entries = emptyList())
+            AwtMenuBarInstaller(entries = emptyList())
         }
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun menu_bar_host_with_deeply_nested_submenus_renders() = runDesktopComposeUiTest {
+    fun menu_bar_installer_with_deeply_nested_submenus_renders() = runDesktopComposeUiTest {
         val deep = buildMenuNodes {
             subMenu("l1", "Level 1", children = buildMenuNodes {
                 subMenu("l2", "Level 2", children = buildMenuNodes {
@@ -58,7 +58,7 @@ class MenuBarTest {
             })
         }
         setContent {
-            MenuBarHost(entries = deep)
+            AwtMenuBarInstaller(entries = deep)
         }
     }
 }

@@ -58,7 +58,7 @@ fun AgendaContent(
     state: AgendaUiState,
     title: String,
     onIntent: (AgendaIntent) -> Unit,
-    desktopContextMenuHost: @Composable (taskUi: TaskUi, offset: DpOffset, onDismiss: () -> Unit) -> Unit = { _, _, _ -> },
+    desktopContextMenuHost: @Composable (taskUi: TaskUi, offset: DpOffset, onDismiss: () -> Unit, onIntent: (AgendaIntent) -> Unit) -> Unit = { _, _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     // Routing state: which task is right-clicked and where.
@@ -144,7 +144,7 @@ fun AgendaContent(
     val task = contextMenuTask
     val offset = contextMenuOffset
     if (task != null && offset != null) {
-        desktopContextMenuHost(task, offset, ::dismissContextMenu)
+        desktopContextMenuHost(task, offset, ::dismissContextMenu, onIntent)
     }
 }
 
@@ -222,21 +222,21 @@ private fun AgendaTaskRow(
     )
 
     // Right-click handler — uses onSecondaryClick (expect/actual, jvmMain actual).
+    // Passed via secondaryClickModifier so SwipeToDismissBox doesn't intercept the event.
     val rightClickModifier = Modifier.onSecondaryClick { offset ->
         onOpenContextMenu(taskUi, offset)
     }
 
-    Box(modifier = rightClickModifier) {
-        SwipeableTaskRow(
-            onDelete = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
-            content = {
-                TaskRowFlat(
-                    task = taskUi,
-                    onToggleCompleted = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
-                    onClick = { onIntent(AgendaIntent.TaskClicked(task.id)) },
-                    showDivider = true,
-                )
-            },
-        )
-    }
+    SwipeableTaskRow(
+        onDelete = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
+        secondaryClickModifier = rightClickModifier,
+        content = {
+            TaskRowFlat(
+                task = taskUi,
+                onToggleCompleted = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
+                onClick = { onIntent(AgendaIntent.TaskClicked(task.id)) },
+                showDivider = true,
+            )
+        },
+    )
 }

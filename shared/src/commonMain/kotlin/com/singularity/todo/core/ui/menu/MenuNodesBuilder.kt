@@ -69,6 +69,23 @@ class MenuNodesBuilder {
         )
     }
 
+    /** Trailing lambda overload — convenient DSL form for nested submenus. */
+    fun subMenu(
+        id: String,
+        label: String,
+        icon: ImageVector? = null,
+        enabled: Boolean = true,
+        block: MenuNodesBuilder.() -> Unit,
+    ) {
+        items += MenuNode.SubMenu(
+            id = id,
+            label = label,
+            icon = icon,
+            enabled = enabled,
+            children = buildMenuNodes(block),
+        )
+    }
+
     /** Returns an immutable snapshot of the menu built so far. */
     internal fun build(): List<MenuNode> = items.toList()
 }

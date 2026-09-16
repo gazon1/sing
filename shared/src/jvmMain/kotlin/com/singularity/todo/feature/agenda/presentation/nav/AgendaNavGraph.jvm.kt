@@ -11,6 +11,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.menu.ContextMenuHost
 import com.singularity.todo.core.ui.menu.ContextMenuOpenState
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
+import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen
 import com.singularity.todo.feature.tasks.presentation.contextmenu.TaskMenuActions
 import com.singularity.todo.feature.tasks.presentation.contextmenu.buildTaskContextMenu
@@ -45,15 +46,17 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
 
     // Desktop context menu host — renders the actual ContextMenuHost.
     // Uses platform desktop colors (TaskListColors) via the ContextMenuHost implementation.
-    val desktopContextMenuHost: @Composable (TaskUi, androidx.compose.ui.unit.DpOffset, () -> Unit) -> Unit =
-        { taskUi, offset, onDismiss ->
+    // The [onIntent] parameter is passed through AgendaScreen → AgendaContent so that
+    // menu actions (pin, delete, expand, AI) can dispatch domain intents.
+    val desktopContextMenuHost: @Composable (TaskUi, androidx.compose.ui.unit.DpOffset, () -> Unit, (AgendaIntent) -> Unit) -> Unit =
+        { taskUi, offset, onDismiss, onIntent ->
             val menuActions = remember(taskUi) {
                 TaskMenuActions(
-                    onTogglePin = { /* TODO: wire to pin action */ },
-                    onToggleComplete = { /* TODO: wire to complete */ },
-                    onDelete = { /* TODO: wire to delete */ },
-                    onToggleExpand = { /* TODO: wire to expand */ },
-                    onAiAction = { /* TODO: wire to AI action */ },
+                    onTogglePin = { onIntent(AgendaIntent.TaskPinClicked(taskUi.id)) },
+                    onToggleComplete = { onIntent(AgendaIntent.TaskCheckClicked(taskUi.id)) },
+                    onDelete = { onIntent(AgendaIntent.TaskDeleteClicked(taskUi.id)) },
+                    onToggleExpand = { onIntent(AgendaIntent.TaskExpandClicked(taskUi.id)) },
+                    onAiAction = { /* AI actions deferred — requires AgendaDeps extension */ },
                     onDismiss = onDismiss,
                 )
             }

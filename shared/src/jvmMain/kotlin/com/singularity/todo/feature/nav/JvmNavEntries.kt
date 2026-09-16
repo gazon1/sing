@@ -175,6 +175,7 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
             onExitGraph = { dest ->
                 when (dest) {
                     is AppDestination.ProjectDetail -> nav.navigate(dest)
+                    is AppDestination.TasksGraph -> nav.navigate(dest)
                     else -> nav.goBack()
                 }
             },
@@ -222,6 +223,7 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
             onExitGraph = { dest ->
                 when (dest) {
                     is AppDestination.ProjectDetail -> nav.navigate(dest)
+                    is AppDestination.TasksGraph -> nav.navigate(dest)
                     else -> nav.goBack()
                 }
             },

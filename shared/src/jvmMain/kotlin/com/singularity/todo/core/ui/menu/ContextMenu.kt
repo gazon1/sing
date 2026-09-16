@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.menu
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,11 +20,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -145,6 +149,7 @@ private fun ActionMenuRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(36.dp)
+            .clickable(enabled = node.enabled, onClick = onClick)
             .padding(horizontal = 8.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
@@ -194,13 +199,17 @@ private fun SubMenuRow(
         }
     }
 
+    // Track this row's bounds in window coordinates for submenu positioning.
+    var rowBounds by remember { mutableStateOf(Rect.Zero) }
+
     val textColor = if (node.enabled) TaskListColors.TextPrimary else TaskListColors.TextSecondary
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(36.dp)
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 8.dp)
+            .onGloballyPositioned { rowBounds = it.boundsInWindow() },
         contentAlignment = Alignment.CenterStart,
     ) {
         Row(
@@ -223,13 +232,12 @@ private fun SubMenuRow(
 
     if (openSubMenu && node.children.isNotEmpty()) {
         val density = LocalDensity.current
-        // Position submenu 200dp to the right of the row's right edge.
-        // anchorBounds.right would require PopupPositionProvider, so we use
-        // a fixed 220.dp (menu width) + 4.dp gap offset from screen edge.
-        val subOffsetX = (224 * density.density).toInt()
+        // Position submenu immediately to the right of this row, aligned to its top edge.
+        // rowBounds.right is in pixels; subtract 1 to avoid 1px overlap with the row.
+        val subOffsetX = (rowBounds.right - 1).toInt()
         Popup(
             alignment = Alignment.TopStart,
-            offset = IntOffset(subOffsetX, 0),
+            offset = IntOffset(subOffsetX, rowBounds.top.toInt()),
             onDismissRequest = onDismissAll,
             properties = PopupProperties(focusable = false),
         ) {

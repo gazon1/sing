@@ -75,6 +75,20 @@ class MenuNodesBuilderTest {
     }
 
     @Test
+    fun `subMenu trailing lambda overload`() {
+        val list = buildMenuNodes {
+            subMenu("s", "Sub") {
+                item("child", "Child") {}
+                divider()
+                item("another", "Another") {}
+            }
+        }
+        assertEquals(1, list.size)
+        val sub = list[0] as MenuNode.SubMenu
+        assertEquals(3, sub.children.size) // item + divider + item
+    }
+
+    @Test
     fun `mixed items and dividers`() {
         val list = buildMenuNodes {
             item("a", "A") {}

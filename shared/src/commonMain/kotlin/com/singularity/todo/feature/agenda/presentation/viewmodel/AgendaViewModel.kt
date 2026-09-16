@@ -101,6 +101,24 @@ class AgendaViewModel(
                     _events.emit(AgendaUiEvent.ShowTaskContextMenu(intent.taskId))
                 }
             }
+
+            is AgendaIntent.TaskPinClicked -> {
+                scope.launch {
+                    deps.taskRepo.togglePinned(intent.taskId)
+                }
+            }
+
+            is AgendaIntent.TaskDeleteClicked -> {
+                scope.launch {
+                    deps.taskRepo.softDelete(intent.taskId)
+                }
+            }
+
+            is AgendaIntent.TaskExpandClicked -> {
+                scope.launch {
+                    _events.emit(AgendaUiEvent.ExpandTask(intent.taskId))
+                }
+            }
         }
     }
 }

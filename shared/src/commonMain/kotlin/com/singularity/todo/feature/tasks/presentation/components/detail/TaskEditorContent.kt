@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -85,6 +86,10 @@ fun TaskEditorContent(
     onDueDateClear: (() -> Unit)?,
     onDueTimeSelect: (LocalTime?) -> Unit,
     showDueDate: Boolean = true,
+    /** Click on the Priority row opens the priority picker sheet. */
+    onPriorityClick: (() -> Unit)? = null,
+    /** Click on the Due Date row opens the date picker sheet. */
+    onDueDateClick: (() -> Unit)? = null,
     extraSections: (@Composable () -> Unit)?,
     bottomBar: (@Composable () -> Unit)?,
     menuItems: List<TaskEditorMenuItem>,
@@ -132,6 +137,7 @@ fun TaskEditorContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clickable(onClick = onPriorityClick ?: { activeSheet = TaskEditorSheet.Priority })
                     .then(
                         Modifier.padding(
                             horizontal = TaskSpacing.cardPaddingHorizontal,
@@ -173,6 +179,7 @@ fun TaskEditorContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable(onClick = onDueDateClick ?: { activeSheet = TaskEditorSheet.Date })
                         .padding(
                             horizontal = TaskSpacing.cardPaddingHorizontal,
                             vertical = TaskSpacing.cardPaddingVertical,

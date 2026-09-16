@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
+import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaViewModel
@@ -30,7 +31,7 @@ import org.koin.core.parameter.parametersOf
 fun AgendaScreen(
     definition: AgendaDefinition,
     modifier: Modifier = Modifier,
-    desktopContextMenuHost: @Composable (taskUi: TaskUi, offset: androidx.compose.ui.unit.DpOffset, onDismiss: () -> Unit) -> Unit = { _, _, _ -> },
+    desktopContextMenuHost: @Composable (taskUi: TaskUi, offset: androidx.compose.ui.unit.DpOffset, onDismiss: () -> Unit, onIntent: (AgendaIntent) -> Unit) -> Unit = { _, _, _, _ -> },
 ) {
     val vm: AgendaViewModel = koinViewModel {
         parametersOf(definition)
@@ -44,6 +45,7 @@ fun AgendaScreen(
             when (event) {
                 is AgendaUiEvent.NavigateToTask -> navigator.openTask(event.taskId)
                 is AgendaUiEvent.ShowTaskContextMenu -> navigator.showTaskContextMenu(event.taskId)
+                is AgendaUiEvent.ExpandTask -> { /* expand handled by AgendaContent via routing state */ }
             }
         }
     }
