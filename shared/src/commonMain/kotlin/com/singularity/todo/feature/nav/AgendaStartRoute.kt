@@ -1,0 +1,38 @@
+package com.singularity.todo.feature.nav
+
+import androidx.navigation3.runtime.NavKey
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
+import kotlinx.serialization.Serializable
+
+/**
+ * Start routes for the Agenda nested graph.
+ * Used by [AppDestination.AgendaGraph] to parameterise the start of the agenda.
+ */
+@Serializable
+sealed interface AgendaStartRoute : NavKey {
+
+    /** Inbox — all active tasks grouped by relative date bucket. */
+    @Serializable
+    data object Inbox : AgendaStartRoute
+
+    /** Today — only today's tasks with overdue at top. */
+    @Serializable
+    data object Today : AgendaStartRoute
+
+    /** Upcoming — tasks for the next 2 weeks grouped by week. */
+    @Serializable
+    data object Upcoming : AgendaStartRoute
+
+    /** All tasks for a specific project. */
+    @Serializable
+    data class Project(val projectId: String) : AgendaStartRoute {
+        val id: ProjectId get() = ProjectId.fromString(projectId)
+    }
+
+    /** All tasks with a specific tag. */
+    @Serializable
+    data class Tag(val tagId: String) : AgendaStartRoute {
+        val id: TagId get() = TagId.fromString(tagId)
+    }
+}

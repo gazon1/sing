@@ -1,0 +1,50 @@
+package com.singularity.todo.feature.agenda.domain.model
+
+import kotlinx.datetime.LocalDate
+
+/**
+ * UI state for the Agenda screen.
+ *
+ * @param sections The evaluated and rendered sections with their tasks.
+ * @param today The current date at the time of evaluation, used to label relative buckets.
+ */
+sealed interface AgendaUiState {
+    data object Loading : AgendaUiState
+    data class Loaded(val sections: List<RenderedSection>, val today: LocalDate) : AgendaUiState
+    data class Error(val message: String) : AgendaUiState
+}
+
+/**
+ * A section that has been evaluated against a task list and is ready to render.
+ *
+ * @param name Section display name (from [Section.name]).
+ * @param tasks The tasks matching the section's [Selector], already filtered by
+ *        [Section.discard] semantics from previous sections.
+ * @param badge Optional count badge shown in the section header (e.g. "12" for overdue).
+ */
+data class RenderedSection(val name: String, val tasks: List<AgendaRowItem>, val badge: Int? = null)
+
+/**
+ * A single task row within a rendered [RenderedSection].
+ *
+ * Thin wrapper around [com.singularity.todo.feature.tasks.domain.model.Task]
+ * that carries agenda-specific display metadata.
+ *
+ * @param task The underlying task.
+ * @param badge Optional per-task badge (e.g. "recurring", "overdue").
+ */
+data class AgendaRowItem(
+    val task: com.singularity.todo.feature.tasks.domain.model.Task,
+    val badge: AgendaBadge? = null,
+)
+
+/**
+ * Per-task or per-section badge label.
+ */
+enum class AgendaBadge {
+    Overdue,
+    Recurring,
+    Pinned,
+    Completed,
+    NoDate,
+}

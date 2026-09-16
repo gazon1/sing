@@ -2,12 +2,13 @@ package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.log.LoggerHolder
+import com.singularity.todo.core.ui.components.TagPickerViewModel
+import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.profile.ProfileRepositoryImpl
 import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
-import com.singularity.todo.core.ui.components.TagPickerViewModel
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -37,15 +38,18 @@ fun domainModule(): List<Module> = buildList {
     add(notesModule())
     add(tagsModule())
     add(calendarModule())
+    add(agendaModule())
     // Profile bindings — inlined here (NOT via profileModule()) so they land at root scope.
     // profileModule() wrapped its bindings in module {} which created a child scope.
-    add(module {
+    add(
+        module {
         single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get()) }
         single { ProfileAwareCurrentUser(get(), get()) }
         factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
         factory { AccountSettingsViewModel(get()) }
         factory { TagPickerViewModel(get(), get()) }
-    })
+    }
+    )
     add(coreModule())
     add(aiToolsModule())
     add(aiSettingsModule())

@@ -115,8 +115,21 @@ recurring items.
 
 ---
 
+## Superseded
+
+> **Superseded by [2026-09-16-agenda-engine.md](./2026-09-16-agenda-engine.md)**
+> The `UpcomingScreen` and its `UpcomingViewModel` were deleted as part of the
+> AgendaEngine MR1. The Upcoming agenda view is now provided by
+> `AgendaNavGraph(start = AgendaStartRoute.Upcoming)`, which evaluates
+> `AgendaPresets.Upcoming` over `TaskFilter.All` via `AgendaEvaluator`.
+> `TaskRepository.watchTasksByDate` is replaced by `TaskFilter.ByDateRange`
+> (implemented in Step 4 of AgendaEngine MR1).
+> Files deleted: `UpcomingScreen.kt`, `UpcomingViewModel.kt`, `UpcomingUiState.kt`,
+> `UpcomingTaskUiMapper.kt`, `DaySwitcherRow.kt`, `UpcomingTopBar.kt`,
+> `UpcomingTaskRow.kt`, `UpcomingBadges.kt`.
+
 ## Links
 
-- `UpcomingViewModel`, `UpcomingScreen`, `UpcomingTaskRow` — implementation
-- `TaskRepository.watchTasksByDate` — new narrow method
+- `UpcomingViewModel`, `UpcomingScreen`, `UpcomingTaskRow` — implementation (deleted)
+- `TaskRepository.watchTasksByDate` — replaced by `TaskFilter.ByDateRange`
 - `docs/decisions/DIGEST.md` — updated with this decision

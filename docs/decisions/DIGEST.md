@@ -42,6 +42,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ## Per-tag
 
+### `agenda`
+
+- **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
+- **Нет saved views в v1**: пользовательские пресеты не сохраняются. Встроенные — захардкожены в `AgendaPresets`. _(from `2026-09-16-agenda-engine`)_
+- **Удаляются**: `UpcomingScreen`, `UpcomingViewModel`, `UpcomingUiState`, `TaskListScreen` (для Inbox/Today/ByProject), `TasksViewModel`, `TasksRoute.Inbox/Today/Upcoming/ByProject`, `AppDestination.Inbox/Today/Upcoming/TasksByProject`. _(from `2026-09-16-agenda-engine`)_
+- **Экраны не под заменой**: `ProjectDetailScreen`, `NotesListScreen`, `SearchScreen`, `ArchiveScreen` — не agenda-вью. _(from `2026-09-16-agenda-engine`)_
+
 ### `agent`
 
 - AI-агенты получают нативный доступ к данным без UI _(from `2026-09-07-dogfooding-mcp-server`)_
@@ -136,6 +143,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `architecture`
 
 - Migration from plain lambdas requires updating call sites _(from `2026-09-09-content-slot-pattern`)_
+- **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
 - Navigation между Detail и подзадачами/проектами становится _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **Negative**: 40+ files had import paths updated; test files also required path corrections _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - **Negative**: Deep `domain/model/` import chains if not careful (mitigated by `package com.singularity.todo.feature.tasks.domain.model.*`) _(from `2026-09-09-feature-tasks-clean-architecture`)_
@@ -227,14 +235,17 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Дополнительный уровень индирекции для новых разработчиков: «где я?». _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Если какой-то VM был неявно расчитан на per-Activity scope _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Необходимо зарегистрировать `TasksRoute` в двух `SerializersModule`: _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- **Нет saved views в v1**: пользовательские пресеты не сохраняются. Встроенные — захардкожены в `AgendaPresets`. _(from `2026-09-16-agenda-engine`)_
 - **Один плоский AppDestination без nested graph** — не даёт feature _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Первая фича с nested graph — другие фичи (notes/projects/auth/settings) _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Рассмотреть переход на `LocalResultEventBus` + `ResultEffect<T>` для _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Сигнатуры экранов tasks упрощаются до 1-2 аргументов. _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Существующие unit-тесты для VM не затрагиваются (тестируют VM _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)` _(from `2026-09-05-ui-event-per-feature`)_
+- **Удаляются**: `UpcomingScreen`, `UpcomingViewModel`, `UpcomingUiState`, `TaskListScreen` (для Inbox/Today/ByProject), `TasksViewModel`, `TasksRoute.Inbox/Today/Upcoming/ByProject`, `AppDestination.Inbox/Today/Upcoming/TasksByProject`. _(from `2026-09-16-agenda-engine`)_
 - Чинится латентный bug для всех `koinViewModel { parametersOf(...) }` _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **Чинится латентный VM scoping bug** для `TaskDetailViewModel`, _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- **Экраны не под заменой**: `ProjectDetailScreen`, `NotesListScreen`, `SearchScreen`, `ArchiveScreen` — не agenda-вью. _(from `2026-09-16-agenda-engine`)_
 
 ### `"archive"`
 
@@ -598,6 +609,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Один прогон драйвера = реальная multi-step демонстрация MCP. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
 - При недоступности LLM в драйвере зашит fallback sub-task'ов. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
 
+### `domain-model`
+
+- `@Serializable` на `TaskStatus` — нужен для kotlinx.serialization AgendaDefinition (saved views в будущем). _(from `2026-09-16-task-list-filter-to-task-status`)_
+- `TaskListFilter` удалён — поиск по коду вернёт 0 результатов (если кто-то добавил вручную после этого коммита — это регресс). _(from `2026-09-16-task-list-filter-to-task-status`)_
+- `TaskStatus` в domain/model доступен для AgendaEngine DSL без добавления cross-layer импорта. _(from `2026-09-16-task-list-filter-to-task-status`)_
+
 ### `drafts`
 
 - `core/draft/DataStoreDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
@@ -621,6 +638,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - `TaskDetailViewContent` now takes a `recentlyDeleted: Flow<Task?>` parameter — passed from `TaskDetailViewScreen`. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
 - `TasksDiModule` removed now-unused `ProjectsRepository` import. _(from `2026-09-15-task-detail-drafts-undo-fix`)_
+
+### `dsl`
+
+- **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
+- **Нет saved views в v1**: пользовательские пресеты не сохраняются. Встроенные — захардкожены в `AgendaPresets`. _(from `2026-09-16-agenda-engine`)_
+- **Удаляются**: `UpcomingScreen`, `UpcomingViewModel`, `UpcomingUiState`, `TaskListScreen` (для Inbox/Today/ByProject), `TasksViewModel`, `TasksRoute.Inbox/Today/Upcoming/ByProject`, `AppDestination.Inbox/Today/Upcoming/TasksByProject`. _(from `2026-09-16-agenda-engine`)_
+- **Экраны не под заменой**: `ProjectDetailScreen`, `NotesListScreen`, `SearchScreen`, `ArchiveScreen` — не agenda-вью. _(from `2026-09-16-agenda-engine`)_
 
 ### `error-handling`
 
@@ -1313,6 +1337,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`createTask`** must go through `CreateTaskUseCase`, not direct `taskRepo.create`. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - Screen owns `activeSheet` routing state; VM only receives routing intents. _(from `2026-09-09-projectdetail-write-through-fix`)_
 
+### `rename`
+
+- `@Serializable` на `TaskStatus` — нужен для kotlinx.serialization AgendaDefinition (saved views в будущем). _(from `2026-09-16-task-list-filter-to-task-status`)_
+- `TaskListFilter` удалён — поиск по коду вернёт 0 результатов (если кто-то добавил вручную после этого коммита — это регресс). _(from `2026-09-16-task-list-filter-to-task-status`)_
+- `TaskStatus` в domain/model доступен для AgendaEngine DSL без добавления cross-layer импорта. _(from `2026-09-16-task-list-filter-to-task-status`)_
+
 ### `"repository"`
 
 - Archive and Delete have distinct storage semantics — future "Trash" filter can distinguish intentional archive from accidental delete. _(from `2026-09-08-task-archive-restore-contract`)_
@@ -1481,6 +1511,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `ActiveSheet.kt`: 35 → ~15 lines (`toActiveSheet()` removed). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `AppDestination.TaskDetail` and `TaskDetailCreate` remain `@Deprecated` — they can be deleted in a follow-up cleanup commit. _(from `2026-09-16-nav3-feature-graph-extensions`)_
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
+- **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
 - New file `TaskDetailIntent.kt` (~120 lines). _(from `2026-09-09-task-detail-intent-refactor`)_
 
 ### `"tasks"`
@@ -1490,6 +1521,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `tasks`
 
 - `ProjectsNavGraph` in `NavEntries` now maps `ProjectsStartRoute.Editor` to `ProjectsRoute.Editor`. _(from `2026-09-16-nav3-feature-graph-extensions`)_
+- `@Serializable` на `TaskStatus` — нужен для kotlinx.serialization AgendaDefinition (saved views в будущем). _(from `2026-09-16-task-list-filter-to-task-status`)_
 - `TaskDetailContent` is now `internal` (stateless, previewable without Koin). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailScreen.kt`: `when (action)` on 27 branches → `when (intent)` on 6 branches. Routing now uniform (all `activeSheet = …`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailUiEvent.kt`: 34 → ~18 lines (10 sheet-triggers removed). _(from `2026-09-09-task-detail-intent-refactor`)_
@@ -1502,6 +1534,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - `TaskDetailViewModel.kt`: 450 → ~270 lines, 37 public methods → 3 (`start`, `onTitleChange`, `onIntent`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailViewModelTest`: updated 5 tests to call `vm.onIntent(Domain.X)` instead of `vm.setX(task, value)`. _(from `2026-09-09-task-detail-intent-refactor`)_
+- `TaskListFilter` удалён — поиск по коду вернёт 0 результатов (если кто-то добавил вручную после этого коммита — это регресс). _(from `2026-09-16-task-list-filter-to-task-status`)_
 
 ### `"tasks"`
 
@@ -1510,6 +1543,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `tasks`
 
 - `TasksFormatters.kt`: added `dueChipColors` formatter and `parseDueTime` utility. _(from `2026-09-09-task-detail-intent-refactor`)_
+- `TaskStatus` в domain/model доступен для AgendaEngine DSL без добавления cross-layer импорта. _(from `2026-09-16-task-list-filter-to-task-status`)_
+- **Нет saved views в v1**: пользовательские пресеты не сохраняются. Встроенные — захардкожены в `AgendaPresets`. _(from `2026-09-16-agenda-engine`)_
+- **Удаляются**: `UpcomingScreen`, `UpcomingViewModel`, `UpcomingUiState`, `TaskListScreen` (для Inbox/Today/ByProject), `TasksViewModel`, `TasksRoute.Inbox/Today/Upcoming/ByProject`, `AppDestination.Inbox/Today/Upcoming/TasksByProject`. _(from `2026-09-16-agenda-engine`)_
+- **Экраны не под заменой**: `ProjectDetailScreen`, `NotesListScreen`, `SearchScreen`, `ArchiveScreen` — не agenda-вью. _(from `2026-09-16-agenda-engine`)_
 
 ### `technical-debt`
 
@@ -1942,6 +1979,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-task-detail-drafts-undo-fix` — "architecture"  "compose"  "udf"  "tasks"  "drafts"  "undo"
 - `2026-09-15-task-editor-unification` — architecture  compose  ui  drafts  state-restoration
 - `2026-09-15-viewmodel-state-ownership` — "architecture"  "compose"  "udf"  "vm-state"
+- `2026-09-16-agenda-engine` — agenda  tasks  dsl  architecture
 - `2026-09-16-android-shell-fab-fix` — navigation  nav3  android  fab
 - `2026-09-16-nav3-desktop-in-memory-no-savedstate` — navigation  nav3  jvm  desktop  android
 - `2026-09-16-nav3-feature-graph-extensions` — navigation  nav3  tasks  notes
@@ -1949,6 +1987,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-nav3-savedstate-serializers-required` — navigation  nav3  serialization  jvm  android
 - `2026-09-16-nav3-settings-and-search-nested-graphs` — navigation  nav3  settings  search
 - `2026-09-16-nav3-type-asymmetry-adr` — navigation  nav3  android  jvm  technical-debt
+- `2026-09-16-task-list-filter-to-task-status` — tasks  domain-model  rename
 
 ## Active entries
 
@@ -2030,6 +2069,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-task-detail-drafts-undo-fix` — TaskDetail drafts seed-from-task; TaskListScreen koinViewModel; undo snackbar wired
 - `2026-09-15-task-editor-unification` — Task Editor State Restoration + UI Unification
 - `2026-09-15-viewmodel-state-ownership` — ViewModel owns all domain state; Composable owns only routing and animation
+- `2026-09-16-agenda-engine` — AgendaEngine: единый DSL-движок для list-вью задач (org-agenda style)
 - `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation
 - `2026-09-16-calendar-feature` — _(no title)
 - `2026-09-16-calendar-post-merge-fixes` — _(no title)
@@ -2039,4 +2079,5 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-nav3-savedstate-serializers-required` — Nav3 SavedStateConfiguration must register all NavKey subtypes polymorphically
 - `2026-09-16-nav3-settings-and-search-nested-graphs` — SettingsNavGraph and SearchNavGraph — single-route nested graphs
 - `2026-09-16-nav3-type-asymmetry-adr` — Nav3 type asymmetry: rememberInMemoryNavBackStack returns NavBackStack<T>, Android rememberNavBackStack returns NavBackStack<NavKey>
+- `2026-09-16-task-list-filter-to-task-status` — Rename TaskListFilter → TaskStatus: domain-level completion status enum
 - `2026-09-16-tasks-upcoming-screen` — _(no title)

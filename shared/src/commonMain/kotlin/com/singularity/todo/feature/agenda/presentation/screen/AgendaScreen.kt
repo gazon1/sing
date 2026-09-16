@@ -1,0 +1,49 @@
+package com.singularity.todo.feature.agenda.presentation.screen
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
+import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
+import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
+import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaViewModel
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
+
+/**
+ * Root composable for the Agenda screen.
+ *
+ * Uses [koinViewModel] to obtain the [AgendaViewModel] scoped to this nav entry.
+ * Navigation events are handled via [LocalAgendaNavigator] provided by the nav graph.
+ *
+ * @param definition The [AgendaDefinition] to evaluate and display.
+ * @param modifier Compose modifier for the screen container.
+ */
+@Composable
+fun AgendaScreen(definition: AgendaDefinition, modifier: Modifier = Modifier) {
+    val vm: AgendaViewModel = koinViewModel {
+        parametersOf(definition)
+    }
+    val state by vm.state.collectAsStateWithLifecycle()
+
+    // Navigate on task click — obtain navigator from nav graph context
+    val navigator = LocalAgendaNavigator.current
+
+    LaunchedEffect(Unit) {
+        vm.events.collect { event ->
+            when (event) {
+                is AgendaUiEvent.NavigateToTask -> navigator.openTask(event.taskId)
+                is AgendaUiEvent.ShowTaskContextMenu -> navigator.showTaskContextMenu(event.taskId)
+            }
+        }
+    }
+
+    AgendaContent(
+        state = state,
+        title = vm.title,
+        onIntent = vm::onIntent,
+        modifier = modifier,
+    )
+}

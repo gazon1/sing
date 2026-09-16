@@ -12,8 +12,6 @@ import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
 import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScreen
-import com.singularity.todo.feature.tasks.presentation.screen.TaskListScreen
-import com.singularity.todo.feature.tasks.presentation.screen.UpcomingScreen
 
 /**
  * JVM Desktop implementation of [TasksNavGraph].
@@ -31,11 +29,7 @@ import com.singularity.todo.feature.tasks.presentation.screen.UpcomingScreen
  * each NavDisplay entry already has proper per-entry ViewModel scoping.
  */
 @Composable
-actual fun TasksNavGraph(
-    start: TasksRoute,
-    onExitGraph: (AppDestination?) -> Unit,
-    modifier: Modifier,
-) {
+actual fun TasksNavGraph(start: TasksRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
     val backStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(start)
 
     val navigator = remember(backStack, onExitGraph) {
@@ -50,25 +44,15 @@ actual fun TasksNavGraph(
             modifier = modifier,
             onBack = { navigator.back() },
             entryProvider = entryProvider {
-                entry<TasksRoute.Inbox> { route -> TaskListScreen(route) }
-                entry<TasksRoute.Today> { route -> TaskListScreen(route) }
-                entry<TasksRoute.ByProject> { route -> TaskListScreen(route) }
                 entry<TasksRoute.Detail> { route -> TaskDetailViewScreen(route.taskId) }
                 entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate) }
-                entry<TasksRoute.Upcoming> { route -> UpcomingScreen(route) }
             },
         )
     }
 }
 
 @Composable
-actual fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute> {
-    return entryProvider {
-        entry<TasksRoute.Inbox> { route -> TaskListScreen(route) }
-        entry<TasksRoute.Today> { route -> TaskListScreen(route) }
-        entry<TasksRoute.ByProject> { route -> TaskListScreen(route) }
-        entry<TasksRoute.Detail> { route -> TaskDetailViewScreen(route.taskId) }
-        entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate) }
-        entry<TasksRoute.Upcoming> { route -> UpcomingScreen(route) }
-    }
+actual fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute> = entryProvider {
+    entry<TasksRoute.Detail> { route -> TaskDetailViewScreen(route.taskId) }
+    entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate) }
 }

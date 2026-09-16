@@ -15,8 +15,6 @@ import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.navSavedStateConfig
 import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScreen
-import com.singularity.todo.feature.tasks.presentation.screen.TaskListScreen
-import com.singularity.todo.feature.tasks.presentation.screen.UpcomingScreen
 
 /**
  * Android implementation of [TasksNavGraph].
@@ -30,11 +28,7 @@ import com.singularity.todo.feature.tasks.presentation.screen.UpcomingScreen
  * Persistence: uses [navSavedStateConfig] so the back stack survives process death.
  */
 @Composable
-actual fun TasksNavGraph(
-    start: TasksRoute,
-    onExitGraph: (AppDestination?) -> Unit,
-    modifier: Modifier,
-) {
+actual fun TasksNavGraph(start: TasksRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist. It is constant
     // across process death — only the NavBackStack content is serialized.
@@ -48,6 +42,7 @@ actual fun TasksNavGraph(
             TasksRoute.Upcoming.serializer(),
         )
     }
+
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<TasksRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<TasksRoute>
@@ -68,25 +63,15 @@ actual fun TasksNavGraph(
             onBack = { navigator.back() },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
             entryProvider = entryProvider {
-                entry<TasksRoute.Inbox> { route -> TaskListScreen(route) }
-                entry<TasksRoute.Today> { route -> TaskListScreen(route) }
-                entry<TasksRoute.ByProject> { route -> TaskListScreen(route) }
                 entry<TasksRoute.Detail> { route -> TaskDetailViewScreen(route.taskId) }
                 entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate) }
-                entry<TasksRoute.Upcoming> { route -> UpcomingScreen(route) }
             },
         )
     }
 }
 
 @Composable
-actual fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute> {
-    return entryProvider {
-        entry<TasksRoute.Inbox> { route -> TaskListScreen(route) }
-        entry<TasksRoute.Today> { route -> TaskListScreen(route) }
-        entry<TasksRoute.ByProject> { route -> TaskListScreen(route) }
-        entry<TasksRoute.Detail> { route -> TaskDetailViewScreen(route.taskId) }
-        entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate) }
-        entry<TasksRoute.Upcoming> { route -> UpcomingScreen(route) }
-    }
+actual fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute> = entryProvider {
+    entry<TasksRoute.Detail> { route -> TaskDetailViewScreen(route.taskId) }
+    entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate) }
 }

@@ -31,7 +31,6 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
-import com.singularity.todo.feature.tasks.presentation.viewmodel.UpcomingViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -144,14 +143,4 @@ fun tasksModule(): org.koin.core.module.Module = module {
     viewModelOf(::StatisticsViewModel)
 
     viewModelOf(::SearchViewModel)
-
-    viewModel { (date: kotlinx.datetime.LocalDate) ->
-        UpcomingViewModel(
-            taskRepo = get(),
-            currentUser = get(),
-            projectRepo = get(),
-            clock = get(),
-            initialDate = date,
-        )
-    }
 }
