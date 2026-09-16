@@ -9,6 +9,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaViewModel
+import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -20,15 +21,22 @@ import org.koin.core.parameter.parametersOf
  *
  * @param definition The [AgendaDefinition] to evaluate and display.
  * @param modifier Compose modifier for the screen container.
+ * @param desktopContextMenuHost Slot for the desktop (JVM) context menu. On Android
+ *        this is a no-op. On Desktop it is provided by the platform-specific
+ *        [AgendaNavGraph][com.singularity.todo.feature.agenda.presentation.nav.AgendaNavGraph]
+ *        implementation.
  */
 @Composable
-fun AgendaScreen(definition: AgendaDefinition, modifier: Modifier = Modifier) {
+fun AgendaScreen(
+    definition: AgendaDefinition,
+    modifier: Modifier = Modifier,
+    desktopContextMenuHost: @Composable (taskUi: TaskUi, offset: androidx.compose.ui.unit.DpOffset, onDismiss: () -> Unit) -> Unit = { _, _, _ -> },
+) {
     val vm: AgendaViewModel = koinViewModel {
         parametersOf(definition)
     }
     val state by vm.state.collectAsStateWithLifecycle()
 
-    // Navigate on task click — obtain navigator from nav graph context
     val navigator = LocalAgendaNavigator.current
 
     LaunchedEffect(Unit) {
@@ -44,6 +52,7 @@ fun AgendaScreen(definition: AgendaDefinition, modifier: Modifier = Modifier) {
         state = state,
         title = vm.title,
         onIntent = vm::onIntent,
+        desktopContextMenuHost = desktopContextMenuHost,
         modifier = modifier,
     )
 }

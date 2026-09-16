@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -15,13 +16,21 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.ui.NavDisplay
+import com.singularity.todo.core.ui.menu.MenuBarHost
+import com.singularity.todo.core.ui.menu.MenuNode
+import com.singularity.todo.core.ui.menu.buildMenuNodes
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.Nav3State
@@ -30,6 +39,8 @@ import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.createJvmEntryProvider
 import com.singularity.todo.feature.nav.icon
 import kotlinx.coroutines.launch
+import java.net.URI
+import kotlin.system.exitProcess
 
 /**
  * Navigation 3 Desktop shell — the implementation called by [PlatformShell].
@@ -40,6 +51,8 @@ import kotlinx.coroutines.launch
  *
  * Desktop UI: [ModalNavigationDrawer] with hamburger menu (instead of bottom bar on Android).
  * No FAB on Desktop.
+ *
+ * Window menu bar is added at the top using [MenuBarHost].
  */
 @Composable
 fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks) {
@@ -50,6 +63,55 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
         ?: AppDestination.Today
 
     val appEntryProvider = createJvmEntryProvider(navCallbacks)
+
+    // About dialog state
+    var showAbout by remember { mutableStateOf(false) }
+
+    // Window menu bar entries
+    val menuEntries = remember(navigator) {
+        val viewItems = DestinationKind.tabs.map { dest ->
+            MenuNode.Action(
+                id = "view_${dest.title.replace(" ", "_").lowercase()}",
+                label = dest.title,
+                onClick = { navigator.navigate(dest) },
+            )
+        }
+        buildMenuNodes {
+            subMenu("file", "File", children = buildMenuNodes {
+                item("new_task", "New Task", shortcut = "Ctrl+N") {
+                    navigator.navigate(AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create))
+                }
+                item("settings", "Settings…", shortcut = "Ctrl+,") {
+                    navigator.navigate(AppDestination.Settings)
+                }
+                divider()
+                item("quit", "Quit", shortcut = "Ctrl+Q") {
+                    exitProcess(0)
+                }
+            })
+            subMenu("edit", "Edit", children = buildMenuNodes {
+                item("undo", "Undo", enabled = false, shortcut = "Ctrl+Z") {}
+                item("redo", "Redo", enabled = false, shortcut = "Ctrl+Y") {}
+                divider()
+                item("find", "Find", shortcut = "Ctrl+F") {
+                    navigator.navigate(AppDestination.Search)
+                }
+            })
+            subMenu("view", "View", children = viewItems)
+            subMenu("help", "Help", children = buildMenuNodes {
+                item("about", "About Singularity Todo") {
+                    showAbout = true
+                }
+                item("github", "Open GitHub…") {
+                    openGitHub()
+                }
+            })
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        MenuBarHost(entries = menuEntries)
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -133,4 +195,32 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
             }
         },
     )
+
+    if (showAbout) {
+        AboutDialog(onDismiss = { showAbout = false })
+    }
+}
+
+@Composable
+private fun AboutDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Singularity Todo") },
+        text = {
+            Text("Version 0.1.0\n\nA KMP task manager for Android and Desktop.\nBuilt with Kotlin Multiplatform.")
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("OK")
+            }
+        },
+    )
+}
+
+private fun openGitHub() {
+    try {
+        java.awt.Desktop.getDesktop().browse(URI("https://github.com/singularity-todo"))
+    } catch (_: Exception) {
+        // Desktop browsing not supported on this platform
+    }
 }

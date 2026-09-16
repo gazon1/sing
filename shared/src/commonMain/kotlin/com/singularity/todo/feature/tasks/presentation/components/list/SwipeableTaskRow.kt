@@ -54,6 +54,8 @@ fun SwipeableTaskRow(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
     backgroundShape: RoundedCornerShape = RoundedCornerShape(0.dp),
+    /** Modifier for secondary (right) click — applied to the content wrapper. */
+    secondaryClickModifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
@@ -125,7 +127,9 @@ fun SwipeableTaskRow(
             // а TaskRowFlat — прозрачный по дизайну, поэтому фон экрана
             // подкладывается здесь, единожды, для любого стиля строки.
             Box(modifier = Modifier.fillMaxSize().background(TaskListColors.Background)) {
-                content()
+                Box(modifier = secondaryClickModifier) {
+                    content()
+                }
             }
         },
 

@@ -17,13 +17,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.formatRussianDueDate
+import com.singularity.todo.core.ui.menu.onSecondaryClick
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
+import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import kotlinx.datetime.LocalDate
@@ -34,9 +41,15 @@ import kotlinx.datetime.LocalDate
  * Stateless — receives [AgendaUiState] and emits [AgendaIntent] via [onIntent].
  * Used by [AgendaScreen] (production) and preview.
  *
+ * The [desktopContextMenuHost] slot is the desktop (JVM) context menu renderer.
+ * On Android it is a no-op (default). On Desktop it is provided by the
+ * platform-specific [AgendaNavGraph][com.singularity.todo.feature.agenda.presentation.nav.AgendaNavGraph]
+ * implementation and includes the actual [com.singularity.todo.core.ui.menu.ContextMenuHost].
+ *
  * @param state The current agenda UI state.
  * @param title Title to display in the top app bar.
  * @param onIntent Called when the user performs an action.
+ * @param desktopContextMenuHost Slot for the desktop context menu renderer.
  * @param modifier Compose modifier.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,8 +58,24 @@ fun AgendaContent(
     state: AgendaUiState,
     title: String,
     onIntent: (AgendaIntent) -> Unit,
+    desktopContextMenuHost: @Composable (taskUi: TaskUi, offset: DpOffset, onDismiss: () -> Unit) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
+    // Routing state: which task is right-clicked and where.
+    // Managed here in the screen layer per ui-event-vs-state skill.
+    var contextMenuTask by remember { mutableStateOf<TaskUi?>(null) }
+    var contextMenuOffset by remember { mutableStateOf<DpOffset?>(null) }
+
+    fun openContextMenu(taskUi: TaskUi, offset: DpOffset) {
+        contextMenuTask = taskUi
+        contextMenuOffset = offset
+    }
+
+    fun dismissContextMenu() {
+        contextMenuTask = null
+        contextMenuOffset = null
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -103,11 +132,19 @@ fun AgendaContent(
                         sections = state.sections,
                         today = state.today,
                         onIntent = onIntent,
+                        onOpenContextMenu = ::openContextMenu,
                         modifier = Modifier.padding(paddingValues),
                     )
                 }
             }
         }
+    }
+
+    // Render the desktop context menu (no-op on Android).
+    val task = contextMenuTask
+    val offset = contextMenuOffset
+    if (task != null && offset != null) {
+        desktopContextMenuHost(task, offset, ::dismissContextMenu)
     }
 }
 
@@ -116,6 +153,7 @@ private fun AgendaList(
     sections: List<com.singularity.todo.feature.agenda.domain.model.RenderedSection>,
     today: LocalDate,
     onIntent: (AgendaIntent) -> Unit,
+    onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -124,17 +162,20 @@ private fun AgendaList(
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         for (section in sections) {
-            // Section header
             item(key = "header-${section.name}") {
                 AgendaSectionHeader(name = section.name, badge = section.badge)
             }
 
-            // Task rows
             items(
                 items = section.tasks,
                 key = { it.task.id.value },
             ) { rowItem ->
-                AgendaTaskRow(rowItem = rowItem, today = today, onIntent = onIntent)
+                AgendaTaskRow(
+                    rowItem = rowItem,
+                    today = today,
+                    onIntent = onIntent,
+                    onOpenContextMenu = onOpenContextMenu,
+                )
             }
         }
     }
@@ -157,7 +198,12 @@ private fun AgendaSectionHeader(name: String, badge: Int?) {
 }
 
 @Composable
-private fun AgendaTaskRow(rowItem: AgendaRowItem, today: LocalDate, onIntent: (AgendaIntent) -> Unit) {
+private fun AgendaTaskRow(
+    rowItem: AgendaRowItem,
+    today: LocalDate,
+    onIntent: (AgendaIntent) -> Unit,
+    onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
+) {
     val task = rowItem.task
     val isOverdue = task.completedAt == null && task.dueDate != null && task.dueDate < today
     val taskUi = TaskUi(
@@ -175,10 +221,22 @@ private fun AgendaTaskRow(rowItem: AgendaRowItem, today: LocalDate, onIntent: (A
         domainTask = task,
     )
 
-    TaskRowFlat(
-        task = taskUi,
-        onToggleCompleted = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
-        onClick = { onIntent(AgendaIntent.TaskClicked(task.id)) },
-        showDivider = true,
-    )
+    // Right-click handler — uses onSecondaryClick (expect/actual, jvmMain actual).
+    val rightClickModifier = Modifier.onSecondaryClick { offset ->
+        onOpenContextMenu(taskUi, offset)
+    }
+
+    Box(modifier = rightClickModifier) {
+        SwipeableTaskRow(
+            onDelete = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
+            content = {
+                TaskRowFlat(
+                    task = taskUi,
+                    onToggleCompleted = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
+                    onClick = { onIntent(AgendaIntent.TaskClicked(task.id)) },
+                    showDivider = true,
+                )
+            },
+        )
+    }
 }

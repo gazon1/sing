@@ -30,6 +30,7 @@ dependencies {
     implementation(libs.kotlinx.coroutinesSwing)
     implementation(libs.koin.core)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material)
     implementation(libs.coil.compose)
 
     implementation(libs.compose.uiToolingPreview)

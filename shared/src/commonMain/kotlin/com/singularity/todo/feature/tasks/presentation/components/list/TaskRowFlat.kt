@@ -39,6 +39,17 @@ fun TaskRowFlat(
     modifier: Modifier = Modifier,
     indentLevel: Int = 0,
     showDivider: Boolean = true,
+    /**
+     * Modifier for secondary (right) click handling.
+     *
+     * On Desktop (JVM): pass `Modifier.onSecondaryClick { offset -> ... }`.
+     * On Android: pass `Modifier`.
+     *
+     * This is a Modifier parameter rather than a lambda so that the click handling
+     * implementation lives entirely in the platform-specific module — commonMain has
+     * no dependency on the jvmMain `onSecondaryClick` modifier.
+     */
+    secondaryClickModifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val indentPadding = if (indentLevel > 0) {
@@ -57,6 +68,7 @@ fun TaskRowFlat(
                     indication = null,
                     onClick = onClick,
                 )
+                .then(secondaryClickModifier)
                 .padding(vertical = TaskListSpacing.Md + TaskListSpacing.Xs, horizontal = TaskListSpacing.Lg),
         )
 

@@ -473,15 +473,23 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `desktop`
 
+- 23 of 28 context menu items are wired to `actions.onDismiss()` — future iterations wire the _(from `2026-09-15-desktop-menus`)_
 - **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - **Android build unchanged**: `assembleDebug` still compiles all Android-specific NavGraphs with full `SavedStateConfiguration` for process-death survival. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- `compose-material:material = 1.12.0` added to `libs.versions.toml` and `desktopApp/build.gradle.kts` _(from `2026-09-15-desktop-menus`)_
 - `compose-ui-test:1.12.0` added to `libs.versions.toml` as `composeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
+- `ContextMenuOpenState` data class in `jvmMain/core/ui/menu/` holds the screen `DpOffset`. _(from `2026-09-15-desktop-menus`)_
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop in-memory only**: Closing and reopening the Desktop window resets all nested back stacks. This was already the behavior before this change — `LocalSaveableStateRegistry` was always `null`. The new code makes this explicit. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- `DesktopShellNav3.kt` owns `showAbout` state and `menuEntries` — natural location since _(from `2026-09-15-desktop-menus`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
+- Hover delay (300ms) on submenus via `LaunchedEffect(isHovered) { delay(300); onOpenSubMenu() }`. _(from `2026-09-15-desktop-menus`)_
+- `MenuBarHost` is a stub (Material 2 not available in current Compose version). _(from `2026-09-15-desktop-menus`)_
 - `ModalShell` + `DrawerStyle.Modal` remain in `AppShell.kt`. They are not wired to any platform but are preserved for future modal drawer needs. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - Navigation interaction tests (click-to-navigate) are out of scope for this smoke test — they require handling NavBackStackEntry lifecycle in `runDesktopComposeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
+- `onSecondaryClick` is a no-op on Android; touch long-press is handled separately by the caller. _(from `2026-09-15-desktop-menus`)_
+- `openGitHub()` uses `java.awt.Desktop.browse(URI(...))`; `exitProcess(0)` for quit. _(from `2026-09-15-desktop-menus`)_
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - Smoke test now passes: `./gradlew :desktopApp:test` → BUILD SUCCESSFUL _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - `sourceSets { test { java.srcDirs("src/jvmTest") ... } }` added to `desktopApp/build.gradle.kts` to wire the `jvmTest` source set to the `test` task _(from `2026-09-06-desktop-smoke-test-with-koin`)_
@@ -1025,6 +1033,17 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Один прогон драйвера = реальная multi-step демонстрация MCP. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
 - При недоступности LLM в драйвере зашит fallback sub-task'ов. _(from `2026-09-08-mcp-plan-tracking-via-mcp`)_
 
+### `menu`
+
+- 23 of 28 context menu items are wired to `actions.onDismiss()` — future iterations wire the _(from `2026-09-15-desktop-menus`)_
+- `compose-material:material = 1.12.0` added to `libs.versions.toml` and `desktopApp/build.gradle.kts` _(from `2026-09-15-desktop-menus`)_
+- `ContextMenuOpenState` data class in `jvmMain/core/ui/menu/` holds the screen `DpOffset`. _(from `2026-09-15-desktop-menus`)_
+- `DesktopShellNav3.kt` owns `showAbout` state and `menuEntries` — natural location since _(from `2026-09-15-desktop-menus`)_
+- Hover delay (300ms) on submenus via `LaunchedEffect(isHovered) { delay(300); onOpenSubMenu() }`. _(from `2026-09-15-desktop-menus`)_
+- `MenuBarHost` is a stub (Material 2 not available in current Compose version). _(from `2026-09-15-desktop-menus`)_
+- `onSecondaryClick` is a no-op on Android; touch long-press is handled separately by the caller. _(from `2026-09-15-desktop-menus`)_
+- `openGitHub()` uses `java.awt.Desktop.browse(URI(...))`; `exitProcess(0)` for quit. _(from `2026-09-15-desktop-menus`)_
+
 ### `multi-profile`
 
 - 4 ADR entries created + DIGEST.md refreshed _(from `2026-09-07-multi-profile-and-usage-tracking`)_
@@ -1075,6 +1094,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `navigation`
 
 - ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- 23 of 28 context menu items are wired to `actions.onDismiss()` — future iterations wire the _(from `2026-09-15-desktop-menus`)_
 - 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
 - **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
@@ -1093,19 +1113,24 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Backlinks are now shown and functional _(from `2026-09-09-notes-view-edit-split`)_
 - **BottomBar taps** now have a single source of truth: `navigator.navigateTopLevel(dest)` — no `selectedIndex` to keep in sync. _(from `2026-09-05-android-bottom-nav`)_
 - Clear UX: notes list → tap note → read → optionally edit _(from `2026-09-09-notes-view-edit-split`)_
+- `compose-material:material = 1.12.0` added to `libs.versions.toml` and `desktopApp/build.gradle.kts` _(from `2026-09-15-desktop-menus`)_
+- `ContextMenuOpenState` data class in `jvmMain/core/ui/menu/` holds the screen `DpOffset`. _(from `2026-09-15-desktop-menus`)_
 - Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops. _(from `2026-09-15-projects-nested-nav3`)_
 - Delete confirmation is handled in `NotePreview`, not buried in editor overflow menu _(from `2026-09-09-notes-view-edit-split`)_
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
 - **Desktop in-memory only**: Closing and reopening the Desktop window resets all nested back stacks. This was already the behavior before this change — `LocalSaveableStateRegistry` was always `null`. The new code makes this explicit. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- `DesktopShellNav3.kt` owns `showAbout` state and `menuEntries` — natural location since _(from `2026-09-15-desktop-menus`)_
 - Detekt: 263 findings (pre-existing), 0 в изменённых файлах _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - `fabActionForNav3` is simpler and more correct. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
+- Hover delay (300ms) on submenus via `LaunchedEffect(isHovered) { delay(300); onOpenSubMenu() }`. _(from `2026-09-15-desktop-menus`)_
 - Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- `MenuBarHost` is a stub (Material 2 not available in current Compose version). _(from `2026-09-15-desktop-menus`)_
 - **Menu sheet visibility** is `rememberSaveable` state in `AndroidShell` — survives config changes, not part of the back stack. _(from `2026-09-05-android-bottom-nav`)_
 - `ModalShell` + `DrawerStyle.Modal` remain in `AppShell.kt`. They are not wired to any platform but are preserved for future modal drawer needs. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **`NavDestination` (drawer enum)** remains for the desktop drawer's grouping by `NavGroup` — not removed, just no longer wired to mobile. _(from `2026-09-05-android-bottom-nav`)_
@@ -1115,6 +1140,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Note metadata (word count, last updated) is visible without entering edit mode _(from `2026-09-09-notes-view-edit-split`)_
 - `NotePreview` must observe the note via `repo.watchNote()` — requires a Flow subscription _(from `2026-09-09-notes-view-edit-split`)_
 - Notes deep-links from Search now land on the correct note preview. _(from `2026-09-16-nav3-post-migration-fixes`)_
+- `onSecondaryClick` is a no-op on Android; touch long-press is handled separately by the caller. _(from `2026-09-15-desktop-menus`)_
+- `openGitHub()` uses `java.awt.Desktop.browse(URI(...))`; `exitProcess(0)` for quit. _(from `2026-09-15-desktop-menus`)_
 - **Per-tab backstacks** work as expected: open TaskDetail on Today, switch to Plans, switch back to Today → TaskDetail is restored. _(from `2026-09-05-android-bottom-nav`)_
 - Preview for `AccountSettingsScreen` uses a separate `AccountSettingsScreenPreviewContent` composable that takes an explicit callback, since `LocalSettingsNavigator` is only available inside the graph. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
@@ -1641,6 +1668,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `ui`
 
+- 23 of 28 context menu items are wired to `actions.onDismiss()` — future iterations wire the _(from `2026-09-15-desktop-menus`)_
 - **8 экранов мигрируют одновременно** — невозможно сделать постепенную миграцию из-за смены типа `_events` _(from `2026-09-05-ui-event-per-feature`)_
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует. _(from `2026-09-07-fab-chrome-level`)_
 - `App.kt` инжектит `SettingsRepository` через Koin — это нормально, Koin доступен в Common startup. _(from `2026-09-07-settings-fixes`)_
@@ -1661,7 +1689,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `ui`
 
+- `compose-material:material = 1.12.0` added to `libs.versions.toml` and `desktopApp/build.gradle.kts` _(from `2026-09-15-desktop-menus`)_
 - Consistent API across all shared components _(from `2026-09-09-content-slot-pattern`)_
+- `ContextMenuOpenState` data class in `jvmMain/core/ui/menu/` holds the screen `DpOffset`. _(from `2026-09-15-desktop-menus`)_
 
 ### `ui-contract`
 
@@ -1678,15 +1708,20 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `core/serialization/StableJson.kt` _(from `2026-09-15-task-editor-unification`)_
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
+- `DesktopShellNav3.kt` owns `showAbout` state and `menuEntries` — natural location since _(from `2026-09-15-desktop-menus`)_
 - Easier to extend cards and editors without breaking call sites _(from `2026-09-09-content-slot-pattern`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Fake repo returns empty by default** — widget tests that check `LazyColumn` with `testTag` will fail when repo is empty (state = `Empty`). Test the `EmptyState` text instead, or seed data via `fakeNotesRepo.seed(note)`. _(from `2026-09-05-robolectric-widget-tests`)_
+- Hover delay (300ms) on submenus via `LaunchedEffect(isHovered) { delay(300); onOpenSubMenu() }`. _(from `2026-09-15-desktop-menus`)_
 - **JVM args for JDK 21+** — add `--add-opens=java.base/jdk.internal.access=ALL-UNNAMED` to `gradle.properties` (`org.gradle.jvmargs`) AND to `shared/build.gradle.kts` via `afterEvaluate` + `tasks.withType<Test>()` for the test worker process. _(from `2026-09-05-robolectric-widget-tests`)_
+- `MenuBarHost` is a stub (Material 2 not available in current Compose version). _(from `2026-09-15-desktop-menus`)_
 - **Menu sheet visibility** is `rememberSaveable` state in `AndroidShell` — survives config changes, not part of the back stack. _(from `2026-09-05-android-bottom-nav`)_
 - Migration from plain lambdas requires updating call sites _(from `2026-09-09-content-slot-pattern`)_
 - `ModalShell` + `DrawerStyle.Modal` remain in `AppShell.kt`. They are not wired to any platform but are preserved for future modal drawer needs. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **`NavDestination` (drawer enum)** remains for the desktop drawer's grouping by `NavGroup` — not removed, just no longer wired to mobile. _(from `2026-09-05-android-bottom-nav`)_
 - **NotificationHost** — финальный widget для всех экранов, заменяет ~64 строк ручного glue кода _(from `2026-09-05-ui-event-per-feature`)_
+- `onSecondaryClick` is a no-op on Android; touch long-press is handled separately by the caller. _(from `2026-09-15-desktop-menus`)_
+- `openGitHub()` uses `java.awt.Desktop.browse(URI(...))`; `exitProcess(0)` for quit. _(from `2026-09-15-desktop-menus`)_
 - **Per-tab backstacks** work as expected: open TaskDetail on Today, switch to Plans, switch back to Today → TaskDetail is restored. _(from `2026-09-05-android-bottom-nav`)_
 - `@Preview` annotation is `@androidx.compose.ui.tooling.preview.Preview` — _(from `2026-09-06-compose-previews`)_
 - Preview functions are `private` and placed at the end of the source file, _(from `2026-09-06-compose-previews`)_
@@ -1990,6 +2025,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-nav3-tasks-navigator` — nav3  navigation  koin  refactor
 - `2026-09-14-nav3-vm-store-decorator-fix` — architecture  navigation  koin  viewmodel  bug
 - `2026-09-14-tasks-feature-nested-nav3` — architecture  navigation  koin  viewmodel
+- `2026-09-15-desktop-menus` — desktop  ui  menu  navigation
 - `2026-09-15-detekt-ktlint-kover-setup` — detekt  ktlint  kover  lint  coverage  quality
 - `2026-09-15-noteeditor-udf-link-search` — "architecture"  "udf"  "notes"  "di"
 - `2026-09-15-projects-nested-nav3` — nav3  navigation  koin  refactor  projects
@@ -2079,6 +2115,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-14-nav3-tasks-navigator` — Nav3: TasksNavigator replaces callback-passing in task screens
 - `2026-09-14-nav3-vm-store-decorator-fix` — _(no title)
 - `2026-09-14-tasks-feature-nested-nav3` — _(no title)
+- `2026-09-15-desktop-menus` — Desktop context menu + window MenuBar via generic MenuNode sealed class
 - `2026-09-15-detekt-ktlint-kover-setup` — Integrate detekt, ktlint, and kotlinx-kover for code quality and coverage
 - `2026-09-15-nav3-notes-navigator` — _(no title)
 - `2026-09-15-noteeditor-udf-link-search` — NoteEditor UDF fix — delegate link search to ViewModel
