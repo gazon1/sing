@@ -88,6 +88,52 @@ pure domain validation → repository (Result<T>) → use case (only real logic)
 
 > **Pass-through use cases are anti-pattern.** `Get<Feature>UseCase`, `Delete<Feature>UseCase`, `ToggleCompleteUseCase` that just delegate to `repo.X()` are boilerplate. Inject the repository directly into the ViewModel.
 
+## Canonical flow for agenda/filter views (AgendaEngine pattern)
+
+When the feature is a **view over existing data** (not a CRUD entity), use the AgendaEngine DSL pattern:
+
+```
+pure data DSL (AgendaDefinition) → pure evaluator (AgendaEvaluator.evaluate) → ViewModel (StateFlow<AgendaUiState>) → Screen
+```
+
+The DSL builds a declarative `AgendaDefinition` (sections + selectors). The evaluator is a **pure function** that matches tasks against selectors. No repository mutation, no use cases needed — the ViewModel watches all tasks via `TaskFilter.All` and evaluates in-process.
+
+```
+feature/agenda/
+├── domain/
+│   ├── model/
+│   │   ├── AgendaDefinition.kt   — Section, AgendaLayout, AgendaLayout
+│   │   ├── Selector.kt           — sealed interface with 14 variants
+│   │   ├── AgendaUiState.kt      — Loaded/Loading/Error
+│   │   ├── AgendaIntent.kt       — sealed user intent
+│   │   └── AgendaUiEvent.kt     — one-shot events
+│   ├── logic/
+│   │   ├── RelativeBucket.kt    — Today/ThisWeek/Overdue/NoDate date math
+│   │   ├── AgendaPresets.kt     — Inbox, Today, Upcoming, byProject, byTag
+│   │   └── AgendaEvaluator.kt    — pure evaluate() + matches()
+│   └── di/
+│       └── AgendaDiModule.kt     — viewModel { (definition) -> AgendaViewModel }
+├── presentation/
+│   ├── viewmodel/
+│   │   ├── AgendaDeps.kt        — deps (taskRepo, currentUser, logger)
+│   │   └── AgendaViewModel.kt   — state: StateFlow<AgendaUiState>, events: SharedFlow
+│   ├── screen/
+│   │   ├── AgendaScreen.kt      — @Composable AgendaScreen(definition, ...)
+│   │   └── AgendaContent.kt     — LazyColumn with section headers + task rows
+│   └── nav/
+│       ├── AgendaNavGraph.kt    — expect
+│       ├── AgendaNavGraph.android.kt
+│       └── AgendaNavGraph.jvm.kt
+└── AgendaStartRoute.kt           — in feature/nav/, not feature/agenda/presentation/
+```
+
+**When to use AgendaEngine vs standard CRUD:**
+| Feature type | Pattern |
+|---|---|
+| CRUD entity (Task, Note, Project) | Repository + ViewModel |
+| View/filter over existing data (agenda, calendar) | DSL + pure evaluator |
+| Multiple similar screens with different filters | AgendaEngine (single screen, configurable definition) |
+
 ## 1. Ids.kt — Typed ID wrappers + domain model
 
 ```kotlin
@@ -224,7 +270,7 @@ See `singularity-todo-koin-di` skill for full DI conventions.
 
 ## Navigation (AppDestination.kt + Nested Graph)
 
-This project uses **two-level Nav3 navigation**: a top-level `Nav3State` with `NavBackStack<AppDestination>` for tabs, and **nested graphs** per feature (tasks, projects, notes, settings, search) with their own `NavBackStack<FeatureRoute>`.
+This project uses **two-level Nav3 navigation**: a top-level `Nav3State` with `NavBackStack<AppDestination>` for tabs, and **nested graphs** per feature with their own `NavBackStack<FeatureRoute>`.
 
 ### Top-level: `AppDestination` in `feature/nav/AppDestination.kt`
 
@@ -233,13 +279,42 @@ sealed interface AppDestination : NavKey {
     val title: String
     val icon: ImageVector
 
-    @Serializable
-    data object Inbox : AppDestination { override val title = "Inbox"; override val icon = Icons.Default.Inbox }
-    @Serializable
-    data object Today : AppDestination { override val title = "Today"; override val icon = Icons.Default.Today }
-    // ...
+    @Serializable data object Inbox : AppDestination { ... }
+    @Serializable data object Today : AppDestination { ... }
+
+    // AgendaEngine: singleton graph, 3 start routes
+    @Serializable data class AgendaGraph(
+        val start: AgendaStartRoute = AgendaStartRoute.Inbox,
+    ) : AppDestination { override val title = "Agenda" }
 }
 ```
+
+### Start routes vs Graph routes
+
+There are **two separate sealed hierarchies** for each feature:
+
+1. **`*StartRoute`** — what the outer AppNavHost uses to mount the graph at a specific start position
+2. **`*Route`** (inner) — the full route hierarchy inside the nested graph
+
+For Agenda: `AgendaStartRoute` lives in `feature/nav/` (not `feature/agenda/presentation/nav/`), while `AgendaNavGraph` lives in `feature/agenda/presentation/nav/`.
+
+```kotlin
+// feature/nav/AgendaStartRoute.kt — OUTER graph mount point
+@Serializable
+sealed interface AgendaStartRoute : NavKey {
+    @Serializable data object Inbox : AgendaStartRoute
+    @Serializable data object Today : AgendaStartRoute
+    @Serializable data object Upcoming : AgendaStartRoute
+    @Serializable data class Project(val projectId: String) : AgendaStartRoute {
+        val id: ProjectId get() = ProjectId.fromString(projectId)
+    }
+    @Serializable data class Tag(val tagId: String) : AgendaStartRoute {
+        val id: TagId get() = TagId.fromString(tagId)
+    }
+}
+```
+
+**⚠️ `@Serializable` required on `TagId` and `ProjectId` when used in routes:** If a route embeds a typed ID as a String field (like `Tag(val tagId: String)`), the ID class itself must be `@Serializable`. Add `@Serializable` to `TagId` and `ProjectId` in `feature/tags/Ids.kt` and `feature/projects/Ids.kt`.
 
 ### Feature nested graph: `*Route.kt` + `*NavGraph.kt` (expect/actual)
 
@@ -247,13 +322,13 @@ Each feature has its own sealed `Route` hierarchy and `*NavGraph` expect/actual:
 
 ```
 feature/<feature>/presentation/nav/
-├── <Feature>Route.kt      — sealed interface + data objects (e.g. TasksRoute.Inbox, TasksRoute.Detail)
+├── <Feature>Route.kt      — sealed interface + data objects
 ├── <Feature>NavGraph.kt   — expect fun <Feature>NavGraph(...)  ← commonMain
 ├── <Feature>NavGraph.android.kt  — actual: navSavedStateConfig + rememberNavBackStack
 └── <Feature>NavGraph.jvm.kt      — actual: rememberInMemoryNavBackStack
 ```
 
-**Never** use `AppDestination.<Feature>Detail(id)` for inner-screen navigation — use the feature's own `*Route` inside the nested graph. `AppDestination` variants like `AppDestination.TaskDetail` are only for top-level tab switching.
+**Never** use `AppDestination.<Feature>Detail(id)` for inner-screen navigation — use the feature's own `*Route` inside the nested graph. `AppDestination` variants are only for top-level tab switching.
 
 ### When to add a new nested graph
 
@@ -268,7 +343,7 @@ feature/<feature>/presentation/nav/
 2. Create `feature/<feature>/presentation/nav/<Feature>NavGraph.kt` (expect)
 3. Create `*NavGraph.android.kt` + `*NavGraph.jvm.kt` (actual implementations)
 4. Add `AppDestination.<Feature>Graph` to `AppDestination` sealed interface
-5. Wire in `AppNavHost` using `entryProvider` + `navigatorForGraph`
+5. Wire in `AppNavHost` using `entryProvider`
 
 **See `singularity-todo-nav3-nested-graphs`** for full nested graph architecture details.
 

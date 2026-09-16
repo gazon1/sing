@@ -109,3 +109,46 @@ class TaskDraftSerializationTest {
 ```
 
 Tests live in `shared/src/commonTest/kotlin/com/singularity/todo/core/serialization/`.
+
+## Sealed interface hierarchies with `classDiscriminator`
+
+`StableJson` uses `classDiscriminator = "_type"`. This means every sealed interface leaf MUST have a unique discriminator value. `@Serializable` generates this from the class name by default, but when using `@SerialName` explicitly, the discriminator is the `@SerialName` value:
+
+```kotlin
+@Serializable
+sealed interface Selector {
+    @Serializable
+    @SerialName("date_bucket")
+    data class DateBucket(val bucket: RelativeBucket) : Selector
+
+    @Serializable
+    @SerialName("all_of")
+    data class AllOf(val children: List<Selector>) : Selector
+
+    @Serializable
+    data object Overdue : Selector  // auto-discriminator: "Overdue"
+}
+```
+
+**If you get `classDiscriminator` errors** when encoding a sealed interface:
+1. Check that ALL concrete leaves are `@Serializable` (abstract leaves can't be instantiated)
+2. Check that `Selector` itself is NOT `@Serializable` (only the leaves)
+3. For `data class` leaves inside sealed interfaces, `@SerialName` must be explicit if the class name is ambiguous
+
+**AgendaEngine `Selector` test:** `AgendaPresetsTest` uses `StableJson.encodeToString()` to verify all preset definitions round-trip correctly. If a new `Selector` variant is added without `@Serializable`, the test fails.
+
+## AgendaEngine `@Serializable` checklist
+
+When adding a new `Selector` variant:
+1. Add `@Serializable` to the data class/data object
+2. Add `@SerialName("...")` if the class name is compound (e.g. `DateRange` → `@SerialName("date_range")`)
+3. Add a test in `AgendaPresetsTest`:
+   ```kotlin
+   @Test
+   fun `Selector.DateRange round-trips`() {
+       val s = Selector.DateRange(LocalDate(2024, 1, 1), LocalDate(2024, 12, 31))
+       val json = StableJson.encodeToString(Selector.serializer(), s)
+       val decoded = StableJson.decodeFromString(Selector.serializer(), json)
+       assertEquals(s, decoded)
+   }
+   ```

@@ -9,10 +9,11 @@ This project uses a **typed Intent** pattern for all ViewModels. The pattern is 
 
 This skill captures the pattern, the common pitfalls, and the key design split — **when a pure reducer is appropriate and when it is not**.
 
-**Two variants of the pattern:**
+**Three variants of the pattern:**
 
 - **Full** (has routing intents for sheets): `TaskDetailViewModel`, `TaskEditorViewModel`
 - **Minimal** (no sheets — only domain mutations + navigation): `ProjectDetailViewModel`
+- **Evaluate-only** (static definition, no intents): `AgendaViewModel` — definition is injected at construction time; the VM watches all tasks and evaluates them purely in-memory with `AgendaEvaluator.evaluate()`. No routing intents, no mutation intents — only `AgendaIntent.TaskClicked` for navigation.
 
 ---
 
@@ -177,6 +178,7 @@ When in doubt: if the operation does not touch the repository, it does not belon
 - `TaskEditorViewModel` — draft-editor pattern with pure `reduce()` + `TaskEditorReducerTest`
 - `TaskDetailViewModel` — write-through pattern with single `onIntent()` + `mutate{}`; has sheet routing intents
 - `ProjectDetailViewModel` — **minimal variant**: no sheets, only domain intents + navigation callbacks; demonstrates the pattern at its simplest
+- `AgendaViewModel` — **evaluate-only variant**: `definition` injected at construction; watches all tasks via `TaskFilter.All`, evaluates in-process with `AgendaEvaluator.evaluate()`, emits `AgendaUiState`. No mutation intents — navigation only via `AgendaUiEvent.NavigateToTask`.
 - `TaskDetailIntent.kt` — routing/domain separation in a real-world screen
 
 ## See Also

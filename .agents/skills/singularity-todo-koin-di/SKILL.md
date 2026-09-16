@@ -319,7 +319,59 @@ private fun ProjectDetailScreen_Preview() {
 
 | File | Role |
 |---|---|
-| `shared/src/commonMain/.../core/di/Modules.kt` | **Source of truth** — all domain bindings in DSL |
+| `shared/src/commonMain/.../core/di/Modules.kt` | **Source of truth** — all domain bindings in DSL; includes `agendaModule()` and `calendarModule()` |
 | `shared/src/commonMain/.../core/di/TasksDiModule.kt` | Feature-specific bindings (tasks, projects, etc.) |
+| `shared/src/commonMain/.../feature/agenda/AgendaDiModule.kt` | AgendaViewModel binding — `viewModel { (definition: AgendaDefinition) -> AgendaViewModel(...) }` |
+| `shared/src/commonMain/.../feature/calendar/CalendarDiModule.kt` | CalendarViewModel binding pattern |
 | `shared/src/commonMain/.../core/di/PlatformModule.kt` | expect fun platformModule() |
 | `shared/src/commonMain/.../test/fakes/FakeRepositories.kt` | All fake doubles |
+
+### AgendaDiModule — runtime-parameter ViewModel pattern
+
+`AgendaViewModel` takes an `AgendaDefinition` as a runtime parameter (the definition changes per tab: Inbox, Today, Upcoming, byProject, byTag). Use `viewModel { (definition: AgendaDefinition) -> ... }`:
+
+```kotlin
+// AgendaDiModule.kt
+fun agendaModule(): Module = module {
+    viewModel { (definition: AgendaDefinition) ->
+        AgendaViewModel(
+            deps = AgendaDeps(
+                taskRepo = get<TaskRepository>(),
+                currentUser = get<ProfileAwareCurrentUser>(),
+                logger = Logger.withTag("Agenda"),
+            ),
+            definition = definition,
+        )
+    }
+}
+
+// Modules.kt — include it
+fun domainModule(): Module = module {
+    // ...
+    includes(agendaModule())
+    includes(calendarModule())
+}
+
+// AgendaScreen.kt — inject with parametersOf
+@Composable
+fun AgendaScreen(definition: AgendaDefinition, ...) {
+    val vm: AgendaViewModel = koinViewModel { parametersOf(definition) }
+    // ...
+}
+```
+
+**Key pattern:** `koinViewModel { parametersOf(definition) }` — the definition comes from the route's `AgendaStartRoute`, not from a Koin binding. Each tab creates its own VM via `parametersOf`.
+
+### Feature-specific modules (CalendarDiModule, AgendaDiModule)
+
+Each feature that has runtime-parameter ViewModels gets its own `*DiModule.kt` file. This keeps `Modules.kt` from growing indefinitely:
+
+```
+core/di/
+├── Modules.kt              — includes(domainModule(), agendaModule(), calendarModule(), ...)
+├── TasksDiModule.kt        — Tasks + Projects VM bindings
+├── AgendaDiModule.kt       — AgendaViewModel bindings
+└── CalendarDiModule.kt    — CalendarViewModel bindings
+```
+
+When adding a new feature, create `feature/<name>/<Name>DiModule.kt` in the feature's root (not `core/di/`) and include it from `Modules.kt`.

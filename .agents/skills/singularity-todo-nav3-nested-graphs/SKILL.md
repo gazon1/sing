@@ -1,26 +1,41 @@
 ---
 name: singularity-todo-nav3-nested-graphs
-description: Full architecture of Nav3 two-level nested navigation in this KMP project: expect/actual *NavGraph pattern, sealed Route hierarchies, Local*Navigator providers, entryProvider wiring, and how the outer AppNavHost integrates nested graphs. Use when adding a new feature screen, modifying an existing nested graph, or adding a new route type to any sealed Route hierarchy.
+description: Full architecture of Nav3 two-level nested navigation in this KMP project: expect/actual *NavGraph pattern, sealed Route hierarchies, Local*Navigator providers, entryProvider wiring, and how the outer AppNavHost integrates nested graphs. Covers both the per-feature graph pattern (TasksNavGraph, ProjectsNavGraph) and the singleton graph pattern (AgendaNavGraph — same graph reused for 3 tabs with different start routes). Use when adding a new feature screen, modifying an existing nested graph, or adding a new route type to any sealed Route hierarchy.
 ---
 
 # Nav3 Nested Graphs — Architecture
 
-## Two-Level Navigation Model
+## Two Navigation Patterns
+
+### Pattern A: Per-feature nested graph (projects, notes, search, settings)
+Each feature owns its own isolated back stack.
 
 ```
 App (top-level Nav3State)
-├── NavBackStack<AppDestination>    ← tabs: Inbox, Today, Plans, Search, Settings
+├── NavBackStack<AppDestination>
 │   └── NavDisplay (bottom bar)
-│       └── [TasksNavGraph] ← nested graph for tasks feature
-│           └── NavBackStack<TasksRoute>: Inbox → Detail → Create
-│       └── [ProjectsNavGraph] ← nested graph for projects feature
-│           └── NavBackStack<ProjectsRoute>: List → Detail → Editor
-│       └── [NotesNavGraph]
+│       └── [TasksNavGraph] ← Detail + Create only after AgendaEngine MR1
+│       └── [ProjectsNavGraph] ← List → Detail → Editor
+│       └── [NotesNavGraph] ← List → Preview/Editor
 │       └── [SearchNavGraph]
 │       └── [SettingsNavGraph]
 ```
 
-Each nested graph is **fully isolated**: own `NavBackStack<FeatureRoute>`, own `NavDisplay`, own `Local*Navigator`. The outer graph only sees `AppDestination.TasksGraph` (a single entry per feature), never the inner routes.
+### Pattern B: Singleton graph, multiple start routes (AgendaNavGraph)
+One graph reused for 3 tab destinations by varying the `start` parameter.
+
+```
+App (top-level Nav3State)
+├── NavBackStack<AppDestination>
+│   └── NavDisplay (bottom bar)
+│       └── AgendaNavGraph(start=AgendaStartRoute.Inbox)   ← Inbox tab
+│       └── AgendaNavGraph(start=AgendaStartRoute.Today)   ← Today tab
+│       └── AgendaNavGraph(start=AgendaStartRoute.Upcoming) ← Upcoming tab
+│       └── ProjectsNavGraph
+│       └── ...
+```
+
+Each `AgendaNavGraph` instance has its **own** `NavBackStack<AgendaStartRoute>` — the start route is the initial entry, but the stack grows independently as the user navigates within each tab.
 
 ---
 
@@ -34,26 +49,50 @@ feature/<feature>/presentation/nav/
 └── <Feature>NavGraph.jvm.kt      — actual: rememberInMemoryNavBackStack
 ```
 
-**Example: Tasks**
+**Example: Tasks (Detail + Create only — after AgendaEngine MR1)**
 ```
 feature/tasks/presentation/nav/
-├── TasksRoute.kt                 — sealed interface TasksRoute + Inbox/Today/ByProject/Detail/Create
+├── TasksRoute.kt                 — sealed interface TasksRoute + Detail/Create
 ├── TasksNavGraph.kt             — expect fun TasksNavGraph(...)
 ├── TasksNavGraph.android.kt      — Android actual
 └── TasksNavGraph.jvm.kt         — JVM actual
 ```
+> After AgendaEngine MR1, TasksNavGraph only handles Detail + Create screens.
+> Inbox/Today/Upcoming tabs now use `AgendaNavGraph(start = AgendaStartRoute.Inbox/Today/Upcoming)`.
+
+**Example: Agenda (singleton graph, 3 tab variants)**
+```
+feature/agenda/presentation/nav/
+├── AgendaRoute.kt               — AgendaStartRoute (Inbox/Today/Upcoming/Project/Tag)
+├── AgendaNavGraph.kt           — expect fun AgendaNavGraph(start: AgendaStartRoute, ...)
+├── AgendaNavGraph.android.kt    — Android actual
+└── AgendaNavGraph.jvm.kt       — JVM actual
+```
+> AgendaNavGraph is mounted 3 times at the top level (one per tab) with different `start` values.
+> The `start: AgendaStartRoute` parameter makes a single graph reusable for all variants.
 
 ---
 
 ## The Sealed Route Hierarchy
 
 ```kotlin
-// TasksRoute.kt (commonMain)
+// AgendaStartRoute.kt (feature/nav/ — not inside presentation/nav/)
+@Serializable
+sealed interface AgendaStartRoute : NavKey {
+    @Serializable data object Inbox : AgendaStartRoute
+    @Serializable data object Today : AgendaStartRoute
+    @Serializable data object Upcoming : AgendaStartRoute
+    @Serializable data class Project(val projectId: String) : AgendaStartRoute {
+        val id: ProjectId get() = ProjectId.fromString(projectId)
+    }
+    @Serializable data class Tag(val tagId: String) : AgendaStartRoute {
+        val id: TagId get() = TagId.fromString(tagId)
+    }
+}
+
+// TasksRoute.kt (commonMain) — after AgendaEngine MR1
 @Serializable
 sealed interface TasksRoute : NavKey {
-    @Serializable data object Inbox : TasksRoute
-    @Serializable data object Today : TasksRoute
-    @Serializable data object ByProject : TasksRoute
     @Serializable data class Detail(val taskId: TaskId) : TasksRoute
     @Serializable data class Create(val initialDueDate: LocalDate? = null) : TasksRoute
 }
@@ -72,16 +111,16 @@ sealed interface TasksRoute : NavKey {
 ### commonMain: `*NavGraph.kt`
 
 ```kotlin
-// TasksNavGraph.kt
+// AgendaNavGraph.kt
 @Composable
-expect fun TasksNavGraph(
-    start: TasksRoute,
+expect fun AgendaNavGraph(
+    start: AgendaStartRoute,
     onExitGraph: (AppDestination?) -> Unit,
     modifier: Modifier = Modifier,
 )
 
 @Composable
-expect fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute>
+expect fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRoute>
 ```
 
 The `onExitGraph: (AppDestination?) -> Unit` callback handles cross-feature navigation:
@@ -94,35 +133,36 @@ The `onExitGraph: (AppDestination?) -> Unit` callback handles cross-feature navi
 import com.singularity.todo.feature.nav.navSavedStateConfig
 
 @Composable
-actual fun TasksNavGraph(start: TasksRoute, onExitGraph: ..., modifier: ...) {
+actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: ..., modifier: ...) {
     val savedStateConfig = remember {
         navSavedStateConfig(
-            TasksRoute.Inbox.serializer(),
-            TasksRoute.Today.serializer(),
-            TasksRoute.ByProject.serializer(),
-            TasksRoute.Detail.serializer(),
-            TasksRoute.Create.serializer(),
+            AgendaStartRoute.Inbox.serializer(),
+            AgendaStartRoute.Today.serializer(),
+            AgendaStartRoute.Upcoming.serializer(),
+            AgendaStartRoute.Project.serializer(),
+            AgendaStartRoute.Tag.serializer(),
         )
     }
     @Suppress("UNCHECKED_CAST")
-    val backStack: NavBackStack<TasksRoute> = rememberNavBackStack(savedStateConfig, start)
-        as NavBackStack<TasksRoute>
+    val backStack: NavBackStack<AgendaStartRoute> = rememberNavBackStack(savedStateConfig, start)
+        as NavBackStack<AgendaStartRoute>
 
     val navigator = remember(backStack, onExitGraph) {
-        TasksNavigator(backStack, onExitGraph)
+        AgendaNavigator(backStack, onExitGraph)
     }
 
-    CompositionLocalProvider(LocalTasksNavigator provides navigator) {
+    CompositionLocalProvider(LocalAgendaNavigator provides navigator) {
         BackHandler(enabled = backStack.size <= 1) { onExitGraph(null) }
         NavDisplay(
             backStack = backStack,
             onBack = { navigator.back() },
+            entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
             entryProvider = entryProvider {
-                entry<TasksRoute.Inbox>    { TaskListScreen(TasksRoute.Inbox) }
-                entry<TasksRoute.Today>    { TaskListScreen(TasksRoute.Today) }
-                entry<TasksRoute.ByProject> { TaskListScreen(TasksRoute.ByProject) }
-                entry<TasksRoute.Detail>  { TaskDetailViewScreen(it.taskId) }
-                entry<TasksRoute.Create>  { TaskCreateScreen(it.initialDueDate) }
+                entry<AgendaStartRoute.Inbox>     { AgendaScreen(AgendaPresets.Inbox) }
+                entry<AgendaStartRoute.Today>     { AgendaScreen(AgendaPresets.Today) }
+                entry<AgendaStartRoute.Upcoming>  { AgendaScreen(AgendaPresets.Upcoming) }
+                entry<AgendaStartRoute.Project>   { AgendaScreen(AgendaPresets.byProject(it.id)) }
+                entry<AgendaStartRoute.Tag>       { AgendaScreen(AgendaPresets.byTag(it.id)) }
             },
         )
     }
@@ -135,19 +175,23 @@ actual fun TasksNavGraph(start: TasksRoute, onExitGraph: ..., modifier: ...) {
 import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
 
 @Composable
-actual fun TasksNavGraph(start: TasksRoute, onExitGraph: ..., modifier: ...) {
-    val backStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(start)
+actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: ..., modifier: ...) {
+    val backStack: NavBackStack<AgendaStartRoute> = rememberInMemoryNavBackStack(start)
 
     val navigator = remember(backStack, onExitGraph) {
-        TasksNavigator(backStack, onExitGraph)
+        AgendaNavigator(backStack, onExitGraph)
     }
 
-    CompositionLocalProvider(LocalTasksNavigator provides navigator) {
+    CompositionLocalProvider(LocalAgendaNavigator provides navigator) {
         NavDisplay(
             backStack = backStack,
             onBack = { navigator.back() },
             entryProvider = entryProvider {
-                // same entry bodies as Android
+                entry<AgendaStartRoute.Inbox>     { AgendaScreen(AgendaPresets.Inbox) }
+                entry<AgendaStartRoute.Today>     { AgendaScreen(AgendaPresets.Today) }
+                entry<AgendaStartRoute.Upcoming>  { AgendaScreen(AgendaPresets.Upcoming) }
+                entry<AgendaStartRoute.Project>   { AgendaScreen(AgendaPresets.byProject(it.id)) }
+                entry<AgendaStartRoute.Tag>       { AgendaScreen(AgendaPresets.byTag(it.id)) }
             },
         )
     }
@@ -171,16 +215,16 @@ actual fun TasksNavGraph(start: TasksRoute, onExitGraph: ..., modifier: ...) {
 Each nested graph provides a `CompositionLocal` so screens inside can navigate without callbacks:
 
 ```kotlin
-// In TasksNavGraph.kt (commonMain)
-val LocalTasksNavigator = staticCompositionLocalOf<TasksNavigator?> { null }
+// In AgendaNavGraph.kt (commonMain)
+val LocalAgendaNavigator = staticCompositionLocalOf<AgendaNavigator?> { null }
 
-// TasksNavigator (commonMain)
-class TasksNavigator(
-    private val backStack: NavBackStack<TasksRoute>,
+// AgendaNavigator (commonMain)
+class AgendaNavigator(
+    private val backStack: NavBackStack<AgendaStartRoute>,
     private val onExitGraph: (AppDestination?) -> Unit,
 ) {
-    fun toDetail(taskId: TaskId) = backStack.add(TasksRoute.Detail(taskId))
-    fun toCreate(dueDate: LocalDate? = null) = backStack.add(TasksRoute.Create(dueDate))
+    fun toProject(projectId: ProjectId) = backStack.add(AgendaStartRoute.Project(projectId.value))
+    fun toTag(tagId: TagId) = backStack.add(AgendaStartRoute.Tag(tagId.value))
     fun back() {
         if (backStack.size > 1) backStack.removeLastOrNull()
         else onExitGraph(null)
@@ -189,9 +233,9 @@ class TasksNavigator(
 
 // Usage inside nested graph screens:
 @Composable
-fun TaskDetailScreen(taskId: TaskId) {
-    val navigator = LocalTasksNavigator.current
-    // Use navigator.toDetail(...) without passing callbacks
+fun AgendaScreen(definition: AgendaDefinition, ...) {
+    val navigator = LocalAgendaNavigator.current
+    // Use navigator.toProject(...) without passing callbacks
 }
 ```
 
@@ -207,17 +251,26 @@ NavDisplay(
     backStack = navState.backStack,
     onBack = { navigator.back() },
     entryProvider = entryProvider {
-        entry<AppDestination.Inbox> { /* tab icon */ }
-        entry<AppDestination.TasksGraph> { route ->
-            TasksNavGraph(
-                start = route.route,
-                onExitGraph = { dest -> if (dest != null) navigator.navigate(dest) else navigator.back() },
-                modifier = Modifier,
+        // Pattern B: singleton AgendaNavGraph for 3 tabs
+        entry<AppDestination.Inbox> {
+            AgendaNavGraph(start = AgendaStartRoute.Inbox, onExitGraph = { ... })
+        }
+        entry<AppDestination.Today> {
+            AgendaNavGraph(start = AgendaStartRoute.Today, onExitGraph = { ... })
+        }
+        entry<AppDestination.Upcoming> {
+            AgendaNavGraph(start = AgendaStartRoute.Upcoming, onExitGraph = { ... })
+        }
+        // Pattern A: per-feature graphs
+        entry<AppDestination.AgendaGraph> { route ->
+            AgendaNavGraph(
+                start = route.start.toAgendaStartRoute(),
+                onExitGraph = { dest -> ... },
             )
         }
-        entry<AppDestination.ProjectsGraph> { route ->
-            ProjectsNavGraph(
-                start = route.route,
+        entry<AppDestination.TasksGraph> { route ->
+            TasksNavGraph(
+                start = route.start.toTasksRoute(),
                 onExitGraph = { ... },
             )
         }
@@ -226,7 +279,7 @@ NavDisplay(
 )
 ```
 
-`AppDestination.TasksGraph(val route: TasksRoute)` carries the inner start route so the outer graph can launch the nested graph at any inner destination (e.g. deep link).
+`AppDestination.AgendaGraph(val start: AgendaStartRoute)` carries the inner start route so the outer graph can launch the nested agenda at any inner destination (e.g. deep link from a notification).
 
 ---
 
@@ -236,20 +289,20 @@ NavDisplay(
 
 ```kotlin
 @Serializable
-data class NewRoute(val id: SomethingId) : TasksRoute
+data class NewRoute(val id: SomethingId) : AgendaStartRoute
 ```
 
 ### 2. Android: update `navSavedStateConfig(...)`
 
 ```kotlin
-// TasksNavGraph.android.kt
+// AgendaNavGraph.android.kt
 navSavedStateConfig(
-    TasksRoute.Inbox.serializer(),
-    TasksRoute.Today.serializer(),
-    TasksRoute.ByProject.serializer(),
-    TasksRoute.Detail.serializer(),
-    TasksRoute.Create.serializer(),
-    TasksRoute.NewRoute.serializer(),  // ← ADD THIS
+    AgendaStartRoute.Inbox.serializer(),
+    AgendaStartRoute.Today.serializer(),
+    AgendaStartRoute.Upcoming.serializer(),
+    AgendaStartRoute.Project.serializer(),
+    AgendaStartRoute.Tag.serializer(),
+    AgendaStartRoute.NewRoute.serializer(),  // ← ADD THIS
 )
 ```
 
@@ -265,8 +318,17 @@ In both `*NavGraph.android.kt` and `*NavGraph.jvm.kt`:
 ```kotlin
 entryProvider = entryProvider {
     // ... existing entries
-    entry<TasksRoute.NewRoute> { route -> NewRouteScreen(route.id) }
+    entry<AgendaStartRoute.NewRoute> { route -> AgendaScreen(AgendaPresets.bySomething(route.id)) }
 },
+```
+
+### 5. Add the preset in `AgendaPresets`
+
+```kotlin
+// AgendaPresets.kt
+fun bySomething(id: SomethingId): AgendaDefinition = agenda("Something") {
+    section("Items", Selector.AllOf(listOf(...)), order = 0)
+}
 ```
 
 ---
@@ -281,10 +343,10 @@ Android `navSavedStateConfig` calls `.serializer()` on each route. If the route 
 
 ```kotlin
 // WRONG
-navSavedStateConfig(TasksRoute.List.serializer())  // TasksRoute.List is sealed interface, not instantiable
+navSavedStateConfig(AgendaStartRoute.List.serializer())  // AgendaStartRoute.List is sealed interface
 
 // CORRECT
-navSavedStateConfig(TasksRoute.Inbox.serializer(), TasksRoute.Today.serializer(), ...)  // only concrete leaves
+navSavedStateConfig(AgendaStartRoute.Inbox.serializer(), ...)  // only concrete leaves
 ```
 
 ### ❌ Using `LocalViewModelStoreOwner` directly on Android
@@ -301,5 +363,7 @@ On Android, `LocalViewModelStoreOwner` resolves to `ComponentActivity` inside `N
 
 - `singularity-todo-nav3-savedstate` — Android SavedStateConfiguration vs JVM in-memory, serializer registration rules
 - `singularity-todo-feature-scaffold` — adding a new feature, Route hierarchy naming
+- `singularity-todo-dsl-pattern` — DSL pattern with @DslMarker for agenda presets
 - `docs/decisions/2026-09-16-nav3-desktop-in-memory-no-savedstate.md` — why JVM uses in-memory
 - `docs/decisions/2026-09-16-nav3-savedstate-serializers-required.md` — why Android needs polymorphic registration
+- `docs/decisions/2026-09-16-agenda-engine.md` — AgendaEngine design decision

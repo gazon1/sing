@@ -15,6 +15,10 @@ presentation → domain ← data
 presentation/ only imports from: domain/model/, domain/port/, domain/usecase/, core/
 data/ only imports from: domain/, core/, platform/
 domain/ only imports from: core/, platform/
+
+AgendaEngine layer rule:
+feature/agenda/domain/logic/ (pure functions) may be imported from domain/model/ types.
+feature/agenda/domain/model/ (data classes + sealed interfaces) has no lower-layer imports.
 ```
 
 ## Automated checks (run in feature directory)
