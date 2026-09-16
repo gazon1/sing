@@ -178,9 +178,10 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
         )
     }
 
+    // TasksByProject: redirects to AgendaGraph(Project) — "See all" in project detail
     entry<AppDestination.TasksByProject> { route ->
-        TasksNavGraph(
-            start = TasksRoute.ByProject(ProjectId.fromString(route.projectId)),
+        AgendaNavGraph(
+            start = AgendaStartRoute.Project(route.projectId),
             onExitGraph = { dest ->
                 when (dest) {
                     is AppDestination.ProjectDetail -> nav.navigate(dest)
@@ -191,6 +192,8 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     }
 
     // TasksGraph entry: converts TasksStartRoute to TasksRoute for the inner graph
+    // Note: Inbox/Today/Upcoming/ByProject in TasksStartRoute are deprecated (AgendaEngine MR1).
+    // They fall back to TasksRoute.Create() which shows the new-task screen.
     entry<AppDestination.TasksGraph> { route ->
         TasksNavGraph(
             start = route.start.toTasksRoute(route.initialDueDate),
@@ -239,25 +242,18 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     }
 }
 
-/** Converts [AppDestination.TasksStartRoute] to the inner [TasksRoute]. */
+/**
+ * Converts [AppDestination.TasksStartRoute] to the inner [TasksRoute].
+ *
+ * Note: Inbox/Today/Upcoming/ByProject are deprecated (AgendaEngine MR1).
+ * These variants no longer have corresponding routes in TasksNavGraph — they fall back
+ * to [TasksRoute.Create] so the user at least sees a valid screen.
+ */
 private fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute = when (this) {
-    is AppDestination.TasksStartRoute.Inbox -> TasksRoute.Inbox()
-
-    is AppDestination.TasksStartRoute.Today -> TasksRoute.Today()
-
     is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate)
-
-    is AppDestination.TasksStartRoute.Upcoming -> TasksRoute.Upcoming(
-        initialDueDate ?: todayInSystemZone(),
-    )
-
-    is AppDestination.TasksStartRoute.ByProject -> TasksRoute.ByProject(
-        ProjectId.fromString(projectId),
-    )
-
-    is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(
-        TaskId.fromString(taskId),
-    )
+    is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(TaskId.fromString(taskId))
+    // Deprecated variants: fall back to Create
+    else -> TasksRoute.Create(initialDueDate)
 }
 
 /** Converts [AppDestination.ProjectsStartRoute] to the inner [ProjectsRoute]. */

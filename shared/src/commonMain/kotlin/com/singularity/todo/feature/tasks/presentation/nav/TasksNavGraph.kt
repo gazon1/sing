@@ -20,18 +20,14 @@ import com.singularity.todo.feature.nav.AppDestination
  *     and [BackHandler] for system back gesture
  *   - JVM: no decorators needed (desktop has no ComponentActivity scoping issue)
  *
- * @param start The initial [TasksRoute] to show (e.g. [TasksRoute.Inbox]).
+ * @param start The initial [TasksRoute] to show (e.g. [TasksRoute.Create]).
  * @param onExitGraph Called when the nested graph should close.
  *                    The [AppDestination] argument, if non-null, is the destination
  *                    to navigate to in the outer graph (e.g. [AppDestination.ProjectDetail]).
  * @param modifier Compose modifier for the inner [NavDisplay][androidx.navigation3.ui.NavDisplay].
  */
 @Composable
-expect fun TasksNavGraph(
-    start: TasksRoute,
-    onExitGraph: (AppDestination?) -> Unit,
-    modifier: Modifier = Modifier,
-)
+expect fun TasksNavGraph(start: TasksRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier = Modifier)
 
 /**
  * Returns a lambda that provides a [NavEntry] for each [TasksRoute] route type.

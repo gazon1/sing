@@ -31,18 +31,17 @@ import kotlinx.serialization.modules.subclass
  * @param routeSerializers one [KSerializer] per concrete route type that may appear in the stack.
  * @see rememberInMemoryNavBackStack
  */
-internal fun navSavedStateConfig(
-    vararg routeSerializers: KSerializer<out NavKey>,
-): SavedStateConfiguration = SavedStateConfiguration {
-    serializersModule = SerializersModule {
-        polymorphic(NavKey::class) {
-            routeSerializers.forEach {
-                @Suppress("UNCHECKED_CAST")
-                subclass(it as KSerializer<NavKey>)
+internal fun navSavedStateConfig(vararg routeSerializers: KSerializer<out NavKey>): SavedStateConfiguration =
+    SavedStateConfiguration {
+        serializersModule = SerializersModule {
+            polymorphic(NavKey::class) {
+                routeSerializers.forEach {
+                    @Suppress("UNCHECKED_CAST")
+                    subclass(it as KSerializer<NavKey>)
+                }
             }
         }
     }
-}
 
 /**
  * Creates an in-memory [androidx.navigation3.runtime.NavBackStack] for use on JVM Desktop,
@@ -63,8 +62,7 @@ internal fun navSavedStateConfig(
  * @param start the initial top-level route key for this back stack.
  */
 @Composable
-fun <T : NavKey> rememberInMemoryNavBackStack(
-    start: T,
-): androidx.navigation3.runtime.NavBackStack<T> = remember(start) {
-    androidx.navigation3.runtime.NavBackStack(start)
-}
+fun <T : NavKey> rememberInMemoryNavBackStack(start: T): androidx.navigation3.runtime.NavBackStack<T> =
+    remember(start) {
+        androidx.navigation3.runtime.NavBackStack(start)
+    }

@@ -34,12 +34,8 @@ actual fun TasksNavGraph(start: TasksRoute, onExitGraph: (AppDestination?) -> Un
     // across process death — only the NavBackStack content is serialized.
     val savedStateConfig = remember {
         navSavedStateConfig(
-            TasksRoute.Inbox.serializer(),
-            TasksRoute.Today.serializer(),
-            TasksRoute.ByProject.serializer(),
             TasksRoute.Detail.serializer(),
             TasksRoute.Create.serializer(),
-            TasksRoute.Upcoming.serializer(),
         )
     }
 

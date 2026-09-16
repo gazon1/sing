@@ -44,7 +44,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `agenda`
 
+- `AgendaEngine MR1` полностью завершён _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
+- Detekt: 263 findings (pre-existing), 0 в изменённых файлах _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
+- Компиляция Android + JVM успешна, все тесты проходят _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - **Нет saved views в v1**: пользовательские пресеты не сохраняются. Встроенные — захардкожены в `AgendaPresets`. _(from `2026-09-16-agenda-engine`)_
 - **Удаляются**: `UpcomingScreen`, `UpcomingViewModel`, `UpcomingUiState`, `TaskListScreen` (для Inbox/Today/ByProject), `TasksViewModel`, `TasksRoute.Inbox/Today/Upcoming/ByProject`, `AppDestination.Inbox/Today/Upcoming/TasksByProject`. _(from `2026-09-16-agenda-engine`)_
 - **Экраны не под заменой**: `ProjectDetailScreen`, `NotesListScreen`, `SearchScreen`, `ArchiveScreen` — не agenda-вью. _(from `2026-09-16-agenda-engine`)_
@@ -308,6 +311,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Positive**: Strict layer boundaries enforced by package structure; pure domain logic testable without Android instrumentation _(from `2026-09-09-feature-tasks-clean-architecture`)_
 - **Positive**: `TaskDetailUiState.reduce()` is a pure function — covered by unit tests without mocks _(from `2026-09-09-feature-tasks-clean-architecture`)_
 
+### `cleanup`
+
+- `AgendaEngine MR1` полностью завершён _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
+- Detekt: 263 findings (pre-existing), 0 в изменённых файлах _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
+- Компиляция Android + JVM успешна, все тесты проходят _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
+
 ### `"compose"`
 
 - **+100% testability** — all business logic is in pure Kotlin, testable without Compose. _(from `2026-09-15-viewmodel-state-ownership`)_
@@ -455,6 +464,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Koin logs (`NoDefinitionFoundException`, etc.) now appear in Kermit's output via `KermitKoinLogger`. _(from `2026-09-06-kermit-logging-setup`)_
 - On JVM, `ColorizedWriter` uses `\u001B` ANSI escapes. Older Windows terminals (pre-10) will print escape sequences literally. `NO_COLOR` env var is respected. _(from `2026-09-06-kermit-logging-setup`)_
 - `RefineTaskTool.kt:34-38` has identical try and catch branches (copy-paste bug) — not fixed in this PR. _(from `2026-09-06-kermit-logging-setup`)_
+
+### `deprecated`
+
+- `AgendaEngine MR1` полностью завершён _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
+- Detekt: 263 findings (pre-existing), 0 в изменённых файлах _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
+- Компиляция Android + JVM успешна, все тесты проходят _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 
 ### `desktop`
 
@@ -1064,6 +1079,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
+- `AgendaEngine MR1` полностью завершён _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
 - All Android NavGraph back stack declarations become `val backStack = rememberNavBackStackTyped(savedStateConfig, start)` — clean, typed, no suppression. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - All `@Preview` composables compile without composition-local crashes. _(from `2026-09-16-nav3-post-migration-fixes`)_
@@ -1082,6 +1098,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
 - **Desktop in-memory only**: Closing and reopening the Desktop window resets all nested back stacks. This was already the behavior before this change — `LocalSaveableStateRegistry` was always `null`. The new code makes this explicit. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
+- Detekt: 263 findings (pre-existing), 0 в изменённых файлах _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - `fabActionForNav3` is simpler and more correct. _(from `2026-09-16-nav3-post-migration-fixes`)_
@@ -1132,6 +1149,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Все остальные параметризованные VM (~20 callsites). _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Дополнительный уровень индирекции для новых разработчиков: «где я?». _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Если какой-то VM был неявно расчитан на per-Activity scope _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- Компиляция Android + JVM успешна, все тесты проходят _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - Необходимо зарегистрировать `TasksRoute` в двух `SerializersModule`: _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - **Один плоский AppDestination без nested graph** — не даёт feature _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Первая фича с nested graph — другие фичи (notes/projects/auth/settings) _(from `2026-09-14-tasks-feature-nested-nav3`)_
@@ -1980,6 +1998,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-task-editor-unification` — architecture  compose  ui  drafts  state-restoration
 - `2026-09-15-viewmodel-state-ownership` — "architecture"  "compose"  "udf"  "vm-state"
 - `2026-09-16-agenda-engine` — agenda  tasks  dsl  architecture
+- `2026-09-16-agendaengine-post-mr1-nav-cleanup` — agenda  navigation  cleanup  deprecated
 - `2026-09-16-android-shell-fab-fix` — navigation  nav3  android  fab
 - `2026-09-16-nav3-desktop-in-memory-no-savedstate` — navigation  nav3  jvm  desktop  android
 - `2026-09-16-nav3-feature-graph-extensions` — navigation  nav3  tasks  notes
@@ -2070,6 +2089,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-task-editor-unification` — Task Editor State Restoration + UI Unification
 - `2026-09-15-viewmodel-state-ownership` — ViewModel owns all domain state; Composable owns only routing and animation
 - `2026-09-16-agenda-engine` — AgendaEngine: единый DSL-движок для list-вью задач (org-agenda style)
+- `2026-09-16-agendaengine-post-mr1-nav-cleanup` — AgendaEngine MR1 post-cleanup: remove dead TasksRoute variants and deprecated AppDestination branches
 - `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation
 - `2026-09-16-calendar-feature` — _(no title)
 - `2026-09-16-calendar-post-merge-fixes` — _(no title)

@@ -12,16 +12,16 @@ import kotlinx.datetime.LocalDate
  *
  * @see TasksPreviewWrapper
  */
-class PreviewTasksNavigator(
-    private val onOpenProject: (ProjectId) -> Unit = {},
-) : TasksNavigator(
-    backStack = NavBackStack(TasksRoute.Inbox(), TasksRoute.Inbox()),
-    onExitGraph = {},
-) {
+class PreviewTasksNavigator(private val onOpenProject: (ProjectId) -> Unit = {}) :
+    TasksNavigator(
+        backStack = NavBackStack(TasksRoute.Create(), TasksRoute.Create()),
+        onExitGraph = {},
+    ) {
     override fun openDetail(id: TaskId) { /* no-op for preview */ }
     override fun openCreate(initialDueDate: LocalDate?) { /* no-op for preview */ }
-    override fun openUpcoming(date: LocalDate) { /* no-op for preview */ }
-    override fun openProject(projectId: ProjectId) { onOpenProject(projectId) }
+    override fun openProject(projectId: ProjectId) {
+        onOpenProject(projectId)
+    }
     override fun back() { /* no-op for preview */ }
     override fun closeGraph() { /* no-op for preview */ }
 }
@@ -39,9 +39,7 @@ class PreviewTasksNavigator(
  * ```
  */
 @Composable
-fun TasksPreviewWrapper(
-    content: @Composable () -> Unit,
-) {
+fun TasksPreviewWrapper(content: @Composable () -> Unit) {
     androidx.compose.runtime.CompositionLocalProvider(
         LocalTasksNavigator provides PreviewTasksNavigator(),
         content = content,

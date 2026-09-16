@@ -48,12 +48,27 @@ sealed interface AppDestination : NavKey {
     /** User-visible label — used by BottomBar and MenuSheet. */
     val title: String
 
-    /** Five persistent tabs (bottom bar / drawer). */
+    /**
+     * Inbox tab — now handled by [AgendaGraph] with [AgendaStartRoute.Inbox].
+     * @deprecated Use [AgendaGraph] with [AgendaStartRoute.Inbox] instead.
+     */
+    @Deprecated(
+        "Use AgendaGraph(AgendaStartRoute.Inbox) instead",
+        replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Inbox)"),
+    )
     @Serializable
     data object Inbox : AppDestination {
         override val title = "Inbox"
     }
 
+    /**
+     * Today tab — now handled by [AgendaGraph] with [AgendaStartRoute.Today].
+     * @deprecated Use [AgendaGraph] with [AgendaStartRoute.Today] instead.
+     */
+    @Deprecated(
+        "Use AgendaGraph(AgendaStartRoute.Today) instead",
+        replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Today)"),
+    )
     @Serializable
     data object Today : AppDestination {
         override val title = "Today"
@@ -70,9 +85,13 @@ sealed interface AppDestination : NavKey {
     }
 
     /**
-     * Upcoming tab — shows tasks scheduled for a user-selected date.
-     * Replaces [Statistics] which was moved to [DestinationKind.menuEntries].
+     * Upcoming tab — now handled by [AgendaGraph] with [AgendaStartRoute.Upcoming].
+     * @deprecated Use [AgendaGraph] with [AgendaStartRoute.Upcoming] instead.
      */
+    @Deprecated(
+        "Use AgendaGraph(AgendaStartRoute.Upcoming) instead",
+        replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Upcoming)"),
+    )
     @Serializable
     data object Upcoming : AppDestination {
         override val title = "Upcoming"
@@ -128,14 +147,26 @@ sealed interface AppDestination : NavKey {
 
     /**
      * Start route for the tasks nested graph. Used as `start` param in [TasksGraph].
+     *
+     * @deprecated Inbox/Today/Upcoming/ByProject are deprecated (AgendaEngine MR1).
+     * They no longer have corresponding routes in TasksNavGraph — use [Create] or [Detail].
      */
     @Serializable
     sealed interface TasksStartRoute : NavKey {
+        @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
         @Serializable data object Inbox : TasksStartRoute
+
+        @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
         @Serializable data object Today : TasksStartRoute
+
         @Serializable data object Create : TasksStartRoute
+
+        @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
         @Serializable data object Upcoming : TasksStartRoute
+
+        @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
         @Serializable data class ByProject(val projectId: String) : TasksStartRoute
+
         @Serializable data class Detail(val taskId: String) : TasksStartRoute
     }
 
@@ -144,35 +175,40 @@ sealed interface AppDestination : NavKey {
      * Used for: FAB "Add task" from any screen, deep-links, and direct navigation.
      */
     @Serializable
-    data class TasksGraph(
-        val start: TasksStartRoute,
-        val initialDueDate: LocalDate? = null,
-    ) : AppDestination {
+    data class TasksGraph(val start: TasksStartRoute, val initialDueDate: LocalDate? = null) : AppDestination {
         override val title = "Tasks"
     }
 
     /**
-     * Direct entry to tasks filtered by project. Delegates to [TasksGraph]
-     * internally with [TasksStartRoute.ByProject] as start.
+     * Direct entry to tasks filtered by project. Now redirects to [AgendaGraph] with [AgendaStartRoute.Project].
+     * @deprecated Use [AgendaGraph] with [AgendaStartRoute.Project] instead.
      */
+    @Deprecated(
+        "Use AgendaGraph(AgendaStartRoute.Project(projectId)) instead",
+        replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Project(projectId))"),
+    )
     @Serializable
     data class TasksByProject(val projectId: String) : AppDestination {
         override val title = "Project Tasks"
     }
 
     /** @deprecated Use TasksGraph(TasksStartRoute.Create) or navigate to TasksRoute.Create internally */
-    @Deprecated("Use TasksGraph(TasksStartRoute.Create) instead", replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Create)"))
+    @Deprecated(
+        "Use TasksGraph(TasksStartRoute.Create) instead",
+        replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Create)"),
+    )
     @Serializable
     data class TaskDetail(val taskId: String) : AppDestination {
         override val title = "Task"
     }
 
     /** @deprecated Use TasksGraph(TasksStartRoute.Create, initialDueDate) instead */
-    @Deprecated("Use TasksGraph(TasksStartRoute.Create, initialDueDate) instead", replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Create, initialDueDate)"))
+    @Deprecated(
+        "Use TasksGraph(TasksStartRoute.Create, initialDueDate) instead",
+        replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Create, initialDueDate)"),
+    )
     @Serializable
-    data class TaskDetailCreate(
-        val initialDueDate: String? = null,
-    ) : AppDestination {
+    data class TaskDetailCreate(val initialDueDate: String? = null) : AppDestination {
         override val title = "New Task"
     }
 
@@ -191,9 +227,7 @@ sealed interface AppDestination : NavKey {
      * Used for deep-links and future navigation flexibility.
      */
     @Serializable
-    data class ProjectsGraph(
-        val start: ProjectsStartRoute = ProjectsStartRoute.List,
-    ) : AppDestination {
+    data class ProjectsGraph(val start: ProjectsStartRoute = ProjectsStartRoute.List) : AppDestination {
         override val title = "Projects"
     }
 
@@ -203,6 +237,7 @@ sealed interface AppDestination : NavKey {
     @Serializable
     sealed interface ProjectsStartRoute : NavKey {
         @Serializable data object List : ProjectsStartRoute
+
         @Serializable data class Editor(val projectId: String? = null) : ProjectsStartRoute
     }
 
@@ -212,6 +247,7 @@ sealed interface AppDestination : NavKey {
     @Serializable
     sealed interface NotesStartRoute : NavKey {
         @Serializable data object List : NotesStartRoute
+
         @Serializable data class Preview(val noteId: String) : NotesStartRoute
     }
 
@@ -220,9 +256,7 @@ sealed interface AppDestination : NavKey {
      * Used for deep-links and direct navigation.
      */
     @Serializable
-    data class NotesGraph(
-        val start: NotesStartRoute = NotesStartRoute.List,
-    ) : AppDestination {
+    data class NotesGraph(val start: NotesStartRoute = NotesStartRoute.List) : AppDestination {
         override val title = "Notes"
     }
 
@@ -245,6 +279,15 @@ sealed interface AppDestination : NavKey {
         ),
     ) : AppDestination {
         override val title = "Calendar"
+    }
+
+    /**
+     * Nested Agenda graph. Contains its own NavBackStack[AgendaStartRoute].
+     * Used for: Inbox, Today, Upcoming tabs, and "See all" from project detail.
+     */
+    @Serializable
+    data class AgendaGraph(val start: AgendaStartRoute = AgendaStartRoute.Inbox) : AppDestination {
+        override val title = "Agenda"
     }
 }
 
@@ -272,12 +315,10 @@ val AppDestination.icon: ImageVector
         is AppDestination.ProjectEditor -> Icons.Filled.Check
         is AppDestination.ProjectDetail -> Icons.Filled.Check
         is AppDestination.ProjectsGraph -> Icons.Filled.Check
-        is AppDestination.ProjectsStartRoute.Editor -> Icons.Filled.Check
         is AppDestination.NotesGraph -> Icons.Filled.Create
-        is AppDestination.NotesStartRoute -> Icons.Filled.Create
-        is AppDestination.TasksStartRoute.Upcoming -> Icons.Filled.DateRange
         is AppDestination.CalendarGraph -> Icons.Filled.CalendarMonth
         is AppDestination.CalendarStartRoute -> Icons.Filled.CalendarMonth
+        is AppDestination.AgendaGraph -> Icons.Filled.Inbox
     }
 
 /** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */
@@ -289,16 +330,13 @@ const val MenuButtonTitle = "Menu"
  */
 object DestinationKind {
     /** Six persistent tabs shown in the bottom bar (excludes the Menu button). */
-    fun isTab(destination: AppDestination): Boolean =
-        destination in tabSet
+    fun isTab(destination: AppDestination): Boolean = destination in tabSet
 
     /** Menu destinations opened from the bottom sheet overlay. */
-    fun isMenuEntry(destination: AppDestination): Boolean =
-        destination in menuSet
+    fun isMenuEntry(destination: AppDestination): Boolean = destination in menuSet
 
     /** Anything that is NOT a top-level tab — i.e. push-on sub-routes. */
-    fun isSubRoute(destination: AppDestination): Boolean =
-        destination !in tabSet && destination !in menuSet
+    fun isSubRoute(destination: AppDestination): Boolean = destination !in tabSet && destination !in menuSet
 
     /** Six bottom-bar tab destinations in display order. */
     val tabs: List<AppDestination> = listOf(
