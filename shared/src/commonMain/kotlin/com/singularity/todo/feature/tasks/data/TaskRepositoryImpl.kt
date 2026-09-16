@@ -55,6 +55,10 @@ class TaskRepositoryImpl(
         }
     }
 
+    override fun watchTasksByDate(userId: UserId, date: LocalDate): Flow<List<Task>> =
+        taskDao.watchByDate(userId.value, date.toString())
+            .map { list -> list.map { it.toTask() } }
+
     override fun watchTask(id: TaskId): Flow<Task?> {
         return taskDao.watchById(id.value).map { it?.toTask() }
     }

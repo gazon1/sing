@@ -256,6 +256,16 @@ class FakeTaskRepository : TaskRepository {
     override fun watchTask(id: TaskId): Flow<Task?> =
         store.state.onStart { emit(store.state.value) }.map { it[id.value] }
 
+    override fun watchTasksByDate(userId: UserId, date: kotlinx.datetime.LocalDate): Flow<List<Task>> =
+        store.state
+            .onStart { emit(store.state.value) }
+            .map { map ->
+                map.values
+                    .filter { it.userId == userId }
+                    .filter { !it.isTrashed && !it.someday && it.dueDate == date }
+                    .sortedWith(compareBy({ !it.isPinned }))
+            }
+
     override fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> =
         store.state
             .onStart { emit(store.state.value) }

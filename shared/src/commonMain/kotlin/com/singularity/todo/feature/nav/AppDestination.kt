@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Person
@@ -67,6 +68,15 @@ sealed interface AppDestination : NavKey {
         override val title = "Pomodoro"
     }
 
+    /**
+     * Upcoming tab — shows tasks scheduled for a user-selected date.
+     * Replaces [Statistics] which was moved to [DestinationKind.menuEntries].
+     */
+    @Serializable
+    data object Upcoming : AppDestination {
+        override val title = "Upcoming"
+    }
+
     @Serializable
     data object Statistics : AppDestination {
         override val title = "Statistics"
@@ -118,6 +128,7 @@ sealed interface AppDestination : NavKey {
         @Serializable data object Inbox : TasksStartRoute
         @Serializable data object Today : TasksStartRoute
         @Serializable data object Create : TasksStartRoute
+        @Serializable data object Upcoming : TasksStartRoute
         @Serializable data class ByProject(val projectId: String) : TasksStartRoute
         @Serializable data class Detail(val taskId: String) : TasksStartRoute
     }
@@ -215,6 +226,7 @@ val AppDestination.icon: ImageVector
     get() = when (this) {
         AppDestination.Inbox -> Icons.Filled.Inbox
         AppDestination.Today -> Icons.Filled.Today
+        AppDestination.Upcoming -> Icons.Filled.DateRange
         AppDestination.Plans -> Icons.Filled.Check
         AppDestination.Pomodoro -> Icons.Filled.Repeat
         AppDestination.Statistics -> Icons.Filled.CalendarMonth
@@ -235,6 +247,7 @@ val AppDestination.icon: ImageVector
         is AppDestination.ProjectsStartRoute.Editor -> Icons.Filled.Check
         is AppDestination.NotesGraph -> Icons.Filled.Create
         is AppDestination.NotesStartRoute -> Icons.Filled.Create
+        is AppDestination.TasksStartRoute.Upcoming -> Icons.Filled.DateRange
     }
 
 /** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */
@@ -245,7 +258,7 @@ const val MenuButtonTitle = "Menu"
  * Testable without any UI infrastructure.
  */
 object DestinationKind {
-    /** Five persistent tabs shown in the bottom bar (excludes the Menu button). */
+    /** Six persistent tabs shown in the bottom bar (excludes the Menu button). */
     fun isTab(destination: AppDestination): Boolean =
         destination in tabSet
 
@@ -257,17 +270,18 @@ object DestinationKind {
     fun isSubRoute(destination: AppDestination): Boolean =
         destination !in tabSet && destination !in menuSet
 
-    /** Five bottom-bar tab destinations in display order. */
+    /** Six bottom-bar tab destinations in display order. */
     val tabs: List<AppDestination> = listOf(
         AppDestination.Inbox,
         AppDestination.Today,
+        AppDestination.Upcoming,
         AppDestination.Plans,
         AppDestination.Pomodoro,
-        AppDestination.Statistics,
     )
 
     /** Menu destinations in display order. */
     val menuEntries: List<AppDestination> = listOf(
+        AppDestination.Statistics,
         AppDestination.Notes,
         AppDestination.AiChat,
         AppDestination.Search,

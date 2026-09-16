@@ -50,7 +50,10 @@ import com.singularity.todo.feature.tasks.presentation.nav.TasksRoute
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListShapes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
+import kotlinx.datetime.LocalDate
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -66,11 +69,14 @@ fun TaskListScreen(
 ) {
     val navigator = LocalTasksNavigator.current
     val vm: TasksViewModel = koinViewModel()
+    val clock: Clock = koinInject()
 
     val state by vm.state.collectAsStateWithLifecycle()
     val filter by vm.filter.collectAsStateWithLifecycle()
     val statusFilter by vm.statusFilter.collectAsStateWithLifecycle()
     val recentlyDeleted by vm.recentlyDeleted.collectAsStateWithLifecycle()
+
+    val today = LocalDate.fromEpochDays(clock.now().toEpochMilliseconds() / 86_400_000L)
 
     // Apply the route's domain filter on first composition.
     LaunchedEffect(route) {
@@ -148,7 +154,7 @@ fun TaskListScreen(
             TaskListHeader(
                 title = headerTitle,
                 taskCount = stats.active,
-                onCalendarClick = { /* TODO: calendar picker */ },
+                onCalendarClick = { navigator.openUpcoming(today) },
                 onMoreClick = { /* TODO: more actions */ },
                 subtitle = null,
             )

@@ -1698,6 +1698,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска _(from `2026-09-05-ui-tests-ultron`)_
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR. _(from `2026-09-08-instant-migration`)_
 - `ContentStateMapper` — добавлен object с двумя методами _(from `2026-09-05-refactoring-summary`)_
+- `deadlineDate` badge is populated but not displayed — dead code until the _(from `2026-09-16-tasks-upcoming-screen`)_
+- Deadline indicator rendering in `UpcomingBadges`. _(from `2026-09-16-tasks-upcoming-screen`)_
 - Dead Nav2 code removed from Android _(from `2026-09-11-nav3-kmp-migration`)_
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно. _(from `2026-09-15-projects-clean-architecture`)_
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed. _(from `2026-09-08-instant-migration`)_
@@ -1709,6 +1711,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `just` must be installed (`just 1.57.0` is present in this environment). _(from `2026-09-06-modular-justfile`)_
 - **`koinInject()` в Screen** требует Koin контекст — widget тесты обходят это через Robolectric + `createComposeRule` без Koin _(from `2026-09-05-ui-tests-ultron`)_
 - Link tap detection requires cursor placement (no visual link highlight tap) — acceptable tradeoff given library limitation _(from `2026-09-07-notes-internal-links-backlinks`)_
+- Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP). _(from `2026-09-16-tasks-upcoming-screen`)_
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for _(from `2026-09-15-nav3-notes-navigator`)_
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph _(from `2026-09-15-nav3-notes-navigator`)_
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах _(from `2026-09-05-ui-decomposition`)_
@@ -1717,20 +1720,26 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Picker sheets визуально согласованы с остальными sheets (drag-handle, chrome) _(from `2026-09-07-task-detail-archive-overflow`)_
 - Pre-existing test failures (`RussianDateFormatterTest`, `TaskCreateViewModelTest`, _(from `2026-09-15-nav3-notes-navigator`)_
 - `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`. _(from `2026-09-15-projects-clean-architecture`)_
+- Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable _(from `2026-09-16-tasks-upcoming-screen`)_
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`). _(from `2026-09-06-modular-justfile`)_
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов _(from `2026-09-05-uiautomator-compose-discovery`)_
 - `roborazzi` dependency added to `androidHostTest` in `shared/build.gradle.kts`. _(from `2026-09-08-roborazzi-snapshot-tests`)_
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill) _(from `2026-09-07-notes-internal-links-backlinks`)_
 - `scopeOverride` добавлен в `ProjectsViewModel` _(from `2026-09-05-ui-decomposition`)_
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed. _(from `2026-09-10-simplified-settings-vm`)_
+- Single narrow Room query (`watchByDate`) reused for the new use case. _(from `2026-09-16-tasks-upcoming-screen`)_
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates _(from `2026-09-05-task-editor-refactor`)_
 - `TaskEditorReducerTest` must add test cases for new intents. _(from `2026-09-05-task-editor-refactor`)_
 - `TaskEditorViewModel` constructor signature unchanged; DI registration unchanged. _(from `2026-09-05-task-editor-refactor`)_
 - `TaskEditorViewModelTest` and `TaskEditorIntegrationTest` must add edit-mode scenarios. _(from `2026-09-05-task-editor-refactor`)_
+- `TaskFilter` remains untouched — Search feature is unaffected. _(from `2026-09-16-tasks-upcoming-screen`)_
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика _(from `2026-09-05-refactoring-summary`)_
 - Tests are ignored until the plugin resolution issue in the development environment is resolved. _(from `2026-09-08-roborazzi-snapshot-tests`)_
 - Two new top-level entries added: `justfile` and `.just/`. _(from `2026-09-06-modular-justfile`)_
 - UI Automator тесты **удалены** (`UIAutomatorTest.kt`). _(from `2026-09-05-uiautomator-compose-discovery`)_
+- `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests _(from `2026-09-16-tasks-upcoming-screen`)_
+- Week navigation via swipe on `DaySwitcherRow`. _(from `2026-09-16-tasks-upcoming-screen`)_
+- Week-start locale handling is isolated and can be made configurable later. _(from `2026-09-16-tasks-upcoming-screen`)_
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear() _(from `2026-09-05-refactoring-summary`)_
 - Все ViewModel'ы с `scopeOverride` — консистентны в тестах _(from `2026-09-05-refactoring-summary`)_
 - Все импорты в 30+ файлах обновлены на новые FQN (`.domain.model`, `.domain.port`, `.domain.usecase`, `.data`, `.presentation.state`, `.presentation.viewmodel`). _(from `2026-09-15-projects-clean-architecture`)_
@@ -2008,3 +2017,4 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-nav3-savedstate-serializers-required` — Nav3 SavedStateConfiguration must register all NavKey subtypes polymorphically
 - `2026-09-16-nav3-settings-and-search-nested-graphs` — SettingsNavGraph and SearchNavGraph — single-route nested graphs
 - `2026-09-16-nav3-type-asymmetry-adr` — Nav3 type asymmetry: rememberInMemoryNavBackStack returns NavBackStack<T>, Android rememberNavBackStack returns NavBackStack<NavKey>
+- `2026-09-16-tasks-upcoming-screen` — _(no title)

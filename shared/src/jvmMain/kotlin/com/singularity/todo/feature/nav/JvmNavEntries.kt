@@ -57,6 +57,18 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
             )
         }
 
+        entry<AppDestination.Upcoming> {
+            TasksNavGraph(
+                start = TasksRoute.Upcoming(LocalDate.fromEpochDays(0)),
+                onExitGraph = { dest ->
+                    when (dest) {
+                        is AppDestination.ProjectDetail -> nav.navigate(dest)
+                        else -> nav.goBack()
+                    }
+                },
+            )
+        }
+
         entry<AppDestination.Plans> {
             ProjectsNavGraph(
                 start = ProjectsRoute.List,
@@ -182,6 +194,9 @@ private fun AppDestination.TasksStartRoute.toTasksRoute(
     is AppDestination.TasksStartRoute.Inbox -> TasksRoute.Inbox()
     is AppDestination.TasksStartRoute.Today -> TasksRoute.Today()
     is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate)
+    is AppDestination.TasksStartRoute.Upcoming -> TasksRoute.Upcoming(
+        initialDueDate ?: LocalDate.fromEpochDays(0),
+    )
     is AppDestination.TasksStartRoute.ByProject -> TasksRoute.ByProject(
         ProjectId.fromString(projectId),
     )

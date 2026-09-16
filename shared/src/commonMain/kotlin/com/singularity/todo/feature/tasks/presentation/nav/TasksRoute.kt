@@ -49,6 +49,15 @@ sealed interface TasksRoute : NavKey {
 
     @Serializable
     data class Create(val initialDueDate: LocalDate? = null) : TasksRoute
+
+    /**
+     * Upcoming screen — shows tasks scheduled for a user-selected date.
+     * Not a [List] variant because it uses [UpcomingViewModel] with a dedicated
+     * [watchTasksByDate][com.singularity.todo.feature.tasks.domain.port.TaskRepository.watchTasksByDate]
+     * query, not [TaskFilter].
+     */
+    @Serializable
+    data class Upcoming(val date: LocalDate) : TasksRoute
 }
 
 enum class ListFilter { Inbox, Today, ByProject }

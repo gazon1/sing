@@ -14,12 +14,12 @@ import kotlin.test.assertTrue
 class DestinationKindTest {
 
     @Test
-    fun isTabRecognisesAllFiveBottomBarTabs() {
+    fun isTabRecognisesAllSixBottomBarTabs() {
         assertTrue(DestinationKind.isTab(AppDestination.Inbox))
         assertTrue(DestinationKind.isTab(AppDestination.Today))
+        assertTrue(DestinationKind.isTab(AppDestination.Upcoming))
         assertTrue(DestinationKind.isTab(AppDestination.Plans))
         assertTrue(DestinationKind.isTab(AppDestination.Pomodoro))
-        assertTrue(DestinationKind.isTab(AppDestination.Statistics))
     }
 
     @Test
@@ -29,6 +29,7 @@ class DestinationKindTest {
         assertFalse(DestinationKind.isTab(AppDestination.Search))
         assertFalse(DestinationKind.isTab(AppDestination.Archive))
         assertFalse(DestinationKind.isTab(AppDestination.Settings))
+        assertFalse(DestinationKind.isTab(AppDestination.Statistics))
     }
 
     @Test
@@ -38,7 +39,8 @@ class DestinationKindTest {
     }
 
     @Test
-    fun isMenuEntryRecognisesFiveSheetDestinations() {
+    fun isMenuEntryRecognisesSixSheetDestinations() {
+        assertTrue(DestinationKind.isMenuEntry(AppDestination.Statistics))
         assertTrue(DestinationKind.isMenuEntry(AppDestination.Notes))
         assertTrue(DestinationKind.isMenuEntry(AppDestination.AiChat))
         assertTrue(DestinationKind.isMenuEntry(AppDestination.Search))
@@ -49,6 +51,7 @@ class DestinationKindTest {
     @Test
     fun isMenuEntryRejectsTabsAndSubRoutes() {
         assertFalse(DestinationKind.isMenuEntry(AppDestination.Today))
+        assertFalse(DestinationKind.isMenuEntry(AppDestination.Upcoming))
         assertFalse(DestinationKind.isMenuEntry(AppDestination.TaskDetailCreate()))
     }
 
@@ -62,6 +65,7 @@ class DestinationKindTest {
     @Test
     fun isSubRouteRejectsTabsAndMenuEntries() {
         assertFalse(DestinationKind.isSubRoute(AppDestination.Today))
+        assertFalse(DestinationKind.isSubRoute(AppDestination.Upcoming))
         assertFalse(DestinationKind.isSubRoute(AppDestination.Notes))
     }
 
@@ -70,6 +74,7 @@ class DestinationKindTest {
         val all = listOf(
             AppDestination.Inbox,
             AppDestination.Today,
+            AppDestination.Upcoming,
             AppDestination.Plans,
             AppDestination.Pomodoro,
             AppDestination.Statistics,

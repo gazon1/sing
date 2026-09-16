@@ -29,6 +29,11 @@ open class TasksNavigator(
         backStack.add(TasksRoute.Create(initialDueDate))
     }
 
+    /** Push the upcoming screen onto the stack. */
+    open fun openUpcoming(date: LocalDate) {
+        backStack.add(TasksRoute.Upcoming(date))
+    }
+
     /**
      * Exit the nested graph and navigate to a project in the outer graph.
      */

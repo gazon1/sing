@@ -16,6 +16,7 @@ import com.singularity.todo.feature.nav.navSavedStateConfig
 import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskListScreen
+import com.singularity.todo.feature.tasks.presentation.screen.UpcomingScreen
 
 /**
  * Android implementation of [TasksNavGraph].
@@ -44,6 +45,7 @@ actual fun TasksNavGraph(
             TasksRoute.ByProject.serializer(),
             TasksRoute.Detail.serializer(),
             TasksRoute.Create.serializer(),
+            TasksRoute.Upcoming.serializer(),
         )
     }
     @Suppress("UNCHECKED_CAST")
@@ -71,6 +73,7 @@ actual fun TasksNavGraph(
                 entry<TasksRoute.ByProject> { route -> TaskListScreen(route) }
                 entry<TasksRoute.Detail> { route -> TaskDetailViewScreen(route.taskId) }
                 entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate) }
+                entry<TasksRoute.Upcoming> { route -> UpcomingScreen(route) }
             },
         )
     }
@@ -84,5 +87,6 @@ actual fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute> {
         entry<TasksRoute.ByProject> { route -> TaskListScreen(route) }
         entry<TasksRoute.Detail> { route -> TaskDetailViewScreen(route.taskId) }
         entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate) }
+        entry<TasksRoute.Upcoming> { route -> UpcomingScreen(route) }
     }
 }
