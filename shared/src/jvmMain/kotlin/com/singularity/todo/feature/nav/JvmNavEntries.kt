@@ -21,6 +21,7 @@ import com.singularity.todo.feature.statistics.StatisticsScreen
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.nav.TasksNavGraph
 import com.singularity.todo.feature.tasks.presentation.nav.TasksRoute
+import com.singularity.todo.core.platform.todayInSystemZone
 import kotlinx.datetime.LocalDate
 import org.koin.compose.koinInject
 
@@ -59,7 +60,7 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
 
         entry<AppDestination.Upcoming> {
             TasksNavGraph(
-                start = TasksRoute.Upcoming(LocalDate.fromEpochDays(0)),
+                start = TasksRoute.Upcoming(todayInSystemZone()),
                 onExitGraph = { dest ->
                     when (dest) {
                         is AppDestination.ProjectDetail -> nav.navigate(dest)
@@ -195,7 +196,7 @@ private fun AppDestination.TasksStartRoute.toTasksRoute(
     is AppDestination.TasksStartRoute.Today -> TasksRoute.Today()
     is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate)
     is AppDestination.TasksStartRoute.Upcoming -> TasksRoute.Upcoming(
-        initialDueDate ?: LocalDate.fromEpochDays(0),
+        initialDueDate ?: todayInSystemZone(),
     )
     is AppDestination.TasksStartRoute.ByProject -> TasksRoute.ByProject(
         ProjectId.fromString(projectId),

@@ -80,11 +80,11 @@ internal object UpcomingFirstDayOfWeek {
 }
 ```
 
-### 5. `deadlineDate` badge field reserved for future
+### 5. `deadlineDate` badge field
 
-`TaskBadgesUi.deadlineDate = task.dueDate` is populated but **not yet rendered**
-in `UpcomingBadges`. The field is a placeholder for a future deadline-indicator
-feature (e.g., "overdue by N days" badge).
+`TaskBadgesUi.deadlineDate = task.dueDate` is populated and rendered in
+`UpcomingBadges` as a red flag icon plus a formatted `mm/dd/yyyy` date for
+tasks due on the selected date.
 
 ### 6. Autorenew → Repeat global unification
 
@@ -104,8 +104,7 @@ recurring items.
 - Week-start locale handling is isolated and can be made configurable later.
 
 ### Negative
-- `deadlineDate` badge is populated but not displayed — dead code until the
-  deadline feature is implemented.
+- `deadlineDate` badge is rendered as a red flag + date for tasks due on the selected date.
 - `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests
   referencing `DestinationKind.tabs` will break.
 

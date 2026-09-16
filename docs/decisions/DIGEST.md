@@ -401,9 +401,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Type-safe actions via `sealed class Action` with exhaustive `when` _(from `2026-09-09-content-slot-pattern`)_
 - `useSurface = false` when the preview root already contains a `Scaffold` _(from `2026-09-06-compose-previews`)_
 - `value class XxxActions` indirection — harder to read at first glance _(from `2026-09-09-content-slot-pattern`)_
+- `remember(windowStart) { (0 until 7).map { windowStart.plus(it, DateTimeUnit.DAY) } }` inside a `@Composable` loses type context inside the `remember` lambda. Use explicit `listOf(d1, d2, ...)` with individual `plus` calls instead — this is a Kotlin type-inference edge case in chained lambdas. _(from `2026-09-16-tasks-upcoming-screen`)_
 - When adding a new third-party Compose dependency, verify its JetBrains compose `requires:` constraint in the Gradle module metadata (`.module` file in cache) before adding — if it demands a version newer than the current pin, either bump or find an alternative. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 
-### `coroutines`
+### `datetime`
+
+- `LocalDate.plus(n, DateTimeUnit.DAY)` and `LocalDate.minus(n, DateTimeUnit.DAY)` require **explicit named imports** `import kotlinx.datetime.plus` and `import kotlinx.datetime.minus`. The operator形式 (`date + n * unit`) is not available without these imports — Kotlin does not resolve them via the type's `plus`/`minus` members alone. Always use the explicit imports when doing datetime arithmetic. _(from `2026-09-16-tasks-upcoming-screen`)_
 
 - `./gradlew :mcp-server:test` now includes a regression test (`McpServerEndToEndTest.server_blocks_until_stdin_closes`) that asserts `process.isAlive` after 3s of empty stdin. If anyone removes the blocking primitive, this test fails. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - `koinBridge` is for one-shot startup reads only — **not for** hot-path code, **not for** long-running operations. _(from `2026-09-05-koin-suspend-bridge`)_
@@ -1698,8 +1701,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска _(from `2026-09-05-ui-tests-ultron`)_
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR. _(from `2026-09-08-instant-migration`)_
 - `ContentStateMapper` — добавлен object с двумя методами _(from `2026-09-05-refactoring-summary`)_
-- `deadlineDate` badge is populated but not displayed — dead code until the _(from `2026-09-16-tasks-upcoming-screen`)_
-- Deadline indicator rendering in `UpcomingBadges`. _(from `2026-09-16-tasks-upcoming-screen`)_
+- `deadlineDate` badge is rendered as a red flag + date for tasks due on the selected date. _(from `2026-09-16-tasks-upcoming-screen`)_
 - Dead Nav2 code removed from Android _(from `2026-09-11-nav3-kmp-migration`)_
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно. _(from `2026-09-15-projects-clean-architecture`)_
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed. _(from `2026-09-08-instant-migration`)_
