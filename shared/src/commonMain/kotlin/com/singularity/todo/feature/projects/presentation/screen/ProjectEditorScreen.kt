@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.presentation.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -53,8 +53,18 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
+import com.singularity.todo.feature.projects.presentation.state.ProjectEditorIntent
+import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiEvent
+import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiState
+import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
+import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
+import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
+import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 

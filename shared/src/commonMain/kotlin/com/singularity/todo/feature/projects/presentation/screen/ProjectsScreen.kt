@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.presentation.screen
 
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -23,10 +23,16 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
-import com.singularity.todo.feature.projects.components.ProjectCard
-import com.singularity.todo.feature.projects.components.ProjectCardActions
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
+import com.singularity.todo.feature.projects.presentation.components.ProjectCard
+import com.singularity.todo.feature.projects.presentation.components.ProjectCardActions
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
+import com.singularity.todo.feature.projects.presentation.state.ProjectsUiEvent
+import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,8 +44,6 @@ fun ProjectsScreen(modifier: Modifier = Modifier) {
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Projects") }) },
-        // The FAB is provided by [AndroidShell] at the chrome level and adapts
-        // per-tab. Don't render a second one here — see ADR 2026-09-05.
     ) { padding ->
         ProjectsContent(
             state = state,

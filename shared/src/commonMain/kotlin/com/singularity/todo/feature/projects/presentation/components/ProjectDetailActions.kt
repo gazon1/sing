@@ -1,7 +1,7 @@
-package com.singularity.todo.feature.projects.components
+package com.singularity.todo.feature.projects.presentation.components
 
-import com.singularity.todo.feature.projects.ProjectDetailIntent
-import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**

@@ -69,7 +69,7 @@ class ReadToolsProfileAwareTest {
         repo: FakeTaskRepository,
         userId: UserId,
         title: String,
-        projectId: com.singularity.todo.feature.projects.ProjectId? = null,
+        projectId: com.singularity.todo.feature.projects.domain.model.ProjectId? = null,
     ) {
         val task = Task(
             id = TaskId.generate(),
@@ -151,7 +151,7 @@ class ReadToolsProfileAwareTest {
         profiles.switchTo(ProfileId.fromString("ai-agent"))
         val repo = FakeTaskRepository()
         val scoped = resolveScopedUserId(currentUser, profiles)
-        val projectId = com.singularity.todo.feature.projects.ProjectId("p1")
+        val projectId = com.singularity.todo.feature.projects.domain.model.ProjectId("p1")
         seedTask(repo, scoped, "AI-Agent linked task", projectId = projectId)
         seedTask(repo, UserId("local-user"), "Personal linked task", projectId = projectId)
 

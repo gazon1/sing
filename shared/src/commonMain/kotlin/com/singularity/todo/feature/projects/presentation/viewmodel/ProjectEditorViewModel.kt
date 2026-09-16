@@ -1,8 +1,16 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
+import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
+import com.singularity.todo.feature.projects.presentation.state.ProjectEditorIntent
+import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiEvent
+import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,39 +20,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
-
-/**
- * UI state for the project editor screen.
- * When [projectId] is null, the screen operates in create mode.
- * When [projectId] is non-null, it operates in edit mode (loads existing project).
- */
-data class ProjectEditorUiState(
-    val projectId: ProjectId? = null,
-    val name: String = "",
-    val description: String = "",
-    val color: Int = DEFAULT_COLOR,
-    val icon: String? = null,
-    val parentId: ProjectId? = null,
-    val saving: Boolean = false,
-    val loading: Boolean = false,
-    val errorMessage: String? = null,
-) {
-    companion object {
-        const val DEFAULT_COLOR = 0xFF1976D2.toInt() // blue
-    }
-
-    val isEditMode: Boolean get() = projectId != null
-}
-
-sealed interface ProjectEditorIntent {
-    data class NameChanged(val name: String) : ProjectEditorIntent
-    data class ColorChanged(val color: Int) : ProjectEditorIntent
-    data class IconChanged(val icon: String?) : ProjectEditorIntent
-    data class DescriptionChanged(val description: String) : ProjectEditorIntent
-    data class ParentChanged(val parentId: ProjectId?) : ProjectEditorIntent
-    data object Save : ProjectEditorIntent
-    data object ErrorShown : ProjectEditorIntent
-}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProjectEditorViewModel(

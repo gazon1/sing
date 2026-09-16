@@ -1,11 +1,15 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -13,6 +17,11 @@ import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import com.singularity.todo.feature.projects.presentation.model.ParentOption
+import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -35,7 +44,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 /**
- * ViewModel for [ProjectDetailScreen].
+ * ViewModel for [com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen].
  *
  * Combines the project, its tasks, and aggregate counts into a single [ProjectDetailUi].
  * Inline edits (name, description) use silent debounce — they update [_lastEditedAt]
@@ -184,7 +193,7 @@ class ProjectDetailViewModel(
         }
     }
 
-    // ─── Cached latest project — TOCTOU guard ────────────────────────────────
+    // ─── Cached latest project — TOCTOU guard ──────────────────────────────────
 
     private val _latestProject = MutableStateFlow<Project?>(null)
 
@@ -294,19 +303,4 @@ class ProjectDetailViewModel(
                 .onFailure { /* silent — UI already reflects the draft */ }
         }
     }
-}
-
-// ─── UI State ─────────────────────────────────────────────────────────────────
-
-sealed interface ProjectDetailUiState {
-    data object Loading : ProjectDetailUiState
-    data object NotFound : ProjectDetailUiState
-    data class Content(val ui: ProjectDetailUi) : ProjectDetailUiState
-}
-
-// ─── Events ───────────────────────────────────────────────────────────────────
-
-sealed interface ProjectDetailUiEvent {
-    data object NavigateBack : ProjectDetailUiEvent  // after successful delete
-    data class ShowError(val message: String) : ProjectDetailUiEvent
 }

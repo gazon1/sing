@@ -1,5 +1,7 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.presentation.model
 
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.Task
 
 /**
@@ -14,7 +16,7 @@ data class ParentOption(
 )
 
 /**
- * Combined read model for [ProjectDetailScreen].
+ * Combined read model for [com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen].
  * Aggregates the project with its task list and aggregate counts.
  */
 data class ProjectDetailUi(

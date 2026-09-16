@@ -39,7 +39,7 @@ data class TaskUi(
  * Converts a domain [Task] to a [TaskUi].
  *
  * [today] is used to compute [isOverdue]. [projectNamesById] maps
- * [ProjectId.value][com.singularity.todo.feature.projects.ProjectId.value] to
+ * [ProjectId.value][com.singularity.todo.feature.projects.domain.model.ProjectId.value] to
  * the project name string.
  */
 fun Task.toTaskUi(

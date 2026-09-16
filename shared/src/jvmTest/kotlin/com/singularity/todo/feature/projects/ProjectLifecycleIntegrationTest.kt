@@ -1,7 +1,9 @@
 package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeCurrentUser

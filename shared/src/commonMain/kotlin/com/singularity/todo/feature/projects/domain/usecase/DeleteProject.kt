@@ -1,11 +1,11 @@
-package com.singularity.todo.feature.projects.usecase
+package com.singularity.todo.feature.projects.domain.usecase
 
 import com.singularity.todo.core.error.AppError
-import com.singularity.todo.feature.projects.ProjectsRepository
-import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.first
 
 /**

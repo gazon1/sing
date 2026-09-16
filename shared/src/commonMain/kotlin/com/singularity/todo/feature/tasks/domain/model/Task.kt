@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.model
 
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import kotlin.time.Instant
 import kotlinx.serialization.Serializable

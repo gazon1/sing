@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.projects.components
+package com.singularity.todo.feature.projects.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,8 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.AiActionButton
 import com.singularity.todo.core.ui.components.DeleteActionButton
-import com.singularity.todo.feature.projects.Project
-import com.singularity.todo.feature.projects.ProjectIconRegistry
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 
 /**
  * Visual representation of a [Project]. Stateless — every interaction is

@@ -1,8 +1,7 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.data
 
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.ProjectEntity
-import com.singularity.todo.core.database.ProjectWithCountRow
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toEpochMillisOrNull
 import com.singularity.todo.core.database.toInstant
@@ -10,30 +9,11 @@ import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.database.toLocalDateOrNull
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-
-/**
- * Contract for projects persistence.
- */
-interface ProjectsRepository {
-    fun watchProjects(userId: UserId): Flow<List<Project>>
-    fun watchProject(id: ProjectId): Flow<Project?>
-    /** Suspend version for one-shot reads (e.g. in use cases). */
-    suspend fun getById(id: ProjectId): Project?
-    /** Emits a new value whenever the project changes (used for inline-edit debounce). */
-    fun changes(id: ProjectId): Flow<Project?>
-    /** Projects with task counts (total + completed), for list screens. */
-    fun watchProjectsWithCounts(userId: UserId): Flow<List<ProjectWithCountRow>>
-    fun watchByParent(parentId: ProjectId): Flow<List<Project>>
-    suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long)
-    suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long)
-    suspend fun restore(id: ProjectId): Result<Unit>
-    suspend fun findByIdempotencyKey(key: String): Project?
-    suspend fun create(project: Project): Result<Unit>
-    suspend fun update(project: Project): Result<Unit>
-    suspend fun delete(id: ProjectId): Result<Unit>
-}
 
 /**
  * Room-backed production [ProjectsRepository].
@@ -58,7 +38,7 @@ class ProjectsRepositoryImpl(
         return projectDao.watchById(id.value).map { it?.toProject() }
     }
 
-    override fun watchProjectsWithCounts(userId: UserId): Flow<List<ProjectWithCountRow>> {
+    override fun watchProjectsWithCounts(userId: UserId): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> {
         return projectDao.watchAllWithCounts(userId.value)
     }
 
@@ -117,7 +97,7 @@ internal fun ProjectEntity.toProject(): Project = Project(
     userId = UserId(userId)
 )
 
-fun Project.toEntity(): ProjectEntity = ProjectEntity(
+internal fun Project.toEntity(): ProjectEntity = ProjectEntity(
     id = id.value,
     userId = userId.value,
     name = name,

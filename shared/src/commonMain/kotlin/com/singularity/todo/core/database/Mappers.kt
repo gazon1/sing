@@ -1,7 +1,8 @@
 package com.singularity.todo.core.database
 
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -72,4 +73,27 @@ internal fun TaskEntity.toTask(): Task = Task(
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),
     userId = userId.toId(),
+)
+
+/**
+ * Converts a [ProjectEntity] to a domain [Project].
+ */
+internal fun ProjectEntity.toProject(): Project = Project(
+    id = ProjectId.fromString(id),
+    name = name,
+    color = color,
+    icon = icon,
+    description = description,
+    createdAt = createdAt.toInstant(),
+    updatedAt = updatedAt.toInstant(),
+    isDefault = isDefault,
+    dueDate = dueDate.toLocalDateOrNull(),
+    team = team,
+    isDeleted = isDeleted,
+    deletedAt = deletedAt.toInstantOrNull(),
+    parentId = parentId?.toProjectIdOrNull(),
+    sortOrder = sortOrder,
+    idempotencyKey = idempotencyKey,
+    externalId = externalId,
+    userId = UserId(userId),
 )

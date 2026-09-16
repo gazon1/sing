@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.tasks
 
-import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import kotlin.test.Test

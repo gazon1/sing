@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.tasks.domain.model
 
-import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 
 sealed interface TasksUiEvent {

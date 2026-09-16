@@ -353,25 +353,25 @@ class FakeAuthRepository(
 
 // ─── ProjectsRepository ──────────────────────────────────────────────────────
 
-class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRepository {
-    internal val store = InMemoryStore<com.singularity.todo.feature.projects.Project>(
+class FakeProjectsRepository : com.singularity.todo.feature.projects.domain.port.ProjectsRepository {
+    internal val store = InMemoryStore<com.singularity.todo.feature.projects.domain.model.Project>(
         keyOf = { it.id.value },
     )
 
-    fun seed(vararg projects: com.singularity.todo.feature.projects.Project) = store.seed(projects.toList())
-    fun add(project: com.singularity.todo.feature.projects.Project) = store.upsert(project)
+    fun seed(vararg projects: com.singularity.todo.feature.projects.domain.model.Project) = store.seed(projects.toList())
+    fun add(project: com.singularity.todo.feature.projects.domain.model.Project) = store.upsert(project)
     fun clear() = store.clear()
 
-    override fun watchProjects(userId: UserId): Flow<List<com.singularity.todo.feature.projects.Project>> =
+    override fun watchProjects(userId: UserId): Flow<List<com.singularity.todo.feature.projects.domain.model.Project>> =
         store.state.map { list -> list.values.filter { it.userId == userId && !it.isDeleted } }
 
-    override fun watchProject(id: com.singularity.todo.feature.projects.ProjectId): Flow<com.singularity.todo.feature.projects.Project?> =
+    override fun watchProject(id: com.singularity.todo.feature.projects.domain.model.ProjectId): Flow<com.singularity.todo.feature.projects.domain.model.Project?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
-    override suspend fun getById(id: com.singularity.todo.feature.projects.ProjectId): com.singularity.todo.feature.projects.Project? =
+    override suspend fun getById(id: com.singularity.todo.feature.projects.domain.model.ProjectId): com.singularity.todo.feature.projects.domain.model.Project? =
         store[id.value]
 
-    override fun changes(id: com.singularity.todo.feature.projects.ProjectId): Flow<com.singularity.todo.feature.projects.Project?> =
+    override fun changes(id: com.singularity.todo.feature.projects.domain.model.ProjectId): Flow<com.singularity.todo.feature.projects.domain.model.Project?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
     override fun watchProjectsWithCounts(userId: UserId): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
@@ -395,39 +395,39 @@ class FakeProjectsRepository : com.singularity.todo.feature.projects.ProjectsRep
                 }
         }
 
-    override fun watchByParent(parentId: com.singularity.todo.feature.projects.ProjectId): Flow<List<com.singularity.todo.feature.projects.Project>> =
+    override fun watchByParent(parentId: com.singularity.todo.feature.projects.domain.model.ProjectId): Flow<List<com.singularity.todo.feature.projects.domain.model.Project>> =
         store.state.map { list -> list.values.filter { it.parentId == parentId && !it.isDeleted } }
 
-    override suspend fun setParent(id: com.singularity.todo.feature.projects.ProjectId, parentId: com.singularity.todo.feature.projects.ProjectId?, updatedAt: Long) {
+    override suspend fun setParent(id: com.singularity.todo.feature.projects.domain.model.ProjectId, parentId: com.singularity.todo.feature.projects.domain.model.ProjectId?, updatedAt: Long) {
         store[id.value]?.let { existing ->
             store.upsert(existing.copy(parentId = parentId, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)))
         }
     }
 
-    override suspend fun setSortOrder(id: com.singularity.todo.feature.projects.ProjectId, sortOrder: Int, updatedAt: Long) {
+    override suspend fun setSortOrder(id: com.singularity.todo.feature.projects.domain.model.ProjectId, sortOrder: Int, updatedAt: Long) {
         store[id.value]?.let { existing ->
             store.upsert(existing.copy(sortOrder = sortOrder, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)))
         }
     }
 
-    override suspend fun restore(id: com.singularity.todo.feature.projects.ProjectId): Result<Unit> = runCatching {
+    override suspend fun restore(id: com.singularity.todo.feature.projects.domain.model.ProjectId): Result<Unit> = runCatching {
         store[id.value]?.let { existing ->
             store.upsert(existing.copy(isDeleted = false, deletedAt = null))
         }
     }
 
-    override suspend fun findByIdempotencyKey(key: String): com.singularity.todo.feature.projects.Project? =
+    override suspend fun findByIdempotencyKey(key: String): com.singularity.todo.feature.projects.domain.model.Project? =
         store.values().firstOrNull { it.idempotencyKey == key }
 
-    override suspend fun create(project: com.singularity.todo.feature.projects.Project): Result<Unit> = runCatching {
+    override suspend fun create(project: com.singularity.todo.feature.projects.domain.model.Project): Result<Unit> = runCatching {
         store.upsert(project)
     }
 
-    override suspend fun update(project: com.singularity.todo.feature.projects.Project): Result<Unit> = runCatching {
+    override suspend fun update(project: com.singularity.todo.feature.projects.domain.model.Project): Result<Unit> = runCatching {
         store.upsert(project)
     }
 
-    override suspend fun delete(id: com.singularity.todo.feature.projects.ProjectId): Result<Unit> = runCatching {
+    override suspend fun delete(id: com.singularity.todo.feature.projects.domain.model.ProjectId): Result<Unit> = runCatching {
         store[id.value]?.let { existing ->
             store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.now()))
         }

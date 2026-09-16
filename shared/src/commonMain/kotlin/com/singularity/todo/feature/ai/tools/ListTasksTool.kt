@@ -25,7 +25,7 @@ class ListTasksTool(
 
     override suspend fun execute(args: ListTasksInput): String {
         val effectiveUserId = if (args.userId.isNotBlank()) UserId(args.userId) else currentUser.scopedUserId.value
-        val filter = args.projectId?.let { TaskFilter.ByProject(com.singularity.todo.feature.projects.ProjectId(it)) } ?: TaskFilter.All
+        val filter = args.projectId?.let { TaskFilter.ByProject(com.singularity.todo.feature.projects.domain.model.ProjectId(it)) } ?: TaskFilter.All
         val tasks = taskRepository.watchTasks(effectiveUserId, filter).first().take(args.limit)
             .map { TaskSummary(it.id.value, it.title, it.isCompleted, it.projectId?.value) }
         return kotlinx.serialization.json.Json.encodeToString(ListTasksOutput.serializer(), ListTasksOutput(tasks))

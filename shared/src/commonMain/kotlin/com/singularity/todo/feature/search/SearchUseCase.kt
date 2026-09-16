@@ -3,12 +3,12 @@ package com.singularity.todo.feature.search
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.notes.Note
-import com.singularity.todo.feature.projects.Project
+import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.NotesRepository
-import com.singularity.todo.feature.projects.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tags.TagsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine

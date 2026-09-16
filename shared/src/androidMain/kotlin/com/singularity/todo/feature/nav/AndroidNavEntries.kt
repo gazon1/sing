@@ -12,7 +12,7 @@ import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.pomodoro.PomodoroScreen
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.profile.ProfileSwitcherScreen
-import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsRoute
 import com.singularity.todo.feature.search.presentation.nav.SearchNavGraph

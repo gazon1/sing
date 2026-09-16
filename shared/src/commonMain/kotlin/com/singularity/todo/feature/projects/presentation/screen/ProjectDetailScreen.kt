@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.presentation.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -74,10 +74,20 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.projects.components.ProjectDetailActions
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
+import com.singularity.todo.feature.projects.presentation.model.ParentOption
+import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
+import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
+import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.reminders.ReminderPicker
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -988,8 +998,8 @@ private fun ProjectDetailContentPreview() = ProjectsPreviewWrapper {
         projectId = sample.id,
         projectRepo = fakeProjectsRepo,
         taskRepo = fakeTaskRepo,
-        deleteProject = com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
-        updateProject = UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
+        deleteProject = com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
+        updateProject = com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
         updateTask = com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
         createTaskUseCase = com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
         currentUser = fakeCurrentUser,

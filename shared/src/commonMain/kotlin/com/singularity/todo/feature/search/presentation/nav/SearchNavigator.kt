@@ -2,7 +2,7 @@ package com.singularity.todo.feature.search.presentation.nav
 
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**

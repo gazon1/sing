@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.presentation.theme
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Note
@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.singularity.todo.feature.projects.ProjectIconRegistry.iconByKey
+import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry.iconByKey
 
 /**
  * Registry of Material icons available for projects.

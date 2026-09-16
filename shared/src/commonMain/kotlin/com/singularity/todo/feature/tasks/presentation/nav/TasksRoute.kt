@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.nav
 
 import androidx.navigation3.runtime.NavKey
-import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate

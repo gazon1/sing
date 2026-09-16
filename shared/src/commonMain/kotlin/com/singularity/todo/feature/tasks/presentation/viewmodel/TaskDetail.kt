@@ -120,7 +120,7 @@ class TaskDetailViewModel(
                     _draftDescription,
                 ) { values ->
                     @Suppress("UNCHECKED_CAST")
-                    val project = values[0] as com.singularity.todo.feature.projects.Project?
+                    val project = values[0] as com.singularity.todo.feature.projects.domain.model.Project?
                     @Suppress("UNCHECKED_CAST")
                     val allTags = values[1] as List<com.singularity.todo.feature.tags.Tag>
                     @Suppress("UNCHECKED_CAST")

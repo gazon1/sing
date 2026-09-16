@@ -1,13 +1,14 @@
 package com.singularity.todo.core.di
 
 import com.singularity.todo.core.ui.components.ProjectPickerViewModel
-import com.singularity.todo.feature.projects.CreateProjectUseCase
-import com.singularity.todo.feature.projects.ProjectDetailViewModel
-import com.singularity.todo.feature.projects.ProjectEditorViewModel
-import com.singularity.todo.feature.projects.ProjectsRepository
-import com.singularity.todo.feature.projects.ProjectsRepositoryImpl
-import com.singularity.todo.feature.projects.UpdateProjectUseCase
-import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
+import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -24,14 +25,14 @@ fun projectsModule(): org.koin.core.module.Module = module {
 
     factory { CreateProjectUseCase(get(), get()) }
     factory { UpdateProjectUseCase(get(), get()) }
-    factory { DeleteProjectUseCase(get(), get()) }
+    factory { DeleteProjectUseCase(get<ProjectsRepository>(), get()) }
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
     // ProjectsViewModel with AI deps: registered in aiToolsCoreModule
     // (has nullable ProjectReviewUseCase — handles null gracefully on Android)
 
-    viewModel { (projectId: com.singularity.todo.feature.projects.ProjectId?) ->
+    viewModel { (projectId: ProjectId?) ->
         ProjectEditorViewModel(
             projectId = projectId,
             createProject = get(),
@@ -41,7 +42,7 @@ fun projectsModule(): org.koin.core.module.Module = module {
         )
     }
 
-    viewModel { (id: com.singularity.todo.feature.projects.ProjectId) ->
+    viewModel { (id: ProjectId) ->
         ProjectDetailViewModel(
             projectId = id,
             projectRepo = get(),

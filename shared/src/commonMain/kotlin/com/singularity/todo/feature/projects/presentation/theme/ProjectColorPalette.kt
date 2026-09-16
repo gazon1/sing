@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.presentation.theme
 
 /**
  * Predefined 12-color palette for projects.

@@ -1,7 +1,10 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.domain
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
+import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import kotlin.time.Instant
 
 /**

@@ -2,7 +2,7 @@ package com.singularity.todo.feature.projects.presentation.nav
 
 import androidx.compose.runtime.Composable
 import androidx.navigation3.runtime.NavBackStack
-import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**

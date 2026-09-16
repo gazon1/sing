@@ -3,8 +3,8 @@ package com.singularity.todo.feature.ai.tools
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.projects.ProjectId
-import com.singularity.todo.feature.projects.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

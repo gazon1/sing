@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.domain.model
 
 import com.singularity.todo.core.ids.UserId
 import kotlin.time.Instant
@@ -33,7 +33,7 @@ data class Project(
     val userId: UserId
 )
 
-/** Domain projection of [Project] with task counts, used by [ProjectsViewModel] UI state. */
+/** Domain projection of [Project] with task counts, used by [com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel] UI state. */
 data class ProjectWithCounts(
     val project: Project,
     val totalCount: Int,

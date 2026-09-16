@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.projects.CreateProjectUseCase
-import com.singularity.todo.feature.projects.Project
+import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
+import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser

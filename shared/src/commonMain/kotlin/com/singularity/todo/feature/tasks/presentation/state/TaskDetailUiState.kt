@@ -2,7 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.state
 
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.feature.checklist.ChecklistItem
-import com.singularity.todo.feature.projects.Project
+import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tasks.domain.model.Task

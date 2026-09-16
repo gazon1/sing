@@ -10,9 +10,9 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
-import com.singularity.todo.feature.projects.ProjectDetailScreen
-import com.singularity.todo.feature.projects.ProjectEditorScreen
-import com.singularity.todo.feature.projects.ProjectsScreen
+import com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen
+import com.singularity.todo.feature.projects.presentation.screen.ProjectEditorScreen
+import com.singularity.todo.feature.projects.presentation.screen.ProjectsScreen
 
 /**
  * JVM Desktop implementation of [ProjectsNavGraph].

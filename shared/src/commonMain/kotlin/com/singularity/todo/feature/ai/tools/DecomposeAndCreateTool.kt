@@ -12,7 +12,7 @@ import ai.koog.utils.time.KoogClock
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.ai.prompts.Prompts
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.projects.ProjectId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId

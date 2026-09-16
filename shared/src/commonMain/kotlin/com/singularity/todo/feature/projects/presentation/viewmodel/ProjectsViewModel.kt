@@ -1,13 +1,20 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
-import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.core.database.toProject
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
+import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder
+import com.singularity.todo.feature.projects.presentation.state.ProjectsUiEvent
+import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -23,19 +30,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-
-enum class ProjectSortOrder { Name, Color }
-
-sealed interface ProjectsUiState {
-    data object Loading : ProjectsUiState
-    data class Empty(val userId: UserId) : ProjectsUiState
-    data class Content(
-        val projects: List<ProjectWithCounts>,
-        val searchQuery: String = "",
-        val sortOrder: ProjectSortOrder = ProjectSortOrder.Name,
-    ) : ProjectsUiState
-    data class Error(val message: String) : ProjectsUiState
-}
 
 class ProjectsViewModel(
     private val projectRepo: ProjectsRepository,

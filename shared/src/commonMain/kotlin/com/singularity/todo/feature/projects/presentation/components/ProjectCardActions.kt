@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.projects.components
+package com.singularity.todo.feature.projects.presentation.components
 
 /**
  * Callbacks for [ProjectCard], packed into a single value-class parameter.

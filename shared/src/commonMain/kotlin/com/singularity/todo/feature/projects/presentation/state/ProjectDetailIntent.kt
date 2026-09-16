@@ -1,17 +1,17 @@
-package com.singularity.todo.feature.projects
+package com.singularity.todo.feature.projects.presentation.state
 
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
- * Единая точка входа для [ProjectDetailViewModel].
+ * Единая точка входа для [com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel].
  *
  * Routing-варианты (навигация) обрабатываются экраном,
- * доменные — [ProjectDetailViewModel.onIntent].
+ * доменные — [com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel.onIntent].
  *
  * Разделение типизировано на уровне sealed-иерархии: попытка передать
  * routing-интент в VM — ошибка компиляции.
  *
- * @see TaskDetailIntent] — аналогичный паттерн для TaskDetailScreen.
+ * @see com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent] — аналогичный паттерн для TaskDetailScreen.
  */
 sealed interface ProjectDetailIntent {
 
@@ -21,7 +21,7 @@ sealed interface ProjectDetailIntent {
         // Sheet openers — screen sets activeSheet routing state
         data object OpenColorSheet : Routing
         data object OpenIconSheet : Routing
-        data class OpenParentSheet(val currentParentId: ProjectId?) : Routing
+        data class OpenParentSheet(val currentParentId: com.singularity.todo.feature.projects.domain.model.ProjectId?) : Routing
         data object OpenDueDateSheet : Routing
         data object OpenChildrenSheet : Routing
         data object OpenDeleteSheet : Routing
@@ -47,7 +47,7 @@ sealed interface ProjectDetailIntent {
 
         data class UpdateColor(val color: Int) : Domain
         data class UpdateIcon(val icon: String?) : Domain
-        data class UpdateParent(val parentId: ProjectId?) : Domain
+        data class UpdateParent(val parentId: com.singularity.todo.feature.projects.domain.model.ProjectId?) : Domain
         data class UpdateDueDate(val dueDate: kotlinx.datetime.LocalDate?) : Domain
 
         // ── Lifecycle ─────────────────────────────────────────────────────

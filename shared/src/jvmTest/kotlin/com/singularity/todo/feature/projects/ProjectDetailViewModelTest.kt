@@ -1,7 +1,15 @@
 package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.projects.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
+import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase

@@ -4,10 +4,10 @@ import app.cash.turbine.test
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.projects.CreateProjectUseCase
-import com.singularity.todo.feature.projects.Project
-import com.singularity.todo.feature.projects.ProjectId
-import com.singularity.todo.feature.projects.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProfileRepository
