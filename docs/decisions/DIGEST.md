@@ -175,7 +175,6 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
-- `shared/src/jvmTest/.../TaskCreateDraftRestorationTest.kt` _(from `2026-09-15-task-editor-unification`)_
 - Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
 - `single<DraftStore> { DataStoreDraftStore(get()) }` in `CoreDiModule` _(from `2026-09-15-task-editor-unification`)_
 - Single search + merged results = better UX (one tap instead of tab switching) _(from `2026-09-09-internal-link-picker-generic`)_
@@ -368,7 +367,6 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `compose`
 
-- `shared/src/jvmTest/.../TaskCreateDraftRestorationTest.kt` _(from `2026-09-15-task-editor-unification`)_
 - `single<DraftStore> { DataStoreDraftStore(get()) }` in `CoreDiModule` _(from `2026-09-15-task-editor-unification`)_
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - Smoke test now passes: `./gradlew :desktopApp:test` → BUILD SUCCESSFUL _(from `2026-09-06-desktop-smoke-test-with-koin`)_
@@ -613,7 +611,6 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `drafts`
 
-- `shared/src/jvmTest/.../TaskCreateDraftRestorationTest.kt` _(from `2026-09-15-task-editor-unification`)_
 - `single<DraftStore> { DataStoreDraftStore(get()) }` in `CoreDiModule` _(from `2026-09-15-task-editor-unification`)_
 - `TaskCreateContent.kt` _(from `2026-09-15-task-editor-unification`)_
 - `TaskCreateDeps` expanded with `draftStore: DraftStore, autosaveScheduler: AutosaveScheduler` _(from `2026-09-15-task-editor-unification`)_
@@ -1450,7 +1447,6 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `core/draft/DraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
 - `core/draft/FakeDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
 - `core/serialization/StableJson.kt` _(from `2026-09-15-task-editor-unification`)_
-- `shared/src/jvmTest/.../TaskCreateDraftRestorationTest.kt` _(from `2026-09-15-task-editor-unification`)_
 - `single<DraftStore> { DataStoreDraftStore(get()) }` in `CoreDiModule` _(from `2026-09-15-task-editor-unification`)_
 - `TaskCreateContent.kt` _(from `2026-09-15-task-editor-unification`)_
 - `TaskCreateDeps` expanded with `draftStore: DraftStore, autosaveScheduler: AutosaveScheduler` _(from `2026-09-15-task-editor-unification`)_
@@ -1644,7 +1640,6 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`. _(from `2026-09-05-robolectric-widget-tests`)_
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor. _(from `2026-09-07-settings-fixes`)_
 - `SettingsViewModel.testConnection()` **always** short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`. _(from `2026-09-05-llm-provider-settings`)_
-- `shared/src/jvmTest/.../TaskCreateDraftRestorationTest.kt` _(from `2026-09-15-task-editor-unification`)_
 - `single<DraftStore> { DataStoreDraftStore(get()) }` in `CoreDiModule` _(from `2026-09-15-task-editor-unification`)_
 - `singularity-todo-shared-ui-components` skill governs decomposition: desktop-only chrome stays in `feature/nav/`, shared widgets go to `core/ui/components/`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - `TagsScreen` больше не принимает callback — экран не подключён к навигации (menu destination `Tags` отсутствует в `AppDestination`). _(from `2026-09-07-fab-chrome-level`)_
@@ -1704,6 +1699,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR. _(from `2026-09-08-instant-migration`)_
 - `ContentStateMapper` — добавлен object с двумя методами _(from `2026-09-05-refactoring-summary`)_
 - Dead Nav2 code removed from Android _(from `2026-09-11-nav3-kmp-migration`)_
+- `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно. _(from `2026-09-15-projects-clean-architecture`)_
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed. _(from `2026-09-08-instant-migration`)_
 - Developers should prefer `kotlinx.datetime.Instant` in new code. _(from `2026-09-08-instant-migration`)_
 - DI-граф упрощён: 5 factory → 1 _(from `2026-09-05-refactoring-summary`)_
@@ -1720,6 +1716,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`performTextClear`** не доступен в Robolectric — используется `performTextInput` напрямую _(from `2026-09-05-ui-tests-ultron`)_
 - Picker sheets визуально согласованы с остальными sheets (drag-handle, chrome) _(from `2026-09-07-task-detail-archive-overflow`)_
 - Pre-existing test failures (`RussianDateFormatterTest`, `TaskCreateViewModelTest`, _(from `2026-09-15-nav3-notes-navigator`)_
+- `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`. _(from `2026-09-15-projects-clean-architecture`)_
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`). _(from `2026-09-06-modular-justfile`)_
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов _(from `2026-09-05-uiautomator-compose-discovery`)_
 - `roborazzi` dependency added to `androidHostTest` in `shared/build.gradle.kts`. _(from `2026-09-08-roborazzi-snapshot-tests`)_
@@ -1736,6 +1733,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - UI Automator тесты **удалены** (`UIAutomatorTest.kt`). _(from `2026-09-05-uiautomator-compose-discovery`)_
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear() _(from `2026-09-05-refactoring-summary`)_
 - Все ViewModel'ы с `scopeOverride` — консистентны в тестах _(from `2026-09-05-refactoring-summary`)_
+- Все импорты в 30+ файлах обновлены на новые FQN (`.domain.model`, `.domain.port`, `.domain.usecase`, `.data`, `.presentation.state`, `.presentation.viewmodel`). _(from `2026-09-15-projects-clean-architecture`)_
 - Для UI-тестов на реальном устройстве: Kaspresso или `contentDescription` + `By.desc()`. _(from `2026-09-05-uiautomator-compose-discovery`)_
 - Оставшиеся `androidHostTest`: только `AppNavigatorTest` (nav contract, без Espresso), _(from `2026-09-05-uiautomator-compose-discovery`)_
 
@@ -1997,6 +1995,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-detekt-ktlint-kover-setup` — Integrate detekt, ktlint, and kotlinx-kover for code quality and coverage
 - `2026-09-15-nav3-notes-navigator` — _(no title)
 - `2026-09-15-noteeditor-udf-link-search` — NoteEditor UDF fix — delegate link search to ViewModel
+- `2026-09-15-projects-clean-architecture` — _(no title)
 - `2026-09-15-projects-nested-nav3` — Projects feature: nested Nav3 graph with ProjectsNavigator
 - `2026-09-15-projects-settings-profile-udf-fixes` — PR 5 UDF fixes — ProjectDetail, ProjectPicker, AccountSettings, TagPicker
 - `2026-09-15-task-detail-drafts-undo-fix` — TaskDetail drafts seed-from-task; TaskListScreen koinViewModel; undo snackbar wired
