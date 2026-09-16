@@ -24,9 +24,15 @@ import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.core.database.ProjectEntity
+import com.singularity.todo.core.database.ProjectWithCountRow
+import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -353,41 +359,41 @@ class FakeAuthRepository(
 
 // ─── ProjectsRepository ──────────────────────────────────────────────────────
 
-class FakeProjectsRepository : com.singularity.todo.feature.projects.domain.port.ProjectsRepository {
-    internal val store = InMemoryStore<com.singularity.todo.feature.projects.domain.model.Project>(
+class FakeProjectsRepository : ProjectsRepository {
+    internal val store = InMemoryStore<Project>(
         keyOf = { it.id.value },
     )
 
-    fun seed(vararg projects: com.singularity.todo.feature.projects.domain.model.Project) = store.seed(projects.toList())
-    fun add(project: com.singularity.todo.feature.projects.domain.model.Project) = store.upsert(project)
+    fun seed(vararg projects: Project) = store.seed(projects.toList())
+    fun add(project: Project) = store.upsert(project)
     fun clear() = store.clear()
 
-    override fun watchProjects(userId: UserId): Flow<List<com.singularity.todo.feature.projects.domain.model.Project>> =
+    override fun watchProjects(userId: UserId): Flow<List<Project>> =
         store.state.map { list -> list.values.filter { it.userId == userId && !it.isDeleted } }
 
-    override fun watchProject(id: com.singularity.todo.feature.projects.domain.model.ProjectId): Flow<com.singularity.todo.feature.projects.domain.model.Project?> =
+    override fun watchProject(id: ProjectId): Flow<Project?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
-    override suspend fun getById(id: com.singularity.todo.feature.projects.domain.model.ProjectId): com.singularity.todo.feature.projects.domain.model.Project? =
+    override suspend fun getById(id: ProjectId): Project? =
         store[id.value]
 
-    override fun changes(id: com.singularity.todo.feature.projects.domain.model.ProjectId): Flow<com.singularity.todo.feature.projects.domain.model.Project?> =
+    override fun changes(id: ProjectId): Flow<Project?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
-    override fun watchProjectsWithCounts(userId: UserId): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
+    override fun watchProjectsWithCounts(userId: UserId): Flow<List<ProjectWithCountRow>> =
         store.state.map { list ->
             list.values
                 .filter { it.userId == userId && !it.isDeleted }
                 .map { p ->
-                    com.singularity.todo.core.database.ProjectWithCountRow(
-                        project = com.singularity.todo.core.database.ProjectEntity(
+                    ProjectWithCountRow(
+                        project = ProjectEntity(
                             id = p.id.value, userId = p.userId.value, name = p.name, color = p.color,
                             icon = p.icon, description = p.description, createdAt = p.createdAt.toEpochMilliseconds(),
                             updatedAt = p.updatedAt.toEpochMilliseconds(), isDefault = p.isDefault,
                             dueDate = p.dueDate?.toString(), team = p.team, isDeleted = p.isDeleted,
                             deletedAt = p.deletedAt?.toEpochMilliseconds(), parentId = p.parentId?.value,
                             sortOrder = p.sortOrder, idempotencyKey = p.idempotencyKey, externalId = p.externalId,
-                            sync = com.singularity.todo.core.database.SyncColumns(),
+                            sync = SyncColumns(),
                         ),
                         totalCount = 0,
                         completedCount = 0,
@@ -395,39 +401,39 @@ class FakeProjectsRepository : com.singularity.todo.feature.projects.domain.port
                 }
         }
 
-    override fun watchByParent(parentId: com.singularity.todo.feature.projects.domain.model.ProjectId): Flow<List<com.singularity.todo.feature.projects.domain.model.Project>> =
+    override fun watchByParent(parentId: ProjectId): Flow<List<Project>> =
         store.state.map { list -> list.values.filter { it.parentId == parentId && !it.isDeleted } }
 
-    override suspend fun setParent(id: com.singularity.todo.feature.projects.domain.model.ProjectId, parentId: com.singularity.todo.feature.projects.domain.model.ProjectId?, updatedAt: Long) {
+    override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {
         store[id.value]?.let { existing ->
             store.upsert(existing.copy(parentId = parentId, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)))
         }
     }
 
-    override suspend fun setSortOrder(id: com.singularity.todo.feature.projects.domain.model.ProjectId, sortOrder: Int, updatedAt: Long) {
+    override suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long) {
         store[id.value]?.let { existing ->
             store.upsert(existing.copy(sortOrder = sortOrder, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)))
         }
     }
 
-    override suspend fun restore(id: com.singularity.todo.feature.projects.domain.model.ProjectId): Result<Unit> = runCatching {
+    override suspend fun restore(id: ProjectId): Result<Unit> = runCatching {
         store[id.value]?.let { existing ->
             store.upsert(existing.copy(isDeleted = false, deletedAt = null))
         }
     }
 
-    override suspend fun findByIdempotencyKey(key: String): com.singularity.todo.feature.projects.domain.model.Project? =
+    override suspend fun findByIdempotencyKey(key: String): Project? =
         store.values().firstOrNull { it.idempotencyKey == key }
 
-    override suspend fun create(project: com.singularity.todo.feature.projects.domain.model.Project): Result<Unit> = runCatching {
+    override suspend fun create(project: Project): Result<Unit> = runCatching {
         store.upsert(project)
     }
 
-    override suspend fun update(project: com.singularity.todo.feature.projects.domain.model.Project): Result<Unit> = runCatching {
+    override suspend fun update(project: Project): Result<Unit> = runCatching {
         store.upsert(project)
     }
 
-    override suspend fun delete(id: com.singularity.todo.feature.projects.domain.model.ProjectId): Result<Unit> = runCatching {
+    override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
         store[id.value]?.let { existing ->
             store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.now()))
         }

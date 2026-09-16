@@ -146,6 +146,7 @@ fun ProjectDetailContent(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
     val hideCompleted by viewModel.hideCompleted.collectAsStateWithLifecycle()
+    val clock: Clock = Clock.System
     val parentOptions by viewModel.parentOptionsFlow.collectAsStateWithLifecycle()
     val availableTasks by viewModel.availableTasksFlow.collectAsStateWithLifecycle()
     var sheetState by remember { mutableStateOf<ActiveSheet?>(null) }
@@ -973,45 +974,3 @@ fun formatSavedRelative(now: Instant, lastEdited: Instant): String {
     }
 }
 
-private val clock: Clock get() = Clock.System
-
-// ─── Previews ────────────────────────────────────────────────────────────────
-
-@androidx.compose.ui.tooling.preview.Preview
-@Suppress("VIEW_MODEL_IN_COMPOSABLE", "ViewModelConstructorInComposable") // Preview pattern: construct VM with Fake* deps directly
-@Composable
-private fun ProjectDetailContentPreview() = ProjectsPreviewWrapper {
-    val sample = PreviewSamples.project()
-
-    // Build fake dependencies manually — no Koin needed in previews.
-    // Pattern: public Screen entry = koinViewModel wrapper;
-    //          private Content = accepts VM as parameter.
-    val fakeProjectsRepo = com.singularity.todo.test.fakes.FakeProjectsRepository().apply {
-        seed(sample)
-    }
-    val fakeTaskRepo = com.singularity.todo.test.fakes.FakeTaskRepository()
-    val fakeAuthRepo = com.singularity.todo.test.fakes.FakeAuthRepository()
-    val fakeProfileRepo = com.singularity.todo.test.fakes.FakeProfileRepository()
-    val fakeCurrentUser = com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser(fakeAuthRepo, fakeProfileRepo)
-
-    val vm = ProjectDetailViewModel(
-        projectId = sample.id,
-        projectRepo = fakeProjectsRepo,
-        taskRepo = fakeTaskRepo,
-        deleteProject = com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
-        updateProject = com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
-        updateTask = com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
-        createTaskUseCase = com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase(fakeTaskRepo, com.singularity.todo.core.platform.Clock),
-        currentUser = fakeCurrentUser,
-        clock = com.singularity.todo.core.platform.Clock,
-    )
-
-    ProjectsPreviewWrapper {
-        PreviewThemed {
-            ProjectDetailContent(
-                viewModel = vm,
-                projectId = sample.id,
-            )
-        }
-    }
-}
