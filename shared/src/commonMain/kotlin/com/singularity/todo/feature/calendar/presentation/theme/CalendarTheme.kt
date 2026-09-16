@@ -4,7 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import com.singularity.todo.core.ui.theme.LocalAccentColor
 import com.singularity.todo.core.ui.theme.SingularityAccents
@@ -35,7 +35,7 @@ data class CalendarPalette(
     val nowIndicator: Color,
 )
 
-val LocalCalendarPalette = staticCompositionLocalOf<CalendarPalette> {
+val LocalCalendarPalette = compositionLocalOf<CalendarPalette> {
     error("CalendarPalette not provided — wrap CalendarScreen with ProvideCalendarPalette")
 }
 
