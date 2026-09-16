@@ -1784,10 +1784,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Backlinks queryable via SQL without HTML parsing _(from `2026-09-07-notes-internal-links-backlinks`)_
 - Both Android and Desktop now use the same Nav3 architecture (multi-back-stack, `Navigator`, `NavDisplay`) _(from `2026-09-11-nav3-kmp-migration`)_
 - Bulk-операции fail-fast при отсутствующих ID _(from `2026-09-05-refactoring-summary`)_
+- `CalendarDeps` matches the `AgendaDeps` pattern (project convention) _(from `2026-09-16-calendar-post-merge-fixes`)_
 - CI may later call `just tests::check` instead of `./check.sh` — the behavior is identical. _(from `2026-09-06-modular-justfile`)_
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска _(from `2026-09-05-ui-tests-ultron`)_
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR. _(from `2026-09-08-instant-migration`)_
 - `ContentStateMapper` — добавлен object с двумя методами _(from `2026-09-05-refactoring-summary`)_
+- Dead dependency removed from `CalendarDeps` — DI graph is now consistent _(from `2026-09-16-calendar-post-merge-fixes`)_
 - `deadlineDate` badge is rendered as a red flag + date for tasks due on the selected date. _(from `2026-09-16-tasks-upcoming-screen`)_
 - `deadlineDate` badge rendering in month grid. _(from `2026-09-16-calendar-feature`)_
 - Deadline indicator rendering in `UpcomingBadges`. _(from `2026-09-16-tasks-upcoming-screen`)_
@@ -1815,7 +1817,6 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Nested nav3 graph keeps task-click navigation encapsulated. _(from `2026-09-16-calendar-feature`)_
 - None _(from `2026-09-16-calendar-post-merge-fixes`)_
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`. _(from `2026-09-16-calendar-feature`)_
-- No shadowing ambiguity in `CalendarDeps` _(from `2026-09-16-calendar-post-merge-fixes`)_
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for _(from `2026-09-15-nav3-notes-navigator`)_
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph _(from `2026-09-15-nav3-notes-navigator`)_
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах _(from `2026-09-05-ui-decomposition`)_
@@ -1837,6 +1838,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model _(from `2026-09-16-calendar-feature`)_
 - `startAt`/`endAt`/`allDay`/`recurrence` in `Task` (Room migration). _(from `2026-09-16-calendar-feature`)_
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates _(from `2026-09-05-task-editor-refactor`)_
+- `TaskEditorDeps.clock` is also dead (the file's own KDoc flags it for deletion alongside `TaskEditorViewModel`) _(from `2026-09-16-calendar-post-merge-fixes`)_
 - `TaskEditorReducerTest` must add test cases for new intents. _(from `2026-09-05-task-editor-refactor`)_
 - `TaskEditorViewModel` constructor signature unchanged; DI registration unchanged. _(from `2026-09-05-task-editor-refactor`)_
 - `TaskEditorViewModelTest` and `TaskEditorIntegrationTest` must add edit-mode scenarios. _(from `2026-09-05-task-editor-refactor`)_

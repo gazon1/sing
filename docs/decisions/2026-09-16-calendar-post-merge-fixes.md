@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-16
 **Status:** Accepted
-**Context:** Post-implementation review of the Calendar feature — three targeted fixes applied before first usage.
+**Context:** Post-implementation review of the Calendar feature — three targeted fixes applied before first usage, plus a follow-up root-cause fix.
 
 ---
 
@@ -12,7 +12,7 @@ After completing the Calendar feature (commit `4dd094a`), a code review identifi
 
 1. **`staticCompositionLocalOf` instead of `compositionLocalOf`** — palette wouldn't recompose on theme switch
 2. **`endTime`/`accentColor` always null without explanation** — misleading API surface
-3. **`Clock` shadowing in `CalendarDeps`** — `kotlinx.datetime.Clock` type conflicted with project's `expect object Clock`
+3. **`Clock` shadowing in `CalendarDeps`** — initially addressed by FQDN `kotlinx.datetime.Clock`, which caused a runtime Koin error. The original FQDN fix was replaced with a root-cause fix (delete the field) after the runtime error surfaced.
 
 ---
 
@@ -57,23 +57,36 @@ val endTime: LocalTime? = null
 
 ---
 
-## Decision 3 — FQDN for `kotlinx.datetime.Clock` in `CalendarDeps`
+## Decision 3 — Delete `CalendarDeps.clock` (replaces original Decision 3)
 
-**File:** `CalendarDeps.kt`
+**Original Decision 3** changed the field type to FQDN `kotlinx.datetime.Clock` to "avoid shadowing." This caused a runtime Koin error because `single { Clock }` in `CoreDiModule.kt:108` registers `com.singularity.todo.core.platform.Clock`, not `kotlinx.datetime.Clock`. Koin resolved `kotlinx.datetime.Clock` → `kotlin.time.Clock` (the same JVM type, just different FQDN), but no binding existed under either name.
 
-`CalendarDeps.clock` parameter has type `kotlinx.datetime.Clock` (the stdlib clock interface). However, the project defines `expect object Clock` in `core/platform/Clock.kt` which shadows the stdlib type in imported scope.
+**The correct fix is to delete the field entirely.** `CalendarViewModel` never calls `deps.clock.now()` — it uses `todayInSystemZone()` directly (line 60), a top-level `expect/actual` function that needs no DI.
+
+Removing the field:
+
+- Eliminates the DI ambiguity permanently — no Clock type ever has to be resolved
+- Follows the existing `AgendaDeps` pattern (`AgendaDeps.kt:16` has no `clock` field; `AgendaViewModel.kt:49` calls `todayInSystemZone()` directly)
+- Removes the misleading KDoc about "shadowing" — no shadowing exists, and no field exists
 
 ```kotlin
-// Before — Clock resolves to expect object Clock (no .System member)
-import kotlinx.datetime.Clock
-val clock: Clock  // ← expect object Clock, not kotlinx.datetime.Clock
-
-// After — unambiguous FQDN
-val clock: kotlinx.datetime.Clock
+// After — no clock field
+data class CalendarDeps(
+    val taskRepo: TaskRepository,
+    val currentUser: ProfileAwareCurrentUser,
+    val logger: Logger,
+)
 ```
 
-Full rename of `expect object Clock` to `PlatformClock` was considered but rejected:
-it would require updating 40+ files across the codebase. The FQDN approach is a targeted fix with zero collateral.
+The `calendarModule()` Koin definition lost its `clock = get()` line as well. The `CalendarViewModelTest` no longer constructs an anonymous `Clock` object.
+
+---
+
+## Why the original FQDN fix failed
+
+The original "fix" treated the symptom: Koin could not find a binding for the new type. Changing the field type made Koin ask for a different class, but the underlying problem was that the field had no consumer in the first place.
+
+Lesson: when adding a dependency to a constructor, verify it is actually used inside the class body. Dead dependencies pollute the DI graph and create maintenance confusion (e.g. why is this type different from the others?).
 
 ---
 
@@ -82,7 +95,8 @@ it would require updating 40+ files across the codebase. The FQDN approach is a 
 ### Positive
 - Theme switching now correctly recomposes the calendar palette
 - Future developers understand which fields are stubbed vs. populated
-- No shadowing ambiguity in `CalendarDeps`
+- Dead dependency removed from `CalendarDeps` — DI graph is now consistent
+- `CalendarDeps` matches the `AgendaDeps` pattern (project convention)
 
 ### Negative
 - None
@@ -90,6 +104,7 @@ it would require updating 40+ files across the codebase. The FQDN approach is a 
 ### Deferred
 - `endTime` / `accentColor` — blocked on Room migration for `startAt`/`endAt`/`accentColor` fields in `Task`
 - `expect object Clock` rename to `PlatformClock` — deferred until a broader cleanup window
+- `TaskEditorDeps.clock` is also dead (the file's own KDoc flags it for deletion alongside `TaskEditorViewModel`)
 
 ---
 
@@ -97,5 +112,5 @@ it would require updating 40+ files across the codebase. The FQDN approach is a 
 
 - `CalendarTheme.kt` — fix 1
 - `CalendarTaskUi.kt` — fix 2
-- `CalendarDeps.kt` — fix 3
+- `CalendarDeps.kt`, `CalendarDiModule.kt`, `CalendarViewModelTest.kt` — fix 3 (delete)
 - `docs/decisions/2026-09-16-calendar-feature.md` — original architecture

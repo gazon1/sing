@@ -10,13 +10,9 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
  * Note: [ReminderRepository] is intentionally excluded — [CalendarTaskUi.isRecurring]
  * is `false` for now. A future MR can add a `watchRecurringTaskIds()` call to
  * pre-load recurring reminder IDs and enrich [CalendarTaskUi.isRecurring].
- *
- * @param clock Uses [kotlinx.datetime.Clock] (not [com.singularity.todo.core.platform.Clock])
- *              to avoid shadowing the project's expect/actual Clock object.
  */
 data class CalendarDeps(
     val taskRepo: TaskRepository,
     val currentUser: ProfileAwareCurrentUser,
-    val clock: kotlinx.datetime.Clock,
     val logger: Logger,
 )

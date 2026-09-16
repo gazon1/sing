@@ -58,9 +58,6 @@ class CalendarViewModelTest {
         deps = CalendarDeps(
             taskRepo = fakeTaskRepo,
             currentUser = fakeCurrentUser,
-            clock = object : kotlinx.datetime.Clock {
-                override fun now(): kotlin.time.Instant = kotlin.time.Clock.System.now()
-            },
             logger = Logger.withTag("CalendarTest"),
         ),
         initialDate = initialDate,

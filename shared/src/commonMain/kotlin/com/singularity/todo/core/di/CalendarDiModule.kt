@@ -21,7 +21,6 @@ fun calendarModule(): Module = module {
             deps = CalendarDeps(
                 taskRepo = get<TaskRepository>(),
                 currentUser = get(),
-                clock = get(),
                 logger = Logger.withTag("Calendar"),
             ),
             initialDate = LocalDate(year, month, 1),
