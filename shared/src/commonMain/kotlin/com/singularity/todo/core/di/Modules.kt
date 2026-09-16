@@ -36,6 +36,7 @@ fun domainModule(): List<Module> = buildList {
     add(projectsModule())
     add(notesModule())
     add(tagsModule())
+    add(calendarModule())
     // Profile bindings — inlined here (NOT via profileModule()) so they land at root scope.
     // profileModule() wrapped its bindings in module {} which created a child scope.
     add(module {

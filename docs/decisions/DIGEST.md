@@ -401,12 +401,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Type-safe actions via `sealed class Action` with exhaustive `when` _(from `2026-09-09-content-slot-pattern`)_
 - `useSurface = false` when the preview root already contains a `Scaffold` _(from `2026-09-06-compose-previews`)_
 - `value class XxxActions` indirection — harder to read at first glance _(from `2026-09-09-content-slot-pattern`)_
-- `remember(windowStart) { (0 until 7).map { windowStart.plus(it, DateTimeUnit.DAY) } }` inside a `@Composable` loses type context inside the `remember` lambda. Use explicit `listOf(d1, d2, ...)` with individual `plus` calls instead — this is a Kotlin type-inference edge case in chained lambdas. _(from `2026-09-16-tasks-upcoming-screen`)_
 - When adding a new third-party Compose dependency, verify its JetBrains compose `requires:` constraint in the Gradle module metadata (`.module` file in cache) before adding — if it demands a version newer than the current pin, either bump or find an alternative. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 
-### `datetime`
-
-- `LocalDate.plus(n, DateTimeUnit.DAY)` and `LocalDate.minus(n, DateTimeUnit.DAY)` require **explicit named imports** `import kotlinx.datetime.plus` and `import kotlinx.datetime.minus`. The operator形式 (`date + n * unit`) is not available without these imports — Kotlin does not resolve them via the type's `plus`/`minus` members alone. Always use the explicit imports when doing datetime arithmetic. _(from `2026-09-16-tasks-upcoming-screen`)_
+### `coroutines`
 
 - `./gradlew :mcp-server:test` now includes a regression test (`McpServerEndToEndTest.server_blocks_until_stdin_closes`) that asserts `process.isAlive` after 3s of empty stdin. If anyone removes the blocking primitive, this test fails. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - `koinBridge` is for one-shot startup reads only — **not for** hot-path code, **not for** long-running operations. _(from `2026-09-05-koin-suspend-bridge`)_
@@ -1702,18 +1699,28 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR. _(from `2026-09-08-instant-migration`)_
 - `ContentStateMapper` — добавлен object с двумя методами _(from `2026-09-05-refactoring-summary`)_
 - `deadlineDate` badge is rendered as a red flag + date for tasks due on the selected date. _(from `2026-09-16-tasks-upcoming-screen`)_
+- `deadlineDate` badge rendering in month grid. _(from `2026-09-16-calendar-feature`)_
+- Deadline indicator rendering in `UpcomingBadges`. _(from `2026-09-16-tasks-upcoming-screen`)_
 - Dead Nav2 code removed from Android _(from `2026-09-11-nav3-kmp-migration`)_
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно. _(from `2026-09-15-projects-clean-architecture`)_
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed. _(from `2026-09-08-instant-migration`)_
 - Developers should prefer `kotlinx.datetime.Instant` in new code. _(from `2026-09-08-instant-migration`)_
 - DI-граф упрощён: 5 factory → 1 _(from `2026-09-05-refactoring-summary`)_
+- Expand-day-list (tap day in month view to show all tasks). _(from `2026-09-16-calendar-feature`)_
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes) _(from `2026-09-07-task-detail-archive-overflow`)_
+- Full filter panel with Project / Tags / Priority / Status. _(from `2026-09-16-calendar-feature`)_
+- Horizontal swipe between dates. _(from `2026-09-16-calendar-feature`)_
 - Internal links survive HTML round-trip (stored as `note://` / `task://` href) _(from `2026-09-07-notes-internal-links-backlinks`)_
 - `io.github.nickid:roborazzi:1.25.0` added to `libs.versions.toml`. _(from `2026-09-08-roborazzi-snapshot-tests`)_
+- `isRecurring` is always `false` in `CalendarTaskUi` — requires per-task _(from `2026-09-16-calendar-feature`)_
 - `just` must be installed (`just 1.57.0` is present in this environment). _(from `2026-09-06-modular-justfile`)_
 - **`koinInject()` в Screen** требует Koin контекст — widget тесты обходят это через Robolectric + `createComposeRule` без Koin _(from `2026-09-05-ui-tests-ultron`)_
 - Link tap detection requires cursor placement (no visual link highlight tap) — acceptable tradeoff given library limitation _(from `2026-09-07-notes-internal-links-backlinks`)_
+- `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`. _(from `2026-09-16-calendar-feature`)_
+- Locale-aware first day of week. _(from `2026-09-16-calendar-feature`)_
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP). _(from `2026-09-16-tasks-upcoming-screen`)_
+- Nested nav3 graph keeps task-click navigation encapsulated. _(from `2026-09-16-calendar-feature`)_
+- No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`. _(from `2026-09-16-calendar-feature`)_
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for _(from `2026-09-15-nav3-notes-navigator`)_
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph _(from `2026-09-15-nav3-notes-navigator`)_
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах _(from `2026-09-05-ui-decomposition`)_
@@ -1722,6 +1729,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Picker sheets визуально согласованы с остальными sheets (drag-handle, chrome) _(from `2026-09-07-task-detail-archive-overflow`)_
 - Pre-existing test failures (`RussianDateFormatterTest`, `TaskCreateViewModelTest`, _(from `2026-09-15-nav3-notes-navigator`)_
 - `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`. _(from `2026-09-15-projects-clean-architecture`)_
+- Pure date arithmetic fully unit-tested with no Compose or Koin dependencies. _(from `2026-09-16-calendar-feature`)_
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable _(from `2026-09-16-tasks-upcoming-screen`)_
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`). _(from `2026-09-06-modular-justfile`)_
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов _(from `2026-09-05-uiautomator-compose-discovery`)_
@@ -1730,6 +1738,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `scopeOverride` добавлен в `ProjectsViewModel` _(from `2026-09-05-ui-decomposition`)_
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed. _(from `2026-09-10-simplified-settings-vm`)_
 - Single narrow Room query (`watchByDate`) reused for the new use case. _(from `2026-09-16-tasks-upcoming-screen`)_
+- Slot-API (`CalendarContent` separate from `CalendarScreen`) enables preview without Koin. _(from `2026-09-16-calendar-feature`)_
+- `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model _(from `2026-09-16-calendar-feature`)_
+- `startAt`/`endAt`/`allDay`/`recurrence` in `Task` (Room migration). _(from `2026-09-16-calendar-feature`)_
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates _(from `2026-09-05-task-editor-refactor`)_
 - `TaskEditorReducerTest` must add test cases for new intents. _(from `2026-09-05-task-editor-refactor`)_
 - `TaskEditorViewModel` constructor signature unchanged; DI registration unchanged. _(from `2026-09-05-task-editor-refactor`)_
@@ -1742,6 +1753,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests _(from `2026-09-16-tasks-upcoming-screen`)_
 - Week navigation via swipe on `DaySwitcherRow`. _(from `2026-09-16-tasks-upcoming-screen`)_
 - Week-start locale handling is isolated and can be made configurable later. _(from `2026-09-16-tasks-upcoming-screen`)_
+- `weight` modifier requires careful structuring inside `Row { Column(weight) }`. _(from `2026-09-16-calendar-feature`)_
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear() _(from `2026-09-05-refactoring-summary`)_
 - Все ViewModel'ы с `scopeOverride` — консистентны в тестах _(from `2026-09-05-refactoring-summary`)_
 - Все импорты в 30+ файлах обновлены на новые FQN (`.domain.model`, `.domain.port`, `.domain.usecase`, `.data`, `.presentation.state`, `.presentation.viewmodel`). _(from `2026-09-15-projects-clean-architecture`)_
@@ -2013,6 +2025,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-task-editor-unification` — Task Editor State Restoration + UI Unification
 - `2026-09-15-viewmodel-state-ownership` — ViewModel owns all domain state; Composable owns only routing and animation
 - `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation
+- `2026-09-16-calendar-feature` — _(no title)
 - `2026-09-16-nav3-desktop-in-memory-no-savedstate` — Nav3 Desktop uses in-memory NavBackStack; SavedStateConfiguration is Android-only
 - `2026-09-16-nav3-feature-graph-extensions` — NotesNavGraph start parameter, TasksStartRoute.Detail, AppDestination additions
 - `2026-09-16-nav3-post-migration-fixes` — Nav3 post-migration fixes — NotesNavGraph start, preview wrappers, FAB cleanup

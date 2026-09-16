@@ -59,6 +59,7 @@ private fun TaskFilter.label(): String = when (this) {
     is TaskFilter.ByProject -> "Project"
     is TaskFilter.ByTag -> "Tag"
     is TaskFilter.Search -> "Search"
+    is TaskFilter.ByDateRange -> "Date Range"
 }
 
 // ===== Preview =====

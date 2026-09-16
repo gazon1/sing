@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation3.runtime.NavKey
+import com.singularity.todo.core.platform.todayInSystemZone
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 
@@ -80,6 +81,11 @@ sealed interface AppDestination : NavKey {
     @Serializable
     data object Statistics : AppDestination {
         override val title = "Statistics"
+    }
+
+    @Serializable
+    data object Calendar : AppDestination {
+        override val title = "Calendar"
     }
 
     /** Menu destinations opened from `MenuBottomSheet`. */
@@ -219,6 +225,27 @@ sealed interface AppDestination : NavKey {
     ) : AppDestination {
         override val title = "Notes"
     }
+
+    /**
+     * Start route for the Calendar nested graph. Used as `start` param in [CalendarGraph].
+     */
+    @Serializable
+    sealed interface CalendarStartRoute : NavKey {
+        @Serializable data class Month(val anchor: String) : CalendarStartRoute
+    }
+
+    /**
+     * Nested Calendar graph. Contains its own NavBackStack[CalendarRoute].
+     * Used for deep-links and direct navigation.
+     */
+    @Serializable
+    data class CalendarGraph(
+        val start: CalendarStartRoute = CalendarStartRoute.Month(
+            todayInSystemZone().toString(),
+        ),
+    ) : AppDestination {
+        override val title = "Calendar"
+    }
 }
 
 /** UI metadata for [AppDestination]. Kept separate so the route stays pure-data. */
@@ -229,7 +256,8 @@ val AppDestination.icon: ImageVector
         AppDestination.Upcoming -> Icons.Filled.DateRange
         AppDestination.Plans -> Icons.Filled.Check
         AppDestination.Pomodoro -> Icons.Filled.Repeat
-        AppDestination.Statistics -> Icons.Filled.CalendarMonth
+        AppDestination.Statistics -> Icons.Filled.BarChart
+        AppDestination.Calendar -> Icons.Filled.CalendarMonth
         AppDestination.Notes -> Icons.Filled.Create
         AppDestination.AiChat -> Icons.Filled.AutoAwesome
         AppDestination.Search -> Icons.Filled.Search
@@ -248,6 +276,8 @@ val AppDestination.icon: ImageVector
         is AppDestination.NotesGraph -> Icons.Filled.Create
         is AppDestination.NotesStartRoute -> Icons.Filled.Create
         is AppDestination.TasksStartRoute.Upcoming -> Icons.Filled.DateRange
+        is AppDestination.CalendarGraph -> Icons.Filled.CalendarMonth
+        is AppDestination.CalendarStartRoute -> Icons.Filled.CalendarMonth
     }
 
 /** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */
@@ -277,6 +307,7 @@ object DestinationKind {
         AppDestination.Upcoming,
         AppDestination.Plans,
         AppDestination.Pomodoro,
+        AppDestination.Calendar,
     )
 
     /** Menu destinations in display order. */

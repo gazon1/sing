@@ -55,6 +55,8 @@ actual fun rememberNav3State(): Nav3State {
             AppDestination.ProjectDetail.serializer(),
             AppDestination.ProjectsGraph.serializer(),
             AppDestination.NotesGraph.serializer(),
+            AppDestination.Calendar.serializer(),
+            AppDestination.CalendarGraph.serializer(),
         )
     }
 

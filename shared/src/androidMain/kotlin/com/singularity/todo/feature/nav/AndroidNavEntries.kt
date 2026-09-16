@@ -22,6 +22,12 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.nav.TasksNavGraph
 import com.singularity.todo.feature.tasks.presentation.nav.TasksRoute
 import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.feature.calendar.presentation.nav.CalendarNavGraph
+import com.singularity.todo.feature.calendar.presentation.nav.CalendarRoute
+import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 import kotlinx.datetime.LocalDate
 import org.koin.compose.koinInject
 
@@ -91,6 +97,20 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
 
         entry<AppDestination.Statistics> {
             StatisticsScreen()
+        }
+
+        entry<AppDestination.Calendar> {
+            CalendarNavGraph(
+                start = CalendarRoute.Month(
+                    todayInSystemZone().toString(),
+                ),
+                onExitGraph = { dest ->
+                    when (dest) {
+                        is AppDestination.TasksGraph -> nav.navigate(dest)
+                        else -> nav.goBack()
+                    }
+                },
+            )
         }
 
         // ─── Menu destinations ─────────────────────────────────────────────
@@ -191,6 +211,19 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
                 start = route.start.toNotesRoute(),
             )
         }
+
+        // CalendarGraph entry
+        entry<AppDestination.CalendarGraph> { route ->
+            CalendarNavGraph(
+                start = route.start.toCalendarRoute(),
+                onExitGraph = { dest ->
+                    when (dest) {
+                        is AppDestination.TasksGraph -> nav.navigate(dest)
+                        else -> nav.goBack()
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -226,4 +259,9 @@ private fun AppDestination.NotesStartRoute.toNotesRoute(): NotesRoute = when (th
     is AppDestination.NotesStartRoute.Preview -> NotesRoute.Preview(
         NoteId.fromString(noteId),
     )
+}
+
+/** Converts [AppDestination.CalendarStartRoute] to the inner [CalendarRoute]. */
+private fun AppDestination.CalendarStartRoute.toCalendarRoute(): CalendarRoute = when (this) {
+    is AppDestination.CalendarStartRoute.Month -> CalendarRoute.Month(anchor)
 }

@@ -114,6 +114,8 @@ object TaskDomain {
             is TaskFilter.ByTag -> task.tags.contains(filter.id) && !task.isTrashed
             is TaskFilter.Search -> task.title.contains(filter.query, ignoreCase = true) ||
                     task.description?.contains(filter.query, ignoreCase = true) == true
+            is TaskFilter.ByDateRange -> task.dueDate != null &&
+                    task.dueDate >= filter.from && task.dueDate <= filter.to && !task.isTrashed
         }
     }
 

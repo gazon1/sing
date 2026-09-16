@@ -34,6 +34,8 @@ sealed interface TaskFilter {
     data class ByProject(val id: ProjectId) : TaskFilter
     data class ByTag(val id: TagId) : TaskFilter
     data class Search(val query: String) : TaskFilter
+    /** Calendar screen: all tasks with dueDate within [from]..[to] (inclusive). */
+    data class ByDateRange(val from: kotlinx.datetime.LocalDate, val to: kotlinx.datetime.LocalDate) : TaskFilter
 }
 
 data class Task(

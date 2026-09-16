@@ -52,6 +52,7 @@ class TaskRepositoryImpl(
             is TaskFilter.Pinned -> taskDao.watchPinned(userId.value).map { it.map { e -> e.toTask() } }
             is TaskFilter.ByTag -> flowOf(emptyList())
             is TaskFilter.Search -> taskDao.search(filter.query).map { it.map { e -> e.toTask() } }
+            is TaskFilter.ByDateRange -> flowOf(emptyList()) // CalendarViewModel handles this via flatMapLatest
         }
     }
 
