@@ -2,6 +2,8 @@ package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentEntity
+import com.singularity.todo.core.database.AgendaViewDao
+import com.singularity.todo.core.database.AgendaViewEntity
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.ChecklistItemEntity
@@ -51,6 +53,7 @@ class FakeAppDatabase : AppDatabase() {
     private val _checklist = MutableStateFlow<Map<String, ChecklistItemEntity>>(emptyMap())
     private val _llmUsage = MutableStateFlow<Map<String, LlmUsageEntity>>(emptyMap())
     private val _profiles = MutableStateFlow<Map<String, ProfileEntity>>(emptyMap())
+    private val _agendaViews = MutableStateFlow<Map<String, AgendaViewEntity>>(emptyMap())
 
     override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
@@ -62,6 +65,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun checklistDao(): ChecklistDao = FakeChecklistDao(_checklist)
     override fun llmUsageDao(): LlmUsageDao = FakeLlmUsageDao(_llmUsage)
     override fun profileDao(): ProfileDao = FakeProfileDao(_profiles)
+    override fun agendaViewDao(): AgendaViewDao = FakeAgendaViewDao(_agendaViews)
 
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
@@ -75,6 +79,7 @@ class FakeAppDatabase : AppDatabase() {
         _checklist.value = emptyMap()
         _llmUsage.value = emptyMap()
         _profiles.value = emptyMap()
+        _agendaViews.value = emptyMap()
     }
 
     // ─── Seed helpers ────────────────────────────────────────────────────────
@@ -109,6 +114,9 @@ class FakeAppDatabase : AppDatabase() {
     }
     fun seedProfiles(items: List<ProfileEntity>) {
         _profiles.value = items.associateBy { it.id }
+    }
+    fun seedAgendaViews(items: List<AgendaViewEntity>) {
+        _agendaViews.value = items.associateBy { it.id }
     }
 }
 
@@ -165,6 +173,40 @@ private class FakeTaskDao(
             val taskIds = refs.filter { it.tagId == tagId }.map { it.taskId }.toSet()
             tasks.values.filter { t ->
                 t.userId == userId && t.archivedAt == null && t.id in taskIds
+            }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+        }
+
+    override fun watchByAnyTag(userId: String, tagIds: List<String>): Flow<List<TaskEntity>> =
+        kotlinx.coroutines.flow.combine(store, crossRefs) { tasks, refs ->
+            val taskIds = refs.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
+            tasks.values.filter { t ->
+                t.userId == userId && t.archivedAt == null && t.id in taskIds
+            }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+        }
+
+    override fun watchByAllTags(userId: String, tagIds: List<String>, size: Int): Flow<List<TaskEntity>> =
+        kotlinx.coroutines.flow.combine(store, crossRefs) { tasks, refs ->
+            val matchingTaskIds = refs.filter { it.tagId in tagIds }
+                .groupBy { it.taskId }
+                .filterValues { group -> group.map { it.tagId }.toSet() == tagIds.toSet() }
+                .keys
+            tasks.values.filter { t ->
+                t.userId == userId && t.archivedAt == null && t.id in matchingTaskIds
+            }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+        }
+
+    override fun watchByPriorities(userId: String, priorities: List<String>): Flow<List<TaskEntity>> =
+        store.map { tasks ->
+            tasks.values.filter { t ->
+                t.userId == userId && t.archivedAt == null && t.priority.name in priorities
+            }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+        }
+
+    override fun watchByRegexp(userId: String, pattern: String): Flow<List<TaskEntity>> =
+        store.map { tasks ->
+            tasks.values.filter { t ->
+                t.userId == userId && t.archivedAt == null &&
+                    t.title.contains(pattern, ignoreCase = true)
             }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
         }
 
@@ -623,4 +665,27 @@ private class FakeProfileDao(private val store: MutableStateFlow<Map<String, Pro
     }
 
     override suspend fun count(): Int = store.value.size
+}
+
+// ─── AgendaViewDao ────────────────────────────────────────────────────────────
+
+private class FakeAgendaViewDao(private val store: MutableStateFlow<Map<String, AgendaViewEntity>>) : AgendaViewDao {
+
+    override fun watchAll(userId: String): Flow<List<AgendaViewEntity>> = store.map {
+        it.values.filter { v -> v.userId == userId }.sortedBy { v -> v.name }
+    }
+
+    override fun watchById(userId: String, id: String): Flow<AgendaViewEntity?> = store.map {
+        it.values.find { v -> v.userId == userId && v.id == id }
+    }
+
+    override suspend fun upsert(entity: AgendaViewEntity) {
+        store.update { it + (entity.id to entity) }
+    }
+
+    override suspend fun delete(userId: String, id: String) {
+        store.update { current ->
+            current.filterValues { v -> !(v.userId == userId && v.id == id) }
+        }
+    }
 }

@@ -1,12 +1,20 @@
 package com.singularity.todo.feature.agenda
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.feature.agenda.data.RoomSavedAgendaViewsRepository
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
+import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaDeps
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaViewModel
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditDeps
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditViewModel
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListDeps
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListViewModel
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
@@ -23,6 +31,12 @@ import org.koin.dsl.module
  * ```
  */
 fun agendaModule(): Module = module {
+    // ─── Repository ─────────────────────────────────────────────────────
+
+    single<SavedAgendaViewsRepository> { RoomSavedAgendaViewsRepository(get()) }
+
+    // ─── AgendaViewModel (existing, definition is a runtime param) ───────
+
     viewModel { (definition: AgendaDefinition) ->
         AgendaViewModel(
             deps = AgendaDeps(
@@ -31,6 +45,23 @@ fun agendaModule(): Module = module {
                 logger = Logger.withTag("Agenda"),
             ),
             definition = definition,
+        )
+    }
+
+    // ─── SavedAgendaListViewModel (no runtime params) ────────────────────
+
+    viewModelOf(::SavedAgendaListViewModel)
+
+    // ─── SavedAgendaEditViewModel (runtime param: viewId) ───────────────
+
+    viewModel { (viewId: SavedAgendaViewId) ->
+        SavedAgendaEditViewModel(
+            deps = SavedAgendaEditDeps(
+                repo = get(),
+                currentUser = get(),
+                clock = Clock,
+            ),
+            viewId = viewId,
         )
     }
 }

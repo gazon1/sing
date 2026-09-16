@@ -46,6 +46,44 @@ interface TaskDao {
     )
     fun watchByTag(userId: String, tagId: String): Flow<List<TaskEntity>>
 
+    /**
+     * Returns tasks tagged with **any** of the given [tagIds].
+     * Uses Room's `IN (:list)` binding — pass `List<String>`, not `Set`.
+     */
+    @Query(
+        "SELECT DISTINCT t.* FROM tasks t INNER JOIN task_tags tt ON t.id = tt.task_id WHERE t.user_id = :userId AND t.archived_at IS NULL AND tt.tag_id IN (:tagIds) ORDER BY t.due_date ASC, t.is_pinned DESC",
+    )
+    fun watchByAnyTag(userId: String, tagIds: List<String>): Flow<List<TaskEntity>>
+
+    /**
+     * Returns tasks tagged with **all** of the given [tagIds].
+     * Groups by task id and requires exactly [size] distinct tag matches (one row per tag per task via the INNER JOIN).
+     * Uses Room's `IN (:list)` binding — pass `List<String>`, not `Set`.
+     */
+    @Query(
+        "SELECT t.* FROM tasks t INNER JOIN task_tags tt ON t.id = tt.task_id WHERE t.user_id = :userId AND t.archived_at IS NULL AND tt.tag_id IN (:tagIds) GROUP BY t.id HAVING COUNT(DISTINCT tt.tag_id) = :size ORDER BY t.due_date ASC, t.is_pinned DESC",
+    )
+    fun watchByAllTags(userId: String, tagIds: List<String>, size: Int): Flow<List<TaskEntity>>
+
+    /**
+     * Returns tasks whose priority is in the given [priorities] set.
+     * Uses Room's `IN (:list)` binding — pass `List<String>`, not `Set`.
+     */
+    @Query(
+        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND priority IN (:priorities) ORDER BY due_date ASC, is_pinned DESC",
+    )
+    fun watchByPriorities(userId: String, priorities: List<String>): Flow<List<TaskEntity>>
+
+    /**
+     * Returns tasks whose title contains [pattern] (case-insensitive substring match).
+     * Uses SQLite `LIKE` with `'%' || :pattern || '%'` — no regular expression needed.
+     * [pattern] is passed as a raw string and bound via Room's parameter binding.
+     */
+    @Query(
+        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND lower(title) LIKE lower('%' || :pattern || '%') ORDER BY due_date ASC, is_pinned DESC",
+    )
+    fun watchByRegexp(userId: String, pattern: String): Flow<List<TaskEntity>>
+
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND is_pinned = 1 ORDER BY is_pinned DESC, due_date ASC",
     )

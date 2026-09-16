@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.model
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import kotlinx.serialization.Serializable
@@ -45,6 +46,46 @@ sealed interface TaskFilter {
 
     /** Filters by completion status set (Active / Completed / or both = All). */
     data class ByStatuses(val statuses: Set<TaskStatus>) : TaskFilter
+
+    /**
+     * Filters tasks that are tagged with any/all of the given [TagId]s.
+     *
+     * - [matchAll] = false (default): task must have **at least one** tag from [ids]
+     * - [matchAll] = true: task must have **all** tags from [ids]
+     *
+     * The SQL dispatch in [com.singularity.todo.feature.tasks.data.TaskRepositoryImpl]
+     * uses `watchByAnyTag` / `watchByAllTags` respectively.
+     *
+     * @param matchAll When true, tasks must be tagged with every [TagId] in [ids].
+     *                 When false (default), tasks tagged with any one of [ids] are included.
+     */
+    data class ByTags(val ids: Set<TagId>, val matchAll: Boolean = false) : TaskFilter
+
+    /**
+     * Filters tasks by priority set.
+     * A task matches if its priority is **contained in** [priorities].
+     */
+    data class ByPriorities(val priorities: Set<TaskPriority>) : TaskFilter
+
+    /**
+     * Filters tasks by title substring match (case-insensitive).
+     * Uses SQL `lower(title) LIKE lower('%' || :query || '%')` — no regular expression.
+     *
+     * Equivalent in-memory predicate for [Selector.Regexp] uses `Regex`.
+     * The SQL variant avoids loading all tasks into memory for pre-filtering.
+     */
+    data class ByRegexp(val pattern: String) : TaskFilter
+
+    /**
+     * Filters tasks by a relative date bucket evaluated against [today].
+     *
+     * The [today] parameter is required because SQL query dispatch is asynchronous —
+     * the bucket must be resolved to a concrete date range at dispatch time.
+     *
+     * @param bucket The relative bucket (Today, ThisWeek, Overdue, etc.).
+     * @param today The reference "today" used to resolve relative ranges.
+     */
+    data class ByDateBucket(val bucket: RelativeBucket, val today: kotlinx.datetime.LocalDate) : TaskFilter
 }
 
 data class Task(

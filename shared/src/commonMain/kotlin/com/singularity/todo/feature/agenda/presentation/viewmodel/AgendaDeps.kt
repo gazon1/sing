@@ -7,10 +7,14 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 /**
  * Dependencies injected into [AgendaViewModel].
  *
- * Mirrors the [com.singularity.todo.feature.calendar.presentation.viewmodel.CalendarDeps] pattern.
- *
  * @param taskRepo Watches tasks for the current user.
  * @param currentUser Provides reactive user ID scoped to the current profile.
+ * @param clock The time source for [kotlin.time.Clock.System.now]. Defaults to [kotlin.time.Clock.System].
  * @param logger For structured logging.
  */
-data class AgendaDeps(val taskRepo: TaskRepository, val currentUser: ProfileAwareCurrentUser, val logger: Logger)
+data class AgendaDeps(
+    val taskRepo: TaskRepository,
+    val currentUser: ProfileAwareCurrentUser,
+    val clock: kotlin.time.Clock = kotlin.time.Clock.System,
+    val logger: Logger,
+)

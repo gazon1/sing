@@ -15,6 +15,8 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.agenda.domain.logic.toDateRange
+import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -69,6 +71,35 @@ class TaskRepositoryImpl(private val taskDao: TaskDao, private val clock: Clock)
             ).map { it.map { e -> e.toTask() } }
 
             is TaskFilter.ByStatuses -> flowOf(emptyList()) // implemented in AgendaEngine; here as stub
+
+
+            is TaskFilter.ByTags -> {
+                val tagIds = filter.ids.map { it.value }
+                if (filter.matchAll) {
+                    taskDao.watchByAllTags(userId.value, tagIds, tagIds.size)
+                        .map { list -> list.map { e -> e.toTask() } }
+                } else {
+                    taskDao.watchByAnyTag(userId.value, tagIds)
+                        .map { list -> list.map { e -> e.toTask() } }
+                }
+            }
+
+            is TaskFilter.ByPriorities -> taskDao.watchByPriorities(
+                userId.value,
+                filter.priorities.map { it.name },
+            ).map { list -> list.map { e -> e.toTask() } }
+
+            is TaskFilter.ByRegexp -> taskDao.watchByRegexp(userId.value, filter.pattern)
+                .map { list -> list.map { e -> e.toTask() } }
+
+            is TaskFilter.ByDateBucket -> {
+                val range = filter.bucket.toDateRange(filter.today)
+                taskDao.watchByDateRange(
+                    userId.value,
+                    range.from.toString(),
+                    range.to.toString(),
+                ).map { list -> list.map { e -> e.toTask() } }
+            }
         }
     }
 

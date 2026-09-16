@@ -12,6 +12,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import com.singularity.todo.feature.agenda.domain.logic.toDateRange
+import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import kotlin.time.Instant
 
 /**
@@ -137,6 +139,44 @@ object TaskDomain {
                 TaskStatus.Active in filter.statuses && !task.isCompleted -> true
                 TaskStatus.Completed in filter.statuses && task.isCompleted -> true
                 else -> false
+            }
+        }
+
+        is TaskFilter.ByTags -> {
+            if (filter.ids.isEmpty()) {
+                // Empty tag set: matchAll=false → nothing matches; matchAll=true → trivially true
+                filter.matchAll && true
+            } else if (filter.matchAll) {
+                filter.ids.all { id -> task.tags.contains(id) }
+            } else {
+                filter.ids.any { id -> task.tags.contains(id) }
+            } && !task.isTrashed
+        }
+
+        is TaskFilter.ByPriorities -> {
+            filter.priorities.contains(task.priority) && !task.isTrashed
+        }
+
+        is TaskFilter.ByRegexp -> {
+            val pattern = filter.pattern
+            if (pattern.isEmpty()) {
+                true && !task.isTrashed
+            } else {
+                task.title.contains(pattern, ignoreCase = true) && !task.isTrashed
+            }
+        }
+
+        is TaskFilter.ByDateBucket -> {
+            val range = filter.bucket.toDateRange(filter.today)
+            when (filter.bucket) {
+                RelativeBucket.Overdue ->
+                    task.dueDate != null && task.dueDate < filter.today && !task.isCompleted && !task.isTrashed
+
+                RelativeBucket.NoDate ->
+                    task.dueDate == null && !task.isTrashed
+
+                else ->
+                    task.dueDate != null && task.dueDate >= range.from && task.dueDate <= range.to && !task.isTrashed
             }
         }
     }

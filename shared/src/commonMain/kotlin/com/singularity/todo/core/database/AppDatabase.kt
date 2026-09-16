@@ -27,8 +27,9 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         ChecklistItemEntity::class,
         LlmUsageEntity::class,
         ProfileEntity::class,
+        AgendaViewEntity::class,
     ],
-    version = 11,
+    version = 12,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -36,6 +37,7 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         AutoMigration(from = 8, to = 9, spec = Migration8To9::class),
         AutoMigration(from = 9, to = 10, spec = Migration9To10::class),
         AutoMigration(from = 10, to = 11, spec = Migration10To11::class),
+        AutoMigration(from = 11, to = 12, spec = Migration11To12::class),
     ],
     exportSchema = true,
 )
@@ -51,4 +53,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun checklistDao(): ChecklistDao
     abstract fun llmUsageDao(): LlmUsageDao
     abstract fun profileDao(): ProfileDao
+    abstract fun agendaViewDao(): AgendaViewDao
 }

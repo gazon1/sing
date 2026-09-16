@@ -644,8 +644,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `domain-model`
 
+- `AgendaEvaluator.matches` обновлён для `Selector.Tags` (список tags → `task.tags.any { it in ids }`) _(from `2026-09-16-task-filter-set-variants`)_
+- **Breaking**: MCP tool producer-side обновляется _(from `2026-09-16-task-filter-set-variants`)_
+- **Breaking**: `Selector.Tag` rename — `AgendaPresetsTest` JSON snapshots обновляются _(from `2026-09-16-task-filter-set-variants`)_
+- `FakeTaskDao` и `FakeTaskRepository` mirror для всех 4 новых queries _(from `2026-09-16-task-filter-set-variants`)_
 - `@Serializable` на `TaskStatus` — нужен для kotlinx.serialization AgendaDefinition (saved views в будущем). _(from `2026-09-16-task-list-filter-to-task-status`)_
 - `TaskListFilter` удалён — поиск по коду вернёт 0 результатов (если кто-то добавил вручную после этого коммита — это регресс). _(from `2026-09-16-task-list-filter-to-task-status`)_
+- `TaskRepositoryImpl.watchTasks` получает 4 новые dispatch branches _(from `2026-09-16-task-filter-set-variants`)_
 - `TaskStatus` в domain/model доступен для AgendaEngine DSL без добавления cross-layer импорта. _(from `2026-09-16-task-list-filter-to-task-status`)_
 
 ### `drafts`
@@ -1063,6 +1068,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `onSecondaryClick` is a no-op on Android; touch long-press is handled separately by the caller. _(from `2026-09-15-desktop-menus`)_
 - `openGitHub()` uses `java.awt.Desktop.browse(URI(...))`; `exitProcess(0)` for quit. _(from `2026-09-15-desktop-menus`)_
 - Right-click context menu works again on task rows in the agenda. _(from `2026-09-16-desktop-menus-bugfixes`)_
+
+### `mr2a`
+
+- `AgendaEvaluator.matches` обновлён для `Selector.Tags` (список tags → `task.tags.any { it in ids }`) _(from `2026-09-16-task-filter-set-variants`)_
+- **Breaking**: MCP tool producer-side обновляется _(from `2026-09-16-task-filter-set-variants`)_
+- **Breaking**: `Selector.Tag` rename — `AgendaPresetsTest` JSON snapshots обновляются _(from `2026-09-16-task-filter-set-variants`)_
+- `FakeTaskDao` и `FakeTaskRepository` mirror для всех 4 новых queries _(from `2026-09-16-task-filter-set-variants`)_
+- `TaskRepositoryImpl.watchTasks` получает 4 новые dispatch branches _(from `2026-09-16-task-filter-set-variants`)_
 
 ### `multi-profile`
 
@@ -1498,6 +1511,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Adding a new secret (e.g. another provider's API key) **always** follows the same pattern: new `KEY_*` constant, new config object, migration on first DataStore access, no DataStore copy. _(from `2026-09-05-secret-storage-split`)_
 - `AiApiKeyMigration` is wired through `koinBridge { ... }` inside the DataStore factory's `.also { ds -> ... }` block. See `koin-suspend-bridge` decision. _(from `2026-09-05-secret-storage-split`)_
 
+### `selector`
+
+- `AgendaEvaluator.matches` обновлён для `Selector.Tags` (список tags → `task.tags.any { it in ids }`) _(from `2026-09-16-task-filter-set-variants`)_
+- **Breaking**: MCP tool producer-side обновляется _(from `2026-09-16-task-filter-set-variants`)_
+- **Breaking**: `Selector.Tag` rename — `AgendaPresetsTest` JSON snapshots обновляются _(from `2026-09-16-task-filter-set-variants`)_
+- `FakeTaskDao` и `FakeTaskRepository` mirror для всех 4 новых queries _(from `2026-09-16-task-filter-set-variants`)_
+- `TaskRepositoryImpl.watchTasks` получает 4 новые dispatch branches _(from `2026-09-16-task-filter-set-variants`)_
+
 ### `serialization`
 
 - The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
@@ -1535,6 +1556,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill. _(from `2026-09-08-roboazzi-snapshot-tests`)_
 - Baseline images stored in `shared/src/commonTest/resources/roborazzi/`. _(from `2026-09-08-roboazzi-snapshot-tests`)_
 - Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional. _(from `2026-09-08-roboazzi-snapshot-tests`)_
+
+### `sql`
+
+- `AgendaEvaluator.matches` обновлён для `Selector.Tags` (список tags → `task.tags.any { it in ids }`) _(from `2026-09-16-task-filter-set-variants`)_
+- **Breaking**: MCP tool producer-side обновляется _(from `2026-09-16-task-filter-set-variants`)_
+- **Breaking**: `Selector.Tag` rename — `AgendaPresetsTest` JSON snapshots обновляются _(from `2026-09-16-task-filter-set-variants`)_
+- `FakeTaskDao` и `FakeTaskRepository` mirror для всех 4 новых queries _(from `2026-09-16-task-filter-set-variants`)_
+- `TaskRepositoryImpl.watchTasks` получает 4 новые dispatch branches _(from `2026-09-16-task-filter-set-variants`)_
 
 ### `state-restoration`
 
@@ -1574,7 +1603,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `tasks`
 
 - `ActiveSheet.kt`: 35 → ~15 lines (`toActiveSheet()` removed). _(from `2026-09-09-task-detail-intent-refactor`)_
+- `AgendaEvaluator.matches` обновлён для `Selector.Tags` (список tags → `task.tags.any { it in ids }`) _(from `2026-09-16-task-filter-set-variants`)_
 - `AppDestination.TaskDetail` and `TaskDetailCreate` remain `@Deprecated` — they can be deleted in a follow-up cleanup commit. _(from `2026-09-16-nav3-feature-graph-extensions`)_
+- **Breaking**: MCP tool producer-side обновляется _(from `2026-09-16-task-filter-set-variants`)_
+- **Breaking**: `Selector.Tag` rename — `AgendaPresetsTest` JSON snapshots обновляются _(from `2026-09-16-task-filter-set-variants`)_
+- `FakeTaskDao` и `FakeTaskRepository` mirror для всех 4 новых queries _(from `2026-09-16-task-filter-set-variants`)_
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
 - **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
 - New file `TaskDetailIntent.kt` (~120 lines). _(from `2026-09-09-task-detail-intent-refactor`)_
@@ -1600,6 +1633,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskDetailViewModel.kt`: 450 → ~270 lines, 37 public methods → 3 (`start`, `onTitleChange`, `onIntent`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailViewModelTest`: updated 5 tests to call `vm.onIntent(Domain.X)` instead of `vm.setX(task, value)`. _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskListFilter` удалён — поиск по коду вернёт 0 результатов (если кто-то добавил вручную после этого коммита — это регресс). _(from `2026-09-16-task-list-filter-to-task-status`)_
+- `TaskRepositoryImpl.watchTasks` получает 4 новые dispatch branches _(from `2026-09-16-task-filter-set-variants`)_
 
 ### `"tasks"`
 
@@ -1792,6 +1826,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **~14 изменённых файлов**: Screen.kt + testTag, VM constructors, DI module _(from `2026-09-05-ui-tests-ultron`)_
 - **~25 новых файлов**: 4 порта, 7 Page Objects, test infrastructure, integration tests _(from `2026-09-05-ui-tests-ultron`)_
 - 8 экранов мигрированы: Tasks, Notes, TaskDetail, TaskEditor, Projects, ProjectEditor, Chat, Archive _(from `2026-09-05-ui-decomposition`)_
+- Agenda always shows correct bucket labels across midnight. _(from `2026-09-16-reactive-today-flow`)_
+- `AgendaViewModel` binding is unchanged — does not consume saved views. _(from `2026-09-16-saved-agenda-views`)_
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches. _(from `2026-09-06-modular-justfile`)_
 - `AiSettingsContributor` remains as the sole `SettingsContributor` implementation — used only for AI test/fetch ephemeral state. _(from `2026-09-10-simplified-settings-vm`)_
 - All notes screens now navigationally self-contained _(from `2026-09-15-nav3-notes-navigator`)_
@@ -1804,9 +1840,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Backlinks queryable via SQL without HTML parsing _(from `2026-09-07-notes-internal-links-backlinks`)_
 - Both Android and Desktop now use the same Nav3 architecture (multi-back-stack, `Navigator`, `NavDisplay`) _(from `2026-09-11-nav3-kmp-migration`)_
 - Bulk-операции fail-fast при отсутствующих ID _(from `2026-09-05-refactoring-summary`)_
+- `ByDateBucket` requires `today` in SQL query dispatch — the filter is not purely _(from `2026-09-16-reactive-today-flow`)_
 - `CalendarDeps` matches the `AgendaDeps` pattern (project convention) _(from `2026-09-16-calendar-post-merge-fixes`)_
+- Cannot filter by `name` in SQL without parsing JSON — acceptable; user-facing _(from `2026-09-16-saved-agenda-views`)_
 - CI may later call `just tests::check` instead of `./check.sh` — the behavior is identical. _(from `2026-09-06-modular-justfile`)_
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска _(from `2026-09-05-ui-tests-ultron`)_
+- `Clock` injectable for deterministic tests via `runTest { advanceTimeBy(...) }`. _(from `2026-09-16-reactive-today-flow`)_
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR. _(from `2026-09-08-instant-migration`)_
 - `ContentStateMapper` — добавлен object с двумя методами _(from `2026-09-05-refactoring-summary`)_
 - Dead dependency removed from `CalendarDeps` — DI graph is now consistent _(from `2026-09-16-calendar-post-merge-fixes`)_
@@ -1814,14 +1853,18 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `deadlineDate` badge rendering in month grid. _(from `2026-09-16-calendar-feature`)_
 - Deadline indicator rendering in `UpcomingBadges`. _(from `2026-09-16-tasks-upcoming-screen`)_
 - Dead Nav2 code removed from Android _(from `2026-09-11-nav3-kmp-migration`)_
+- `delay(until-midnight)` means the flow never completes — collectors must be scoped _(from `2026-09-16-reactive-today-flow`)_
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно. _(from `2026-09-15-projects-clean-architecture`)_
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed. _(from `2026-09-08-instant-migration`)_
 - Developers should prefer `kotlinx.datetime.Instant` in new code. _(from `2026-09-08-instant-migration`)_
 - DI-граф упрощён: 5 factory → 1 _(from `2026-09-05-refactoring-summary`)_
+- Domain/repo/data layers are fully isolated. _(from `2026-09-16-saved-agenda-views`)_
 - `endTime` / `accentColor` — blocked on Room migration for `startAt`/`endAt`/`accentColor` fields in `Task` _(from `2026-09-16-calendar-post-merge-fixes`)_
+- Existing `AgendaDeps` binding must add `clock: Clock` parameter (no breaking change _(from `2026-09-16-reactive-today-flow`)_
 - Expand-day-list (tap day in month view to show all tasks). _(from `2026-09-16-calendar-feature`)_
 - `expect object Clock` rename to `PlatformClock` — deferred until a broader cleanup window _(from `2026-09-16-calendar-post-merge-fixes`)_
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes) _(from `2026-09-07-task-detail-archive-overflow`)_
+- `flatMapLatest` re-evaluates all tasks on every date change (necessary trade-off; _(from `2026-09-16-reactive-today-flow`)_
 - Full filter panel with Project / Tags / Priority / Status. _(from `2026-09-16-calendar-feature`)_
 - Future developers understand which fields are stubbed vs. populated _(from `2026-09-16-calendar-post-merge-fixes`)_
 - Horizontal swipe between dates. _(from `2026-09-16-calendar-feature`)_
@@ -1853,8 +1896,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill) _(from `2026-09-07-notes-internal-links-backlinks`)_
 - `scopeOverride` добавлен в `ProjectsViewModel` _(from `2026-09-05-ui-decomposition`)_
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed. _(from `2026-09-10-simplified-settings-vm`)_
+- Simple schema, no migration complexity beyond bumping SCHEMA_VERSION. _(from `2026-09-16-saved-agenda-views`)_
 - Single narrow Room query (`watchByDate`) reused for the new use case. _(from `2026-09-16-tasks-upcoming-screen`)_
 - Slot-API (`CalendarContent` separate from `CalendarScreen`) enables preview without Koin. _(from `2026-09-16-calendar-feature`)_
+- StableJson round-trip test verifies no data loss. _(from `2026-09-16-saved-agenda-views`)_
 - `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model _(from `2026-09-16-calendar-feature`)_
 - `startAt`/`endAt`/`allDay`/`recurrence` in `Task` (Room migration). _(from `2026-09-16-calendar-feature`)_
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates _(from `2026-09-05-task-editor-refactor`)_
@@ -1866,9 +1911,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика _(from `2026-09-05-refactoring-summary`)_
 - Tests are ignored until the plugin resolution issue in the development environment is resolved. _(from `2026-09-08-roborazzi-snapshot-tests`)_
 - Theme switching now correctly recomposes the calendar palette _(from `2026-09-16-calendar-post-merge-fixes`)_
+- Throttling prevents SQLite spam from polling. _(from `2026-09-16-reactive-today-flow`)_
 - Two new top-level entries added: `justfile` and `.just/`. _(from `2026-09-06-modular-justfile`)_
 - UI Automator тесты **удалены** (`UIAutomatorTest.kt`). _(from `2026-09-05-uiautomator-compose-discovery`)_
+- UI switching (MR3) requires adding `definition: AgendaDefinition` to `AgendaViewModel` _(from `2026-09-16-saved-agenda-views`)_
 - `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests _(from `2026-09-16-tasks-upcoming-screen`)_
+- User switch cancels in-flight evaluations cleanly. _(from `2026-09-16-reactive-today-flow`)_
 - Week navigation via swipe on `DaySwitcherRow`. _(from `2026-09-16-tasks-upcoming-screen`)_
 - Week-start locale handling is isolated and can be made configurable later. _(from `2026-09-16-tasks-upcoming-screen`)_
 - `weight` modifier requires careful structuring inside `Row { Column(weight) }`. _(from `2026-09-16-calendar-feature`)_
@@ -2065,6 +2113,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-nav3-savedstate-serializers-required` — navigation  nav3  serialization  jvm  android
 - `2026-09-16-nav3-settings-and-search-nested-graphs` — navigation  nav3  settings  search
 - `2026-09-16-nav3-type-asymmetry-adr` — navigation  nav3  android  jvm  technical-debt
+- `2026-09-16-task-filter-set-variants` — tasks  domain-model  sql  selector  mr2a
 - `2026-09-16-task-list-filter-to-task-status` — tasks  domain-model  rename
 
 ## Active entries
@@ -2160,5 +2209,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-nav3-savedstate-serializers-required` — Nav3 SavedStateConfiguration must register all NavKey subtypes polymorphically
 - `2026-09-16-nav3-settings-and-search-nested-graphs` — SettingsNavGraph and SearchNavGraph — single-route nested graphs
 - `2026-09-16-nav3-type-asymmetry-adr` — Nav3 type asymmetry: rememberInMemoryNavBackStack returns NavBackStack<T>, Android rememberNavBackStack returns NavBackStack<NavKey>
+- `2026-09-16-reactive-today-flow` — _(no title)
+- `2026-09-16-saved-agenda-views` — _(no title)
+- `2026-09-16-task-filter-set-variants` — TaskFilter and Selector set variants: ByTags/ByPriorities/ByRegexp SQL-backed filters
 - `2026-09-16-task-list-filter-to-task-status` — Rename TaskListFilter → TaskStatus: domain-level completion status enum
 - `2026-09-16-tasks-upcoming-screen` — _(no title)

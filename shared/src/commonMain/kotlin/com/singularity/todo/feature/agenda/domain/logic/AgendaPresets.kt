@@ -72,6 +72,15 @@ object AgendaPresets {
     }
 
     /**
+     * All tasks tagged with any of the given [TagId]s.
+     *
+     * @param ids The set of tag IDs to filter by. A task matching any one of them is included.
+     */
+    fun byTags(ids: Set<TagId>): AgendaDefinition = agenda("Tagged") {
+        section("Tags", Selector.Tags(ids), order = 0)
+    }
+
+    /**
      * All tasks within a date range (inclusive).
      * Used by the Calendar screen.
      *

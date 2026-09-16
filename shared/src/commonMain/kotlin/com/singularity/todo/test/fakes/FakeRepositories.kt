@@ -30,6 +30,10 @@ import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
+import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
+import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewKey
+import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -892,5 +896,33 @@ class FakeAttachmentSaver : com.singularity.todo.feature.tasks.domain.model.Atta
 
     override suspend fun save(taskId: TaskId, path: String, mimeType: String?): Result<Unit> = runCatching {
         saved.add(Triple(taskId.value, path, mimeType))
+    }
+}
+
+// ─── SavedAgendaViewsRepository ────────────────────────────────────────────────
+
+/**
+ * Fake [SavedAgendaViewsRepository] backed by an in-memory map.
+ * Uses [SavedAgendaViewKey] ("userId:viewId") for single-key lookups.
+ */
+class FakeSavedAgendaViewsRepository : SavedAgendaViewsRepository {
+
+    private val store = mutableMapOf<SavedAgendaViewKey, SavedAgendaView>()
+
+    override fun watchAll(userId: String): Flow<List<SavedAgendaView>> =
+        kotlinx.coroutines.flow.flowOf(
+            store.values.filter { it.userId == userId }.sortedBy { it.name },
+        )
+
+    override fun watchById(id: SavedAgendaViewId, userId: String): Flow<SavedAgendaView?> =
+        kotlinx.coroutines.flow.flowOf(store[SavedAgendaViewKey.of(userId, id.raw)])
+
+    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatching {
+        store[SavedAgendaViewKey.of(view.userId, view.id.raw)] = view
+        view
+    }
+
+    override suspend fun delete(id: SavedAgendaViewId, userId: String): Result<Unit> = runCatching {
+        store.remove(SavedAgendaViewKey.of(userId, id.raw))
     }
 }

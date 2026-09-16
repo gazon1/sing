@@ -103,6 +103,13 @@ object AgendaEvaluator {
 
             is Selector.Tag -> task.tags.contains(selector.id)
 
+            is Selector.Tags -> when {
+                selector.ids.isEmpty() && selector.matchAll -> true // empty+matchAll is trivially true
+                selector.ids.isEmpty() -> false                      // empty+any = nothing matches
+                selector.matchAll -> selector.ids.all { task.tags.contains(it) }
+                else -> selector.ids.any { task.tags.contains(it) }
+            }
+
             is Selector.Projects -> selector.ids.contains(task.projectId)
 
             is Selector.Pinned -> task.isPinned

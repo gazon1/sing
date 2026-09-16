@@ -60,3 +60,11 @@ class Migration9To10 : AutoMigrationSpec
  */
 @androidx.room3.DeleteColumn(tableName = "projects", columnName = "is_notebook")
 class Migration10To11 : AutoMigrationSpec
+
+/**
+ * Migration from v11 to v12 — adds agenda_views table for saved agenda view persistence.
+ *
+ * All-in-blob storage: id, user_id, name, sections_json (whole AgendaDefinition as JSON),
+ * created_at, updated_at. Composite PK (id, user_id) for per-profile isolation.
+ */
+class Migration11To12 : AutoMigrationSpec
