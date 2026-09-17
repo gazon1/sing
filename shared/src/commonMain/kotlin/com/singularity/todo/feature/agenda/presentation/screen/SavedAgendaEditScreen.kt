@@ -39,8 +39,6 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEdi
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditIntent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditState
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditViewModel
-import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
-import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
