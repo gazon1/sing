@@ -57,7 +57,7 @@ class ProjectDetailViewModelTest {
             createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, Clock),
             currentUser = fakeCurrentUser,
             clock = Clock,
-            scopeOverride = scope,
+            scope = scope,
             sharingStarted = { SharingStarted.Eagerly },
         )
         return vm

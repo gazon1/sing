@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -23,7 +22,9 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -64,10 +65,34 @@ class ProjectDetailViewModel(
     private val createTaskUseCase: CreateTaskUseCase,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
-    private val scopeOverride: CoroutineScope? = null,
+    private val scope: CoroutineScope,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
-    private val scope get() = scopeOverride ?: viewModelScope
+
+    /** Production constructor — Koin uses this. */
+    constructor(
+        projectId: ProjectId,
+        projectRepo: ProjectsRepository,
+        taskRepo: TaskRepository,
+        deleteProject: DeleteProjectUseCase,
+        updateProject: UpdateProjectUseCase,
+        updateTask: UpdateTaskUseCase,
+        createTaskUseCase: CreateTaskUseCase,
+        currentUser: ProfileAwareCurrentUser,
+        clock: Clock,
+    ) : this(
+        projectId = projectId,
+        projectRepo = projectRepo,
+        taskRepo = taskRepo,
+        deleteProject = deleteProject,
+        updateProject = updateProject,
+        updateTask = updateTask,
+        createTaskUseCase = createTaskUseCase,
+        currentUser = currentUser,
+        clock = clock,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        sharingStarted = { SharingStarted.WhileSubscribed(5000) },
+    )
 
     // ─── UI State ───────────────────────────────────────────────────────────────
 
@@ -149,13 +174,8 @@ class ProjectDetailViewModel(
             project.isDeleted -> ProjectDetailUiState.NotFound
 
             else -> {
-                // Seed drafts once from loaded project (preserves user's in-progress edits).
-                if (nameDraftImpl.value == null) {
-                    nameDraftImpl.value = project.name
-                }
-                if (descriptionDraftImpl.value == null) {
-                    descriptionDraftImpl.value = project.description ?: ""
-                }
+                // Seed from loaded project — idempotent, won't overwrite user's active edits.
+                draftState.seed(project.name, project.description ?: "")
                 val visibleTasks = if (hideCompleted) tasks.filter { it.completedAt == null } else tasks
                 ProjectDetailUiState.Content(
                     ProjectDetailUi(
@@ -176,18 +196,15 @@ class ProjectDetailViewModel(
     private val _lastEditedAt = MutableStateFlow<Instant?>(null)
     val lastEditedAt: StateFlow<Instant?> = _lastEditedAt
 
-    /** Draft flows — written by onIntent, collected and debounced in init{}. */
-    private val nameDraftImpl = MutableStateFlow<String?>(null)
-    private val descriptionDraftImpl = MutableStateFlow<String?>(null)
-    val nameDraft: StateFlow<String?> = nameDraftImpl
-    val descriptionDraft: StateFlow<String?> = descriptionDraftImpl
+    /** Draft state — single source of truth for editable name/description. */
+    val draftState = ProjectDetailDraftState()
 
     init {
         // Name debounce — reads _latestProject to avoid TOCTOU.
-        viewModelScope.launch {
-            nameDraft
+        scope.launch {
+            draftState.state
+                .map { it.name }
                 .debounce(300.milliseconds)
-                .filterNotNull()
                 .distinctUntilChanged()
                 .collect { name ->
                     val current = _latestProject.value ?: return@collect
@@ -195,10 +212,10 @@ class ProjectDetailViewModel(
                 }
         }
         // Description debounce — same pattern.
-        viewModelScope.launch {
-            descriptionDraft
+        scope.launch {
+            draftState.state
+                .map { it.description }
                 .debounce(300.milliseconds)
-                .filterNotNull()
                 .distinctUntilChanged()
                 .collect { desc ->
                     val current = _latestProject.value ?: return@collect
@@ -213,7 +230,7 @@ class ProjectDetailViewModel(
 
     // ─── One-shot events ─────────────────────────────────────────────────────────
 
-    private val _events = MutableSharedFlow<ProjectDetailUiEvent>(extraBufferCapacity = 8)
+    private val _events = MutableSharedFlow<ProjectDetailUiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<ProjectDetailUiEvent> = _events.asSharedFlow()
 
     // ─── Intent dispatcher ─────────────────────────────────────────────────────
@@ -232,10 +249,10 @@ class ProjectDetailViewModel(
 
             // ── Inline edits — debounced, written to draft StateFlows ────────
             is ProjectDetailIntent.Domain.UpdateName ->
-                nameDraftImpl.value = intent.name
+                draftState.setName(intent.name)
 
             is ProjectDetailIntent.Domain.UpdateDescription ->
-                descriptionDraftImpl.value = intent.description
+                draftState.setDescription(intent.description ?: "")
 
             // ── Pickers ─────────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.UpdateColor -> {
@@ -265,7 +282,7 @@ class ProjectDetailViewModel(
             }
 
             is ProjectDetailIntent.Domain.Delete ->
-                viewModelScope.launch {
+                scope.launch {
                     deleteProject(projectId, currentUser.scopedUserId.value)
                         .onSuccess { _events.emit(ProjectDetailUiEvent.NavigateBack) }
                         .onFailure { error ->
@@ -281,7 +298,7 @@ class ProjectDetailViewModel(
             is ProjectDetailIntent.Domain.CreateTask -> {
                 val trimmed = intent.title.trim()
                 if (trimmed.isEmpty()) return
-                viewModelScope.launch {
+                scope.launch {
                     createTaskUseCase(
                         CreateTaskInput(
                             title = trimmed,
@@ -300,7 +317,7 @@ class ProjectDetailViewModel(
             }
 
             is ProjectDetailIntent.Domain.MoveTaskToProject ->
-                viewModelScope.launch {
+                scope.launch {
                     updateTask.invoke(intent.taskId) { it.copy(projectId = projectId) }
                         .onFailure { error ->
                             _events.emit(
@@ -320,7 +337,7 @@ class ProjectDetailViewModel(
      * Uses [_latestProject] as the source of truth to avoid TOCTOU.
      */
     private fun mutate(current: Project, transform: Project.() -> Project) {
-        viewModelScope.launch {
+        scope.launch {
             updateProject(projectId, transform)
                 .onSuccess { _lastEditedAt.value = clock.now() }
                 .onFailure { /* silent — UI already reflects the draft */ }

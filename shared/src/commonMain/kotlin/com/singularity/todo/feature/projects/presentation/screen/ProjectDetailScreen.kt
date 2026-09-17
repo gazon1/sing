@@ -145,8 +145,7 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, projectId: ProjectId
     var sheetState by remember { mutableStateOf<ActiveSheet?>(null) }
     var overflowMenuOpen by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val nameDraft by viewModel.nameDraft.collectAsStateWithLifecycle()
-    val descriptionDraft by viewModel.descriptionDraft.collectAsStateWithLifecycle()
+    val draftState by viewModel.draftState.state.collectAsStateWithLifecycle()
 
     // Routing + domain dispatcher — routing handled here, domain delegated to VM.
     val actions = remember {
@@ -280,8 +279,8 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, projectId: ProjectId
                     ui = s.ui,
                     lastEditedAt = lastEditedAt,
                     now = clock.now(),
-                    nameDraft = nameDraft ?: "",
-                    descriptionDraft = descriptionDraft ?: "",
+                    nameDraft = draftState.name,
+                    descriptionDraft = draftState.description,
                     actions = actions,
                 )
                 ProjectMetaChipsRow(
