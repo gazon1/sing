@@ -36,7 +36,7 @@ class TaskDetailViewModel(
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
-    private val _events = MutableSharedFlow<TaskDetailUiEvent>(replay = 0, extraBufferCapacity = 8)
+    private val _events = MutableSharedFlow<TaskDetailUiEvent>(replay = 0, extraBufferCapacity = 4)
     val events: SharedFlow<TaskDetailUiEvent> = _events.asSharedFlow()
 
     private val titleEdits = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 8)
@@ -97,6 +97,8 @@ class TaskDetailViewModel(
     ) { id, _ -> id }
         .flatMapLatest { deps.taskRepo.watchTask(it) }
         .flatMapLatest { task ->
+            // Update latestTask BEFORE combine starts — so debounce collectors always have fresh task
+            _latestTask.value = task
             if (task == null) {
                 flowOf<TaskDetailUiState>(TaskDetailUiState.Error("Not found"))
             } else {
@@ -144,7 +146,6 @@ class TaskDetailViewModel(
                     @Suppress("UNCHECKED_CAST")
                     val draftDescription = values[7] as String
 
-                    _latestTask.value = task
                     // Seed draft fields from loaded task (only if empty — don't overwrite user's active draft).
                     // This fixes the UX bug where user types the first letter and it replaces the real title
                     // because the draft was initialized to "" instead of the task's actual title.

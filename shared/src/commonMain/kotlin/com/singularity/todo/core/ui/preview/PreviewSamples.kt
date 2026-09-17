@@ -15,6 +15,8 @@ import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
+import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.reminders.Reminder
@@ -187,6 +189,19 @@ internal object PreviewSamples {
         taskId = "t1",
         title = title,
         isCompleted = done,
+    )
+
+    fun savedAgendaView(
+        id: String = "v1",
+        name: String = "My Agenda",
+        sectionsJson: String = """{"title":"My Agenda","sections":[]}""",
+    ): SavedAgendaView = SavedAgendaView(
+        id = SavedAgendaViewId.fromString(id),
+        userId = projectUserId,
+        name = name,
+        sectionsJson = sectionsJson,
+        createdAt = now,
+        updatedAt = now,
     )
 
     fun taskDetailUi(
