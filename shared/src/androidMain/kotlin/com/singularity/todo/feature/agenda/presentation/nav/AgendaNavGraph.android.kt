@@ -43,14 +43,8 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
 
     val navigator = remember(backStack, onExitGraph) {
         AgendaNavigator(
-            onNavigateToTask = { taskId ->
-                onExitGraph(
-                    AppDestination.TasksGraph(
-                        start = AppDestination.TasksStartRoute.Detail(taskId.value),
-                    ),
-                )
-            },
-            onShowContextMenu = { /* TODO: show context menu */ },
+            backStack = backStack,
+            onExitGraph = onExitGraph,
         )
     }
 

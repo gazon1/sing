@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
+import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.core.serialization.StableJson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -14,10 +16,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -34,7 +39,15 @@ data class SavedAgendaEditDeps(
  */
 sealed interface SavedAgendaEditState {
     data object Loading : SavedAgendaEditState
-    data class Editing(val view: SavedAgendaView, val editableName: String) : SavedAgendaEditState
+    data class Editing(
+        val view: SavedAgendaView,
+        val editableName: String,
+        val sectionCount: Int?,
+        val isSaving: Boolean = false,
+    ) : SavedAgendaEditState {
+        val canSave: Boolean
+            get() = !isSaving && editableName.isNotBlank() && editableName != view.name
+    }
     data object NotFound : SavedAgendaEditState
 }
 
@@ -69,73 +82,69 @@ class SavedAgendaEditViewModel(
 
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
 
-    /** The editable name — synced from loaded view on first load via [init]. */
-    private val _editableName = MutableStateFlow("")
-    val editableName: StateFlow<String> = _editableName
-
     /** One-shot UI events. */
-    private val _events = MutableSharedFlow<SavedAgendaEditEvent>()
+    private val _events = MutableSharedFlow<SavedAgendaEditEvent>(extraBufferCapacity = 4)
     val events = _events.asSharedFlow()
 
     /**
-     * Initialize [_editableName] from the loaded view — runs once on VM creation.
-     * Uses [first] to get a single snapshot without subscribing indefinitely.
+     * Writable draft name — seeded from the first loaded view, then user-controlled.
+     * Initialized lazily on first view emission.
      */
-    init {
-        scope.launch {
-            val userId = deps.currentUser.current.value
-            deps.repo.watchById(viewId, userId).first()?.let { view ->
-                if (_editableName.value.isEmpty()) {
-                    _editableName.value = view.name
-                }
-            }
-        }
-    }
+    private val _draftName = MutableStateFlow("")
+    private var draftSeeded = false
 
-    /**
-     * State — watches the saved view and pairs it with the current [_editableName].
-     * Uses [flatMapLatest] + [map] so the state updates reactively when either the
-     * view changes OR the user edits the name field.
-     */
-    val state: StateFlow<SavedAgendaEditState> = deps.currentUser.scopedUserId
+    private val repoFlow = deps.currentUser.scopedUserId
         .flatMapLatest { userId -> deps.repo.watchById(viewId, userId.value) }
-        .map { view ->
-            if (view == null) {
-                SavedAgendaEditState.NotFound
-            } else {
-                SavedAgendaEditState.Editing(view = view, editableName = _editableName.value)
+
+    val state: StateFlow<SavedAgendaEditState> = combine(
+        _draftName,
+        repoFlow,
+    ) { draftName, view ->
+        when {
+            view == null -> SavedAgendaEditState.NotFound
+            else -> {
+                // Seed draft from view.name on first emission (before user edits)
+                if (!draftSeeded && draftName.isBlank()) {
+                    _draftName.value = view.name
+                    draftSeeded = true
+                }
+                val sectionCount = runCatching {
+                    StableJson.decodeFromString<AgendaDefinition>(view.sectionsJson).sections.size
+                }.getOrNull()
+                SavedAgendaEditState.Editing(
+                    view = view,
+                    editableName = _draftName.value.ifBlank { view.name },
+                    sectionCount = sectionCount,
+                )
             }
         }
-        .stateIn(
-            scope,
-            SharingStarted.WhileSubscribed(5_000),
-            SavedAgendaEditState.Loading,
-        )
+    }.stateIn(
+        scope,
+        SharingStarted.WhileSubscribed(5_000),
+        SavedAgendaEditState.Loading,
+    )
 
     fun onIntent(intent: SavedAgendaEditIntent) {
         when (intent) {
             is SavedAgendaEditIntent.NameChanged -> {
-                _editableName.value = intent.name
+                draftSeeded = true // user has edited, stop seeding
+                _draftName.value = intent.name
             }
-
             is SavedAgendaEditIntent.Save -> {
+                val current = state.value
+                if (current !is SavedAgendaEditState.Editing || current.isSaving) return
                 scope.launch {
-                    val currentState = state.value
-                    if (currentState is SavedAgendaEditState.Editing) {
-                        val updated = currentState.view.copy(
-                            name = _editableName.value.trim(),
-                            updatedAt = deps.clock.now(),
-                        )
-                        deps.repo.upsert(updated)
-                            .onSuccess { _events.emit(SavedAgendaEditEvent.SaveSuccess) }
-                            .onFailure { _events.emit(SavedAgendaEditEvent.ShowError(it.message ?: "Save failed")) }
-                    }
+                    val userId = deps.currentUser.scopedUserId.first().value
+                    val nameToSave = _draftName.value.ifBlank { current.view.name }.trim()
+                    val updated = current.view.copy(name = nameToSave, updatedAt = deps.clock.now())
+                    deps.repo.upsert(updated)
+                        .onSuccess { _events.emit(SavedAgendaEditEvent.SaveSuccess) }
+                        .onFailure { _events.emit(SavedAgendaEditEvent.ShowError(it.message ?: "Save failed")) }
                 }
             }
-
             is SavedAgendaEditIntent.Delete -> {
                 scope.launch {
-                    val userId = deps.currentUser.current.value
+                    val userId = deps.currentUser.scopedUserId.first().value
                     deps.repo.delete(viewId, userId)
                         .onSuccess { _events.emit(SavedAgendaEditEvent.DeleteSuccess) }
                         .onFailure { _events.emit(SavedAgendaEditEvent.ShowError(it.message ?: "Delete failed")) }

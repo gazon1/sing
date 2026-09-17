@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.nav
 
 import androidx.navigation3.runtime.NavKey
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import kotlinx.serialization.Serializable
@@ -34,5 +35,15 @@ sealed interface AgendaStartRoute : NavKey {
     @Serializable
     data class Tag(val tagId: String) : AgendaStartRoute {
         val id: TagId get() = TagId.fromString(tagId)
+    }
+
+    /** Saved views list. */
+    @Serializable
+    data object SavedAgendaList : AgendaStartRoute
+
+    /** Edit a specific saved view. */
+    @Serializable
+    data class SavedAgendaEdit(val viewId: String) : AgendaStartRoute {
+        val id: SavedAgendaViewId get() = SavedAgendaViewId.fromString(viewId)
     }
 }
