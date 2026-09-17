@@ -1904,6 +1904,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `AgendaViewModel` binding is unchanged — does not consume saved views. _(from `2026-09-16-saved-agenda-views`)_
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches. _(from `2026-09-06-modular-justfile`)_
 - `AiSettingsContributor` remains as the sole `SettingsContributor` implementation — used only for AI test/fetch ephemeral state. _(from `2026-09-10-simplified-settings-vm`)_
+- All 593 existing tests continue to pass. _(from `2026-09-17-vm-testability-audit`)_
 - All notes screens now navigationally self-contained _(from `2026-09-15-nav3-notes-navigator`)_
 - `AppDestination.Habits` → `AppDestination.Pomodoro`, `AppDestination.Calendar` → `AppDestination.Statistics` _(from `2026-09-11-nav3-kmp-migration`)_
 - `AppDestination.TaskEditor` serialisation is backward compatible (extra field _(from `2026-09-05-task-editor-refactor`)_
@@ -1984,7 +1985,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskFilter` remains untouched — Search feature is unaffected. _(from `2026-09-16-tasks-upcoming-screen`)_
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика _(from `2026-09-05-refactoring-summary`)_
 - Tests are ignored until the plugin resolution issue in the development environment is resolved. _(from `2026-09-08-roborazzi-snapshot-tests`)_
+- The 2 side-effects-in-combine anti-patterns remain in `TaskDetailViewModel` _(from `2026-09-17-vm-testability-audit`)_
+- The 4 untested VMs (`TaskCreateViewModel`, `ProjectEditorViewModel`, _(from `2026-09-17-vm-testability-audit`)_
 - Theme switching now correctly recomposes the calendar palette _(from `2026-09-16-calendar-post-merge-fixes`)_
+- The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical _(from `2026-09-17-vm-testability-audit`)_
 - Throttling prevents SQLite spam from polling. _(from `2026-09-16-reactive-today-flow`)_
 - Two new top-level entries added: `justfile` and `.just/`. _(from `2026-09-06-modular-justfile`)_
 - UI Automator тесты **удалены** (`UIAutomatorTest.kt`). _(from `2026-09-05-uiautomator-compose-discovery`)_
@@ -2298,3 +2302,4 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-17-orgmode-architectural-lessons` — Org-mode architectural lessons: cascade, visitor, computed, super-agenda
 - `2026-09-17-orgmode-functional-patterns` — Org-mode functional patterns: pure composition extensions
 - `2026-09-17-selector-serializer-plain-kserializer` — SelectorSerializer: plain KSerializer instead of JsonContentPolymorphicSerializer
+- `2026-09-17-vm-testability-audit` — _(no title)
