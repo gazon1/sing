@@ -4,12 +4,11 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.database.ProfileDao
 import com.singularity.todo.core.database.ProfileEntity
 import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,18 +21,22 @@ import kotlin.time.Instant
  *
  * Profile records are in Room (durable, syncable). The active-profile key lives
  * in DataStore so it survives DB wipes on Android.
+ *
+ * @param scope CoroutineScope for hosting the active-profile StateFlow's collector.
+ *   Mandatory — caller is responsible for providing the scope. In production
+ *   this comes from Koin's `single { ... createBackgroundScope() }`. In tests,
+ *   inject a `TestScope` or `backgroundScope`.
  */
 class ProfileRepositoryImpl(
     private val profileDao: ProfileDao,
     private val dataStore: DataStore<Preferences>,
     private val clock: Clock,
+    private val scope: CoroutineScope,
 ) : ProfileRepository {
 
     companion object {
         private val ACTIVE_PROFILE_ID = stringPreferencesKey("active_profile_id")
     }
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // Collect DataStore into a StateFlow for activeProfileId
     private val _activeProfileId: StateFlow<ProfileId> = dataStore.data

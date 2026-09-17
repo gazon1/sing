@@ -5,6 +5,7 @@ import com.singularity.todo.core.log.LoggerHolder
 import com.singularity.todo.core.ui.components.TagPickerViewModel
 import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
+import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.profile.ProfileRepositoryImpl
@@ -43,7 +44,7 @@ fun domainModule(): List<Module> = buildList {
     // profileModule() wrapped its bindings in module {} which created a child scope.
     add(
         module {
-        single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get()) }
+        single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get(), createBackgroundScope()) }
         single { ProfileAwareCurrentUser(get(), get()) }
         factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
         factory { AccountSettingsViewModel(get()) }
