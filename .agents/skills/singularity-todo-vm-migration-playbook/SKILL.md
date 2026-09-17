@@ -410,3 +410,61 @@ When migrating all VMs in a single MR:
 - `singularity-todo-vm-intent-pattern` — `_latestTask` cache + the unconditional passthrough exception
 - `singularity-todo-koin-di` — `viewModelOf` vs `viewModel {}` DI conventions
 - `docs/decisions/2026-09-17-vm-testability-mr1.md` — ADR for this migration
+
+---
+
+## When this playbook is NOT enough
+
+The 5-step mechanical migration above assumes the VM's state flow is the only coroutine work in play. This assumption **breaks** when the VM consumes flows from a repository or wrapper that **owns its own `CoroutineScope(SupervisorJob() + Dispatchers.Default)`**.
+
+### Symptom
+
+After migrating the VM constructor to `scope = this` (or `scope = backgroundScope`) and writing tests that collect `vm.state.value`, tests fail with:
+
+```
+kotlinx.coroutines.test.UncompletedCoroutinesError: After waiting for 1m,
+there were active child jobs
+```
+
+**OR** tests hang indefinitely past their 60s timeout.
+
+### Why
+
+The repository-owned scope runs its `stateIn` collector on `Dispatchers.Default` — a real thread pool outside the test dispatcher's `TestScheduler`. `advanceUntilIdle()` does not advance virtual time on `Default`. The upstream feed never emits within the test → state never updates → `UncompletedCoroutinesError`.
+
+The VM constructor migration **looks correct** but produces no testability improvement because the root cause is upstream.
+
+### Real example (fixed in 2026-09-17)
+
+`CurrentUser`, `ProfileAwareCurrentUser`, `ProfileRepositoryImpl` all hosted `stateIn` on a private `CoroutineScope(Dispatchers.Default)`. After VM constructor migration, tests hung — root cause was not the VM, it was these three classes.
+
+### Fix: scope injection at the repository level
+
+See `singularity-todo-coroutine-scopes` skill for the canonical pattern. The short version:
+
+1. Create `createBackgroundScope()` expect/actual function (returns new `CoroutineScope(SupervisorJob() + Dispatchers.Default)`).
+2. Add **mandatory** `scope: CoroutineScope` param to the repository's primary constructor (no default).
+3. DI registration: `single { MyRepo(get(), get(), createBackgroundScope()) }`.
+4. Update Fake factories to also require `scope: CoroutineScope`.
+5. Update all direct constructor call sites (commonTest, previews) to pass `createBackgroundScope()` or a `TestScope`.
+
+### How to detect this anti-pattern before starting
+
+Before applying the 5-step migration, grep:
+
+```bash
+grep -rn "CoroutineScope(SupervisorJob\|CoroutineScope(Dispatchers" \
+  shared/src/commonMain --include="*.kt"
+```
+
+Any hit in a class that hosts `stateIn` is a red flag. Fix the scope ownership **first**, then apply the VM migration playbook.
+
+### When to skip the playbook entirely
+
+If the repository consuming the flow uses a private `CoroutineScope` for `stateIn` AND you can't refactor it (e.g. external library), the playbook cannot deliver testability wins. Don't waste time migrating the VM — fix the upstream first.
+
+## See also (extended)
+
+- `singularity-todo-coroutine-scopes` — full pattern for scope placement, anti-pattern, lifecycle
+- `docs/decisions/2026-09-17-vm-testability-audit.md` — root cause audit
+- `docs/decisions/2026-09-17-vm-testability-mr1.md` — original ADR (note: this was rolled back; superseded by audit)

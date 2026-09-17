@@ -310,6 +310,7 @@ Skill-ов немного и они узкие. **Большинство арх�
 | `singularity-todo-testable-vm` | Canonical VM pattern: plain `MutableStateFlow`, 4-arg constructor with `scope: CoroutineScope`, secondary ctor for Koin, no `combine`/`stateIn`. Все новые VM пишутся по этому шаблону. |
 | `singularity-todo-vm-migration-playbook` | Как мигрировать существующий VM с `scopeOverride` на канонический 4-arg constructor + secondary ctor. 5-шаговый checklist, side-effects-in-combine fix, `viewModelOf` vs `viewModel {}`. |
 | `singularity-todo-test-helpers` | Стандартные test helpers: `FakeRepositories`, `runTest + advanceUntilIdle + .state.value`, три формы тестов (smoke, intent→state, regression). |
+| `singularity-todo-coroutine-scopes` | Где живут `CoroutineScope` в KMP проекте. Антипаттерн: репозиторий создаёт свой `CoroutineScope(Dispatchers.Default)` — ломает VM-тесты. Канонический pattern: `createBackgroundScope()` через DI, mandatory param в конструкторе. |
 
 **Удалённые skill-ы** (информация переехала в `docs/decisions/`):
 ~~`singularity-todo-koin-suspend-bridge`~~ — см. `2026-09-05-koin-suspend-bridge.md`.

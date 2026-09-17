@@ -562,6 +562,7 @@ Before merging a feature change:
 - [ ] ViewModels depend only on `domain/port/` interfaces + `domain/usecase/`
 - [ ] `collectAsStateWithLifecycle()` used (not `collectAsState()`)
 - [ ] ViewModels take `scope: CoroutineScope` in primary constructor; secondary constructor for Koin delegates with `CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)` — see `singularity-todo-testable-vm` for full shape
+- [ ] **Repositories and wrappers do NOT own a private `CoroutineScope`** — they accept `scope: CoroutineScope` via constructor injection; see `singularity-todo-coroutine-scopes`. A class with `private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)` is a bug.
 - [ ] **Run `just lint`** — detekt finds 0 new violations (baseline absorbs existing ones)
 - [ ] **Run `just detekt-fix`** — ktlint auto-fixes formatting; review the diff before staging
 - [ ] New feature code is covered by existing tests (kover aggregates coverage across commonMain + jvmMain + androidMain automatically)
