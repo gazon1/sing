@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -54,6 +55,7 @@ import kotlinx.datetime.LocalDate
  * @param title Title to display in the top app bar.
  * @param onIntent Called when the user performs an action.
  * @param onSavedViewsClick Called when the user taps the saved views action.
+ * @param onSaveCurrentClick Called when the user taps the save-current-agenda action.
  * @param desktopContextMenuHost Slot for the desktop context menu renderer.
  * @param modifier Compose modifier.
  */
@@ -64,6 +66,7 @@ fun AgendaContent(
     title: String,
     onIntent: (AgendaIntent) -> Unit,
     onSavedViewsClick: (() -> Unit)? = null,
+    onSaveCurrentClick: (() -> Unit)? = null,
     desktopContextMenuHost: @Composable (taskUi: TaskUi, offset: DpOffset, onDismiss: () -> Unit, onIntent: (AgendaIntent) -> Unit) -> Unit = { _, _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
@@ -90,6 +93,11 @@ fun AgendaContent(
                     if (onSavedViewsClick != null) {
                         IconButton(onClick = onSavedViewsClick) {
                             Icon(Icons.Default.Bookmark, contentDescription = "Saved views")
+                        }
+                    }
+                    if (onSaveCurrentClick != null) {
+                        IconButton(onClick = onSaveCurrentClick) {
+                            Icon(Icons.Default.BookmarkAdd, contentDescription = "Save current agenda")
                         }
                     }
                 },

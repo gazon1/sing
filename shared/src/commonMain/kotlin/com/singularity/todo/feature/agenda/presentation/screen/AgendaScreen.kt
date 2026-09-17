@@ -1,9 +1,5 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -14,7 +10,9 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaViewModel
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaSeedStore
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -43,6 +41,7 @@ fun AgendaScreen(
     val state by vm.state.collectAsStateWithLifecycle()
 
     val navigator = LocalAgendaNavigator.current
+    val seedStore: SavedAgendaSeedStore = koinInject()
 
     LaunchedEffect(Unit) {
         vm.events.collect { event ->
@@ -59,6 +58,10 @@ fun AgendaScreen(
         title = vm.title,
         onIntent = vm::onIntent,
         onSavedViewsClick = { navigator.openSavedAgendaList() },
+        onSaveCurrentClick = {
+            seedStore.setSeed(definition)
+            navigator.openSavedAgendaCreate(definition)
+        },
         desktopContextMenuHost = desktopContextMenuHost,
         modifier = modifier,
     )
