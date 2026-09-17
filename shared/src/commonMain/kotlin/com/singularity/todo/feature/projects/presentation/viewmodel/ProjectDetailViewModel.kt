@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -65,6 +66,7 @@ class ProjectDetailViewModel(
     private val createTaskUseCase: CreateTaskUseCase,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
+    private val log: Logger,
     private val scope: CoroutineScope,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
@@ -90,6 +92,7 @@ class ProjectDetailViewModel(
         createTaskUseCase = createTaskUseCase,
         currentUser = currentUser,
         clock = clock,
+        log = Logger.withTag("ProjectDetail"),
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
         sharingStarted = { SharingStarted.WhileSubscribed(5000) },
     )
@@ -340,7 +343,7 @@ class ProjectDetailViewModel(
         scope.launch {
             updateProject(projectId, transform)
                 .onSuccess { _lastEditedAt.value = clock.now() }
-                .onFailure { /* silent — UI already reflects the draft */ }
+                .onFailure { e -> log.w("mutate failed: ${e.message?.take(80) ?: e::class.simpleName}") }
         }
     }
 }

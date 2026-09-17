@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -57,6 +58,7 @@ class ProjectDetailViewModelTest {
             createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, Clock),
             currentUser = fakeCurrentUser,
             clock = Clock,
+            log = Logger,
             scope = scope,
             sharingStarted = { SharingStarted.Eagerly },
         )

@@ -66,6 +66,7 @@ class TaskCreateViewModel(
         scope.launch {
             val key = "${deps.currentUser.current.value}:${TaskCreateDeps.DRAFT_KEY}"
             runCatching { deps.draftStore.load<TaskDraft>(key, TaskDraft.serializer()) }
+                .onFailure { deps.logger.e("TaskCreate") { "draft restore failed: $it" } }
                 .getOrNull()
                 ?.let { restored ->
                     if (_draft.value == initial) _draft.value = restored
