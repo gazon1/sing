@@ -319,6 +319,62 @@ viewModelOf(::FeatureViewModel)
 
 See `singularity-todo-koin-di` skill for full DI conventions.
 
+## Test Patterns for ViewModels
+
+Tests live alongside source in `jvmTest/` using `Fake*` repositories from `test/fakes/FakeRepositories.kt`. The canonical test shape is documented in `singularity-todo-test-helpers` — the abbreviated summary below.
+
+### Standard test structure
+
+```kotlin
+@OptIn(ExperimentalCoroutinesApi::class)
+class FooViewModelTest {
+
+    private val fakeRepo = FakeFooRepository()
+    private val fakeCurrentUser = FakeProfileAwareCurrentUser()
+    private val deps = FooDeps(repo = fakeRepo, currentUser = fakeCurrentUser, clock = Clock)
+
+    private fun createVm(param: Type, scope: CoroutineScope = this) =
+        FooViewModel(deps = deps, param = param, scope = scope)
+
+    // Shape 1: smoke — initial state
+    @Test
+    fun initialState_isLoading() = runTest {
+        val vm = createVm(param, this)
+        advanceUntilIdle()
+        assertIs<FooUiState.Loading>(vm.state.value)
+    }
+
+    // Shape 2: intent → state transition
+    @Test
+    fun setName_isDirty() = runTest {
+        val vm = createVm(param, this)
+        advanceUntilIdle()
+        vm.processIntent(FooIntent.SetName("Edited"))
+        assertTrue((vm.state.value as? FooUiState.Editing)?.draft?.isDirty == true)
+    }
+}
+```
+
+### Smoke tests for new VMs
+
+Every new VM needs at least one smoke test that verifies the constructor doesn't crash and the initial state is correct. Add these to `jvmTest/.../feature/<feature>/`:
+
+```kotlin
+@Test
+fun initialState_isLoading() = runTest {
+    val vm = createVm(param, this)
+    advanceUntilIdle()
+    assertIs<FooUiState.Loading>(vm.state.value)
+}
+```
+
+### FakeRepositories available
+
+All fakes are in `shared/src/commonMain/.../test/fakes/FakeRepositories.kt`:
+`FakeTaskRepository`, `FakeProjectsRepository`, `FakeNotesRepository`, `FakeTagsRepository`, `FakeSavedAgendaViewsRepository`, `FakeSettingsRepository`, `FakeProfileAwareCurrentUser`, `FakeReminderRepository`, `FakeAuthRepository`.
+
+See `singularity-todo-test-helpers` for the full test helper patterns including regression tests for draft clobbering.
+
 ## Navigation (AppDestination.kt + Nested Graph)
 
 This project uses **two-level Nav3 navigation**: a top-level `Nav3State` with `NavBackStack<AppDestination>` for tabs, and **nested graphs** per feature with their own `NavBackStack<FeatureRoute>`.

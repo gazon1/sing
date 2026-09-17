@@ -422,6 +422,40 @@ private fun emitEditingState() {
 - `SavedAgendaViewModelTest` — 14 tests, all using `runTest` + `advanceUntilIdle()` + direct `.state.value`.
 - `AgendaViewModel` — exception case, uses `combine + stateIn(WhileSubscribed)` because it's pure read-through (no draft, no intents).
 
+## Concrete VMs Following This Pattern
+
+The following VMs have been migrated to the canonical testable shape (primary ctor with `scope: CoroutineScope` + secondary ctor for Koin). Use these as reference when writing new VMs or migrating old ones.
+
+### Canonical (fully testable)
+
+| VM | File | Notes |
+|---|---|---|
+| `SavedAgendaViewModel` | `feature/agenda/presentation/viewmodel/` | Primary reference — all patterns |
+| `TasksViewModel` | `feature/tasks/presentation/viewmodel/TaskList.kt` | 4-arg primary + secondary ctor; `stateIn` replaced with plain `MutableStateFlow` |
+| `TaskCreateViewModel` | `feature/tasks/presentation/viewmodel/TaskCreateViewModel.kt` | Plain `MutableStateFlow`; `DraftState` candidate |
+| `ProjectsViewModel` | `feature/projects/presentation/viewmodel/ProjectsViewModel.kt` | Pure read-through → `stateIn` still OK |
+| `ProjectEditorViewModel` | `feature/projects/presentation/viewmodel/ProjectEditorViewModel.kt` | No previous `scopeOverride`; now has `scope` injection |
+| `CalendarViewModel` | `feature/calendar/presentation/viewmodel/CalendarViewModel.kt` | Pure read-through → `stateIn` still OK |
+| `NotesListViewModel` | `feature/notes/presentation/viewmodel/NotesListViewModel.kt` | No previous `scopeOverride`; now has `scope` injection |
+| `AgendaViewModel` | `feature/agenda/presentation/viewmodel/AgendaViewModel.kt` | Pure read-through → `stateIn(WhileSubscribed)` — legitimate exception |
+| `SavedAgendaListViewModel` | `feature/agenda/presentation/viewmodel/SavedAgendaListViewModel.kt` | Uses `viewModel { }` not `viewModelOf` (Koin cannot provide `CoroutineScope`) |
+| `TaskDetailViewModel` | `feature/tasks/presentation/viewmodel/TaskDetail.kt` | Side-effects extracted from `combine`; `_latestTask` cache in dedicated `collect {}` |
+| `ProjectDetailViewModel` | `feature/projects/presentation/viewmodel/ProjectDetailViewModel.kt` | Side-effects extracted from `combine`; 5× `viewModelScope.launch` → `scope.launch` |
+
+### Migration status
+
+All 11 VMs in the project follow this pattern as of 2026-09-17 (MR vm-testability-mr1). The canonical shape is **enforced** for all new VMs via this skill and `singularity-todo-vm-migration-playbook`.
+
+### Key deviations from canonical
+
+| VM | Deviation | Rationale |
+|---|---|---|
+| `AgendaViewModel` | `combine + stateIn(WhileSubscribed)` | Pure read-through — no init, no drafts, no intents. `stateIn` is the correct tool here. Tests use Turbine. |
+| `ProjectsViewModel` | `combine + stateIn(WhileSubscribed)` | Same as AgendaViewModel — pure read-through of `watchProjectsWithCounts()`. |
+| `CalendarViewModel` | `combine + stateIn(WhileSubscribed)` | Same — pure read-through with `flatMapLatest`. |
+
+These are the **narrow legitimate exceptions** documented in "When to Use Each Pattern" above. They are not anti-patterns — they are the correct tool for their specific case.
+
 ## See Also
 
 - `singularity-todo-vm-intent-pattern` — sealed Intent + onIntent dispatcher
