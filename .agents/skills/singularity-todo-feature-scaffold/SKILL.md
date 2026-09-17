@@ -539,7 +539,37 @@ if (input.parentId != null) {
     val parent = repo.findById(input.parentId).getOrNull()
         ?: return Result.failure(AppError.Validation("Parent project not found"))
     check(parent.parentId == null) {
-        AppError.Validation("Only root projects can be parents.")
+        AppError.Validation("Only root projects can have children.")
     }
 }
 ```
+
+---
+
+## ViewModel testability — non-negotiable checklist
+
+When you write `*ViewModel.kt` in `presentation/viewmodel/`, the **test** in `jvmTest/.../*ViewModelTest.kt` must be trivial. If the test is hard to write, the VM is hard to test — and that means the VM is wrong, not the test.
+
+**Checklist:**
+
+- [ ] **`state` is `MutableStateFlow<X>`** — plain, no `.stateIn(...)`, no `WhileSubscribed`. Read with `.value`.
+- [ ] **`init` block uses injected `CoroutineScope`** — primary 4-arg constructor takes `scope`, secondary 3-arg delegates with `SupervisorJob() + Dispatchers.Main.immediate` for Koin.
+- [ ] **No `combine(...)`** — if you find yourself writing `combine(a, b) { ... }` to assemble state, extract the combination into `init { scope.launch { _state.value = computed } }` or expose `a` and `b` as separate flows and let the Composable `combine` them.
+- [ ] **No side effects inside flow operators** — never `_state.value = ...` from inside `combine`, `map`, or `onEach`. Side effects in flow operators re-run on every upstream emission.
+- [ ] **Editable state extracted to `*State` class** (e.g., `DraftState`) — testable as a pure unit, single source of truth.
+- [ ] **Test passes `this` (test scope), NOT `backgroundScope`** — `backgroundScope` has its own dispatcher, `advanceUntilIdle()` won't flush it.
+
+**Example test (3 lines per case):**
+```kotlin
+@Test
+fun nameChangedSetsIsDirty() = runTest {
+    val vm = createVm(mode, this)                           // ← pass test scope
+    advanceUntilIdle()
+    vm.onIntent(MyIntent.NameChanged("Modified"))
+    assertTrue(vm.state.value.draft.isDirty)
+}
+```
+
+If your test needs Turbine, `expectMostRecentItem`, `awaitItem`, or `waitForState`, the VM is wrong. Refactor until the test is trivial.
+
+**Full pattern guide:** see `singularity-todo-testable-vm`.

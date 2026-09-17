@@ -242,5 +242,49 @@ onViewSelected = { viewId -> navigator.openSavedAgendaEdit(viewId) }
 
 - `singularity-todo-task-callback-groups` — pairing this pattern with `@JvmInline value class Actions` in Composables
 - `singularity-todo-ui-event-vs-state` — routing state (which sheet is open) is NOT a `SharedFlow` event
+- `singularity-todo-testable-vm` — **testability pattern**: plain `MutableStateFlow`, scope injection, no `combine`+`stateIn`
 - `docs/decisions/2026-09-09-task-detail-intent-refactor.md` — the ADR that formalized this pattern
 - `docs/decisions/2026-09-09-project-detail-intent-refactor.md` — the minimal variant ADR (no sheets)
+- `docs/decisions/2026-09-16-agenda-mr4-saved-views-create-reorder.md` — MR4 refactor that established the testable VM pattern
+
+---
+
+## Testability — Quick Reference
+
+This pattern plays well with the testable VM pattern. The two are complementary:
+
+| Concern | Pattern |
+|---|---|
+| Sealed Intent + onIntent dispatcher | `vm-intent-pattern` (this skill) |
+| Plain `MutableStateFlow` + scope injection | `singularity-todo-testable-vm` |
+
+**When you write a VM with intents**, default to the testable shape:
+
+```kotlin
+class MyViewModel(
+    deps: MyDeps,
+    scope: CoroutineScope,                                    // ← injected
+) : ViewModel() {
+    constructor(deps: MyDeps) : this(deps, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))  // ← Koin
+
+    private val _state = MutableStateFlow<MyUiState>(MyUiState.Loading)
+    val state: StateFlow<MyUiState> = _state.asStateFlow()
+
+    init { scope.launch { /* load, derive */ } }
+
+    fun onIntent(intent: MyIntent) {
+        when (intent) { /* ... */ }
+    }
+}
+```
+
+```kotlin
+@Test
+fun test() = runTest {
+    val vm = MyViewModel(deps, this)              // ← pass test scope, NOT backgroundScope
+    advanceUntilIdle()
+    assertEquals(expected, vm.state.value)        // ← direct read, no Turbine
+}
+```
+
+Full guide: see `singularity-todo-testable-vm`.
