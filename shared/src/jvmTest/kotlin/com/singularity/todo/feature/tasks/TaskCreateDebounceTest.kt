@@ -50,7 +50,7 @@ class TaskCreateDebounceTest {
             draftStore = fakeDraftStore,
             autosaveScheduler = fakeScheduler,
         )
-        return TaskCreateViewModel(deps = deps, initialDueDate = null, scopeOverride = scope)
+        return TaskCreateViewModel(deps = deps, initialDueDate = null, scope = scope)
     }
 
     private val draftKey get() = "${testUserId.value}:${TaskCreateDeps.DRAFT_KEY}"

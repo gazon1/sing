@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.draft.DraftStore
@@ -19,6 +18,8 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiState
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -48,9 +49,18 @@ data class TaskCreateDeps(
 class TaskCreateViewModel(
     private val deps: TaskCreateDeps,
     initialDueDate: LocalDate?,
-    private val scopeOverride: CoroutineScope? = null,
+    private val scope: CoroutineScope,
 ) : ViewModel() {
-    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
+
+    /** Production constructor — Koin uses this. */
+    constructor(
+        deps: TaskCreateDeps,
+        initialDueDate: LocalDate?,
+    ) : this(
+        deps = deps,
+        initialDueDate = initialDueDate,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     private val initial: TaskDraft = TaskDraft(
         dueDate = initialDueDate?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None,
