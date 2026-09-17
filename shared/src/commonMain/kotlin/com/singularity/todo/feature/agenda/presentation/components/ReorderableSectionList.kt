@@ -79,7 +79,9 @@ fun ReorderableSectionList(
     var targetIndex by remember { mutableIntStateOf(-1) }
     var isDragging by remember { mutableStateOf(false) }
 
-    // Scroll to keep the target item visible during drag
+    // Scroll to keep the dragged item visible during drag.
+    // Uses animateScrollToItem so the list jumps to show the target section
+    // whenever the dragged item would move off-screen.
     LaunchedEffect(targetIndex, isDragging) {
         if (targetIndex >= 0 && isDragging) {
             listState.animateScrollToItem(targetIndex.coerceIn(0, sections.lastIndex))

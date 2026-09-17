@@ -44,6 +44,7 @@ import com.singularity.todo.feature.backup.BackupScreen
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.profile.presentation.AccountSettingsScreen
 import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
+import com.singularity.todo.feature.settings.screens.AgendaSettingsScreen
 import com.singularity.todo.feature.settings.screens.AiProviderSettingsScreen
 import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
@@ -56,6 +57,7 @@ import org.koin.compose.viewmodel.koinViewModel
 
 private enum class SettingsTab(val label: String) {
     Interface("Interface"),
+    Agenda("Agenda"),
     Notifications("Notifications"),
     AIProvider("AI Provider"),
     WorkSchedule("Work Schedule"),
@@ -110,6 +112,11 @@ private fun SettingsContent(
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
             when (selectedTab) {
                 SettingsTab.Interface -> InterfaceSettingsScreen(
+                    state = state,
+                    onIntent = viewModel::processIntent,
+                )
+
+                SettingsTab.Agenda -> AgendaSettingsScreen(
                     state = state,
                     onIntent = viewModel::processIntent,
                 )
@@ -174,6 +181,7 @@ private fun SettingsNavRail(
         SettingsTab.entries.forEach { tab ->
             val icon = when (tab) {
                 SettingsTab.Interface -> Icons.Filled.Palette
+                SettingsTab.Agenda -> Icons.Filled.Schedule
                 SettingsTab.Notifications -> Icons.Filled.Notifications
                 SettingsTab.AIProvider -> Icons.Filled.SmartToy
                 SettingsTab.WorkSchedule -> Icons.Filled.Schedule
@@ -251,6 +259,11 @@ private fun SettingsContentPreview(
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
             when (selectedTab) {
                 SettingsTab.Interface -> InterfaceSettingsScreen(
+                    state = state,
+                    onIntent = {},
+                )
+
+                SettingsTab.Agenda -> AgendaSettingsScreen(
                     state = state,
                     onIntent = {},
                 )

@@ -25,7 +25,7 @@ class JvmNotificationPort : NotificationPort {
                 .waitFor() == 0
         }.getOrDefault(false)
 
-    override suspend fun scheduleAt(key: String, title: String, body: String, fireAtEpochMs: Long, payload: String?) =
+    override suspend fun scheduleAt(key: String, title: String, body: String, fireAtEpochMs: Long, payload: String?, viewId: String?) =
         withContext(Dispatchers.IO) {
             if (!isAvailable) return@withContext
 

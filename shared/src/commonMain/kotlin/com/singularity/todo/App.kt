@@ -15,9 +15,12 @@ import com.singularity.todo.feature.nav.Navigator
  *
  * [Nav3State] and [Navigator] are owned here so [LocalAppNavigator] can be provided
  * before [AuthGuard] — enabling [LoginScreen] (signed-out state) to read it.
+ *
+ * @param deeplinkViewId When non-null (Android only), navigates directly to the
+ *   specified saved agenda view on first composition. Null on JVM.
  */
 @Composable expect
-fun App()
+fun App(deeplinkViewId: String?)
 
 /**
  * Shell entry point that receives the navigation state built by [App].

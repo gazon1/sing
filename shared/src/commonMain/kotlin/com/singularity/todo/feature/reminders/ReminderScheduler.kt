@@ -72,6 +72,7 @@ class ReminderScheduler(
                 body = "A task reminder is due",
                 fireAtEpochMs = reminder.fireAt,
                 payload = reminder.id.value,
+                viewId = reminder.viewId?.raw,
             )
 
             // Remove one-shot reminder after firing

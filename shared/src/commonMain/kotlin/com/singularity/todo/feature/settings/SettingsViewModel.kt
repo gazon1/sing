@@ -6,13 +6,17 @@ import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
+import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.ai.AiSettingsContributor
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 
 /**
@@ -23,20 +27,27 @@ import kotlinx.coroutines.launch
  * - Нет reactive snapshot — просто читаем .value синхронно
  * - processIntent обновляет state напрямую после записи в repository
  */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SettingsViewModel(
     private val contributors: Set<SettingsContributor<*, *>>,
     private val settings: SettingsRepository,
     private val scope: CoroutineScope,
+    private val savedAgendaViewsRepo: SavedAgendaViewsRepository,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : ViewModel() {
 
     /** Production constructor — Koin uses this. */
     constructor(
         contributors: Set<SettingsContributor<*, *>>,
         settings: SettingsRepository,
+        savedAgendaViewsRepo: SavedAgendaViewsRepository,
+        currentUser: ProfileAwareCurrentUser,
     ) : this(
         contributors = contributors,
         settings = settings,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        savedAgendaViewsRepo = savedAgendaViewsRepo,
+        currentUser = currentUser,
     )
 
     private val aiContributor: AiSettingsContributor?
@@ -46,6 +57,10 @@ class SettingsViewModel(
 
     // ─── State ─────────────────────────────────────────────────────────────
 
+    // Initialized before _state so that buildState() can reference it.
+    // Starts empty; init block replaces it once the flow starts emitting.
+    private val savedAgendaViews = MutableStateFlow<List<SavedAgendaView>>(emptyList())
+
     private val _state = MutableStateFlow(buildState())
     val state: StateFlow<SettingsUiState> get() = _state
 
@@ -54,6 +69,13 @@ class SettingsViewModel(
     init {
         scope.launch {
             _state.value = buildState()
+        }
+        scope.launch {
+            currentUser.userId.flatMapLatest { userId ->
+                savedAgendaViewsRepo.watchAll(userId.value)
+            }.collect { views ->
+                savedAgendaViews.value = views
+            }
         }
     }
 
@@ -97,6 +119,8 @@ class SettingsViewModel(
             greetingMorningEnd = settings.greetingMorningEnd.let { (it as? MutableStateFlow)?.value ?: 12 },
             greetingAfternoonEnd = settings.greetingAfternoonEnd.let { (it as? MutableStateFlow)?.value ?: 18 },
             userId = settings.userId.let { (it as? MutableStateFlow)?.value ?: "anonymous" },
+            defaultSavedAgendaViewId = settings.defaultSavedAgendaViewId.let { (it as? MutableStateFlow)?.value },
+            savedAgendaViews = savedAgendaViews.value,
             aiProvider = ai.provider.id,
             aiBaseUrl = ai.baseUrl,
             aiModel = ai.model,
@@ -226,6 +250,11 @@ class SettingsViewModel(
                 is SettingsIntent.Ai.UpdateApiKey -> {
                     aiContributor?.updateApiKey(intent.value)
                     reloadAiSection()
+                }
+
+                is SettingsIntent.DefaultAgendaView.Update -> {
+                    settings.setDefaultSavedAgendaViewId(intent.viewId)
+                    updateState { it.copy(defaultSavedAgendaViewId = intent.viewId) }
                 }
             }
         }

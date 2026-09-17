@@ -38,6 +38,8 @@ import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.RoomReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
+import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
@@ -128,6 +130,8 @@ fun coreModule(): org.koin.core.module.Module = module {
         SettingsViewModel(
             contributors = getAll<com.singularity.todo.core.settings.SettingsContributor<*, *>>().toSet(),
             settings = get(),
+            savedAgendaViewsRepo = get(),
+            currentUser = get(),
         )
     }
 

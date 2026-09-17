@@ -68,3 +68,15 @@ class Migration10To11 : AutoMigrationSpec
  * created_at, updated_at. Composite PK (id, user_id) for per-profile isolation.
  */
 class Migration11To12 : AutoMigrationSpec
+
+/**
+ * Migration from v12 to v13 — adds nullable `view_id` column to task_reminders.
+ *
+ * When a reminder is created from within a saved agenda view, this column stores
+ * the [SavedAgendaViewId], enabling the notification tap deeplink to open
+ * directly into that view. Null for reminders created outside a saved view.
+ *
+ * Adding a nullable column with no default is a safe auto-migration: existing
+ * rows read back with `viewId == null`.
+ */
+class Migration12To13 : AutoMigrationSpec

@@ -2,6 +2,7 @@ package com.singularity.todo.feature.reminders
 
 import com.singularity.todo.core.database.TaskReminderEntity
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
@@ -24,6 +25,8 @@ data class Reminder(
     val fireAt: Long,
     /** Cron expression for recurring reminders, null for one-shot. */
     val recurringPattern: String?,
+    /** SavedAgendaViewId — when set from a saved agenda view, enables deeplink back on notification tap. */
+    val viewId: SavedAgendaViewId? = null,
 )
 
 /** Type-safe ID wrapper. */
@@ -47,6 +50,7 @@ fun TaskReminderEntity.toReminder() = Reminder(
     offsetMinutes = offsetMinutes,
     fireAt = fireAt,
     recurringPattern = recurringPattern,
+    viewId = viewId?.let { SavedAgendaViewId.fromString(it) },
 )
 
 fun Reminder.toEntity(now: Long) = TaskReminderEntity(
@@ -57,6 +61,7 @@ fun Reminder.toEntity(now: Long) = TaskReminderEntity(
     offsetMinutes = offsetMinutes,
     fireAt = fireAt,
     recurringPattern = recurringPattern,
+    viewId = viewId?.raw,
     createdAt = now,
     updatedAt = now,
 )

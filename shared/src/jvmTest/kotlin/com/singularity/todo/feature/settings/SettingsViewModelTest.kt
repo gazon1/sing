@@ -7,6 +7,9 @@ import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.feature.ai.AiSettingsContributor
 import com.singularity.todo.feature.ai.FakeTextGen
 import com.singularity.todo.feature.ai.data.AiSettingsStore
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,8 +24,10 @@ class SettingsViewModelTest {
 
     private val fakeStorage = FakeSecureStorage()
     private val fakeSettings = FakeSettingsRepository()
+    private val fakeSavedAgendaViews = FakeSavedAgendaViewsRepository()
 
     private fun createVm(scope: CoroutineScope): SettingsViewModel {
+        val fakeCurrentUser = FakeProfileAwareCurrentUser(scope = scope)
         val aiStore = AiSettingsStore(fakeStorage, fakeSettings, FakeTextGen())
         val aiContributor = AiSettingsContributor(aiStore)
         val contributors: Set<SettingsContributor<*, *>> = setOf(aiContributor)
@@ -30,6 +35,8 @@ class SettingsViewModelTest {
             contributors = contributors,
             settings = fakeSettings,
             scope = scope,
+            savedAgendaViewsRepo = fakeSavedAgendaViews,
+            currentUser = fakeCurrentUser,
         )
     }
 
@@ -148,10 +155,13 @@ class SettingsViewModelTest {
         val aiStore = AiSettingsStore(fakeStorage, fakeSettings, textGen)
         val aiContributor = AiSettingsContributor(aiStore)
         val contributors: Set<SettingsContributor<*, *>> = setOf(aiContributor)
+        val fakeCurrentUser = FakeProfileAwareCurrentUser(scope = backgroundScope)
         val vm = SettingsViewModel(
             contributors = contributors,
             settings = fakeSettings,
             scope = backgroundScope,
+            savedAgendaViewsRepo = fakeSavedAgendaViews,
+            currentUser = fakeCurrentUser,
         )
         vm.processIntent(SettingsIntent.Ai.TestConnection)
         runCurrent()

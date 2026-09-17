@@ -29,7 +29,7 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         ProfileEntity::class,
         AgendaViewEntity::class,
     ],
-    version = 12,
+    version = 13,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -38,6 +38,7 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         AutoMigration(from = 9, to = 10, spec = Migration9To10::class),
         AutoMigration(from = 10, to = 11, spec = Migration10To11::class),
         AutoMigration(from = 11, to = 12, spec = Migration11To12::class),
+        AutoMigration(from = 12, to = 13, spec = Migration12To13::class),
     ],
     exportSchema = true,
 )

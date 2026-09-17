@@ -20,9 +20,11 @@ import org.koin.compose.koinInject
 /**
  * JVM Desktop actual implementation of [App].
  * Builds navigation state and provides [LocalAppNavigator] before calling [PlatformShell].
+ *
+ * @param deeplinkViewId Ignored on JVM — notifications are not supported.
  */
 @Composable
-actual fun App() {
+actual fun App(deeplinkViewId: String?) {
     val settings: SettingsRepository = koinInject()
     val darkTheme by settings.darkTheme.collectAsState(initial = false)
     val accentName by settings.accentColor.collectAsState(initial = "blue")

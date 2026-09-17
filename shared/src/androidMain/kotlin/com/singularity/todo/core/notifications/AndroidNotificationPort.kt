@@ -31,13 +31,14 @@ class AndroidNotificationPort(private val context: Context) : NotificationPort {
 
     override val isAvailable: Boolean = true
 
-    override suspend fun scheduleAt(key: String, title: String, body: String, fireAtEpochMs: Long, payload: String?) {
+    override suspend fun scheduleAt(key: String, title: String, body: String, fireAtEpochMs: Long, payload: String?, viewId: String?) {
         val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
             action = ACTION_REMINDER
             putExtra(EXTRA_KEY, key)
             putExtra(EXTRA_TITLE, title)
             putExtra(EXTRA_BODY, body)
             putExtra(EXTRA_PAYLOAD, payload)
+            putExtra(EXTRA_VIEW_ID, viewId)
         }
 
         val pending = PendingIntent.getBroadcast(
@@ -105,6 +106,7 @@ class AndroidNotificationPort(private val context: Context) : NotificationPort {
         const val EXTRA_TITLE = "reminder_title"
         const val EXTRA_BODY = "reminder_body"
         const val EXTRA_PAYLOAD = "reminder_payload"
+        const val EXTRA_VIEW_ID = "reminder_view_id"
     }
 }
 
@@ -129,10 +131,19 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+        // Build the launch intent — EXTRA_VIEW_ID is read by MainActivity to deeplink
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+            // Carry viewId so MainActivity can navigate to the correct saved agenda view
+            val viewId = intent.getStringExtra(AndroidNotificationPort.EXTRA_VIEW_ID)
+            if (viewId != null) {
+                putExtra(ReminderBroadcastReceiver.EXTRA_DEEPLINK_VIEW_ID, viewId)
+            }
+        }
+
         val pending = PendingIntent.getActivity(
             context,
             key.hashCode(),
-            context.packageManager.getLaunchIntentForPackage(context.packageName),
+            launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
@@ -146,5 +157,10 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
 
         @Suppress("UnspecifiedFlag")
         notificationManager.notify(key.hashCode(), notification)
+    }
+
+    companion object {
+        /** Extra key for the SavedAgendaViewId deeplink, read by MainActivity. */
+        const val EXTRA_DEEPLINK_VIEW_ID = "reminder_deeplink_view_id"
     }
 }

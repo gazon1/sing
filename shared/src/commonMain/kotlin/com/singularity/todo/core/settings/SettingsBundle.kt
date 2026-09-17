@@ -3,6 +3,7 @@ package com.singularity.todo.core.settings
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 
 /**
  * Sealed hierarchy of all settings sections.
@@ -74,5 +75,9 @@ sealed interface SettingsIntent {
     sealed interface Greeting : SettingsIntent {
         data class UpdateMorningEnd(val hour: Int) : Greeting
         data class UpdateAfternoonEnd(val hour: Int) : Greeting
+    }
+
+    sealed interface DefaultAgendaView : SettingsIntent {
+        data class Update(val viewId: SavedAgendaViewId?) : DefaultAgendaView
     }
 }

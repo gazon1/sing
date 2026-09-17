@@ -12,13 +12,14 @@ class FakeNotificationPort(override val isAvailable: Boolean = true) : Notificat
         val body: String,
         val fireAtEpochMs: Long,
         val payload: String?,
+        val viewId: String?,
     )
 
     val scheduled = mutableListOf<Scheduled>()
     val canceled = mutableListOf<String>()
 
-    override suspend fun scheduleAt(key: String, title: String, body: String, fireAtEpochMs: Long, payload: String?) {
-        scheduled.add(Scheduled(key, title, body, fireAtEpochMs, payload))
+    override suspend fun scheduleAt(key: String, title: String, body: String, fireAtEpochMs: Long, payload: String?, viewId: String?) {
+        scheduled.add(Scheduled(key, title, body, fireAtEpochMs, payload, viewId))
     }
 
     override suspend fun cancel(key: String) {

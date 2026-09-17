@@ -4,6 +4,8 @@ import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
+import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 
 /**
  * Re-exports [SettingsIntent] from [core.settings] so that existing importers
@@ -65,5 +67,8 @@ sealed interface SettingsUiState {
         val greetingAfternoonEnd: Int = 18,
         // Account
         val userId: String = "anonymous",
+        // Agenda
+        val defaultSavedAgendaViewId: SavedAgendaViewId? = null,
+        val savedAgendaViews: List<SavedAgendaView> = emptyList(),
     ) : SettingsUiState
 }

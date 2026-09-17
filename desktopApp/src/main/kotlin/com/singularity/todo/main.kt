@@ -33,6 +33,6 @@ fun main() = singleWindowApplication(
     // (default is 25%), saving ~80 MB on a 512 MB heap.
     Surface {
         LocalDesktopImageLoader()
-        App()
+        App(deeplinkViewId = null)
     }
 }
