@@ -76,7 +76,7 @@ class TaskCreateViewModel(
         scope.launch {
             val key = "${deps.currentUser.current.value}:${TaskCreateDeps.DRAFT_KEY}"
             runCatching { deps.draftStore.load<TaskDraft>(key, TaskDraft.serializer()) }
-                .onFailure { deps.logger.e("TaskCreate") { "draft restore failed: $it" } }
+                .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft restore failed: ${it.message}" } }
                 .getOrNull()
                 ?.let { restored ->
                     if (_draft.value == initial) _draft.value = restored
@@ -91,7 +91,7 @@ class TaskCreateViewModel(
                     val key = "${deps.currentUser.current.value}:${TaskCreateDeps.DRAFT_KEY}"
                     runCatching {
                         deps.draftStore.save(key, draft, TaskDraft.serializer())
-                    }.onFailure { deps.logger.e("TaskCreate") { "draft save failed: $it" } }
+                    }.onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft save failed: ${it.message}" } }
                 }
         }
     }
@@ -158,7 +158,7 @@ class TaskCreateViewModel(
     private suspend fun save() {
         val current = _draft.value
         if (current.title.isBlank()) {
-            deps.logger.d("TaskCreate") { "save skipped: title is blank, draft preserved" }
+            deps.logger.d(tag = "TaskCreate") { "save skipped: title is blank, draft preserved" }
             return
         }
         _isSaving.value = true
@@ -167,7 +167,7 @@ class TaskCreateViewModel(
             val input = toInput(current, userId)
             when (input) {
                 is Either.Left -> {
-                    deps.logger.e("TaskCreateViewModel") { "validation failed: ${input.error}" }
+                    deps.logger.e(tag = "TaskCreateViewModel") { "validation failed: ${input.error}" }
                 }
 
                 is Either.Right -> {
@@ -180,7 +180,7 @@ class TaskCreateViewModel(
                             }
                         }
                         .onFailure { e ->
-                            deps.logger.e("TaskCreateViewModel") { "save failed: $e" }
+                            deps.logger.e(e, tag = "TaskCreateViewModel") { "save failed: ${e.message}" }
                         }
                 }
             }
