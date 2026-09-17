@@ -8,6 +8,8 @@ import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.feature.ai.AiSettingsContributor
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -24,10 +26,18 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val contributors: Set<SettingsContributor<*, *>>,
     private val settings: SettingsRepository,
-    private val scopeOverride: CoroutineScope? = null,
+    private val scope: CoroutineScope,
 ) : ViewModel() {
 
-    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
+    /** Production constructor — Koin uses this. */
+    constructor(
+        contributors: Set<SettingsContributor<*, *>>,
+        settings: SettingsRepository,
+    ) : this(
+        contributors = contributors,
+        settings = settings,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     private val aiContributor: AiSettingsContributor?
         @Suppress("DEPRECATION")

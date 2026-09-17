@@ -39,6 +39,7 @@ import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.RoomReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
+import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
@@ -123,7 +124,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // SettingsViewModel collects all SettingsContributor implementations via getAll<>.
     // Each contributor (Appearance, AI, …) is registered in its own feature module.
-    factory {
+    viewModel {
         SettingsViewModel(
             contributors = getAll<com.singularity.todo.core.settings.SettingsContributor<*, *>>().toSet(),
             settings = get(),
@@ -134,7 +135,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     viewModelOf(::AuthViewModel)
 
-    viewModelOf(::BackupViewModel)
+    viewModel { BackupViewModel(get(), get(), get(), get()) }
 
     viewModelOf(::AttachmentsViewModel)
 }

@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -23,9 +25,18 @@ sealed interface TagsUiState {
 class TagsViewModel(
     private val tagRepo: TagsRepository,
     currentUser: ProfileAwareCurrentUser,
-    private val scopeOverride: CoroutineScope? = null,
+    private val scope: CoroutineScope,
 ) : ViewModel() {
-    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
+
+    /** Production constructor — Koin uses this. */
+    constructor(
+        tagRepo: TagsRepository,
+        currentUser: ProfileAwareCurrentUser,
+    ) : this(
+        tagRepo = tagRepo,
+        currentUser = currentUser,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     private val userIdFlow = currentUser.scopedUserId
 

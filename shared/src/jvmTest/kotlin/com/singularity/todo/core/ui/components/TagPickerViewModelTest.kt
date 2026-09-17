@@ -5,6 +5,7 @@ import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -27,11 +28,13 @@ class TagPickerViewModelTest {
         tagsRepo: FakeTagsRepository = FakeTagsRepository(),
         settingsRepo: FakeSettingsRepository = FakeSettingsRepository("test-user"),
         initialSelectedTagIds: Set<String> = emptySet(),
+        scope: CoroutineScope,
     ): TagPickerViewModel = TagPickerViewModel(
         tagsRepo = tagsRepo,
         settingsRepo = settingsRepo,
         initialSelectedTagIds = initialSelectedTagIds,
         sharingStarted = { kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(0) },
+        scope = scope,
     )
 
     private fun tag(id: String, name: String, userId: String = "test-user"): Tag = Tag(
@@ -45,7 +48,7 @@ class TagPickerViewModelTest {
 
     @Test
     fun `initial state reflects initialSelectedTagIds`() = runTest {
-        val vm = createVm(initialSelectedTagIds = setOf("t1", "t2"))
+        val vm = createVm(initialSelectedTagIds = setOf("t1", "t2"), scope = backgroundScope)
         assertEquals(setOf("t1", "t2"), vm.selected.value)
     }
 
@@ -60,7 +63,7 @@ class TagPickerViewModelTest {
 
     @Test
     fun `toggleTag adds unselected tag`() = runTest {
-        val vm = createVm(initialSelectedTagIds = emptySet())
+        val vm = createVm(initialSelectedTagIds = emptySet(), scope = backgroundScope)
         advanceUntilIdle()
         vm.toggleTag("t1")
         assertEquals(setOf("t1"), vm.selected.value)
@@ -68,7 +71,7 @@ class TagPickerViewModelTest {
 
     @Test
     fun `toggleTag removes already selected tag`() = runTest {
-        val vm = createVm(initialSelectedTagIds = setOf("t1", "t2"))
+        val vm = createVm(initialSelectedTagIds = setOf("t1", "t2"), scope = backgroundScope)
         advanceUntilIdle()
         vm.toggleTag("t1")
         assertEquals(setOf("t2"), vm.selected.value)
@@ -76,7 +79,7 @@ class TagPickerViewModelTest {
 
     @Test
     fun `setCreating true then false resets newTagName`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         advanceUntilIdle()
         vm.setNewTagName("hello world")
         vm.setCreating(true)
@@ -92,7 +95,7 @@ class TagPickerViewModelTest {
     fun `createTags calls repository`() = runTest {
         val tagsRepo = FakeTagsRepository()
         val settingsRepo = FakeSettingsRepository("test-user")
-        val vm = createVm(tagsRepo = tagsRepo, settingsRepo = settingsRepo)
+        val vm = createVm(tagsRepo = tagsRepo, settingsRepo = settingsRepo, scope = backgroundScope)
         advanceUntilIdle()
 
         vm.setNewTagName("Work, Personal")
@@ -108,7 +111,7 @@ class TagPickerViewModelTest {
     fun `createTags with blank name does nothing`() = runTest {
         val tagsRepo = FakeTagsRepository()
         val settingsRepo = FakeSettingsRepository("test-user")
-        val vm = createVm(tagsRepo = tagsRepo, settingsRepo = settingsRepo)
+        val vm = createVm(tagsRepo = tagsRepo, settingsRepo = settingsRepo, scope = backgroundScope)
         advanceUntilIdle()
 
         vm.setNewTagName("   ,  ")

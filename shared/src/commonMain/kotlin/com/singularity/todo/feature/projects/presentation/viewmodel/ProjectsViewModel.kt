@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.database.toProject
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -16,7 +15,9 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -37,10 +38,26 @@ class ProjectsViewModel(
     private val taskRepository: TaskRepository,
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
-    private val scopeOverride: CoroutineScope? = null,
+    private val scope: CoroutineScope,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
-    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
+
+    /** Production constructor — Koin uses this. */
+    constructor(
+        projectRepo: ProjectsRepository,
+        currentUser: ProfileAwareCurrentUser,
+        taskRepository: TaskRepository,
+        projectReview: ProjectReviewUseCase? = null,
+        deleteProject: DeleteProjectUseCase,
+    ) : this(
+        projectRepo = projectRepo,
+        currentUser = currentUser,
+        taskRepository = taskRepository,
+        projectReview = projectReview,
+        deleteProject = deleteProject,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        sharingStarted = { SharingStarted.WhileSubscribed(5000) },
+    )
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery

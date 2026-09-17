@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.backup
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.auth.AuthDomain
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupFileNamer
@@ -12,6 +11,8 @@ import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -34,9 +35,22 @@ class BackupViewModel(
     private val authRepository: AuthRepository,
     private val backupFileNamer: BackupFileNamer,
     private val clock: Clock,
-    private val scopeOverride: CoroutineScope? = null,
+    private val scope: CoroutineScope,
 ) : ViewModel() {
-    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
+
+    /** Production constructor — Koin uses this. */
+    constructor(
+        repository: BackupRepository,
+        authRepository: AuthRepository,
+        backupFileNamer: BackupFileNamer,
+        clock: Clock,
+    ) : this(
+        repository,
+        authRepository,
+        backupFileNamer,
+        clock,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()

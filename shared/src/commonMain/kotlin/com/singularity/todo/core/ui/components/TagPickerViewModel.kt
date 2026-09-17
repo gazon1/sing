@@ -8,6 +8,8 @@ import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,9 +32,22 @@ class TagPickerViewModel(
     private val settingsRepo: SettingsRepository,
     initialSelectedTagIds: Set<String> = emptySet(),
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(0) },
-    private val scopeOverride: CoroutineScope? = null,
+    private val scope: CoroutineScope,
 ) : ViewModel() {
-    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
+
+    /** Production constructor — Koin uses this. */
+    constructor(
+        tagsRepo: TagsRepository,
+        settingsRepo: SettingsRepository,
+        initialSelectedTagIds: Set<String> = emptySet(),
+        sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(0) },
+    ) : this(
+        tagsRepo = tagsRepo,
+        settingsRepo = settingsRepo,
+        initialSelectedTagIds = initialSelectedTagIds,
+        sharingStarted = sharingStarted,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     // ─── UI State ───────────────────────────────────────────────────────────────
 

@@ -29,7 +29,7 @@ class SettingsViewModelTest {
         return SettingsViewModel(
             contributors = contributors,
             settings = fakeSettings,
-            scopeOverride = scope,
+            scope = scope,
         )
     }
 
@@ -151,7 +151,7 @@ class SettingsViewModelTest {
         val vm = SettingsViewModel(
             contributors = contributors,
             settings = fakeSettings,
-            scopeOverride = backgroundScope,
+            scope = backgroundScope,
         )
         vm.processIntent(SettingsIntent.Ai.TestConnection)
         runCurrent()

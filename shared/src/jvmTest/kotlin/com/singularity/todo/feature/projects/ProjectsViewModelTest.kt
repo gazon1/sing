@@ -49,7 +49,7 @@ class ProjectsViewModelTest {
         currentUser = fakeCurrentUser,
         taskRepository = fakeTaskRepo,
         deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),
-        scopeOverride = backgroundScope,
+        scope = backgroundScope,
         sharingStarted = { SharingStarted.Eagerly },
     )
 
