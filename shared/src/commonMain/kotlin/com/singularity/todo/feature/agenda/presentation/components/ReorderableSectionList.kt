@@ -111,12 +111,12 @@ val Selector.typeDescription: String
             com.singularity.todo.feature.agenda.domain.model.RelativeBucket.Yesterday -> "Yesterday"
             com.singularity.todo.feature.agenda.domain.model.RelativeBucket.NoDate -> "No date"
         }
-        is Selector.DateRange -> "Date range: ${from} – ${to}"
+        is Selector.DateRange -> "Date range: $from – $to"
         is Selector.Statuses -> {
             val names = statuses.map { it.statusName }.sorted()
-            when {
-                names.size == 1 -> names[0]
-                names.size == 2 && statuses.contains(TaskStatus.Active) && statuses.contains(TaskStatus.Completed) -> "All"
+            when (names.size) {
+                1 -> names[0]
+                2 if statuses.contains(TaskStatus.Active) && statuses.contains(TaskStatus.Completed) -> "All"
                 else -> names.joinToString(", ")
             }
         }

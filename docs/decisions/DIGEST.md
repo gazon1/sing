@@ -46,6 +46,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Never** migrate to plain-text file storage for tasks. Room remains the source of truth; markdown export (if added later) is a read-only projection. _(from `2026-09-17-orgmode-architectural-lessons`)_ _(from `2026-09-17-orgmode-architectural-lessons`)_
 - **Never** relax `assertNoNesting` without a separate ADR. N-level outline requires Room `AutoMigration` (skill `singularity-todo-room-migration`). _(from `2026-09-17-orgmode-architectural-lessons`)_ _(from `2026-09-17-orgmode-architectural-lessons`)_
 - **Never** store derived predicates in Room (`isOverdue`, `isReady`). They are computed on read via extension properties. _(from `2026-09-17-orgmode-architectural-lessons`)_ _(from `2026-09-17-orgmode-architectural-lessons`)_
+- **Always** make new sealed hierarchies for DSL predicates (filter, selector, transformer, predicate) simultaneously `@Serializable` AND pure predicate — no parallel DTOs. _(from `2026-09-17-orgmode-functional-patterns`)_ _(from `2026-09-17-orgmode-functional-patterns`)_
+- **Always** return empty collection (not `Result.Left(Empty)`) for no-match cases in pure-domain pipelines like `AgendaEvaluator`. `Result.Left` is reserved for validation/business-rule failures only. _(from `2026-09-17-orgmode-functional-patterns`)_ _(from `2026-09-17-orgmode-functional-patterns`)_
+- **Always** route derived values (`effectivePriority`, `effectiveColor`, `effectiveTags`) through `core/tree/Cascade.kt` `cascadeUp` — never as stored fields on entities. _(from `2026-09-17-orgmode-functional-patterns`)_ _(from `2026-09-17-orgmode-functional-patterns`)_
+- **Always** use `data class.copy()` for Task/Project/Tag/AgendaDefinition mutations in pure-domain code — never add setters. Mutations go through `TaskRepository.update(...)`. _(from `2026-09-17-orgmode-functional-patterns`)_ _(from `2026-09-17-orgmode-functional-patterns`)_
+- **Never** introduce `Map<String, Any>` plist-style containers in Kotlin domain code — use `data class` instead. _(from `2026-09-17-orgmode-functional-patterns`)_ _(from `2026-09-17-orgmode-functional-patterns`)_
+- **Never** store memoization caches inside pure-domain functions — memoization is an outer wrapper (e.g. `rememberSaveable`, KDataStore, VM-side `StateFlow`). _(from `2026-09-17-orgmode-functional-patterns`)_ _(from `2026-09-17-orgmode-functional-patterns`)_
 - **Always** build `JsonObject` with `_type` manually in `serialize()` for sealed interface serializers — generated serializers for concrete subtypes omit the discriminator. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 - **Never** use `serializer<Selector>().descriptor` inside a custom `SelectorSerializer` — it returns the custom serializer itself, causing infinite recursion. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 
@@ -144,6 +150,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `core/draft/DraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
 - `core/draft/FakeDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
 - `core/serialization/StableJson.kt` _(from `2026-09-15-task-editor-unification`)_
+- `core/tree/Ancestors.kt`, `feature/tasks/domain/logic/Bulk.kt`, `core/pure-formatters/Attr.kt` are optional add-ons — they may be added in any sprint A+/C+ order or skipped entirely if not yet needed. _(from `2026-09-17-orgmode-functional-patterns`)_ _(from `2026-09-17-orgmode-functional-patterns`)_
 - `core/ui/components/` is now free of feature-domain imports _(from `2026-09-09-internal-link-picker-generic`)_
 - Cross-screen state (e.g. "did the user just save a note") must flow through navigation callbacks, not shared VM state _(from `2026-09-09-notes-vm-split`)_
 - Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
@@ -247,6 +254,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TasksFormatters.kt`: added `dueChipColors` formatter and `parseDueTime` utility. _(from `2026-09-09-task-detail-intent-refactor`)_
 - **`TasksRoute.Pop` как sentinel** — race condition (см. review rev. 1, _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - The "None (root)" option is rendered as a `TextButton` above the `LazyColumn`, not as part of `options` _(from `2026-09-09-parent-picker-contract`)_
+- This ADR layers on top of `2026-09-17-orgmode-architectural-lessons.md` and supersedes nothing. Both ADRs are read together at sprint planning time. _(from `2026-09-17-orgmode-functional-patterns`)_ _(from `2026-09-17-orgmode-functional-patterns`)_
 - This ADR supersedes nothing; it layers new pure infrastructure over `2026-09-16-agenda-engine.md` and `2026-09-08-task-1-level-subtasks.md`. _(from `2026-09-17-orgmode-architectural-lessons`)_ _(from `2026-09-17-orgmode-architectural-lessons`)_
 - Three Koin registrations instead of one _(from `2026-09-09-notes-vm-split`)_
 - Type-safe actions via `sealed class Action` with exhaustive `when` _(from `2026-09-09-content-slot-pattern`)_
@@ -2184,6 +2192,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-task-filter-set-variants` — tasks  domain-model  sql  selector  mr2a
 - `2026-09-16-task-list-filter-to-task-status` — tasks  domain-model  rename
 - `2026-09-17-orgmode-architectural-lessons` — architecture
+- `2026-09-17-orgmode-functional-patterns` — architecture
 - `2026-09-17-selector-serializer-plain-kserializer` — serialization  agenda  selector
 
 ## Active entries
@@ -2287,4 +2296,5 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-task-list-filter-to-task-status` — Rename TaskListFilter → TaskStatus: domain-level completion status enum
 - `2026-09-16-tasks-upcoming-screen` — _(no title)
 - `2026-09-17-orgmode-architectural-lessons` — Org-mode architectural lessons: cascade, visitor, computed, super-agenda
+- `2026-09-17-orgmode-functional-patterns` — Org-mode functional patterns: pure composition extensions
 - `2026-09-17-selector-serializer-plain-kserializer` — SelectorSerializer: plain KSerializer instead of JsonContentPolymorphicSerializer

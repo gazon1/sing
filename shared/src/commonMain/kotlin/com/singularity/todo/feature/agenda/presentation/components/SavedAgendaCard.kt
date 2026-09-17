@@ -11,10 +11,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.DeleteActionButton
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 
 /**
@@ -63,4 +66,34 @@ fun SavedAgendaCard(
             DeleteActionButton(onClick = onDelete)
         }
     }
+}
+
+@Preview
+@Composable
+private fun SavedAgendaCardPreview() = PreviewThemed(darkTheme = false) {
+    SavedAgendaCard(
+        view = PreviewSamples.savedAgendaView(name = "Weekly Review"),
+        onClick = {},
+        onDelete = {},
+    )
+}
+
+@Preview
+@Composable
+private fun SavedAgendaCardDarkPreview() = PreviewThemed(darkTheme = true) {
+    SavedAgendaCard(
+        view = PreviewSamples.savedAgendaView(name = "Weekly Review"),
+        onClick = {},
+        onDelete = {},
+    )
+}
+
+@Preview
+@Composable
+private fun SavedAgendaCardUnnamedPreview() = PreviewThemed(darkTheme = false) {
+    SavedAgendaCard(
+        view = PreviewSamples.savedAgendaView(name = ""),
+        onClick = {},
+        onDelete = {},
+    )
 }

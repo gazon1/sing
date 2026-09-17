@@ -1,14 +1,16 @@
 package com.singularity.todo.feature.agenda.domain.model
 
+import com.singularity.todo.feature.agenda.domain.model.SelectorSerializer.deserialize
+import com.singularity.todo.feature.agenda.domain.model.SelectorSerializer.serialize
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -364,7 +366,7 @@ object SelectorSerializer : kotlinx.serialization.KSerializer<Selector> {
             )
             "Tags" -> Selector.Tags(
                 ids = obj.getValue("ids").let { idsJson ->
-                    Json.decodeFromJsonElement<Set<TagId>>(serializer(), idsJson)
+                    Json.decodeFromJsonElement(serializer(), idsJson)
                 },
                 matchAll = obj["matchAll"]?.let {
                     Json.decodeFromJsonElement(serializer(), it)
@@ -372,12 +374,12 @@ object SelectorSerializer : kotlinx.serialization.KSerializer<Selector> {
             )
             "Statuses" -> Selector.Statuses(
                 statuses = obj.getValue("statuses").let {
-                    Json.decodeFromJsonElement<Set<TaskStatus>>(serializer(), it)
+                    Json.decodeFromJsonElement(serializer(), it)
                 },
             )
             "Priorities" -> Selector.Priorities(
                 priorities = obj.getValue("priorities").let {
-                    Json.decodeFromJsonElement<Set<TaskPriority>>(serializer(), it)
+                    Json.decodeFromJsonElement(serializer(), it)
                 },
                 atMost = obj["atMost"]?.let {
                     Json.decodeFromJsonElement(serializer(), it)
@@ -385,7 +387,7 @@ object SelectorSerializer : kotlinx.serialization.KSerializer<Selector> {
             )
             "Projects" -> Selector.Projects(
                 ids = obj.getValue("ids").let {
-                    Json.decodeFromJsonElement<Set<ProjectId>>(serializer(), it)
+                    Json.decodeFromJsonElement(serializer(), it)
                 },
             )
             "Pinned" -> Selector.Pinned

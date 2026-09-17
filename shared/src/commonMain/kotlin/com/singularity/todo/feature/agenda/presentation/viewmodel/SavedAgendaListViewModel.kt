@@ -1,13 +1,14 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -50,15 +51,23 @@ sealed interface SavedAgendaListEvent {
 
 /**
  * ViewModel for the saved agenda views list screen.
- * No runtime parameters — injected via [viewModelOf].
+ * No runtime parameters — injected via explicit `viewModel { }` block in AgendaDiModule.
+ * Note: `viewModelOf` does not work with multi-arg constructors — Koin cannot provide
+ * `CoroutineScope` as a bean. Use `viewModel { SavedAgendaListViewModel(get()) }` instead.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SavedAgendaListViewModel(
     private val deps: SavedAgendaListDeps,
-    private val scopeOverride: CoroutineScope? = null,
+    private val scope: CoroutineScope,
 ) : ViewModel() {
 
-    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
+    /** Production/Koin constructor — defaults scope to Main-immediate. */
+    constructor(
+        deps: SavedAgendaListDeps,
+    ) : this(
+        deps = deps,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     /** Delete failure events — routing (ViewSelected, CreateNew) is screen-side. */
     private val _events = MutableSharedFlow<SavedAgendaListEvent>(extraBufferCapacity = 4)

@@ -55,8 +55,9 @@ fun agendaModule(): Module = module {
     }
 
     // ─── SavedAgendaListViewModel (no runtime params) ────────────────────
-
-    viewModelOf(::SavedAgendaListViewModel)
+    // Note: viewModelOf does not work here — Koin cannot provide CoroutineScope as a bean.
+    // The secondary constructor creates a Main-immediate scope tied to the ViewModel's lifecycle.
+    viewModel { SavedAgendaListViewModel(get()) }
 
     // ─── SavedAgendaViewModel (runtime param: SavedAgendaScreenMode) ───────
 

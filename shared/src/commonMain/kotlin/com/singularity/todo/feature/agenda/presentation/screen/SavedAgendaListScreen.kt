@@ -33,13 +33,13 @@ import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.presentation.components.SavedAgendaCard
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
-import kotlin.time.Instant
 import com.singularity.todo.feature.agenda.presentation.nav.PreviewAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListEvent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListIntent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListState
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListViewModel
 import org.koin.compose.viewmodel.koinViewModel
+import kotlin.time.Instant
 
 /**
  * Root composable for the saved agenda views list screen.
@@ -86,7 +86,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
 
     NotificationHost(
         events = viewModel.events,
-        mapper = { e -> when (e) { is SavedAgendaListEvent.ShowError -> Notification.Error(e.message); else -> Notification.None } },
+        mapper = { e -> when (e) { is SavedAgendaListEvent.ShowError -> Notification.Error(e.message); } },
     )
 }
 

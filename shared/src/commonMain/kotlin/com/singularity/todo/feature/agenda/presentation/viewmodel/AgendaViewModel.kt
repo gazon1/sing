@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
@@ -10,7 +9,9 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -38,16 +39,24 @@ import kotlinx.coroutines.launch
  * @param deps Injected dependencies (task repository, current user, clock, logger).
  * @param definition The agenda definition to evaluate. In MR1 this does not change
  *        at runtime; future MRs will support switching definitions.
- * @param scopeOverride For testing only — allows injecting a test CoroutineScope.
+ * @param scope CoroutineScope for all coroutine work. Tests pass `this` (TestScope).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AgendaViewModel(
     private val deps: AgendaDeps,
     definition: AgendaDefinition,
-    private val scopeOverride: CoroutineScope? = null,
+    private val scope: CoroutineScope,
 ) : ViewModel() {
 
-    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
+    /** Production/Koin constructor — defaults scope to Main-immediate. */
+    constructor(
+        deps: AgendaDeps,
+        definition: AgendaDefinition,
+    ) : this(
+        deps = deps,
+        definition = definition,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     /** The definition being evaluated — stable reference. */
     val definition: AgendaDefinition = definition

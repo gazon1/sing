@@ -28,17 +28,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.core.ui.menu.onSecondaryClick
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.agenda.domain.model.AgendaBadge
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
+import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 
 /**
  * Content composable for the Agenda screen.
@@ -171,7 +179,7 @@ fun AgendaContent(
 
 @Composable
 private fun AgendaList(
-    sections: List<com.singularity.todo.feature.agenda.domain.model.RenderedSection>,
+    sections: List<RenderedSection>,
     today: LocalDate,
     onIntent: (AgendaIntent) -> Unit,
     onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
@@ -259,5 +267,138 @@ private fun AgendaTaskRow(
                 showDivider = true,
             )
         },
+    )
+}
+
+@Preview
+@Composable
+private fun AgendaContentLoadingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    AgendaContent(
+        state = AgendaUiState.Loading,
+        title = "Agenda",
+        onIntent = {},
+    )
+}
+
+@Preview
+@Composable
+private fun AgendaContentErrorPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    AgendaContent(
+        state = AgendaUiState.Error(message = "Failed to load agenda"),
+        title = "Agenda",
+        onIntent = {},
+    )
+}
+
+@Preview
+@Composable
+private fun AgendaContentEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    AgendaContent(
+        state = AgendaUiState.Loaded(
+            sections = emptyList(),
+            today = PreviewSamples.today,
+        ),
+        title = "Agenda",
+        onIntent = {},
+    )
+}
+
+@Preview
+@Composable
+private fun AgendaContentLoadedPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    val today = PreviewSamples.today
+    val yesterday = today.minus(1, DateTimeUnit.DAY)
+    val tomorrow = today.plus(1, DateTimeUnit.DAY)
+
+    val overdueTask = PreviewSamples.task(
+        id = "t1",
+        title = "Overdue task",
+        dueDate = yesterday,
+        completed = false,
+    )
+    val todayTask = PreviewSamples.task(
+        id = "t2",
+        title = "Due today",
+        dueDate = today,
+        completed = false,
+    )
+    val completedTask = PreviewSamples.task(
+        id = "t3",
+        title = "Completed task",
+        dueDate = today,
+        completed = true,
+    )
+    val pinnedTask = PreviewSamples.task(
+        id = "t4",
+        title = "Pinned task",
+        dueDate = tomorrow,
+        pinned = true,
+    )
+    val noDateTask = PreviewSamples.task(
+        id = "t5",
+        title = "No date set",
+        dueDate = null,
+        completed = false,
+    )
+
+    AgendaContent(
+        state = AgendaUiState.Loaded(
+            sections = listOf(
+                RenderedSection(
+                    name = "Overdue",
+                    tasks = listOf(AgendaRowItem(task = overdueTask, badge = AgendaBadge.Overdue)),
+                    badge = 1,
+                ),
+                RenderedSection(
+                    name = "Today",
+                    tasks = listOf(AgendaRowItem(task = todayTask)),
+                    badge = null,
+                ),
+                RenderedSection(
+                    name = "Completed",
+                    tasks = listOf(AgendaRowItem(task = completedTask, badge = AgendaBadge.Completed)),
+                    badge = null,
+                ),
+                RenderedSection(
+                    name = "Upcoming",
+                    tasks = listOf(
+                        AgendaRowItem(task = pinnedTask, badge = AgendaBadge.Pinned),
+                        AgendaRowItem(task = noDateTask, badge = AgendaBadge.NoDate),
+                    ),
+                    badge = null,
+                ),
+            ),
+            today = today,
+        ),
+        title = "My Agenda",
+        onIntent = {},
+        onSavedViewsClick = {},
+        onSaveCurrentClick = {},
+    )
+}
+
+@Preview
+@Composable
+private fun AgendaContentDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    val today = PreviewSamples.today
+
+    AgendaContent(
+        state = AgendaUiState.Loaded(
+            sections = listOf(
+                RenderedSection(
+                    name = "Today",
+                    tasks = listOf(
+                        AgendaRowItem(task = PreviewSamples.task(id = "t1", title = "Review PR", dueDate = today)),
+                        AgendaRowItem(task = PreviewSamples.task(id = "t2", title = "Send report", dueDate = today)),
+                    ),
+                    badge = null,
+                ),
+            ),
+            today = today,
+        ),
+        title = "Agenda",
+        onIntent = {},
+        onSavedViewsClick = {},
+        onSaveCurrentClick = {},
     )
 }
