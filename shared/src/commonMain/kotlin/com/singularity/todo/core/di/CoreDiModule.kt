@@ -37,9 +37,7 @@ import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.RoomReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
@@ -48,12 +46,6 @@ import org.koin.dsl.module
  * Does NOT include feature use cases or ViewModels — those live in feature modules.
  */
 fun coreModule(): org.koin.core.module.Module = module {
-    // ─── Scopes ───────────────────────────────────────────────────────────
-
-    single { { CoroutineScope(SupervisorJob() + Dispatchers.Unconfined) } }
-
-    single { CoroutineScope(Dispatchers.Default + SupervisorJob()) }
-
     // ─── Settings ────────────────────────────────────────────────────────
 
     // DataStore<Preferences> is bound per-platform in PlatformModule.{android,jvm}.kt
