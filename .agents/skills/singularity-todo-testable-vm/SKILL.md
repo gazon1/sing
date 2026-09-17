@@ -5,17 +5,21 @@ description: Testable ViewModel pattern for the Singularity Todo KMP app. Use wh
 
 # Testable ViewModel Pattern
 
-ViewModels in this project must be **easy to test**. The single biggest source of test pain is `combine(...).stateIn(scope, WhileSubscribed(...))` — it conflates two unrelated concerns (state derivation and lifecycle management) and forces tests to use Turbine and orchestration tricks. **Don't do it.**
+ViewModels in this project must be **easy to test**. The single biggest source of test pain is reaching for `combine(...).stateIn(scope, WhileSubscribed(...))` **by default**, regardless of what the VM actually does. `stateIn` conflates two unrelated concerns — state derivation and subscription lifecycle — and forces tests to use Turbine and subscription-triggering tricks to observe anything.
+
+This is the right tool for a narrow case: a VM that is a **pure read-through** over a single upstream flow, with no init-time side effects, no drafts, no intents that mutate local state. For everything else — anything with `init` logic, multi-step setup, or editable draft state — default to a plain `MutableStateFlow` written to explicitly. Pick the pattern based on what the VM's state *is*, not out of habit.
 
 This skill documents the canonical testable pattern, derived from the MR4 refactor of `SavedAgendaViewModel`.
 
 ---
 
-## The Rule
+## The Default Rule
 
-> **A VM's `state` is a plain `MutableStateFlow<X>`. No `combine`, no `stateIn`, no `WhileSubscribed`. Initial state is written explicitly in `init` or in dedicated init methods.**
+> **A stateful VM's `state` is a plain `MutableStateFlow<X>`. No `combine`, no `stateIn`, no `WhileSubscribed`. Initial state is written explicitly in `init` or in dedicated init methods.**
 
 If you need to combine two flows to derive state, **either** combine them once in `init {}` and write to `_state.value = ...`, **or** expose the inputs as separate flows and let the Composable derive state via `combine { ... }.collectAsStateWithLifecycle()`.
+
+For pure read-through VMs (no init, no intents, just `flow.map { … }.stateIn(WhileSubscribed)`), `stateIn` remains appropriate — see the comparison table at the end of the skill.
 
 ---
 
@@ -42,12 +46,37 @@ class SavedAgendaViewModel(
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     )
 
+    // Why Dispatchers.Main.immediate?
+    // - This project ships Android (real `Main`) and JVM Desktop (Main is provided
+    //   by `kotlinx-coroutines-swing` / Compose for Desktop's UI dispatcher).
+    // - `immediate` posts to the current thread if already on Main, avoiding an
+    //   unnecessary re-post for fast UI updates (e.g. saving `DraftState.setName`).
+    // - It assumes a Main dispatcher is available on the runtime classpath. This
+    //   is true for our two targets today. If you add a target without a Main
+    //   dispatcher (pure JVM CLI, server, etc.), swap this for a different
+    //   dispatcher — DO NOT add a `serviceLoader` fallback here.
+    // - Koin's VM factory creates one of these scopes per VM instance. It is
+    //   cancelled when the ViewModel is cleared (Koin's `viewModel { }` ties its
+    //   lifecycle to the closest `ViewModelStoreOwner`).
+
     // ─── Plain MutableStateFlow, no stateIn ────────────────────────────────
     private val _state = MutableStateFlow<SavedAgendaViewState>(SavedAgendaViewState.Loading)
     val state: StateFlow<SavedAgendaViewState> = _state.asStateFlow()
 
     private val _events = MutableSharedFlow<SavedAgendaEvent>(extraBufferCapacity = 4)
     val events = _events.asSharedFlow()
+
+    // Why `extraBufferCapacity = 4` and not 1 / UNLIMITED?
+    // - 1: `tryEmit` returns false the moment two events are produced back-to-back
+    //      faster than the screen collector can drain them. With rapid user input
+    //      (e.g. delete-tap-delete-tap) you lose events.
+    // - UNLIMITED: an unbounded buffer is a memory leak waiting to happen — a hot
+    //      producer with a dead collector will accumulate events forever.
+    // - 4: empirically matches the project's real burst size (delete, save, error
+    //      notification, one more within the same UI frame). Small enough that a
+    //      stale-event pile-up is bounded and visible in a heap dump if it ever
+    //      happens; large enough that legitimate bursts don't get dropped.
+    // This value is project convention — keep it consistent across VMs.
 
     val draftState = DraftState()  // ← separate editable state holder
 
@@ -202,21 +231,27 @@ No Turbine, no `expectMostRecentItem`, no `awaitItem`, no `waitForState`.
 @Test
 fun something() = runTest {
     val vm = createVm(mode, this)            // ✅ CORRECT
-    val vm = createVm(mode, backgroundScope)  // ❌ WRONG — coroutines don't advance!
+    val vm = createVm(mode, backgroundScope)  // ❌ WRONG — see below
 }
 ```
 
-`backgroundScope` is a child scope of the test's `TestScope`, but it uses its own dispatcher (`StandardTestDispatcher` with a child Job). When you call `advanceUntilIdle()`, the test scheduler advances only coroutines scheduled on the test's main scope — `backgroundScope` coroutines wait forever.
+`backgroundScope` and the TestScope receiver (`this`) share the same underlying `TestDispatcher` and scheduler — `advanceUntilIdle()` does advance coroutines launched on `backgroundScope`. The dispatcher is not the problem.
 
-**Rule**: in test methods, pass `this` (the implicit `TestScope` receiver of `runTest`), not `backgroundScope`.
+The real problem is **lifecycle and cancellation order**:
 
-`backgroundScope` is appropriate only for long-lived coroutines that should outlive the test (e.g., real network polling).
+- `backgroundScope` exists for coroutines that are meant to outlive the test body — long-running work that should be automatically cancelled after the test completes (e.g. a `while(true)` polling loop you never explicitly stop). `runTest` cancels it as its very last step.
+- If the VM under test is launched on `backgroundScope`, any assertion you make about ordering relative to the test's own cleanup, or any second `advanceUntilIdle()` / `runCurrent()` call issued after the main test body considers itself "done", can behave differently than you expect — because you're now reasoning about two independently-cancelled coroutine hierarchies instead of one.
+- More practically: mixing scopes like this makes failures non-obvious. A test can pass or hang depending on unrelated scheduling details, rather than deterministically reflecting what the VM does. `this` keeps everything in a single, straightforward hierarchy that `runTest` fully controls and reports on.
+
+**Rule**: in test methods, pass `this` (the implicit `TestScope` receiver of `runTest`) as the VM's scope. Reserve `backgroundScope` for genuinely long-lived helper coroutines in the test infrastructure (e.g. a fake that polls or emits on a timer) that should be auto-cancelled at teardown — never for the object under test itself.
 
 ---
 
 ## Anti-Patterns to Avoid
 
-### ❌ `combine + stateIn(WhileSubscribed)`
+### ❌ `combine + stateIn(WhileSubscribed)` used as the default for stateful VMs
+
+(See "When to Use Each Pattern" below — this anti-pattern applies when the VM has init logic or draft state, not to pure read-through VMs like `AgendaViewModel`.)
 
 ```kotlin
 // DON'T — hard to test, requires Turbine
@@ -246,26 +281,37 @@ val state = combine(_draft, repoFlow) { draft, view ->
 
 **Fix:** extract `seed()` to a regular method, call it once from `init {}` or `initEditMode()`.
 
-### ❌ Smart-cast inside private method
+### ❌ Relying on smart-cast of a class property across function calls
 
 ```kotlin
-// DOESN'T COMPILE — smart cast doesn't survive function boundary
-private suspend fun initEditMode() {
-    val view = deps.repo.watchById(mode.viewId, ...).first()  // 'mode' is Edit
-    // mode is the property; smart cast lost when crossing function
+// DOESN'T COMPILE:
+// "Smart cast to 'SavedAgendaScreenMode.Edit' is impossible, because 'mode' is a property
+// that has an open or custom getter"
+init {
+    scope.launch {
+        when (mode) {
+            is SavedAgendaScreenMode.Edit   -> initEditMode()   // mode narrowed to Edit here...
+            is SavedAgendaScreenMode.Create -> initCreateMode() // ...but narrowing doesn't carry in
+        }
+    }
 }
 
-private fun initCreateMode() {
-    val seed = seedStore.consumeSeed() ?: mode.seed  // 'mode' is Create
-    // also fails
+private suspend fun initEditMode() {
+    val view = deps.repo.watchById(mode.viewId, ...).first()  // ERROR: mode is back to the
+    // declared type SavedAgendaScreenMode here — the compiler can't prove it's still Edit,
+    // because `mode` is a class property, not a local val, and it could in principle change
+    // (or be overridden by a subclass) between the `when` check and this access.
 }
 ```
 
-**Fix:** pass the mode as a parameter:
+This isn't about crossing a function boundary per se — a smart-cast on a local `val` survives calls to other functions just fine, as long as the compiler can prove nothing reassigns it in between. The issue is specifically that `mode` is a class property: Kotlin only smart-casts properties when it can prove, at compile time, that no code path (including from another thread, or an overriding getter) could change the value between the check and the use — and it can't prove that across a function call.
+
+**Fix:** capture the narrowed value in a local `val` (via `when (val m = mode)`) and pass *that* local — not the property — into the function. A local `val` smart-casts reliably because the compiler can track that no reassignment happens before it's used:
+
 ```kotlin
 init {
     scope.launch {
-        when (val m = mode) {
+        when (val m = mode) {                          // m is a local val, narrowed
             is SavedAgendaScreenMode.Edit   -> initEditMode(m)
             is SavedAgendaScreenMode.Create -> initCreateMode(m)
         }
