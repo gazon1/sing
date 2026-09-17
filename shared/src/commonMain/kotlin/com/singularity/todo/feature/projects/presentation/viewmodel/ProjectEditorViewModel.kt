@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -11,7 +10,10 @@ import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -28,7 +30,24 @@ class ProjectEditorViewModel(
     private val updateProject: UpdateProjectUseCase,
     private val projectsRepo: ProjectsRepository,
     private val currentUser: ProfileAwareCurrentUser,
+    private val scope: CoroutineScope,
 ) : ViewModel() {
+
+    /** Production constructor — Koin uses this. */
+    constructor(
+        projectId: ProjectId?,
+        createProject: CreateProjectUseCase,
+        updateProject: UpdateProjectUseCase,
+        projectsRepo: ProjectsRepository,
+        currentUser: ProfileAwareCurrentUser,
+    ) : this(
+        projectId = projectId,
+        createProject = createProject,
+        updateProject = updateProject,
+        projectsRepo = projectsRepo,
+        currentUser = currentUser,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     private val _state = MutableStateFlow(ProjectEditorUiState(projectId = projectId))
     val state: StateFlow<ProjectEditorUiState> = _state.asStateFlow()
@@ -43,7 +62,7 @@ class ProjectEditorViewModel(
     }
 
     private fun loadProject(id: ProjectId) {
-        viewModelScope.launch {
+        scope.launch {
             _state.value = _state.value.copy(loading = true)
             val project = projectsRepo.watchProject(id).firstOrNull()
             if (project != null) {
@@ -94,7 +113,7 @@ class ProjectEditorViewModel(
         }
 
         _state.value = current.copy(saving = true, errorMessage = null)
-        viewModelScope.launch {
+        scope.launch {
             val userId = currentUser.scopedUserId.value
             if (current.projectId == null) {
                 // Create mode
