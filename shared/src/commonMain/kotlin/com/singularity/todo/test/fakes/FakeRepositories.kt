@@ -927,4 +927,22 @@ class FakeSavedAgendaViewsRepository : SavedAgendaViewsRepository {
     override suspend fun delete(id: SavedAgendaViewId, userId: String): Result<Unit> = runCatching {
         store.update { map -> map - SavedAgendaViewKey.of(userId, id.raw) }
     }
+
+    /** Synchronous upsert for tests. */
+    fun upsertSync(view: SavedAgendaView) {
+        store.update { map -> map + (SavedAgendaViewKey.of(view.userId, view.id.raw) to view) }
+    }
+
+    /** Get a view by raw ID string for tests. */
+    fun getById(id: String): SavedAgendaView? {
+        return store.value.values.find { it.id.raw == id }
+    }
+
+    /** Get all views for tests. */
+    fun getAll(): List<SavedAgendaView> = store.value.values.toList()
+
+    /** Clear all views for test isolation. */
+    fun clear() {
+        store.value = emptyMap()
+    }
 }
