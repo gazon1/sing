@@ -198,6 +198,8 @@ class Create<Feature>UseCase(private val repo: <Feature>Repository, private val 
 
 ## 4. ViewModel — State + Intent
 
+**This is the default, canonical shape — testable by construction.** It matches the "ViewModel testability — non-negotiable checklist" below exactly: plain `MutableStateFlow`, scope injected via constructor, no `combine`/`stateIn` in the way of tests. See `singularity-todo-testable-vm` for the full pattern and rationale.
+
 ```kotlin
 sealed interface <Feature>UiState {
     data object Loading : <Feature>UiState
@@ -213,18 +215,35 @@ sealed interface <Feature>Intent {
 class <Feature>ViewModel(
     private val repo: <Feature>Repository,
     private val create<Feature>: Create<Feature>UseCase,
-    settings: SettingsRepository,  // for userId
+    private val settings: SettingsRepository,  // for userId
+    private val scope: CoroutineScope,          // ← injected; tests pass `this` (TestScope)
 ) : ViewModel() {
 
-    private val userId = settings.userId.map { UserId.fromString(it) }
+    /** Production/Koin constructor — `scope` defaults to a Main-backed scope tied to the VM's lifecycle. */
+    constructor(
+        repo: <Feature>Repository,
+        create<Feature>: Create<Feature>UseCase,
+        settings: SettingsRepository,
+    ) : this(
+        repo = repo,
+        create<Feature> = create<Feature>,
+        settings = settings,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
-    val state: StateFlow<<Feature>UiState> = userId
-        .flatMapLatest { repo.watchAll(it) }
-        .map { <Feature>UiState.Content(it) }
-        .catch { emit(<Feature>UiState.Error(it.message ?: "Error")) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), <Feature>UiState.Loading)
+    private val _state = MutableStateFlow<<Feature>UiState>(<Feature>UiState.Loading)
+    val state: StateFlow<<Feature>UiState> = _state.asStateFlow()
 
-    fun processIntent(intent: <Feature>Intent) = viewModelScope.launch {
+    init {
+        scope.launch {
+            val userId = UserId.fromString(settings.userId.first())
+            repo.watchAll(userId)
+                .catch { _state.value = <Feature>UiState.Error(it.message ?: "Error") }
+                .collect { _state.value = <Feature>UiState.Content(it) }
+        }
+    }
+
+    fun processIntent(intent: <Feature>Intent) = scope.launch {
         when (intent) {
             is <Feature>Intent.Delete -> repo.delete(intent.id).getOrThrow()
             is <Feature>Intent.Update -> repo.update(intent.<feature>).getOrThrow()
@@ -232,6 +251,38 @@ class <Feature>ViewModel(
     }
 }
 ```
+
+Test (3 lines per case — no Turbine, no `expectMostRecentItem`):
+
+```kotlin
+@Test
+fun loadsContent() = runTest {
+    val vm = <Feature>ViewModel(fakeRepo, createUseCase, fakeSettings, this)  // `this` = TestScope
+    advanceUntilIdle()
+    assertIs<<Feature>UiState.Content>(vm.state.value)
+}
+```
+
+### Exception: pure read-through (opt-in, not the default)
+
+If the VM genuinely has **no draft, no init-time branching, and no intents beyond simple pass-through mutations** — a plain list screen that only ever mirrors `repo.watchAll()` — `stateIn(WhileSubscribed)` is an acceptable alternative. This is the same exception documented in `singularity-todo-testable-vm` (`AgendaViewModel` case). Tests for this variant do need Turbine, and that's an accepted, explicit tradeoff for this narrow case — not a signal to relax the default elsewhere:
+
+```kotlin
+class <Feature>ViewModel(
+    private val repo: <Feature>Repository,
+    settings: SettingsRepository,
+) : ViewModel() {
+
+    val state: StateFlow<<Feature>UiState> = settings.userId
+        .map { UserId.fromString(it) }
+        .flatMapLatest { repo.watchAll(it) }
+        .map { <Feature>UiState.Content(it) }
+        .catch { emit(<Feature>UiState.Error(it.message ?: "Error")) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), <Feature>UiState.Loading)
+}
+```
+
+**Default to the `MutableStateFlow` + `init` shape above unless you've confirmed your VM fits the read-through exception.** When in doubt, use the default — it's strictly more testable and costs nothing extra for simple CRUD.
 
 ## 5. Screen — Compose UI
 
@@ -454,7 +505,7 @@ Before merging a feature change:
 - [ ] Use cases live in `domain/usecase/` and depend only on `domain/port/` interfaces
 - [ ] ViewModels depend only on `domain/port/` interfaces + `domain/usecase/`
 - [ ] `collectAsStateWithLifecycle()` used (not `collectAsState()`)
-- [ ] ViewModels contain `scopeOverride` for tests
+- [ ] ViewModels take `scope: CoroutineScope` in primary constructor; secondary constructor for Koin delegates with `CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)` — see `singularity-todo-testable-vm` for full shape
 - [ ] **Run `just lint`** — detekt finds 0 new violations (baseline absorbs existing ones)
 - [ ] **Run `just detekt-fix`** — ktlint auto-fixes formatting; review the diff before staging
 - [ ] New feature code is covered by existing tests (kover aggregates coverage across commonMain + jvmMain + androidMain automatically)
@@ -533,16 +584,31 @@ val client = Project(id, name = "Client A", parentId = work.id, ...)
 val invalid = Project(name = "Task", parentId = workClient.id, ...) // workClient already has parentId
 ```
 
-Domain enforcement:
+Domain enforcement — return `Result.failure(AppError.Validation(...))` for *expected* validation failures (caller can react, retry, surface to user). Reach for `check { }` / `require { }` only for *invariant* violations that should be impossible by construction and indicate a bug:
+
 ```kotlin
 if (input.parentId != null) {
     val parent = repo.findById(input.parentId).getOrNull()
         ?: return Result.failure(AppError.Validation("Parent project not found"))
+    // Invariant: parents must be roots. If this fires, the call site passed a bad parent
+    // — treat as a programmer error, not a user-facing validation message.
     check(parent.parentId == null) {
-        AppError.Validation("Only root projects can have children.")
+        "Only root projects can have children. Got parent=${parent.id} which itself has parent=${parent.parentId}"
     }
 }
 ```
+
+**Note on `check { ... }` / `require { ... }` semantics** — both take a *condition* plus a *lazy message lambda*. The lambda is `() -> Any`, evaluated **only when the condition is false**, and the result is converted via `.toString()` to build the exception message. It is NOT a `throw` site — `check` throws `IllegalStateException`, `require` throws `IllegalArgumentException`, regardless of what you return from the lambda. Common mistake:
+
+```kotlin
+// WRONG: suggests the lambda throws — it doesn't, it just builds a String
+require(input.name.isNotBlank()) { throw AppError.Validation("Name is blank") }
+
+// RIGHT: returns a String message; require throws IllegalArgumentException with that message
+require(input.name.isNotBlank()) { "Name is blank" }
+```
+
+If you need to return a *typed* error to the caller, use `Result.failure(AppError.X(...))` — don't reach for `check { AppError.X(...) }` and expect the AppError to escape as an exception.
 
 ---
 
@@ -552,12 +618,12 @@ When you write `*ViewModel.kt` in `presentation/viewmodel/`, the **test** in `jv
 
 **Checklist:**
 
-- [ ] **`state` is `MutableStateFlow<X>`** — plain, no `.stateIn(...)`, no `WhileSubscribed`. Read with `.value`.
-- [ ] **`init` block uses injected `CoroutineScope`** — primary 4-arg constructor takes `scope`, secondary 3-arg delegates with `SupervisorJob() + Dispatchers.Main.immediate` for Koin.
+- [ ] **`state` is `MutableStateFlow<X>`** — plain, no `.stateIn(...)`, no `WhileSubscribed`. Read with `.value`. (`AgendaViewModel`-style pure read-through VMs are the narrow exception — see section 4 and `singularity-todo-testable-vm`.)
+- [ ] **`init` block uses injected `CoroutineScope`** — primary constructor takes `scope`, secondary delegates with `CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)` for Koin. Full shape + `Main.immediate` KMP caveat: `singularity-todo-testable-vm`.
 - [ ] **No `combine(...)`** — if you find yourself writing `combine(a, b) { ... }` to assemble state, extract the combination into `init { scope.launch { _state.value = computed } }` or expose `a` and `b` as separate flows and let the Composable `combine` them.
-- [ ] **No side effects inside flow operators** — never `_state.value = ...` from inside `combine`, `map`, or `onEach`. Side effects in flow operators re-run on every upstream emission.
+- [ ] **No side effects inside flow operators** — never `_state.value = ...` from inside `combine`, `map`, or `onEach`. Side effects in flow operators re-run on every upstream emission. (Narrow exception: unconditional `onEach { cache.value = it }` mirroring a single upstream value — see `singularity-todo-vm-intent-pattern` → `_latestTask`.)
 - [ ] **Editable state extracted to `*State` class** (e.g., `DraftState`) — testable as a pure unit, single source of truth.
-- [ ] **Test passes `this` (test scope), NOT `backgroundScope`** — `backgroundScope` has its own dispatcher, `advanceUntilIdle()` won't flush it.
+- [ ] **Test passes `this` (test scope), NOT `backgroundScope`** — full rationale and the `backgroundScope` vs `this` distinction: `singularity-todo-testable-vm`.
 
 **Example test (3 lines per case):**
 ```kotlin

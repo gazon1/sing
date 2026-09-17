@@ -283,38 +283,6 @@ This pattern plays well with the testable VM pattern. The two are complementary:
 | Concern | Pattern |
 |---|---|
 | Sealed Intent + onIntent dispatcher | `vm-intent-pattern` (this skill) |
-| Plain `MutableStateFlow` + scope injection | `singularity-todo-testable-vm` |
+| Plain `MutableStateFlow` + scope injection + `backgroundScope`/`Main.immediate` pitfalls | `singularity-todo-testable-vm` |
 
-**When you write a VM with intents**, default to the testable shape:
-
-```kotlin
-class MyViewModel(
-    deps: MyDeps,
-    scope: CoroutineScope,                                    // ← injected
-) : ViewModel() {
-    // Production ctor — see "Main.immediate KMP caveat" below before copy-pasting.
-    constructor(deps: MyDeps) : this(deps, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
-
-    private val _state = MutableStateFlow<MyUiState>(MyUiState.Loading)
-    val state: StateFlow<MyUiState> = _state.asStateFlow()
-
-    init { scope.launch { /* load, derive */ } }
-
-    fun onIntent(intent: MyIntent) {
-        when (intent) { /* ... */ }
-    }
-}
-```
-
-```kotlin
-@Test
-fun test() = runTest {
-    val vm = MyViewModel(deps, this)              // ← pass test scope, NOT backgroundScope
-    advanceUntilIdle()
-    assertEquals(expected, vm.state.value)        // ← direct read, no Turbine
-}
-```
-
-**`Main.immediate` KMP caveat (don't skip):** the production ctor above assumes a Main dispatcher is on the classpath. This project ships Android (real `Main`) and JVM Desktop (Main comes from Compose for Desktop's UI dispatcher) — both fine. If you add a target without a Main dispatcher (pure JVM CLI, server, etc.), `Dispatchers.Main.immediate` throws at construction time. Swap for a different dispatcher — do **not** add a `serviceLoader` fallback here. Full discussion: `singularity-todo-testable-vm`.
-
-Full guide: see `singularity-todo-testable-vm`.
+**When you write a VM with intents**, default to the testable shape — constructor, `Main.immediate` caveat, and the `backgroundScope` vs `this` distinction are all documented in `singularity-todo-testable-vm` → "Testable VM Template" and "Scope Injection Reference". Don't duplicate them here; one canonical source of truth.
