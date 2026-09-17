@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
@@ -55,13 +56,8 @@ class TaskDetailViewModel(
     /** Visible for tests. TOCTOU: prefer to observe via state. */
     internal val _latestTask = MutableStateFlow<Task?>(null)
 
-    /** Draft title owned by VM — used to avoid mirror-state in Composable. */
-    private val _draftTitle = MutableStateFlow("")
-    val titleDraft: StateFlow<String> = _draftTitle.asStateFlow()
-
-    /** Draft description owned by VM — used to avoid mirror-state in Composable. */
-    private val _draftDescription = MutableStateFlow("")
-    val descriptionDraft: StateFlow<String> = _draftDescription.asStateFlow()
+    /** Draft state — owned by VM, single source of truth for editable title/description. */
+    val draftState = TaskDetailDraftState()
 
     private val _lastEditedAt = MutableStateFlow<kotlin.time.Instant?>(null)
     val lastEditedAt: StateFlow<kotlin.time.Instant?> = _lastEditedAt
@@ -129,8 +125,7 @@ class TaskDetailViewModel(
                     reminderFlow,
                     attachmentsFlow,
                     subtasksFlow,
-                    _draftTitle,
-                    _draftDescription,
+                    draftState.state,
                 ) { values ->
                     @Suppress("UNCHECKED_CAST")
                     val project = values[0] as com.singularity.todo.feature.projects.domain.model.Project?
@@ -151,25 +146,16 @@ class TaskDetailViewModel(
                     val subtasks = values[5] as List<Task>
 
                     @Suppress("UNCHECKED_CAST")
-                    val draftTitle = values[6] as String
+                    val draft = values[6] as TaskDetailDraft
 
-                    @Suppress("UNCHECKED_CAST")
-                    val draftDescription = values[7] as String
+                    // Seed from loaded task — idempotent, won't overwrite user's active edits.
+                    draftState.seed(task.title, task.description ?: "")
 
-                    // Seed draft fields from loaded task (only if empty — don't overwrite user's active draft).
-                    // This fixes the UX bug where user types the first letter and it replaces the real title
-                    // because the draft was initialized to "" instead of the task's actual title.
-                    if (_draftTitle.value.isEmpty()) {
-                        _draftTitle.value = task.title
-                    }
-                    if (_draftDescription.value.isEmpty()) {
-                        _draftDescription.value = task.description ?: ""
-                    }
                     TaskDetailUiState.Loaded(
                         TaskDetailUi(
                             task = task,
-                            titleDraft = draftTitle,
-                            descriptionDraft = draftDescription,
+                            titleDraft = draft.title,
+                            descriptionDraft = draft.description,
                             project = project,
                             tags = allTags.filter { it.id in task.tags },
                             checklist = checklist,
@@ -195,10 +181,12 @@ class TaskDetailViewModel(
             }
 
             is TaskDetailIntent.Domain.TitleChanged -> {
+                draftState.setTitle(intent.title)
                 titleEdits.tryEmit(intent.title)
             }
 
             is TaskDetailIntent.Domain.DescriptionChanged -> {
+                draftState.setDescription(intent.description)
                 descriptionEdits.tryEmit(intent.description)
             }
 
@@ -351,11 +339,13 @@ class TaskDetailViewModel(
 
     /** Non-blocking title edit — queues for debounced flush. */
     fun onTitleChange(value: String) {
+        draftState.setTitle(value)
         titleEdits.tryEmit(value)
     }
 
     /** Non-blocking description edit — queues for debounced flush. */
     fun onDescriptionChange(value: String) {
+        draftState.setDescription(value)
         descriptionEdits.tryEmit(value)
     }
 
