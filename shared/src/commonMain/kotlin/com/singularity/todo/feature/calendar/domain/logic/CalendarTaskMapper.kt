@@ -2,6 +2,7 @@ package com.singularity.todo.feature.calendar.domain.logic
 
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskStatus
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
+import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import kotlinx.datetime.LocalDate
@@ -23,7 +24,7 @@ object CalendarTaskMapper {
     fun toCalendarTaskUi(task: Task, today: LocalDate, isRecurring: Boolean = false): CalendarTaskUi {
         val status = when {
             task.isCompleted -> CalendarTaskStatus.DONE
-            task.dueDate != null && task.dueDate < today -> CalendarTaskStatus.OVERDUE
+            TaskComputed.isOverdue(task, today) -> CalendarTaskStatus.OVERDUE
             else -> CalendarTaskStatus.PENDING
         }
         return CalendarTaskUi(

@@ -67,9 +67,7 @@ object AgendaPresets {
      * All tasks with a specific tag.
      * @param id The [TagId] to filter by.
      */
-    fun byTag(id: TagId): AgendaDefinition = agenda("Tagged") {
-        section("Tag", Selector.Tag(id), order = 0)
-    }
+    fun byTag(id: TagId): AgendaDefinition = byTags(setOf(id))
 
     /**
      * All tasks tagged with any of the given [TagId]s.

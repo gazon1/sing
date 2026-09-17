@@ -61,6 +61,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - `AgendaEngine MR1` полностью завершён _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - `agendaEntryProvider()` on both platforms must register `SavedAgendaList` and `SavedAgendaEdit` entries. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- All new pure functions are `internal` or `private` where possible. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `cascadeUp` throws `IllegalStateException` on cycle — no silent infinite loops. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- D5 (Settings tab + default view picker UI) and D7 (full notification→navigator deeplink wiring) are deferred — `SettingsRepository` storage is in place; UI wiring requires further settings-screen integration work. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - Detekt: 263 findings (pre-existing), 0 в изменённых файлах _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - **Fake reactive** (`MutableStateFlow<Map<K,V>>`) required for VM tests — `flowOf(snapshot)` not testable for transitions. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - MR1 JSON `{"_type":"Tag","id":"..."}` and MR2 JSON `{"_type":"Tags","ids":[...],"matchAll":false}` both round-trip correctly. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
@@ -68,10 +71,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **MR4 scope**: Create flow (FAB on list), deep-link guard for `SavedAgendaEdit`, section reorder. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - `navSavedStateConfig` on Android must include `SavedAgendaList.serializer()` and `SavedAgendaEdit.serializer()`. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - Process death during Create: seed lost, returns to list. Acceptable — Create is not critical path. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `ProfilePickerSheet` depends on `ProfileRepository.all()` — screens requiring profile context must inject `ProfileRepository`. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `ReorderableConfig` interface allows future swap to `sh.calvin.reorderable` without changing call sites. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - `SavedAgendaEditViewModel` → `SavedAgendaViewModel` rename propagates to all callers. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
 - `SavedAgendaSeedStore` is a global singleton — concurrent Create operations would race. Acceptable for current single-user model. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
 - `sh.calvin.reorderable` dependency deferred; `ReorderableSectionList` is a `LazyColumn` stub. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `TaskComputed.isOverdue` is the ONLY place `isOverdue` logic lives — `grep "dueDate < today"` returns 0 hits. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - The `@Serializable(with = ...)` annotation on the sealed interface activates the custom serializer for ALL paths including nested occurrences (e.g. `AllOf.children: List<Selector>`). _(from `2026-09-17-selector-serializer-plain-kserializer`)_
+- `when (selector)` appears only in `SelectorMatcher.matches` and `SelectorDescriptor.typeDescription` — compile-time enforcement of exhaustiveness for all 13 variants. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - Компиляция Android + JVM успешна, все тесты проходят _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - **Нет saved views в v1**: пользовательские пресеты не сохраняются. Встроенные — захардкожены в `AgendaPresets`. _(from `2026-09-16-agenda-engine`)_
 - **Удаляются**: `UpcomingScreen`, `UpcomingViewModel`, `UpcomingUiState`, `TaskListScreen` (для Inbox/Today/ByProject), `TasksViewModel`, `TasksRoute.Inbox/Today/Upcoming/ByProject`, `AppDestination.Inbox/Today/Upcoming/TasksByProject`. _(from `2026-09-16-agenda-engine`)_
@@ -769,6 +776,16 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskEntity` получает `@ColumnInfo("idempotency_key") val idempotencyKey: String?` _(from `2026-09-07-write-tools-in-koog-registry`)_
 - `TaskRepository` получает `findByIdempotencyKey(key, userId)` метод _(from `2026-09-07-write-tools-in-koog-registry`)_
 - Все 17+ tools следуют этому контракту _(from `2026-09-07-write-tools-in-koog-registry`)_
+
+### `infrastructure`
+
+- All new pure functions are `internal` or `private` where possible. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `cascadeUp` throws `IllegalStateException` on cycle — no silent infinite loops. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- D5 (Settings tab + default view picker UI) and D7 (full notification→navigator deeplink wiring) are deferred — `SettingsRepository` storage is in place; UI wiring requires further settings-screen integration work. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `ProfilePickerSheet` depends on `ProfileRepository.all()` — screens requiring profile context must inject `ProfileRepository`. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `ReorderableConfig` interface allows future swap to `sh.calvin.reorderable` without changing call sites. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `TaskComputed.isOverdue` is the ONLY place `isOverdue` logic lives — `grep "dueDate < today"` returns 0 hits. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `when (selector)` appears only in `SelectorMatcher.matches` and `SelectorDescriptor.typeDescription` — compile-time enforcement of exhaustiveness for all 13 variants. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 
 ### `intent`
 
@@ -1588,6 +1605,19 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Breaking**: `Selector.Tag` rename — `AgendaPresetsTest` JSON snapshots обновляются _(from `2026-09-16-task-filter-set-variants`)_
 - `FakeTaskDao` и `FakeTaskRepository` mirror для всех 4 новых queries _(from `2026-09-16-task-filter-set-variants`)_
 - MR1 JSON `{"_type":"Tag","id":"..."}` and MR2 JSON `{"_type":"Tags","ids":[...],"matchAll":false}` both round-trip correctly. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
+
+### `selectors`
+
+- All new pure functions are `internal` or `private` where possible. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `cascadeUp` throws `IllegalStateException` on cycle — no silent infinite loops. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- D5 (Settings tab + default view picker UI) and D7 (full notification→navigator deeplink wiring) are deferred — `SettingsRepository` storage is in place; UI wiring requires further settings-screen integration work. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `ProfilePickerSheet` depends on `ProfileRepository.all()` — screens requiring profile context must inject `ProfileRepository`. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `ReorderableConfig` interface allows future swap to `sh.calvin.reorderable` without changing call sites. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `TaskComputed.isOverdue` is the ONLY place `isOverdue` logic lives — `grep "dueDate < today"` returns 0 hits. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `when (selector)` appears only in `SelectorMatcher.matches` and `SelectorDescriptor.typeDescription` — compile-time enforcement of exhaustiveness for all 13 variants. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+
+### `selector`
+
 - `TaskRepositoryImpl.watchTasks` получает 4 новые dispatch branches _(from `2026-09-16-task-filter-set-variants`)_
 - The `@Serializable(with = ...)` annotation on the sealed interface activates the custom serializer for ALL paths including nested occurrences (e.g. `AllOf.children: List<Selector>`). _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 
@@ -2007,9 +2037,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `ux`
 
 - All changes are additive; no existing behavior is removed. _(from `2026-09-07-settings-ux-improvements`)_
+- All new pure functions are `internal` or `private` where possible. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - Backlinks are now shown and functional _(from `2026-09-09-notes-view-edit-split`)_
 - Backup confirm dialogs prevent accidental data loss. _(from `2026-09-07-settings-ux-improvements`)_
+- `cascadeUp` throws `IllegalStateException` on cycle — no silent infinite loops. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - Clear UX: notes list → tap note → read → optionally edit _(from `2026-09-09-notes-view-edit-split`)_
+- D5 (Settings tab + default view picker UI) and D7 (full notification→navigator deeplink wiring) are deferred — `SettingsRepository` storage is in place; UI wiring requires further settings-screen integration work. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
 - Delete confirmation is handled in `NotePreview`, not buried in editor overflow menu _(from `2026-09-09-notes-view-edit-split`)_
 - Navigation now has one more route: `NoteView` ↔ `NoteEditor` ↔ `NotesScreen` _(from `2026-09-09-notes-view-edit-split`)_
@@ -2018,18 +2051,28 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `NotePreview` must observe the note via `repo.watchNote()` — requires a Flow subscription _(from `2026-09-09-notes-view-edit-split`)_
 - `NotesListViewModel` now requires `IdGenerator` as a third constructor parameter _(from `2026-09-09-notes-quick-add`)_
 - One tap fewer than before for the common "capture a thought" workflow _(from `2026-09-09-notes-quick-add`)_
+- `ProfilePickerSheet` depends on `ProfileRepository.all()` — screens requiring profile context must inject `ProfileRepository`. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 
 ### `"ux"`
 
 - `_recentlyDeleted` must be cleared in `onCleared()` to avoid leaking task data on configuration change. _(from `2026-09-08-task-restore-undo`)_
+
+### `ux`
+
+- `ReorderableConfig` interface allows future swap to `sh.calvin.reorderable` without changing call sites. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+
+### `"ux"`
+
 - `restore()` re-uses the original `id` — idempotent by design. _(from `2026-09-08-task-restore-undo`)_
 
 ### `ux`
 
 - Slight visual complexity added to the list screen _(from `2026-09-09-notes-quick-add`)_
+- `TaskComputed.isOverdue` is the ONLY place `isOverdue` logic lives — `grep "dueDate < today"` returns 0 hits. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
 - Title pre-saved to DB before navigating to editor (no lost titles on crash) _(from `2026-09-09-notes-quick-add`)_
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading _(from `2026-09-09-notes-view-edit-split`)_
+- `when (selector)` appears only in `SelectorMatcher.matches` and `SelectorDescriptor.typeDescription` — compile-time enforcement of exhaustiveness for all 13 variants. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 
 ### `viewmodel`
 
@@ -2195,6 +2238,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-nav3-type-asymmetry-adr` — navigation  nav3  android  jvm  technical-debt
 - `2026-09-16-task-filter-set-variants` — tasks  domain-model  sql  selector  mr2a
 - `2026-09-16-task-list-filter-to-task-status` — tasks  domain-model  rename
+- `2026-09-17-agenda-mr5-pure-infra-ux-polish` — agenda  infrastructure  selectors  ux
 - `2026-09-17-orgmode-architectural-lessons` — architecture
 - `2026-09-17-orgmode-functional-patterns` — architecture
 - `2026-09-17-selector-serializer-plain-kserializer` — serialization  agenda  selector
@@ -2299,6 +2343,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-task-filter-set-variants` — TaskFilter and Selector set variants: ByTags/ByPriorities/ByRegexp SQL-backed filters
 - `2026-09-16-task-list-filter-to-task-status` — Rename TaskListFilter → TaskStatus: domain-level completion status enum
 - `2026-09-16-tasks-upcoming-screen` — _(no title)
+- `2026-09-17-agenda-mr5-pure-infra-ux-polish` — Agenda MR5: Pure Infrastructure + Selector Cohesion + UX Polish
 - `2026-09-17-orgmode-architectural-lessons` — Org-mode architectural lessons: cascade, visitor, computed, super-agenda
 - `2026-09-17-orgmode-functional-patterns` — Org-mode functional patterns: pure composition extensions
 - `2026-09-17-selector-serializer-plain-kserializer` — SelectorSerializer: plain KSerializer instead of JsonContentPolymorphicSerializer

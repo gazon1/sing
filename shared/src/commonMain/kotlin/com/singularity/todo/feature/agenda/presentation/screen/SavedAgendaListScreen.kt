@@ -1,25 +1,39 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,6 +52,8 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaLis
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListIntent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListState
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListViewModel
+import com.singularity.todo.feature.profile.Profile
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Instant
 
@@ -52,6 +68,18 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
     val navigator = LocalAgendaNavigator.current
     val viewModel: SavedAgendaListViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    var pendingCopyViewId by remember { mutableStateOf<SavedAgendaViewId?>(null) }
+
+    NotificationHost(
+        events = viewModel.events,
+        mapper = { e ->
+            when (e) {
+                is SavedAgendaListEvent.ShowError -> Notification.Error(e.message)
+                is SavedAgendaListEvent.CopySuccess -> Notification.Text("Copied to ${e.targetProfileName}", null)
+            }
+        },
+    )
 
     Scaffold(
         topBar = {
@@ -71,7 +99,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
             FloatingActionButton(
                 onClick = { navigator.openSavedAgendaCreate(AgendaPresets.Inbox) },
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Create saved view")
+                Icon(Icons.Default.Add, contentDescription = "Create view")
             }
         },
         modifier = modifier,
@@ -80,35 +108,42 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
             state = state,
             onViewSelected = { viewId -> navigator.openSavedAgendaEdit(viewId) },
             onDelete = { viewId -> viewModel.onIntent(SavedAgendaListIntent.Delete(viewId)) },
+            onEdit = { viewId -> navigator.openSavedAgendaEdit(viewId) },
+            onCopyToProfile = { viewId -> pendingCopyViewId = viewId },
             modifier = Modifier.padding(paddingValues),
         )
     }
 
-    NotificationHost(
-        events = viewModel.events,
-        mapper = { e -> when (e) { is SavedAgendaListEvent.ShowError -> Notification.Error(e.message); } },
-    )
+    // Profile picker for copy-to-profile
+    pendingCopyViewId?.let { viewId ->
+        val profileRepo: com.singularity.todo.feature.profile.ProfileRepository = koinInject()
+        ProfilePickerSheet(
+            viewId = viewId,
+            profileRepo = profileRepo,
+            onDismiss = { pendingCopyViewId = null },
+            onPick = { profileId ->
+                viewModel.onIntent(SavedAgendaListIntent.CopyToProfile(viewId, profileId))
+                pendingCopyViewId = null
+            },
+        )
+    }
 }
 
 /**
  * Content composable for the saved agenda views list screen.
  * Stateless — receives [SavedAgendaListState] and emits callbacks.
- * Used by [SavedAgendaListScreen] (production) and preview.
- *
- * @param state The current UI state.
- * @param onViewSelected Called when the user taps a saved view card.
- * @param onDelete Called when the user taps the delete button on a card.
- * @param modifier Compose modifier.
  */
 @Composable
-private fun SavedAgendaListContent(
+fun SavedAgendaListContent(
     state: SavedAgendaListState,
     onViewSelected: (SavedAgendaViewId) -> Unit,
     onDelete: (SavedAgendaViewId) -> Unit,
+    onEdit: (SavedAgendaViewId) -> Unit,
+    onCopyToProfile: (SavedAgendaViewId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (state) {
-        is SavedAgendaListState.Loading -> {
+        SavedAgendaListState.Loading -> {
             LoadingIndicator(modifier = modifier.fillMaxSize())
         }
 
@@ -130,7 +165,78 @@ private fun SavedAgendaListContent(
                             view = view,
                             onClick = { onViewSelected(view.id) },
                             onDelete = { onDelete(view.id) },
+                            onEdit = { onEdit(view.id) },
+                            onCopyToProfile = { onCopyToProfile(view.id) },
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Bottom sheet for selecting a target profile when copying a saved view.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProfilePickerSheet(
+    viewId: SavedAgendaViewId,
+    profileRepo: com.singularity.todo.feature.profile.ProfileRepository,
+    onDismiss: () -> Unit,
+    onPick: (com.singularity.todo.feature.profile.ProfileId) -> Unit,
+) {
+    val profiles by profileRepo.all().collectAsStateWithLifecycle(initialValue = emptyList())
+    val sheetState = rememberModalBottomSheetState()
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Text(
+                text = "Copy to profile",
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (profiles.isEmpty()) {
+                Text(
+                    text = "No profiles available",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                profiles.forEach { profile ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(profile.id) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = profile.emoji,
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = profile.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (profile.isDefault) {
+                            Text(
+                                text = "Default",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
                 }
             }
@@ -145,9 +251,11 @@ private fun SavedAgendaListContent(
 private fun SavedAgendaListContentEmptyPreview() = PreviewAgendaNavigator {
     PreviewThemed(darkTheme = false) {
         SavedAgendaListContent(
-            state = SavedAgendaListState.Loaded(views = emptyList()),
+            state = SavedAgendaListState.Loaded(emptyList()),
             onViewSelected = {},
             onDelete = {},
+            onEdit = {},
+            onCopyToProfile = {},
         )
     }
 }
@@ -158,39 +266,29 @@ private fun SavedAgendaListContentLoadedPreview() = PreviewAgendaNavigator {
     PreviewThemed(darkTheme = false) {
         SavedAgendaListContent(
             state = SavedAgendaListState.Loaded(
-                views = listOf(
+                listOf(
                     SavedAgendaView(
                         id = SavedAgendaViewId("v1"),
                         userId = "u1",
-                        name = "Work",
-                        sectionsJson = """{"sections":[]}""",
+                        name = "Weekly Review",
+                        sectionsJson = "{}",
                         createdAt = Instant.fromEpochSeconds(1784253600),
                         updatedAt = Instant.fromEpochSeconds(1785496200),
                     ),
                     SavedAgendaView(
                         id = SavedAgendaViewId("v2"),
                         userId = "u1",
-                        name = "Personal",
-                        sectionsJson = """{"sections":[]}""",
-                        createdAt = Instant.fromEpochSeconds(1784336400),
-                        updatedAt = Instant.fromEpochSeconds(1785648000),
+                        name = "Focus Today",
+                        sectionsJson = "{}",
+                        createdAt = Instant.fromEpochSeconds(1784253600),
+                        updatedAt = Instant.fromEpochSeconds(1785496200),
                     ),
                 ),
             ),
             onViewSelected = {},
             onDelete = {},
-        )
-    }
-}
-
-@androidx.compose.ui.tooling.preview.Preview
-@Composable
-private fun SavedAgendaListContentLoadingPreview() = PreviewAgendaNavigator {
-    PreviewThemed(darkTheme = false) {
-        SavedAgendaListContent(
-            state = SavedAgendaListState.Loading,
-            onViewSelected = {},
-            onDelete = {},
+            onEdit = {},
+            onCopyToProfile = {},
         )
     }
 }

@@ -1,18 +1,25 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -20,12 +27,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,8 +55,12 @@ import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
+import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
-import com.singularity.todo.feature.agenda.presentation.components.ReorderableSectionList
+import com.singularity.todo.feature.agenda.domain.model.Section
+import com.singularity.todo.feature.agenda.domain.model.Selector
+import com.singularity.todo.feature.agenda.domain.selector.typeDescription
+import com.singularity.todo.feature.agenda.presentation.components.SectionEditorCard
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.nav.PreviewAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.viewmodel.Draft
@@ -55,8 +69,27 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaInt
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewModel
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewState
+import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+
+/**
+ * Predefined section templates offered when adding a new section.
+ */
+private data class SectionTemplate(
+    val label: String,
+    val selector: Selector,
+)
+
+private val SectionTemplates = listOf(
+    SectionTemplate("Active tasks", Selector.Statuses(setOf(TaskStatus.Active))),
+    SectionTemplate("Completed tasks", Selector.Statuses(setOf(TaskStatus.Completed))),
+    SectionTemplate("Due today", Selector.DateBucket(RelativeBucket.Today)),
+    SectionTemplate("Overdue", Selector.DateBucket(RelativeBucket.Overdue)),
+    SectionTemplate("No date", Selector.DateBucket(RelativeBucket.NoDate)),
+    SectionTemplate("This week", Selector.DateBucket(RelativeBucket.ThisWeek)),
+    SectionTemplate("Next week", Selector.DateBucket(RelativeBucket.NextWeek)),
+)
 
 /**
  * Root composable for the saved agenda view edit/create screen.
@@ -85,11 +118,10 @@ fun SavedAgendaScreen(
     val viewModel: SavedAgendaViewModel = koinViewModel { parametersOf(mode) }
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    // Dialog state: null = no dialog, else the active sheet
+    // Dialog state: null = no dialog/sheet, else the active dialog
     var activeDialog by remember { mutableStateOf<ActiveDialog?>(null) }
 
     // Auto-pop to previous screen when entering NotFound state
-    // NotFound is terminal (no further state transitions), so a simple check is sufficient
     LaunchedEffect(state) {
         if (state is SavedAgendaViewState.NotFound) {
             navigator.back()
@@ -107,6 +139,8 @@ fun SavedAgendaScreen(
         },
         onNavigateBack = { navigator.back() },
     )
+
+    val sheetState = rememberModalBottomSheetState()
 
     Scaffold(
         topBar = {
@@ -137,6 +171,7 @@ fun SavedAgendaScreen(
             state = state,
             onIntent = viewModel::onIntent,
             onRequestDelete = { activeDialog = ActiveDialog.ConfirmDelete },
+            onRequestAddSection = { activeDialog = ActiveDialog.AddSection },
             modifier = Modifier.padding(paddingValues),
         )
     }
@@ -188,12 +223,67 @@ fun SavedAgendaScreen(
             },
         )
     }
+
+    // Add section bottom sheet
+    if (activeDialog == ActiveDialog.AddSection) {
+        ModalBottomSheet(
+            onDismissRequest = { activeDialog = null },
+            sheetState = sheetState,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+            ) {
+                Text(
+                    text = "Add section",
+                    style = MaterialTheme.typography.titleLarge,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                SectionTemplates.forEach { template ->
+                    val sectionName = template.label
+                    val nextOrder = (state as? SavedAgendaViewState.Editing)?.draft?.sections?.size ?: 0
+                    val section = Section(
+                        name = sectionName,
+                        order = nextOrder,
+                        selector = template.selector,
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                activeDialog = null
+                                viewModel.onIntent(
+                                    SavedAgendaIntent.SectionAdded(section, nextOrder),
+                                )
+                            }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = sectionName,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            Text(
+                                text = template.selector.typeDescription,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** Active overlay dialog. */
 private enum class ActiveDialog {
     ConfirmDelete,
     ConfirmDiscard,
+    AddSection,
 }
 
 /**
@@ -207,6 +297,7 @@ private fun SavedAgendaContent(
     state: SavedAgendaViewState,
     onIntent: (SavedAgendaIntent) -> Unit,
     onRequestDelete: () -> Unit,
+    onRequestAddSection: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (state) {
@@ -256,7 +347,7 @@ private fun SavedAgendaContent(
                     enabled = !state.isSaving,
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 when {
                     state.decodeError -> {
@@ -266,27 +357,59 @@ private fun SavedAgendaContent(
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
+
                     state.draft.sections.isNotEmpty() -> {
-                        Text(
-                            text = "Sections — drag to reorder",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        ReorderableSectionList(
-                            sections = state.draft.sections,
-                            onSectionsReordered = { reordered ->
-                                onIntent(SavedAgendaIntent.SectionsReordered(reordered))
-                            },
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                        )
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "Sections",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            TextButton(onClick = onRequestAddSection) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Add")
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            itemsIndexed(
+                                items = state.draft.sections,
+                                key = { index, section -> "${section.name}#${section.order}#$index" },
+                            ) { index, section ->
+                                SectionEditorCard(
+                                    section = section,
+                                    index = index,
+                                    onDelete = { onIntent(SavedAgendaIntent.SectionRemoved(index)) },
+                                )
+                            }
+                        }
                     }
+
                     else -> {
-                        Text(
-                            text = "No sections",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                text = "No sections",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedButton(onClick = onRequestAddSection) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Add first section")
+                            }
+                        }
                     }
                 }
 
@@ -333,6 +456,7 @@ private fun SavedAgendaContentLoadingPreview() = PreviewAgendaNavigator {
             state = SavedAgendaViewState.Loading,
             onIntent = {},
             onRequestDelete = {},
+            onRequestAddSection = {},
         )
     }
 }
@@ -353,7 +477,10 @@ private fun SavedAgendaContentEditingPreview() = PreviewAgendaNavigator {
                 ),
                 draft = Draft(
                     name = "My Work Setup",
-                    sections = emptyList(),
+                    sections = listOf(
+                        Section("Today", 0, Selector.DateBucket(RelativeBucket.Today)),
+                        Section("Overdue", 1, Selector.DateBucket(RelativeBucket.Overdue)),
+                    ),
                     originalName = "My Work Setup",
                     originalSections = emptyList(),
                     initialized = true,
@@ -364,6 +491,7 @@ private fun SavedAgendaContentEditingPreview() = PreviewAgendaNavigator {
             ),
             onIntent = {},
             onRequestDelete = {},
+            onRequestAddSection = {},
         )
     }
 }
@@ -395,6 +523,7 @@ private fun SavedAgendaContentSavingPreview() = PreviewAgendaNavigator {
             ),
             onIntent = {},
             onRequestDelete = {},
+            onRequestAddSection = {},
         )
     }
 }
@@ -407,6 +536,7 @@ private fun SavedAgendaContentNotFoundPreview() = PreviewAgendaNavigator {
             state = SavedAgendaViewState.NotFound,
             onIntent = {},
             onRequestDelete = {},
+            onRequestAddSection = {},
         )
     }
 }

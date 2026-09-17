@@ -10,6 +10,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
@@ -170,7 +171,7 @@ object TaskDomain {
             val range = filter.bucket.toDateRange(filter.today)
             when (filter.bucket) {
                 RelativeBucket.Overdue ->
-                    task.dueDate != null && task.dueDate < filter.today && !task.isCompleted && !task.isTrashed
+                    TaskComputed.isOverdue(task, filter.today)
 
                 RelativeBucket.NoDate ->
                     task.dueDate == null && !task.isTrashed

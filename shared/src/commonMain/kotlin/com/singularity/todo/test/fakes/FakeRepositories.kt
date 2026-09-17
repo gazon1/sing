@@ -103,6 +103,7 @@ class FakeSettingsRepository(initialUserId: String = "test-user") : SettingsRepo
     private val _greetingMorningEnd = MutableStateFlow(12)
     private val _greetingAfternoonEnd = MutableStateFlow(18)
     private val _userId = MutableStateFlow(initialUserId)
+    private val _defaultSavedAgendaViewId = MutableStateFlow<SavedAgendaViewId?>(null)
 
     override val darkTheme: Flow<Boolean> = _darkTheme
     override val accentColor: Flow<String> = _accentColor
@@ -124,6 +125,7 @@ class FakeSettingsRepository(initialUserId: String = "test-user") : SettingsRepo
     override val greetingMorningEnd: Flow<Int> = _greetingMorningEnd
     override val greetingAfternoonEnd: Flow<Int> = _greetingAfternoonEnd
     override val userId: Flow<String> = _userId
+    override val defaultSavedAgendaViewId: Flow<SavedAgendaViewId?> = _defaultSavedAgendaViewId
 
     override suspend fun setDarkTheme(value: Boolean) {
         _darkTheme.value = value
@@ -187,6 +189,10 @@ class FakeSettingsRepository(initialUserId: String = "test-user") : SettingsRepo
     }
     override suspend fun setUserId(value: String) {
         _userId.value = value
+    }
+
+    override suspend fun setDefaultSavedAgendaViewId(id: SavedAgendaViewId?) {
+        _defaultSavedAgendaViewId.value = id
     }
 }
 

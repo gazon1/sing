@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.model
 
 import com.singularity.todo.core.ui.components.formatRussianDueDate
+import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -50,7 +51,7 @@ fun Task.toTaskUi(today: LocalDate, projectNamesById: Map<String, String>): Task
     parentId = this.parentTaskId?.value,
     indentLevel = if (this.parentTaskId != null) 1 else 0,
     isCompleted = this.completedAt != null,
-    isOverdue = !this.isCompleted && this.dueDate != null && this.dueDate < today,
+    isOverdue = TaskComputed.isOverdue(this, today),
     priority = this.priority,
     domainTask = this,
 )

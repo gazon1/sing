@@ -156,20 +156,20 @@ class AgendaEvaluatorTest {
         assertTrue(AgendaEvaluator.matches(task, selector, today))
     }
 
-    // ─── Selector: Tag ───────────────────────────────────────────────────────
+    // ─── Selector: Tags ───────────────────────────────────────────────────────
 
     @Test
-    fun `Tag matches task with that tag`() {
+    fun `Tags matches task with that tag`() {
         val tag = TagId.fromString("tag-1")
         val task = makeTask("1", "Tagged task", tags = listOf(tag))
-        assertTrue(AgendaEvaluator.matches(task, Selector.Tag(tag), today))
+        assertTrue(AgendaEvaluator.matches(task, Selector.Tags(setOf(tag)), today))
     }
 
     @Test
-    fun `Tag does not match task without that tag`() {
+    fun `Tags does not match task without that tag`() {
         val tag = TagId.fromString("tag-1")
         val task = makeTask("1", "Untagged task", tags = emptyList())
-        assertFalse(AgendaEvaluator.matches(task, Selector.Tag(tag), today))
+        assertFalse(AgendaEvaluator.matches(task, Selector.Tags(setOf(tag)), today))
     }
 
     // ─── Selector: Projects ──────────────────────────────────────────────────

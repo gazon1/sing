@@ -85,18 +85,6 @@ sealed interface Selector {
     data class Priorities(val priorities: Set<TaskPriority>, val atMost: Boolean = true) : Selector
 
     /**
-     * Tasks that have the given tag (directly, not inherited).
-     *
-     * @deprecated Use [Tags] for new code. This variant is kept for MR1 JSON backwards
-     * compatibility. The [SelectorSerializer] shim accepts both `"Tag"` and `"Tags"`
-     * discriminator values for one release cycle.
-     */
-    @Serializable
-    @SerialName("Tag")
-    @Deprecated("Use Tags(setOf(id)) instead", ReplaceWith("Tags(setOf(id))"))
-    data class Tag(val id: TagId) : Selector
-
-    /**
      * Tasks that are tagged with any of the given [TagId]s.
      *
      * @param ids The set of tag IDs to match against.
@@ -183,9 +171,6 @@ object SelectorSerializer : kotlinx.serialization.KSerializer<Selector> {
             ?: throw SerializationException("Selector serialization requires a JSON encoder")
 
         val element: JsonElement = when (value) {
-            is Selector.Tag -> JsonObject(
-                mapOf("_type" to JsonPrimitive("Tag"), "id" to JsonPrimitive(value.id.value))
-            )
             is Selector.DateBucket -> JsonObject(
                 mapOf("_type" to JsonPrimitive("DateBucket"), "bucket" to JsonPrimitive(value.bucket.name))
             )
@@ -261,9 +246,6 @@ object SelectorSerializer : kotlinx.serialization.KSerializer<Selector> {
      */
     private fun serializeToElement(jsonEncoder: kotlinx.serialization.json.JsonEncoder, value: Selector): JsonElement {
         return when (value) {
-            is Selector.Tag -> JsonObject(
-                mapOf("_type" to JsonPrimitive("Tag"), "id" to JsonPrimitive(value.id.value))
-            )
             is Selector.DateBucket -> JsonObject(
                 mapOf("_type" to JsonPrimitive("DateBucket"), "bucket" to JsonPrimitive(value.bucket.name))
             )
@@ -343,11 +325,11 @@ object SelectorSerializer : kotlinx.serialization.KSerializer<Selector> {
         val type = obj["_type"]?.jsonPrimitive?.content
             ?: throw SerializationException("Missing '_type' discriminator")
 
-        // Tag: MR1 legacy format — deserialize manually.
+        // Tag: MR1 legacy format — deserialize and upgrade to Tags.
         if (type == "Tag") {
             val id = obj["id"]?.jsonPrimitive?.content
-                ?: throw SerializationException("Missing 'id' field for Selector.Tag")
-            return Selector.Tag(TagId(id))
+                ?: throw SerializationException("Missing 'id' field for Selector.Tag legacy")
+            return Selector.Tags(setOf(TagId(id)))
         }
 
         // All MR2+ types: construct manually from the JSON object fields.

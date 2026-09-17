@@ -49,6 +49,21 @@ class DraftState(initial: Draft = Draft.empty()) {
 
     fun setName(name: String) { _state.update { it.copy(name = name) } }
     fun reorderSections(sections: List<Section>) { _state.update { it.copy(sections = sections) } }
+    fun addSection(template: Section, position: Int) {
+        _state.update { draft ->
+            val sections = draft.sections.toMutableList().apply {
+                add(position.coerceIn(0, size), template)
+            }
+            draft.copy(sections = sections)
+        }
+    }
+    fun removeSection(index: Int) {
+        _state.update { draft ->
+            if (index < 0 || index >= draft.sections.size) return@update draft
+            val sections = draft.sections.toMutableList().apply { removeAt(index) }
+            draft.copy(sections = sections)
+        }
+    }
 }
 
 data class Draft(
@@ -81,6 +96,8 @@ sealed interface SavedAgendaViewState {
 sealed interface SavedAgendaIntent {
     data class NameChanged(val name: String) : SavedAgendaIntent
     data class SectionsReordered(val sections: List<Section>) : SavedAgendaIntent
+    data class SectionAdded(val template: Section, val position: Int) : SavedAgendaIntent
+    data class SectionRemoved(val index: Int) : SavedAgendaIntent
     data object Save : SavedAgendaIntent
     data object Delete : SavedAgendaIntent
 }
@@ -159,6 +176,8 @@ class SavedAgendaViewModel(
         when (intent) {
             is SavedAgendaIntent.NameChanged -> { draftState.setName(intent.name); emitEditingState() }
             is SavedAgendaIntent.SectionsReordered -> { draftState.reorderSections(intent.sections); emitEditingState() }
+            is SavedAgendaIntent.SectionAdded -> { draftState.addSection(intent.template, intent.position); emitEditingState() }
+            is SavedAgendaIntent.SectionRemoved -> { draftState.removeSection(intent.index); emitEditingState() }
             is SavedAgendaIntent.Save -> onSave()
             is SavedAgendaIntent.Delete -> onDelete()
         }

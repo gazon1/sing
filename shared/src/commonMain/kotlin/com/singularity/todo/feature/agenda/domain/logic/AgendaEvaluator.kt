@@ -3,12 +3,11 @@ package com.singularity.todo.feature.agenda.domain.logic
 import com.singularity.todo.feature.agenda.domain.model.AgendaBadge
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
-import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
+import com.singularity.todo.feature.agenda.domain.selector.matches
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlinx.datetime.LocalDate
 
 /**
@@ -62,78 +61,16 @@ object AgendaEvaluator {
      * Returns true if [task] matches the given [Selector] predicate.
      *
      * @param today Used to resolve [RelativeBucket] date ranges.
+     *
+     * @deprecated Use [Selector.matches] directly. This shim exists for one release
+     * cycle to allow callers to migrate. It forwards to `selector.matches(task, today)`.
      */
-    fun matches(task: Task, selector: Selector, today: LocalDate): Boolean {
-        return when (selector) {
-            is Selector.DateBucket -> {
-                val range = selector.bucket.toDateRange(today)
-                when (selector.bucket) {
-                    RelativeBucket.Overdue ->
-                        task.dueDate != null &&
-                        task.dueDate < today && !task.isCompleted
-
-                    RelativeBucket.NoDate -> task.dueDate == null
-
-                    else ->
-                        task.dueDate != null &&
-                        task.dueDate >= range.from && task.dueDate <= range.to
-                }
-            }
-
-            is Selector.DateRange -> {
-                task.dueDate != null &&
-                    task.dueDate >= selector.from && task.dueDate <= selector.to
-            }
-
-            is Selector.Statuses -> {
-                if (selector.statuses.isEmpty()) return false
-                if (TaskStatus.All in selector.statuses) return true
-                val activeMatch = TaskStatus.Active in selector.statuses && !task.isCompleted
-                val completedMatch = TaskStatus.Completed in selector.statuses && task.isCompleted
-                activeMatch || completedMatch
-            }
-
-            is Selector.Priorities -> {
-                if (selector.atMost) {
-                    selector.priorities.contains(task.priority)
-                } else {
-                    !selector.priorities.contains(task.priority)
-                }
-            }
-
-            is Selector.Tag -> task.tags.contains(selector.id)
-
-            is Selector.Tags -> when {
-                selector.ids.isEmpty() && selector.matchAll -> true // empty+matchAll is trivially true
-                selector.ids.isEmpty() -> false                      // empty+any = nothing matches
-                selector.matchAll -> selector.ids.all { task.tags.contains(it) }
-                else -> selector.ids.any { task.tags.contains(it) }
-            }
-
-            is Selector.Projects -> selector.ids.contains(task.projectId)
-
-            is Selector.Pinned -> task.isPinned
-
-            is Selector.Completed -> task.isCompleted
-
-            is Selector.Overdue ->
-                task.dueDate != null &&
-                task.dueDate < today && !task.isCompleted
-
-            is Selector.Regexp -> {
-                val regex = selector.query.toRegex(RegexOption.IGNORE_CASE)
-                regex.containsMatchIn(task.title)
-            }
-
-            is Selector.AllOf -> selector.children.all { matches(task, it, today) }
-
-            is Selector.AnyOf -> selector.children.any { matches(task, it, today) }
-
-            is Selector.Not -> !matches(task, selector.child, today)
-
-            is Selector.Anything -> true
-        }
-    }
+    @Deprecated(
+        message = "Use selector.matches(task, today) directly",
+        replaceWith = ReplaceWith("selector.matches(task, today)"),
+    )
+    fun matches(task: Task, selector: Selector, today: LocalDate): Boolean =
+        selector.matches(task, today)
 
     private fun computeBadge(task: Task, selector: Selector, today: LocalDate): AgendaBadge? {
         if (task.isPinned) return AgendaBadge.Pinned

@@ -1,32 +1,62 @@
 package com.singularity.todo.feature.agenda.presentation.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.agenda.domain.model.Section
-import com.singularity.todo.feature.agenda.domain.model.Selector
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import com.singularity.todo.feature.agenda.domain.selector.typeDescription
+import kotlin.math.roundToInt
 
 /**
  * A reorderable list of [Section] items.
  *
- * Uses `sh.calvin.reorderable` for drag-and-drop reordering. The actual
- * library is added in Commit 5; this stub uses a plain [LazyColumn] for now.
+ * Uses a custom `pointerInput`-based implementation for true drag-and-drop
+ * across both Android and JVM (no platform-specific library required).
+ *
+ * ## Haptic behavior
+ *
+ * - [HapticFeedbackType.TextHandleMove] fires on drag start.
+ * - [HapticFeedbackType.TextHandleMove] fires each time the dragged item
+ *   crosses a section boundary (changes the predicted target index).
+ *
+ * ## Scroll behavior
+ *
+ * When the target index moves beyond the visible range, [LazyColumn]
+ * scrolls to keep the dragged or target item visible.
  *
  * @param sections The sections to display.
  * @param onSectionsReordered Called when the user has reordered sections
@@ -40,19 +70,116 @@ fun ReorderableSectionList(
     onSectionsReordered: (List<Section>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Stub: plain LazyColumn. Will be replaced with sh.calvin.reorderable in Commit 5.
+    val listState = rememberLazyListState()
+    val haptic = LocalHapticFeedback.current
+
+    // Drag state
+    var draggingIndex by remember { mutableIntStateOf(-1) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    var targetIndex by remember { mutableIntStateOf(-1) }
+    var isDragging by remember { mutableStateOf(false) }
+
+    // Scroll to keep the target item visible during drag
+    LaunchedEffect(targetIndex, isDragging) {
+        if (targetIndex >= 0 && isDragging) {
+            listState.animateScrollToItem(targetIndex.coerceIn(0, sections.lastIndex))
+        }
+    }
+
     LazyColumn(
         modifier = modifier,
+        state = listState,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         itemsIndexed(
             items = sections,
             key = { _, section -> "${section.name}#${section.order}" },
         ) { index, section ->
-            SectionRow(
-                section = section,
-                index = index,
+            val isDragged = index == draggingIndex
+
+            val elevation by animateDpAsState(
+                targetValue = if (isDragged) 12.dp else 0.dp,
+                label = "dragElevation",
             )
+            val scale by animateFloatAsState(
+                targetValue = if (isDragged) 1.02f else 1f,
+                label = "dragScale",
+            )
+
+            // Placeholder at original position (faded) while dragging
+            AnimatedVisibility(visible = !isDragged) {
+                SectionRow(
+                    section = section,
+                    isDragging = false,
+                    elevation = elevation,
+                    modifier = Modifier
+                        .graphicsLayer { if (isDragged) alpha = 0.3f }
+                        .pointerInput(index) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    if (draggingIndex == -1) {
+                                        draggingIndex = index
+                                        targetIndex = index
+                                        isDragging = true
+                                        dragOffsetY = 0f
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    }
+                                },
+                                onDrag = { _, dragAmount ->
+                                    dragOffsetY += dragAmount.y
+
+                                    val visibleItems = listState.layoutInfo.visibleItemsInfo
+                                    if (visibleItems.isNotEmpty()) {
+                                        val firstVisible = visibleItems.first()
+                                        val itemHeight = firstVisible.size.toFloat()
+                                        val draggedPos = firstVisible.offset + (index * itemHeight) + dragOffsetY
+                                        val newTarget = (draggedPos / itemHeight)
+                                            .roundToInt()
+                                            .coerceIn(0, sections.lastIndex)
+
+                                        if (newTarget != targetIndex && newTarget != draggingIndex) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            targetIndex = newTarget
+                                        }
+                                    }
+                                },
+                                onDragEnd = {
+                                    if (draggingIndex != -1 && targetIndex != draggingIndex) {
+                                        val reordered = sections.toMutableList().apply {
+                                            add(targetIndex, removeAt(draggingIndex))
+                                        }
+                                        onSectionsReordered(reordered)
+                                    }
+                                    isDragging = false
+                                    draggingIndex = -1
+                                    targetIndex = -1
+                                    dragOffsetY = 0f
+                                },
+                                onDragCancel = {
+                                    isDragging = false
+                                    draggingIndex = -1
+                                    targetIndex = -1
+                                    dragOffsetY = 0f
+                                },
+                            )
+                        },
+                )
+            }
+
+            // Floating preview while dragging
+            if (isDragged) {
+                Box(
+                    modifier = Modifier
+                        .offset { IntOffset(0, dragOffsetY.roundToInt()) }
+                        .graphicsLayer { scaleX = scale; scaleY = scale },
+                ) {
+                    SectionRow(
+                        section = section,
+                        isDragging = true,
+                        elevation = 12.dp,
+                    )
+                }
+            }
         }
     }
 }
@@ -62,13 +189,22 @@ fun ReorderableSectionList(
  * Shows section name, type badge, and a drag handle.
  */
 @Composable
-fun SectionRow(
+private fun SectionRow(
     section: Section,
-    index: Int,
+    isDragging: Boolean,
+    elevation: androidx.compose.ui.unit.Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDragging) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            },
+        ),
     ) {
         Row(
             modifier = Modifier
@@ -96,69 +232,3 @@ fun SectionRow(
         }
     }
 }
-
-/** Human-readable description of a [Selector] for UI display. */
-val Selector.typeDescription: String
-    get() = when (this) {
-        is Selector.DateBucket -> when (bucket) {
-            com.singularity.todo.feature.agenda.domain.model.RelativeBucket.Overdue -> "Overdue tasks"
-            com.singularity.todo.feature.agenda.domain.model.RelativeBucket.Today -> "Today"
-            com.singularity.todo.feature.agenda.domain.model.RelativeBucket.Tomorrow -> "Tomorrow"
-            com.singularity.todo.feature.agenda.domain.model.RelativeBucket.ThisWeek -> "This week"
-            com.singularity.todo.feature.agenda.domain.model.RelativeBucket.NextWeek -> "Next week"
-            com.singularity.todo.feature.agenda.domain.model.RelativeBucket.ThisMonth -> "This month"
-            com.singularity.todo.feature.agenda.domain.model.RelativeBucket.NextMonth -> "Next month"
-            com.singularity.todo.feature.agenda.domain.model.RelativeBucket.Yesterday -> "Yesterday"
-            com.singularity.todo.feature.agenda.domain.model.RelativeBucket.NoDate -> "No date"
-        }
-        is Selector.DateRange -> "Date range: $from – $to"
-        is Selector.Statuses -> {
-            val names = statuses.map { it.statusName }.sorted()
-            when (names.size) {
-                1 -> names[0]
-                2 if statuses.contains(TaskStatus.Active) && statuses.contains(TaskStatus.Completed) -> "All"
-                else -> names.joinToString(", ")
-            }
-        }
-        is Selector.Priorities -> {
-            val prefix = if (atMost) "Priority: " else "Priority not: "
-            val names = priorities.map { it.priorityName }.sorted()
-            prefix + names.joinToString(", ")
-        }
-        is Selector.Tag -> "Tagged"
-        is Selector.Tags -> when {
-            matchAll -> "All tags: ${ids.size}"
-            else -> "Any tag: ${ids.size}"
-        }
-        is Selector.Projects -> when (ids.size) {
-            0 -> "No project"
-            1 -> "Project"
-            else -> "${ids.size} projects"
-        }
-        is Selector.Pinned -> "Pinned"
-        is Selector.Completed -> "Completed"
-        is Selector.Overdue -> "Overdue"
-        is Selector.Regexp -> "Regex: $query"
-        is Selector.AllOf -> "All of (${children.size} rules)"
-        is Selector.AnyOf -> "Any of (${children.size} rules)"
-        is Selector.Not -> "Not: ${child.typeDescription}"
-        is Selector.Anything -> "All tasks"
-    }
-
-/** Name for [TaskStatus] display. */
-private val TaskStatus.statusName: String
-    get() = when (this) {
-        TaskStatus.Active -> "Active"
-        TaskStatus.Completed -> "Completed"
-        TaskStatus.All -> "All"
-    }
-
-/** Name for [TaskPriority] display. */
-private val TaskPriority.priorityName: String
-    get() = when (this) {
-        TaskPriority.High -> "High"
-        TaskPriority.Medium -> "Medium"
-        TaskPriority.Low -> "Low"
-        TaskPriority.None -> "None"
-        TaskPriority.Urgent -> "Urgent"
-    }

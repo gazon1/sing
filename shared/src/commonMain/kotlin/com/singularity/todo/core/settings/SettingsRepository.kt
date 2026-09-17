@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.singularity.todo.core.llm.SettingsReader
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -82,6 +83,10 @@ interface SettingsRepository : SettingsReader {
 
     val userId: Flow<String>
 
+    // ── Agenda ────────────────────────────────────────────────────────────────
+
+    val defaultSavedAgendaViewId: Flow<SavedAgendaViewId?>
+
     // ── Setters ───────────────────────────────────────────────────────────────
 
     suspend fun setDarkTheme(value: Boolean)
@@ -109,6 +114,8 @@ interface SettingsRepository : SettingsReader {
     suspend fun setGreetingAfternoonEnd(hour: Int)
 
     suspend fun setUserId(value: String)
+
+    suspend fun setDefaultSavedAgendaViewId(id: SavedAgendaViewId?)
 }
 
 /**
@@ -148,6 +155,9 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
 
         // ── Account ───────────────────────────────────────────────────────────
         val USER_ID = stringPreferencesKey("user_id")
+
+        // ── Agenda ────────────────────────────────────────────────────────────
+        val DEFAULT_SAVED_AGENDA_VIEW_ID = stringPreferencesKey("default_saved_agenda_view_id")
     }
 
     // ── Appearance ─────────────────────────────────────────────────────────────
@@ -202,6 +212,12 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
     // ── Account ───────────────────────────────────────────────────────────────
 
     override val userId: Flow<String> = dataStore.data.map { it[USER_ID] ?: "anonymous" }
+
+    // ── Agenda ────────────────────────────────────────────────────────────────
+
+    override val defaultSavedAgendaViewId: Flow<SavedAgendaViewId?> = dataStore.data.map {
+        it[DEFAULT_SAVED_AGENDA_VIEW_ID]?.let { raw -> runCatching { SavedAgendaViewId.fromString(raw) }.getOrNull() }
+    }
 
     // ── Setters ───────────────────────────────────────────────────────────────
 
@@ -269,5 +285,15 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
 
     override suspend fun setUserId(value: String) {
         dataStore.edit { it[USER_ID] = value }
+    }
+
+    override suspend fun setDefaultSavedAgendaViewId(id: SavedAgendaViewId?) {
+        dataStore.edit {
+            if (id == null) {
+                it.remove(DEFAULT_SAVED_AGENDA_VIEW_ID)
+            } else {
+                it[DEFAULT_SAVED_AGENDA_VIEW_ID] = id.raw
+            }
+        }
     }
 }

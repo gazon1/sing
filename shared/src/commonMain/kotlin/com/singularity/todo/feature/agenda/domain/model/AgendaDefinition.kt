@@ -1,7 +1,9 @@
 package com.singularity.todo.feature.agenda.domain.model
 
+import com.singularity.todo.feature.agenda.domain.selector.SelectorTransformer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /**
  * Agenda layout determines how sections are rendered.
@@ -46,6 +48,8 @@ data class AgendaDefinition(
     val title: String,
     val sections: List<Section>,
     val layout: AgendaLayout = AgendaLayout.ListFlat,
+    @Transient
+    val transformers: List<SelectorTransformer> = emptyList(),
 )
 
 // ─── DSL builders ─────────────────────────────────────────────────────────────
@@ -70,6 +74,7 @@ data class AgendaDefinition(
 fun agenda(
     title: String,
     layout: AgendaLayout = AgendaLayout.ListFlat,
+    transformers: List<SelectorTransformer> = emptyList(),
     block: AgendaScope.() -> Unit,
 ): AgendaDefinition {
     val scope = AgendaScope().apply(block)
@@ -77,6 +82,7 @@ fun agenda(
         title = title,
         sections = scope.sections,
         layout = layout,
+        transformers = transformers,
     )
 }
 

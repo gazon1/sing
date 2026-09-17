@@ -40,6 +40,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
+import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
@@ -234,7 +235,7 @@ private fun AgendaTaskRow(
     onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
 ) {
     val task = rowItem.task
-    val isOverdue = task.completedAt == null && task.dueDate != null && task.dueDate < today
+    val isOverdue = TaskComputed.isOverdue(task, today)
     val taskUi = TaskUi(
         id = task.id,
         title = task.title,

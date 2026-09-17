@@ -22,27 +22,18 @@ class SelectorSerializerTest {
     // Json.decodeFromString is a member function — use as json.decodeFromString<T>(string)
     private val json get() = StableJson
 
-    // ─── MR1 legacy — Selector.Tag ────────────────────────────────────────────
+    // ─── MR1 legacy — Selector.Tag → Selector.Tags upgrade ─────────────────────────
 
     @Test
-    fun `MR1 Tag JSON round-trips via SelectorSerializer`() {
+    fun `MR1 Tag JSON deserializes as SelectorTags`() {
         // MR1 format: "_type":"Tag", single "id" field
         val mr1Json = """{"_type":"Tag","id":"tag-123"}"""
 
         val selector = json.decodeFromString(SelectorSerializer, mr1Json)
 
-        assertIs<Selector.Tag>(selector)
-        assertEquals(TagId("tag-123"), selector.id)
-    }
-
-    @Test
-    fun `MR1 Tag serializes with _type discriminator`() {
-        @Suppress("DEPRECATION")
-        val tag = Selector.Tag(TagId("tag-abc"))
-        val encoded = json.encodeToString(SelectorSerializer, tag)
-
-        // serialize() always includes _type for every branch
-        assertEquals("""{"_type":"Tag","id":"tag-abc"}""", encoded)
+        // Legacy "Tag" discriminator is upgraded to Tags(setOf(id))
+        assertIs<Selector.Tags>(selector)
+        assertEquals(setOf(TagId("tag-123")), selector.ids)
     }
 
     // ─── MR2 current — Selector.Tags ───────────────────────────────────────────
