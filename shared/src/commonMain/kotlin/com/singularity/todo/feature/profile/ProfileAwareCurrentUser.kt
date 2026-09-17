@@ -3,8 +3,6 @@ package com.singularity.todo.feature.profile
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -19,9 +17,17 @@ import kotlinx.coroutines.flow.stateIn
  * allowing the MCP server to route requests to the correct profile.
  *
  * Example: profile "abc", userId "user_1" → "abc/user_1"
+ *
+ * @param scope CoroutineScope for hosting the scopedUserId StateFlow's collector.
+ *   Mandatory — caller is responsible for providing the scope. In production
+ *   this comes from Koin's `single { ... createBackgroundScope() }`. In tests,
+ *   inject a `TestScope` or `backgroundScope`.
  */
-class ProfileAwareCurrentUser(currentUser: CurrentUser, profileRepository: ProfileRepository) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+class ProfileAwareCurrentUser(
+    currentUser: CurrentUser,
+    profileRepository: ProfileRepository,
+    private val scope: CoroutineScope,
+) {
 
     /**
      * Profile-scoped userId: `"{profileId}/{userId}"` or just `userId`

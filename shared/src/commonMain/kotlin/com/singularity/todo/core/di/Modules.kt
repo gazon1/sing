@@ -45,7 +45,7 @@ fun domainModule(): List<Module> = buildList {
     add(
         module {
         single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get(), createBackgroundScope()) }
-        single { ProfileAwareCurrentUser(get(), get()) }
+        single { ProfileAwareCurrentUser(get(), get(), createBackgroundScope()) }
         factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
         factory { AccountSettingsViewModel(get()) }
         factory { TagPickerViewModel(get(), get()) }

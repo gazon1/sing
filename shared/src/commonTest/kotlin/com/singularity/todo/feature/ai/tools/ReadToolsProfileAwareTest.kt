@@ -2,6 +2,7 @@ package com.singularity.todo.feature.ai.tools
 
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
@@ -91,9 +92,13 @@ class ReadToolsProfileAwareTest {
     private fun buildProfileAware(authUserId: String): Pair<ProfileAwareCurrentUser, FakeProfileRepository> {
         val auth = FakeAuthRepository(initialSession = Session.Anonymous(UserId.fromString(authUserId)))
         val profiles = FakeProfileRepository()
+        // commonTest doesn't have access to a TestScope, so we use createBackgroundScope().
+        // Safe here: tests read .value synchronously and never subscribe to the
+        // StateFlow, so the Dispatchers.Default collector never runs.
         return ProfileAwareCurrentUser(
-            currentUser = CurrentUser(auth),
+            currentUser = CurrentUser(auth, scope = createBackgroundScope()),
             profileRepository = profiles,
+            scope = createBackgroundScope(),
         ) to profiles
     }
 

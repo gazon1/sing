@@ -866,13 +866,20 @@ class FakeProfileRepository : ProfileRepository {
  * Use [initialUserId] to set the starting user ID — useful in tests where
  * `scopedUserId.value` would otherwise be `UserId.anonymous` before the combine
  * produces its first emission.
+ *
+ * @param scope CoroutineScope passed through to both [CurrentUser] and
+ *   [ProfileAwareCurrentUser]. Pass `backgroundScope` in jvmTest (auto-cancelled).
+ *   Pass `createBackgroundScope()` in commonTest direct constructor calls —
+ *   safe only when the consumer reads `.value` synchronously.
  */
 fun FakeProfileAwareCurrentUser(
     initialUserId: UserId = UserId("test-user"),
     profileRepository: ProfileRepository = FakeProfileRepository(),
+    scope: kotlinx.coroutines.CoroutineScope = com.singularity.todo.core.coroutines.createBackgroundScope(),
 ): ProfileAwareCurrentUser = ProfileAwareCurrentUser(
-    currentUser = CurrentUser(FakeAuthRepository(Session.Anonymous(initialUserId))),
+    currentUser = CurrentUser(FakeAuthRepository(Session.Anonymous(initialUserId)), scope),
     profileRepository = profileRepository,
+    scope = scope,
 )
 
 /**
@@ -882,9 +889,11 @@ fun FakeProfileAwareCurrentUser(
 fun FakeProfileAwareCurrentUser(
     authRepository: AuthRepository,
     profileRepository: ProfileRepository = FakeProfileRepository(),
+    scope: kotlinx.coroutines.CoroutineScope = com.singularity.todo.core.coroutines.createBackgroundScope(),
 ): ProfileAwareCurrentUser = ProfileAwareCurrentUser(
-    currentUser = CurrentUser(authRepository),
+    currentUser = CurrentUser(authRepository, scope),
     profileRepository = profileRepository,
+    scope = scope,
 )
 
 // ─── AttachmentSaver ──────────────────────────────────────────────────────────

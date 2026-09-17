@@ -8,6 +8,7 @@ import com.singularity.todo.core.attachments.AttachmentUploadService
 import com.singularity.todo.core.attachments.StubAttachmentUploadService
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.auth.SupabaseAuthRepository
@@ -65,7 +66,7 @@ fun coreModule(): org.koin.core.module.Module = module {
         SupabaseAuthRepository(Logger.withTag("AuthRepository"), get(), Dispatchers.IO)
     }
 
-    single { CurrentUser(get()) }
+    single { CurrentUser(get(), createBackgroundScope()) }
 
     // ─── Repositories ───────────────────────────────────────────────────
 
