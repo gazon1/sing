@@ -333,6 +333,54 @@ fun bySomething(id: SomethingId): AgendaDefinition = agenda("Something") {
 
 ---
 
+## PreviewAgendaNavigator — @Preview Without Koin
+
+Screens inside a nested graph need a navigator in `@Preview`. The `PreviewAgendaNavigator` provides a no-op navigator for previews.
+
+**File:** `feature/agenda/presentation/nav/AgendaPreviewHelpers.kt`
+
+```kotlin
+class PreviewAgendaNavigator : AgendaNavigator(
+    backStack = NavBackStack<AgendaStartRoute>(
+        AgendaStartRoute.SavedAgendaList,  // start route
+        AgendaStartRoute.SavedAgendaList,  // current
+    ),
+    onExitGraph = {},
+) {
+    override fun openSavedAgendaList() { /* no-op for preview */ }
+    override fun openSavedAgendaEdit(viewId: SavedAgendaViewId) { /* no-op for preview */ }
+    override fun back() { /* no-op for preview */ }
+}
+
+@Composable
+fun PreviewAgendaNavigator(content: @Composable () -> Unit) {
+    CompositionLocalProvider(
+        LocalAgendaNavigator provides PreviewAgendaNavigator(),
+        content = content,
+    )
+}
+```
+
+**Usage in preview:**
+```kotlin
+@Preview
+@Composable
+private fun SavedAgendaListContentLoadedPreview() = PreviewAgendaNavigator {
+    PreviewThemed(darkTheme = false) {
+        SavedAgendaListContent(
+            state = SavedAgendaListState.Loaded(views = listOf(...)),
+            onViewSelected = {},
+            onDelete = {},
+        )
+    }
+}
+```
+
+**Key rules:**
+- `LocalAgendaNavigator` is a `staticCompositionLocalOf` — must be provided at every preview entry point
+- The `backStack` needs two args: the initial entry AND the current top-of-stack (both `SavedAgendaList` for a list screen preview)
+- `onExitGraph = {}` — preview never exits the graph
+
 ## Common Mistakes
 
 ### ❌ Forgetting `@Serializable` on a route type

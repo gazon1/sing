@@ -173,6 +173,63 @@ When in doubt: if the operation does not touch the repository, it does not belon
 
 ---
 
+## Routing via Callbacks, NOT via Intent (Simple Navigation)
+
+For **simple list→detail navigation** (no sheets, no dialogs), the cleanest pattern is **no routing intents at all**:
+
+```kotlin
+// ViewModel — NO routing intents in the sealed interface
+sealed interface SavedAgendaListIntent {
+    sealed interface Domain : SavedAgendaListIntent {
+        data class Delete(val viewId: SavedAgendaViewId) : Domain
+    }
+}
+
+// SavedAgendaListViewModel — only domain events (errors)
+private val _events = MutableSharedFlow<SavedAgendaListEvent>(extraBufferCapacity = 4)
+val events = _events.asSharedFlow()
+
+// Screen — navigation via callback, NOT through VM
+@Composable
+fun SavedAgendaListScreen(...) {
+    val navigator = LocalAgendaNavigator.current
+    val viewModel: SavedAgendaListViewModel = koinViewModel()
+
+    SavedAgendaListContent(
+        state = state,
+        onViewSelected = { viewId -> navigator.openSavedAgendaEdit(viewId) }, // ← direct callback
+        onDelete = { viewId -> viewModel.onIntent(SavedAgendaListIntent.Domain.Delete(viewId)) },
+        ...
+    )
+
+    NotificationHost(
+        events = viewModel.events,
+        mapper = { e -> when (e) { is SavedAgendaListEvent.ShowError -> Notification.Error(e.message) } },
+    )
+}
+```
+
+**When to use callbacks vs routing intents:**
+
+| Case | Pattern |
+|---|---|
+| User taps a list item → detail | **Callback** `onViewSelected = { navigator.openSavedAgendaEdit(id) }` |
+| User taps FAB → create screen | **Callback** `onCreateNew = { navigator.openCreate() }` |
+| User opens a bottom sheet picker | **Routing intent** in sealed interface → `ActiveSheet` state on screen |
+| User confirms a destructive action | **Domain intent** → VM calls repo → `ShowError`/`SaveSuccess` event |
+
+**Rule**: If the navigation is a direct response to a user gesture with no intermediate state change, use a callback. If navigation depends on routing state (which sheet is open), use a routing intent.
+
+**When a routing intent IS needed** — if you need to pass data from the VM to determine the destination (e.g., "open task detail" but the task ID comes from a loaded model):
+```kotlin
+// Still use callback — ID comes from the callback parameter, not from VM state
+onViewSelected = { viewId -> navigator.openSavedAgendaEdit(viewId) }
+```
+
+**`extraBufferCapacity = 4` on domain events** — always use this value for `MutableSharedFlow<*Event>` in ViewModels. It buffers missed events (e.g. rapid delete taps) without risking OOM.
+
+---
+
 ## Reference Implementation
 
 - `TaskEditorViewModel` — draft-editor pattern with pure `reduce()` + `TaskEditorReducerTest`

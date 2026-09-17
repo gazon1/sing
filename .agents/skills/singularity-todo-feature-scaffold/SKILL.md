@@ -311,6 +311,11 @@ sealed interface AgendaStartRoute : NavKey {
     @Serializable data class Tag(val tagId: String) : AgendaStartRoute {
         val id: TagId get() = TagId.fromString(tagId)
     }
+    // Leaf screens — accessed via top-bar IconButton, NOT bottom-nav tabs
+    @Serializable data object SavedAgendaList : AgendaStartRoute
+    @Serializable data class SavedAgendaEdit(val viewId: String) : AgendaStartRoute {
+        val id: SavedAgendaViewId get() = SavedAgendaViewId.fromString(viewId)
+    }
 }
 ```
 
@@ -346,6 +351,48 @@ feature/<feature>/presentation/nav/
 5. Wire in `AppNavHost` using `entryProvider`
 
 **See `singularity-todo-nav3-nested-graphs`** for full nested graph architecture details.
+
+### Top-bar IconButton entry (vs full nested graph)
+
+When the new screen is a **secondary** destination accessed from within an existing tab (Saved Views, Search, Filters), **don't create a new nested graph**. Add a leaf route to the existing graph and an IconButton to the parent's TopAppBar:
+
+```kotlin
+// AgendaStartRoute.kt — add leaf routes
+@Serializable data object SavedAgendaList : AgendaStartRoute
+@Serializable data class SavedAgendaEdit(val viewId: String) : AgendaStartRoute
+```
+
+Then in `AgendaNavGraph.android.kt` / `jvm.kt`:
+```kotlin
+entryProvider = entryProvider {
+    // ... existing entries
+    entry<AgendaStartRoute.SavedAgendaList> { SavedAgendaListScreen() }
+    entry<AgendaStartRoute.SavedAgendaEdit> { route ->
+        SavedAgendaEditScreen(viewId = SavedAgendaViewId.fromString(route.viewId))
+    }
+}
+```
+
+**And** in `navSavedStateConfig` (Android only):
+```kotlin
+navSavedStateConfig(
+    // ... existing
+    AgendaStartRoute.SavedAgendaList.serializer(),  // ← add both
+    AgendaStartRoute.SavedAgendaEdit.serializer(),
+)
+```
+
+**Then** wire the IconButton in the parent's Koin wrapper (not content):
+```kotlin
+// AgendaScreen.kt — has navigator, passes callback down
+val navigator = LocalAgendaNavigator.current
+AgendaContent(
+    ...
+    onSavedViewsClick = { navigator.openSavedAgendaList() },  // ← pass to content
+)
+```
+
+See `singularity-todo-top-bar-entry` for the full pattern.
 
 ## Subinterface Pattern — when to split a Repository
 

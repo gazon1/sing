@@ -91,6 +91,38 @@ fun TasksScreen(...) {
 
 `extraBufferCapacity = 4` is important — without it `emit` from a finished coroutine is a no-op. With it, fast screen rotations do not drop events.
 
+### The `NotificationHost` mapper — sealed interface gotcha
+
+When a ViewModel emits a **per-feature sealed interface** (not the global `UiEvent`), the `NotificationHost` mapper's `it` is the **sealed interface type**, not the concrete data class:
+
+```kotlin
+// The ViewModel emits SavedAgendaListEvent (sealed interface)
+sealed interface SavedAgendaListEvent {
+    data class ShowError(val message: String) : SavedAgendaListEvent
+    // No NavigateBack — that's handled via onNavigateBack
+}
+
+// WRONG — 'it' is SavedAgendaListEvent (sealed interface), which has no 'message'
+NotificationHost(
+    events = viewModel.events,
+    mapper = { Notification.Error(it.message) },  // ← compile error: 'message' unresolved
+)
+
+// CORRECT — 'when' over subtypes, explicit type on lambda parameter
+NotificationHost(
+    events = viewModel.events,
+    mapper = { e ->
+        when (e) {
+            is SavedAgendaListEvent.ShowError -> Notification.Error(e.message)
+            else -> Notification.None
+        }
+    },
+    onNavigateBack = { navigator.back() },
+)
+```
+
+The same issue occurs with any lambda over a sealed interface — always use a typed `when` for exhaustive matching.
+
 ### `CollectEvents` vs `LaunchedEffect`
 
 Always use `CollectEvents(flow) { … }` instead of `LaunchedEffect(Unit) { vm.events.collectLatest { … } }`. Reasons:
