@@ -79,7 +79,7 @@ class TaskDetailViewModelTest {
             timeZoneProvider = TEST_TZ,
             clock = Clock,
         )
-        val vm = TaskDetailViewModel(deps = deps, taskId = taskId, scopeOverride = scope)
+        val vm = TaskDetailViewModel(deps = deps, taskId = taskId, scope = scope)
         // Activate the stateIn chain (WhileSubscribed requires an initial subscriber).
         // Use SharingStarted.Eagerly so the upstream starts immediately in tests
         // (virtual time does not advance 5 seconds needed by WhileSubscribed(5000)).

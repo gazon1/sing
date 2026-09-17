@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
@@ -26,7 +25,9 @@ import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.tasks.presentation.model.toTaskUi
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,9 +60,39 @@ class TasksViewModel(
     private val decomposeTask: DecomposeTaskUseCase? = null,
     private val pickTime: PickTimeUseCase? = null,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
-    private val scopeOverride: CoroutineScope? = null,
+    private val scope: CoroutineScope,
 ) : ViewModel() {
-    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
+
+    /** Production constructor — Koin uses this. */
+    constructor(
+        taskRepo: TaskRepository,
+        createTask: CreateTaskUseCase,
+        updateTask: UpdateTaskUseCase,
+        currentUser: ProfileAwareCurrentUser,
+        mutations: TaskMutationsUseCase,
+        projectRepo: ProjectsRepository,
+        clock: Clock,
+        refineTask: RefineTaskUseCase? = null,
+        generateDescription: GenerateDescriptionUseCase? = null,
+        generateChecklist: GenerateChecklistUseCase? = null,
+        decomposeTask: DecomposeTaskUseCase? = null,
+        pickTime: PickTimeUseCase? = null,
+    ) : this(
+        taskRepo = taskRepo,
+        createTask = createTask,
+        updateTask = updateTask,
+        currentUser = currentUser,
+        mutations = mutations,
+        projectRepo = projectRepo,
+        clock = clock,
+        refineTask = refineTask,
+        generateDescription = generateDescription,
+        generateChecklist = generateChecklist,
+        decomposeTask = decomposeTask,
+        pickTime = pickTime,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        sharingStarted = { SharingStarted.WhileSubscribed(5000) },
+    )
 
     /** Pre-computed "today" — stable for the lifetime of the ViewModel. */
     private val today: LocalDate = LocalDate.fromEpochDays(

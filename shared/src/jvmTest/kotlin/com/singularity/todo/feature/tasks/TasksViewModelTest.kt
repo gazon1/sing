@@ -57,7 +57,7 @@ class TasksViewModelTest {
         decomposeTask: DecomposeTaskUseCase? = null,
         pickTime: PickTimeUseCase? = null,
         sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
-        scopeOverride: CoroutineScope? = null,
+        scope: CoroutineScope,
     ) = TasksViewModel(
         taskRepo = fakeTaskRepo,
         createTask = CreateTaskUseCase(fakeTaskRepo, Clock),
@@ -72,7 +72,7 @@ class TasksViewModelTest {
         decomposeTask = decomposeTask,
         pickTime = pickTime,
         sharingStarted = sharingStarted,
-        scopeOverride = scopeOverride,
+        scope = scope,
     )
 
     private fun seedTask(
@@ -103,7 +103,7 @@ class TasksViewModelTest {
 
     @Test
     fun `initial state is Loading`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         assertIs<TasksUiState.Loading>(vm.state.value)
     }
 
@@ -111,7 +111,7 @@ class TasksViewModelTest {
 
     @Test
     fun `setFilter updates filter state`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.setFilter(TaskFilter.Upcoming)
         assertEquals(TaskFilter.Upcoming, vm.filter.value)
     }
@@ -120,14 +120,14 @@ class TasksViewModelTest {
 
     @Test
     fun `enterSelectionMode sets selectedIds`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.enterSelectionMode(TaskId.fromString("t1"))
         assertEquals(setOf(TaskId.fromString("t1")), vm.selectedIds.value)
     }
 
     @Test
     fun `toggleSelection adds and removes`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.enterSelectionMode(TaskId.fromString("t1"))
 
         vm.toggleSelection(TaskId.fromString("t2"))
@@ -139,7 +139,7 @@ class TasksViewModelTest {
 
     @Test
     fun `exitSelectionMode clears selectedIds`() = runTest {
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
         vm.enterSelectionMode(TaskId.fromString("t1"))
         vm.toggleSelection(TaskId.fromString("t2"))
 
@@ -191,7 +191,7 @@ class TasksViewModelTest {
     @Test
     fun `runAiAction with null use cases emits Error AiActionResult`() = runTest {
         seedTask("t1", "My Task", dueDate = kotlinx.datetime.LocalDate(2024, 1, 15))
-        val vm = createVm() // all AI use cases null
+        val vm = createVm(scope = backgroundScope) // all AI use cases null
 
         vm.aiResult.test {
             advanceUntilIdle()
@@ -213,6 +213,7 @@ class TasksViewModelTest {
             generateChecklist = null,
             decomposeTask = null,
             pickTime = null,
+            scope = backgroundScope,
         )
 
         vm.aiResult.test {
@@ -229,7 +230,7 @@ class TasksViewModelTest {
     @Test
     fun `runAiAction Decompose emits Error when decomposeTask use case is null`() = runTest {
         seedTask("t1", "Anything")
-        val vm = createVm()
+        val vm = createVm(scope = backgroundScope)
 
         vm.aiResult.test {
             advanceUntilIdle()

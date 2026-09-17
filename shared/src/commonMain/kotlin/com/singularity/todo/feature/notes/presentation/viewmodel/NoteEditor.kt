@@ -21,6 +21,7 @@ import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -51,11 +52,30 @@ open class NoteEditor(
     private val autosaveScheduler: AutosaveScheduler,
     private val improveNote: ImproveNoteUseCase? = null,
     logger: Logger? = null,
-    private val scopeOverride: CoroutineScope? = null,
+    private val scope: CoroutineScope,
 ) : ViewModel() {
 
     private val log: Logger = logger ?: Logger.withTag("NoteEditor")
-    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
+
+    /** Production constructor — Koin uses this. */
+    constructor(
+        repo: NotesRepository,
+        linkRepo: InternalLinkRepository,
+        currentUser: ProfileAwareCurrentUser,
+        idGen: IdGenerator,
+        autosaveScheduler: AutosaveScheduler,
+        improveNote: ImproveNoteUseCase? = null,
+        logger: Logger? = null,
+    ) : this(
+        repo = repo,
+        linkRepo = linkRepo,
+        currentUser = currentUser,
+        idGen = idGen,
+        autosaveScheduler = autosaveScheduler,
+        improveNote = improveNote,
+        logger = logger,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     private val userId = currentUser.scopedUserId
 
