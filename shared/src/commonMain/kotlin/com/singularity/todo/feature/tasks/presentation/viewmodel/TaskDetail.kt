@@ -50,8 +50,10 @@ class TaskDetailViewModel(
     private val _events = MutableSharedFlow<TaskDetailUiEvent>(replay = 0, extraBufferCapacity = 4)
     val events: SharedFlow<TaskDetailUiEvent> = _events.asSharedFlow()
 
-    private val titleEdits = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 8)
-    private val descriptionEdits = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 8)
+    // edits fire at most once per keystroke; buffer=4 absorbs up to 4-frame burst
+    // during UI thread contention without dropping signals
+    private val titleEdits = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 4)
+    private val descriptionEdits = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 4)
 
     /** Visible for tests. TOCTOU: prefer to observe via state. */
     internal val _latestTask = MutableStateFlow<Task?>(null)
