@@ -13,7 +13,7 @@ This skill captures the pattern, the common pitfalls, and the key design split �
 
 - **Full** (has routing intents for sheets): `TaskDetailViewModel`, `TaskEditorViewModel`
 - **Minimal** (no sheets — only domain mutations + navigation): `ProjectDetailViewModel`
-- **Evaluate-only** (static definition, no intents): `AgendaViewModel` — definition is injected at construction time; the VM watches all tasks and evaluates them purely in-memory with `AgendaEvaluator.evaluate()`. No routing intents, no mutation intents — only `AgendaIntent.TaskClicked` for navigation.
+- **Evaluate-only (static definition, no intents)** — pure read-through variant: `AgendaViewModel`. Definition is injected at construction; the VM watches all tasks and evaluates them in-memory with `AgendaEvaluator.evaluate()`. No routing intents, no mutation intents, no editable draft state. **This is the canonical case where `combine + stateIn(WhileSubscribed)` IS appropriate** — the state is purely derived from upstream flows with no init logic, no drafts, and no local mutations. Tests for this variant do need Turbine (see `singularity-todo-testable-vm`: "When to Use Each Pattern").
 
 ---
 
@@ -136,7 +136,28 @@ is SetPriority -> scope.launch {
 is SetPriority -> mutate(current) { copy(priority = intent.priority) }
 ```
 
-The `mutate {}` helper reads `_latestTask.value ?: return` — the same value that the `combine` block in `stateIn` populates on every upstream emission.
+`mutate {}` reads `_latestTask.value ?: return` before writing. Without a cache, `current` would come from the last value the *screen* observed — which can be stale by the time the user's tap reaches the VM, if a remote edit landed in between. `_latestTask` guarantees `mutate {}` always reads the VM's own most recent view of the entity, not a UI snapshot.
+
+### How `_latestTask` gets populated — and why this does NOT violate "no side effects in combine"
+
+`_latestTask` is populated by a **dedicated `onEach`**, not by a side effect buried inside the `combine` that produces UI state:
+
+```kotlin
+init {
+    scope.launch {
+        taskRepo.watchTask(taskId)
+            .onEach { _latestTask.value = it }          // ← the ONLY writer; pure passthrough cache
+            .combine(otherFlow) { task, other -> buildUiState(task, other) }
+            .collect { _state.value = it }
+    }
+}
+```
+
+This is a narrow, explicitly-allowed exception, and it's narrow for a specific reason: `onEach { _latestTask.value = it }` does exactly one thing — mirrors the upstream value, unconditionally, with no branching and no derived computation. It's the flow equivalent of assignment, not logic. Contrast with the anti-pattern in `singularity-todo-testable-vm` ("❌ Side effects inside combine"), where the side effect is *conditional* (`if (!draft.initialized) { _draft.value = seeded }`) and lives *inside* the `combine` lambda itself — meaning it silently re-runs, with branching logic, every time **any** upstream flow emits, including flows unrelated to what triggered the write.
+
+**The rule, stated precisely:** an unconditional `onEach { cache.value = it }` immediately upstream of a `combine`, mirroring a single source with no branching, is fine — it's a plain cache, not derived state. A conditional or computed write *inside* `combine` (or `map`, `transform`, etc.) is not — that's business logic hiding in a place tests can't reach without subscribing to the whole downstream chain.
+
+If your cache-population logic ever grows a condition (`if (...) _latestTask.value = ...`), that's the signal to stop and extract it into a named function called from `init {}`, exactly as `singularity-todo-testable-vm` describes for state initialization generally.
 
 ---
 
@@ -226,7 +247,13 @@ fun SavedAgendaListScreen(...) {
 onViewSelected = { viewId -> navigator.openSavedAgendaEdit(viewId) }
 ```
 
-**`extraBufferCapacity = 4` on domain events** — always use this value for `MutableSharedFlow<*Event>` in ViewModels. It buffers missed events (e.g. rapid delete taps) without risking OOM.
+**`extraBufferCapacity = 4` on domain events** — project convention for `MutableSharedFlow<*Event>` in ViewModels. Why 4 and not 1 / UNLIMITED:
+
+- **`MutableSharedFlow` defaults to `BufferOverflow.SUSPEND`** with capacity 0. `tryEmit` returns `false` the moment a second event is produced faster than the collector drains it. With rapid user input (delete-tap-delete-tap), events get dropped silently.
+- **Capacity 1** fixes drop-on-burst but still fails on 2-in-a-row. **UNLIMITED** swaps drop-on-burst for an unbounded memory leak if the collector ever dies while the producer keeps running.
+- **4** empirically matches the project's real burst size (delete, save, error notification, one more within the same UI frame) and bounds the damage if a collector ever dies — 4 stale events in the buffer is visible in a heap dump, vs an unbounded queue that isn't.
+
+Keep this value consistent across VMs unless you have a measured reason to deviate (a screen that legitimately produces >4 events/frame, e.g. an animation ticker). If you do deviate, document why next to the declaration.
 
 ---
 
@@ -265,7 +292,8 @@ class MyViewModel(
     deps: MyDeps,
     scope: CoroutineScope,                                    // ← injected
 ) : ViewModel() {
-    constructor(deps: MyDeps) : this(deps, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))  // ← Koin
+    // Production ctor — see "Main.immediate KMP caveat" below before copy-pasting.
+    constructor(deps: MyDeps) : this(deps, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
 
     private val _state = MutableStateFlow<MyUiState>(MyUiState.Loading)
     val state: StateFlow<MyUiState> = _state.asStateFlow()
@@ -286,5 +314,7 @@ fun test() = runTest {
     assertEquals(expected, vm.state.value)        // ← direct read, no Turbine
 }
 ```
+
+**`Main.immediate` KMP caveat (don't skip):** the production ctor above assumes a Main dispatcher is on the classpath. This project ships Android (real `Main`) and JVM Desktop (Main comes from Compose for Desktop's UI dispatcher) — both fine. If you add a target without a Main dispatcher (pure JVM CLI, server, etc.), `Dispatchers.Main.immediate` throws at construction time. Swap for a different dispatcher — do **not** add a `serviceLoader` fallback here. Full discussion: `singularity-todo-testable-vm`.
 
 Full guide: see `singularity-todo-testable-vm`.
