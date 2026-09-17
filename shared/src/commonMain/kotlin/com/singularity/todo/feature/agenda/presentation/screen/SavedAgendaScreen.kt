@@ -11,15 +11,27 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -27,7 +39,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.components.BackTopAppBar
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -35,6 +46,7 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
+import com.singularity.todo.feature.agenda.presentation.components.ReorderableSectionList
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.nav.PreviewAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.viewmodel.Draft
@@ -67,14 +79,17 @@ fun SavedAgendaScreen(
     val mode: SavedAgendaScreenMode = if (viewId != null) {
         SavedAgendaScreenMode.Edit(viewId)
     } else {
-        // seed must be non-null when creating
         SavedAgendaScreenMode.Create(seed!!)
     }
 
     val viewModel: SavedAgendaViewModel = koinViewModel { parametersOf(mode) }
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    // Dialog state: null = no dialog, else the active sheet
+    var activeDialog by remember { mutableStateOf<ActiveDialog?>(null) }
+
     // Auto-pop to previous screen when entering NotFound state
+    // NotFound is terminal (no further state transitions), so a simple check is sufficient
     LaunchedEffect(state) {
         if (state is SavedAgendaViewState.NotFound) {
             navigator.back()
@@ -93,17 +108,92 @@ fun SavedAgendaScreen(
         onNavigateBack = { navigator.back() },
     )
 
-    BackTopAppBar(
-        title = modeHint,
-        onBack = { navigator.back() },
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(modeHint) },
+                navigationIcon = {
+                    IconButton(
+                        onClick = {
+                            val editing = state as? SavedAgendaViewState.Editing
+                            if (editing != null && editing.draft.isDirty) {
+                                activeDialog = ActiveDialog.ConfirmDiscard
+                            } else {
+                                navigator.back()
+                            }
+                        },
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+            )
+        },
         modifier = modifier,
     ) { paddingValues ->
         SavedAgendaContent(
             state = state,
             onIntent = viewModel::onIntent,
+            onRequestDelete = { activeDialog = ActiveDialog.ConfirmDelete },
             modifier = Modifier.padding(paddingValues),
         )
     }
+
+    // ConfirmDelete dialog
+    if (activeDialog == ActiveDialog.ConfirmDelete) {
+        AlertDialog(
+            onDismissRequest = { activeDialog = null },
+            title = { Text("Delete view?") },
+            text = { Text("This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        activeDialog = null
+                        viewModel.onIntent(SavedAgendaIntent.Delete)
+                    },
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { activeDialog = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    // ConfirmDiscard dialog
+    if (activeDialog == ActiveDialog.ConfirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { activeDialog = null },
+            title = { Text("Discard changes?") },
+            text = { Text("You have unsaved changes that will be lost.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        activeDialog = null
+                        navigator.back()
+                    },
+                ) {
+                    Text("Discard")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { activeDialog = null }) {
+                    Text("Keep editing")
+                }
+            },
+        )
+    }
+}
+
+/** Active overlay dialog. */
+private enum class ActiveDialog {
+    ConfirmDelete,
+    ConfirmDiscard,
 }
 
 /**
@@ -116,6 +206,7 @@ fun SavedAgendaScreen(
 private fun SavedAgendaContent(
     state: SavedAgendaViewState,
     onIntent: (SavedAgendaIntent) -> Unit,
+    onRequestDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (state) {
@@ -175,9 +266,24 @@ private fun SavedAgendaContent(
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
-                    state.sectionCount != null -> {
+                    state.draft.sections.isNotEmpty() -> {
                         Text(
-                            text = "${state.sectionCount} section${if (state.sectionCount != 1) "s" else ""}",
+                            text = "Sections — drag to reorder",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        ReorderableSectionList(
+                            sections = state.draft.sections,
+                            onSectionsReordered = { reordered ->
+                                onIntent(SavedAgendaIntent.SectionsReordered(reordered))
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    else -> {
+                        Text(
+                            text = "No sections",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -205,7 +311,7 @@ private fun SavedAgendaContent(
                 if (state.view != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
-                        onClick = { onIntent(SavedAgendaIntent.Delete) },
+                        onClick = onRequestDelete,
                         enabled = !state.isSaving,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -226,6 +332,7 @@ private fun SavedAgendaContentLoadingPreview() = PreviewAgendaNavigator {
         SavedAgendaContent(
             state = SavedAgendaViewState.Loading,
             onIntent = {},
+            onRequestDelete = {},
         )
     }
 }
@@ -256,6 +363,7 @@ private fun SavedAgendaContentEditingPreview() = PreviewAgendaNavigator {
                 decodeError = false,
             ),
             onIntent = {},
+            onRequestDelete = {},
         )
     }
 }
@@ -286,6 +394,7 @@ private fun SavedAgendaContentSavingPreview() = PreviewAgendaNavigator {
                 decodeError = false,
             ),
             onIntent = {},
+            onRequestDelete = {},
         )
     }
 }
@@ -297,6 +406,7 @@ private fun SavedAgendaContentNotFoundPreview() = PreviewAgendaNavigator {
         SavedAgendaContent(
             state = SavedAgendaViewState.NotFound,
             onIntent = {},
+            onRequestDelete = {},
         )
     }
 }
