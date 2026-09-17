@@ -13,6 +13,9 @@ import com.singularity.todo.core.ui.menu.ContextMenuOpenState
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen
+import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaEditScreen
+import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaListScreen
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.tasks.presentation.contextmenu.TaskMenuActions
 import com.singularity.todo.feature.tasks.presentation.contextmenu.buildTaskContextMenu
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
@@ -106,6 +109,8 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
                         desktopContextMenuHost = desktopContextMenuHost,
                     )
                 }
+                entry<AgendaStartRoute.SavedAgendaList> { SavedAgendaListScreen() }
+                entry<AgendaStartRoute.SavedAgendaEdit> { route -> SavedAgendaEditScreen(viewId = SavedAgendaViewId.fromString(route.viewId)) }
             },
         )
     }
@@ -118,4 +123,6 @@ actual fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRout
     entry<AgendaStartRoute.Upcoming> { AgendaScreen(definition = AgendaPresets.Upcoming) }
     entry<AgendaStartRoute.Project> { route -> AgendaScreen(definition = AgendaPresets.byProject(route.id)) }
     entry<AgendaStartRoute.Tag> { route -> AgendaScreen(definition = AgendaPresets.byTag(route.id)) }
+    entry<AgendaStartRoute.SavedAgendaList> { SavedAgendaListScreen() }
+    entry<AgendaStartRoute.SavedAgendaEdit> { route -> SavedAgendaEditScreen(viewId = SavedAgendaViewId.fromString(route.viewId)) }
 }

@@ -13,6 +13,9 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen
+import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaEditScreen
+import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaListScreen
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.navSavedStateConfig
@@ -34,6 +37,8 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
             AgendaStartRoute.Upcoming.serializer(),
             AgendaStartRoute.Project.serializer(),
             AgendaStartRoute.Tag.serializer(),
+            AgendaStartRoute.SavedAgendaList.serializer(),
+            AgendaStartRoute.SavedAgendaEdit.serializer(),
         )
     }
 
@@ -68,6 +73,8 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
                     )
                 }
                 entry<AgendaStartRoute.Tag> { route -> AgendaScreen(definition = AgendaPresets.byTag(route.id)) }
+                entry<AgendaStartRoute.SavedAgendaList> { SavedAgendaListScreen() }
+                entry<AgendaStartRoute.SavedAgendaEdit> { route -> SavedAgendaEditScreen(viewId = SavedAgendaViewId.fromString(route.viewId)) }
             },
         )
     }
@@ -80,4 +87,6 @@ actual fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRout
     entry<AgendaStartRoute.Upcoming> { AgendaScreen(definition = AgendaPresets.Upcoming) }
     entry<AgendaStartRoute.Project> { route -> AgendaScreen(definition = AgendaPresets.byProject(route.id)) }
     entry<AgendaStartRoute.Tag> { route -> AgendaScreen(definition = AgendaPresets.byTag(route.id)) }
+    entry<AgendaStartRoute.SavedAgendaList> { SavedAgendaListScreen() }
+    entry<AgendaStartRoute.SavedAgendaEdit> { route -> SavedAgendaEditScreen(viewId = SavedAgendaViewId.fromString(route.viewId)) }
 }
