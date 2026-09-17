@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.navigation3.runtime.NavBackStack
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
+import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.nav.AgendaStartRoute
 
 /**
@@ -16,6 +17,7 @@ class PreviewAgendaNavigator : AgendaNavigator(
 ) {
     override fun openSavedAgendaList() { /* no-op for preview */ }
     override fun openSavedAgendaEdit(viewId: SavedAgendaViewId) { /* no-op for preview */ }
+    override fun openSavedAgendaCreate(seed: AgendaDefinition) { /* no-op for preview */ }
     override fun back() { /* no-op for preview */ }
 }
 

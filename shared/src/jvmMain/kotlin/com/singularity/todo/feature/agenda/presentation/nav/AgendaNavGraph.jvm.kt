@@ -13,7 +13,7 @@ import com.singularity.todo.core.ui.menu.ContextMenuOpenState
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen
-import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaEditScreen
+import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaScreen
 import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaListScreen
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.tasks.presentation.contextmenu.TaskMenuActions
@@ -110,7 +110,20 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
                     )
                 }
                 entry<AgendaStartRoute.SavedAgendaList> { SavedAgendaListScreen() }
-                entry<AgendaStartRoute.SavedAgendaEdit> { route -> SavedAgendaEditScreen(viewId = SavedAgendaViewId.fromString(route.viewId)) }
+                entry<AgendaStartRoute.SavedAgendaEdit> { route ->
+                    SavedAgendaScreen(
+                        viewId = SavedAgendaViewId.fromString(route.viewId),
+                        seed = null,
+                        modeHint = "Edit View",
+                    )
+                }
+                entry<AgendaStartRoute.SavedAgendaCreate> {
+                    SavedAgendaScreen(
+                        viewId = null,
+                        seed = AgendaPresets.Inbox,
+                        modeHint = "Create View",
+                    )
+                }
             },
         )
     }
@@ -124,5 +137,18 @@ actual fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRout
     entry<AgendaStartRoute.Project> { route -> AgendaScreen(definition = AgendaPresets.byProject(route.id)) }
     entry<AgendaStartRoute.Tag> { route -> AgendaScreen(definition = AgendaPresets.byTag(route.id)) }
     entry<AgendaStartRoute.SavedAgendaList> { SavedAgendaListScreen() }
-    entry<AgendaStartRoute.SavedAgendaEdit> { route -> SavedAgendaEditScreen(viewId = SavedAgendaViewId.fromString(route.viewId)) }
+    entry<AgendaStartRoute.SavedAgendaEdit> { route ->
+        SavedAgendaScreen(
+            viewId = SavedAgendaViewId.fromString(route.viewId),
+            seed = null,
+            modeHint = "Edit View",
+        )
+    }
+    entry<AgendaStartRoute.SavedAgendaCreate> {
+        SavedAgendaScreen(
+            viewId = null,
+            seed = AgendaPresets.Inbox,
+            modeHint = "Create View",
+        )
+    }
 }

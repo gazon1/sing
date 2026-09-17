@@ -46,4 +46,8 @@ sealed interface AgendaStartRoute : NavKey {
     data class SavedAgendaEdit(val viewId: String) : AgendaStartRoute {
         val id: SavedAgendaViewId get() = SavedAgendaViewId.fromString(viewId)
     }
+
+    /** Create a new saved view, optionally seeded from an existing [AgendaDefinition]. */
+    @Serializable
+    data object SavedAgendaCreate : AgendaStartRoute
 }

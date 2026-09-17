@@ -2,6 +2,7 @@ package com.singularity.todo.feature.agenda.presentation.nav
 
 import androidx.navigation3.runtime.NavBackStack
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
+import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -36,6 +37,11 @@ open class AgendaNavigator(
     /** Push the saved agenda edit screen onto the stack. */
     open fun openSavedAgendaEdit(viewId: SavedAgendaViewId) {
         backStack.add(AgendaStartRoute.SavedAgendaEdit(viewId.raw))
+    }
+
+    /** Push the saved agenda create screen onto the stack. */
+    open fun openSavedAgendaCreate(seed: AgendaDefinition) {
+        backStack.add(AgendaStartRoute.SavedAgendaCreate)
     }
 
     /**

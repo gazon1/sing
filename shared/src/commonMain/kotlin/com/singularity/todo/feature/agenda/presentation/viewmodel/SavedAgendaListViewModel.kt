@@ -35,11 +35,8 @@ sealed interface SavedAgendaListState {
 
 /**
  * User intents on the saved agenda views list screen.
- * Note: routing intents (ViewSelected, CreateNew) are handled screen-side via navigator callback.
  */
 sealed interface SavedAgendaListIntent {
-    data class ViewSelected(val viewId: SavedAgendaViewId) : SavedAgendaListIntent
-    data object CreateNew : SavedAgendaListIntent
     data class Delete(val viewId: SavedAgendaViewId) : SavedAgendaListIntent
 }
 
@@ -78,10 +75,6 @@ class SavedAgendaListViewModel(
 
     fun onIntent(intent: SavedAgendaListIntent) {
         when (intent) {
-            is SavedAgendaListIntent.ViewSelected,
-            is SavedAgendaListIntent.CreateNew,
-            -> { /* routing handled screen-side */ }
-
             is SavedAgendaListIntent.Delete -> {
                 scope.launch {
                     val userId = deps.currentUser.scopedUserId.value.value

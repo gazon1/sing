@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,46 +33,72 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
+import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.nav.PreviewAgendaNavigator
-import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditEvent
-import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditIntent
-import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditState
-import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditViewModel
+import com.singularity.todo.feature.agenda.presentation.viewmodel.Draft
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEvent
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaIntent
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewModel
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewState
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 /**
- * Root composable for the saved agenda view edit screen.
- * Uses [koinViewModel] to obtain the [SavedAgendaEditViewModel] scoped to this nav entry.
- * Navigation events are handled via [LocalAgendaNavigator] provided by the nav graph.
+ * Root composable for the saved agenda view edit/create screen.
+ * Uses [koinViewModel] to obtain the [SavedAgendaViewModel] scoped to this nav entry.
+ *
+ * @param viewId The ID of the view to edit. Pass null when creating a new view.
+ * @param seed The [AgendaDefinition] to seed a new view from. Pass null when editing.
+ * @param modeHint Informational label shown in the top bar ("Edit View" or "Create View").
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SavedAgendaEditScreen(viewId: SavedAgendaViewId, modifier: Modifier = Modifier) {
+fun SavedAgendaScreen(
+    viewId: SavedAgendaViewId?,
+    seed: AgendaDefinition?,
+    modeHint: String,
+    modifier: Modifier = Modifier,
+) {
     val navigator = LocalAgendaNavigator.current
-    val viewModel: SavedAgendaEditViewModel = koinViewModel { parametersOf(viewId) }
+
+    val mode: SavedAgendaScreenMode = if (viewId != null) {
+        SavedAgendaScreenMode.Edit(viewId)
+    } else {
+        // seed must be non-null when creating
+        SavedAgendaScreenMode.Create(seed!!)
+    }
+
+    val viewModel: SavedAgendaViewModel = koinViewModel { parametersOf(mode) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // Auto-pop to previous screen when entering NotFound state
+    LaunchedEffect(state) {
+        if (state is SavedAgendaViewState.NotFound) {
+            navigator.back()
+        }
+    }
 
     NotificationHost(
         events = viewModel.events,
-        mapper = { event: SavedAgendaEditEvent ->
+        mapper = { event: SavedAgendaEvent ->
             when (event) {
-                is SavedAgendaEditEvent.SaveSuccess -> Notification.Text("Saved", null)
-                is SavedAgendaEditEvent.DeleteSuccess -> Notification.NavigateBack
-                is SavedAgendaEditEvent.ShowError -> Notification.Error(event.message)
+                is SavedAgendaEvent.SaveSuccess -> Notification.Text("Saved", null)
+                is SavedAgendaEvent.DeleteSuccess -> Notification.NavigateBack
+                is SavedAgendaEvent.ShowError -> Notification.Error(event.message)
             }
         },
         onNavigateBack = { navigator.back() },
     )
 
     BackTopAppBar(
-        title = "Edit View",
+        title = modeHint,
         onBack = { navigator.back() },
         modifier = modifier,
     ) { paddingValues ->
-        SavedAgendaEditContent(
+        SavedAgendaContent(
             state = state,
             onIntent = viewModel::onIntent,
             modifier = Modifier.padding(paddingValues),
@@ -80,27 +107,23 @@ fun SavedAgendaEditScreen(viewId: SavedAgendaViewId, modifier: Modifier = Modifi
 }
 
 /**
- * Content composable for the saved agenda view edit screen.
- * Stateless — receives [SavedAgendaEditState] and emits callbacks.
- * Used by [SavedAgendaEditScreen] (production) and preview.
- *
- * @param state The current UI state.
- * @param onIntent Called to dispatch a user intent.
- * @param modifier Compose modifier.
+ * Content composable for the saved agenda view edit/create screen.
+ * Stateless — receives [SavedAgendaViewState] and emits callbacks.
+ * Used by [SavedAgendaScreen] (production) and preview.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SavedAgendaEditContent(
-    state: SavedAgendaEditState,
-    onIntent: (SavedAgendaEditIntent) -> Unit,
+private fun SavedAgendaContent(
+    state: SavedAgendaViewState,
+    onIntent: (SavedAgendaIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (state) {
-        SavedAgendaEditState.Loading -> {
+        SavedAgendaViewState.Loading -> {
             LoadingIndicator(modifier = modifier.fillMaxSize())
         }
 
-        SavedAgendaEditState.NotFound -> {
+        SavedAgendaViewState.NotFound -> {
             Column(
                 modifier = modifier
                     .fillMaxSize()
@@ -114,7 +137,7 @@ private fun SavedAgendaEditContent(
             }
         }
 
-        is SavedAgendaEditState.Editing -> {
+        is SavedAgendaViewState.Editing -> {
             val keyboardController = LocalSoftwareKeyboardController.current
             val scrollState = rememberScrollState()
 
@@ -126,8 +149,8 @@ private fun SavedAgendaEditContent(
                     .imePadding(),
             ) {
                 OutlinedTextField(
-                    value = state.editableName,
-                    onValueChange = { onIntent(SavedAgendaEditIntent.NameChanged(it)) },
+                    value = state.draft.name,
+                    onValueChange = { onIntent(SavedAgendaIntent.NameChanged(it)) },
                     label = { Text("View name") },
                     placeholder = { Text("My saved view") },
                     singleLine = true,
@@ -144,24 +167,27 @@ private fun SavedAgendaEditContent(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                if (state.sectionCount != null) {
-                    Text(
-                        text = "${state.sectionCount} section${if (state.sectionCount != 1) "s" else ""}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    Text(
-                        text = "Unable to decode sections",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                when {
+                    state.decodeError -> {
+                        Text(
+                            text = "Unable to decode sections",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    state.sectionCount != null -> {
+                        Text(
+                            text = "${state.sectionCount} section${if (state.sectionCount != 1) "s" else ""}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Button(
-                    onClick = { onIntent(SavedAgendaEditIntent.Save) },
+                    onClick = { onIntent(SavedAgendaIntent.Save) },
                     enabled = state.canSave && !state.isSaving,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -175,14 +201,16 @@ private fun SavedAgendaEditContent(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Button(
-                    onClick = { onIntent(SavedAgendaEditIntent.Delete) },
-                    enabled = !state.isSaving,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Delete view")
+                // Delete button only shown in Edit mode (view != null)
+                if (state.view != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { onIntent(SavedAgendaIntent.Delete) },
+                        enabled = !state.isSaving,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Delete view")
+                    }
                 }
             }
         }
@@ -193,10 +221,10 @@ private fun SavedAgendaEditContent(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaEditContentLoadingPreview() = PreviewAgendaNavigator {
+private fun SavedAgendaContentLoadingPreview() = PreviewAgendaNavigator {
     PreviewThemed(darkTheme = false) {
-        SavedAgendaEditContent(
-            state = SavedAgendaEditState.Loading,
+        SavedAgendaContent(
+            state = SavedAgendaViewState.Loading,
             onIntent = {},
         )
     }
@@ -204,10 +232,10 @@ private fun SavedAgendaEditContentLoadingPreview() = PreviewAgendaNavigator {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaEditContentEditingPreview() = PreviewAgendaNavigator {
+private fun SavedAgendaContentEditingPreview() = PreviewAgendaNavigator {
     PreviewThemed(darkTheme = false) {
-        SavedAgendaEditContent(
-            state = SavedAgendaEditState.Editing(
+        SavedAgendaContent(
+            state = SavedAgendaViewState.Editing(
                 view = SavedAgendaView(
                     id = SavedAgendaViewId("v1"),
                     userId = "u1",
@@ -216,9 +244,16 @@ private fun SavedAgendaEditContentEditingPreview() = PreviewAgendaNavigator {
                     createdAt = kotlin.time.Instant.fromEpochSeconds(1784253600),
                     updatedAt = kotlin.time.Instant.fromEpochSeconds(1785496200),
                 ),
-                editableName = "My Work Setup",
+                draft = Draft(
+                    name = "My Work Setup",
+                    sections = emptyList(),
+                    originalName = "My Work Setup",
+                    originalSections = emptyList(),
+                    initialized = true,
+                ),
                 sectionCount = 2,
                 isSaving = false,
+                decodeError = false,
             ),
             onIntent = {},
         )
@@ -227,10 +262,10 @@ private fun SavedAgendaEditContentEditingPreview() = PreviewAgendaNavigator {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaEditContentSavingPreview() = PreviewAgendaNavigator {
+private fun SavedAgendaContentSavingPreview() = PreviewAgendaNavigator {
     PreviewThemed(darkTheme = false) {
-        SavedAgendaEditContent(
-            state = SavedAgendaEditState.Editing(
+        SavedAgendaContent(
+            state = SavedAgendaViewState.Editing(
                 view = SavedAgendaView(
                     id = SavedAgendaViewId("v1"),
                     userId = "u1",
@@ -239,9 +274,16 @@ private fun SavedAgendaEditContentSavingPreview() = PreviewAgendaNavigator {
                     createdAt = kotlin.time.Instant.fromEpochSeconds(1784253600),
                     updatedAt = kotlin.time.Instant.fromEpochSeconds(1785496200),
                 ),
-                editableName = "My Work Setup",
+                draft = Draft(
+                    name = "My Work Setup",
+                    sections = emptyList(),
+                    originalName = "My Work Setup",
+                    originalSections = emptyList(),
+                    initialized = true,
+                ),
                 sectionCount = 0,
                 isSaving = true,
+                decodeError = false,
             ),
             onIntent = {},
         )
@@ -250,10 +292,10 @@ private fun SavedAgendaEditContentSavingPreview() = PreviewAgendaNavigator {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaEditContentNotFoundPreview() = PreviewAgendaNavigator {
+private fun SavedAgendaContentNotFoundPreview() = PreviewAgendaNavigator {
     PreviewThemed(darkTheme = false) {
-        SavedAgendaEditContent(
-            state = SavedAgendaEditState.NotFound,
+        SavedAgendaContent(
+            state = SavedAgendaViewState.NotFound,
             onIntent = {},
         )
     }
