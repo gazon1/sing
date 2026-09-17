@@ -67,6 +67,7 @@ fun agendaModule(): Module = module {
                 repo = get(),
                 currentUser = get(),
                 clock = Clock,
+                log = Logger.withTag("SavedAgenda"),
             ),
             mode = mode,
             seedStore = get(),

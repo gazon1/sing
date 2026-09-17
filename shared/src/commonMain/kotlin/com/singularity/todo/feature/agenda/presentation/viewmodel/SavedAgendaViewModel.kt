@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
@@ -28,6 +29,7 @@ data class SavedAgendaDeps(
     val repo: SavedAgendaViewsRepository,
     val currentUser: ProfileAwareCurrentUser,
     val clock: Clock = Clock,
+    val log: Logger,
 )
 
 /**
@@ -217,5 +219,7 @@ class SavedAgendaViewModel(
 
     private fun decodeSections(json: String?): List<Section>? =
         if (json == null) null
-        else runCatching { StableJson.decodeFromString<AgendaDefinition>(json).sections }.getOrNull()
+        else runCatching { StableJson.decodeFromString<AgendaDefinition>(json).sections }
+            .onFailure { e -> deps.log.w("agenda decode failed: ${e.message}") }
+            .getOrNull()
 }

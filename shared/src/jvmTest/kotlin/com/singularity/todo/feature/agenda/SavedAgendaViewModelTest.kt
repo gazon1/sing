@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.agenda
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
@@ -47,7 +48,7 @@ class SavedAgendaViewModelTest {
     private val seedStore = SavedAgendaSeedStore()
 
     private fun createVm(mode: SavedAgendaScreenMode, scope: CoroutineScope) = SavedAgendaViewModel(
-        deps = SavedAgendaDeps(repo = fakeRepo, currentUser = fakeCurrentUser, clock = Clock),
+        deps = SavedAgendaDeps(repo = fakeRepo, currentUser = fakeCurrentUser, clock = Clock, log = Logger),
         mode = mode,
         seedStore = seedStore,
         scope = scope,
