@@ -54,6 +54,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
 - **MR4 scope**: Create flow (FAB on list), deep-link guard for `SavedAgendaEdit`, section reorder. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - `navSavedStateConfig` on Android must include `SavedAgendaList.serializer()` and `SavedAgendaEdit.serializer()`. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- Process death during Create: seed lost, returns to list. Acceptable — Create is not critical path. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `SavedAgendaEditViewModel` → `SavedAgendaViewModel` rename propagates to all callers. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `SavedAgendaSeedStore` is a global singleton — concurrent Create operations would race. Acceptable for current single-user model. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `sh.calvin.reorderable` dependency deferred; `ReorderableSectionList` is a `LazyColumn` stub. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
 - The `@Serializable(with = ...)` annotation on the sealed interface activates the custom serializer for ALL paths including nested occurrences (e.g. `AllOf.children: List<Selector>`). _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 - Компиляция Android + JVM успешна, все тесты проходят _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - **Нет saved views в v1**: пользовательские пресеты не сохраняются. Встроенные — захардкожены в `AgendaPresets`. _(from `2026-09-16-agenda-engine`)_
@@ -589,8 +593,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `di`
 
 - **@Preview и widget-тесты не затрагиваются** — все preview используют `*Content` helpers (stateless) _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
+- Process death during Create: seed lost, returns to list. Acceptable — Create is not critical path. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
 - **Raw `runBlocking` в модулях** — не допускается, `koinBridge` как единая точка входа _(from `2026-09-06-koin-bridge-audit`)_
+- `SavedAgendaEditViewModel` → `SavedAgendaViewModel` rename propagates to all callers. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `SavedAgendaSeedStore` is a global singleton — concurrent Create operations would race. Acceptable for current single-user model. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
 - Settings → Backup tab no longer crashes during composition. _(from `2026-09-07-backup-directory-via-koin-string`)_
+- `sh.calvin.reorderable` dependency deferred; `ReorderableSectionList` is a `LazyColumn` stub. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
 - **`singleOf` для репозиториев** — architectural limitation; сложные конструкторы не поддерживают constructor-reference форму _(from `2026-09-06-koin-bridge-audit`)_
 - **`singularity-todo-vm-koin-scoping` skill** — создан как single source of truth _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - **State survives configuration change** on Android — rotation no longer resets these screens _(from `2026-09-09-di-factory-viewmodel-fix`)_
@@ -1151,6 +1159,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Fake reactive** (`MutableStateFlow<Map<K,V>>`) required for VM tests — `flowOf(snapshot)` not testable for transitions. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - **MR4 scope**: Create flow (FAB on list), deep-link guard for `SavedAgendaEdit`, section reorder. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - `navSavedStateConfig` on Android must include `SavedAgendaList.serializer()` and `SavedAgendaEdit.serializer()`. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- Process death during Create: seed lost, returns to list. Acceptable — Create is not critical path. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `SavedAgendaEditViewModel` → `SavedAgendaViewModel` rename propagates to all callers. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `SavedAgendaSeedStore` is a global singleton — concurrent Create operations would race. Acceptable for current single-user model. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `sh.calvin.reorderable` dependency deferred; `ReorderableSectionList` is a `LazyColumn` stub. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
 
 ### `navigation`
 
@@ -1514,6 +1526,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - tag 'mcp-ux'/'ui-subtask'/'ai-tooling'/'mcp-policy'/'refactor' — 5 persistent categories для фильтрации. _(from `2026-09-08-mcp-dogfooding-round-2`)_
 - В профиле ai-agent теперь 5 top-level plans × ~6 sub-tasks = ~30 новых rows. _(from `2026-09-08-mcp-dogfooding-round-2`)_
 - Каждый plan имеет parentTaskId = top-task; UI должен теперь уметь их показать (см. plan 'ui-subtask'). _(from `2026-09-08-mcp-dogfooding-round-2`)_
+
+### `saved-views`
+
+- Process death during Create: seed lost, returns to list. Acceptable — Create is not critical path. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `SavedAgendaEditViewModel` → `SavedAgendaViewModel` rename propagates to all callers. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `SavedAgendaSeedStore` is a global singleton — concurrent Create operations would race. Acceptable for current single-user model. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `sh.calvin.reorderable` dependency deferred; `ReorderableSectionList` is a `LazyColumn` stub. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
 
 ### `schema`
 
@@ -2143,6 +2162,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-agenda-engine` — agenda  tasks  dsl  architecture
 - `2026-09-16-agendaengine-post-mr1-nav-cleanup` — agenda  navigation  cleanup  deprecated
 - `2026-09-16-agenda-mr3-saved-views-ui` — agenda  navigation3  reducers  events  koin
+- `2026-09-16-agenda-mr4-saved-views-create-reorder` — agenda  saved-views  di  navigation3
 - `2026-09-16-android-shell-fab-fix` — navigation  nav3  android  fab
 - `2026-09-16-desktop-menus-bugfixes` — desktop  jvm  menu  bugfix
 - `2026-09-16-nav3-desktop-in-memory-no-savedstate` — navigation  nav3  jvm  desktop  android
@@ -2239,6 +2259,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-agenda-engine` — AgendaEngine: единый DSL-движок для list-вью задач (org-agenda style)
 - `2026-09-16-agendaengine-post-mr1-nav-cleanup` — AgendaEngine MR1 post-cleanup: remove dead TasksRoute variants and deprecated AppDestination branches
 - `2026-09-16-agenda-mr3-saved-views-ui` — AgendaEngine MR3 — Saved Views UI: routes, reducer, events, top-bar entry
+- `2026-09-16-agenda-mr4-saved-views-create-reorder` — _(no title)
 - `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation
 - `2026-09-16-calendar-feature` — _(no title)
 - `2026-09-16-calendar-post-merge-fixes` — _(no title)
