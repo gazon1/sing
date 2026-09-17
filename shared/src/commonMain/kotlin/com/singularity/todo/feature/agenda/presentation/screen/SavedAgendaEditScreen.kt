@@ -21,9 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -37,7 +35,6 @@ import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.nav.PreviewAgendaNavigator
-import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditDeps
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditEvent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditIntent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEditState
@@ -120,8 +117,7 @@ private fun SavedAgendaEditContent(
         }
 
         is SavedAgendaEditState.Editing -> {
-            val focusRequester = FocusRequester()
-            val focusManager = LocalFocusManager.current
+            val keyboardController = LocalSoftwareKeyboardController.current
             val scrollState = rememberScrollState()
 
             Column(
@@ -137,15 +133,13 @@ private fun SavedAgendaEditContent(
                     label = { Text("View name") },
                     placeholder = { Text("My saved view") },
                     singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester),
+                    modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Words,
                         imeAction = ImeAction.Done,
                     ),
                     keyboardActions = KeyboardActions(
-                        onDone = { focusManager.clearFocus() },
+                        onDone = { keyboardController?.hide() },
                     ),
                     enabled = !state.isSaving,
                 )
@@ -195,14 +189,6 @@ private fun SavedAgendaEditContent(
             }
         }
     }
-}
-
-/**
- * Pure reducer for [SavedAgendaEditState].
- * Extracts state transitions for testability without DI.
- */
-private object SavedAgendaEditReducer {
-    fun reduce(state: SavedAgendaEditState, intent: SavedAgendaEditIntent): SavedAgendaEditState = state
 }
 
 // ===== Previews =====

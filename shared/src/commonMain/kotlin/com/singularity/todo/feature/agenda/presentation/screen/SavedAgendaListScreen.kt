@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,7 +34,6 @@ import com.singularity.todo.feature.agenda.presentation.components.SavedAgendaCa
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import kotlin.time.Instant
 import com.singularity.todo.feature.agenda.presentation.nav.PreviewAgendaNavigator
-import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListDeps
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListEvent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListIntent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListState
@@ -61,7 +60,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
                 title = { Text("Saved Views") },
                 navigationIcon = {
                     IconButton(onClick = { navigator.back() }) {
-                        Icon(Icons.Filled.List, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

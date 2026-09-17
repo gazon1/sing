@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material3.Icon

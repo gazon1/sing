@@ -39,14 +39,22 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Always** mark every `NavKey` subtype that may appear in a stack as `@Serializable`. Without it, there is no `.serializer()` to pass to `subclass(...)`. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 - **Always** provide a `serializersModule` that calls `polymorphic(NavKey::class) { subclass(...) }` for every concrete route type in the stack. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 - **Never** write `SavedStateConfiguration { }` for any `rememberNavBackStack` call — the empty body silently falls back to `DEFAULT.serializersModule` and breaks the polymorphism contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
+- **Always** build `JsonObject` with `_type` manually in `serialize()` for sealed interface serializers — generated serializers for concrete subtypes omit the discriminator. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
+- **Never** use `serializer<Selector>().descriptor` inside a custom `SelectorSerializer` — it returns the custom serializer itself, causing infinite recursion. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 
 ## Per-tag
 
 ### `agenda`
 
 - `AgendaEngine MR1` полностью завершён _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
+- `agendaEntryProvider()` on both platforms must register `SavedAgendaList` and `SavedAgendaEdit` entries. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - Detekt: 263 findings (pre-existing), 0 в изменённых файлах _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
+- **Fake reactive** (`MutableStateFlow<Map<K,V>>`) required for VM tests — `flowOf(snapshot)` not testable for transitions. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- MR1 JSON `{"_type":"Tag","id":"..."}` and MR2 JSON `{"_type":"Tags","ids":[...],"matchAll":false}` both round-trip correctly. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 - **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
+- **MR4 scope**: Create flow (FAB on list), deep-link guard for `SavedAgendaEdit`, section reorder. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- `navSavedStateConfig` on Android must include `SavedAgendaList.serializer()` and `SavedAgendaEdit.serializer()`. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- The `@Serializable(with = ...)` annotation on the sealed interface activates the custom serializer for ALL paths including nested occurrences (e.g. `AllOf.children: List<Selector>`). _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 - Компиляция Android + JVM успешна, все тесты проходят _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - **Нет saved views в v1**: пользовательские пресеты не сохраняются. Встроенные — захардкожены в `AgendaPresets`. _(from `2026-09-16-agenda-engine`)_
 - **Удаляются**: `UpcomingScreen`, `UpcomingViewModel`, `UpcomingUiState`, `TaskListScreen` (для Inbox/Today/ByProject), `TasksViewModel`, `TasksRoute.Inbox/Today/Upcoming/ByProject`, `AppDestination.Inbox/Today/Upcoming/TasksByProject`. _(from `2026-09-16-agenda-engine`)_
@@ -694,7 +702,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `events`
 
 - **8 экранов мигрируют одновременно** — невозможно сделать постепенную миграцию из-за смены типа `_events` _(from `2026-09-05-ui-event-per-feature`)_
+- `agendaEntryProvider()` on both platforms must register `SavedAgendaList` and `SavedAgendaEdit` entries. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - **CollectEvents** в виджетах принимает `Flow<T : UiEvent>` — generic call site остаётся тем же _(from `2026-09-05-ui-event-per-feature`)_
+- **Fake reactive** (`MutableStateFlow<Map<K,V>>`) required for VM tests — `flowOf(snapshot)` not testable for transitions. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- **MR4 scope**: Create flow (FAB on list), deep-link guard for `SavedAgendaEdit`, section reorder. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- `navSavedStateConfig` on Android must include `SavedAgendaList.serializer()` and `SavedAgendaEdit.serializer()`. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - **NotificationHost** — финальный widget для всех экранов, заменяет ~64 строк ручного glue кода _(from `2026-09-05-ui-event-per-feature`)_
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально _(from `2026-09-05-ui-event-per-feature`)_
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)` _(from `2026-09-05-ui-event-per-feature`)_
@@ -790,6 +802,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
 - **8 экранов мигрируют одновременно** — невозможно сделать постепенную миграцию из-за смены типа `_events` _(from `2026-09-05-ui-event-per-feature`)_
 - Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
+- `agendaEntryProvider()` on both platforms must register `SavedAgendaList` and `SavedAgendaEdit` entries. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
 - All changes are additive; no existing behavior is removed. _(from `2026-09-07-settings-ux-improvements`)_
 - All new `catch` blocks in ViewModels, repositories, and use cases should inject `Logger` and call `log.e(e) { "..." }` or use `runCatchingLogged`. _(from `2026-09-06-kermit-logging-setup`)_
@@ -812,6 +825,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Do NOT introduce `koinViewModel()` inside any `@Preview` — CI/preview harness does not start Koin _(from `2026-09-09-preview-with-koin-helper`)_
 - Existing silent `catch (_: Exception)` (e.g., in `ToolFactories.kt` lines 58, 126, 181) remain unfixed — these require separate investigation (some appear to be copy-paste bugs, not intentional suppression). _(from `2026-09-06-kermit-logging-setup`)_
 - **Existing tests:** `DiGraphTest`, `JvmAiDiGraphTest`, `AppSmokeTest` обновлены и проходят. _(from `2026-09-06-di-module-split`)_
+- **Fake reactive** (`MutableStateFlow<Map<K,V>>`) required for VM tests — `flowOf(snapshot)` not testable for transitions. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - **Fake repo returns empty by default** — widget tests that check `LazyColumn` with `testTag` will fail when repo is empty (state = `Empty`). Test the `EmptyState` text instead, or seed data via `fakeNotesRepo.seed(note)`. _(from `2026-09-05-robolectric-widget-tests`)_
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them _(from `2026-09-09-preview-with-koin-helper`)_
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
@@ -824,9 +838,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`koinViewModel()` для VM в Composable** — `koinInject()` для VM антипаттерн _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- **MR4 scope**: Create flow (FAB on list), deep-link guard for `SavedAgendaEdit`, section reorder. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - **`NavigateToTasks`** is no longer a VM event — screen handles it as routing _(from `2026-09-09-project-detail-intent-refactor`)_
 - Navigation interaction tests (click-to-navigate) are out of scope for this smoke test — they require handling NavBackStackEntry lifecycle in `runDesktopComposeUiTest` _(from `2026-09-06-desktop-smoke-test-with-koin`)_
 - Navigation между Detail и подзадачами/проектами становится _(from `2026-09-14-tasks-feature-nested-nav3`)_
+- `navSavedStateConfig` on Android must include `SavedAgendaList.serializer()` and `SavedAgendaEdit.serializer()`. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - **New file count:** 8 новых файлов (7 модулей + decision). _(from `2026-09-06-di-module-split`)_
 - **No call-site changes** — `koinViewModel { parametersOf(...) }` works with both forms _(from `2026-09-09-di-factory-viewmodel-fix`)_
 - **No pure reducer needed** — `ProjectDetailViewModel` is write-through like `TaskDetailViewModel` _(from `2026-09-09-project-detail-intent-refactor`)_
@@ -1128,6 +1144,16 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - 23 of 28 context menu items are wired to `actions.onDismiss()` — future iterations wire the _(from `2026-09-15-desktop-menus`)_
+
+### `navigation3`
+
+- `agendaEntryProvider()` on both platforms must register `SavedAgendaList` and `SavedAgendaEdit` entries. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- **Fake reactive** (`MutableStateFlow<Map<K,V>>`) required for VM tests — `flowOf(snapshot)` not testable for transitions. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- **MR4 scope**: Create flow (FAB on list), deep-link guard for `SavedAgendaEdit`, section reorder. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- `navSavedStateConfig` on Android must include `SavedAgendaList.serializer()` and `SavedAgendaEdit.serializer()`. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+
+### `navigation`
+
 - 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
 - **Adding a new route type on Android**: must still call `navSavedStateConfig(...)` with the new type's serializer in every NavGraph that can contain it. The `subclass(...)` registration requirement (per `2026-09-16-nav3-savedstate-serializers-required`) is unchanged on Android. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
@@ -1383,6 +1409,13 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `ProjectDetailScreen` is fully functional: quick-add creates tasks, parent picker works, Remind/Attach/DueDate/Children sheets open, task click navigates to `TaskDetailScreen` _(from `2026-09-09-project-detail-rework-15-fixes`)_
 - `ProjectPickerSheet` is reactive — newly created projects appear without reopening the sheet _(from `2026-09-09-project-detail-rework-15-fixes`)_
 
+### `reducers`
+
+- `agendaEntryProvider()` on both platforms must register `SavedAgendaList` and `SavedAgendaEdit` entries. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- **Fake reactive** (`MutableStateFlow<Map<K,V>>`) required for VM tests — `flowOf(snapshot)` not testable for transitions. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- **MR4 scope**: Create flow (FAB on list), deep-link guard for `SavedAgendaEdit`, section reorder. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- `navSavedStateConfig` on Android must include `SavedAgendaList.serializer()` and `SavedAgendaEdit.serializer()`. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+
 ### `refactor`
 
 - 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
@@ -1517,11 +1550,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Breaking**: MCP tool producer-side обновляется _(from `2026-09-16-task-filter-set-variants`)_
 - **Breaking**: `Selector.Tag` rename — `AgendaPresetsTest` JSON snapshots обновляются _(from `2026-09-16-task-filter-set-variants`)_
 - `FakeTaskDao` и `FakeTaskRepository` mirror для всех 4 новых queries _(from `2026-09-16-task-filter-set-variants`)_
+- MR1 JSON `{"_type":"Tag","id":"..."}` and MR2 JSON `{"_type":"Tags","ids":[...],"matchAll":false}` both round-trip correctly. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 - `TaskRepositoryImpl.watchTasks` получает 4 новые dispatch branches _(from `2026-09-16-task-filter-set-variants`)_
+- The `@Serializable(with = ...)` annotation on the sealed interface activates the custom serializer for ALL paths including nested occurrences (e.g. `AllOf.children: List<Selector>`). _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 
 ### `serialization`
 
+- MR1 JSON `{"_type":"Tag","id":"..."}` and MR2 JSON `{"_type":"Tags","ids":[...],"matchAll":false}` both round-trip correctly. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 - The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
+- The `@Serializable(with = ...)` annotation on the sealed interface activates the custom serializer for ALL paths including nested occurrences (e.g. `AllOf.children: List<Selector>`). _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 - When adding a new `data object` or `data class` to `AppDestination` (or any sealed route hierarchy that backs a `rememberNavBackStack`), **always** add the matching `subclass(...)` line in every relevant `serializersModule` — the compiler does not enforce this. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 
 ### `settings`
@@ -2105,6 +2142,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-viewmodel-state-ownership` — "architecture"  "compose"  "udf"  "vm-state"
 - `2026-09-16-agenda-engine` — agenda  tasks  dsl  architecture
 - `2026-09-16-agendaengine-post-mr1-nav-cleanup` — agenda  navigation  cleanup  deprecated
+- `2026-09-16-agenda-mr3-saved-views-ui` — agenda  navigation3  reducers  events  koin
 - `2026-09-16-android-shell-fab-fix` — navigation  nav3  android  fab
 - `2026-09-16-desktop-menus-bugfixes` — desktop  jvm  menu  bugfix
 - `2026-09-16-nav3-desktop-in-memory-no-savedstate` — navigation  nav3  jvm  desktop  android
@@ -2115,6 +2153,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-nav3-type-asymmetry-adr` — navigation  nav3  android  jvm  technical-debt
 - `2026-09-16-task-filter-set-variants` — tasks  domain-model  sql  selector  mr2a
 - `2026-09-16-task-list-filter-to-task-status` — tasks  domain-model  rename
+- `2026-09-17-selector-serializer-plain-kserializer` — serialization  agenda  selector
 
 ## Active entries
 
@@ -2199,6 +2238,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-15-viewmodel-state-ownership` — ViewModel owns all domain state; Composable owns only routing and animation
 - `2026-09-16-agenda-engine` — AgendaEngine: единый DSL-движок для list-вью задач (org-agenda style)
 - `2026-09-16-agendaengine-post-mr1-nav-cleanup` — AgendaEngine MR1 post-cleanup: remove dead TasksRoute variants and deprecated AppDestination branches
+- `2026-09-16-agenda-mr3-saved-views-ui` — AgendaEngine MR3 — Saved Views UI: routes, reducer, events, top-bar entry
 - `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation
 - `2026-09-16-calendar-feature` — _(no title)
 - `2026-09-16-calendar-post-merge-fixes` — _(no title)
@@ -2214,3 +2254,4 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-16-task-filter-set-variants` — TaskFilter and Selector set variants: ByTags/ByPriorities/ByRegexp SQL-backed filters
 - `2026-09-16-task-list-filter-to-task-status` — Rename TaskListFilter → TaskStatus: domain-level completion status enum
 - `2026-09-16-tasks-upcoming-screen` — _(no title)
+- `2026-09-17-selector-serializer-plain-kserializer` — SelectorSerializer: plain KSerializer instead of JsonContentPolymorphicSerializer
