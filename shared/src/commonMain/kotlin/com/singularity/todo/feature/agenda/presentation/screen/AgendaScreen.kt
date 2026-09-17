@@ -1,5 +1,10 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +59,7 @@ fun AgendaScreen(
         state = state,
         title = vm.title,
         onIntent = vm::onIntent,
+        onSavedViewsClick = { navigator.openSavedAgendaList() },
         desktopContextMenuHost = desktopContextMenuHost,
         modifier = modifier,
     )

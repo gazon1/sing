@@ -4,13 +4,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -49,6 +54,7 @@ import kotlinx.datetime.LocalDate
  * @param state The current agenda UI state.
  * @param title Title to display in the top app bar.
  * @param onIntent Called when the user performs an action.
+ * @param onSavedViewsClick Called when the user taps the saved views action.
  * @param desktopContextMenuHost Slot for the desktop context menu renderer.
  * @param modifier Compose modifier.
  */
@@ -58,6 +64,7 @@ fun AgendaContent(
     state: AgendaUiState,
     title: String,
     onIntent: (AgendaIntent) -> Unit,
+    onSavedViewsClick: (() -> Unit)? = null,
     desktopContextMenuHost: @Composable (taskUi: TaskUi, offset: DpOffset, onDismiss: () -> Unit, onIntent: (AgendaIntent) -> Unit) -> Unit = { _, _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
@@ -80,6 +87,13 @@ fun AgendaContent(
         topBar = {
             TopAppBar(
                 title = { Text(title) },
+                actions = {
+                    if (onSavedViewsClick != null) {
+                        IconButton(onClick = onSavedViewsClick) {
+                            Icon(Icons.Default.Bookmark, contentDescription = "Saved views")
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
