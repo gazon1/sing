@@ -66,17 +66,13 @@ class SavedAgendaViewModel(
     private val _events = MutableSharedFlow<SavedAgendaEvent>(extraBufferCapacity = 4)
     val events = _events.asSharedFlow()
 
-    // Why `extraBufferCapacity = 4` and not 1 / UNLIMITED?
-    // - 1: `tryEmit` returns false the moment two events are produced back-to-back
-    //      faster than the screen collector can drain them. With rapid user input
-    //      (e.g. delete-tap-delete-tap) you lose events.
-    // - UNLIMITED: an unbounded buffer is a memory leak waiting to happen — a hot
-    //      producer with a dead collector will accumulate events forever.
-    // - 4: empirically matches the project's real burst size (delete, save, error
-    //      notification, one more within the same UI frame). Small enough that a
-    //      stale-event pile-up is bounded and visible in a heap dump if it ever
-    //      happens; large enough that legitimate bursts don't get dropped.
-    // This value is project convention — keep it consistent across VMs.
+    // Why `extraBufferCapacity = 4`? See "extraBufferCapacity on *Event SharedFlows"
+    // below for the full canonical explanation. TL;DR: MutableSharedFlow defaults to
+    // replay=0, extraBufferCapacity=0, BufferOverflow.SUSPEND. emit() suspends waiting
+    // for a collector; if the emitting coroutine is cancelled first (rotation,
+    // navigation tear-down), the event is lost. 4 empirically matches burst size;
+    // 1 fails on 2-in-a-row; UNLIMITED is a memory leak. This value is project
+    // convention — keep it consistent across VMs.
 
     val draftState = DraftState()  // ← separate editable state holder
 
@@ -121,6 +117,54 @@ class SavedAgendaViewModel(
     // ...
 }
 ```
+
+---
+
+## `extraBufferCapacity` on `*Event` SharedFlows — canonical reference
+
+This section is the project-wide source of truth for why VMs use
+`MutableSharedFlow<*Event>(extraBufferCapacity = N)` and how to pick `N`. Other skills
+(`ui-event-vs-state`, `vm-intent-pattern`, `shared-ui-components`) point here.
+
+**Defaults recap.** `MutableSharedFlow` ships with `replay = 0`, `extraBufferCapacity = 0`,
+`onBufferOverflow = BufferOverflow.SUSPEND`.
+
+**What goes wrong with defaults.** Two distinct failure modes:
+
+1. **Race across recomposition / rotation / screen tear-down.** `emit()` is a suspend
+   function: with zero buffer it suspends until either a subscriber is actively
+   collecting or a buffer slot is free. If the VM emits at the exact moment the old
+   collector has unsubscribed and the new one hasn't subscribed yet (e.g. mid-rotation,
+   mid-navigation), `emit()` suspends waiting for a collector. If the emitting
+   coroutine is then cancelled (e.g. the VM's scope tears down) before a collector
+   attaches, **the event is lost with the cancelled coroutine** — not delivered, not
+   queued. (`tryEmit()` is a different, non-suspending call that can return `false`
+   and silently do nothing on overflow — don't conflate the two when explaining this.)
+
+2. **Bursts.** Several events fired in quick succession (rapid user taps, cascading
+   error notifications) suspend the emitting coroutine on each other if there's no
+   buffer, serialising emission to collector speed.
+
+**Why a small bound, not UNLIMITED.** An unbounded buffer on an event channel can mask
+a bug where events are produced faster than the UI ever consumes them — a hot producer
+with a dead collector will accumulate events forever. A small bound surfaces that as
+dropped events (via `BufferOverflow.SUSPEND` backpressure) rather than silent unbounded
+memory growth, and 4 stale events is visible in a heap dump, unlike an unbounded queue.
+
+**This project's convention:**
+- `extraBufferCapacity = 4` for `*UiEvent` / `*Event` SharedFlows carrying meaningful
+  payloads (errors, dialogs, navigation). 4 matches the project's real burst size
+  (delete, save, error notification, one more within the same UI frame).
+- `extraBufferCapacity = 1` for payload-less "pulse" signals (`Unit`-typed, e.g.
+  `savedPulse`) where only "did this fire since I last checked" matters and coalescing
+  extra emissions is harmless. With `Animatable`-based dedup on the consumer side,
+  losing intermediate pulses is fine — only the most recent one matters.
+
+Both are deliberately small bounded numbers. Use `replay = 0` for events — we don't
+want to redeliver old events to *new* subscribers; that's a state concern, not an event
+concern. If you need replay, use a `StateFlow` instead.
+
+---
 
 **Key properties:**
 
@@ -381,5 +425,6 @@ private fun emitEditingState() {
 ## See Also
 
 - `singularity-todo-vm-intent-pattern` — sealed Intent + onIntent dispatcher
+- `singularity-todo-vm-koin-scoping` — how to register a two-constructor VM in Koin (never `viewModelOf`, always explicit `viewModel { ... }`)
 - `singularity-todo-feature-scaffold` — canonical 7-file feature template
 - `docs/decisions/2026-09-16-agenda-mr4-saved-views-create-reorder.md` — original ADR for this pattern

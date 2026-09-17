@@ -89,7 +89,9 @@ fun TasksScreen(...) {
 }
 ```
 
-`extraBufferCapacity = 4` is important — without it `emit` from a finished coroutine is a no-op. With it, fast screen rotations do not drop events.
+`extraBufferCapacity = 4` is the project convention for `*UiEvent` SharedFlows — see
+`singularity-todo-testable-vm` for the full explanation (why 4 vs 1 vs UNLIMITED, what
+actually goes wrong with `emit()` on rotation, and the distinction from `tryEmit()`).
 
 ### The `NotificationHost` mapper — sealed interface gotcha
 
@@ -429,13 +431,13 @@ TaskEditorContent(
 - `menuItems: List<TaskEditorMenuItem>` — declarative list instead of lambda-in-lambda (`dropdownMenu: (closeMenu: () -> Unit) -> Unit`)
 - `bottomBar: @Composable () -> Unit?` — null for view mode (no save bar), set for create mode
 
-## Test placement reminder
+## Part 4 — Test placement reminder
 
 Components in `core/ui/components/` are presentation-only — do **not** add Robolectric / Compose-test tests for them. The widgets themselves are too thin to fail in interesting ways. What you test is the **pure helper next to them** (e.g. `priorityColorByIndex`, `toneColor`, `formatAiResult`). Tests for those go in `shared/src/commonTest/kotlin/…/` in the **same package** as the helper.
 
 ---
 
-## Part 6 — Content Slot API Design Rules
+## Part 5 — Content Slot API Design Rules
 
 This section covers the three ways to pass behaviour into a reusable Composable, and when to use each.
 
@@ -557,11 +559,20 @@ If(state is NotesUiState.Empty) {
 
 `inline` is used so the compiler inlines the lambda at each call site — no runtime allocation.
 
+This is a project-style convention for visually separating "pure UI branch" from
+"branch with side effects / state reads" in long Composable bodies. Use the native
+`if (cond) { ... }` when the branch is short or when consistency with surrounding
+Kotlin matters more than visual separation.
+
 ### What NOT to do
 
 - **`enum class Action` for slots that carry data** — use `sealed class Action` with `data class` variants (see `TaskDetailActions`). An `enum` can't carry payload.
 - **Nullable slot** (`content: @Composable () -> Unit? = null`) — use default `{}` instead. Nullable slots force null-checks at every call site.
-- **`Modifier.apply { ... }`** — deprecated in Kotlin 2.x. Use `with(Modifier) { ... }` or just chain modifiers normally.
+- **`Modifier.apply { ... }`** — discouraged for `Modifier` chains: `apply` implies
+  in-place mutation, but each modifier call returns a new immutable instance, so the
+  chain reads as if it mutates but doesn't. Chain modifiers directly, or use
+  `with(Modifier) { ... }` if you need a scope. (Note: this is a Compose convention,
+  not a Kotlin language deprecation — `apply` itself is not deprecated in Kotlin 2.x.)
 - **Positional slot names** (`slot1`, `slot2`, `leading`, `center`) — use Material 3 names (`body`, `trailing`).
 
 ### Reference implementations
@@ -578,7 +589,7 @@ See also:
 
 ---
 
-## Part 5 — Choosing between DropdownMenu, ModalBottomSheet, and AlertDialog
+## Part 6 — Choosing between DropdownMenu, ModalBottomSheet, and AlertDialog
 
 Three dismissal surfaces, one rule: **pick based on consequence severity, not screen real estate**.
 
@@ -677,7 +688,7 @@ ModalBottomSheet(onDismissRequest = onDismiss) {
 
 ---
 
-## Part 4 — Document-Style Decomposition (4-section rule)
+## Part 7 — Document-Style Decomposition (4-section rule)
 
 Any detail screen (`XxxDetailScreen`) that follows the TickTick/Todoist document-style pattern must be decomposed into **exactly 4 sections**, never more. This limit is cognitive-load discipline: 4 sections fit comfortably in a senior engineer's mental model and are trivially testable.
 

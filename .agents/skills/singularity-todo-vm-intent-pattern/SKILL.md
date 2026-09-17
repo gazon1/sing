@@ -247,11 +247,7 @@ fun SavedAgendaListScreen(...) {
 onViewSelected = { viewId -> navigator.openSavedAgendaEdit(viewId) }
 ```
 
-**`extraBufferCapacity = 4` on domain events** — project convention for `MutableSharedFlow<*Event>` in ViewModels. Why 4 and not 1 / UNLIMITED:
-
-- **`MutableSharedFlow` defaults to `BufferOverflow.SUSPEND`** with capacity 0. `tryEmit` returns `false` the moment a second event is produced faster than the collector drains it. With rapid user input (delete-tap-delete-tap), events get dropped silently.
-- **Capacity 1** fixes drop-on-burst but still fails on 2-in-a-row. **UNLIMITED** swaps drop-on-burst for an unbounded memory leak if the collector ever dies while the producer keeps running.
-- **4** empirically matches the project's real burst size (delete, save, error notification, one more within the same UI frame) and bounds the damage if a collector ever dies — 4 stale events in the buffer is visible in a heap dump, vs an unbounded queue that isn't.
+**`extraBufferCapacity = 4` on domain events** — project convention for `MutableSharedFlow<*Event>` in ViewModels. See `singularity-todo-testable-vm` for the full explanation (why 4 vs 1 vs UNLIMITED, what actually goes wrong with `emit()` on rotation, and the distinction from `tryEmit()`).
 
 Keep this value consistent across VMs unless you have a measured reason to deviate (a screen that legitimately produces >4 events/frame, e.g. an animation ticker). If you do deviate, document why next to the declaration.
 
@@ -270,6 +266,7 @@ Keep this value consistent across VMs unless you have a measured reason to devia
 - `singularity-todo-task-callback-groups` — pairing this pattern with `@JvmInline value class Actions` in Composables
 - `singularity-todo-ui-event-vs-state` — routing state (which sheet is open) is NOT a `SharedFlow` event
 - `singularity-todo-testable-vm` — **testability pattern**: plain `MutableStateFlow`, scope injection, no `combine`+`stateIn`
+- `singularity-todo-vm-koin-scoping` — how to register this VM in Koin (especially two-constructor testable VMs — never `viewModelOf`, always explicit `viewModel { ... }`)
 - `docs/decisions/2026-09-09-task-detail-intent-refactor.md` — the ADR that formalized this pattern
 - `docs/decisions/2026-09-09-project-detail-intent-refactor.md` — the minimal variant ADR (no sheets)
 - `docs/decisions/2026-09-16-agenda-mr4-saved-views-create-reorder.md` — MR4 refactor that established the testable VM pattern

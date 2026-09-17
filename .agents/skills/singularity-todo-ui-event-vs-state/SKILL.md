@@ -5,6 +5,12 @@ description: How to model one-shot UI events and state ownership separately from
 
 # UI Event vs UI State — The Singularity Todo Pattern
 
+> **Scope convention in examples.** Examples in this skill use `scope.launch` for VMs
+> built per the testable-VM pattern (scope injected via constructor) and
+> `viewModelScope.launch` for legacy VMs that haven't been refactored yet. Both are
+> equivalent in this context — the difference is only testability. See
+> `singularity-todo-testable-vm` for the current convention.
+
 Compose has a notorious pitfall: every `var foo by remember { mutableStateOf<X?>(null) }` inside a Composable is **second state** that mirrors what's already in the ViewModel. This pattern spreads logic across two layers, makes the screen harder to test, and forces every screen to re-invent the same `LaunchedEffect { vm.X.collectLatest { localState = ... } }` plumbing.
 
 This project standardises on a **three-category split** for all UI-related data. The categories are mutually exclusive:
@@ -59,7 +65,10 @@ sealed interface UiEvent {
 
 ## Pulse Events (one-shot signals without payload)
 
-Some events carry no data — they are just a signal to trigger a UI animation or reaction. Use `MutableSharedFlow` with `extraBufferCapacity = 1` and `replay = 0`:
+Some events carry no data — they are just a signal to trigger a UI animation or reaction. Use `MutableSharedFlow<Unit>(extraBufferCapacity = 1, replay = 0)`:
+
+(`extraBufferCapacity = 1` here vs `= 4` for payload-bearing events is a deliberate
+convention — see `singularity-todo-testable-vm` for the canonical explanation.)
 
 ```kotlin
 // NotesViewModel — Saved pulse (Phase 1)
@@ -68,6 +77,11 @@ val savedPulse: SharedFlow<Unit> = _savedPulse.asSharedFlow()
 
 private fun scheduleAutosave(id: String) {
     autosaveJob?.cancel()
+    // Dispatchers.Unconfined runs inline until the first suspension point (here,
+    // `awaitTick()`); after resume it continues on whatever thread the resumed
+    // continuation uses. For autosave this is fine: the work is short, idempotent
+    // on retry, and we're not relying on a particular dispatcher downstream.
+    // If autosave grew to do heavy CPU work, swap to `Dispatchers.Default`.
     autosaveJob = scope.launch(Dispatchers.Unconfined) {
         autosaveScheduler.awaitTick()
         val current = _editorState.value as? EditorState.Editing ?: return@launch
@@ -296,7 +310,7 @@ The three categories above are **mutually exclusive**. The test for any piece of
 | Category | Where it lives | Example |
 |---|---|---|
 | Domain state (lists, filters, current entity, domain-derived values) | VM `StateFlow` | `state.tasks`, `_filter`, `_selectedIds`, `recentlyDeleted` |
-| Snapsnot from repo `Flow` | VM `StateFlow` via `combine + flatMapLatest` | `projectNamesFlow`, `parentOptionsFlow` |
+| Snapshot from repo `Flow` | VM `StateFlow` via `combine + flatMapLatest` | `projectNamesFlow`, `parentOptionsFlow` |
 | Input draft (TextField value before `onValueChange` fires) | VM `MutableStateFlow<String>` alongside `_latest<Entity>` in the same `combine` | `_draftTitle`, `_draftDescription` |
 | Routing state | Composable `mutableStateOf` | `activeSheet: ActiveSheet?`, `menuExpanded`, `linkDialogVisible` |
 | Animation | Composable `Animatable` / `animateFloatAsState` | saved-pill alpha |
@@ -543,6 +557,11 @@ private val _draftTitle = MutableStateFlow("")
 val draftTitle: StateFlow<String> = _draftTitle.asStateFlow()
 
 // _draftTitle lives in the same combine as _latest<Task>:
+// (This `combine + stateIn(WhileSubscribed)` is the *legitimate* read-through
+// shape — single upstream flow, no init-time side effects, no draft mutations on
+// intent. For stateful VMs with init, drafts, or intents that mutate local state,
+// default to plain `MutableStateFlow` written in `init`; see
+// singularity-todo-testable-vm.)
 val state: StateFlow<TaskDetailUiState> = combine(
     _latest, _draftTitle, _draftDescription, ...
 ) { latest, draftTitle, draftDesc, ... ->
@@ -647,3 +666,14 @@ LaunchedEffect(Unit) {
 ```
 
 See `docs/decisions/2026-09-15-viewmodel-state-ownership.md` for the full anti-pattern catalog with references to the specific files and line numbers.
+
+---
+
+## See Also
+
+- `singularity-todo-testable-vm` — canonical VM state shape (plain `MutableStateFlow`), scope injection, DraftState pattern; canonical explanation of `extraBufferCapacity = N` on `*Event` SharedFlows (why 1 vs 4 vs UNLIMITED, and what actually goes wrong with `emit()` on rotation)
+- `singularity-todo-vm-intent-pattern` — sealed Intent + `onIntent` dispatcher; how events and state interact with intents
+- `singularity-todo-shared-ui-components` — `CollectEvents` helper, `NotificationHost`, the Composable side of this dichotomy
+- ADR `docs/decisions/2026-09-15-viewmodel-state-ownership.md` — formalized the three-category model
+- ADR `docs/decisions/2026-09-08-task-restore-undo` — why undo is state, not event
+- ADR `docs/decisions/2026-09-05-ui-event-per-feature` — why per-feature `UiEvent`, not global
