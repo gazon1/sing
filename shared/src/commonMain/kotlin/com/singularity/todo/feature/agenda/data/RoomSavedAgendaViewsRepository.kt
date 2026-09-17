@@ -4,9 +4,7 @@ import com.singularity.todo.core.database.AgendaViewDao
 import com.singularity.todo.core.database.AgendaViewEntity
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toInstant
-import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
-import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import kotlinx.coroutines.flow.Flow

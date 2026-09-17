@@ -4,14 +4,16 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
-import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.JsonContentPolymorphicSerializer
-import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.serializer
@@ -44,7 +46,7 @@ enum class RelativeBucket {
  *
  * @see AgendaEvaluator.matches
  */
-@Serializable
+@Serializable(with = SelectorSerializer::class)
 @SerialName("Selector")
 sealed interface Selector {
 
@@ -158,37 +160,255 @@ sealed interface Selector {
  * MR1 snapshots stored `"_type":"Tag"` with a single `id` field.
  * MR2+ encodes `"_type":"Tags"` with an `ids: Set<TagId>` field.
  *
- * This serializer routes to the correct concrete type based on the `_type` discriminator:
- * - `"Tag"` → [Selector.Tag] (MR1 legacy, manually constructed)
- * - all other types → standard polymorphic deserialization via generated serializer
+ * This serializer is a plain [KSerializer] — it overrides [serialize] and [deserialize]
+ * directly rather than relying on [JsonContentPolymorphicSerializer.selectDeserializer],
+ * which would cause infinite recursion (calling [serializer] for [Selector] returns this
+ * same serializer, which calls [serializer] again, etc.).
+ *
+ * For non-Tag types, it calls the generated serializer for each concrete subtype directly.
+ * Those generated serializers do NOT have `@Serializable(with = ...)` so there is no
+ * further recursion.
  */
-object SelectorSerializer : JsonContentPolymorphicSerializer<Selector>(Selector::class) {
-    @Suppress("UNCHECKED_CAST")
-    override fun selectDeserializer(element: JsonElement): kotlinx.serialization.DeserializationStrategy<out Selector> {
-        val type = element.jsonObject["_type"]?.jsonPrimitive?.content
-        return if (type == "Tag") {
-            // MR1 legacy: deserialize Selector.Tag manually.
-            TagSerializer as kotlinx.serialization.DeserializationStrategy<Selector>
-        } else {
-            // All MR2+ types use the standard generated polymorphic serializer.
-            serializer<Selector>()
+object SelectorSerializer : kotlinx.serialization.KSerializer<Selector> {
+    // Cannot use serializer<Selector>().descriptor — it returns this same serializer
+    // (because Selector is @Serializable(with = SelectorSerializer::class)),
+    // causing infinite recursion. Use buildClassSerialDescriptor instead.
+    override val descriptor: SerialDescriptor =
+        buildClassSerialDescriptor("Selector")
+
+    override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: Selector) {
+        val jsonEncoder = encoder as? kotlinx.serialization.json.JsonEncoder
+            ?: throw SerializationException("Selector serialization requires a JSON encoder")
+
+        val element: JsonElement = when (value) {
+            is Selector.Tag -> JsonObject(
+                mapOf("_type" to JsonPrimitive("Tag"), "id" to JsonPrimitive(value.id.value))
+            )
+            is Selector.DateBucket -> JsonObject(
+                mapOf("_type" to JsonPrimitive("DateBucket"), "bucket" to JsonPrimitive(value.bucket.name))
+            )
+            is Selector.DateRange -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("DateRange"),
+                    "from" to JsonPrimitive(value.from.toString()),
+                    "to" to JsonPrimitive(value.to.toString()),
+                )
+            )
+            is Selector.Tags -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("Tags"),
+                    "ids" to JsonArray(value.ids.map { JsonPrimitive(it.value) }),
+                    "matchAll" to JsonPrimitive(value.matchAll),
+                )
+            )
+            is Selector.Statuses -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("Statuses"),
+                    "statuses" to JsonArray(value.statuses.map { JsonPrimitive(it.name) }),
+                )
+            )
+            is Selector.Priorities -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("Priorities"),
+                    "priorities" to JsonArray(value.priorities.map { JsonPrimitive(it.name) }),
+                    "atMost" to JsonPrimitive(value.atMost),
+                )
+            )
+            is Selector.Projects -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("Projects"),
+                    "ids" to JsonArray(value.ids.map { JsonPrimitive(it.value) }),
+                )
+            )
+            is Selector.Pinned -> JsonObject(mapOf("_type" to JsonPrimitive("Pinned")))
+            is Selector.Completed -> JsonObject(mapOf("_type" to JsonPrimitive("Completed")))
+            is Selector.Overdue -> JsonObject(mapOf("_type" to JsonPrimitive("Overdue")))
+            is Selector.Regexp -> JsonObject(
+                mapOf("_type" to JsonPrimitive("Regexp"), "query" to JsonPrimitive(value.query))
+            )
+            is Selector.AllOf -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("AllOf"),
+                    "children" to JsonArray(value.children.map { child ->
+                        serializeToElement(jsonEncoder, child)
+                    }),
+                )
+            )
+            is Selector.AnyOf -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("AnyOf"),
+                    "children" to JsonArray(value.children.map { child ->
+                        serializeToElement(jsonEncoder, child)
+                    }),
+                )
+            )
+            is Selector.Not -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("Not"),
+                    "child" to serializeToElement(jsonEncoder, value.child),
+                )
+            )
+            is Selector.Anything -> JsonObject(mapOf("_type" to JsonPrimitive("Anything")))
+        }
+        jsonEncoder.encodeJsonElement(element)
+    }
+
+    /**
+     * Serializes [value] to a [JsonElement] using this serializer's logic,
+     * bypassing the token-stream API so nested selectors can be serialized independently.
+     */
+    private fun serializeToElement(jsonEncoder: kotlinx.serialization.json.JsonEncoder, value: Selector): JsonElement {
+        return when (value) {
+            is Selector.Tag -> JsonObject(
+                mapOf("_type" to JsonPrimitive("Tag"), "id" to JsonPrimitive(value.id.value))
+            )
+            is Selector.DateBucket -> JsonObject(
+                mapOf("_type" to JsonPrimitive("DateBucket"), "bucket" to JsonPrimitive(value.bucket.name))
+            )
+            is Selector.DateRange -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("DateRange"),
+                    "from" to JsonPrimitive(value.from.toString()),
+                    "to" to JsonPrimitive(value.to.toString()),
+                )
+            )
+            is Selector.Tags -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("Tags"),
+                    "ids" to JsonArray(value.ids.map { JsonPrimitive(it.value) }),
+                    "matchAll" to JsonPrimitive(value.matchAll),
+                )
+            )
+            is Selector.Statuses -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("Statuses"),
+                    "statuses" to JsonArray(value.statuses.map { JsonPrimitive(it.name) }),
+                )
+            )
+            is Selector.Priorities -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("Priorities"),
+                    "priorities" to JsonArray(value.priorities.map { JsonPrimitive(it.name) }),
+                    "atMost" to JsonPrimitive(value.atMost),
+                )
+            )
+            is Selector.Projects -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("Projects"),
+                    "ids" to JsonArray(value.ids.map { JsonPrimitive(it.value) }),
+                )
+            )
+            is Selector.Pinned -> JsonObject(mapOf("_type" to JsonPrimitive("Pinned")))
+            is Selector.Completed -> JsonObject(mapOf("_type" to JsonPrimitive("Completed")))
+            is Selector.Overdue -> JsonObject(mapOf("_type" to JsonPrimitive("Overdue")))
+            is Selector.Regexp -> JsonObject(
+                mapOf("_type" to JsonPrimitive("Regexp"), "query" to JsonPrimitive(value.query))
+            )
+            is Selector.AllOf -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("AllOf"),
+                    "children" to JsonArray(value.children.map { serializeToElement(jsonEncoder, it) }),
+                )
+            )
+            is Selector.AnyOf -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("AnyOf"),
+                    "children" to JsonArray(value.children.map { serializeToElement(jsonEncoder, it) }),
+                )
+            )
+            is Selector.Not -> JsonObject(
+                mapOf(
+                    "_type" to JsonPrimitive("Not"),
+                    "child" to serializeToElement(jsonEncoder, value.child),
+                )
+            )
+            is Selector.Anything -> JsonObject(mapOf("_type" to JsonPrimitive("Anything")))
         }
     }
 
-    private object TagSerializer : kotlinx.serialization.KSerializer<Selector.Tag> {
-        override val descriptor = serializer<Selector.Tag>().descriptor
-        override fun deserialize(decoder: kotlinx.serialization.encoding.Decoder): Selector.Tag {
-            val jsonDecoder = decoder as? JsonDecoder
-                ?: throw SerializationException("TagSerializer requires a JSON decoder")
-            val json = jsonDecoder.decodeJsonElement().jsonObject
-            val idString = json["id"]?.jsonPrimitive?.content
+    override fun deserialize(decoder: kotlinx.serialization.encoding.Decoder): Selector {
+        // kotlinx uses two decoder patterns:
+        // 1. StreamingJsonDecoder: token-by-token JSON stream. decodeJsonElement() reads the
+        //    current element from the stream. Used when Selector is a top-level type.
+        // 2. TreeJsonDecoder: wraps a JsonElement. decodeJsonElement() returns that element.
+        //    Used when Selector is nested (e.g. AllOf.children) — kotlinx decodes each child
+        //    by calling decodeSerializableValue on the element's JSON string.
+        //
+        // Both implement JsonDecoder. For StreamingJsonDecoder, decodeJsonElement() reads from
+        // the stream. For TreeJsonDecoder, it returns the wrapped element directly.
+        val element = (decoder as kotlinx.serialization.json.JsonDecoder).decodeJsonElement()
+        val obj = element.jsonObject
+        val type = obj["_type"]?.jsonPrimitive?.content
+            ?: throw SerializationException("Missing '_type' discriminator")
+
+        // Tag: MR1 legacy format — deserialize manually.
+        if (type == "Tag") {
+            val id = obj["id"]?.jsonPrimitive?.content
                 ?: throw SerializationException("Missing 'id' field for Selector.Tag")
-            return Selector.Tag(TagId(idString))
+            return Selector.Tag(TagId(id))
         }
 
-        @Suppress("DEPRECATION")
-        override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: Selector.Tag) {
-            serializer<Selector.Tag>().serialize(encoder, value)
+        // All MR2+ types: construct manually from the JSON object fields.
+        // The generated deserializers (e.g. Selector$Tags$$serializer) don't accept
+        // the "_type" discriminator in their input, so we extract fields individually.
+        return when (type) {
+            "DateBucket" -> Selector.DateBucket(
+                bucket = Json.decodeFromJsonElement(
+                    serializer<RelativeBucket>(),
+                    obj.getValue("bucket"),
+                ),
+            )
+            "DateRange" -> Selector.DateRange(
+                from = Json.decodeFromJsonElement(serializer(), obj.getValue("from")),
+                to = Json.decodeFromJsonElement(serializer(), obj.getValue("to")),
+            )
+            "Tags" -> Selector.Tags(
+                ids = obj.getValue("ids").let { idsJson ->
+                    Json.decodeFromJsonElement<Set<TagId>>(serializer(), idsJson)
+                },
+                matchAll = obj["matchAll"]?.let {
+                    Json.decodeFromJsonElement(serializer(), it)
+                } ?: false,
+            )
+            "Statuses" -> Selector.Statuses(
+                statuses = obj.getValue("statuses").let {
+                    Json.decodeFromJsonElement<Set<TaskStatus>>(serializer(), it)
+                },
+            )
+            "Priorities" -> Selector.Priorities(
+                priorities = obj.getValue("priorities").let {
+                    Json.decodeFromJsonElement<Set<TaskPriority>>(serializer(), it)
+                },
+                atMost = obj["atMost"]?.let {
+                    Json.decodeFromJsonElement(serializer(), it)
+                } ?: true,
+            )
+            "Projects" -> Selector.Projects(
+                ids = obj.getValue("ids").let {
+                    Json.decodeFromJsonElement<Set<ProjectId>>(serializer(), it)
+                },
+            )
+            "Pinned" -> Selector.Pinned
+            "Completed" -> Selector.Completed
+            "Overdue" -> Selector.Overdue
+            "Regexp" -> Selector.Regexp(
+                query = obj.getValue("query").jsonPrimitive.content,
+            )
+            "AllOf" -> Selector.AllOf(
+                children = obj.getValue("children").let {
+                    Json.decodeFromJsonElement(serializer(), it)
+                },
+            )
+            "AnyOf" -> Selector.AnyOf(
+                children = obj.getValue("children").let {
+                    Json.decodeFromJsonElement(serializer(), it)
+                },
+            )
+            "Not" -> Selector.Not(
+                child = Json.decodeFromJsonElement(serializer(), obj.getValue("child")),
+            )
+            "Anything" -> Selector.Anything
+            else -> throw SerializationException("Unknown Selector type: $type")
         }
     }
 }

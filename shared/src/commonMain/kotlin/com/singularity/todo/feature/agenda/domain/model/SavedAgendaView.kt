@@ -8,6 +8,7 @@ import kotlin.time.Instant
  *
  * Stored as an all-in-blob: the full [AgendaDefinition] is serialized as JSON
  * in [sectionsJson] and decoded on read. The [name] is the only user-editable field.
+ * This class is NOT @Serializable — [sectionsJson] carries the pre-serialized JSON string.
  *
  * @param id unique within a user profile (UUID)
  * @param userId profile-scoped identifier
