@@ -41,6 +41,7 @@ val TOOL_ANNOTATIONS: Map<String, ToolAnnotations> = mapOf(
     "tasks.list" to ToolAnnotations(readOnlyHint = true),
     "tasks.get" to ToolAnnotations(readOnlyHint = true),
     "tasks.search" to ToolAnnotations(readOnlyHint = true),
+    "task.set_dependencies" to ToolAnnotations(idempotentHint = true), // MR-1
 
     // ── Projects ───────────────────────────────────────────────────────────────
     "projects.create" to ToolAnnotations(idempotentHint = true),

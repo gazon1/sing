@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,14 +37,25 @@ fun TaskMetaRow(
     project: String?,
     isRecurring: Boolean,
     isOverdue: Boolean,
+    isBlocked: Boolean = false, // MR-1: blocked by incomplete dependencies
     modifier: Modifier = Modifier,
 ) {
-    if (dueLabel == null && project == null) return
+    if (dueLabel == null && project == null && !isBlocked) return
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier,
     ) {
+        if (isBlocked) {
+            Icon(
+                imageVector = Icons.Default.Block,
+                contentDescription = "Задача заблокирована зависимостями",
+                tint = TaskListColors.TextTertiary,
+                modifier = Modifier.size(TaskListSizes.MetaIcon),
+            )
+            Spacer(Modifier.width(TaskListSpacing.Xs))
+        }
+
         if (isRecurring) {
             Icon(
                 imageVector = Icons.Default.Repeat,

@@ -632,12 +632,17 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 - **Breaking**: MCP tool producer-side обновляется
 - **Breaking**: `Selector.Tag` rename — `AgendaPresetsTest` JSON snapshots обновляются
+- A task may have zero, one, or many dependencies.
+- Cycle detection is deferred — cycles are rare and the cost of a DFS on every `setDependencies` call is non-trivial for large task graphs.
+- Self-dependency is validated in the MCP tool and silently ignored by the join-table upsert (PRIMARY KEY prevents the duplicate).
 - `@Serializable` на `TaskStatus` — нужен для kotlinx.serialization AgendaDefinition (saved views в будущем).
 - `AgendaEvaluator.matches` обновлён для `Selector.Tags` (список tags → `task.tags.any { it in ids }`)
 - `FakeTaskDao` и `FakeTaskRepository` mirror для всех 4 новых queries
 - `TaskListFilter` удалён — поиск по коду вернёт 0 результатов (если кто-то добавил вручную после этого коммита — это регресс).
 - `TaskRepositoryImpl.watchTasks` получает 4 новые dispatch branches
 - `TaskStatus` в domain/model доступен для AgendaEngine DSL без добавления cross-layer импорта.
+- `dependsOn` is **not** enforced at the data layer — completion is always allowed. UI consumers (`TaskList`, `AgendaEvaluator`) display `isBlocked` to inform users.
+- `isBlocking` (reverse direction) is not in MR-1 — a separate follow-up can add `watchBlockingBy` to `TaskUi` if needed.
 
 ### `testing`
 
@@ -843,6 +848,7 @@ _1 entries need attention._
 - `2026-09-18-shared-ui-adoption-mr5` — ui, refactor, dsl
 - `2026-09-18-stable-json-config` — serialization, architecture, core, kotlinx-serialization
 - `2026-09-18-sync-engine-architecture` — sync, architecture, core, hlc, conflict-resolution
+- `2026-09-18-task-dependencies` — tasks, schema, ui, mcp, dependencies
 - `2026-09-18-testing-best-practices` — testing, vm, kotlin-test, coroutines
 - `2026-09-18-version-catalog-cleanup` — gradle, version-catalog, build-config
 - `2026-09-18-vm-intent-with-receiver` — vm, refactor, kotlin
@@ -972,6 +978,7 @@ _1 entries need attention._
 - `2026-09-18-shared-ui-adoption-mr5` — MR5: ConfirmActionDialog + DragHandleRow shared components
 - `2026-09-18-stable-json-config` — StableJson: centralized Kotlinx Serialization Json config
 - `2026-09-18-sync-engine-architecture` — Sync engine: HLC + SyncEngine + ConflictResolver
+- `2026-09-18-task-dependencies` — Task Dependencies (MR-1): schema, domain, UI badge, MCP tool
 - `2026-09-18-testing-best-practices` — Testing best practices — Tier 1 infrastructure, canonical VM pattern, Fake over mocks
 - `2026-09-18-version-catalog-cleanup` — Version catalog cleanup — kebab-case, bundles, single resolutionStrategy
 - `2026-09-18-vm-intent-with-receiver` — MR9: with(intent) stdlib receiver pattern for VM intent dispatch

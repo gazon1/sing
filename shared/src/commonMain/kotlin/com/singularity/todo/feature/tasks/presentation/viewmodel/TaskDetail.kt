@@ -231,6 +231,13 @@ class TaskDetailViewModel(
             is TaskDetailIntent.Domain.TogglePinned ->
                 mutate(current) { copy(isPinned = !isPinned) }
 
+            is TaskDetailIntent.Domain.SetDependencies -> {
+                scope.launch {
+                    deps.taskRepo.setDependencies(current.id, intent.dependsOn)
+                        .onFailure { emitError("Failed to set dependencies") }
+                }
+            }
+
             is TaskDetailIntent.Domain.ToggleChecklistItem -> {
                 scope.launch {
                     deps.checklistUseCase.toggleItem(current.id.value, intent.item.id)

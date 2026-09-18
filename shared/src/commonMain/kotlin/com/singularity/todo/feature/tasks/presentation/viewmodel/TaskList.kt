@@ -10,6 +10,7 @@ import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.AiActionResult
+import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -194,11 +195,13 @@ class TasksViewModel(
         val topLevel = tasks.filter { it.parentTaskId == null }
         val result = mutableListOf<TaskUi>()
         for (parent in topLevel) {
-            result.add(parent.toTaskUi(today, projectNames))
+            val parentBlocked = TaskComputed.isBlocked(parent, tasks)
+            result.add(parent.toTaskUi(today, projectNames, parent.dependsOn, parentBlocked))
             if (parent.id in expandedIds) {
                 for (child in tasks) {
                     if (child.parentTaskId == parent.id) {
-                        result.add(child.toTaskUi(today, projectNames))
+                        val childBlocked = TaskComputed.isBlocked(child, tasks)
+                        result.add(child.toTaskUi(today, projectNames, child.dependsOn, childBlocked))
                     }
                 }
             }

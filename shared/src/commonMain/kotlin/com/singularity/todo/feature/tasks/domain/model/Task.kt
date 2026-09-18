@@ -103,6 +103,24 @@ data class Task(
     val someday: Boolean = false,
     val archivedAt: Instant? = null,
     val isPinned: Boolean = false,
+    /**
+     * IDs of tasks that must be completed before this task can be completed.
+     * Empty set means the task is not blocked by any dependency.
+     *
+     * ## Null semantics
+     *
+     * Stored as a join table (`task_dependencies`), never as a nullable column.
+     * When loading from DB, a task with no rows in `task_dependencies` has an empty set.
+     *
+     * ## Blocking
+     *
+     * A task is **blocked** when any of its dependencies is not yet completed.
+     * Computed via [com.singularity.todo.feature.tasks.domain.logic.TaskComputed.isBlocked]
+     * using the full task list in scope (VM `combine`).
+     *
+     * @see com.singularity.todo.docs.decisions.2026-09-18-task-dependencies
+     */
+    val dependsOn: Set<TaskId> = emptySet(),
     val createdAt: Instant,
     val updatedAt: Instant,
     val userId: UserId,

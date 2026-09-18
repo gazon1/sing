@@ -18,6 +18,18 @@ data class Tag(
     val color: Int, // ARGB
     val createdAt: Instant,
     val updatedAt: Instant,
+    /**
+     * Dead schema — replaced by `groupId` referencing [com.singularity.todo.feature.tags.domain.model.TagGroup] in MR-3.
+     *
+     * This field is never read, never written, and never cascaded.
+     * The entity layer explicitly discards it in both directions.
+     *
+     * @see com.singularity.todo.docs.decisions.2026-09-18-tag-groups-inheritance
+     */
+    @Deprecated(
+        message = "Dead schema — replaced by TagGroup in MR-3",
+        replaceWith = ReplaceWith("groupId"),
+    )
     val parentId: TagId? = null,
     val sortOrder: Int = 0,
     val deletedAt: Instant? = null,

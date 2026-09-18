@@ -18,6 +18,7 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
     entities = [
         TaskEntity::class,
         TaskTagCrossRef::class,
+        TaskDependencyCrossRef::class,
         NoteEntity::class,
         ProjectEntity::class,
         TagEntity::class,
@@ -29,7 +30,7 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         ProfileEntity::class,
         AgendaViewEntity::class,
     ],
-    version = 13,
+    version = 14,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -39,6 +40,7 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         AutoMigration(from = 10, to = 11, spec = Migration10To11::class),
         AutoMigration(from = 11, to = 12, spec = Migration11To12::class),
         AutoMigration(from = 12, to = 13, spec = Migration12To13::class),
+        AutoMigration(from = 13, to = 14, spec = Migration13To14::class),
     ],
     exportSchema = true,
 )

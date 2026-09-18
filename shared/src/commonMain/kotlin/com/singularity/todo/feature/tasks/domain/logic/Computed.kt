@@ -52,8 +52,22 @@ object TaskComputed {
     /**
      * A task is blocked when it has unsatisfied dependencies.
      *
-     * Currently always returns `false` — the dependency graph is not yet implemented.
-     * Future: `dependencies.any { !it.isCompleted }`
+     * ## Implementation (MR-1)
+     *
+     * Checks whether **any** task in [allTasks] that is referenced by [task]'s
+     * `dependsOn` set is not yet completed. Returns `false` when the set is empty.
+     *
+     * The [allTasks] list must contain every task for the current user — it is
+     * supplied by the ViewModel's `combine` so the predicate remains pure.
+     *
+     * @see com.singularity.todo.docs.decisions.2026-09-18-task-dependencies
      */
-    fun isBlocked(task: Task): Boolean = false
+    fun isBlocked(task: Task, allTasks: List<Task>): Boolean {
+        if (task.dependsOn.isEmpty()) return false
+        val allTasksById = allTasks.associateBy { it.id }
+        return task.dependsOn.any { depId ->
+            val dep = allTasksById[depId]
+            dep != null && !dep.isCompleted && !dep.isTrashed
+        }
+    }
 }

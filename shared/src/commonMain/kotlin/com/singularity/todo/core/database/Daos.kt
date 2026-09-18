@@ -127,6 +127,23 @@ interface TaskDao {
     @Query("SELECT tag_id FROM task_tags WHERE task_id = :taskId")
     fun getTagIdsForTask(taskId: String): Flow<List<String>>
 
+    // ── Task dependencies ─────────────────────────────────────────────────────
+
+    @Query("SELECT depends_on_task_id FROM task_dependencies WHERE task_id = :taskId")
+    fun getDependencyIdsForTask(taskId: String): Flow<List<String>>
+
+    @Query("SELECT task_id FROM task_dependencies WHERE depends_on_task_id = :taskId")
+    fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>>
+
+    @Upsert
+    suspend fun upsertDependency(ref: TaskDependencyCrossRef)
+
+    @Query("DELETE FROM task_dependencies WHERE task_id = :taskId AND depends_on_task_id = :depId")
+    suspend fun removeDependency(taskId: String, depId: String)
+
+    @Query("DELETE FROM task_dependencies WHERE task_id = :taskId")
+    suspend fun clearDependencies(taskId: String)
+
     @Query("SELECT * FROM tasks WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TaskEntity>
 

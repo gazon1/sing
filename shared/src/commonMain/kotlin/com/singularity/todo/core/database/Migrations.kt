@@ -80,3 +80,17 @@ class Migration11To12 : AutoMigrationSpec
  * rows read back with `viewId == null`.
  */
 class Migration12To13 : AutoMigrationSpec
+
+/**
+ * Migration from v13 to v14 — adds `task_dependencies` join table for
+ * task dependency tracking (blocked / blocking).
+ *
+ * Tables added:
+ * - `task_dependencies(task_id, depends_on_task_id)` — composite PK, two indices.
+ *
+ * No columns are added to the `tasks` table; dependencies are stored in a
+ * separate join table (many-to-many, same pattern as `task_tags`).
+ *
+ * @see com.singularity.todo.docs.decisions.2026-09-18-task-dependencies
+ */
+class Migration13To14 : AutoMigrationSpec

@@ -89,6 +89,9 @@ class BackupImporter(
         for (taskTag in migratedPayload.taskTags) {
             taskDao.upsertTagCrossRef(taskTag.toEntity())
         }
+        for (dep in migratedPayload.taskDependencies) {
+            taskDao.upsertDependency(dep.toEntity())
+        }
 
         // 6. Restore attachment files
         var restoredCount = 0

@@ -7,6 +7,7 @@ import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.matches
+import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import kotlinx.datetime.LocalDate
 
@@ -50,6 +51,7 @@ object AgendaEvaluator {
                         AgendaRowItem(
                             task = task,
                             badge = computeBadge(task, section.selector, today),
+                            isBlocked = TaskComputed.isBlocked(task, tasks),
                         )
                     },
                     badge = matched.size.takeIf { it > 0 },

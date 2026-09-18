@@ -40,6 +40,7 @@ class BackupExporter(
             tags = tags.map { it.toDto() },
             attachments = attachments.map { it.toDto() },
             taskTags = emptyList(), // TODO: implement task tag cross-refs
+            taskDependencies = emptyList(), // TODO [MR-1]: populate from task_dependencies table
         )
 
         // 3. Serialize payload

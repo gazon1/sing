@@ -244,11 +244,13 @@ private fun AgendaTaskRow(
         parentId = task.parentTaskId?.value,
         indentLevel = if (task.parentTaskId != null) 1 else 0,
         isRecurring = false,
+        isPinned = task.isPinned,
         priority = task.priority,
         isCompleted = task.completedAt != null,
         isOverdue = isOverdue,
         isSelected = false,
-        domainTask = task,
+        dependsOn = task.dependsOn,
+        isBlocked = rowItem.isBlocked,
     )
 
     // Right-click handler — uses onSecondaryClick (expect/actual, jvmMain actual).
@@ -347,24 +349,24 @@ private fun AgendaContentLoadedPreview() = PreviewThemed(darkTheme = false, useS
             sections = listOf(
                 RenderedSection(
                     name = "Overdue",
-                    tasks = listOf(AgendaRowItem(task = overdueTask, badge = AgendaBadge.Overdue)),
+                    tasks = listOf(AgendaRowItem(task = overdueTask, badge = AgendaBadge.Overdue, isBlocked = false)),
                     badge = 1,
                 ),
                 RenderedSection(
                     name = "Today",
-                    tasks = listOf(AgendaRowItem(task = todayTask)),
+                    tasks = listOf(AgendaRowItem(task = todayTask, isBlocked = false)),
                     badge = null,
                 ),
                 RenderedSection(
                     name = "Completed",
-                    tasks = listOf(AgendaRowItem(task = completedTask, badge = AgendaBadge.Completed)),
+                    tasks = listOf(AgendaRowItem(task = completedTask, badge = AgendaBadge.Completed, isBlocked = false)),
                     badge = null,
                 ),
                 RenderedSection(
                     name = "Upcoming",
                     tasks = listOf(
-                        AgendaRowItem(task = pinnedTask, badge = AgendaBadge.Pinned),
-                        AgendaRowItem(task = noDateTask, badge = AgendaBadge.NoDate),
+                        AgendaRowItem(task = pinnedTask, badge = AgendaBadge.Pinned, isBlocked = false),
+                        AgendaRowItem(task = noDateTask, badge = AgendaBadge.NoDate, isBlocked = false),
                     ),
                     badge = null,
                 ),

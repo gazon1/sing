@@ -24,8 +24,8 @@ fun buildTaskContextMenu(
     // ── 1. Pin / Unpin ──────────────────────────────────────────────────────
     item(
         id = "pin",
-        label = if (taskUi.domainTask?.isPinned == true) "Unpin" else "Pin",
-        checked = taskUi.domainTask?.isPinned == true,
+        label = if (taskUi.isPinned) "Unpin" else "Pin",
+        checked = taskUi.isPinned,
         enabled = actions.onTogglePin != null,
     ) {
         actions.onTogglePin?.invoke()
@@ -107,41 +107,49 @@ fun buildTaskContextMenu(
     }
 
     // ── 10. Set recurring ──────────────────────────────────────────────────
+    // TODO [MR-2]: restore as item { onSetRecurring?.let { ... } }
+    //   Temporarily removed — dead stub that called no-op.
+    //   Will be re-implemented with RecurrenceRule + RecurrencePickerSheet.
+
+    // ── 11. Set dependencies ───────────────────────────────────────────────
     item(
-        id = "set_recurring",
-        label = if (taskUi.isRecurring) "Edit recurring" else "Set recurring",
+        id = "set_dependencies",
+        label = "Set dependencies",
+        enabled = actions.onSetDependencies != null,
     ) {
-        // TODO: wire to SetRecurringUseCase
+        // TODO [MR-1]: open DependencyPickerSheet with current dependsOn
+        //   For now, open with empty set; picker sheet will be added in a follow-up.
+        actions.onSetDependencies?.invoke(emptySet())
         actions.onDismiss()
     }
 
     divider()
 
-    // ── 11. Duplicate ──────────────────────────────────────────────────────
+    // ── 12. Duplicate ──────────────────────────────────────────────────────
     item(id = "duplicate", label = "Duplicate") {
         // TODO: wire to DuplicateTaskUseCase
         actions.onDismiss()
     }
 
-    // ── 12. Copy to project ────────────────────────────────────────────────
+    // ── 13. Copy to project ────────────────────────────────────────────────
     item(id = "copy_to_project", label = "Copy to project") {
         // TODO: wire to CopyTaskToProjectUseCase
         actions.onDismiss()
     }
 
-    // ── 13. Move up ────────────────────────────────────────────────────────
+    // ── 14. Move up ────────────────────────────────────────────────────────
     item(id = "move_up", label = "Move up") {
         // TODO: wire to ReorderTaskUseCase
         actions.onDismiss()
     }
 
-    // ── 14. Move down ───────────────────────────────────────────────────────
+    // ── 15. Move down ───────────────────────────────────────────────────────
     item(id = "move_down", label = "Move down") {
         // TODO: wire to ReorderTaskUseCase
         actions.onDismiss()
     }
 
-    // ── 15. Expand / Collapse ─────────────────────────────────────────────
+    // ── 16. Expand / Collapse ─────────────────────────────────────────────
     item(
         id = "expand_collapse",
         label = "Expand / Collapse",
@@ -153,7 +161,7 @@ fun buildTaskContextMenu(
 
     divider()
 
-    // ── 16. Delete ────────────────────────────────────────────────────────
+    // ── 17. Delete ────────────────────────────────────────────────────────
     item(
         id = "delete",
         label = "Delete",
@@ -164,7 +172,7 @@ fun buildTaskContextMenu(
         actions.onDismiss()
     }
 
-    // ── 17. AI Actions → ─────────────────────────────────────────────────
+    // ── 18. AI Actions → ─────────────────────────────────────────────────
     subMenu(
         id = "ai_actions",
         label = "AI Actions",
@@ -215,19 +223,19 @@ fun buildTaskContextMenu(
 
     divider()
 
-    // ── 18. Print ──────────────────────────────────────────────────────────
+    // ── 19. Print ──────────────────────────────────────────────────────────
     item(id = "print", label = "Print") {
         // TODO: wire to PrintTaskUseCase
         actions.onDismiss()
     }
 
-    // ── 19. Archive ────────────────────────────────────────────────────────
+    // ── 20. Archive ────────────────────────────────────────────────────────
     item(id = "archive", label = "Archive") {
         // TODO: wire to ArchiveTaskUseCase
         actions.onDismiss()
     }
 
-    // ── 20. Share ─────────────────────────────────────────────────────────
+    // ── 21. Share ─────────────────────────────────────────────────────────
     item(id = "share", label = "Share") {
         // TODO: wire to ShareTaskUseCase
         actions.onDismiss()

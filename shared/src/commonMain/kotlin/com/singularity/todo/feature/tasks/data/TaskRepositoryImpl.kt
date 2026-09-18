@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.data
 
 import com.singularity.todo.core.database.TaskDao
+import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.toEpochMillis
@@ -170,6 +171,21 @@ class TaskRepositoryImpl(private val taskDao: TaskDao, private val clock: Clock)
         }
         tagIds.forEach { tagId ->
             taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = taskId.value, tagId = tagId.value))
+        }
+    }
+
+    override fun watchDependencies(taskId: TaskId): Flow<Set<TaskId>> =
+        taskDao.getDependencyIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
+
+    override fun watchBlockingBy(taskId: TaskId): Flow<Set<TaskId>> =
+        taskDao.getBlockingTaskIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
+
+    override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> = runCatching {
+        taskDao.clearDependencies(taskId.value)
+        deps.forEach { depId ->
+            taskDao.upsertDependency(
+                TaskDependencyCrossRef(taskId = taskId.value, dependsOnTaskId = depId.value),
+            )
         }
     }
 }

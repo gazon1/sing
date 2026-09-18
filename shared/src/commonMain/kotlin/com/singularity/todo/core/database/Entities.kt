@@ -57,6 +57,27 @@ data class TaskTagCrossRef(
     @ColumnInfo("tag_id") val tagId: String,
 )
 
+/**
+ * Join table for task dependencies (blocked / blocking).
+ *
+ * [taskId] is the dependent task — it is **blocked** until every task in
+ * [dependsOnTaskId] is completed.
+ *
+ * This mirrors the Taskwarrior `depends:` attribute. No cycles are
+ * validated in the DB layer (see [com.singularity.todo.feature.tasks.domain.port.DependencyValidator]).
+ *
+ * @see com.singularity.todo.docs.decisions.2026-09-18-task-dependencies
+ */
+@Entity(
+    tableName = "task_dependencies",
+    primaryKeys = ["task_id", "depends_on_task_id"],
+    indices = [Index("task_id"), Index("depends_on_task_id")],
+)
+data class TaskDependencyCrossRef(
+    @ColumnInfo("task_id") val taskId: String,
+    @ColumnInfo("depends_on_task_id") val dependsOnTaskId: String,
+)
+
 @Entity(
     tableName = "notes",
     indices = [
@@ -126,7 +147,25 @@ data class TagEntity(
     val color: Int,
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
-    @ColumnInfo("parent_id") val parentId: String?,
+    /**
+     * Dead schema — removed in v13→v14 migration (MR-3).
+     *
+     * Previously modelled a flat tag hierarchy (never queried, never cascaded).
+     * Superseded by the [tag_groups][com.singularity.todo.feature.tags.domain.model.TagGroup] table
+     * which provides 1-level category grouping with proper invariants.
+     *
+     * ## Migration (MR-3)
+     *
+     * This column is dropped via `@DeleteColumn` in [Migration14To15].
+     * Until MR-3 lands, reads always return `null` and writes are silently discarded.
+     * ## MR-3: Tag Groups + Inheritance
+     * @see com.singularity.todo.docs.decisions.2026-09-18-tag-groups-inheritance
+     */
+    @Deprecated(
+        message = "Dead schema — replaced by tag_groups table in MR-3",
+        replaceWith = ReplaceWith("groupId"),
+    )
+    @ColumnInfo("parent_id") val parentId: String? = null,
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
     @ColumnInfo("deleted_at") val deletedAt: Long?,
     @Embedded val sync: SyncColumns = SyncColumns(),

@@ -6,6 +6,7 @@ import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
@@ -87,5 +88,9 @@ sealed interface TaskDetailIntent {
         // ── Pin ─────────────────────────────────────────────────────────────
 
         data object TogglePinned : Domain
+
+        // ── Dependencies ─────────────────────────────────────────────────────
+
+        data class SetDependencies(val dependsOn: Set<TaskId>) : Domain
     }
 }

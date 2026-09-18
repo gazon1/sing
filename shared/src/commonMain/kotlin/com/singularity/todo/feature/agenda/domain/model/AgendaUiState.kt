@@ -36,6 +36,8 @@ data class RenderedSection(val name: String, val tasks: List<AgendaRowItem>, val
 data class AgendaRowItem(
     val task: com.singularity.todo.feature.tasks.domain.model.Task,
     val badge: AgendaBadge? = null,
+    /** MR-1: true when the task has incomplete dependencies. */
+    val isBlocked: Boolean = false,
 )
 
 /**
@@ -47,4 +49,5 @@ enum class AgendaBadge {
     Pinned,
     Completed,
     NoDate,
+    Blocked, // MR-1: task has incomplete dependencies
 }

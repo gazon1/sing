@@ -34,6 +34,7 @@ import com.singularity.todo.feature.ai.tools.ProjectReviewTool
 import com.singularity.todo.feature.ai.tools.ReadAdrTool
 import com.singularity.todo.feature.ai.tools.RefineTaskTool
 import com.singularity.todo.feature.ai.tools.SearchTasksTool
+import com.singularity.todo.feature.ai.tools.SetDependenciesTool
 import com.singularity.todo.feature.ai.tools.SmartRewriteTool
 import com.singularity.todo.feature.ai.tools.UpdateNoteTool
 import com.singularity.todo.feature.ai.tools.UpdateProjectTool
@@ -160,6 +161,7 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
     factory { ListAdrsTool() }
     factory { ReadAdrTool() }
     factory { WriteAdrTool() }
+    factory { SetDependenciesTool(get()) }
 
     // ─── AI tools list for KoogAgentService ───
 
@@ -198,6 +200,7 @@ internal fun aiToolsCoreModule(): org.koin.core.module.Module = module {
             get<ReadAdrTool>(),
             get<WriteAdrTool>(),
             get<DecomposeAndCreateTool>(),
+            get<SetDependenciesTool>(),
         )
     }
 

@@ -70,6 +70,9 @@ internal fun TaskEntity.toTask(): Task = Task(
     someday = someday,
     archivedAt = archivedAt.toInstantOrNull(),
     isPinned = isPinned,
+    // dependsOn is loaded separately via TaskRepository.watchDependencies —
+    // it is never stored on TaskEntity itself (join table only).
+    dependsOn = emptySet(),
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),
     userId = userId.toId(),

@@ -31,6 +31,24 @@ interface TaskRepository {
     /** Returns direct child tasks of the given parent. */
     fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>>
     fun getTagIds(taskId: TaskId): Flow<List<TagId>>
+
+    /**
+     * Returns the set of task IDs that [taskId] depends on (is blocked by).
+     */
+    fun watchDependencies(taskId: TaskId): Flow<Set<TaskId>>
+
+    /**
+     * Returns the set of task IDs that depend on [taskId] (it blocks them).
+     * The reverse direction of `watchDependencies`.
+     */
+    fun watchBlockingBy(taskId: TaskId): Flow<Set<TaskId>>
+
+    /**
+     * Replaces the full dependency set for [taskId].
+     * Uses a diff-and-apply strategy: clears all existing refs, inserts the new set.
+     */
+    suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit>
+
     suspend fun exists(id: TaskId): Boolean
     suspend fun getById(id: TaskId): Task?
 }

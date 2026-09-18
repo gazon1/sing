@@ -7,6 +7,7 @@ import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TaskEntity
+import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.toLocalTimeOrNull
 import kotlinx.datetime.LocalTime
@@ -29,6 +30,8 @@ data class TaskDto(
     val someday: Boolean = false,
     val archivedAt: Long? = null,
     val isPinned: Boolean = false,
+    /** MR-1: denormalized snapshot of depends-on task IDs at backup time. */
+    val dependsOn: List<String>? = null,
     val createdAt: Long,
     val updatedAt: Long,
 )
@@ -206,3 +209,12 @@ data class TaskTagDto(val taskId: String, val tagId: String)
 fun TaskTagCrossRef.toDto(): TaskTagDto = TaskTagDto(taskId = taskId, tagId = tagId)
 
 fun TaskTagDto.toEntity(): TaskTagCrossRef = TaskTagCrossRef(taskId = taskId, tagId = tagId)
+
+// ─── TaskDependencyDto (MR-1) ─────────────────────────────────────────────────
+
+@Serializable
+data class TaskDependencyDto(val taskId: String, val dependsOnTaskId: String)
+
+fun TaskDependencyCrossRef.toDto(): TaskDependencyDto = TaskDependencyDto(taskId = taskId, dependsOnTaskId = dependsOnTaskId)
+
+fun TaskDependencyDto.toEntity(): TaskDependencyCrossRef = TaskDependencyCrossRef(taskId = taskId, dependsOnTaskId = dependsOnTaskId)
