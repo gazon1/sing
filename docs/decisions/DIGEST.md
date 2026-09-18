@@ -1947,6 +1947,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `AgendaViewModel` binding is unchanged — does not consume saved views. _(from `2026-09-16-saved-agenda-views`)_
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches. _(from `2026-09-06-modular-justfile`)_
 - `AiSettingsContributor` remains as the sole `SettingsContributor` implementation — used only for AI test/fetch ephemeral state. _(from `2026-09-10-simplified-settings-vm`)_
+- All 13 migrated VMs are now testable with `backgroundScope` injection _(from `2026-09-18-vm-migration-scope-injection`)_
 - All 593 existing tests continue to pass. _(from `2026-09-17-vm-testability-audit`)_
 - All notes screens now navigationally self-contained _(from `2026-09-15-nav3-notes-navigator`)_
 - `AppDestination.Habits` → `AppDestination.Pomodoro`, `AppDestination.Calendar` → `AppDestination.Statistics` _(from `2026-09-11-nav3-kmp-migration`)_
@@ -1975,10 +1976,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно. _(from `2026-09-15-projects-clean-architecture`)_
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed. _(from `2026-09-08-instant-migration`)_
 - Developers should prefer `kotlinx.datetime.Instant` in new code. _(from `2026-09-08-instant-migration`)_
+- `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope` _(from `2026-09-18-vm-migration-scope-injection`)_
 - DI-граф упрощён: 5 factory → 1 _(from `2026-09-05-refactoring-summary`)_
 - Domain/repo/data layers are fully isolated. _(from `2026-09-16-saved-agenda-views`)_
 - `endTime` / `accentColor` — blocked on Room migration for `startAt`/`endAt`/`accentColor` fields in `Task` _(from `2026-09-16-calendar-post-merge-fixes`)_
 - Existing `AgendaDeps` binding must add `clock: Clock` parameter (no breaking change _(from `2026-09-16-reactive-today-flow`)_
+- Existing `viewModelOf` calls in DI modules updated to `viewModel { Vm(...) }` form _(from `2026-09-18-vm-migration-scope-injection`)_
 - Expand-day-list (tap day in month view to show all tasks). _(from `2026-09-16-calendar-feature`)_
 - `expect object Clock` rename to `PlatformClock` — deferred until a broader cleanup window _(from `2026-09-16-calendar-post-merge-fixes`)_
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes) _(from `2026-09-07-task-detail-archive-overflow`)_
@@ -2003,6 +2006,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах _(from `2026-09-05-ui-decomposition`)_
 - Per-feature events устранили конфликты имён (до: `ShowDialog` everywhere; после: `TasksUiEvent.AiResult`, `NotesUiEvent.SaveFailed`) _(from `2026-09-05-ui-decomposition`)_
 - **`performTextClear`** не доступен в Robolectric — используется `performTextInput` напрямую _(from `2026-09-05-ui-tests-ultron`)_
+- Phase 8 (test rewrites) and Phase 9 (verification) follow from this migration _(from `2026-09-18-vm-migration-scope-injection`)_
 - Picker sheets визуально согласованы с остальными sheets (drag-handle, chrome) _(from `2026-09-07-task-detail-archive-overflow`)_
 - Pre-existing test failures (`RussianDateFormatterTest`, `TaskCreateViewModelTest`, _(from `2026-09-15-nav3-notes-navigator`)_
 - `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`. _(from `2026-09-15-projects-clean-architecture`)_
@@ -2027,6 +2031,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskEditorViewModelTest` and `TaskEditorIntegrationTest` must add edit-mode scenarios. _(from `2026-09-05-task-editor-refactor`)_
 - `TaskFilter` remains untouched — Search feature is unaffected. _(from `2026-09-16-tasks-upcoming-screen`)_
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика _(from `2026-09-05-refactoring-summary`)_
+- Test classes updated: `createVm()` now takes `scope = backgroundScope` via `TestScope.createVm()` _(from `2026-09-18-vm-migration-scope-injection`)_
 - Tests are ignored until the plugin resolution issue in the development environment is resolved. _(from `2026-09-08-roborazzi-snapshot-tests`)_
 - The 2 side-effects-in-combine anti-patterns remain in `TaskDetailViewModel` _(from `2026-09-17-vm-testability-audit`)_
 - The 4 untested VMs (`TaskCreateViewModel`, `ProjectEditorViewModel`, _(from `2026-09-17-vm-testability-audit`)_
@@ -2363,3 +2368,4 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-17-selector-serializer-plain-kserializer` — SelectorSerializer: plain KSerializer instead of JsonContentPolymorphicSerializer
 - `2026-09-17-vm-testability-audit` — _(no title)
 - `2026-09-18-testing-best-practices` — Testing best practices — Tier 1 infrastructure, canonical VM pattern, Fake over mocks
+- `2026-09-18-vm-migration-scope-injection` — _(no title)
