@@ -30,6 +30,8 @@ class BackupExporter(
         val projects = projectDao.listAllForUser(options.userId.value)
         val tags = tagDao.listAllForUser(options.userId.value)
         val attachments = attachmentDao.listAllForUser(options.userId.value)
+        val taskDeps = taskDao.listAllDependenciesForUser(options.userId.value)
+        val taskTagRefs = taskDao.listAllTagsForUser(options.userId.value)
 
         // 2. Map to DTOs
         val payload = BackupPayload(
@@ -39,8 +41,8 @@ class BackupExporter(
             projects = projects.map { it.toDto() },
             tags = tags.map { it.toDto() },
             attachments = attachments.map { it.toDto() },
-            taskTags = emptyList(), // TODO: implement task tag cross-refs
-            taskDependencies = emptyList(), // TODO [MR-1]: populate from task_dependencies table
+            taskTags = taskTagRefs.map { it.toDto() },
+            taskDependencies = taskDeps.map { it.toDto() },
         )
 
         // 3. Serialize payload
@@ -54,7 +56,8 @@ class BackupExporter(
             projects = projects.size,
             tags = tags.size,
             attachments = attachments.size,
-            taskTags = 0,
+            taskTags = taskTagRefs.size,
+            taskDependencies = taskDeps.size,
         )
         val manifest = BackupDomain.buildManifest(
             appVersion = options.appVersion,

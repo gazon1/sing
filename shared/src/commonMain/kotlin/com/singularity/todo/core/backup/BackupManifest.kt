@@ -26,4 +26,5 @@ data class EntityCounts(
     val tags: Int = 0,
     val attachments: Int = 0,
     val taskTags: Int = 0,
+    val taskDependencies: Int = 0,
 )

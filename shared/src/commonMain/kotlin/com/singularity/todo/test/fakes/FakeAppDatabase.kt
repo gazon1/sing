@@ -20,6 +20,7 @@ import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskEntity
+import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
@@ -41,6 +42,7 @@ class FakeAppDatabase : AppDatabase() {
 
     private val _tasks = MutableStateFlow<Map<String, TaskEntity>>(emptyMap())
     private val _taskTags = MutableStateFlow<List<TaskTagCrossRef>>(emptyList())
+    private val _taskDependencies = MutableStateFlow<List<TaskDependencyCrossRef>>(emptyList())
     private val _notes = MutableStateFlow<Map<String, NoteEntity>>(emptyMap())
     private val _projects = MutableStateFlow<Map<String, ProjectEntity>>(emptyMap())
     private val _tags = MutableStateFlow<Map<String, TagEntity>>(emptyMap())
@@ -55,7 +57,7 @@ class FakeAppDatabase : AppDatabase() {
     private val _profiles = MutableStateFlow<Map<String, ProfileEntity>>(emptyMap())
     private val _agendaViews = MutableStateFlow<Map<String, AgendaViewEntity>>(emptyMap())
 
-    override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags)
+    override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
     override fun projectDao(): ProjectDao = FakeProjectDao(_projects)
     override fun tagDao(): TagDao = FakeTagDao(_tags)
@@ -70,6 +72,7 @@ class FakeAppDatabase : AppDatabase() {
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
         _taskTags.value = emptyList()
+        _taskDependencies.value = emptyList()
         _notes.value = emptyMap()
         _projects.value = emptyMap()
         _tags.value = emptyMap()
@@ -125,6 +128,7 @@ class FakeAppDatabase : AppDatabase() {
 private class FakeTaskDao(
     private val store: MutableStateFlow<Map<String, TaskEntity>>,
     private val crossRefs: MutableStateFlow<List<TaskTagCrossRef>>,
+    private val depRefs: MutableStateFlow<List<TaskDependencyCrossRef>>,
 ) : TaskDao {
 
     override fun watchActive(userId: String): Flow<List<TaskEntity>> = store.map {
@@ -262,8 +266,42 @@ private class FakeTaskDao(
     override fun getTagIdsForTask(taskId: String): Flow<List<String>> =
         crossRefs.map { refs -> refs.filter { it.taskId == taskId }.map { it.tagId } }
 
+    override fun getDependencyIdsForTask(taskId: String): Flow<List<String>> =
+        depRefs.map { refs -> refs.filter { it.taskId == taskId }.map { it.dependsOnTaskId } }
+
+    override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
+        depRefs.map { refs -> refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId } }
+
+    override suspend fun upsertDependency(ref: TaskDependencyCrossRef) {
+        depRefs.update { existing ->
+            if (existing.any { it.taskId == ref.taskId && it.dependsOnTaskId == ref.dependsOnTaskId }) {
+                existing
+            } else {
+                existing + ref
+            }
+        }
+    }
+
+    override suspend fun removeDependency(taskId: String, depId: String) {
+        depRefs.update { it.filterNot { r -> r.taskId == taskId && r.dependsOnTaskId == depId } }
+    }
+
+    override suspend fun clearDependencies(taskId: String) {
+        depRefs.update { it.filterNot { r -> r.taskId == taskId } }
+    }
+
     override suspend fun listAllForUser(userId: String): List<TaskEntity> =
         store.value.values.filter { it.userId == userId }
+
+    override suspend fun listAllDependenciesForUser(userId: String): List<TaskDependencyCrossRef> =
+        depRefs.value.filter { ref ->
+            store.value[ref.taskId]?.userId == userId
+        }
+
+    override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> =
+        crossRefs.value.filter { ref ->
+            store.value[ref.taskId]?.userId == userId
+        }
 
     override suspend fun searchByTitle(q: String): List<TaskEntity> =
         store.value.values.filter { it.archivedAt == null && it.title.contains(q, ignoreCase = true) }
