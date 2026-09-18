@@ -141,8 +141,8 @@ class SettingsViewModel(
                     settings.setDarkTheme(intent.value)
                     updateState {
                         it.copy(
-                            appearance = it.appearance.copy(darkTheme = intent.value),
-                            darkTheme = intent.value,
+                            appearance = it.appearance.copy(darkTheme = with(intent) { value }),
+                            darkTheme = with(intent) { value },
                         )
                     }
                 }
@@ -151,8 +151,8 @@ class SettingsViewModel(
                     settings.setAccentColor(intent.value)
                     updateState {
                         it.copy(
-                            appearance = it.appearance.copy(accentColor = intent.value),
-                            accentColor = intent.value,
+                            appearance = it.appearance.copy(accentColor = with(intent) { value }),
+                            accentColor = with(intent) { value },
                         )
                     }
                 }
@@ -161,70 +161,70 @@ class SettingsViewModel(
                     settings.setFontSizeScale(intent.value)
                     updateState {
                         it.copy(
-                            appearance = it.appearance.copy(fontSizeScale = intent.value),
-                            fontSizeScale = intent.value,
+                            appearance = it.appearance.copy(fontSizeScale = with(intent) { value }),
+                            fontSizeScale = with(intent) { value },
                         )
                     }
                 }
 
                 is SettingsIntent.Notifications.UpdateEnabled -> {
                     settings.setNotificationsEnabled(intent.value)
-                    updateState { it.copy(notificationsEnabled = intent.value) }
+                    updateState { it.copy(notificationsEnabled = with(intent) { value }) }
                 }
 
                 is SettingsIntent.Notifications.UpdateSound -> {
                     settings.setNotificationSound(intent.value)
-                    updateState { it.copy(notificationSound = intent.value) }
+                    updateState { it.copy(notificationSound = with(intent) { value }) }
                 }
 
                 is SettingsIntent.Notifications.UpdateVibration -> {
                     settings.setNotificationVibration(intent.value)
-                    updateState { it.copy(notificationVibration = intent.value) }
+                    updateState { it.copy(notificationVibration = with(intent) { value }) }
                 }
 
                 is SettingsIntent.Notifications.UpdateReminderDefault -> {
                     settings.setReminderDefault(intent.value)
-                    updateState { it.copy(reminderDefault = intent.value) }
+                    updateState { it.copy(reminderDefault = with(intent) { value }) }
                 }
 
                 is SettingsIntent.WorkSchedule.UpdateWorkDayStart -> {
                     settings.setWorkDayStartMinutes(intent.minutes)
-                    updateState { it.copy(workDayStartMinutes = intent.minutes) }
+                    updateState { it.copy(workDayStartMinutes = with(intent) { minutes }) }
                 }
 
                 is SettingsIntent.WorkSchedule.UpdateWorkDayEnd -> {
                     settings.setWorkDayEndMinutes(intent.minutes)
-                    updateState { it.copy(workDayEndMinutes = intent.minutes) }
+                    updateState { it.copy(workDayEndMinutes = with(intent) { minutes }) }
                 }
 
                 is SettingsIntent.WorkSchedule.UpdateWorkLunchStart -> {
                     settings.setWorkLunchStartMinutes(intent.minutes)
-                    updateState { it.copy(workLunchStartMinutes = intent.minutes) }
+                    updateState { it.copy(workLunchStartMinutes = with(intent) { minutes }) }
                 }
 
                 is SettingsIntent.WorkSchedule.UpdateWorkLunchEnd -> {
                     settings.setWorkLunchEndMinutes(intent.minutes)
-                    updateState { it.copy(workLunchEndMinutes = intent.minutes) }
+                    updateState { it.copy(workLunchEndMinutes = with(intent) { minutes }) }
                 }
 
                 is SettingsIntent.WorkSchedule.UpdateWeekendSat -> {
                     settings.setWorkWeekendSat(intent.value)
-                    updateState { it.copy(workWeekendSat = intent.value) }
+                    updateState { it.copy(workWeekendSat = with(intent) { value }) }
                 }
 
                 is SettingsIntent.WorkSchedule.UpdateWeekendSun -> {
                     settings.setWorkWeekendSun(intent.value)
-                    updateState { it.copy(workWeekendSun = intent.value) }
+                    updateState { it.copy(workWeekendSun = with(intent) { value }) }
                 }
 
                 is SettingsIntent.Greeting.UpdateMorningEnd -> {
                     settings.setGreetingMorningEnd(intent.hour)
-                    updateState { it.copy(greetingMorningEnd = intent.hour) }
+                    updateState { it.copy(greetingMorningEnd = with(intent) { hour }) }
                 }
 
                 is SettingsIntent.Greeting.UpdateAfternoonEnd -> {
                     settings.setGreetingAfternoonEnd(intent.hour)
-                    updateState { it.copy(greetingAfternoonEnd = intent.hour) }
+                    updateState { it.copy(greetingAfternoonEnd = with(intent) { hour }) }
                 }
 
                 is SettingsIntent.Ai.UpdateProvider,
@@ -254,7 +254,7 @@ class SettingsViewModel(
 
                 is SettingsIntent.DefaultAgendaView.Update -> {
                     settings.setDefaultSavedAgendaViewId(intent.viewId)
-                    updateState { it.copy(defaultSavedAgendaViewId = intent.viewId) }
+                    updateState { it.copy(defaultSavedAgendaViewId = with(intent) { viewId }) }
                 }
             }
         }
