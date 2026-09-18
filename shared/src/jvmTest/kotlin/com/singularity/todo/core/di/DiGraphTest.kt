@@ -8,7 +8,7 @@ import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.pomodoro.PomodoroRepository
 import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
-import org.junit.Test
+import kotlin.test.Test
 
 /**
  * Smoke-test the DI graph on JVM.

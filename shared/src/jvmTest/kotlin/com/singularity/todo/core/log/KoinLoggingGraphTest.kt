@@ -1,7 +1,7 @@
 package com.singularity.todo.core.log
 
 import co.touchlab.kermit.Logger
-import org.junit.Test
+import kotlin.test.Test
 
 /**
  * Verifies that the logging bindings compile and resolve correctly on JVM.

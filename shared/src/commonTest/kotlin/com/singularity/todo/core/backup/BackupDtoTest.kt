@@ -6,9 +6,9 @@ import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class BackupDtoTest {
 

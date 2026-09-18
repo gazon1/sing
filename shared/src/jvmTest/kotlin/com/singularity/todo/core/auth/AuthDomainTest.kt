@@ -2,10 +2,11 @@ package com.singularity.todo.core.auth
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ids.UserId
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 class AuthDomainTest {
 
@@ -16,19 +17,19 @@ class AuthDomainTest {
         }
     }
 
-    @Test(expected = AppError.Validation::class)
+    @Test
     fun `validateEmail rejects blank`() {
-        AuthDomain.validateEmail("")
+        assertFailsWith<AppError.Validation> { AuthDomain.validateEmail("") }
     }
 
-    @Test(expected = AppError.Validation::class)
+    @Test
     fun `validateEmail rejects no at sign`() {
-        AuthDomain.validateEmail("notanemail")
+        assertFailsWith<AppError.Validation> { AuthDomain.validateEmail("notanemail") }
     }
 
-    @Test(expected = AppError.Validation::class)
+    @Test
     fun `validateEmail rejects no domain`() {
-        AuthDomain.validateEmail("user@")
+        assertFailsWith<AppError.Validation> { AuthDomain.validateEmail("user@") }
     }
 
     @Test
@@ -36,9 +37,9 @@ class AuthDomainTest {
         AuthDomain.validatePassword("password123") // Should not throw
     }
 
-    @Test(expected = AppError.Validation::class)
+    @Test
     fun `validatePassword rejects too short`() {
-        AuthDomain.validatePassword("1234567")
+        assertFailsWith<AppError.Validation> { AuthDomain.validatePassword("1234567") }
     }
 
     @Test

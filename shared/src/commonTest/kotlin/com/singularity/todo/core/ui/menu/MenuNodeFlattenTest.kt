@@ -1,7 +1,7 @@
 package com.singularity.todo.core.ui.menu
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /**
  * Tests that a flatten utility correctly counts all nodes in a menu tree.

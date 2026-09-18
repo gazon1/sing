@@ -48,7 +48,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProfileRepository
-import org.junit.Test
+import kotlin.test.Test
 import org.koin.dsl.module
 
 /**

@@ -2,9 +2,9 @@ package com.singularity.todo.core.attachments
 
 import com.singularity.todo.core.files.MapFileSystem
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class AttachmentStorageTest {
 

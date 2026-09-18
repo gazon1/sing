@@ -63,7 +63,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Session / Auth ─────────────────────────────────────────────────
 
-    single<SessionStore> { DataStoreSessionStore(get()) }
+    single<SessionStore> { DataStoreSessionStore(get(), get()) }
 
     single<AuthRepository> {
         SupabaseAuthRepository(Logger.withTag("AuthRepository"), get(), Dispatchers.IO)

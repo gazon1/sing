@@ -12,10 +12,14 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
  * pre-load recurring reminder IDs and enrich [CalendarTaskUi.isRecurring].
  *
  * @param clock The time source. Defaults to [kotlin.time.Clock.System].
+ * @param today Today's date, pre-computed at construction to avoid blocking in the VM.
+ *   In production, compute via `kotlin.time.Clock.System.now().toLocalDateTime(zone).date`.
+ *   In tests, pass any fixed [LocalDate] for deterministic behavior.
  */
 data class CalendarDeps(
     val taskRepo: TaskRepository,
     val currentUser: ProfileAwareCurrentUser,
     val clock: kotlin.time.Clock = kotlin.time.Clock.System,
+    val today: kotlinx.datetime.LocalDate,
     val logger: Logger,
 )

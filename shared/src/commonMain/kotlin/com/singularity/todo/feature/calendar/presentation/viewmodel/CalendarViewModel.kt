@@ -2,7 +2,6 @@ package com.singularity.todo.feature.calendar.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.goNext
@@ -18,17 +17,15 @@ import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -72,11 +69,7 @@ class CalendarViewModel(
     )
 
     /** Today's date, stable for the lifetime of this VM (captured at construction). */
-    private val today: LocalDate by lazy {
-        // runBlocking is safe here — the lazy initializer runs once during VM construction,
-        // and blocking the calling thread for a few ms to read the clock is acceptable.
-        runBlocking { deps.clock.todayFlow().first() }
-    }
+    private val today: LocalDate = deps.today
 
     /** Selection state — anchor date, view mode, mini panel open/closed. */
     private val _calendarState = MutableStateFlow(

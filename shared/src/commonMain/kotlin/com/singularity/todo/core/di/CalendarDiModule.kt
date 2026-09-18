@@ -6,9 +6,12 @@ import com.singularity.todo.feature.calendar.presentation.viewmodel.CalendarDeps
 import com.singularity.todo.feature.calendar.presentation.viewmodel.CalendarViewModel
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import kotlin.time.Clock
 
 /**
  * Calendar feature DI: ViewModel and dependencies.
@@ -22,6 +25,7 @@ fun calendarModule(): Module = module {
                 taskRepo = get<TaskRepository>(),
                 currentUser = get(),
                 logger = Logger.withTag("Calendar"),
+                today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date,
             ),
             initialDate = LocalDate(year, month, 1),
             initialMode = mode,

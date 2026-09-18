@@ -200,20 +200,57 @@ class FakeSettingsRepository(initialUserId: String = "test-user") : SettingsRepo
 
 class FakeBackupRepository : BackupRepository {
     private val _backups = MutableStateFlow<List<BackupMetadata>>(emptyList())
-
     override val backups: Flow<List<BackupMetadata>> = _backups
 
-    override suspend fun export(options: ExportOptions): Result<BackupResult> = Result.failure(NotImplementedError())
-    override suspend fun import(options: ImportOptions): Result<RestoreResult> = Result.failure(NotImplementedError())
-    override suspend fun delete(backupId: BackupId): Result<Unit> = runCatching {
-        _backups.value = _backups.value.filter { it.id != backupId }
-    }
-    override suspend fun push(backupId: BackupId): Result<String> = Result.failure(NotImplementedError())
-    override suspend fun pull(remoteRef: String, destPath: String): Result<Unit> = Result.failure(NotImplementedError())
+    // ─── Recording fields (for assertions) ───────────────────────────────────
+    var lastExportOptions: ExportOptions? = null
+        private set
+    var lastImportOptions: ImportOptions? = null
+        private set
+    var lastDeletedId: BackupId? = null
+        private set
+    var lastPushedId: BackupId? = null
+        private set
+
+    // ─── Configurable results (set in tests) ─────────────────────────────────
+    var exportResult: Result<BackupResult> = Result.failure(NotImplementedError("export not configured"))
+    var importResult: Result<RestoreResult> = Result.failure(NotImplementedError("import not configured"))
+    var deleteResult: Result<Unit> = Result.success(Unit)
+    var pushResult: Result<String> = Result.success("https://remote/backup.zip")
 
     fun addBackup(backup: BackupMetadata) {
         _backups.value += backup
     }
+
+    fun clearRecordings() {
+        lastExportOptions = null
+        lastImportOptions = null
+        lastDeletedId = null
+        lastPushedId = null
+    }
+
+    override suspend fun export(options: ExportOptions): Result<BackupResult> {
+        lastExportOptions = options
+        return exportResult
+    }
+
+    override suspend fun import(options: ImportOptions): Result<RestoreResult> {
+        lastImportOptions = options
+        return importResult
+    }
+
+    override suspend fun delete(backupId: BackupId): Result<Unit> {
+        lastDeletedId = backupId
+        _backups.value = _backups.value.filter { it.id != backupId }
+        return deleteResult
+    }
+
+    override suspend fun push(backupId: BackupId): Result<String> {
+        lastPushedId = backupId
+        return pushResult
+    }
+
+    override suspend fun pull(remoteRef: String, destPath: String): Result<Unit> = Result.failure(NotImplementedError())
 }
 
 // ─── FileSystem (in-memory) — already exists as MapFileSystem ─────────────────

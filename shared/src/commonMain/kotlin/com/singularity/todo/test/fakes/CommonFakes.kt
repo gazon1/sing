@@ -1,6 +1,10 @@
 package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.notes.Note
+import com.singularity.todo.feature.notes.NoteColor
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -58,5 +62,103 @@ fun testTask(
     isPinned = isPinned,
     createdAt = createdAt,
     updatedAt = updatedAt,
+    userId = userId,
+).apply { overrides() }
+
+// ─── Note fixtures ─────────────────────────────────────────────────────────────
+
+/**
+ * Creates a [Note] with predictable defaults for tests.
+ * Override any field via [overrides].
+ *
+ * Example:
+ * ```
+ * val note = testNote(id = NoteId.fromString("n1"), title = "My note")
+ * val folder = testNote(isFolder = true)
+ * ```
+ */
+fun testNote(
+    id: NoteId = NoteId.generate(),
+    title: String = "Test note",
+    bodyMarkdown: String? = null,
+    bodyHtml: String? = null,
+    isFolder: Boolean = false,
+    parentNoteId: NoteId? = null,
+    isPinned: Boolean = false,
+    color: NoteColor? = null,
+    sortOrder: Int = 0,
+    createdAt: Instant = Instant.fromEpochMilliseconds(0),
+    updatedAt: Instant = Instant.fromEpochMilliseconds(0),
+    deletedAt: Instant? = null,
+    archivedAt: Instant? = null,
+    userId: UserId = UserId.anonymous,
+    overrides: Note.() -> Unit = {},
+): Note = Note(
+    id = id,
+    userId = userId,
+    title = title,
+    bodyMarkdown = bodyMarkdown,
+    bodyHtml = bodyHtml,
+    isFolder = isFolder,
+    parentNoteId = parentNoteId,
+    isPinned = isPinned,
+    pinnedAt = if (isPinned) Instant.fromEpochMilliseconds(0) else null,
+    color = color,
+    sortOrder = sortOrder,
+    wordCount = title.split(" ").size,
+    charCount = title.length,
+    outgoingLinks = emptyList(),
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    archivedAt = archivedAt,
+).apply { overrides() }
+
+// ─── Project fixtures ──────────────────────────────────────────────────────────
+
+/**
+ * Creates a [Project] with predictable defaults for tests.
+ * Override any field via [overrides].
+ *
+ * Example:
+ * ```
+ * val project = testProject(id = ProjectId.fromString("p1"), name = "My project")
+ * val archivedProject = testProject(isDeleted = true)
+ * ```
+ */
+fun testProject(
+    id: ProjectId = ProjectId.generate(),
+    name: String = "Test project",
+    color: Int = 0xFF2196F3.toInt(),
+    icon: String? = null,
+    description: String? = null,
+    isDefault: Boolean = false,
+    dueDate: LocalDate? = null,
+    team: String? = null,
+    isDeleted: Boolean = false,
+    deletedAt: Instant? = null,
+    parentId: ProjectId? = null,
+    sortOrder: Int = 0,
+    createdAt: Instant = Instant.fromEpochMilliseconds(0),
+    updatedAt: Instant = Instant.fromEpochMilliseconds(0),
+    userId: UserId = UserId.anonymous,
+    overrides: Project.() -> Unit = {},
+): Project = Project(
+    id = id,
+    name = name,
+    color = color,
+    icon = icon,
+    description = description,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    isDefault = isDefault,
+    dueDate = dueDate,
+    team = team,
+    isDeleted = isDeleted,
+    deletedAt = deletedAt,
+    parentId = parentId,
+    sortOrder = sortOrder,
+    idempotencyKey = null,
+    externalId = null,
     userId = userId,
 ).apply { overrides() }

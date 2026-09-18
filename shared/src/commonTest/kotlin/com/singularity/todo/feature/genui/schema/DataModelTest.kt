@@ -1,13 +1,13 @@
 package com.singularity.todo.feature.genui.schema
 
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class DataModelTest {
 
@@ -44,7 +44,7 @@ class DataModelTest {
     }
 
     @Test
-    fun flowEmitsOnSet(): Unit = runBlocking {
+    fun flowEmitsOnSet(): Unit = runTest {
         val model = DataModel()
         model.set(UiPath.of("name"), JsonPrimitive("Alice"))
         val flow = model.flow(UiPath.of("name"))

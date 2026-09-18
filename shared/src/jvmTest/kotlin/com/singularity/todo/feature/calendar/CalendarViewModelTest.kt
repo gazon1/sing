@@ -59,6 +59,7 @@ class CalendarViewModelTest {
             taskRepo = fakeTaskRepo,
             currentUser = fakeCurrentUser,
             logger = Logger.withTag("CalendarTest"),
+            today = anchor, // deterministic — same as anchor so date math is predictable
         ),
         initialDate = initialDate,
         initialMode = initialMode,
