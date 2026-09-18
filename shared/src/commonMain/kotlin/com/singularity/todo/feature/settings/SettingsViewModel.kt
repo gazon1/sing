@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.settings
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsRepository

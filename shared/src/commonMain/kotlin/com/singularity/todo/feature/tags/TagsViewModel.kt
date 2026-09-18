@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.tags
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

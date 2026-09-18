@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.calendar.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+
 import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth

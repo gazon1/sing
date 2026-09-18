@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinJvm)
-    alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.kotlinxSerialization)
     application
 }
 
@@ -38,8 +38,8 @@ dependencies {
     implementation(libs.kotlinx.io.core.jvm)
     implementation(libs.ktor.io.jvm)
 
-    testImplementation(libs.kotlin.test)
-    testImplementation(libs.kotlin.test.junit)
+    testImplementation(libs.jvm.test)
+    testImplementation(libs.jvm.test.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.koin.test)
     testImplementation(kotlin("reflect"))

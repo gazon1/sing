@@ -5,7 +5,7 @@ plugins {
 	alias(libs.plugins.androidMultiplatformLibrary)
 	alias(libs.plugins.composeMultiplatform)
 	alias(libs.plugins.composeCompiler)
-	alias(libs.plugins.kotlinSerialization)
+	alias(libs.plugins.kotlinxSerialization)
 	// KSP for Room annotation processing
 	alias(libs.plugins.ksp)
 	// Room 3 KSP plugin (schema export)
@@ -214,8 +214,8 @@ kotlin {
         }
 
         commonTest.dependencies {
-            implementation(libs.kotlin.test)
-            implementation(libs.kotlin.test.junit)
+            implementation(libs.jvm.test)
+            implementation(libs.jvm.test.junit)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
         }
@@ -227,8 +227,8 @@ kotlin {
         }
 
         getByName("androidHostTest").dependencies {
-            implementation(libs.kotlin.test)
-            implementation(libs.kotlin.test.junit)
+            implementation(libs.jvm.test)
+            implementation(libs.jvm.test.junit)
             implementation(libs.koin.test)
             implementation(libs.androidx.testExt.junit)
             implementation(libs.androidx.test.core)

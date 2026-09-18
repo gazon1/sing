@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.ids.IdGenerator

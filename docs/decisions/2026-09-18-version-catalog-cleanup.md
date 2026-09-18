@@ -37,7 +37,7 @@ During a Gradle health audit we found 42 issues in `libs.versions.toml` and rela
 - Gradle deprecation warnings are now visible (`warning.mode=summary`). Warnings from AGP 9.x, Kotlin 2.3.x, and KMP 1.12.x should be reviewed periodically.
 - `android.useAndroidX=true` removed from `gradle.properties` — it has been the default since AGP 4.x.
 - Android SDK versions use `sdk-compile` / `sdk-min` / `sdk-target` keys (accessor: `libs.versions.sdk.compile` etc.). Keys starting with `android` are avoided because library aliases like `androidx-android-*` shadow the version accessor.
-- Library keys starting with `kotlin-` are avoided if possible, because they shadow `libs.versions.kotlin` accessors. If unavoidable, use direct string constants in `resolutionStrategy` rules.
+- **Catalog accessor shadowing (Gradle 9.x):** Library keys that start with a prefix that matches a version key (e.g., `jvm-test` when version key is `kotlin`, or `kotlinSerialization` when version key is `kotlin-serialization`) generate nested accessor classes that shadow the version accessor. Workaround: version alignment constants are defined in `gradle.properties` (`version.kotlin`, `version.kotlinSerialization`, `version.kotlinxCollectionsImmutable`) and used in `resolutionStrategy` via `project.property()` — this avoids the catalog entirely for version strings.
 
 ## Links
 
