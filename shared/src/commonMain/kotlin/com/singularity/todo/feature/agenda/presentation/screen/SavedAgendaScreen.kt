@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,7 +23,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -46,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.BackTopAppBar
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
+import com.singularity.todo.core.ui.components.ListPickerSheet
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -69,24 +68,6 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaVie
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-
-/**
- * Predefined section templates offered when adding a new section.
- */
-private data class SectionTemplate(
-    val label: String,
-    val selector: Selector,
-)
-
-private val SectionTemplates = listOf(
-    SectionTemplate("Active tasks", Selector.Statuses(setOf(TaskStatus.Active))),
-    SectionTemplate("Completed tasks", Selector.Statuses(setOf(TaskStatus.Completed))),
-    SectionTemplate("Due today", Selector.DateBucket(RelativeBucket.Today)),
-    SectionTemplate("Overdue", Selector.DateBucket(RelativeBucket.Overdue)),
-    SectionTemplate("No date", Selector.DateBucket(RelativeBucket.NoDate)),
-    SectionTemplate("This week", Selector.DateBucket(RelativeBucket.ThisWeek)),
-    SectionTemplate("Next week", Selector.DateBucket(RelativeBucket.NextWeek)),
-)
 
 /**
  * Root composable for the saved agenda view edit/create screen.
@@ -187,55 +168,28 @@ fun SavedAgendaScreen(
 
     // Add section bottom sheet
     if (activeDialog == ActiveDialog.AddSection) {
-        ModalBottomSheet(
-            onDismissRequest = { activeDialog = null },
+        val nextOrder = (state as? SavedAgendaViewState.Editing)?.draft?.sections?.size ?: 0
+        ListPickerSheet(
+            title = "Add section",
+            onItemSelected = { selector ->
+                activeDialog = null
+                val section = Section(
+                    name = selector.typeDescription,
+                    order = nextOrder,
+                    selector = selector,
+                )
+                viewModel.onIntent(SavedAgendaIntent.SectionAdded(section, nextOrder))
+            },
+            onDismiss = { activeDialog = null },
             sheetState = sheetState,
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 32.dp),
-            ) {
-                Text(
-                    text = "Add section",
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                SectionTemplates.forEach { template ->
-                    val sectionName = template.label
-                    val nextOrder = (state as? SavedAgendaViewState.Editing)?.draft?.sections?.size ?: 0
-                    val section = Section(
-                        name = sectionName,
-                        order = nextOrder,
-                        selector = template.selector,
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                activeDialog = null
-                                viewModel.onIntent(
-                                    SavedAgendaIntent.SectionAdded(section, nextOrder),
-                                )
-                            }
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = sectionName,
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                            Text(
-                                text = template.selector.typeDescription,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
+            item("Active tasks", Selector.Statuses(setOf(TaskStatus.Active)))
+            item("Completed tasks", Selector.Statuses(setOf(TaskStatus.Completed)))
+            item("Due today", Selector.DateBucket(RelativeBucket.Today))
+            item("Overdue", Selector.DateBucket(RelativeBucket.Overdue))
+            item("No date", Selector.DateBucket(RelativeBucket.NoDate))
+            item("This week", Selector.DateBucket(RelativeBucket.ThisWeek))
+            item("Next week", Selector.DateBucket(RelativeBucket.NextWeek))
         }
     }
 }

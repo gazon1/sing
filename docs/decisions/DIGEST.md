@@ -774,9 +774,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Composite selectors (`AllOf`, `AnyOf`, `Not`) encode their children via `registrySnapshot.getValue(child.typeTag).encode(child)` — works for any nesting depth. _(from `2026-09-18-selector-serializer-registry`)_
 - `ConfirmActionDialog` replaces inline `AlertDialog` in any future confirm-dialog use case. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - `DragHandleRow` is the canonical home for any read-only row that has a drag handle. If a future use case needs click-to-edit or checkable rows, create a separate component. _(from `2026-09-18-shared-ui-adoption-mr5`)_
+- Future picker sheets (ProjectPickerSheet, TagPickerSheet) should consider `ListPickerSheet` before implementing custom sheets. _(from `2026-09-18-picker-sheet-dsl`)_
 - `Icon`, `Column`, `Row`, `Arrangement` imports removed from `ReorderableSectionList.kt` since `SectionRow` no longer uses them directly. _(from `2026-09-18-shared-ui-adoption-mr5`)_
+- `ListPickerSheet` is the canonical bottom-sheet picker in this codebase. For simple static lists, use the DSL form. For dynamic lists (from a repository), construct `ListPickerItem` objects and pass to the data-class overload. _(from `2026-09-18-picker-sheet-dsl`)_
 - **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
 - `SectionEditorCard` now uses `DragHandleRow` internally, keeping the Card wrapper for elevation and background. _(from `2026-09-18-shared-ui-adoption-mr5`)_
+- `SectionTemplate` data class and `SectionTemplates` list removed from `SavedAgendaScreen`. If templates need to be reused elsewhere, promote them to a shared location. _(from `2026-09-18-picker-sheet-dsl`)_
 - `section("X") { }` without a selector now throws `IllegalStateException("Section 'X' has no selector — pass as parameter or assign inside block")` instead of `UninitializedPropertyAccessException`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
 - `SelectorBuilderTest` and `AgendaScopeSectionTest` added in `commonTest`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
 - Selector composition uses `selector { allOf(...); not(...) }` style instead of `Selector.AllOf(listOf(...))`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
@@ -1544,7 +1547,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops. _(from `2026-09-15-projects-nested-nav3`)_
 - `DragHandleRow` is the canonical home for any read-only row that has a drag handle. If a future use case needs click-to-edit or checkable rows, create a separate component. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
+- Future picker sheets (ProjectPickerSheet, TagPickerSheet) should consider `ListPickerSheet` before implementing custom sheets. _(from `2026-09-18-picker-sheet-dsl`)_
 - `Icon`, `Column`, `Row`, `Arrangement` imports removed from `ReorderableSectionList.kt` since `SectionRow` no longer uses them directly. _(from `2026-09-18-shared-ui-adoption-mr5`)_
+- `ListPickerSheet` is the canonical bottom-sheet picker in this codebase. For simple static lists, use the DSL form. For dynamic lists (from a repository), construct `ListPickerItem` objects and pass to the data-class overload. _(from `2026-09-18-picker-sheet-dsl`)_
 - **`NavigateToTasks`** is no longer a VM event — screen handles it as routing _(from `2026-09-09-project-detail-intent-refactor`)_
 - **No pure reducer needed** — `ProjectDetailViewModel` is write-through like `TaskDetailViewModel` _(from `2026-09-09-project-detail-intent-refactor`)_
 - One new e2e test in `mcp-server` (`McpToolRoundTripTest`). _(from `2026-09-08-mcp-server-health-audit`)_
@@ -1554,6 +1559,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `SectionEditorCard` now uses `DragHandleRow` internally, keeping the Card wrapper for elevation and background. _(from `2026-09-18-shared-ui-adoption-mr5`)_
+- `SectionTemplate` data class and `SectionTemplates` list removed from `SavedAgendaScreen`. If templates need to be reused elsewhere, promote them to a shared location. _(from `2026-09-18-picker-sheet-dsl`)_
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavGraph` is the `@Composable` nav host — it sets up `LocalTasksNavigator`, `LocalNavBackStack`, and the `BackHandler`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavigator` is the only class that mutates `NavBackStack<TasksRoute>`. _(from `2026-09-14-nav3-tasks-navigator`)_
@@ -1970,9 +1976,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Easier to extend cards and editors without breaking call sites _(from `2026-09-09-content-slot-pattern`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Fake repo returns empty by default** — widget tests that check `LazyColumn` with `testTag` will fail when repo is empty (state = `Empty`). Test the `EmptyState` text instead, or seed data via `fakeNotesRepo.seed(note)`. _(from `2026-09-05-robolectric-widget-tests`)_
+- Future picker sheets (ProjectPickerSheet, TagPickerSheet) should consider `ListPickerSheet` before implementing custom sheets. _(from `2026-09-18-picker-sheet-dsl`)_
 - Hover delay (300ms) on submenus via `LaunchedEffect(isHovered) { delay(300); onOpenSubMenu() }`. _(from `2026-09-15-desktop-menus`)_
 - `Icon`, `Column`, `Row`, `Arrangement` imports removed from `ReorderableSectionList.kt` since `SectionRow` no longer uses them directly. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - **JVM args for JDK 21+** — add `--add-opens=java.base/jdk.internal.access=ALL-UNNAMED` to `gradle.properties` (`org.gradle.jvmargs`) AND to `shared/build.gradle.kts` via `afterEvaluate` + `tasks.withType<Test>()` for the test worker process. _(from `2026-09-05-robolectric-widget-tests`)_
+- `ListPickerSheet` is the canonical bottom-sheet picker in this codebase. For simple static lists, use the DSL form. For dynamic lists (from a repository), construct `ListPickerItem` objects and pass to the data-class overload. _(from `2026-09-18-picker-sheet-dsl`)_
 - `MenuBarHost` is a stub (Material 2 not available in current Compose version). _(from `2026-09-15-desktop-menus`)_
 - **Menu sheet visibility** is `rememberSaveable` state in `AndroidShell` — survives config changes, not part of the back stack. _(from `2026-09-05-android-bottom-nav`)_
 - Migration from plain lambdas requires updating call sites _(from `2026-09-09-content-slot-pattern`)_
@@ -1989,6 +1997,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `SavedAgendaListScreen` keeps its FAB by using `Scaffold` directly (not `BackTopAppBar` which lacks FAB support). _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - `sealed interface ActiveDialog` enables exhaustive `when` on JVM. _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - `SectionEditorCard` now uses `DragHandleRow` internally, keeping the Card wrapper for elevation and background. _(from `2026-09-18-shared-ui-adoption-mr5`)_
+- `SectionTemplate` data class and `SectionTemplates` list removed from `SavedAgendaScreen`. If templates need to be reused elsewhere, promote them to a shared location. _(from `2026-09-18-picker-sheet-dsl`)_
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`. _(from `2026-09-05-robolectric-widget-tests`)_
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor. _(from `2026-09-07-settings-fixes`)_
 - `SettingsViewModel.testConnection()` **always** short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`. _(from `2026-09-05-llm-provider-settings`)_
@@ -2367,6 +2376,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-17-selector-serializer-plain-kserializer` — serialization  agenda  selector
 - `2026-09-18-agenda-selector-composer-dsl` — agenda  dsl  selector
 - `2026-09-18-agenda-ui-shared-adoption` — agenda  ui  shared-components
+- `2026-09-18-picker-sheet-dsl` — ui  dsl  refactor
 - `2026-09-18-saved-view-factory` — agenda  viewmodel  draft
 - `2026-09-18-selector-serializer-registry` — agenda  serialization  dsl
 - `2026-09-18-shared-ui-adoption-mr5` — ui  refactor  dsl
@@ -2480,6 +2490,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-17-vm-testability-audit` — _(no title)
 - `2026-09-18-agenda-selector-composer-dsl` — Agenda — selector composer DSL + universal section() overload
 - `2026-09-18-agenda-ui-shared-adoption` — Agenda UI — shared BackTopAppBar, DiscardChangesDialog, SettingsRadioRow adoption
+- `2026-09-18-picker-sheet-dsl` — MR6: ListPickerSheet<T> + DSL for agenda pickers
 - `2026-09-18-saved-view-factory` — SavedAgendaView — DraftState.markSaved(), inline copy() in VMs
 - `2026-09-18-selector-serializer-registry` — SelectorSerializer — Map-based registry + typeTag extension
 - `2026-09-18-shared-ui-adoption-mr5` — MR5: ConfirmActionDialog + DragHandleRow shared components
