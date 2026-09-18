@@ -54,6 +54,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Never** store memoization caches inside pure-domain functions — memoization is an outer wrapper (e.g. `rememberSaveable`, KDataStore, VM-side `StateFlow`). _(from `2026-09-17-orgmode-functional-patterns`)_ _(from `2026-09-17-orgmode-functional-patterns`)_
 - **Always** build `JsonObject` with `_type` manually in `serialize()` for sealed interface serializers — generated serializers for concrete subtypes omit the discriminator. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 - **Never** use `serializer<Selector>().descriptor` inside a custom `SelectorSerializer` — it returns the custom serializer itself, causing infinite recursion. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
+- **Never** use `mutableStateOf<X?>` for sheet/dialog state — always use `rememberDialogState()`. _(from `2026-09-18-dialog-state-migration-mr12`)_
+- **Never** add `dismissOnConfirm` or `onItemsConfirmed` parameters — multi-select batch-confirm is the caller's responsibility. _(from `2026-09-18-picker-dsl-slots-mr11`)_
+- **Never** migrate a sheet to `ListPickerSheet` if it uses `FilterChip`, `ListItem` with rich content, or custom item layouts. _(from `2026-09-18-picker-sheet-migration-mr13`)_
 - **Always** keep `FakeClock` and `FakeIdGenerator` in `commonMain/test/fakes/` _(from `2026-09-18-testing-best-practices`)_
 - **Always** keep `TestVmContext` and `runAndWait` in `jvmTest/test/helpers/` _(from `2026-09-18-testing-best-practices`)_
 - **Always** use `kotlinx.coroutines.test.runTest` for VM tests _(from `2026-09-18-testing-best-practices`)_
@@ -172,10 +175,18 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `AppShell` — minor change: добавлен `FabAction` parameter. _(from `2026-09-07-fab-chrome-level`)_
 - **Breaking:** `coreDomainModule()` удалён; заменён на `domainModule()` (includes everything). Test files обновлены. _(from `2026-09-06-di-module-split`)_
 - Caller must provide `MutableStateFlow<String>` and inject `InternalLinkRepository` and `ProfileAwareCurrentUser` — slightly more boilerplate at call site _(from `2026-09-09-internal-link-picker-generic`)_
+- **`ChecklistEditorViewModel(checklistUseCase, checklistRepository, scope)`** — two deps _(from `2026-09-18-no-pass-through-usecases`)_
 
 ### `"architecture"`
 
 - Checklist items can be promoted to sub-tasks via "Convert to task" overflow action. _(from `2026-09-08-task-1-level-subtasks`)_
+
+### `architecture`
+
+- **CI gate** (future): add `.github/workflows/ci.yml` with `just tcheck` as required status check _(from `2026-09-18-no-pass-through-usecases`)_
+
+### `"architecture"`
+
 - `collectAsState` replaced with `collectAsStateWithLifecycle` in previews. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
 
 ### `architecture`
@@ -196,9 +207,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Easier to extend cards and editors without breaking call sites _(from `2026-09-09-content-slot-pattern`)_
 - Editor session state is released when user navigates away _(from `2026-09-09-notes-vm-split`)_
 - **Existing tests:** `DiGraphTest`, `JvmAiDiGraphTest`, `AppSmokeTest` обновлены и проходят. _(from `2026-09-06-di-module-split`)_
+- **`factory { ChecklistUseCase(get()) }`** in `TasksDiModule.kt` — Clock removed _(from `2026-09-18-no-pass-through-usecases`)_
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them _(from `2026-09-09-preview-with-koin-helper`)_
+- **False positives** can be suppressed per-function with `@Suppress("PassThroughUseCase")` _(from `2026-09-18-no-pass-through-usecases`)_
 - Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
 - Instrumented/integration тесты (`CreateTaskFlowInstrumentedTest`) _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- **`just lint`** now includes `PassThroughUseCase` checks for `:shared` and `:desktopApp` _(from `2026-09-18-no-pass-through-usecases`)_
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
 - Lifecycle VM становится привязан к lifetime entry — VM очищается _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - **`LocalNavBackStack` как публичный API** — позволяет экранам _(from `2026-09-14-tasks-feature-nested-nav3`)_
@@ -267,6 +281,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskCreateViewModel(initialDueDate)` — два последовательных _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `TaskCreationTopBar.kt` _(from `2026-09-15-task-editor-unification`)_
 - `TaskDetailContent` is now `internal` (stateless, previewable without Koin). _(from `2026-09-09-task-detail-intent-refactor`)_
+- **`TaskDetailDeps`** gains `checklistRepository: ChecklistRepository` field _(from `2026-09-18-no-pass-through-usecases`)_
 - `TaskDetailScreen.kt`: `when (action)` on 27 branches → `when (intent)` on 6 branches. Routing now uniform (all `activeSheet = …`). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailUiEvent.kt`: 34 → ~18 lines (10 sheet-triggers removed). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `TaskDetailViewContent.kt` _(from `2026-09-15-task-editor-unification`)_
@@ -586,15 +601,21 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `detekt`
 
+- **`ChecklistEditorViewModel(checklistUseCase, checklistRepository, scope)`** — two deps _(from `2026-09-18-no-pass-through-usecases`)_
+- **CI gate** (future): add `.github/workflows/ci.yml` with `just tcheck` as required status check _(from `2026-09-18-no-pass-through-usecases`)_
 - **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **detekt 2.0.0-alpha.3 vs Kotlin 2.3.21**: this version was chosen because stable 1.23.8 was compiled against Kotlin 2.0.21 and throws "detekt was compiled with Kotlin 2.0.21 but is currently running with 2.3.21". Upgrade to stable 2.x once released. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`factory { ChecklistUseCase(get()) }`** in `TasksDiModule.kt` — Clock removed _(from `2026-09-18-no-pass-through-usecases`)_
+- **False positives** can be suppressed per-function with `@Suppress("PassThroughUseCase")` _(from `2026-09-18-no-pass-through-usecases`)_
 - **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. **TODO: tracked in issue tracker — promote after baselines are clean (est. post-format PR).** _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`just lint`** now includes `PassThroughUseCase` checks for `:shared` and `:desktopApp` _(from `2026-09-18-no-pass-through-usecases`)_
 - **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`TaskDetailDeps`** gains `checklistRepository: ChecklistRepository` field _(from `2026-09-18-no-pass-through-usecases`)_
 
 ### `"di"`
 
@@ -607,6 +628,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `"di"`
 
 - 6 modified files: `ProjectDetailViewModel.kt`, `ProjectDetailScreen.kt`, `ProjectPickerSheet.kt`, `AccountSettingsScreen.kt`, `SettingsScreen.kt`, `Modules.kt`. _(from `2026-09-15-projects-settings-profile-udf-fixes`)_
+
+### `dialogs`
+
+- All 13 sheet-holder screens in the codebase should migrate; remaining are ProjectPickerSheet, TagPickerSheet, ParentPickerSheet (deferred to MR14.b — require VM create-flow rework). _(from `2026-09-18-dialog-state-migration-mr12`)_
+- `DialogState<T>` is the **only** approved pattern for bottom-sheet/dialog state in composables. `mutableStateOf<T?>` for sheet state is now deprecated. _(from `2026-09-18-dialog-state-migration-mr12`)_
+- `Show` extension on `DialogState` is **not used** — prefer `if (dialogs.active == X)` pattern for conditional rendering. _(from `2026-09-18-dialog-state-migration-mr12`)_
 
 ### `di`
 
@@ -776,6 +803,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `DragHandleRow` is the canonical home for any read-only row that has a drag handle. If a future use case needs click-to-edit or checkable rows, create a separate component. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - Future picker sheets (ProjectPickerSheet, TagPickerSheet) should consider `ListPickerSheet` before implementing custom sheets. _(from `2026-09-18-picker-sheet-dsl`)_
 - `Icon`, `Column`, `Row`, `Arrangement` imports removed from `ReorderableSectionList.kt` since `SectionRow` no longer uses them directly. _(from `2026-09-18-shared-ui-adoption-mr5`)_
+- `ListPickerItem<T>.leading` slot already covers the `RowScope` customization need; no `trailing` slot added (not needed yet). _(from `2026-09-18-picker-dsl-slots-mr11`)_
+- `ListPickerScope<T>.header { }` and `footer { }` are the canonical way to add custom content above/below the item list. _(from `2026-09-18-picker-dsl-slots-mr11`)_
 - `ListPickerSheet` is the canonical bottom-sheet picker in this codebase. For simple static lists, use the DSL form. For dynamic lists (from a repository), construct `ListPickerItem` objects and pass to the data-class overload. _(from `2026-09-18-picker-sheet-dsl`)_
 - **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
 - `SectionEditorCard` now uses `DragHandleRow` internally, keeping the Card wrapper for elevation and background. _(from `2026-09-18-shared-ui-adoption-mr5`)_
@@ -784,6 +813,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `SelectorBuilderTest` and `AgendaScopeSectionTest` added in `commonTest`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
 - Selector composition uses `selector { allOf(...); not(...) }` style instead of `Selector.AllOf(listOf(...))`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
 - `SelectorSerializer` is now in its own file, improving build isolation. _(from `2026-09-18-selector-serializer-registry`)_
+- `T : Any?` means callers can use `null` as a key — filter at call site if needed. _(from `2026-09-18-picker-dsl-slots-mr11`)_
 - The `init` assertion catches missing entries at class load time with a clear message. _(from `2026-09-18-selector-serializer-registry`)_
 - **Нет saved views в v1**: пользовательские пресеты не сохраняются. Встроенные — захардкожены в `AgendaPresets`. _(from `2026-09-16-agenda-engine`)_
 - **Удаляются**: `UpcomingScreen`, `UpcomingViewModel`, `UpcomingUiState`, `TaskListScreen` (для Inbox/Today/ByProject), `TasksViewModel`, `TasksRoute.Inbox/Today/Upcoming/ByProject`, `AppDestination.Inbox/Today/Upcoming/TasksByProject`. _(from `2026-09-16-agenda-engine`)_
@@ -1042,6 +1072,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `kotlin`
 
 - All new VMs in this codebase should prefer `with(intent) { ... }` for data class intents with ≥2 properties. _(from `2026-09-18-vm-intent-with-receiver`)_
+- `apply(intent)` branches must stay separate — they rely on receiver being the contributor, not the intent. _(from `2026-09-18-settings-intent-with-mr10`)_
 
 ### `kotlin-multiplatform`
 
@@ -1061,8 +1092,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `kotlin`
 
+- SettingsViewModel is the last VM in the codebase with enough multi-property intents to benefit; other 7 VMs have single-property intents where the pattern yields no gain. _(from `2026-09-18-settings-intent-with-mr10`)_
 - Single-property intents may remain as `intent.X` for simplicity — the overhead is minimal. _(from `2026-09-18-vm-intent-with-receiver`)_
 - This pattern does NOT require a custom DSL marker or annotation; stdlib `with` is sufficient. _(from `2026-09-18-vm-intent-with-receiver`)_
+- `with(intent) { }` is the canonical pattern for sealed-interface dispatch when branches share multi-property access patterns. _(from `2026-09-18-settings-intent-with-mr10`)_
 
 ### `kover`
 
@@ -1107,15 +1140,21 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `lint`
 
+- **`ChecklistEditorViewModel(checklistUseCase, checklistRepository, scope)`** — two deps _(from `2026-09-18-no-pass-through-usecases`)_
+- **CI gate** (future): add `.github/workflows/ci.yml` with `just tcheck` as required status check _(from `2026-09-18-no-pass-through-usecases`)_
 - **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **detekt 2.0.0-alpha.3 vs Kotlin 2.3.21**: this version was chosen because stable 1.23.8 was compiled against Kotlin 2.0.21 and throws "detekt was compiled with Kotlin 2.0.21 but is currently running with 2.3.21". Upgrade to stable 2.x once released. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging. _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`factory { ChecklistUseCase(get()) }`** in `TasksDiModule.kt` — Clock removed _(from `2026-09-18-no-pass-through-usecases`)_
+- **False positives** can be suppressed per-function with `@Suppress("PassThroughUseCase")` _(from `2026-09-18-no-pass-through-usecases`)_
 - **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. **TODO: tracked in issue tracker — promote after baselines are clean (est. post-format PR).** _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`just lint`** now includes `PassThroughUseCase` checks for `:shared` and `:desktopApp` _(from `2026-09-18-no-pass-through-usecases`)_
 - **New Gradle tasks added**: _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
 - `:shared:koverXmlReport` / `:shared:koverHtmlReport` _(from `2026-09-15-detekt-ktlint-kover-setup`)_
+- **`TaskDetailDeps`** gains `checklistRepository: ChecklistRepository` field _(from `2026-09-18-no-pass-through-usecases`)_
 
 ### `llm-usage`
 
@@ -1208,6 +1247,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `onSecondaryClick` is a no-op on Android; touch long-press is handled separately by the caller. _(from `2026-09-15-desktop-menus`)_
 - `openGitHub()` uses `java.awt.Desktop.browse(URI(...))`; `exitProcess(0)` for quit. _(from `2026-09-15-desktop-menus`)_
 - Right-click context menu works again on task rows in the agenda. _(from `2026-09-16-desktop-menus-bugfixes`)_
+
+### `migration`
+
+- `BacklinksSheet` needs richer item rendering support (custom item composable slot) before migration is viable. _(from `2026-09-18-picker-sheet-migration-mr13`)_
+- `KindSheet` can be migrated once a row-variant or chip-variant of `ListPickerSheet` exists. _(from `2026-09-18-picker-sheet-migration-mr13`)_
+- `ListPickerSheet` is appropriate for: enum pickers, ID/name pairs, flat lists with optional subtitle. _(from `2026-09-18-picker-sheet-migration-mr13`)_
 
 ### `mr2a`
 
@@ -1440,6 +1485,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `picker`
 
+- `BacklinksSheet` needs richer item rendering support (custom item composable slot) before migration is viable. _(from `2026-09-18-picker-sheet-migration-mr13`)_
+- `KindSheet` can be migrated once a row-variant or chip-variant of `ListPickerSheet` exists. _(from `2026-09-18-picker-sheet-migration-mr13`)_
+- `ListPickerSheet` is appropriate for: enum pickers, ID/name pairs, flat lists with optional subtitle. _(from `2026-09-18-picker-sheet-migration-mr13`)_
 - `ParentOption` is a `@JvmInline value class` candidate if it grows beyond 3 fields (currently 3 — plain data class is fine) _(from `2026-09-09-parent-picker-contract`)_
 - Parent options are reactive (`StateFlow`) — picker updates automatically when projects change _(from `2026-09-09-parent-picker-contract`)_
 - `ParentPickerSheet` signature: `options: List<ParentOption>`, NOT `currentParentId: ProjectId?` _(from `2026-09-09-parent-picker-contract`)_
@@ -1748,16 +1796,19 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `AiApiKeyMigration` is wired through `koinBridge { ... }` inside the DataStore factory's `.also { ds -> ... }` block. See `koin-suspend-bridge` decision. _(from `2026-09-05-secret-storage-split`)_
 - All changes are additive; no existing behavior is removed. _(from `2026-09-07-settings-ux-improvements`)_
 - `App.kt` инжектит `SettingsRepository` через Koin — это нормально, Koin доступен в Common startup. _(from `2026-09-07-settings-fixes`)_
+- `apply(intent)` branches must stay separate — they rely on receiver being the contributor, not the intent. _(from `2026-09-18-settings-intent-with-mr10`)_
 - Backup confirm dialogs prevent accidental data loss. _(from `2026-09-07-settings-ux-improvements`)_
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
 - `NavEntries.kt` wires `SettingsNavGraph(navCallbacks = nav)` and `SearchNavGraph(navCallbacks = nav)` instead of the raw screens. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - Preview for `AccountSettingsScreen` uses a separate `AccountSettingsScreenPreviewContent` composable that takes an explicit callback, since `LocalSettingsNavigator` is only available inside the graph. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor. _(from `2026-09-07-settings-fixes`)_
 - `SettingsScreen` no longer accepts `onNavigateToProfileSwitcher` — `AccountSettingsScreen` navigates directly. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
+- SettingsViewModel is the last VM in the codebase with enough multi-property intents to benefit; other 7 VMs have single-property intents where the pattern yields no gain. _(from `2026-09-18-settings-intent-with-mr10`)_
 - `SettingsViewModel.testConnection()` **always** short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`. _(from `2026-09-05-llm-provider-settings`)_
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
 - `TextGenPort.listModels` — добавлен в интерфейс, реализация в `KoogAgentService` и `FakeTextGen`. _(from `2026-09-07-settings-fixes`)_
 - The Test connection "probe" prompt is hard-coded: `"Reply with the single word: pong."` — change together with the system prompt if needed. _(from `2026-09-05-llm-provider-settings`)_
+- `with(intent) { }` is the canonical pattern for sealed-interface dispatch when branches share multi-property access patterns. _(from `2026-09-18-settings-intent-with-mr10`)_
 - Все 6 sub-screens имеют `verticalScroll` — контент больше не обрезается. _(from `2026-09-07-settings-fixes`)_
 
 ### `shared-components`
@@ -1793,9 +1844,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `state-hoisting`
 
+- All 13 sheet-holder screens in the codebase should migrate; remaining are ProjectPickerSheet, TagPickerSheet, ParentPickerSheet (deferred to MR14.b — require VM create-flow rework). _(from `2026-09-18-dialog-state-migration-mr12`)_
 - `DialogState` is the canonical state holder for single-dialog overlays. Use directly with `if (dialogs.active == X) { ... }`. _(from `2026-09-18-dialog-state-dsl`)_
+- `DialogState<T>` is the **only** approved pattern for bottom-sheet/dialog state in composables. `mutableStateOf<T?>` for sheet state is now deprecated. _(from `2026-09-18-dialog-state-migration-mr12`)_
 - `ProjectDetailScreen` (10 dialogs) remains a future migration candidate — its data-class variants (`PickParent(current: ProjectId?)`) require additional consideration for smart-cast ergonomics. _(from `2026-09-18-dialog-state-dsl`)_
 - `SavedAgendaScreen` now uses `dialogs.show(X)` and `dialogs.dismiss()` instead of `activeDialog = X` and `activeDialog = null`. _(from `2026-09-18-dialog-state-dsl`)_
+- `Show` extension on `DialogState` is **not used** — prefer `if (dialogs.active == X)` pattern for conditional rendering. _(from `2026-09-18-dialog-state-migration-mr12`)_
 
 ### `state-restoration`
 
@@ -1968,12 +2022,21 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `ui-components`
 
+- All 13 sheet-holder screens in the codebase should migrate; remaining are ProjectPickerSheet, TagPickerSheet, ParentPickerSheet (deferred to MR14.b — require VM create-flow rework). _(from `2026-09-18-dialog-state-migration-mr12`)_
+- `BacklinksSheet` needs richer item rendering support (custom item composable slot) before migration is viable. _(from `2026-09-18-picker-sheet-migration-mr13`)_
 - Caller must provide `MutableStateFlow<String>` and inject `InternalLinkRepository` and `ProfileAwareCurrentUser` — slightly more boilerplate at call site _(from `2026-09-09-internal-link-picker-generic`)_
 - `core/ui/components/` is now free of feature-domain imports _(from `2026-09-09-internal-link-picker-generic`)_
+- `DialogState<T>` is the **only** approved pattern for bottom-sheet/dialog state in composables. `mutableStateOf<T?>` for sheet state is now deprecated. _(from `2026-09-18-dialog-state-migration-mr12`)_
 - Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
+- `KindSheet` can be migrated once a row-variant or chip-variant of `ListPickerSheet` exists. _(from `2026-09-18-picker-sheet-migration-mr13`)_
+- `ListPickerItem<T>.leading` slot already covers the `RowScope` customization need; no `trailing` slot added (not needed yet). _(from `2026-09-18-picker-dsl-slots-mr11`)_
+- `ListPickerScope<T>.header { }` and `footer { }` are the canonical way to add custom content above/below the item list. _(from `2026-09-18-picker-dsl-slots-mr11`)_
+- `ListPickerSheet` is appropriate for: enum pickers, ID/name pairs, flat lists with optional subtitle. _(from `2026-09-18-picker-sheet-migration-mr13`)_
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`) _(from `2026-09-09-internal-link-picker-generic`)_
 - Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor) _(from `2026-09-09-internal-link-picker-generic`)_
+- `Show` extension on `DialogState` is **not used** — prefer `if (dialogs.active == X)` pattern for conditional rendering. _(from `2026-09-18-dialog-state-migration-mr12`)_
 - Single search + merged results = better UX (one tap instead of tab switching) _(from `2026-09-09-internal-link-picker-generic`)_
+- `T : Any?` means callers can use `null` as a key — filter at call site if needed. _(from `2026-09-18-picker-dsl-slots-mr11`)_
 
 ### `ui`
 
@@ -2182,6 +2245,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Для UI-тестов на реальном устройстве: Kaspresso или `contentDescription` + `By.desc()`. _(from `2026-09-05-uiautomator-compose-discovery`)_
 - Оставшиеся `androidHostTest`: только `AppNavigatorTest` (nav contract, без Espresso), _(from `2026-09-05-uiautomator-compose-discovery`)_
 
+### `usecase`
+
+- **`ChecklistEditorViewModel(checklistUseCase, checklistRepository, scope)`** — two deps _(from `2026-09-18-no-pass-through-usecases`)_
+- **CI gate** (future): add `.github/workflows/ci.yml` with `just tcheck` as required status check _(from `2026-09-18-no-pass-through-usecases`)_
+- **`factory { ChecklistUseCase(get()) }`** in `TasksDiModule.kt` — Clock removed _(from `2026-09-18-no-pass-through-usecases`)_
+- **False positives** can be suppressed per-function with `@Suppress("PassThroughUseCase")` _(from `2026-09-18-no-pass-through-usecases`)_
+- **`just lint`** now includes `PassThroughUseCase` checks for `:shared` and `:desktopApp` _(from `2026-09-18-no-pass-through-usecases`)_
+- **`TaskDetailDeps`** gains `checklistRepository: ChecklistRepository` field _(from `2026-09-18-no-pass-through-usecases`)_
+
 ### `ux`
 
 - All changes are additive; no existing behavior is removed. _(from `2026-09-07-settings-ux-improvements`)_
@@ -2237,6 +2309,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - `ActiveSheet.kt`: 35 → ~15 lines (`toActiveSheet()` removed). _(from `2026-09-09-task-detail-intent-refactor`)_
+- `apply(intent)` branches must stay separate — they rely on receiver being the contributor, not the intent. _(from `2026-09-18-settings-intent-with-mr10`)_
 - Cross-screen state (e.g. "did the user just save a note") must flow through navigation callbacks, not shared VM state _(from `2026-09-09-notes-vm-split`)_
 - Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`. _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - Each VM is small enough to understand fully (~60-150 lines) _(from `2026-09-09-notes-vm-split`)_
@@ -2253,6 +2326,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `SavedAgendaView` companion object has no factory functions; VMs use inline `copy()`. _(from `2026-09-18-saved-view-factory`)_
 - `SavedAgendaViewModel` and `SavedAgendaListViewModel` are the only callers of `SavedAgendaView` construction. _(from `2026-09-18-saved-view-factory`)_
+- SettingsViewModel is the last VM in the codebase with enough multi-property intents to benefit; other 7 VMs have single-property intents where the pattern yields no gain. _(from `2026-09-18-settings-intent-with-mr10`)_
 - **`String`-encoded `initialDueDate`** — заменён на _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - `TaskCreateViewModel(initialDueDate)` — два последовательных _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `TaskDetailContent` is now `internal` (stateless, previewable without Koin). _(from `2026-09-09-task-detail-intent-refactor`)_
@@ -2266,6 +2340,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Three Koin registrations instead of one _(from `2026-09-09-notes-vm-split`)_
 - Unit-тесты навигации tasks требуют `Robolectric` или `composeRule` — _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - VMs are independently testable with focused test suites _(from `2026-09-09-notes-vm-split`)_
+- `with(intent) { }` is the canonical pattern for sealed-interface dispatch when branches share multi-property access patterns. _(from `2026-09-18-settings-intent-with-mr10`)_
 - В `JvmNav3State.kt` для `AppDestination.TasksGraph` / _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - В `TasksNavGraph.kt` (для nested `rememberNavBackStack`). _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - Все остальные параметризованные VM (~20 callsites). _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
@@ -2411,9 +2486,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-18-agenda-selector-composer-dsl` — agenda  dsl  selector
 - `2026-09-18-agenda-ui-shared-adoption` — agenda  ui  shared-components
 - `2026-09-18-dialog-state-dsl` — ui  state-hoisting  refactor
+- `2026-09-18-dialog-state-migration-mr12` — ui-components  state-hoisting  dialogs
+- `2026-09-18-no-pass-through-usecases` — usecase  detekt  architecture  lint
+- `2026-09-18-picker-dsl-slots-mr11` — dsl  ui-components
 - `2026-09-18-picker-sheet-dsl` — ui  dsl  refactor
+- `2026-09-18-picker-sheet-migration-mr13` — ui-components  picker  migration
 - `2026-09-18-saved-view-factory` — agenda  viewmodel  draft
 - `2026-09-18-selector-serializer-registry` — agenda  serialization  dsl
+- `2026-09-18-settings-intent-with-mr10` — kotlin  viewmodel  settings
 - `2026-09-18-shared-ui-adoption-mr5` — ui  refactor  dsl
 - `2026-09-18-testing-best-practices` — testing  vm  kotlin-test  coroutines
 - `2026-09-18-version-catalog-cleanup` — gradle  version-catalog  build-config
@@ -2528,9 +2608,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-18-agenda-selector-composer-dsl` — Agenda — selector composer DSL + universal section() overload
 - `2026-09-18-agenda-ui-shared-adoption` — Agenda UI — shared BackTopAppBar, DiscardChangesDialog, SettingsRadioRow adoption
 - `2026-09-18-dialog-state-dsl` — MR8: DialogState<T> — state hoisting for dialog overlays
+- `2026-09-18-dialog-state-migration-mr12` — TaskEditorSheet and ProjectDetailScreen migrate to DialogState<T>
+- `2026-09-18-no-pass-through-usecases` — Eliminate pass-through UseCases + machine enforcement via custom detekt rule
+- `2026-09-18-picker-dsl-slots-mr11` — ListPickerDsl gains header/footer slots; T bound relaxed to Any?
 - `2026-09-18-picker-sheet-dsl` — MR6: ListPickerSheet<T> + DSL for agenda pickers
+- `2026-09-18-picker-sheet-migration-mr13` — TaskAiBottomSheet migrates to ListPickerSheet; KindSheet and BacklinksSheet deferred
 - `2026-09-18-saved-view-factory` — SavedAgendaView — DraftState.markSaved(), inline copy() in VMs
 - `2026-09-18-selector-serializer-registry` — SelectorSerializer — Map-based registry + typeTag extension
+- `2026-09-18-settings-intent-with-mr10` — SettingsViewModel processIntent uses with(intent) stdlib receiver
 - `2026-09-18-shared-ui-adoption-mr5` — MR5: ConfirmActionDialog + DragHandleRow shared components
 - `2026-09-18-testing-best-practices` — Testing best practices — Tier 1 infrastructure, canonical VM pattern, Fake over mocks
 - `2026-09-18-version-catalog-cleanup` — Version catalog cleanup — kebab-case, bundles, single resolutionStrategy
