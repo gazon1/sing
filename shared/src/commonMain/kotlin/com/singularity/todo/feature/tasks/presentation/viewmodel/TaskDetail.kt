@@ -78,7 +78,7 @@ class TaskDetailViewModel(
         scope.launch {
             combine(
                 _latestTask.filterNotNull(),
-                titleEdits.debounce(300.milliseconds),
+                titleEdits.debounce(deps.debounceMs.milliseconds),
             ) { task, title -> task to title }
                 .collect { (task, title) ->
                     deps.updateTask(task.copy(title = title))
@@ -89,7 +89,7 @@ class TaskDetailViewModel(
         scope.launch {
             combine(
                 _latestTask.filterNotNull(),
-                descriptionEdits.debounce(300.milliseconds),
+                descriptionEdits.debounce(deps.debounceMs.milliseconds),
             ) { task, desc -> task to desc }
                 .collect { (task, desc) ->
                     deps.updateTask(task.copy(description = desc.ifBlank { null }))

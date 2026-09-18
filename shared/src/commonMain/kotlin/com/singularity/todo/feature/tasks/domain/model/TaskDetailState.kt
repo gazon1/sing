@@ -26,4 +26,6 @@ data class TaskDetailDeps(
     val currentUser: ProfileAwareCurrentUser,
     val timeZoneProvider: TimeZoneProvider,
     val clock: Clock,
+    /** Debounce duration for title/description edits. Exposed for tests to use short durations. */
+    val debounceMs: Long = 300L,
 )
