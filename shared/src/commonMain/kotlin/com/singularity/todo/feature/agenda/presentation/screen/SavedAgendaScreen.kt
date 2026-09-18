@@ -31,9 +31,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -45,6 +42,7 @@ import com.singularity.todo.core.ui.components.BackTopAppBar
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.ListPickerSheet
+import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -97,7 +95,7 @@ fun SavedAgendaScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     // Dialog state: null = no dialog/sheet, else the active dialog
-    var activeDialog by remember { mutableStateOf<ActiveDialog?>(null) }
+    val dialogs = rememberDialogState<ActiveDialog>()
 
     // Auto-pop to previous screen when entering NotFound state
     LaunchedEffect(state) {
@@ -125,7 +123,7 @@ fun SavedAgendaScreen(
         onBack = {
             val editing = state as? SavedAgendaViewState.Editing
             if (editing != null && editing.draft.isDirty) {
-                activeDialog = ActiveDialog.ConfirmDiscard
+                dialogs.show(ActiveDialog.ConfirmDiscard)
             } else {
                 navigator.back()
             }
@@ -135,44 +133,44 @@ fun SavedAgendaScreen(
         SavedAgendaContent(
             state = state,
             onIntent = viewModel::onIntent,
-            onRequestDelete = { activeDialog = ActiveDialog.ConfirmDelete },
-            onRequestAddSection = { activeDialog = ActiveDialog.AddSection },
+            onRequestDelete = { dialogs.show(ActiveDialog.ConfirmDelete) },
+            onRequestAddSection = { dialogs.show(ActiveDialog.AddSection) },
             modifier = Modifier.padding(paddingValues),
         )
     }
 
     // ConfirmDelete dialog
-    if (activeDialog == ActiveDialog.ConfirmDelete) {
+    if (dialogs.active == ActiveDialog.ConfirmDelete) {
         ConfirmActionDialog(
             title = "Delete view?",
             text = "This action cannot be undone.",
             confirmButtonText = "Delete",
             onConfirm = {
-                activeDialog = null
+                dialogs.dismiss()
                 viewModel.onIntent(SavedAgendaIntent.Delete)
             },
-            onDismiss = { activeDialog = null },
+            onDismiss = { dialogs.dismiss() },
         )
     }
 
     // ConfirmDiscard dialog
-    if (activeDialog == ActiveDialog.ConfirmDiscard) {
+    if (dialogs.active == ActiveDialog.ConfirmDiscard) {
         DiscardChangesDialog(
             onDiscard = {
-                activeDialog = null
+                dialogs.dismiss()
                 navigator.back()
             },
-            onKeepEditing = { activeDialog = null },
+            onKeepEditing = { dialogs.dismiss() },
         )
     }
 
     // Add section bottom sheet
-    if (activeDialog == ActiveDialog.AddSection) {
+    if (dialogs.active == ActiveDialog.AddSection) {
         val nextOrder = (state as? SavedAgendaViewState.Editing)?.draft?.sections?.size ?: 0
         ListPickerSheet(
             title = "Add section",
             onItemSelected = { selector ->
-                activeDialog = null
+                dialogs.dismiss()
                 val section = Section(
                     name = selector.typeDescription,
                     order = nextOrder,
@@ -180,7 +178,7 @@ fun SavedAgendaScreen(
                 )
                 viewModel.onIntent(SavedAgendaIntent.SectionAdded(section, nextOrder))
             },
-            onDismiss = { activeDialog = null },
+            onDismiss = { dialogs.dismiss() },
             sheetState = sheetState,
         ) {
             item("Active tasks", Selector.Statuses(setOf(TaskStatus.Active)))

@@ -1550,6 +1550,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `ConfirmActionDialog` replaces inline `AlertDialog` in any future confirm-dialog use case. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - **`createTask` and `moveTaskToProject`** remain in VM (require repository writes) _(from `2026-09-09-project-detail-intent-refactor`)_
 - Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops. _(from `2026-09-15-projects-nested-nav3`)_
+- `DialogState` is the canonical state holder for single-dialog overlays. Use directly with `if (dialogs.active == X) { ... }`. _(from `2026-09-18-dialog-state-dsl`)_
 - `DragHandleRow` is the canonical home for any read-only row that has a drag handle. If a future use case needs click-to-edit or checkable rows, create a separate component. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
 - Future picker sheets (ProjectPickerSheet, TagPickerSheet) should consider `ListPickerSheet` before implementing custom sheets. _(from `2026-09-18-picker-sheet-dsl`)_
@@ -1560,8 +1561,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - One new e2e test in `mcp-server` (`McpToolRoundTripTest`). _(from `2026-09-08-mcp-server-health-audit`)_
 - One new unit test file in `mcp-server` (`KoogJsonSchemaBuilderTest`). _(from `2026-09-08-mcp-server-health-audit`)_
 - **`ProjectDetailIntent`** is the canonical list of all project mutations — adding a new field mutation = one `Domain` case _(from `2026-09-09-project-detail-intent-refactor`)_
+- `ProjectDetailScreen` (10 dialogs) remains a future migration candidate — its data-class variants (`PickParent(current: ProjectId?)`) require additional consideration for smart-cast ergonomics. _(from `2026-09-18-dialog-state-dsl`)_
 - **`ProjectDetailUiEvent`** now has only 2 cases: `NavigateBack` (post-delete) and `ShowError` _(from `2026-09-09-project-detail-intent-refactor`)_
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
+- `SavedAgendaScreen` now uses `dialogs.show(X)` and `dialogs.dismiss()` instead of `activeDialog = X` and `activeDialog = null`. _(from `2026-09-18-dialog-state-dsl`)_
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `SectionEditorCard` now uses `DragHandleRow` internally, keeping the Card wrapper for elevation and background. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - `SectionTemplate` data class and `SectionTemplates` list removed from `SavedAgendaScreen`. If templates need to be reused elsewhere, promote them to a shared location. _(from `2026-09-18-picker-sheet-dsl`)_
@@ -1776,6 +1779,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `FakeTaskDao` и `FakeTaskRepository` mirror для всех 4 новых queries _(from `2026-09-16-task-filter-set-variants`)_
 - `TaskRepositoryImpl.watchTasks` получает 4 новые dispatch branches _(from `2026-09-16-task-filter-set-variants`)_
 
+### `state-hoisting`
+
+- `DialogState` is the canonical state holder for single-dialog overlays. Use directly with `if (dialogs.active == X) { ... }`. _(from `2026-09-18-dialog-state-dsl`)_
+- `ProjectDetailScreen` (10 dialogs) remains a future migration candidate — its data-class variants (`PickParent(current: ProjectId?)`) require additional consideration for smart-cast ergonomics. _(from `2026-09-18-dialog-state-dsl`)_
+- `SavedAgendaScreen` now uses `dialogs.show(X)` and `dialogs.dismiss()` instead of `activeDialog = X` and `activeDialog = null`. _(from `2026-09-18-dialog-state-dsl`)_
+
 ### `state-restoration`
 
 - `core/draft/DataStoreDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
@@ -1977,6 +1986,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
 - `DesktopShellNav3.kt` owns `showAbout` state and `menuEntries` — natural location since _(from `2026-09-15-desktop-menus`)_
+- `DialogState` is the canonical state holder for single-dialog overlays. Use directly with `if (dialogs.active == X) { ... }`. _(from `2026-09-18-dialog-state-dsl`)_
 - `DiscardChangesDialog` can be repurposed for any "are you sure?" confirmation (not just agenda) by passing custom text. _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - `DragHandleRow` is the canonical home for any read-only row that has a drag handle. If a future use case needs click-to-edit or checkable rows, create a separate component. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - Easier to extend cards and editors without breaking call sites _(from `2026-09-09-content-slot-pattern`)_
@@ -1999,8 +2009,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `@Preview` annotation is `@androidx.compose.ui.tooling.preview.Preview` — _(from `2026-09-06-compose-previews`)_
 - Preview functions are `private` and placed at the end of the source file, _(from `2026-09-06-compose-previews`)_
 - `PreviewParameterProvider` is avoided — individual preview functions used instead _(from `2026-09-06-compose-previews`)_
+- `ProjectDetailScreen` (10 dialogs) remains a future migration candidate — its data-class variants (`PickParent(current: ProjectId?)`) require additional consideration for smart-cast ergonomics. _(from `2026-09-18-dialog-state-dsl`)_
 - **Robolectric 4.17-beta-4** — `4.16` maxes at SDK 36; `compileSdk=37` requires the beta. The beta is already cached. _(from `2026-09-05-robolectric-widget-tests`)_
 - `SavedAgendaListScreen` keeps its FAB by using `Scaffold` directly (not `BackTopAppBar` which lacks FAB support). _(from `2026-09-18-agenda-ui-shared-adoption`)_
+- `SavedAgendaScreen` now uses `dialogs.show(X)` and `dialogs.dismiss()` instead of `activeDialog = X` and `activeDialog = null`. _(from `2026-09-18-dialog-state-dsl`)_
 - `sealed interface ActiveDialog` enables exhaustive `when` on JVM. _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - `SectionEditorCard` now uses `DragHandleRow` internally, keeping the Card wrapper for elevation and background. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - `SectionTemplate` data class and `SectionTemplates` list removed from `SavedAgendaScreen`. If templates need to be reused elsewhere, promote them to a shared location. _(from `2026-09-18-picker-sheet-dsl`)_
@@ -2383,6 +2395,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-18-agenda-nav-route-mapping` — navigation  refactor
 - `2026-09-18-agenda-selector-composer-dsl` — agenda  dsl  selector
 - `2026-09-18-agenda-ui-shared-adoption` — agenda  ui  shared-components
+- `2026-09-18-dialog-state-dsl` — ui  state-hoisting  refactor
 - `2026-09-18-picker-sheet-dsl` — ui  dsl  refactor
 - `2026-09-18-saved-view-factory` — agenda  viewmodel  draft
 - `2026-09-18-selector-serializer-registry` — agenda  serialization  dsl
@@ -2498,6 +2511,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-18-agenda-nav-route-mapping` — MR7: AgendaNavContent shared route mapping
 - `2026-09-18-agenda-selector-composer-dsl` — Agenda — selector composer DSL + universal section() overload
 - `2026-09-18-agenda-ui-shared-adoption` — Agenda UI — shared BackTopAppBar, DiscardChangesDialog, SettingsRadioRow adoption
+- `2026-09-18-dialog-state-dsl` — MR8: DialogState<T> — state hoisting for dialog overlays
 - `2026-09-18-picker-sheet-dsl` — MR6: ListPickerSheet<T> + DSL for agenda pickers
 - `2026-09-18-saved-view-factory` — SavedAgendaView — DraftState.markSaved(), inline copy() in VMs
 - `2026-09-18-selector-serializer-registry` — SelectorSerializer — Map-based registry + typeTag extension
