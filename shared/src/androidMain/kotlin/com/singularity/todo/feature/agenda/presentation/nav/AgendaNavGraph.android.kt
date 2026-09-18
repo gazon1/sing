@@ -11,11 +11,6 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
-import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
-import com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen
-import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaScreen
-import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaListScreen
-import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.navSavedStateConfig
@@ -65,30 +60,14 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
             onBack = { onExitGraph(null) },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
             entryProvider = entryProvider {
-                entry<AgendaStartRoute.Inbox> { AgendaScreen(definition = AgendaPresets.Inbox) }
-                entry<AgendaStartRoute.Today> { AgendaScreen(definition = AgendaPresets.Today) }
-                entry<AgendaStartRoute.Upcoming> { AgendaScreen(definition = AgendaPresets.Upcoming) }
-                entry<AgendaStartRoute.Project> { route ->
-                    AgendaScreen(
-                        definition = AgendaPresets.byProject(route.id),
-                    )
-                }
-                entry<AgendaStartRoute.Tag> { route -> AgendaScreen(definition = AgendaPresets.byTag(route.id)) }
-                entry<AgendaStartRoute.SavedAgendaList> { SavedAgendaListScreen() }
-                entry<AgendaStartRoute.SavedAgendaEdit> { route ->
-                    SavedAgendaScreen(
-                        viewId = SavedAgendaViewId.fromString(route.viewId),
-                        seed = null,
-                        modeHint = "Edit View",
-                    )
-                }
-                entry<AgendaStartRoute.SavedAgendaCreate> {
-                    SavedAgendaScreen(
-                        viewId = null,
-                        seed = AgendaPresets.Inbox,
-                        modeHint = "Create View",
-                    )
-                }
+                entry<AgendaStartRoute.Inbox> { AgendaNavContent(route = it) }
+                entry<AgendaStartRoute.Today> { AgendaNavContent(route = it) }
+                entry<AgendaStartRoute.Upcoming> { AgendaNavContent(route = it) }
+                entry<AgendaStartRoute.Project> { route -> AgendaNavContent(route = route) }
+                entry<AgendaStartRoute.Tag> { route -> AgendaNavContent(route = route) }
+                entry<AgendaStartRoute.SavedAgendaList> { AgendaNavContent(route = it) }
+                entry<AgendaStartRoute.SavedAgendaEdit> { route -> AgendaNavContent(route = route) }
+                entry<AgendaStartRoute.SavedAgendaCreate> { AgendaNavContent(route = it) }
             },
         )
     }
@@ -96,24 +75,12 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
 
 @Composable
 actual fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRoute> = entryProvider {
-    entry<AgendaStartRoute.Inbox> { AgendaScreen(definition = AgendaPresets.Inbox) }
-    entry<AgendaStartRoute.Today> { AgendaScreen(definition = AgendaPresets.Today) }
-    entry<AgendaStartRoute.Upcoming> { AgendaScreen(definition = AgendaPresets.Upcoming) }
-    entry<AgendaStartRoute.Project> { route -> AgendaScreen(definition = AgendaPresets.byProject(route.id)) }
-    entry<AgendaStartRoute.Tag> { route -> AgendaScreen(definition = AgendaPresets.byTag(route.id)) }
-    entry<AgendaStartRoute.SavedAgendaList> { SavedAgendaListScreen() }
-    entry<AgendaStartRoute.SavedAgendaEdit> { route ->
-        SavedAgendaScreen(
-            viewId = SavedAgendaViewId.fromString(route.viewId),
-            seed = null,
-            modeHint = "Edit View",
-        )
-    }
-    entry<AgendaStartRoute.SavedAgendaCreate> {
-        SavedAgendaScreen(
-            viewId = null,
-            seed = AgendaPresets.Inbox,
-            modeHint = "Create View",
-        )
-    }
+    entry<AgendaStartRoute.Inbox> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Today> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Upcoming> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Project> { route -> AgendaNavContent(route = route) }
+    entry<AgendaStartRoute.Tag> { route -> AgendaNavContent(route = route) }
+    entry<AgendaStartRoute.SavedAgendaList> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.SavedAgendaEdit> { route -> AgendaNavContent(route = route) }
+    entry<AgendaStartRoute.SavedAgendaCreate> { AgendaNavContent(route = it) }
 }

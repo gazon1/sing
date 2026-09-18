@@ -1278,7 +1278,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Adding a new route type on Desktop**: no serializer registration needed; `rememberInMemoryNavBackStack(start)` is untyped and works for any `T : NavKey`. _(from `2026-09-16-nav3-desktop-in-memory-no-savedstate`)_
 - Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
 - `AgendaEngine MR1` полностью завершён _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
+- `AgendaNavGraph.android.kt` and `AgendaNavGraph.jvm.kt` still have platform-specific setup (SavedState, in-memory backstack, desktop context menu) — those remain appropriately separated. _(from `2026-09-18-agenda-nav-route-mapping`)_
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
+- All `AgendaStartRoute` variants are now handled in one place. _(from `2026-09-18-agenda-nav-route-mapping`)_
 - All Android NavGraph back stack declarations become `val backStack = rememberNavBackStackTyped(savedStateConfig, start)` — clean, typed, no suppression. _(from `2026-09-16-nav3-type-asymmetry-adr`)_
 - All `@Preview` composables compile without composition-local crashes. _(from `2026-09-16-nav3-post-migration-fixes`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
@@ -1348,6 +1350,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading _(from `2026-09-09-notes-view-edit-split`)_
 - Users can now create projects directly from Plans via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
 - Users can now create tasks directly from Inbox/Today via the FAB. _(from `2026-09-16-android-shell-fab-fix`)_
+- When adding a new `AgendaStartRoute` variant, add it to `AgendaStartRoute.kt`, then add a branch to `AgendaNavContent.when`. _(from `2026-09-18-agenda-nav-route-mapping`)_
 - When adding a new `data object` or `data class` to `AppDestination` (or any sealed route hierarchy that backs a `rememberNavBackStack`), **always** add the matching `subclass(...)` line in every relevant `serializersModule` — the compiler does not enforce this. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 - В `JvmNav3State.kt` для `AppDestination.TasksGraph` / _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - В `TasksNavGraph.kt` (для nested `rememberNavBackStack`). _(from `2026-09-14-tasks-feature-nested-nav3`)_
@@ -1539,7 +1542,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - 8 new files (nav package under projects feature) + 2 new ADR records. _(from `2026-09-15-projects-nested-nav3`)_
 - Additional level of indirection for new developers: "where am I?" _(from `2026-09-15-projects-nested-nav3`)_
+- `AgendaNavGraph.android.kt` and `AgendaNavGraph.jvm.kt` still have platform-specific setup (SavedState, in-memory backstack, desktop context menu) — those remain appropriately separated. _(from `2026-09-18-agenda-nav-route-mapping`)_
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
+- All `AgendaStartRoute` variants are now handled in one place. _(from `2026-09-18-agenda-nav-route-mapping`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `ConfirmActionDialog` replaces inline `AlertDialog` in any future confirm-dialog use case. _(from `2026-09-18-shared-ui-adoption-mr5`)_
@@ -1568,6 +1573,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`toggleArchive`** no longer emits `Saved` — `lastEditedAt` drives "Saved X ago" UI via the `mutate{}` helper _(from `2026-09-09-project-detail-intent-refactor`)_
 - `ToolFactories.kt` gets the profile-aware default applied (small diff, _(from `2026-09-08-mcp-server-health-audit`)_
 - `ToolRegistrar` catches `McpToolError` first (small diff). _(from `2026-09-08-mcp-server-health-audit`)_
+- When adding a new `AgendaStartRoute` variant, add it to `AgendaStartRoute.kt`, then add a branch to `AgendaNavContent.when`. _(from `2026-09-18-agenda-nav-route-mapping`)_
 
 ### `regression`
 
@@ -2374,6 +2380,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-17-orgmode-architectural-lessons` — architecture
 - `2026-09-17-orgmode-functional-patterns` — architecture
 - `2026-09-17-selector-serializer-plain-kserializer` — serialization  agenda  selector
+- `2026-09-18-agenda-nav-route-mapping` — navigation  refactor
 - `2026-09-18-agenda-selector-composer-dsl` — agenda  dsl  selector
 - `2026-09-18-agenda-ui-shared-adoption` — agenda  ui  shared-components
 - `2026-09-18-picker-sheet-dsl` — ui  dsl  refactor
@@ -2488,6 +2495,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-17-orgmode-functional-patterns` — Org-mode functional patterns: pure composition extensions
 - `2026-09-17-selector-serializer-plain-kserializer` — SelectorSerializer: plain KSerializer instead of JsonContentPolymorphicSerializer
 - `2026-09-17-vm-testability-audit` — _(no title)
+- `2026-09-18-agenda-nav-route-mapping` — MR7: AgendaNavContent shared route mapping
 - `2026-09-18-agenda-selector-composer-dsl` — Agenda — selector composer DSL + universal section() overload
 - `2026-09-18-agenda-ui-shared-adoption` — Agenda UI — shared BackTopAppBar, DiscardChangesDialog, SettingsRadioRow adoption
 - `2026-09-18-picker-sheet-dsl` — MR6: ListPickerSheet<T> + DSL for agenda pickers

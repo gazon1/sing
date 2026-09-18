@@ -10,12 +10,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.menu.ContextMenuHost
 import com.singularity.todo.core.ui.menu.ContextMenuOpenState
-import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
-import com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen
-import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaScreen
-import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaListScreen
-import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.tasks.presentation.contextmenu.TaskMenuActions
 import com.singularity.todo.feature.tasks.presentation.contextmenu.buildTaskContextMenu
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
@@ -80,49 +75,28 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
             onBack = { onExitGraph(null) },
             entryProvider = entryProvider {
                 entry<AgendaStartRoute.Inbox> {
-                    AgendaScreen(
-                        definition = AgendaPresets.Inbox,
-                        desktopContextMenuHost = desktopContextMenuHost,
-                    )
+                    AgendaNavContent(route = it, desktopContextMenuHost = desktopContextMenuHost)
                 }
                 entry<AgendaStartRoute.Today> {
-                    AgendaScreen(
-                        definition = AgendaPresets.Today,
-                        desktopContextMenuHost = desktopContextMenuHost,
-                    )
+                    AgendaNavContent(route = it, desktopContextMenuHost = desktopContextMenuHost)
                 }
                 entry<AgendaStartRoute.Upcoming> {
-                    AgendaScreen(
-                        definition = AgendaPresets.Upcoming,
-                        desktopContextMenuHost = desktopContextMenuHost,
-                    )
+                    AgendaNavContent(route = it, desktopContextMenuHost = desktopContextMenuHost)
                 }
-                entry<AgendaStartRoute.Project> { route ->
-                    AgendaScreen(
-                        definition = AgendaPresets.byProject(route.id),
-                        desktopContextMenuHost = desktopContextMenuHost,
-                    )
+                entry<AgendaStartRoute.Project> { r ->
+                    AgendaNavContent(route = r, desktopContextMenuHost = desktopContextMenuHost)
                 }
-                entry<AgendaStartRoute.Tag> { route ->
-                    AgendaScreen(
-                        definition = AgendaPresets.byTag(route.id),
-                        desktopContextMenuHost = desktopContextMenuHost,
-                    )
+                entry<AgendaStartRoute.Tag> { r ->
+                    AgendaNavContent(route = r, desktopContextMenuHost = desktopContextMenuHost)
                 }
-                entry<AgendaStartRoute.SavedAgendaList> { SavedAgendaListScreen() }
-                entry<AgendaStartRoute.SavedAgendaEdit> { route ->
-                    SavedAgendaScreen(
-                        viewId = SavedAgendaViewId.fromString(route.viewId),
-                        seed = null,
-                        modeHint = "Edit View",
-                    )
+                entry<AgendaStartRoute.SavedAgendaList> {
+                    AgendaNavContent(route = it)
+                }
+                entry<AgendaStartRoute.SavedAgendaEdit> { r ->
+                    AgendaNavContent(route = r)
                 }
                 entry<AgendaStartRoute.SavedAgendaCreate> {
-                    SavedAgendaScreen(
-                        viewId = null,
-                        seed = AgendaPresets.Inbox,
-                        modeHint = "Create View",
-                    )
+                    AgendaNavContent(route = it)
                 }
             },
         )
@@ -131,24 +105,12 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
 
 @Composable
 actual fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRoute> = entryProvider {
-    entry<AgendaStartRoute.Inbox> { AgendaScreen(definition = AgendaPresets.Inbox) }
-    entry<AgendaStartRoute.Today> { AgendaScreen(definition = AgendaPresets.Today) }
-    entry<AgendaStartRoute.Upcoming> { AgendaScreen(definition = AgendaPresets.Upcoming) }
-    entry<AgendaStartRoute.Project> { route -> AgendaScreen(definition = AgendaPresets.byProject(route.id)) }
-    entry<AgendaStartRoute.Tag> { route -> AgendaScreen(definition = AgendaPresets.byTag(route.id)) }
-    entry<AgendaStartRoute.SavedAgendaList> { SavedAgendaListScreen() }
-    entry<AgendaStartRoute.SavedAgendaEdit> { route ->
-        SavedAgendaScreen(
-            viewId = SavedAgendaViewId.fromString(route.viewId),
-            seed = null,
-            modeHint = "Edit View",
-        )
-    }
-    entry<AgendaStartRoute.SavedAgendaCreate> {
-        SavedAgendaScreen(
-            viewId = null,
-            seed = AgendaPresets.Inbox,
-            modeHint = "Create View",
-        )
-    }
+    entry<AgendaStartRoute.Inbox> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Today> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Upcoming> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Project> { r -> AgendaNavContent(route = r) }
+    entry<AgendaStartRoute.Tag> { r -> AgendaNavContent(route = r) }
+    entry<AgendaStartRoute.SavedAgendaList> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.SavedAgendaEdit> { r -> AgendaNavContent(route = r) }
+    entry<AgendaStartRoute.SavedAgendaCreate> { AgendaNavContent(route = it) }
 }
