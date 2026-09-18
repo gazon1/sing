@@ -70,6 +70,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Never** use `UUID.randomUUID()` or `nextId()` directly — inject `IdGenerator` and use `SequenceIdGenerator` in tests _(from `2026-09-18-testing-best-practices`)_
 - **Never** use `viewModelScope` in VM code — inject `CoroutineScope` instead _(from `2026-09-18-testing-best-practices`)_
 - **Never** write inline test doubles — add to `test/fakes/` _(from `2026-09-18-testing-best-practices`)_
+- **Never** pre-build UI components without a known caller. _(from `2026-09-22-dead-sheets-removal-mr23`)_
+- **Never** register a VM in DI without at least one concrete consumer. _(from `2026-09-22-dead-sheets-removal-mr23`)_
 
 ## Per-tag
 
@@ -415,6 +417,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - `AgendaEngine MR1` полностью завершён _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - Detekt: 263 findings (pre-existing), 0 в изменённых файлах _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
+- When a real use case appears (e.g. TaskDetailViewModel needs a project picker), implement it from scratch using `ListPickerSheet` + `DialogState` + caller-side state hoisting — not by resurrecting the deleted code. _(from `2026-09-22-dead-sheets-removal-mr23`)_
 - Компиляция Android + JVM успешна, все тесты проходят _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 
 ### `"compose"`
@@ -453,8 +456,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Do NOT introduce `koinViewModel()` inside any `@Preview` — CI/preview harness does not start Koin _(from `2026-09-09-preview-with-koin-helper`)_
 - Easier to extend cards and editors without breaking call sites _(from `2026-09-09-content-slot-pattern`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
+- Every new bottom sheet should use `BottomSheetHost`, not raw `ModalBottomSheet` + `rememberBottomSheetState` + `LaunchedEffect`. _(from `2026-09-22-bottomsheet-host-mr22`)_
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them _(from `2026-09-09-preview-with-koin-helper`)_
 - **Known limitation**: 10 constructor parameters remain; next candidate for `TaskDetailDeps` by analogy with `TaskEditorDeps`. _(from `2026-09-09-task-detail-intent-refactor`)_
+- `LaunchedEffect { sheetState.show() }` must **never** appear in leaf sheet code. _(from `2026-09-22-bottomsheet-host-mr22`)_
 - **Menu sheet visibility** is `rememberSaveable` state in `AndroidShell` — survives config changes, not part of the back stack. _(from `2026-09-05-android-bottom-nav`)_
 
 ### `"compose"`
@@ -555,6 +560,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Three new unit test files in `shared/commonTest` for the read tools. _(from `2026-09-08-mcp-server-health-audit`)_
 - `ToolFactories.kt` gets the profile-aware default applied (small diff, _(from `2026-09-08-mcp-server-health-audit`)_
 - `ToolRegistrar` catches `McpToolError` first (small diff). _(from `2026-09-08-mcp-server-health-audit`)_
+- When a real use case appears (e.g. TaskDetailViewModel needs a project picker), implement it from scratch using `ListPickerSheet` + `DialogState` + caller-side state hoisting — not by resurrecting the deleted code. _(from `2026-09-22-dead-sheets-removal-mr23`)_
 
 ### `debugging`
 
@@ -1074,6 +1080,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - All new VMs in this codebase should prefer `with(intent) { ... }` for data class intents with ≥2 properties. _(from `2026-09-18-vm-intent-with-receiver`)_
 - `apply(intent)` branches must stay separate — they rely on receiver being the contributor, not the intent. _(from `2026-09-18-settings-intent-with-mr10`)_
 
+### `kotlin-idioms`
+
+- `process(intent)` is the canonical name for contributor intent dispatch. _(from `2026-09-22-contributor-process-rename-mr24`)_
+- `SurfaceController.apply(event)` is **not** changed — separate scope, separate task. _(from `2026-09-22-contributor-process-rename-mr24`)_
+
 ### `kotlin-multiplatform`
 
 - **Negative**: 40+ files had import paths updated; test files also required path corrections _(from `2026-09-09-feature-tasks-clean-architecture`)_
@@ -1269,6 +1280,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `ProfileAwareCurrentUser` инжектится во все write-tools _(from `2026-09-07-multi-profile-and-usage-tracking`)_
 - Room schema v8 с `llm_usage` table + `profiles` table _(from `2026-09-07-multi-profile-and-usage-tracking`)_
 - ZCode подключается с `--profile=ai-agent` → все операции в профиле ai-agent _(from `2026-09-07-multi-profile-and-usage-tracking`)_
+
+### `naming`
+
+- `process(intent)` is the canonical name for contributor intent dispatch. _(from `2026-09-22-contributor-process-rename-mr24`)_
+- `SurfaceController.apply(event)` is **not** changed — separate scope, separate task. _(from `2026-09-22-contributor-process-rename-mr24`)_
 
 ### `nav3`
 
@@ -1801,10 +1817,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input. _(from `2026-09-07-settings-ux-improvements`)_
 - `NavEntries.kt` wires `SettingsNavGraph(navCallbacks = nav)` and `SearchNavGraph(navCallbacks = nav)` instead of the raw screens. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - Preview for `AccountSettingsScreen` uses a separate `AccountSettingsScreenPreviewContent` composable that takes an explicit callback, since `LocalSettingsNavigator` is only available inside the graph. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
+- `process(intent)` is the canonical name for contributor intent dispatch. _(from `2026-09-22-contributor-process-rename-mr24`)_
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor. _(from `2026-09-07-settings-fixes`)_
 - `SettingsScreen` no longer accepts `onNavigateToProfileSwitcher` — `AccountSettingsScreen` navigates directly. _(from `2026-09-16-nav3-settings-and-search-nested-graphs`)_
 - SettingsViewModel is the last VM in the codebase with enough multi-property intents to benefit; other 7 VMs have single-property intents where the pattern yields no gain. _(from `2026-09-18-settings-intent-with-mr10`)_
 - `SettingsViewModel.testConnection()` **always** short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`. _(from `2026-09-05-llm-provider-settings`)_
+- `SurfaceController.apply(event)` is **not** changed — separate scope, separate task. _(from `2026-09-22-contributor-process-rename-mr24`)_
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode. _(from `2026-09-07-settings-ux-improvements`)_
 - `TextGenPort.listModels` — добавлен в интерфейс, реализация в `KoogAgentService` и `FakeTextGen`. _(from `2026-09-07-settings-fixes`)_
 - The Test connection "probe" prompt is hard-coded: `"Reply with the single word: pong."` — change together with the system prompt if needed. _(from `2026-09-05-llm-provider-settings`)_
@@ -1818,6 +1836,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `DiscardChangesDialog` can be repurposed for any "are you sure?" confirmation (not just agenda) by passing custom text. _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - `SavedAgendaListScreen` keeps its FAB by using `Scaffold` directly (not `BackTopAppBar` which lacks FAB support). _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - `sealed interface ActiveDialog` enables exhaustive `when` on JVM. _(from `2026-09-18-agenda-ui-shared-adoption`)_
+
+### `sheet-state`
+
+- Every new bottom sheet should use `BottomSheetHost`, not raw `ModalBottomSheet` + `rememberBottomSheetState` + `LaunchedEffect`. _(from `2026-09-22-bottomsheet-host-mr22`)_
+- `LaunchedEffect { sheetState.show() }` must **never** appear in leaf sheet code. _(from `2026-09-22-bottomsheet-host-mr22`)_
 
 ### `shell`
 
@@ -2027,8 +2050,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Caller must provide `MutableStateFlow<String>` and inject `InternalLinkRepository` and `ProfileAwareCurrentUser` — slightly more boilerplate at call site _(from `2026-09-09-internal-link-picker-generic`)_
 - `core/ui/components/` is now free of feature-domain imports _(from `2026-09-09-internal-link-picker-generic`)_
 - `DialogState<T>` is the **only** approved pattern for bottom-sheet/dialog state in composables. `mutableStateOf<T?>` for sheet state is now deprecated. _(from `2026-09-18-dialog-state-migration-mr12`)_
+- Every new bottom sheet should use `BottomSheetHost`, not raw `ModalBottomSheet` + `rememberBottomSheetState` + `LaunchedEffect`. _(from `2026-09-22-bottomsheet-host-mr22`)_
 - Icon per `LinkKind` makes the list scannable _(from `2026-09-09-internal-link-picker-generic`)_
 - `KindSheet` can be migrated once a row-variant or chip-variant of `ListPickerSheet` exists. _(from `2026-09-18-picker-sheet-migration-mr13`)_
+- `LaunchedEffect { sheetState.show() }` must **never** appear in leaf sheet code. _(from `2026-09-22-bottomsheet-host-mr22`)_
 - `ListPickerItem<T>.leading` slot already covers the `RowScope` customization need; no `trailing` slot added (not needed yet). _(from `2026-09-18-picker-dsl-slots-mr11`)_
 - `ListPickerScope<T>.header { }` and `footer { }` are the canonical way to add custom content above/below the item list. _(from `2026-09-18-picker-dsl-slots-mr11`)_
 - `ListPickerSheet` is appropriate for: enum pickers, ID/name pairs, flat lists with optional subtitle. _(from `2026-09-18-picker-sheet-migration-mr13`)_
@@ -2498,6 +2523,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-18-testing-best-practices` — testing  vm  kotlin-test  coroutines
 - `2026-09-18-version-catalog-cleanup` — gradle  version-catalog  build-config
 - `2026-09-18-vm-intent-with-receiver` — vm  refactor  kotlin
+- `2026-09-22-bottomsheet-host-mr22` — ui-components  sheet-state  compose
+- `2026-09-22-contributor-process-rename-mr24` — settings  naming  kotlin-idioms
+- `2026-09-22-dead-sheets-removal-mr23` — cleanup  dead-code
 
 ## Active entries
 
@@ -2621,3 +2649,6 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-18-version-catalog-cleanup` — Version catalog cleanup — kebab-case, bundles, single resolutionStrategy
 - `2026-09-18-vm-intent-with-receiver` — MR9: with(intent) stdlib receiver pattern for VM intent dispatch
 - `2026-09-18-vm-migration-scope-injection` — _(no title)
+- `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
+- `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
+- `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
