@@ -38,6 +38,7 @@ import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.datetime.LocalDate
@@ -271,17 +272,6 @@ fun TaskEditorContent(
 
         null -> { /* no-op */ }
     }
-}
-
-// ─── Sheet state ────────────────────────────────────────────────────────────
-
-/**
- * Represents the currently open bottom sheet.
- */
-sealed interface TaskEditorSheet {
-    data object Date : TaskEditorSheet
-    data object Time : TaskEditorSheet
-    data object Priority : TaskEditorSheet
 }
 
 // ─── Data classes ───────────────────────────────────────────────────────────

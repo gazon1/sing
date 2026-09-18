@@ -22,14 +22,6 @@ import kotlinx.datetime.LocalTime
  */
 sealed interface TaskDetailIntent {
 
-    // ── Routing: owned by screen ────────────────────────────────────────────
-
-    /** Open a bottom sheet or confirmation dialog. */
-    data class OpenSheet(val sheet: CreateActiveSheet) : TaskDetailIntent
-
-    /** Close any open sheet / dialog. */
-    data object CloseSheet : TaskDetailIntent
-
     // ── Attachment: owned by screen (delegates to AttachmentsViewModel) ──
 
     sealed interface Attachment : TaskDetailIntent {
