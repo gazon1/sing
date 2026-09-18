@@ -26,7 +26,7 @@ Ids.kt                    — @JvmInline value class (TaskId, NoteId, ProjectId,
 *Domain.kt                — чистая валидация, бизнес-правила
 *Repository.kt            — интерфейс (Result<T>, suspend, Flow)
 *RepositoryImpl.kt        — Room-реализация
-*UseCase.kt               — ТОЛЬКО реальная логика (валидация, clock.now(), build). НЕ pass-through обёртки.
+*UseCase.kt               — ТОЛЬКО реальная логика (валидация, clock.now(), build). НЕ pass-through обёртки. Enforced by `PassThroughUseCase` detekt rule (`:detekt-rules` module).
 *ViewModel.kt             — StateFlow<SealedUiState>, sealed Intent, viewModelScope
 *Screen.kt                — Compose UI
 ```
@@ -250,7 +250,7 @@ sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"
 1. **`runBlocking` в ViewModel init** — вместо этого: `combine(filterFlow, userIdFlow) { ... }` + `flatMapLatest`
 2. **`*Blocking()` методы в репозиториях** — только suspend + Result<T>
 3. **MockK / Mockito** — используй `Fake*` из `test/fakes/`
-4. **Pass-through use cases** — `GetTaskUseCase`, `DeleteTaskUseCase` и т.п. — это boilerplate; VMs инжектят `TaskRepository` напрямую
+4. **Pass-through use cases** — `GetTaskUseCase`, `DeleteTaskUseCase` и т.п. — это boilerplate; VMs инжектят `TaskRepository` напрямую. `ChecklistUseCase` trimmed 2026-09-18. Enforced by `PassThroughUseCase` detekt rule — see `docs/decisions/2026-09-18-no-pass-through-usecases.md`.
 5. **`java.io.File` напрямую** — только через `FileSystem` порт
 6. **`require { throw ... }` внутри лямбды** — `require` сам бросает; тело `require { throw X }` никогда не выполняется
 7. **Импортировать Koog-типы вне `feature/ai` и `core/di`**

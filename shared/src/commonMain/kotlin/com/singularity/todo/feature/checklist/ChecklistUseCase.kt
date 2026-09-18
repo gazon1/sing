@@ -1,11 +1,21 @@
 package com.singularity.todo.feature.checklist
 
-import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.first
 
-class ChecklistUseCase(private val repository: ChecklistRepository, private val clock: Clock) {
-    fun watchChecklist(taskId: String) = repository.watchByTask(taskId)
+/**
+ * Use case for checklist item mutations that require domain logic:
+ * ID generation, entity construction with defaults, and read-then-update with 404.
+ *
+ * Pass-through operations (watch, delete) are called directly on [ChecklistRepository]
+ * by consumers — consistent with the per-entity pattern used throughout the codebase
+ * (e.g. individual task mutations go directly to [com.singularity.todo.feature.tasks.domain.port.TaskRepository]).
+ */
+class ChecklistUseCase(private val repository: ChecklistRepository) {
 
+    /**
+     * Adds a new checklist item with generated ID and default values.
+     * Real logic: [ChecklistItemId.generate], entity construction, [ChecklistRepository.upsert].
+     */
     suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> = runCatching {
         val item = ChecklistItem(
             id = ChecklistItemId.generate(),
@@ -18,6 +28,10 @@ class ChecklistUseCase(private val repository: ChecklistRepository, private val 
         item.id
     }
 
+    /**
+     * Toggles the completed flag by reconstructing the item with the opposite flag.
+     * Real logic: entity reconstruction (preserves sortOrder/title/taskId).
+     */
     suspend fun toggleItem(
         id: ChecklistItemId,
         currentTitle: String,
@@ -36,8 +50,8 @@ class ChecklistUseCase(private val repository: ChecklistRepository, private val 
     }
 
     /**
-     * Toggles a checklist item's completed flag by its ID.
-     * Fetches the current item state from the repository.
+     * Toggles the completed flag by reading the current item then updating it.
+     * Real logic: read-modify-write with 404 when the item is not found.
      */
     suspend fun toggleItem(taskId: String, itemId: ChecklistItemId): Result<Unit> = runCatching {
         val allItems = repository.watchByTask(taskId).first()
@@ -53,9 +67,4 @@ class ChecklistUseCase(private val repository: ChecklistRepository, private val 
             ),
         ).getOrThrow()
     }
-
-    suspend fun deleteItem(id: ChecklistItemId): Result<Unit> = repository.delete(id)
-
-    suspend fun createBatch(taskId: String, items: List<ChecklistItem>): Result<Unit> =
-        repository.createBatch(taskId, items)
 }

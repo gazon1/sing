@@ -31,12 +31,17 @@ sealed interface ChecklistEditorIntent {
 
 class ChecklistEditorViewModel(
     private val checklistUseCase: ChecklistUseCase,
+    private val checklistRepository: ChecklistRepository,
     private val scope: CoroutineScope,
 ) : ViewModel() {
 
     /** Production constructor — Koin uses this. */
-    constructor(checklistUseCase: ChecklistUseCase) : this(
+    constructor(
+        checklistUseCase: ChecklistUseCase,
+        checklistRepository: ChecklistRepository,
+    ) : this(
         checklistUseCase = checklistUseCase,
+        checklistRepository = checklistRepository,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     )
 
@@ -46,7 +51,7 @@ class ChecklistEditorViewModel(
     fun bindToTask(taskId: String) {
         _state.updateState { it.copy(taskId = taskId) }
         scope.launch {
-            checklistUseCase.watchChecklist(taskId).collect { items ->
+            checklistRepository.watchByTask(taskId).collect { items ->
                 _state.updateState { st ->
                     st.copy(
                         items = items.map { ChecklistItemUi(it.id, it.title, it.isCompleted) },
@@ -99,7 +104,7 @@ class ChecklistEditorViewModel(
 
     private fun deleteItem(id: ChecklistItemId) {
         scope.launch {
-            checklistUseCase.deleteItem(id)
+            checklistRepository.delete(id)
                 .onFailure { err: Throwable ->
                     _state.updateState { st -> st.copy(errorMessage = err.message) }
                 }

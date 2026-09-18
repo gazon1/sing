@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.domain.model
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderRepository
@@ -20,6 +21,7 @@ data class TaskEditorDeps(
     val clock: Clock,
     val currentUser: ProfileAwareCurrentUser,
     val taskRepository: TaskRepository,
+    val checklistRepository: ChecklistRepository,
     val checklistUseCase: ChecklistUseCase,
     val reminderRepository: ReminderRepository,
     val attachmentSaver: AttachmentSaver,

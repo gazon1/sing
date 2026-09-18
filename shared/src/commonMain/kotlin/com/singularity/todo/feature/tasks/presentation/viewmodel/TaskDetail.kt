@@ -115,7 +115,7 @@ class TaskDetailViewModel(
                 } ?: flowOf(null)
 
                 val tagsFlow = deps.tagsRepo.watchTags(deps.currentUser.current.value)
-                val checklistFlow = deps.checklistUseCase.watchChecklist(taskId.value)
+                val checklistFlow = deps.checklistRepository.watchByTask(taskId.value)
                 val reminderFlow = deps.reminderRepo.watchByTask(taskId, deps.currentUser.current)
                 val attachmentsFlow = deps.attachmentsRepo.watchByTask(taskId, deps.currentUser.current)
                 val subtasksFlow = deps.taskRepo.watchSubtasks(taskId, deps.currentUser.current)
@@ -228,7 +228,7 @@ class TaskDetailViewModel(
 
             is TaskDetailIntent.Domain.DeleteChecklistItem -> {
                 scope.launch {
-                    deps.checklistUseCase.deleteItem(intent.id)
+                    deps.checklistRepository.delete(intent.id)
                         .onFailure { emitError("Delete failed") }
                 }
             }

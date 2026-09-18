@@ -123,7 +123,7 @@ Compose Screen (Screen.kt)
     ↓ user intent
 ViewModel (*ViewModel.kt) — StateFlow<SealedUiState>, sealed Intent
     ↓
-UseCase (*UseCase.kt) — только реальная логика (валидация, clock.now(), build)
+UseCase (*UseCase.kt) — только реальная логика (валидация, clock.now(), build). Enforced by `PassThroughUseCase` detekt rule (`:detekt-rules`). Pass-through methods (single-expression delegation to `*Repository`) are flagged automatically.
     ↓
 Repository (*Repository.kt) — интерфейс: suspend CRUD + Flow reads
     ↓
@@ -417,6 +417,7 @@ when (val result = repo.create(task)) {
 | R6 | `@Embedded SyncColumns` в 4 entities | Entities.kt |
 | R10 | Удалены 16 pass-through use cases | TasksUseCase, NotesUseCase, ProjectsUseCase, TagsUseCase, Modules.kt |
 | R11 | Исправлен `require { throw }` баг | CreateProjectUseCase |
+| R12 | Trimmed `ChecklistUseCase` + custom detekt rule `PassThroughUseCase` | `ChecklistUseCase.kt`, `:detekt-rules` module |
 
 ### 📋 Предстоит (следующие PR)
 

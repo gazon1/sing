@@ -61,7 +61,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     factory { UpdateTaskUseCase(get(), get()) }
     factory { TaskMutationsUseCase(get()) }
 
-    factory { ChecklistUseCase(get(), get()) }
+    factory { ChecklistUseCase(get()) }
 
     factory { SearchUseCase(get(), get(), get(), get()) }
 
@@ -112,6 +112,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 createTask = get(),
                 projectsRepo = get(),
                 tagsRepo = get(),
+                checklistRepository = get(),
                 checklistUseCase = get(),
                 reminderRepo = get(),
                 attachmentsRepo = get(),
@@ -136,7 +137,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
         )
     }
 
-    viewModel { ChecklistEditorViewModel(get()) }
+    viewModel { ChecklistEditorViewModel(get(), get()) }
 
     viewModel { ArchiveViewModel(get(), get(), get()) }
 

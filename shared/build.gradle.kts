@@ -282,6 +282,7 @@ detekt {
 
 dependencies {
     detektPlugins(libs.detekt.formatting)   // wires ktlint into detekt so detektFormat fixes both
+    detektPlugins(project(":detekt-rules"))  // PassThroughUseCaseRule — flags thin wrappers in *UseCase.kt
 }
 
 // ---------------------------------------------------------------------------

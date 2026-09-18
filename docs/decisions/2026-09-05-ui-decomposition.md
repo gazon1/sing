@@ -108,6 +108,8 @@ fun trigger() {
 
 **FIX NEEDED**: консолидация или удаление.
 
+**Resolved by [2026-09-18-no-pass-through-usecases.md](2026-09-18-no-pass-through-usecases.md)** — those three files were already removed in R10 (ARCHITECTURE.md:418). `ChecklistUseCase` (the only remaining violator) was trimmed in the same commit. `PassThroughUseCase` detekt rule prevents regression.
+
 ### BulkCompleteUseCase — неатомарность
 
 Если первый `toggleComplete` succeeds, а второй fails — состояние уже изменено (partial rollback невозможен).
