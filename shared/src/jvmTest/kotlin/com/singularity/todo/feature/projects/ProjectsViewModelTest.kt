@@ -12,8 +12,10 @@ import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -112,18 +114,22 @@ class ProjectsViewModelTest {
     // ─── delete (via use-case, not state) ──────────────────────────────────
 
     @Test
-    fun `delete emits ProjectDeleted event when project has no tasks`() = runTest {
+    fun `delete soft-deletes project via use-case`() = runTest {
         seedProject("p1", "To Delete")
         val vm = createVm()
         advanceUntilIdle()
 
+        // Verify store has the project
+        val before = fakeProjectRepo.store.values().filter { !it.isDeleted }
+        assertEquals(1, before.size, "Store should have the seeded project")
+
         vm.delete(ProjectId.fromString("p1"))
+        // Wait for the delete coroutine launched in vm.delete() to complete
+        delay(50)
         advanceUntilIdle()
 
-        // Verify project was soft-deleted in repo
-        fakeProjectRepo.clear()
-        val remaining = fakeProjectRepo.watchProjects(testUserId)
-        // After clear+re-watch, deleted project should not appear
-        assertTrue(true) // If we get here without exception, delete didn't throw
+        // Verify store reflects soft-delete
+        val after = fakeProjectRepo.store.values().filter { !it.isDeleted }
+        assertEquals(0, after.size, "After soft-delete, no non-deleted projects should remain in store")
     }
 }

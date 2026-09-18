@@ -33,7 +33,8 @@ class StatisticsViewModelTest {
     @Test
     fun `marks task complete and statistics reactively update`() = runTest {
         val repo = FakeTaskRepository()
-        repo.seed(task("t1"), task("t2"))
+        repo.seed(task("t1"))
+        repo.seed(task("t2"))
 
         val vm = StatisticsViewModel(
             taskRepository = repo,
@@ -43,8 +44,6 @@ class StatisticsViewModelTest {
             clock = Clock,
         )
 
-        // The WhileSubscribed(5000) stateIn needs an active collector.
-        // Subscribe explicitly via .test() to make it emit.
         repo.toggleComplete(TaskId.fromString("t1"))
 
         // Without active collection the value remains the loading initial.
