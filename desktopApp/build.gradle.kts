@@ -12,10 +12,10 @@ sourceSets {
     test {
         java.srcDirs("src/jvmTest")
         dependencies {
-            implementation(libs.composeUiTest)
-            implementation(libs.compose.uiToolingPreview)
+            implementation(libs.compose.ui.test)
+            implementation(libs.compose.ui.tooling.preview)
             implementation(compose.desktop.currentOs)
-            implementation(libs.kotlinx.coroutinesSwing)
+            implementation(libs.kotlinx.coroutines.swing)
             implementation(libs.koin.test)
             implementation(libs.koin.core)
             implementation(libs.junit)
@@ -27,13 +27,13 @@ dependencies {
     implementation(project(":shared"))
 
     implementation(compose.desktop.currentOs)
-    implementation(libs.kotlinx.coroutinesSwing)
+    implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.koin.core)
     implementation(libs.compose.material3)
     implementation(libs.compose.material)
     implementation(libs.coil.compose)
 
-    implementation(libs.compose.uiToolingPreview)
+    implementation(libs.compose.ui.tooling.preview)
 
     // Room for desktop database
     implementation(libs.androidx.room3.runtime)

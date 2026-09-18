@@ -13,19 +13,24 @@ plugins {
 }
 
 allprojects {
+    // Version values extracted here so resolutionStrategy rules are easy to find and update.
+    // NOTE: version refs (kotlin, kotlin-serialization, kotlinxCollectionsImmutable) are
+    // shadowed by generated nested accessors from library keys starting with "kotlin-"
+    // (kotlin-test, kotlin-test-junit). Using direct values instead of catalog refs.
     configurations.all {
         resolutionStrategy.eachDependency {
             if (requested.group == "org.jetbrains.kotlin") {
                 useVersion("2.3.21")
             }
-            if (requested.group == "org.jetbrains.kotlinx" && requested.name == "kotlinx-serialization-json") {
-                useVersion("1.11.0")
-            }
-            if (requested.group == "org.jetbrains.kotlinx" && requested.name == "kotlinx-serialization-core") {
-                useVersion("1.11.0")
-            }
-            if (requested.group == "org.jetbrains.kotlinx" && requested.name == "kotlinx-serialization-bom") {
-                useVersion("1.11.0")
+            if (requested.group == "org.jetbrains.kotlinx") {
+                if (requested.name == "kotlinx-serialization-json" ||
+                    requested.name == "kotlinx-serialization-core" ||
+                    requested.name == "kotlinx-serialization-bom") {
+                    useVersion("1.11.0")
+                }
+                if (requested.name == "kotlinx-collections-immutable") {
+                    useVersion("0.5.0")
+                }
             }
         }
     }

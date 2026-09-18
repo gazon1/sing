@@ -21,7 +21,7 @@ application {
 }
 
 dependencies {
-    implementation("io.modelcontextprotocol:kotlin-sdk:0.15.0")
+    implementation(libs.kotlin.sdk)
     implementation(project(":shared"))
     implementation(libs.koog.agents)
     implementation(libs.koin.annotations.runtime)
@@ -35,11 +35,11 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.datetime)
     implementation(libs.kermit)
-    implementation("org.jetbrains.kotlinx:kotlinx-io-core-jvm:0.9.1")
-    implementation("io.ktor:ktor-io-jvm:3.5.2")
+    implementation(libs.kotlinx.io.core.jvm)
+    implementation(libs.ktor.io.jvm)
 
     testImplementation(libs.kotlin.test)
-    testImplementation(libs.kotlin.testJunit)
+    testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.koin.test)
     testImplementation(kotlin("reflect"))

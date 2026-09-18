@@ -371,6 +371,19 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `build`
 
 - All JetBrains compose library versions MUST track `version.ref = "composeMultiplatform"`. Split-version declarations are forbidden unless the artifact is an AndroidX (not JetBrains) group. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
+
+### `build-config`
+
+- All TOML keys follow `kebab-case` naming convention. New entries must use kebab-case. _(from `2026-09-18-version-catalog-cleanup`)_
+- `android.useAndroidX=true` removed from `gradle.properties` — it has been the default since AGP 4.x. _(from `2026-09-18-version-catalog-cleanup`)_
+- Before adding a new dependency, check if the library entry already exists in `libs.versions.toml`. Hardcoded `group:artifact:version` strings in `build.gradle.kts` are a code smell. _(from `2026-09-18-version-catalog-cleanup`)_
+- Gradle deprecation warnings are now visible (`warning.mode=summary`). Warnings from AGP 9.x, Kotlin 2.3.x, and KMP 1.12.x should be reviewed periodically. _(from `2026-09-18-version-catalog-cleanup`)_
+- `libs.versions.android.compileSdk` → `libs.versions.androidCompileSdk` (and `minSdk`/`targetSdk`) — flat TOML keys generate flat accessors. Use the correct form. _(from `2026-09-18-version-catalog-cleanup`)_
+- `resolutionStrategy` additions go in `build.gradle.kts` (root) only. Never add a second `configurations.all { resolutionStrategy }` in a module. _(from `2026-09-18-version-catalog-cleanup`)_
+- When adding a bundle, confirm all members are used together in every relevant source set. A bundle that partially applies is worse than no bundle. _(from `2026-09-18-version-catalog-cleanup`)_
+
+### `build`
+
 - The `checkJvmMainComposeLibrariesCompatibility` task must pass silently on every PR. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 - When adding a new third-party Compose dependency, verify its JetBrains compose `requires:` constraint in the Gradle module metadata (`.module` file in cache) before adding — if it demands a version newer than the current pin, either bump or find an alternative. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 
@@ -810,7 +823,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `gradle`
 
 - All JetBrains compose library versions MUST track `version.ref = "composeMultiplatform"`. Split-version declarations are forbidden unless the artifact is an AndroidX (not JetBrains) group. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
+- All TOML keys follow `kebab-case` naming convention. New entries must use kebab-case. _(from `2026-09-18-version-catalog-cleanup`)_
+- `android.useAndroidX=true` removed from `gradle.properties` — it has been the default since AGP 4.x. _(from `2026-09-18-version-catalog-cleanup`)_
+- Before adding a new dependency, check if the library entry already exists in `libs.versions.toml`. Hardcoded `group:artifact:version` strings in `build.gradle.kts` are a code smell. _(from `2026-09-18-version-catalog-cleanup`)_
+- Gradle deprecation warnings are now visible (`warning.mode=summary`). Warnings from AGP 9.x, Kotlin 2.3.x, and KMP 1.12.x should be reviewed periodically. _(from `2026-09-18-version-catalog-cleanup`)_
+- `libs.versions.android.compileSdk` → `libs.versions.androidCompileSdk` (and `minSdk`/`targetSdk`) — flat TOML keys generate flat accessors. Use the correct form. _(from `2026-09-18-version-catalog-cleanup`)_
+- `resolutionStrategy` additions go in `build.gradle.kts` (root) only. Never add a second `configurations.all { resolutionStrategy }` in a module. _(from `2026-09-18-version-catalog-cleanup`)_
 - The `checkJvmMainComposeLibrariesCompatibility` task must pass silently on every PR. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
+- When adding a bundle, confirm all members are used together in every relevant source set. A bundle that partially applies is worse than no bundle. _(from `2026-09-18-version-catalog-cleanup`)_
 - When adding a new third-party Compose dependency, verify its JetBrains compose `requires:` constraint in the Gradle module metadata (`.module` file in cache) before adding — if it demands a version newer than the current pin, either bump or find an alternative. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 
 ### `idempotency`
@@ -2149,6 +2169,16 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading _(from `2026-09-09-notes-view-edit-split`)_
 - `when (selector)` appears only in `SelectorMatcher.matches` and `SelectorDescriptor.typeDescription` — compile-time enforcement of exhaustiveness for all 13 variants. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 
+### `version-catalog`
+
+- All TOML keys follow `kebab-case` naming convention. New entries must use kebab-case. _(from `2026-09-18-version-catalog-cleanup`)_
+- `android.useAndroidX=true` removed from `gradle.properties` — it has been the default since AGP 4.x. _(from `2026-09-18-version-catalog-cleanup`)_
+- Before adding a new dependency, check if the library entry already exists in `libs.versions.toml`. Hardcoded `group:artifact:version` strings in `build.gradle.kts` are a code smell. _(from `2026-09-18-version-catalog-cleanup`)_
+- Gradle deprecation warnings are now visible (`warning.mode=summary`). Warnings from AGP 9.x, Kotlin 2.3.x, and KMP 1.12.x should be reviewed periodically. _(from `2026-09-18-version-catalog-cleanup`)_
+- `libs.versions.android.compileSdk` → `libs.versions.androidCompileSdk` (and `minSdk`/`targetSdk`) — flat TOML keys generate flat accessors. Use the correct form. _(from `2026-09-18-version-catalog-cleanup`)_
+- `resolutionStrategy` additions go in `build.gradle.kts` (root) only. Never add a second `configurations.all { resolutionStrategy }` in a module. _(from `2026-09-18-version-catalog-cleanup`)_
+- When adding a bundle, confirm all members are used together in every relevant source set. A bundle that partially applies is worse than no bundle. _(from `2026-09-18-version-catalog-cleanup`)_
+
 ### `viewmodel`
 
 - ~18 файлов переработано, +5 новых, -2 удалено. _(from `2026-09-14-tasks-feature-nested-nav3`)_
@@ -2325,6 +2355,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-18-saved-view-factory` — agenda  viewmodel  draft
 - `2026-09-18-selector-serializer-registry` — agenda  serialization  dsl
 - `2026-09-18-testing-best-practices` — testing  vm  kotlin-test  coroutines
+- `2026-09-18-version-catalog-cleanup` — gradle  version-catalog  build-config
 
 ## Active entries
 
@@ -2436,4 +2467,5 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-18-saved-view-factory` — SavedAgendaView — DraftState.markSaved(), inline copy() in VMs
 - `2026-09-18-selector-serializer-registry` — SelectorSerializer — Map-based registry + typeTag extension
 - `2026-09-18-testing-best-practices` — Testing best practices — Tier 1 infrastructure, canonical VM pattern, Fake over mocks
+- `2026-09-18-version-catalog-cleanup` — Version catalog cleanup — kebab-case, bundles, single resolutionStrategy
 - `2026-09-18-vm-migration-scope-injection` — _(no title)

@@ -24,8 +24,8 @@ dependencies {
     implementation(libs.koin.android)
 
     // Compose
-    implementation(libs.compose.uiToolingPreview)
-    debugImplementation(libs.compose.uiTooling)
+    implementation(libs.compose.ui.tooling.preview)
+    debugImplementation(libs.compose.ui.tooling)
 
     // Testing — Android Instrumentation (adb device)
     androidTestImplementation(libs.androidx.testExt.junit)
@@ -37,12 +37,12 @@ dependencies {
 
 android {
     namespace = "com.singularity.todo"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    compileSdk = libs.versions.sdk.compile.get().toInt()
 
     defaultConfig {
         applicationId = "com.singularity.todo"
-        minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
+        minSdk = libs.versions.sdk.min.get().toInt()
+        targetSdk = libs.versions.sdk.target.get().toInt()
         versionCode = 1
         versionName = "0.1.0"
 

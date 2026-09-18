@@ -20,8 +20,8 @@ kotlin {
 
     android {
         namespace = "com.singularity.todo.shared"
-        compileSdk = libs.versions.android.compileSdk.get().toInt()
-        minSdk = libs.versions.android.minSdk.get().toInt()
+        compileSdk = libs.versions.sdk.compile.get().toInt()
+        minSdk = libs.versions.sdk.min.get().toInt()
 
         compilerOptions {
             jvmTarget = JvmTarget.JVM_11
@@ -53,11 +53,11 @@ kotlin {
             implementation(libs.compose.material.icons.extended)
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
-            implementation(libs.compose.uiToolingPreview)
+            implementation(libs.compose.ui.tooling.preview)
 
             // Lifecycle
-            implementation(libs.androidx.lifecycle.viewmodelCompose)
-            implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.androidx.lifecycle.viewmodel.compose)
+            implementation(libs.androidx.lifecycle.runtime.compose)
             // lifecycle-viewmodel-navigation3: metadata (expect) in commonMain, actuals in android/jvm
             implementation(libs.androidx.lifecycle.viewmodel.navigation3)
 
@@ -132,8 +132,8 @@ kotlin {
         }
 
         androidMain.dependencies {
-            implementation(libs.compose.uiTooling)
-            implementation(libs.compose.uiToolingPreview)
+            implementation(libs.compose.ui.tooling)
+            implementation(libs.compose.ui.tooling.preview)
 
             // Room Android
             implementation(libs.androidx.room3.runtime)
@@ -150,8 +150,8 @@ kotlin {
             implementation(libs.koin.compose.navigation3)
             // navigation3-runtime-android: rememberNavBackStack, NavBackStack, NavEntry, entryProvider
             // navigation3-ui-android: NavDisplay
-            implementation("androidx.navigation3:navigation3-runtime-android:1.1.1")
-            implementation("androidx.navigation3:navigation3-ui-android:1.1.1")
+            implementation(libs.androidx.navigation3.runtime.android)
+            implementation(libs.androidx.navigation3.ui.android)
             implementation(libs.androidx.lifecycle.viewmodel.navigation3)
 
             // Ktor OkHttp
@@ -215,7 +215,7 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
-            implementation(libs.kotlin.testJunit)
+            implementation(libs.kotlin.test.junit)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
         }
@@ -228,7 +228,7 @@ kotlin {
 
         getByName("androidHostTest").dependencies {
             implementation(libs.kotlin.test)
-            implementation(libs.kotlin.testJunit)
+            implementation(libs.kotlin.test.junit)
             implementation(libs.koin.test)
             implementation(libs.androidx.testExt.junit)
             implementation(libs.androidx.test.core)
@@ -236,10 +236,7 @@ kotlin {
             // Compose UI test infra — needed for createComposeRule and onNodeWithText.
             // Note: AndroidX version (1.7.3) is used instead of JetBrains (1.11.1) because
             // JetBrains version depends on Espresso which is incompatible with Robolectric.
-            implementation(libs.composeUiTestJunit4)
-            // Roborazzi snapshot testing — see docs/decisions/2026-09-08-roborazzi-snapshot-tests.md
-            // TODO: library resolved but compose API requires further investigation
-            // implementation(libs.roborazzi)
+            implementation(libs.compose.ui.test.junit4)
         }
     }
 }
@@ -252,35 +249,12 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
 }
 
 dependencies {
-    androidRuntimeClasspath(libs.compose.uiTooling)
+    androidRuntimeClasspath(libs.compose.ui.tooling)
 
     // Room 3 KSP compiler — per-target so AppDatabase_Impl is generated
     // for both Android and JVM. JVM builds the same Room DB via BundledSQLiteDriver.
     add("kspAndroid", libs.androidx.room3.compiler)
     add("kspJvm", libs.androidx.room3.compiler)
-
-    // Koin Annotations KSP processor — NOTE: koin-ksp-compiler version 2.3.x is
-    // INCOMPATIBLE with koin 4.x (koin-annotations 4.x). Only works with koin 2.x.
-    // Until a compatible version is released, DI validation relies on DiGraphTest.
-    // add("kspJvm", libs.koin.ksp.compiler)
-    // add("kspAndroid", libs.koin.ksp.compiler)
-}
-
-configurations.all {
-    resolutionStrategy.eachDependency {
-        if (requested.group == "org.jetbrains.kotlinx" && requested.name == "atomicfu") {
-            useVersion("0.23.1")
-        }
-        if (requested.group == "org.jetbrains.kotlinx" && requested.name == "kotlinx-collections-immutable") {
-            useVersion("0.3.7")
-        }
-        if (requested.group == "org.jetbrains.kotlinx" && requested.name == "kotlinx-serialization-json") {
-            useVersion("1.11.0")
-        }
-        if (requested.group == "org.jetbrains.kotlinx" && requested.name == "kotlinx-serialization-core") {
-            useVersion("1.11.0")
-        }
-    }
 }
 
 // Room 3 KSP schema export
