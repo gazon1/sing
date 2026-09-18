@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
+import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
@@ -96,7 +97,7 @@ fun TaskEditorContent(
     menuItems: List<TaskEditorMenuItem>,
     onBack: () -> Unit,
 ) {
-    var activeSheet by remember { mutableStateOf<TaskEditorSheet?>(null) }
+    val sheets = rememberDialogState<TaskEditorSheet>()
     var showMenu by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -138,7 +139,7 @@ fun TaskEditorContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onPriorityClick ?: { activeSheet = TaskEditorSheet.Priority })
+                    .clickable(onClick = onPriorityClick ?: { sheets.show(TaskEditorSheet.Priority) })
                     .then(
                         Modifier.padding(
                             horizontal = TaskSpacing.cardPaddingHorizontal,
@@ -180,7 +181,7 @@ fun TaskEditorContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(onClick = onDueDateClick ?: { activeSheet = TaskEditorSheet.Date })
+                        .clickable(onClick = onDueDateClick ?: { sheets.show(TaskEditorSheet.Date) })
                         .padding(
                             horizontal = TaskSpacing.cardPaddingHorizontal,
                             vertical = TaskSpacing.cardPaddingVertical,
@@ -238,34 +239,34 @@ fun TaskEditorContent(
     }
 
     // Sheets
-    when (val sheet = activeSheet) {
+    when (sheets.active) {
         is TaskEditorSheet.Date -> DatePickerSheet(
             initialDate = dueDate,
             onDateSelected = { date ->
                 onDueDateSelect(date)
-                activeSheet = null
+                sheets.dismiss()
             },
-            onDismiss = { activeSheet = null },
+            onDismiss = { sheets.dismiss() },
         )
 
         is TaskEditorSheet.Time -> TimePickerSheet(
             initialTime = dueTime,
             onTimeSelected = { time ->
                 onDueTimeSelect(time)
-                activeSheet = null
+                sheets.dismiss()
             },
-            onDismiss = { activeSheet = null },
+            onDismiss = { sheets.dismiss() },
         )
 
         is TaskEditorSheet.Priority -> TaskEditorSheetHost(
             title = "Приоритет",
-            onClose = { activeSheet = null },
+            onClose = { sheets.dismiss() },
         ) {
             TaskEditorPrioritySheet(
                 selected = priority,
                 onSelect = { p ->
                     onPrioritySelect(p)
-                    activeSheet = null
+                    sheets.dismiss()
                 },
             )
         }

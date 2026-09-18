@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -142,7 +143,7 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, projectId: ProjectId
     val clock: Clock = Clock.System
     val parentOptions by viewModel.parentOptionsFlow.collectAsStateWithLifecycle()
     val availableTasks by viewModel.availableTasksFlow.collectAsStateWithLifecycle()
-    var sheetState by remember { mutableStateOf<ActiveSheet?>(null) }
+    val sheets = rememberDialogState<ActiveSheet>()
     var overflowMenuOpen by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val draftState by viewModel.draftState.state.collectAsStateWithLifecycle()
@@ -152,41 +153,39 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, projectId: ProjectId
         ProjectDetailActions { intent ->
             when (intent) {
                 is ProjectDetailIntent.Routing.OpenColorSheet -> {
-                    sheetState = ActiveSheet.PickColor
+                    sheets.show(ActiveSheet.PickColor)
                 }
 
                 is ProjectDetailIntent.Routing.OpenIconSheet -> {
-                    sheetState = ActiveSheet.PickIcon
+                    sheets.show(ActiveSheet.PickIcon)
                 }
 
                 is ProjectDetailIntent.Routing.OpenParentSheet -> {
-                    sheetState = ActiveSheet.PickParent(
-                    intent.currentParentId,
-                )
+                    sheets.show(ActiveSheet.PickParent(intent.currentParentId))
                 }
 
                 is ProjectDetailIntent.Routing.OpenDueDateSheet -> {
-                    sheetState = ActiveSheet.PickDueDate
+                    sheets.show(ActiveSheet.PickDueDate)
                 }
 
                 is ProjectDetailIntent.Routing.OpenChildrenSheet -> {
-                    sheetState = ActiveSheet.ShowChildren
+                    sheets.show(ActiveSheet.ShowChildren)
                 }
 
                 is ProjectDetailIntent.Routing.OpenDeleteSheet -> {
-                    sheetState = ActiveSheet.ConfirmDelete
+                    sheets.show(ActiveSheet.ConfirmDelete)
                 }
 
                 is ProjectDetailIntent.Routing.OpenArchiveSheet -> {
-                    sheetState = ActiveSheet.ConfirmArchive
+                    sheets.show(ActiveSheet.ConfirmArchive)
                 }
 
                 is ProjectDetailIntent.Routing.OpenReminderSheet -> {
-                    sheetState = ActiveSheet.PickReminder
+                    sheets.show(ActiveSheet.PickReminder)
                 }
 
                 is ProjectDetailIntent.Routing.OpenAttachmentSheet -> {
-                    sheetState = ActiveSheet.AddAttachment
+                    sheets.show(ActiveSheet.AddAttachment)
                 }
 
                 is ProjectDetailIntent.Domain -> viewModel.onIntent(intent)
@@ -300,12 +299,12 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, projectId: ProjectId
 
     // ─── Sheets ───────────────────────────────────────────────────────────────
 
-    if (sheetState != null) {
+    if (sheets.active != null) {
         ModalBottomSheet(
-            onDismissRequest = { sheetState = null },
+            onDismissRequest = { sheets.dismiss() },
             sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
         ) {
-            when (sheetState) {
+            when (sheets.active) {
                 null -> Unit
 
                 is ActiveSheet.PickColor -> ColorPickerSheet(
@@ -313,70 +312,70 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, projectId: ProjectId
                         ?: ProjectColorPalette.default,
                     onPick = { color ->
                         actions.onUpdateColor(color)
-                        sheetState = null
+                        sheets.dismiss()
                     },
-                    onDismiss = { sheetState = null },
+                    onDismiss = { sheets.dismiss() },
                 )
 
                 is ActiveSheet.PickIcon -> IconPickerSheet(
                     currentIcon = (state as? ProjectDetailUiState.Content)?.ui?.project?.icon,
                     onPick = { icon ->
                         actions.onUpdateIcon(icon)
-                        sheetState = null
+                        sheets.dismiss()
                     },
-                    onDismiss = { sheetState = null },
+                    onDismiss = { sheets.dismiss() },
                 )
 
                 is ActiveSheet.PickParent -> ParentPickerSheet(
                     options = parentOptions,
                     onPick = { parentId ->
                         actions.onUpdateParent(parentId)
-                        sheetState = null
+                        sheets.dismiss()
                     },
-                    onDismiss = { sheetState = null },
+                    onDismiss = { sheets.dismiss() },
                 )
 
                 is ActiveSheet.ConfirmDelete -> ConfirmDeleteSheet(
                     projectName = (state as? ProjectDetailUiState.Content)?.ui?.project?.name ?: "",
                     onConfirm = {
                         actions.onDelete()
-                        sheetState = null
+                        sheets.dismiss()
                     },
-                    onDismiss = { sheetState = null },
+                    onDismiss = { sheets.dismiss() },
                 )
 
                 is ActiveSheet.ConfirmArchive -> ConfirmArchiveSheet(
                     isArchived = (state as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true,
                     onConfirm = {
                         actions.onToggleArchive()
-                        sheetState = null
+                        sheets.dismiss()
                     },
-                    onDismiss = { sheetState = null },
+                    onDismiss = { sheets.dismiss() },
                 )
 
                 is ActiveSheet.PickReminder -> ReminderPickerSheet(
                     onPick = {
-                        /* reminder set on project — future enhancement */ sheetState = null
+                        /* reminder set on project — future enhancement */ sheets.dismiss()
                     },
-                    onDismiss = { sheetState = null },
+                    onDismiss = { sheets.dismiss() },
                 )
 
                 is ActiveSheet.AddAttachment -> AttachmentPlaceholderSheet(
-                    onDismiss = { sheetState = null },
+                    onDismiss = { sheets.dismiss() },
                 )
 
                 is ActiveSheet.PickDueDate -> DatePickerSheet(
                     initialDate = (state as? ProjectDetailUiState.Content)?.ui?.project?.dueDate,
                     onDateSelected = { date ->
                         actions.onUpdateDueDate(date)
-                        sheetState = null
+                        sheets.dismiss()
                     },
-                    onDismiss = { sheetState = null },
+                    onDismiss = { sheets.dismiss() },
                 )
 
                 is ActiveSheet.ShowChildren -> ChildProjectsSheet(
                     children = (state as? ProjectDetailUiState.Content)?.ui?.childProjects ?: emptyList(),
-                    onDismiss = { sheetState = null },
+                    onDismiss = { sheets.dismiss() },
                 )
             }
         }
