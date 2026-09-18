@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.clock.AutosaveScheduler
+import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.UserId
@@ -115,28 +116,28 @@ class TaskCreateViewModel(
     fun onIntent(intent: TaskCreateIntent) {
         when (intent) {
             is TaskCreateIntent.TitleChanged -> {
-                _draft.value = _draft.value.copy(title = intent.title)
+                _draft.updateState { it.copy(title = intent.title) }
             }
 
             is TaskCreateIntent.DescriptionChanged -> {
-                _draft.value = _draft.value.copy(description = intent.description)
+                _draft.updateState { it.copy(description = intent.description) }
             }
 
             is TaskCreateIntent.SetPriority -> {
-                _draft.value = _draft.value.copy(priority = intent.priority)
+                _draft.updateState { it.copy(priority = intent.priority) }
             }
 
             is TaskCreateIntent.SetDueDate -> {
                 val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
-                _draft.value = _draft.value.copy(dueDate = option)
+                _draft.updateState { it.copy(dueDate = option) }
             }
 
             is TaskCreateIntent.SetDueTime -> {
-                _draft.value = _draft.value.copy(dueTime = intent.time)
+                _draft.updateState { it.copy(dueTime = intent.time) }
             }
 
             is TaskCreateIntent.DueDateCleared -> {
-                _draft.value = _draft.value.copy(dueDate = DueDateOption.None, dueTime = null)
+                _draft.updateState { it.copy(dueDate = DueDateOption.None, dueTime = null) }
             }
 
             TaskCreateIntent.SaveClicked -> {

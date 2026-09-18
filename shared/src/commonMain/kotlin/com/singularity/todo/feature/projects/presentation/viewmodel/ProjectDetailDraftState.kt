@@ -3,7 +3,6 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 
 /**
  * Pure editable-draft state for [ProjectDetailViewModel].
@@ -32,8 +31,8 @@ class ProjectDetailDraftState(
         )
     }
 
-    fun setName(name: String) { _state.update { it.copy(name = name) } }
-    fun setDescription(description: String) { _state.update { it.copy(description = description) } }
+    fun setName(name: String) { _state.value = _state.value.copy(name = name) }
+    fun setDescription(description: String) { _state.value = _state.value.copy(description = description) }
 }
 
 data class ProjectDetailDraft(

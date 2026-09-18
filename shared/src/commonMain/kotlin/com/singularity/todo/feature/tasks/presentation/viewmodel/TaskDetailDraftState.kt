@@ -3,7 +3,6 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 
 /**
  * Pure editable-draft state for [TaskDetailViewModel].
@@ -32,8 +31,8 @@ class TaskDetailDraftState(
         )
     }
 
-    fun setTitle(title: String) { _state.update { it.copy(title = title) } }
-    fun setDescription(description: String) { _state.update { it.copy(description = description) } }
+    fun setTitle(title: String) { _state.value = _state.value.copy(title = title) }
+    fun setDescription(description: String) { _state.value = _state.value.copy(description = description) }
 }
 
 data class TaskDetailDraft(

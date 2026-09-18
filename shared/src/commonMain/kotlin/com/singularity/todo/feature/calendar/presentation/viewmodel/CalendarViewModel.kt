@@ -2,6 +2,7 @@ package com.singularity.todo.feature.calendar.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.goNext
@@ -118,45 +119,44 @@ class CalendarViewModel(
     fun onIntent(intent: CalendarIntent) {
         when (intent) {
             is CalendarIntent.ViewModeChanged -> {
-                _calendarState.value = _calendarState.value.copy(viewMode = intent.mode)
+                _calendarState.updateState { it.copy(viewMode = intent.mode) }
             }
 
             CalendarIntent.GoToday -> {
-                _calendarState.value = _calendarState.value.copy(anchor = today)
+                _calendarState.updateState { it.copy(anchor = today) }
             }
 
             CalendarIntent.GoNext -> {
-                _calendarState.value = _calendarState.value.copy(
-                    anchor = goNext(_calendarState.value.anchor, _calendarState.value.viewMode),
-                )
+                _calendarState.updateState {
+                    it.copy(anchor = goNext(it.anchor, it.viewMode))
+                }
             }
 
             CalendarIntent.GoPrevious -> {
-                _calendarState.value = _calendarState.value.copy(
-                    anchor = goPrevious(_calendarState.value.anchor, _calendarState.value.viewMode),
-                )
+                _calendarState.updateState {
+                    it.copy(anchor = goPrevious(it.anchor, it.viewMode))
+                }
             }
 
             is CalendarIntent.DayClicked -> {
-                _calendarState.value = _calendarState.value.copy(
-                    // When user clicks a day in month mode, switch to day view
-                    viewMode = if (_calendarState.value.viewMode == CalendarViewMode.MONTH) {
-                        CalendarViewMode.DAY
-                    } else {
-                        _calendarState.value.viewMode
-                    },
-                    anchor = intent.date,
-                )
+                _calendarState.updateState {
+                    it.copy(
+                        viewMode = if (it.viewMode == CalendarViewMode.MONTH) {
+                            CalendarViewMode.DAY
+                        } else {
+                            it.viewMode
+                        },
+                        anchor = intent.date,
+                    )
+                }
             }
 
             CalendarIntent.ToggleMiniCalendar -> {
-                _calendarState.value = _calendarState.value.copy(
-                    isMiniOpen = !_calendarState.value.isMiniOpen,
-                )
+                _calendarState.updateState { it.copy(isMiniOpen = !it.isMiniOpen) }
             }
 
             CalendarIntent.DismissMiniCalendar -> {
-                _calendarState.value = _calendarState.value.copy(isMiniOpen = false)
+                _calendarState.updateState { it.copy(isMiniOpen = false) }
             }
 
             is CalendarIntent.TaskClicked -> {

@@ -2,6 +2,7 @@ package com.singularity.todo.feature.search
 
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +15,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -58,18 +61,17 @@ class SearchViewModel(
 
     private val userId: UserId get() = currentUser.scopedUserId.value
 
+    /**
+     * Pure results flow — no side effects on [_state].
+     * [flatMapLatest] cancels in-flight search when query changes.
+     */
     private val results: StateFlow<SearchResults> = _query
         .flatMapLatest { q ->
             if (q.isBlank()) {
                 flowOf(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
             } else {
-                _state.value = _state.value.copy(isSearching = true)
                 searchUseCase(q, userId.value)
             }
-        }
-        .map { results ->
-            _state.value = _state.value.copy(isSearching = false, results = results)
-            results
         }
         .stateIn(
             scope,
@@ -78,15 +80,24 @@ class SearchViewModel(
         )
 
     init {
+        // Combine query + results into state — no side effects inside the flow chain
         scope.launch {
-            results.collect { results ->
-                _state.value = _state.value.copy(results = results)
+            combine(
+                _query.debounce(300),
+                results,
+            ) { q, results ->
+                SearchUiState(
+                    query = q,
+                    isSearching = q.isNotBlank(),
+                    results = results,
+                )
+            }.collect { newState ->
+                _state.value = newState
             }
         }
     }
 
     fun onQueryChange(query: String) {
         _query.value = query
-        _state.value = _state.value.copy(query = query)
     }
 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.ui.debounce.Debouncer
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -33,8 +34,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -202,28 +201,19 @@ class ProjectDetailViewModel(
     /** Draft state — single source of truth for editable name/description. */
     val draftState = ProjectDetailDraftState()
 
+    /** Debouncer for silent inline edits (name, description). */
+    private val debouncer = Debouncer(scope, 300.milliseconds)
+
     init {
         // Name debounce — reads _latestProject to avoid TOCTOU.
-        scope.launch {
-            draftState.state
-                .map { it.name }
-                .debounce(300.milliseconds)
-                .distinctUntilChanged()
-                .collect { name ->
-                    val current = _latestProject.value ?: return@collect
-                    mutate(current) { copy(name = name) }
-                }
+        debouncer.debounce(draftState.state.map { it.name }) { name ->
+            val current = _latestProject.value ?: return@debounce
+            mutate(current) { copy(name = name) }
         }
         // Description debounce — same pattern.
-        scope.launch {
-            draftState.state
-                .map { it.description }
-                .debounce(300.milliseconds)
-                .distinctUntilChanged()
-                .collect { desc ->
-                    val current = _latestProject.value ?: return@collect
-                    mutate(current) { copy(description = desc) }
-                }
+        debouncer.debounce(draftState.state.map { it.description }) { desc ->
+            val current = _latestProject.value ?: return@debounce
+            mutate(current) { copy(description = desc) }
         }
     }
 
