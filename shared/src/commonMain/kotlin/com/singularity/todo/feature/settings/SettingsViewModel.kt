@@ -234,7 +234,7 @@ class SettingsViewModel(
                 -> {
                     @Suppress("UNCHECKED_CAST")
                     (aiContributor as? SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>)
-                        ?.apply(intent)
+                        ?.process(intent)
                     reloadAiSection()
                 }
 
@@ -243,7 +243,7 @@ class SettingsViewModel(
                 -> {
                     @Suppress("UNCHECKED_CAST")
                     (aiContributor as? SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>)
-                        ?.apply(intent as SettingsIntent.Ai)
+                        ?.process(intent as SettingsIntent.Ai)
                     reloadAiSection()
                 }
 

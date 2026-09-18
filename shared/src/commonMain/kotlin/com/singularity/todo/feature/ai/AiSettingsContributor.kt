@@ -27,8 +27,8 @@ class AiSettingsContributor(private val store: AiSettingsStore) :
 
     override fun observe(): Flow<SettingsSection.Ai> = store.observe()
 
-    override suspend fun apply(intent: SettingsIntent.Ai) {
-        store.apply(intent)
+    override suspend fun process(intent: SettingsIntent.Ai) {
+        store.process(intent)
     }
 
     /** Exposes the ephemeral test/fetch state as a StateFlow for synchronous reads. */
@@ -38,7 +38,7 @@ class AiSettingsContributor(private val store: AiSettingsStore) :
     val fetchModelsErrorStateFlow = store.fetchModelsErrorStateFlow
 
     /**
-     * Writes the API key to SecureStorage without going through [apply].
+     * Writes the API key to SecureStorage without going through [process].
      * Called directly by [com.singularity.todo.feature.settings.SettingsViewModel]
      * when the user finishes editing the key field (debounced in the ViewModel layer).
      */

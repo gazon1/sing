@@ -78,7 +78,7 @@ class AiSettingsStore(
         )
     }
 
-    suspend fun apply(intent: SettingsIntent.Ai) {
+    suspend fun process(intent: SettingsIntent.Ai) {
         when (intent) {
             is SettingsIntent.Ai.UpdateProvider -> settings.setAiProvider(intent.value.id)
             is SettingsIntent.Ai.UpdateBaseUrl -> settings.setAiBaseUrl(intent.value)
