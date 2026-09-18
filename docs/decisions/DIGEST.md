@@ -375,10 +375,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `build-config`
 
 - All TOML keys follow `kebab-case` naming convention. New entries must use kebab-case. _(from `2026-09-18-version-catalog-cleanup`)_
+- Android SDK versions use `sdk-compile` / `sdk-min` / `sdk-target` keys (accessor: `libs.versions.sdk.compile` etc.). Keys starting with `android` are avoided because library aliases like `androidx-android-*` shadow the version accessor. _(from `2026-09-18-version-catalog-cleanup`)_
 - `android.useAndroidX=true` removed from `gradle.properties` — it has been the default since AGP 4.x. _(from `2026-09-18-version-catalog-cleanup`)_
 - Before adding a new dependency, check if the library entry already exists in `libs.versions.toml`. Hardcoded `group:artifact:version` strings in `build.gradle.kts` are a code smell. _(from `2026-09-18-version-catalog-cleanup`)_
+- **Catalog accessor shadowing (Gradle 9.x):** Library keys that start with a prefix that matches a version key (e.g., `jvm-test` when version key is `kotlin`, or `kotlinSerialization` when version key is `kotlin-serialization`) generate nested accessor classes that shadow the version accessor. Workaround: version alignment constants are defined in `gradle.properties` (`version.kotlin`, `version.kotlinSerialization`, `version.kotlinxCollectionsImmutable`) and used in `resolutionStrategy` via `project.property()` — this avoids the catalog entirely for version strings. _(from `2026-09-18-version-catalog-cleanup`)_
 - Gradle deprecation warnings are now visible (`warning.mode=summary`). Warnings from AGP 9.x, Kotlin 2.3.x, and KMP 1.12.x should be reviewed periodically. _(from `2026-09-18-version-catalog-cleanup`)_
-- `libs.versions.android.compileSdk` → `libs.versions.androidCompileSdk` (and `minSdk`/`targetSdk`) — flat TOML keys generate flat accessors. Use the correct form. _(from `2026-09-18-version-catalog-cleanup`)_
 - `resolutionStrategy` additions go in `build.gradle.kts` (root) only. Never add a second `configurations.all { resolutionStrategy }` in a module. _(from `2026-09-18-version-catalog-cleanup`)_
 - When adding a bundle, confirm all members are used together in every relevant source set. A bundle that partially applies is worse than no bundle. _(from `2026-09-18-version-catalog-cleanup`)_
 
@@ -771,7 +772,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Adding a new Selector variant: add `@SerialName` annotation + one `put()` in the registry (2 changes). _(from `2026-09-18-selector-serializer-registry`)_
 - All 7 presets now use the canonical public DSL path. _(from `2026-09-18-agenda-selector-composer-dsl`)_
 - Composite selectors (`AllOf`, `AnyOf`, `Not`) encode their children via `registrySnapshot.getValue(child.typeTag).encode(child)` — works for any nesting depth. _(from `2026-09-18-selector-serializer-registry`)_
+- `ConfirmActionDialog` replaces inline `AlertDialog` in any future confirm-dialog use case. _(from `2026-09-18-shared-ui-adoption-mr5`)_
+- `DragHandleRow` is the canonical home for any read-only row that has a drag handle. If a future use case needs click-to-edit or checkable rows, create a separate component. _(from `2026-09-18-shared-ui-adoption-mr5`)_
+- `Icon`, `Column`, `Row`, `Arrangement` imports removed from `ReorderableSectionList.kt` since `SectionRow` no longer uses them directly. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
+- `SectionEditorCard` now uses `DragHandleRow` internally, keeping the Card wrapper for elevation and background. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - `section("X") { }` without a selector now throws `IllegalStateException("Section 'X' has no selector — pass as parameter or assign inside block")` instead of `UninitializedPropertyAccessException`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
 - `SelectorBuilderTest` and `AgendaScopeSectionTest` added in `commonTest`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
 - Selector composition uses `selector { allOf(...); not(...) }` style instead of `Selector.AllOf(listOf(...))`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
@@ -824,10 +829,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - All JetBrains compose library versions MUST track `version.ref = "composeMultiplatform"`. Split-version declarations are forbidden unless the artifact is an AndroidX (not JetBrains) group. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 - All TOML keys follow `kebab-case` naming convention. New entries must use kebab-case. _(from `2026-09-18-version-catalog-cleanup`)_
+- Android SDK versions use `sdk-compile` / `sdk-min` / `sdk-target` keys (accessor: `libs.versions.sdk.compile` etc.). Keys starting with `android` are avoided because library aliases like `androidx-android-*` shadow the version accessor. _(from `2026-09-18-version-catalog-cleanup`)_
 - `android.useAndroidX=true` removed from `gradle.properties` — it has been the default since AGP 4.x. _(from `2026-09-18-version-catalog-cleanup`)_
 - Before adding a new dependency, check if the library entry already exists in `libs.versions.toml`. Hardcoded `group:artifact:version` strings in `build.gradle.kts` are a code smell. _(from `2026-09-18-version-catalog-cleanup`)_
+- **Catalog accessor shadowing (Gradle 9.x):** Library keys that start with a prefix that matches a version key (e.g., `jvm-test` when version key is `kotlin`, or `kotlinSerialization` when version key is `kotlin-serialization`) generate nested accessor classes that shadow the version accessor. Workaround: version alignment constants are defined in `gradle.properties` (`version.kotlin`, `version.kotlinSerialization`, `version.kotlinxCollectionsImmutable`) and used in `resolutionStrategy` via `project.property()` — this avoids the catalog entirely for version strings. _(from `2026-09-18-version-catalog-cleanup`)_
 - Gradle deprecation warnings are now visible (`warning.mode=summary`). Warnings from AGP 9.x, Kotlin 2.3.x, and KMP 1.12.x should be reviewed periodically. _(from `2026-09-18-version-catalog-cleanup`)_
-- `libs.versions.android.compileSdk` → `libs.versions.androidCompileSdk` (and `minSdk`/`targetSdk`) — flat TOML keys generate flat accessors. Use the correct form. _(from `2026-09-18-version-catalog-cleanup`)_
 - `resolutionStrategy` additions go in `build.gradle.kts` (root) only. Never add a second `configurations.all { resolutionStrategy }` in a module. _(from `2026-09-18-version-catalog-cleanup`)_
 - The `checkJvmMainComposeLibrariesCompatibility` task must pass silently on every PR. _(from `2026-09-06-compose-multiplatform-1.12.0-bump`)_
 - When adding a bundle, confirm all members are used together in every relevant source set. A bundle that partially applies is worse than no bundle. _(from `2026-09-18-version-catalog-cleanup`)_
@@ -1533,9 +1539,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling. _(from `2026-09-14-nav3-tasks-navigator`)_
+- `ConfirmActionDialog` replaces inline `AlertDialog` in any future confirm-dialog use case. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - **`createTask` and `moveTaskToProject`** remain in VM (require repository writes) _(from `2026-09-09-project-detail-intent-refactor`)_
 - Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops. _(from `2026-09-15-projects-nested-nav3`)_
+- `DragHandleRow` is the canonical home for any read-only row that has a drag handle. If a future use case needs click-to-edit or checkable rows, create a separate component. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells. _(from `2026-09-15-projects-nested-nav3`)_
+- `Icon`, `Column`, `Row`, `Arrangement` imports removed from `ReorderableSectionList.kt` since `SectionRow` no longer uses them directly. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - **`NavigateToTasks`** is no longer a VM event — screen handles it as routing _(from `2026-09-09-project-detail-intent-refactor`)_
 - **No pure reducer needed** — `ProjectDetailViewModel` is write-through like `TaskDetailViewModel` _(from `2026-09-09-project-detail-intent-refactor`)_
 - One new e2e test in `mcp-server` (`McpToolRoundTripTest`). _(from `2026-09-08-mcp-server-health-audit`)_
@@ -1544,6 +1553,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`ProjectDetailUiEvent`** now has only 2 cases: `NavigateBack` (post-delete) and `ShowError` _(from `2026-09-09-project-detail-intent-refactor`)_
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android. _(from `2026-09-15-projects-nested-nav3`)_
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`. _(from `2026-09-14-nav3-tasks-navigator`)_
+- `SectionEditorCard` now uses `DragHandleRow` internally, keeping the Card wrapper for elevation and background. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavGraph` is the `@Composable` nav host — it sets up `LocalTasksNavigator`, `LocalNavBackStack`, and the `BackHandler`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavigator` is the only class that mutates `NavBackStack<TasksRoute>`. _(from `2026-09-14-nav3-tasks-navigator`)_
@@ -1935,6 +1945,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `ui`
 
 - `compose-material:material = 1.12.0` added to `libs.versions.toml` and `desktopApp/build.gradle.kts` _(from `2026-09-15-desktop-menus`)_
+- `ConfirmActionDialog` replaces inline `AlertDialog` in any future confirm-dialog use case. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - Consistent API across all shared components _(from `2026-09-09-content-slot-pattern`)_
 - `ContextMenuOpenState` data class in `jvmMain/core/ui/menu/` holds the screen `DpOffset`. _(from `2026-09-15-desktop-menus`)_
 
@@ -1955,10 +1966,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
 - `DesktopShellNav3.kt` owns `showAbout` state and `menuEntries` — natural location since _(from `2026-09-15-desktop-menus`)_
 - `DiscardChangesDialog` can be repurposed for any "are you sure?" confirmation (not just agenda) by passing custom text. _(from `2026-09-18-agenda-ui-shared-adoption`)_
+- `DragHandleRow` is the canonical home for any read-only row that has a drag handle. If a future use case needs click-to-edit or checkable rows, create a separate component. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - Easier to extend cards and editors without breaking call sites _(from `2026-09-09-content-slot-pattern`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Fake repo returns empty by default** — widget tests that check `LazyColumn` with `testTag` will fail when repo is empty (state = `Empty`). Test the `EmptyState` text instead, or seed data via `fakeNotesRepo.seed(note)`. _(from `2026-09-05-robolectric-widget-tests`)_
 - Hover delay (300ms) on submenus via `LaunchedEffect(isHovered) { delay(300); onOpenSubMenu() }`. _(from `2026-09-15-desktop-menus`)_
+- `Icon`, `Column`, `Row`, `Arrangement` imports removed from `ReorderableSectionList.kt` since `SectionRow` no longer uses them directly. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - **JVM args for JDK 21+** — add `--add-opens=java.base/jdk.internal.access=ALL-UNNAMED` to `gradle.properties` (`org.gradle.jvmargs`) AND to `shared/build.gradle.kts` via `afterEvaluate` + `tasks.withType<Test>()` for the test worker process. _(from `2026-09-05-robolectric-widget-tests`)_
 - `MenuBarHost` is a stub (Material 2 not available in current Compose version). _(from `2026-09-15-desktop-menus`)_
 - **Menu sheet visibility** is `rememberSaveable` state in `AndroidShell` — survives config changes, not part of the back stack. _(from `2026-09-05-android-bottom-nav`)_
@@ -1975,6 +1988,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **Robolectric 4.17-beta-4** — `4.16` maxes at SDK 36; `compileSdk=37` requires the beta. The beta is already cached. _(from `2026-09-05-robolectric-widget-tests`)_
 - `SavedAgendaListScreen` keeps its FAB by using `Scaffold` directly (not `BackTopAppBar` which lacks FAB support). _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - `sealed interface ActiveDialog` enables exhaustive `when` on JVM. _(from `2026-09-18-agenda-ui-shared-adoption`)_
+- `SectionEditorCard` now uses `DragHandleRow` internally, keeping the Card wrapper for elevation and background. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`. _(from `2026-09-05-robolectric-widget-tests`)_
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor. _(from `2026-09-07-settings-fixes`)_
 - `SettingsViewModel.testConnection()` **always** short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`. _(from `2026-09-05-llm-provider-settings`)_
@@ -2172,10 +2186,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `version-catalog`
 
 - All TOML keys follow `kebab-case` naming convention. New entries must use kebab-case. _(from `2026-09-18-version-catalog-cleanup`)_
+- Android SDK versions use `sdk-compile` / `sdk-min` / `sdk-target` keys (accessor: `libs.versions.sdk.compile` etc.). Keys starting with `android` are avoided because library aliases like `androidx-android-*` shadow the version accessor. _(from `2026-09-18-version-catalog-cleanup`)_
 - `android.useAndroidX=true` removed from `gradle.properties` — it has been the default since AGP 4.x. _(from `2026-09-18-version-catalog-cleanup`)_
 - Before adding a new dependency, check if the library entry already exists in `libs.versions.toml`. Hardcoded `group:artifact:version` strings in `build.gradle.kts` are a code smell. _(from `2026-09-18-version-catalog-cleanup`)_
+- **Catalog accessor shadowing (Gradle 9.x):** Library keys that start with a prefix that matches a version key (e.g., `jvm-test` when version key is `kotlin`, or `kotlinSerialization` when version key is `kotlin-serialization`) generate nested accessor classes that shadow the version accessor. Workaround: version alignment constants are defined in `gradle.properties` (`version.kotlin`, `version.kotlinSerialization`, `version.kotlinxCollectionsImmutable`) and used in `resolutionStrategy` via `project.property()` — this avoids the catalog entirely for version strings. _(from `2026-09-18-version-catalog-cleanup`)_
 - Gradle deprecation warnings are now visible (`warning.mode=summary`). Warnings from AGP 9.x, Kotlin 2.3.x, and KMP 1.12.x should be reviewed periodically. _(from `2026-09-18-version-catalog-cleanup`)_
-- `libs.versions.android.compileSdk` → `libs.versions.androidCompileSdk` (and `minSdk`/`targetSdk`) — flat TOML keys generate flat accessors. Use the correct form. _(from `2026-09-18-version-catalog-cleanup`)_
 - `resolutionStrategy` additions go in `build.gradle.kts` (root) only. Never add a second `configurations.all { resolutionStrategy }` in a module. _(from `2026-09-18-version-catalog-cleanup`)_
 - When adding a bundle, confirm all members are used together in every relevant source set. A bundle that partially applies is worse than no bundle. _(from `2026-09-18-version-catalog-cleanup`)_
 
@@ -2354,6 +2369,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-18-agenda-ui-shared-adoption` — agenda  ui  shared-components
 - `2026-09-18-saved-view-factory` — agenda  viewmodel  draft
 - `2026-09-18-selector-serializer-registry` — agenda  serialization  dsl
+- `2026-09-18-shared-ui-adoption-mr5` — ui  refactor  dsl
 - `2026-09-18-testing-best-practices` — testing  vm  kotlin-test  coroutines
 - `2026-09-18-version-catalog-cleanup` — gradle  version-catalog  build-config
 
@@ -2466,6 +2482,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-18-agenda-ui-shared-adoption` — Agenda UI — shared BackTopAppBar, DiscardChangesDialog, SettingsRadioRow adoption
 - `2026-09-18-saved-view-factory` — SavedAgendaView — DraftState.markSaved(), inline copy() in VMs
 - `2026-09-18-selector-serializer-registry` — SelectorSerializer — Map-based registry + typeTag extension
+- `2026-09-18-shared-ui-adoption-mr5` — MR5: ConfirmActionDialog + DragHandleRow shared components
 - `2026-09-18-testing-best-practices` — Testing best practices — Tier 1 infrastructure, canonical VM pattern, Fake over mocks
 - `2026-09-18-version-catalog-cleanup` — Version catalog cleanup — kebab-case, bundles, single resolutionStrategy
 - `2026-09-18-vm-migration-scope-injection` — _(no title)

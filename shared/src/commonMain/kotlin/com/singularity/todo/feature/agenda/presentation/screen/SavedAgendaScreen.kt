@@ -19,7 +19,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.BackTopAppBar
+import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
@@ -162,25 +162,15 @@ fun SavedAgendaScreen(
 
     // ConfirmDelete dialog
     if (activeDialog == ActiveDialog.ConfirmDelete) {
-        AlertDialog(
-            onDismissRequest = { activeDialog = null },
-            title = { Text("Delete view?") },
-            text = { Text("This action cannot be undone.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        activeDialog = null
-                        viewModel.onIntent(SavedAgendaIntent.Delete)
-                    },
-                ) {
-                    Text("Delete")
-                }
+        ConfirmActionDialog(
+            title = "Delete view?",
+            text = "This action cannot be undone.",
+            confirmButtonText = "Delete",
+            onConfirm = {
+                activeDialog = null
+                viewModel.onIntent(SavedAgendaIntent.Delete)
             },
-            dismissButton = {
-                TextButton(onClick = { activeDialog = null }) {
-                    Text("Cancel")
-                }
-            },
+            onDismiss = { activeDialog = null },
         )
     }
 

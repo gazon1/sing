@@ -1,8 +1,5 @@
 package com.singularity.todo.core.ui.components
 
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 
 /**
@@ -23,20 +20,11 @@ fun DiscardChangesDialog(
     text: String = "You have unsaved changes. If you leave now, your changes will be lost.",
     discardButtonText: String = "Discard",
     keepEditingButtonText: String = "Keep editing",
-) {
-    AlertDialog(
-        onDismissRequest = onKeepEditing,
-        title = { Text(title) },
-        text = { Text(text) },
-        confirmButton = {
-            TextButton(onClick = onDiscard) {
-                Text(discardButtonText)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onKeepEditing) {
-                Text(keepEditingButtonText)
-            }
-        },
-    )
-}
+) = ConfirmActionDialog(
+    title = title,
+    text = text,
+    confirmButtonText = discardButtonText,
+    onConfirm = onDiscard,
+    onDismiss = onKeepEditing,
+    dismissButtonText = keepEditingButtonText,
+)

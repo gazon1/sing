@@ -1,24 +1,22 @@
 package com.singularity.todo.feature.agenda.presentation.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.components.DragHandleIcon
+import com.singularity.todo.core.ui.components.DragHandleRow
+import com.singularity.todo.core.ui.components.HandleSide
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.selector.typeDescription
 
@@ -47,46 +45,33 @@ fun SectionEditorCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         ),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 8.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Icon(
-                imageVector = Icons.Default.DragHandle,
-                contentDescription = "Drag to reorder",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(8.dp),
-            )
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(vertical = 8.dp),
-            ) {
-                Text(
-                    text = section.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text = section.selector.typeDescription,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(40.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Delete section",
-                    tint = MaterialTheme.colorScheme.error,
-                )
-            }
-        }
+        DragHandleRow(
+            text = section.name,
+            subtitle = section.selector.typeDescription,
+            handleSide = HandleSide.Leading,
+            padding = androidx.compose.foundation.layout.PaddingValues(
+                start = 8.dp,
+                end = 4.dp,
+                top = 4.dp,
+                bottom = 4.dp,
+            ),
+            handle = {
+                Box(modifier = Modifier.padding(8.dp)) {
+                    DragHandleIcon()
+                }
+            },
+            trailing = {
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Delete section",
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+        )
     }
 }
