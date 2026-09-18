@@ -179,10 +179,22 @@ class SavedAgendaViewModel(
 
     fun onIntent(intent: SavedAgendaIntent) {
         when (intent) {
-            is SavedAgendaIntent.NameChanged -> { draftState.setName(intent.name); emitEditingState() }
-            is SavedAgendaIntent.SectionsReordered -> { draftState.reorderSections(intent.sections); emitEditingState() }
-            is SavedAgendaIntent.SectionAdded -> { draftState.addSection(intent.template, intent.position); emitEditingState() }
-            is SavedAgendaIntent.SectionRemoved -> { draftState.removeSection(intent.index); emitEditingState() }
+            is SavedAgendaIntent.NameChanged -> with(intent) {
+                draftState.setName(name)
+                emitEditingState()
+            }
+            is SavedAgendaIntent.SectionsReordered -> with(intent) {
+                draftState.reorderSections(sections)
+                emitEditingState()
+            }
+            is SavedAgendaIntent.SectionAdded -> with(intent) {
+                draftState.addSection(template, position)
+                emitEditingState()
+            }
+            is SavedAgendaIntent.SectionRemoved -> with(intent) {
+                draftState.removeSection(index)
+                emitEditingState()
+            }
             is SavedAgendaIntent.Save -> onSave()
             is SavedAgendaIntent.Delete -> onDelete()
         }

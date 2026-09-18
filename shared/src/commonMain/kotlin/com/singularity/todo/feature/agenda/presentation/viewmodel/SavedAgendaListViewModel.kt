@@ -92,23 +92,23 @@ class SavedAgendaListViewModel(
 
     fun onIntent(intent: SavedAgendaListIntent) {
         when (intent) {
-            is SavedAgendaListIntent.Delete -> {
+            is SavedAgendaListIntent.Delete -> with(intent) {
                 scope.launch {
                     val userId = deps.currentUser.scopedUserId.value.value
-                    deps.repo.delete(intent.viewId, userId)
+                    deps.repo.delete(viewId, userId)
                         .onFailure { _events.emit(SavedAgendaListEvent.ShowError(it.message ?: "Delete failed")) }
                 }
             }
 
-            is SavedAgendaListIntent.CopyToProfile -> {
+            is SavedAgendaListIntent.CopyToProfile -> with(intent) {
                 scope.launch {
                     val sourceUserId = deps.currentUser.scopedUserId.value.value
-                    val sourceView = deps.repo.watchById(intent.viewId, sourceUserId).first()
+                    val sourceView = deps.repo.watchById(viewId, sourceUserId).first()
                     if (sourceView == null) {
                         _events.emit(SavedAgendaListEvent.ShowError("View not found"))
                         return@launch
                     }
-                    val targetProfile = deps.profileRepo.getById(intent.targetProfileId)
+                    val targetProfile = deps.profileRepo.getById(targetProfileId)
                     if (targetProfile == null) {
                         _events.emit(SavedAgendaListEvent.ShowError("Profile not found"))
                         return@launch

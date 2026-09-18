@@ -115,28 +115,28 @@ class TaskCreateViewModel(
 
     fun onIntent(intent: TaskCreateIntent) {
         when (intent) {
-            is TaskCreateIntent.TitleChanged -> {
-                _draft.updateState { it.copy(title = intent.title) }
+            is TaskCreateIntent.TitleChanged -> with(intent) {
+                _draft.updateState { it.copy(title = title) }
             }
 
-            is TaskCreateIntent.DescriptionChanged -> {
-                _draft.updateState { it.copy(description = intent.description) }
+            is TaskCreateIntent.DescriptionChanged -> with(intent) {
+                _draft.updateState { it.copy(description = description) }
             }
 
-            is TaskCreateIntent.SetPriority -> {
-                _draft.updateState { it.copy(priority = intent.priority) }
+            is TaskCreateIntent.SetPriority -> with(intent) {
+                _draft.updateState { it.copy(priority = priority) }
             }
 
-            is TaskCreateIntent.SetDueDate -> {
-                val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
+            is TaskCreateIntent.SetDueDate -> with(intent) {
+                val option = date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
                 _draft.updateState { it.copy(dueDate = option) }
             }
 
-            is TaskCreateIntent.SetDueTime -> {
-                _draft.updateState { it.copy(dueTime = intent.time) }
+            is TaskCreateIntent.SetDueTime -> with(intent) {
+                _draft.updateState { it.copy(dueTime = time) }
             }
 
-            is TaskCreateIntent.DueDateCleared -> {
+            is TaskCreateIntent.DueDateCleared -> with(intent) {
                 _draft.updateState { it.copy(dueDate = DueDateOption.None, dueTime = null) }
             }
 

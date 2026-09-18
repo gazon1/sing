@@ -100,39 +100,39 @@ class AgendaViewModel(
      */
     fun onIntent(intent: AgendaIntent) {
         when (intent) {
-            is AgendaIntent.TaskClicked -> {
+            is AgendaIntent.TaskClicked -> with(intent) {
                 scope.launch {
-                    _events.emit(AgendaUiEvent.NavigateToTask(intent.taskId))
+                    _events.emit(AgendaUiEvent.NavigateToTask(taskId))
                 }
             }
 
-            is AgendaIntent.TaskCheckClicked -> {
+            is AgendaIntent.TaskCheckClicked -> with(intent) {
                 scope.launch {
-                    deps.taskRepo.toggleComplete(intent.taskId)
+                    deps.taskRepo.toggleComplete(taskId)
                 }
             }
 
-            is AgendaIntent.TaskLongClicked -> {
+            is AgendaIntent.TaskLongClicked -> with(intent) {
                 scope.launch {
-                    _events.emit(AgendaUiEvent.ShowTaskContextMenu(intent.taskId))
+                    _events.emit(AgendaUiEvent.ShowTaskContextMenu(taskId))
                 }
             }
 
-            is AgendaIntent.TaskPinClicked -> {
+            is AgendaIntent.TaskPinClicked -> with(intent) {
                 scope.launch {
-                    deps.taskRepo.togglePinned(intent.taskId)
+                    deps.taskRepo.togglePinned(taskId)
                 }
             }
 
-            is AgendaIntent.TaskDeleteClicked -> {
+            is AgendaIntent.TaskDeleteClicked -> with(intent) {
                 scope.launch {
-                    deps.taskRepo.softDelete(intent.taskId)
+                    deps.taskRepo.softDelete(taskId)
                 }
             }
 
-            is AgendaIntent.TaskExpandClicked -> {
+            is AgendaIntent.TaskExpandClicked -> with(intent) {
                 scope.launch {
-                    _events.emit(AgendaUiEvent.ExpandTask(intent.taskId))
+                    _events.emit(AgendaUiEvent.ExpandTask(taskId))
                 }
             }
         }

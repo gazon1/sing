@@ -1039,6 +1039,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Все token usage пишется в `llm_usage` с `profile_id=ai-agent` _(from `2026-09-07-dogfooding-mcp-server`)_
 - Новый Gradle-модуль `:mcp-server` с dependency на shared _(from `2026-09-07-dogfooding-mcp-server`)_
 
+### `kotlin`
+
+- All new VMs in this codebase should prefer `with(intent) { ... }` for data class intents with ≥2 properties. _(from `2026-09-18-vm-intent-with-receiver`)_
+
 ### `kotlin-multiplatform`
 
 - **Negative**: 40+ files had import paths updated; test files also required path corrections _(from `2026-09-09-feature-tasks-clean-architecture`)_
@@ -1054,6 +1058,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Process exit semantics change from "instant" to "on stdin EOF or session error". A passing test asserts the process stays alive ≥3s with empty stdin. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - `Runtime.getRuntime().addShutdownHook { server.close() }` becomes redundant for normal EOF exits — `onClose → done.complete() → done.join() returns → runBlocking exits → JVM exits cleanly`. We keep the shutdown hook only as a backstop for SIGTERM. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
 - The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change. _(from `2026-09-07-mcp-stdio-blocking-lifecycle`)_
+
+### `kotlin`
+
+- Single-property intents may remain as `intent.X` for simplicity — the overhead is minimal. _(from `2026-09-18-vm-intent-with-receiver`)_
+- This pattern does NOT require a custom DSL marker or annotation; stdlib `with` is sufficient. _(from `2026-09-18-vm-intent-with-receiver`)_
 
 ### `kover`
 
@@ -1545,6 +1554,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `AgendaNavGraph.android.kt` and `AgendaNavGraph.jvm.kt` still have platform-specific setup (SavedState, in-memory backstack, desktop context menu) — those remain appropriately separated. _(from `2026-09-18-agenda-nav-route-mapping`)_
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters. _(from `2026-09-15-projects-nested-nav3`)_
 - All `AgendaStartRoute` variants are now handled in one place. _(from `2026-09-18-agenda-nav-route-mapping`)_
+- All new VMs in this codebase should prefer `with(intent) { ... }` for data class intents with ≥2 properties. _(from `2026-09-18-vm-intent-with-receiver`)_
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters. _(from `2026-09-14-nav3-tasks-navigator`)_
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `ConfirmActionDialog` replaces inline `AlertDialog` in any future confirm-dialog use case. _(from `2026-09-18-shared-ui-adoption-mr5`)_
@@ -1568,10 +1578,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `SectionEditorCard` now uses `DragHandleRow` internally, keeping the Card wrapper for elevation and background. _(from `2026-09-18-shared-ui-adoption-mr5`)_
 - `SectionTemplate` data class and `SectionTemplates` list removed from `SavedAgendaScreen`. If templates need to be reused elsewhere, promote them to a shared location. _(from `2026-09-18-picker-sheet-dsl`)_
+- Single-property intents may remain as `intent.X` for simplicity — the overhead is minimal. _(from `2026-09-18-vm-intent-with-receiver`)_
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavGraph` is the `@Composable` nav host — it sets up `LocalTasksNavigator`, `LocalNavBackStack`, and the `BackHandler`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksNavigator` is the only class that mutates `NavBackStack<TasksRoute>`. _(from `2026-09-14-nav3-tasks-navigator`)_
 - `TasksRoute` is the sealed interface defining all routes within the tasks graph (Inbox, Today, ByProject, Detail, Create). _(from `2026-09-14-nav3-tasks-navigator`)_
+- This pattern does NOT require a custom DSL marker or annotation; stdlib `with` is sufficient. _(from `2026-09-18-vm-intent-with-receiver`)_
 - Three new unit test files in `shared/commonTest` for the read tools. _(from `2026-09-08-mcp-server-health-audit`)_
 - **`toggleArchive`** no longer emits `Saved` — `lastEditedAt` drives "Saved X ago" UI via the `mutate{}` helper _(from `2026-09-09-project-detail-intent-refactor`)_
 - `ToolFactories.kt` gets the profile-aware default applied (small diff, _(from `2026-09-08-mcp-server-health-audit`)_
@@ -2270,6 +2282,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `vm`
 
+- All new VMs in this codebase should prefer `with(intent) { ... }` for data class intents with ≥2 properties. _(from `2026-09-18-vm-intent-with-receiver`)_
 - **`createTask` and `moveTaskToProject`** remain in VM (require repository writes) _(from `2026-09-09-project-detail-intent-refactor`)_
 - **`createTask`** must go through `CreateTaskUseCase`, not direct `taskRepo.create`. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - **`koinInject()` для репозиториев/сервисов остаётся** — не VM _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
@@ -2280,6 +2293,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - **`ProjectDetailIntent`** is the canonical list of all project mutations — adding a new field mutation = one `Domain` case _(from `2026-09-09-project-detail-intent-refactor`)_
 - **`ProjectDetailUiEvent`** now has only 2 cases: `NavigateBack` (post-delete) and `ShowError` _(from `2026-09-09-project-detail-intent-refactor`)_
 - Screen owns `activeSheet` routing state; VM only receives routing intents. _(from `2026-09-09-projectdetail-write-through-fix`)_
+- Single-property intents may remain as `intent.X` for simplicity — the overhead is minimal. _(from `2026-09-18-vm-intent-with-receiver`)_
 - **`singularity-todo-vm-koin-scoping` skill** — создан как single source of truth _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 
 ### `"vm-state"`
@@ -2292,6 +2306,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `vm`
 
 - **`TaskEditorViewModel` special case** — `viewModel { (initialDueDate) -> ... }` + `koinViewModel { parametersOf(initialDueDate) }` _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
+- This pattern does NOT require a custom DSL marker or annotation; stdlib `with` is sufficient. _(from `2026-09-18-vm-intent-with-receiver`)_
 - **`toggleArchive`** no longer emits `Saved` — `lastEditedAt` drives "Saved X ago" UI via the `mutate{}` helper _(from `2026-09-09-project-detail-intent-refactor`)_
 - **`viewModelOf(::VM)` для VM без nullable dep** — предпочтительный паттерн _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
 - **`viewModel { Vm(get(), get(), ...) }`** — для VM с nullable dep + getOrNull() (TasksViewModel, ProjectsViewModel) _(from `2026-09-06-koin-vm-viewmodelof-koinviewmodel`)_
@@ -2402,6 +2417,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-18-shared-ui-adoption-mr5` — ui  refactor  dsl
 - `2026-09-18-testing-best-practices` — testing  vm  kotlin-test  coroutines
 - `2026-09-18-version-catalog-cleanup` — gradle  version-catalog  build-config
+- `2026-09-18-vm-intent-with-receiver` — vm  refactor  kotlin
 
 ## Active entries
 
@@ -2518,4 +2534,5 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-18-shared-ui-adoption-mr5` — MR5: ConfirmActionDialog + DragHandleRow shared components
 - `2026-09-18-testing-best-practices` — Testing best practices — Tier 1 infrastructure, canonical VM pattern, Fake over mocks
 - `2026-09-18-version-catalog-cleanup` — Version catalog cleanup — kebab-case, bundles, single resolutionStrategy
+- `2026-09-18-vm-intent-with-receiver` — MR9: with(intent) stdlib receiver pattern for VM intent dispatch
 - `2026-09-18-vm-migration-scope-injection` — _(no title)
