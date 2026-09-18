@@ -14,6 +14,9 @@ import com.singularity.todo.core.backup.RestoreResult
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ProjectWithCountRow
 import com.singularity.todo.core.database.SyncColumns
+import com.singularity.todo.core.database.TaskDao
+import com.singularity.todo.core.database.TaskDependencyCrossRef
+import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.settings.SettingsRepository
@@ -258,7 +261,121 @@ class FakeBackupRepository : BackupRepository {
 
 // ─── TaskRepository ───────────────────────────────────────────────────────────
 
-class FakeTaskRepository : TaskRepository {
+/**
+ * In-memory [TaskDao] implementation for tests.
+ * Stores only dependency and tag cross-references; all other methods error.
+ */
+private class InMemoryTaskDao : TaskDao {
+    private val _deps = MutableStateFlow<List<TaskDependencyCrossRef>>(emptyList())
+    private val _tags = MutableStateFlow<List<TaskTagCrossRef>>(emptyList())
+
+    // ── Dependency methods (the only ones used by FakeTaskRepository) ─────────
+
+    override fun getDependencyIdsForTask(taskId: String): Flow<List<String>> =
+        _deps.map { refs -> refs.filter { it.taskId == taskId }.map { it.dependsOnTaskId } }
+
+    override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
+        _deps.map { refs -> refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId } }
+
+    override suspend fun upsertDependency(ref: TaskDependencyCrossRef) {
+        _deps.update { current -> current.filter { !(it.taskId == ref.taskId && it.dependsOnTaskId == ref.dependsOnTaskId) } + ref }
+    }
+
+    override suspend fun removeDependency(taskId: String, depId: String) {
+        _deps.update { current -> current.filter { !(it.taskId == taskId && it.dependsOnTaskId == depId) } }
+    }
+
+    override suspend fun clearDependencies(taskId: String) {
+        _deps.update { current -> current.filter { it.taskId != taskId } }
+    }
+
+    // ── Tag methods (stubs so the interface is satisfied) ─────────────────────
+
+    override fun getTagIdsForTask(taskId: String): Flow<List<String>> =
+        _tags.map { refs -> refs.filter { it.taskId == taskId }.map { it.tagId } }
+
+    override suspend fun upsertTagCrossRef(ref: TaskTagCrossRef) {
+        _tags.update { current -> current.filter { !(it.taskId == ref.taskId && it.tagId == ref.tagId) } + ref }
+    }
+
+    override suspend fun removeTagRef(taskId: String, tagId: String) {
+        _tags.update { current -> current.filter { !(it.taskId == taskId && it.tagId == tagId) } }
+    }
+
+    // ── Remaining DAO methods (unused by FakeTaskRepository) ──────────────────
+
+    override fun watchActive(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchById(id: String): Flow<com.singularity.todo.core.database.TaskEntity?> =
+        error("not implemented")
+
+    override fun watchTrash(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchSomeday(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchByDate(userId: String, date: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchUpcoming(userId: String, today: String, endDate: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchByProject(userId: String, projectId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchByDateRange(userId: String, from: String, to: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchByTag(userId: String, tagId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchByAnyTag(userId: String, tagIds: List<String>): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchByAllTags(userId: String, tagIds: List<String>, size: Int): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchByPriorities(userId: String, priorities: List<String>): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchByRegexp(userId: String, pattern: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchPinned(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override suspend fun setPinned(id: String, pinned: Boolean, ts: Long) = error("not implemented")
+
+    override suspend fun getById(id: String): com.singularity.todo.core.database.TaskEntity? = error("not implemented")
+
+    override fun search(q: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
+
+    override suspend fun searchByTitle(q: String): List<com.singularity.todo.core.database.TaskEntity> = error("not implemented")
+
+    override suspend fun upsert(task: com.singularity.todo.core.database.TaskEntity) = error("not implemented")
+
+    override suspend fun softDelete(id: String, ts: Long) = error("not implemented")
+
+    override suspend fun restore(id: String, ts: Long) = error("not implemented")
+
+    override suspend fun markComplete(id: String, ts: Long) = error("not implemented")
+
+    override suspend fun markIncomplete(id: String, ts: Long) = error("not implemented")
+
+    override suspend fun listAllForUser(userId: String): List<com.singularity.todo.core.database.TaskEntity> = error("not implemented")
+
+    override suspend fun listAllDependenciesForUser(userId: String): List<TaskDependencyCrossRef> = error("not implemented")
+
+    override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> = error("not implemented")
+
+    override suspend fun archiveCompleted(ts: Long): Int = error("not implemented")
+}
+
+class FakeTaskRepository(
+    private val dao: TaskDao = InMemoryTaskDao(),
+) : TaskRepository {
     private val store = InMemoryStore<Task>(keyOf = { it.id.value })
     private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
     override val changes: SharedFlow<Task> = _changes.asSharedFlow()
@@ -365,6 +482,19 @@ class FakeTaskRepository : TaskRepository {
 
     override fun getTagIds(taskId: TaskId): Flow<List<TagId>> =
         store.state.map { it[taskId.value]?.tags ?: emptyList() }
+
+    override fun watchDependencies(taskId: TaskId): Flow<Set<TaskId>> =
+        dao.getDependencyIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
+
+    override fun watchBlockingBy(taskId: TaskId): Flow<Set<TaskId>> =
+        dao.getBlockingTaskIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
+
+    override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> = runCatching {
+        dao.clearDependencies(taskId.value)
+        deps.forEach { dep ->
+            dao.upsertDependency(TaskDependencyCrossRef(taskId = taskId.value, dependsOnTaskId = dep.value))
+        }
+    }
 }
 
 // ─── ChecklistRepository ─────────────────────────────────────────────────────
