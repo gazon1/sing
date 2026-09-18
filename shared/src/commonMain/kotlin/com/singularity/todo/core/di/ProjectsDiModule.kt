@@ -1,6 +1,5 @@
 package com.singularity.todo.core.di
 
-import com.singularity.todo.core.ui.components.ProjectPickerViewModel
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -58,8 +57,4 @@ fun projectsModule(): org.koin.core.module.Module = module {
 
     // ─── Shared component ViewModels ─────────────────────────────────────────
 
-    // NOTE: Using explicit viewModel {} block instead of viewModelOf so that
-    // sharingStarted and scopeOverride use their defaults (not resolved via
-    // reflection, which can incorrectly match CoroutineScope beans on Android).
-    viewModel { ProjectPickerViewModel(get(), get(), get()) }
 }

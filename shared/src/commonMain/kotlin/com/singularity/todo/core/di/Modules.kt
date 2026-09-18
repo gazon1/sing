@@ -2,7 +2,6 @@ package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.log.LoggerHolder
-import com.singularity.todo.core.ui.components.TagPickerViewModel
 import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
 import com.singularity.todo.core.coroutines.createBackgroundScope
@@ -48,7 +47,6 @@ fun domainModule(): List<Module> = buildList {
         single { ProfileAwareCurrentUser(get(), get(), createBackgroundScope()) }
         factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
         factory { AccountSettingsViewModel(get()) }
-        factory { TagPickerViewModel(get(), get()) }
     }
     )
     add(coreModule())

@@ -46,13 +46,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,6 +67,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.components.BottomSheetHost
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.rememberDialogState
@@ -300,10 +299,7 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, projectId: ProjectId
     // ─── Sheets ───────────────────────────────────────────────────────────────
 
     if (sheets.active != null) {
-        ModalBottomSheet(
-            onDismissRequest = { sheets.dismiss() },
-            sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
-        ) {
+        BottomSheetHost(onDismiss = { sheets.dismiss() }) {
             when (sheets.active) {
                 null -> Unit
 

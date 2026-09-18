@@ -28,15 +28,11 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.components.BottomSheetHost
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -234,12 +231,7 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
 
     // ── Icon Picker Sheet ─────────────────────────────────────────────────
     if (showIconPicker) {
-        val iconSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
-        LaunchedEffect(Unit) { iconSheetState.show() }
-        ModalBottomSheet(
-            onDismissRequest = { showIconPicker = false },
-            sheetState = iconSheetState,
-        ) {
+        BottomSheetHost(onDismiss = { showIconPicker = false }) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text("Choose icon", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(16.dp))
@@ -277,12 +269,7 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
 
     // ── Parent Picker Sheet ───────────────────────────────────────────────
     if (showParentPicker) {
-        val parentSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
-        LaunchedEffect(Unit) { parentSheetState.show() }
-        ModalBottomSheet(
-            onDismissRequest = { showParentPicker = false },
-            sheetState = parentSheetState,
-        ) {
+        BottomSheetHost(onDismiss = { showParentPicker = false }) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text("Parent project", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
