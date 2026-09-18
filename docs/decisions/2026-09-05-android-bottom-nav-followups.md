@@ -2,6 +2,7 @@
 title: "Android Bottom Navigation — known issues and refactoring backlog"
 date: 2026-09-05
 tags: [navigation, followups, refactoring, bugs]
+status: accepted
 ---
 
 Status of items in the original followups doc (after refactor pass on

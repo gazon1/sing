@@ -2,6 +2,7 @@
 title: "Version catalog cleanup — kebab-case, bundles, single resolutionStrategy"
 date: 2026-09-18
 tags: [gradle, version-catalog, build-config]
+status: accepted
 ---
 
 ## Context

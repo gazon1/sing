@@ -2,6 +2,7 @@
 title: "Koin bridge audit: all usages correct, no raw runBlocking in module blocks"
 date: 2026-09-06
 tags: [koin, di, coroutines]
+status: accepted
 ---
 
 ## Context

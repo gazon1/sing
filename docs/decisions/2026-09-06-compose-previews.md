@@ -2,6 +2,7 @@
 title: "Add @Preview to all screens and widgets via shared PreviewSamples"
 date: 2026-09-06
 tags: [compose, preview, ui]
+status: accepted
 ---
 
 ## Context

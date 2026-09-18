@@ -2,6 +2,7 @@
 title: "Testing best practices — Tier 1 infrastructure, canonical VM pattern, Fake over mocks"
 date: 2026-09-18
 tags: [testing, vm, kotlin-test, coroutines]
+status: accepted
 ---
 
 ## Context

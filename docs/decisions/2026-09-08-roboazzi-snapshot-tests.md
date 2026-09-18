@@ -1,7 +1,8 @@
 ---
 title: "Snapshot tests via Roborazzi for all detail screen sections"
 date: 2026-09-08
-tags: ["testing", "snapshot", "roborazzi", "quality"]
+tags: [testing, snapshot, roborazzi, quality]
+status: accepted
 ---
 
 ## Context

@@ -2,6 +2,7 @@
 title: "MR9: with(intent) stdlib receiver pattern for VM intent dispatch"
 date: 2026-09-18
 tags: [vm, refactor, kotlin]
+status: accepted
 ---
 
 ## Context

@@ -2,6 +2,7 @@
 title: "SelectorSerializer: plain KSerializer instead of JsonContentPolymorphicSerializer"
 date: 2026-09-17
 tags: [serialization, agenda, selector]
+status: accepted
 ---
 
 ## Context

@@ -2,6 +2,7 @@
 title: "Feature/tasks Clean Architecture: domain/data/presentation layers"
 date: 2026-09-09
 tags: [architecture, clean-architecture, feature-tasks, kotlin-multiplatform]
+status: accepted
 ---
 
 ## Context

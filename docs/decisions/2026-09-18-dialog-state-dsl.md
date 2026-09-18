@@ -2,6 +2,7 @@
 title: "MR8: DialogState<T> — state hoisting for dialog overlays"
 date: 2026-09-18
 tags: [ui, state-hoisting, refactor]
+status: accepted
 ---
 
 ## Context

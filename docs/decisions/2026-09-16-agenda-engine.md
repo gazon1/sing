@@ -2,6 +2,7 @@
 title: "AgendaEngine: единый DSL-движок для list-вью задач (org-agenda style)"
 date: 2026-09-16
 tags: [agenda, tasks, dsl, architecture]
+status: accepted
 ---
 
 ## Context

@@ -5,6 +5,7 @@ Rationale: ProjectDetailScreen was the most visually broken screen in the app â€
 Consequences: ProjectRepository gains 7 new methods (watchProject, getById, changes, watchProjectsWithCounts, watchByParent, setParent, setSortOrder, restore, findByIdempotencyKey). ProjectDao gains 5 new queries. UpdateProjectUseCase and UpdateTaskUseCase both gain overloads with transform function. ProjectDetailQuickAddInput is a new inline composable following the silent-save pattern. Color/Icon pickers use ModalBottomSheet with LazyVerticalGrid(columns=6). PreviewSamples.project() adds icon, parentId, taskCount, completedCount. All PreviewProviders updated. DiGraphTest updated to cover edit-mode ProjectEditorViewModel and TasksByProjectViewModel.
 Links: skill:singularity-todo-document-style-detail, skill:singularity-todo-cross-feature-navigation, skill:singularity-todo-icon-registry, skill:singularity-todo-inline-edit-saved-feedback, skill:singularity-todo-relational-counts, skill:singularity-todo-task-detail-ux, skill:singularity-todo-shared-ui-components, skill:singularity-todo-ui-event-vs-state, skill:singularity-todo-feature-scaffold, skill:singularity-todo-room-migration, skill:singularity-todo-koin-di, skill:singularity-todo-mcp-server, docs/decisions/2026-09-07-task-detail-document-style.md, docs/decisions/DIGEST.md
 Tags: ux, projects, compose, room, multi-profile, koog
+status: accepted
 ---
 
 # Projects UX Rework â€” TickTick-level Parity

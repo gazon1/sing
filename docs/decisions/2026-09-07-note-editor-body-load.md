@@ -2,6 +2,7 @@
 title: "NoteEditor body load — store HTML directly, fix RichTextState init"
 date: 2026-09-07
 tags: [notes, room, rich-editor, di-graph]
+status: accepted
 ---
 
 ## Context

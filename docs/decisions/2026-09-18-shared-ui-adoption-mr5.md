@@ -2,6 +2,7 @@
 title: "MR5: ConfirmActionDialog + DragHandleRow shared components"
 date: 2026-09-18
 tags: [ui, refactor, dsl]
+status: accepted
 ---
 
 ## Context

@@ -2,6 +2,7 @@
 title: "Widget tests via Robolectric androidHostTest — no Koin, direct ViewModel construction"
 date: 2026-09-05
 tags: [testing, robolectric, koin, ui]
+status: accepted
 ---
 
 ## Context

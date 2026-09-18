@@ -2,6 +2,7 @@
 title: "Desktop menus: MenuBar AWT, right-click fix, agenda wiring"
 date: 2026-09-16
 tags: [desktop, jvm, menu, bugfix]
+status: accepted
 ---
 
 ## Context

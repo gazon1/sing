@@ -16,6 +16,15 @@ data class ProfileSwitcherUiState(
     val isLoading: Boolean = true,
 )
 
+/**
+ * Profile switcher dialog ViewModel.
+ *
+ * Owns: all profiles and the active profile ID.
+ * Triggers: profile creation, profile switch, profile deletion.
+ * One-shot events: none — profile switch is applied immediately.
+ *
+ * @see ProfileSwitcherUiState
+ */
 class ProfileSwitcherViewModel(
     private val profileRepository: ProfileRepository,
     private val scope: CoroutineScope,

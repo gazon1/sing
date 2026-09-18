@@ -58,6 +58,9 @@ alias tclean := tests::clean
 alias lint       := tests::lint
 alias detekt-fix := tests::detekt-fix
 
+# ----- Docs shortcuts -----
+alias docs-audit := tests::docs-audit
+
 # ----- Coverage shortcuts -----
 alias coverage := tests::coverage
 

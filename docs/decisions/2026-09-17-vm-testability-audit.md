@@ -1,3 +1,6 @@
+---
+status: accepted
+---
 # 2026-09-17 — VM Testability Audit (rolled back, root cause identified)
 
 ## Status

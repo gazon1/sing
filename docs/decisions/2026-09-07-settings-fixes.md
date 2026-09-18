@@ -2,6 +2,7 @@
 title: "Settings layout fixes, reactive dark theme, LLM providers"
 date: 2026-09-07
 tags: [settings, ui, di-graph]
+status: accepted
 ---
 
 ## Context

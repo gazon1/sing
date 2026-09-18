@@ -3,6 +3,7 @@ title: "Nav3 Desktop uses in-memory NavBackStack; SavedStateConfiguration is And
 date: 2026-09-16
 tags: [navigation, nav3, jvm, desktop, android]
 doesNotSupersede: 2026-09-16-nav3-savedstate-serializers-required
+status: accepted
 ---
 
 ## Context

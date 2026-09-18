@@ -1,3 +1,6 @@
+---
+status: accepted
+---
 # Simplified SettingsViewModel — no reactive collection
 
 ## Context

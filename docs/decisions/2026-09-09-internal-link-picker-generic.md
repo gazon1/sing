@@ -2,6 +2,7 @@
 title: "Notes — generic InternalLinkPickerSheet with merged Notes+Tasks results"
 date: 2026-09-09
 tags: [notes, ui-components, linking, architecture]
+status: accepted
 ---
 
 ## Context

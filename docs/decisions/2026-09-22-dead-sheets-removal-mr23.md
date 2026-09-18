@@ -2,6 +2,7 @@
 title: "Delete orphaned sheets and picker VMs — 700 lines dead code removed"
 date: 2026-09-22
 tags: [cleanup, dead-code]
+status: accepted
 ---
 
 ## Context

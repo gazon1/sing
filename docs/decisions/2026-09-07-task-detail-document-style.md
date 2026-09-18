@@ -5,6 +5,7 @@ Rationale: form-style is a known UX anti-pattern for task-detail screens — eve
 Consequences: EditableTextRow and TaskDetailField stub remain until full screen rewrite (see below). ProjectPickerSheet and TagPickerSheet remain AlertDialog (not ModalBottomSheet) — follow-up migration needed separately. ChecklistItemRow (feature/checklist/) was already designed as a replacement for the inline rows in this screen — now wired up. Debounce(300) requires FlowPreview opt-in. deleteTask uses TaskRepository.softDelete (already existed at TaskRepository.kt:32).
 Links: skill:singularity-todo-task-detail-ux, skill:singularity-todo-ui-event-vs-state, skill:singularity-todo-pure-formatters, skill:singularity-todo-adb-workflow, docs/decisions/DIGEST.md
 Tags: ux, task-detail, compose
+status: accepted
 ---
 
 # Task Detail — Document-Style Migration

@@ -14,6 +14,15 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/**
+ * Auth screen ViewModel (sign in / sign up / anonymous).
+ *
+ * Owns: sign-in/sign-up form state, authentication session.
+ * Triggers: sign-in, sign-up, sign-out anonymous.
+ * One-shot events: [AuthUiEvent.NavigateToMain], [AuthUiEvent.ShowError].
+ *
+ * @see AuthUiState
+ */
 class AuthViewModel(
     private val authRepository: AuthRepository,
     private val scope: CoroutineScope,

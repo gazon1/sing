@@ -2,6 +2,7 @@
 title: "Kermit logging: Koin-injected Logger, per-class tags, ANSI colors on JVM"
 date: 2026-09-06
 tags: [logging, koin, kermit, debugging]
+status: accepted
 ---
 
 ## Context

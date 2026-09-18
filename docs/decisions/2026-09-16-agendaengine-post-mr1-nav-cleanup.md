@@ -2,6 +2,7 @@
 title: "AgendaEngine MR1 post-cleanup: remove dead TasksRoute variants and deprecated AppDestination branches"
 date: 2026-09-16
 tags: [agenda, navigation, cleanup, deprecated]
+status: accepted
 ---
 
 ## Context

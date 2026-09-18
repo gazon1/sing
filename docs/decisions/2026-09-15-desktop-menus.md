@@ -2,6 +2,7 @@
 title: "Desktop context menu + window MenuBar via generic MenuNode sealed class"
 date: 2026-09-15
 tags: [desktop, ui, menu, navigation]
+status: accepted
 ---
 
 ## Context

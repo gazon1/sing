@@ -2,6 +2,7 @@
 title: "Bump Compose Multiplatform plugin and libs to 1.12.0"
 date: 2026-09-06
 tags: [compose, gradle, build]
+status: accepted
 ---
 
 ## Context

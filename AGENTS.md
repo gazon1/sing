@@ -10,8 +10,8 @@ androidApp/          — Android shell (MainActivity.kt, AndroidManifest)
 desktopApp/          — Desktop Compose entry (main.kt, singleWindowApplication)
 shared/              — KMP library: commonMain + androidMain + jvmMain + tests
   src/commonMain/kotlin/com/singularity/todo/
-    core/            — инфраструктура: auth, backup, database, di, files, notifications, security, settings, sync, ui
-    feature/         — фичи: tasks, notes, projects, tags, search, ai, auth, settings, attachments, backup, reminders
+    core/            — инфраструктура: auth, backup, clock, coroutines, database, di, draft, error, files, ids, llm, log, network, notifications, observability, platform, reminders, security, serialization, settings, sync, tree, ui, validation
+    feature/         — фичи: agenda, ai, archive, attachments, auth, backup, calendar, checklist, genui, notes, pomodoro, profile, projects, reminders, search, settings, statistics, tags, tasks
     test/fakes/      — Fake-реализации для тестов (без моков)
 ```
 
@@ -33,14 +33,17 @@ Ids.kt                    — @JvmInline value class (TaskId, NoteId, ProjectId,
 
 ---
 
-## DI: Koin Annotations 4.2.2
+## DI: Koin 4.x (pure DSL)
+
+**Koin Annotations не используются** — `koin-annotations 4.x` несовместим с Koin 4.x.
+Весь DI — чистый Kotlin DSL. Примеры:
 
 ```kotlin
-@Single                      // singleton
-@Factory                     // new instance per injection
-@IntoSet                     // add to a Set<T> (напр. 16 AI tools)
-@Module
-@ComponentScan("com.myapp.feature")
+single { SomeRepository(get()) }                    // singleton
+factory { SomeViewModel(get(), get()) }            // new instance per injection
+viewModel { (p: Param) -> Vm(get(), p) }            // VM с runtime-параметрами (prefer viewModel {}, НЕ factory)
+viewModelOf(::MyViewModel)                         // VM без параметров
+module { includes(otherModule) }                    // compose modules
 ```
 
 **ViewModel scope (2026-09-06):**
@@ -83,7 +86,9 @@ runTest {
 
 ---
 
-## expect/actual порты (7 штук)
+## expect/actual порты
+
+**Интерфейсы/классы** (platform boundaries):
 
 | Порт | commonMain | jvmMain | androidMain |
 |---|---|---|---|
@@ -92,8 +97,24 @@ runTest {
 | `FileSystem` | интерфейс | JvmFileSystem | AndroidFileSystem |
 | `BackupCodec` | интерфейс | JvmBackupCodec (java.util.zip) | AndroidBackupCodec |
 | `MarkdownHtmlPort` | интерфейс | RichEditorMarkdownHtmlPort | — (shared) |
-| `AttachmentStorage` | интерфейс | — | — |
-| `createKoogPromptExecutor()` | expect fun | JvmKoogFactory (MultiLLMPromptExecutor) | AndroidKoogFactory (error) |
+| `AttachmentStorage` | **класс** (не интерфейс) | — | — |
+| `Clock` | expect object | — (kotlinx-datetime) | — (kotlinx-datetime) |
+| `systemTimeZone` | expect val | — | — |
+
+**Фабричные функции** (platform factories):
+
+| Функция | jvmMain | androidMain |
+|---|---|---|
+| `createSqlDriver()` | SQLite JDBC | sqlite-bundled |
+| `createHttpClient()` | OkHttp | OkHttp |
+| `createBackgroundScope()` | `CoroutineScope(Dispatchers.Default)` | `CoroutineScope(Dispatchers.Default)` |
+| `initLogging()` | Kermit + Logback | Kermit + Logcat |
+| `platformModule()` | все platform bindings | все platform bindings |
+| `aiToolsModule()` | 32 Koog tools | 32 Koog tools |
+| `createKoogPromptExecutor()` | MultiLLMPromptExecutor + OkHttp | AndroidKoogFactory (error stub) |
+| `onSecondaryClick()` | AWT secondary click | desktop: secondary pointer |
+
+**Навигация** (expect/actual NavGraphs): `TasksNavGraph`, `tasksEntryProvider`, `ProjectsNavGraph`, `projectsEntryProvider`, `NotesNavGraph`, `SearchNavGraph`, `SettingsNavGraph`, `CalendarNavGraph`, `calendarEntryProvider`, `AgendaNavGraph`, `agendaEntryProvider`.
 
 ---
 
@@ -250,7 +271,7 @@ sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"
 1. **`runBlocking` в ViewModel init** — вместо этого: `combine(filterFlow, userIdFlow) { ... }` + `flatMapLatest`
 2. **`*Blocking()` методы в репозиториях** — только suspend + Result<T>
 3. **MockK / Mockito** — используй `Fake*` из `test/fakes/`
-4. **Pass-through use cases** — `GetTaskUseCase`, `DeleteTaskUseCase` и т.п. — это boilerplate; VMs инжектят `TaskRepository` напрямую. `ChecklistUseCase` trimmed 2026-09-18. Enforced by `PassThroughUseCase` detekt rule — see `docs/decisions/2026-09-18-no-pass-through-usecases.md`.
+4. **Pass-through CRUD use cases** — `GetTaskUseCase`, `DeleteTaskUseCase` и т.п. — это boilerplate; VMs инжектят `TaskRepository` напрямую. AI-specific use cases (`RefineTaskUseCase`, `DecomposeTaskUseCase`, etc.) — допустимы и нужны.. `ChecklistUseCase` trimmed 2026-09-18. Enforced by `PassThroughUseCase` detekt rule — see `docs/decisions/2026-09-18-no-pass-through-usecases.md`.
 5. **`java.io.File` напрямую** — только через `FileSystem` порт
 6. **`require { throw ... }` внутри лямбды** — `require` сам бросает; тело `require { throw X }` никогда не выполняется
 7. **Импортировать Koog-типы вне `feature/ai` и `core/di`**
@@ -275,6 +296,17 @@ sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"
 **Когда НЕ писать:** опечатки, форматирование, новые use case'ы по существующему паттерну (pattern уже покрыт skill-ами).
 
 **Формат записи** — frontmatter + секции `Context / Idea / Decision / Rationale / Consequences / Links`. Подробности в skill `singularity-todo-decisions-workflow`.
+
+### 🛠 Maintenance
+
+| Команда | Что делает |
+|---|---|
+| `just docs-audit` | Normalize frontmatter (dry-run) + refresh DIGEST + source tree drift check |
+| `./scripts/normalize-adr-frontmatter.sh --apply` | Добавить `status: accepted` где отсутствует |
+| `./scripts/refresh-decisions-digest.sh` | Пересобрать `DIGEST.md` из ADR |
+| `python3 scripts/print-source-tree.py` | Сгенерировать §1 ARCHITECTURE.md |
+
+**Policy**: `docs/doc-maintenance.md` — полные правила (когда писать ADR, KDoc policy, чеклисты).
 
 ### Ключевые скиллы (загружаются автоматически)
 

@@ -2,7 +2,7 @@
 title: "Nav3 type asymmetry: rememberInMemoryNavBackStack returns NavBackStack<T>, Android rememberNavBackStack returns NavBackStack<NavKey>"
 date: 2026-09-16
 tags: [navigation, nav3, android, jvm, technical-debt]
-status: open
+status: accepted
 ---
 
 ## Context
@@ -49,21 +49,26 @@ Document the asymmetry in KDoc and accept it as a known technical debt. No chang
 
 ## Decision
 
-**Status: Open — to be resolved.**
+**Option A — Android typed wrapper (accepted).**
 
-This ADR documents the asymmetry as a known issue. Option A is preferred but requires validation that the inline reified wrapper compiles correctly in the Android source set.
+The `@Composable reified inline` wrapper in `Nav3SavedState.kt` (Android source set) resolves the asymmetry:
+
+```kotlin
+@Composable
+inline fun <reified T : NavKey> rememberNavBackStackTyped(
+    config: SavedStateConfiguration,
+    start: T,
+): NavBackStack<T> = rememberNavBackStack(config, start) as NavBackStack<T>
+```
+
+The `reified` inline gives compile-time type `T`, making the cast safe. All 5 Android NavGraph files replace the `as NavBackStack<T>` suppression with `rememberNavBackStackTyped`.
 
 ## Consequences
 
-If resolved via Option A:
 - `@Suppress("UNCHECKED_CAST")` removed from all 5 Android NavGraph files.
 - All Android NavGraph back stack declarations become `val backStack = rememberNavBackStackTyped(savedStateConfig, start)` — clean, typed, no suppression.
 - The inline wrapper is `internal` to the Android source set — no API surface change.
-
-If left as Option B:
-- The cast remains in all Android NavGraphs.
-- Any future code that calls `backStack.last()` on Android must explicitly cast.
-- Risk of `ClassCastException` if the type parameter is misused.
+- JVM path is unchanged.
 
 ## Links
 

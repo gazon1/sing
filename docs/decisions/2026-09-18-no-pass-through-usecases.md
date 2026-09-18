@@ -2,6 +2,7 @@
 title: "Eliminate pass-through UseCases + machine enforcement via custom detekt rule"
 date: 2026-09-18
 tags: [usecase, detekt, architecture, lint]
+status: accepted
 ---
 
 ## Context

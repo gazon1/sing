@@ -2,6 +2,7 @@
 title: "Agenda UI — shared BackTopAppBar, DiscardChangesDialog, SettingsRadioRow adoption"
 date: 2026-09-18
 tags: [agenda, ui, shared-components]
+status: accepted
 ---
 
 ## Context

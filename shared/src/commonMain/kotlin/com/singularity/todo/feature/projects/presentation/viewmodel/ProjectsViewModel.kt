@@ -32,6 +32,17 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/**
+ * Projects list screen ViewModel.
+ *
+ * Owns: project list with task counts, sort/filter state, AI project review.
+ * Triggers: sort order changes, project create/delete/restore, AI review request.
+ * One-shot events: [ProjectsUiEvent.NavigateToProject], [ProjectsUiEvent.NavigateToCreate],
+ *   [ProjectsUiEvent.ShowError].
+ *
+ * @see ProjectsUiState
+ * @see ProjectsUiEvent
+ */
 class ProjectsViewModel(
     private val projectRepo: ProjectsRepository,
     private val currentUser: ProfileAwareCurrentUser,

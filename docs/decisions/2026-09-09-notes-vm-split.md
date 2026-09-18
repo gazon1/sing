@@ -2,6 +2,7 @@
 title: "Notes — split god-class NotesViewModel into 3 focused ViewModels"
 date: 2026-09-09
 tags: [notes, architecture, viewmodel, di]
+status: accepted
 ---
 
 ## Context

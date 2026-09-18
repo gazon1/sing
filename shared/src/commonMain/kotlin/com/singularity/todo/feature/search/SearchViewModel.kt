@@ -33,6 +33,15 @@ sealed interface SearchUiEvent {
     data class Error(val message: String) : SearchUiEvent
 }
 
+/**
+ * Global search screen ViewModel.
+ *
+ * Owns: search query, debounced search execution, result categories (tasks, notes, projects, tags).
+ * Triggers: query text changes (debounced 300ms).
+ * One-shot events: [SearchUiEvent.Error].
+ *
+ * @see SearchUiState
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SearchViewModel(
     private val searchUseCase: SearchUseCase,

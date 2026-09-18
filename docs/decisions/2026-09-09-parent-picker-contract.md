@@ -2,6 +2,7 @@
 title: "ParentPickerSheet receives ParentOption DTO, not Project entity"
 date: 2026-09-09
 tags: [ui-contract, projects, picker, architecture]
+status: accepted
 ---
 
 ## Context

@@ -2,6 +2,7 @@
 title: Per-feature UiEvent — маршрутизация событий без глобальной утечки типов
 date: 2026-09-05
 tags: [ui, architecture, events, koin]
+status: accepted
 ---
 
 ## Context

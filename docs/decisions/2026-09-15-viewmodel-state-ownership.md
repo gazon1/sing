@@ -1,7 +1,8 @@
 ---
 title: "ViewModel owns all domain state; Composable owns only routing and animation"
 date: 2026-09-15
-tags: ["architecture", "compose", "udf", "vm-state"]
+tags: [architecture, compose, udf, vm-state]
+status: accepted
 ---
 
 ## Context

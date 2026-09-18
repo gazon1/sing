@@ -2,6 +2,7 @@
 title: "LLM provider settings: pure-Kotlin config object + sealed test result"
 date: 2026-09-05
 tags: [ai, settings, ui]
+status: accepted
 ---
 
 ## Context

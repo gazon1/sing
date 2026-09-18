@@ -2,6 +2,7 @@
 title: "Integrate detekt, ktlint, and kotlinx-kover for code quality and coverage"
 date: 2026-09-15
 tags: [detekt, ktlint, kover, lint, coverage, quality]
+status: accepted
 ---
 
 ## Context

@@ -2,6 +2,7 @@
 title: "Preview with VM-as-parameter, not Koin-in-preview"
 date: 2026-09-09
 tags: [preview, compose, koin, architecture]
+status: accepted
 ---
 
 ## Context

@@ -29,6 +29,16 @@ sealed interface ChecklistEditorIntent {
     data object ErrorShown : ChecklistEditorIntent
 }
 
+/**
+ * Checklist editor sheet ViewModel (inline checklist within a task).
+ *
+ * Owns: checklist items for a single task.
+ * Triggers: add item, toggle item, delete item, load checklist.
+ * One-shot events: [ChecklistEditorIntent.ErrorShown] (error acknowledged).
+ *
+ * @see ChecklistEditorState
+ * @see ChecklistEditorIntent
+ */
 class ChecklistEditorViewModel(
     private val checklistUseCase: ChecklistUseCase,
     private val checklistRepository: ChecklistRepository,

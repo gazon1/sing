@@ -2,6 +2,7 @@
 title: "AndroidShellNav3 FAB — wire to real navigation"
 date: 2026-09-16
 tags: [navigation, nav3, android, fab]
+status: accepted
 ---
 
 ## Context

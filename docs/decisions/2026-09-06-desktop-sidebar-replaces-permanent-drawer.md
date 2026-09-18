@@ -2,6 +2,7 @@
 title: "Desktop: replace PermanentNavigationDrawer with explicit Row+Sidebar rail"
 date: 2026-09-06
 tags: [desktop, compose, ui, navigation]
+status: accepted
 ---
 
 ## Context

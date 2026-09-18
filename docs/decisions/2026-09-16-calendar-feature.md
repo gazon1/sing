@@ -1,35 +1,7 @@
-# ADR: Calendar Feature — Day/4 Days/Week/Month with Mini Calendar Panel
-
-**Date:** 2026-09-16
-**Status:** Accepted
-**Context:** Implementing a 6th bottom-bar tab ("Calendar") with TickTick/Linear-style
-dark-theme calendar supporting Day / 4 Days / Week / Month views, task chips,
-all-day strip, hourly time grid, month grid, and a slide-in mini calendar panel.
-
 ---
-
-## Context
-
-The app needs a full calendar screen with multiple view modes. Key constraints:
-
-- **No new repository methods.** Task data is read via the existing `watchTasks` with a
-  `TaskFilter.ByDateRange(from, to)`. The `FakeTaskRepository.watchTasks` filters
-  in-memory using `TaskDomain.matchesFilter`.
-- **`Clock` shadowing.** The project's `expect object Clock` in `core/platform/Clock.kt`
-  shadows `kotlinx.datetime.Clock`. All date/time arithmetic must use
-  `todayInSystemZone()` from `core/platform/Clock.kt` instead of
-  `Clock.System.todayIn(TimeZone.currentSystemDefault())`.
-- **kotlinx-datetime 0.8.0 limitations:** No `LocalDate.plus(1, DateTimeUnit.MONTH)`,
-  no `dayOfWeek.isoDayNumber`. Month arithmetic uses manual ordinal lookup.
-  `dayOfWeek.ordinal + 1` replaces `isoDayNumber` (Kotlinx Mon=0, ISO Mon=1).
-- **`weight` modifier scope.** `Modifier.weight()` is a `RowScope` extension.
-  Applied to `Column` inside `Row`, the compiler may fail to resolve it —
-  restructure to apply `weight` to the `Column` itself (the standard pattern).
-- **`LocalCalendarPalette` via `staticCompositionLocalOf`.** Provides dark/light
-  calendar-specific colours to all composables without coupling to `MaterialTheme`.
-- **Ongoing.** Horizontal swipe between dates, `startAt`/`endAt`/`allDay`/`recurrence`
-  in Task domain (needs Room migration), expand-day-list, full filter panel.
-
+The app needs a full calendar screen with multiple view modes. Key constraints: 
+- **kotlinx-datetime 0.8.0 limitations: ** No `LocalDate.plus(1, DateTimeUnit.MONTH)`,
+status: accepted
 ---
 
 ## Decision

@@ -2,6 +2,7 @@
 title: "SavedAgendaView — DraftState.markSaved(), inline copy() in VMs"
 date: 2026-09-18
 tags: [agenda, viewmodel, draft]
+status: accepted
 ---
 
 ## Context

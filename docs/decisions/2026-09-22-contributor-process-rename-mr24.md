@@ -2,6 +2,7 @@
 title: "SettingsContributor.apply renamed to process — clarity win"
 date: 2026-09-22
 tags: [settings, naming, kotlin-idioms]
+status: accepted
 ---
 
 ## Context

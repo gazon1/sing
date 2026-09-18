@@ -1,7 +1,8 @@
 ---
 title: "Sub-task 1-level hierarchy (like projects)"
 date: 2026-09-08
-tags: ["task-detail", "subtasks", "architecture"]
+tags: [task-detail, subtasks, architecture]
+status: accepted
 ---
 
 ## Context

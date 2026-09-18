@@ -7,16 +7,45 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+/**
+ * Repository for task attachments — files stored locally and URLs linked remotely.
+ *
+ * Two storage modes:
+ * - **File attachment** ([saveFileAttachment]): saved to local disk via [AttachmentStorage],
+ *   tracked with `AttachmentSyncStatus.Pending` for later remote sync.
+ * - **URL attachment** ([addUrlAttachment]): stored as a URL + title, no local copy.
+ *
+ * All attachments are soft-deleted (`deletedAt` timestamp) and permanently removed
+ * by a background sync job.
+ */
 interface AttachmentRepository {
+    /** Emits all (non-deleted) attachments for the given task. */
     fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Attachment>>
+
+    /** Upserts an [Attachment] entity directly. Prefer typed factory methods below. */
     suspend fun create(attachment: Attachment): Result<Unit>
+
+    /** Soft-deletes the attachment by ID. */
     suspend fun delete(id: AttachmentId): Result<Unit>
+
+    /**
+     * Copies a file from `sourcePath` into local attachment storage and creates a DB record.
+     * The record is created with `syncStatus = Pending` — a sync job uploads it remotely.
+     *
+     * @param sourcePath Absolute path to the file to attach.
+     * @param mimeType Detected or provided MIME type; auto-detected from extension if null.
+     */
     suspend fun saveFileAttachment(
         taskId: TaskId,
         userId: UserId,
         sourcePath: String,
         mimeType: String?,
     ): Result<Attachment>
+
+    /**
+     * Creates a URL attachment record — no local file is stored.
+     * The URL is validated before insertion. Sync status is `Pending` by default.
+     */
     suspend fun addUrlAttachment(taskId: TaskId, userId: UserId, url: String, title: String?): Result<Attachment>
 }
 

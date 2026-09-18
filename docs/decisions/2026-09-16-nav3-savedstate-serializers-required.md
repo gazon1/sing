@@ -3,6 +3,7 @@ title: "Nav3 SavedStateConfiguration must register all NavKey subtypes polymorph
 date: 2026-09-16
 tags: [navigation, nav3, serialization, jvm, android]
 supersedes: 2026-09-16-nav3-shared-state-factory-and-local-app-navigator
+status: accepted
 ---
 
 ## Context

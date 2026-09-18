@@ -2,6 +2,7 @@
 title: "Org-mode architectural lessons: cascade, visitor, computed, super-agenda"
 date: 2026-09-17
 tags: [architecture]
+status: accepted
 ---
 
 ## Context

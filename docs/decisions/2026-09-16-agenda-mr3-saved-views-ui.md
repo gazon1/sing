@@ -2,6 +2,7 @@
 title: "AgendaEngine MR3 — Saved Views UI: routes, reducer, events, top-bar entry"
 date: 2026-09-16
 tags: [agenda, navigation3, reducers, events, koin]
+status: accepted
 ---
 
 ## Context

@@ -1,7 +1,8 @@
 ---
 title: "TaskRepository.restore + UndoDelete via SnackbarHost"
 date: 2026-09-08
-tags: ["task-detail", "undo", "ux"]
+tags: [task-detail, undo, ux]
+status: accepted
 ---
 
 ## Context

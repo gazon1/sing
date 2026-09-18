@@ -101,6 +101,26 @@ detekt-baseline:
 lint: detekt
 
 # ---------------------------------------------------------------------------
+# Documentation audit
+# ---------------------------------------------------------------------------
+
+[group('docs')]
+[doc('Audit ADR frontmatter, regenerate DIGEST, check source-tree drift')]
+[working-directory(justfile_directory())]
+docs-audit:
+    #!/bin/bash
+    set -euo pipefail
+    echo "=== ADR frontmatter normalization check ==="
+    ./scripts/normalize-adr-frontmatter.sh --dry-run 2>/dev/null || true
+    echo ""
+    echo "=== DIGEST freshness check ==="
+    ./scripts/refresh-decisions-digest.sh
+    echo ""
+    echo "=== Source tree drift check ==="
+    ./scripts/print-source-tree.sh --output /tmp/source-tree.md
+    echo "(source tree written to /tmp/source-tree.md for manual diff)"
+
+# ---------------------------------------------------------------------------
 # Coverage (kotlinx-kover)
 # Measures shared (commonMain + jvmMain + androidMain) + desktopApp
 # ---------------------------------------------------------------------------

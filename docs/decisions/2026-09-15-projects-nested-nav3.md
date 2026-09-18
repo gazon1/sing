@@ -2,6 +2,7 @@
 title: "Projects feature: nested Nav3 graph with ProjectsNavigator"
 date: 2026-09-15
 tags: [nav3, navigation, koin, refactor, projects]
+status: accepted
 ---
 
 ## Context

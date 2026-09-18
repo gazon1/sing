@@ -2,6 +2,7 @@
 title: "Agenda — selector composer DSL + universal section() overload"
 date: 2026-09-18
 tags: [agenda, dsl, selector]
+status: accepted
 ---
 
 ## Context

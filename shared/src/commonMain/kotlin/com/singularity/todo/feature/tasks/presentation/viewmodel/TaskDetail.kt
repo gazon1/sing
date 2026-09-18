@@ -30,6 +30,18 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
+/**
+ * Task detail screen ViewModel.
+ *
+ * Owns: single task with checklist, reminders, attachments, subtasks.
+ * Triggers: status/complete toggle, inline edit changes, checklist mutations,
+ *   reminder add/remove, attachment add/remove, subtask create/delete, delete/restore.
+ * One-shot events: [TaskDetailUiEvent.NavigateBack], [TaskDetailUiEvent.ShowSnackbar],
+ *   [TaskDetailUiEvent.OpenReminderPicker], [TaskDetailUiEvent.OpenKindSheet].
+ *
+ * @see TaskDetailUiState
+ * @see TaskDetailIntent
+ */
 @OptIn(ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
 class TaskDetailViewModel(
     private val deps: TaskDetailDeps,

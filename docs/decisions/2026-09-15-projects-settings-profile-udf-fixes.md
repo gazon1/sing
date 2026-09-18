@@ -1,7 +1,8 @@
 ---
 title: "PR 5 UDF fixes — ProjectDetail, ProjectPicker, AccountSettings, TagPicker"
 date: 2026-09-15
-tags: ["architecture", "udf", "compose", "di"]
+tags: [architecture, udf, compose, di]
+status: accepted
 ---
 
 ## Context

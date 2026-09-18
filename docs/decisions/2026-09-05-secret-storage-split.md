@@ -2,6 +2,7 @@
 title: "API key lives in SecureStorage only — never in DataStore, never in UI state"
 date: 2026-09-05
 tags: [security, secure-storage, settings]
+status: accepted
 ---
 
 ## Context

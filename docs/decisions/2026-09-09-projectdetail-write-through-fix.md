@@ -2,6 +2,7 @@
 title: "ProjectDetailViewModel: write-through + _latestProject TOCTOU guard"
 date: 2026-09-09
 tags: [project-detail, toctou, write-through, vm, regression]
+status: accepted
 ---
 
 ## Context

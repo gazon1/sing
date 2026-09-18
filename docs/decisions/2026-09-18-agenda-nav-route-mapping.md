@@ -2,6 +2,7 @@
 title: "MR7: AgendaNavContent shared route mapping"
 date: 2026-09-18
 tags: [navigation, refactor]
+status: accepted
 ---
 
 ## Context

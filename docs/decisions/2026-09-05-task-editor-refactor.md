@@ -1,3 +1,6 @@
+---
+status: accepted
+---
 # Task Editor Refactor — TickTick-like single-screen editor
 
 ## Context

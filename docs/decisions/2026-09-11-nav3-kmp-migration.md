@@ -1,3 +1,6 @@
+---
+status: accepted
+---
 # Nav3 KMP Migration (Android + JVM Desktop)
 
 ## Context

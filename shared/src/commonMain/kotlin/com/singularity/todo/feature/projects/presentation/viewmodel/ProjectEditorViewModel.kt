@@ -24,6 +24,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
+/**
+ * Project editor screen ViewModel (create or edit).
+ *
+ * Owns: project draft with name, color, icon, description.
+ * Triggers: field changes, save (create or update).
+ * One-shot events: [ProjectEditorUiEvent.NavigateBack], [ProjectEditorUiEvent.ShowError].
+ *
+ * @see ProjectEditorUiState
+ * @see ProjectEditorIntent
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProjectEditorViewModel(
     private val projectId: ProjectId?,

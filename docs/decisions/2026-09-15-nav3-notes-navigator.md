@@ -1,3 +1,6 @@
+---
+status: accepted
+---
 # Nav3 Notes Navigator — Eliminate callback-passing in notes screens
 
 ## Context

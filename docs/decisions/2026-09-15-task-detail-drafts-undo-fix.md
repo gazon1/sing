@@ -1,7 +1,8 @@
 ---
 title: "TaskDetail drafts seed-from-task; TaskListScreen koinViewModel; undo snackbar wired"
 date: 2026-09-15
-tags: ["architecture", "compose", "udf", "tasks", "drafts", "undo"]
+tags: [architecture, compose, udf, tasks, drafts, undo]
+status: accepted
 ---
 
 ## Context

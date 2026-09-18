@@ -2,6 +2,7 @@
 title: "Settings UX improvements: swatches, time picker, connection badge, debounce, confirm dialogs"
 date: 2026-09-07
 tags: [settings, ux, compose, koin]
+status: accepted
 ---
 
 ## Context

@@ -2,6 +2,7 @@
 title: "ViewModel DI: viewModelOf + koinViewModel() instead of factory + koinInject()"
 date: 2026-09-06
 tags: [koin, di, vm]
+status: accepted
 ---
 
 ## Context

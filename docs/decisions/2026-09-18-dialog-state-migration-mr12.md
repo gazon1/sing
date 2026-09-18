@@ -2,6 +2,7 @@
 title: "TaskEditorSheet and ProjectDetailScreen migrate to DialogState<T>"
 date: 2026-09-18
 tags: [ui-components, state-hoisting, dialogs]
+status: accepted
 ---
 
 ## Context

@@ -2,6 +2,7 @@
 title: "MR6: ListPickerSheet<T> + DSL for agenda pickers"
 date: 2026-09-18
 tags: [ui, dsl, refactor]
+status: accepted
 ---
 
 ## Context

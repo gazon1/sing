@@ -2,6 +2,7 @@
 title: "Notes — quick-add inline input on the notes list screen"
 date: 2026-09-09
 tags: [notes, ux, quick-add]
+status: accepted
 ---
 
 ## Context

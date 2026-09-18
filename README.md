@@ -1,28 +1,99 @@
-This is a Kotlin Multiplatform project targeting Android, Desktop (JVM).
+# Singularity Todo
 
-* [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./shared/src/jvmMain/kotlin)
-    folder is the appropriate location.
+Kotlin Multiplatform task manager with AI assistance. Targets Android and JVM Desktop (no iOS).
 
-### Running the apps
-
-Use the run configurations provided by the run widget in your IDE's toolbar. You can also use these commands and options:
-
-- Android app: `./gradlew :androidApp:assembleDebug`
-- Desktop app:
-  - Hot reload: `./gradlew :desktopApp:hotRun --auto`
-  - Standard run: `./gradlew :desktopApp:run`
-
-### Running tests
-
-Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
-
-- Android tests: `./gradlew :shared:testAndroidHostTest`
-- Desktop tests: `./gradlew :shared:jvmTest`
+**Stack**: Compose Multiplatform · Room · Koin · Kermit · Supabase · Koog AI framework
 
 ---
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+## Features
+
+| Area | What's there |
+|---|---|
+| **Tasks** | Create, edit, delete, search, filter by status/project/tag, recurring tasks, reminders |
+| **Notes** | Rich-text WYSIWYG editor (bold/italic/code/lists), export to HTML |
+| **Projects** | Folder-like grouping, color + icon, task counts |
+| **Tags** | Global tags, per-profile isolation |
+| **Agenda** | Calendar view, daily/weekly schedule |
+| **AI Assistant** | 32 Koog-powered tools: refine, decompose, cluster, generate descriptions, weekly planning |
+| **Sync** | Supabase backend, HLC conflict resolution, offline-first |
+| **Backup** | JSON export/import, per-profile |
+| **MCP Server** | AI agent control via stdio (32 read/write/list tools) |
+| **Multi-profile** | Isolated data per profile (Personal, AI Agent, etc.) |
+
+---
+
+## Quickstart
+
+### Build
+
+```bash
+# Android
+./gradlew :androidApp:assembleDebug
+
+# Desktop
+./gradlew :desktopApp:run
+
+# Run tests
+./gradlew :shared:jvmTest
+./gradlew :shared:testAndroidHostTest
+
+# Full check (tests + lint + assemble)
+./check.sh
+```
+
+### Dogfooding with AI agent
+
+```bash
+# Build MCP server
+./gradlew :mcp-server:build
+
+# Connect ZCode / Claude Code / Cursor to:
+java -jar mcp-server/build/libs/mcp-server-jvm-*.jar --profile=ai-agent
+```
+
+See `AGENTS.md` for the full agent cheatsheet (architecture, DI patterns, test strategy, CLI).
+
+---
+
+## Architecture
+
+- **`shared/`** — all shared code (commonMain + androidMain + jvmMain + tests)
+  - `core/` — infrastructure: database, auth, backup, sync, DI, notifications, security
+  - `feature/` — UI features: tasks, notes, projects, tags, search, AI, settings, agenda, calendar
+- **`androidApp/`** — Android shell (MainActivity, manifest)
+- **`desktopApp/`** — Desktop Compose entry
+- **`mcp-server/`** — AI agent MCP server (Koog → MCP adapter)
+
+See `ARCHITECTURE.md` for the full design doc (package maps, expect/actual table, layer boundaries, refactoring playbook).
+
+---
+
+## Documentation
+
+| File | What |
+|---|---|
+| `AGENTS.md` | Agent cheatsheet: project structure, DI patterns, test strategy, CLI |
+| `ARCHITECTURE.md` | Full design doc (1300+ lines) |
+| `docs/decisions/DIGEST.md` | Auto-generated index of 120+ ADRs |
+| `docs/doc-maintenance.md` | Documentation policy and ADR template |
+| `docs/decisions/*.md` | Individual architecture decision records |
+
+Run `just docs-audit` to check doc freshness, normalize ADRs, and regenerate DIGEST.
+
+---
+
+## Tech choices
+
+| Concern | Solution |
+|---|---|
+| DI | Koin 4.x pure DSL (NOT annotations) |
+| Database | Room with auto-migrations (schema v1 → v12+) |
+| Async | Kotlin Coroutines + Flow |
+| Logging | Kermit (multiplatform) |
+| Date/Time | kotlinx-datetime |
+| HTTP | OkHttp (JVM + Android) |
+| AI | Koog framework (SimpleTool pattern) |
+| Sync | HLC timestamps, conflict resolution, Supabase REST |
+
+Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html).

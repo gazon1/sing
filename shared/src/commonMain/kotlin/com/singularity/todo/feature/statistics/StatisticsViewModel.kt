@@ -19,6 +19,15 @@ import kotlinx.coroutines.flow.stateIn
 
 data class StatisticsUiState(val snapshot: StatisticsSnapshot? = null, val loading: Boolean = true)
 
+/**
+ * Statistics screen ViewModel.
+ *
+ * Owns: [StatisticsSnapshot] — completed task counts by period, overdue count.
+ * Triggers: profile switch (recomputes from new user's tasks).
+ * No one-shot events — purely observational state.
+ *
+ * @see StatisticsUiState
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatisticsViewModel(
     private val taskRepository: TaskRepository,

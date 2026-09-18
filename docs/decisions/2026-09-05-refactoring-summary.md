@@ -1,5 +1,6 @@
 ---
 summary: Рефакторинг 7 пунктов: FakeRepositories seed/unification, scopeOverride в TagsVM+TaskDetailVM, TaskMutationsUseCase вместо 5 pass-through UC, атомарная валидация bulk-операций, ContentStateMapper
+status: accepted
 ---
 
 # ADR: Рефакторинг — унификация, scopeOverride, TaskMutationsUseCase, ContentStateMapper

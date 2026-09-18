@@ -27,6 +27,15 @@ sealed interface ArchiveUiState {
     data class Error(val message: String) : ArchiveUiState
 }
 
+/**
+ * Archive screen ViewModel (soft-deleted tasks).
+ *
+ * Owns: archived task list.
+ * Triggers: restore task, permanently delete task.
+ * One-shot events: [ArchiveUiEvent.ShowError].
+ *
+ * @see ArchiveUiState
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ArchiveViewModel(
     private val archiveRepo: ArchiveRepository,

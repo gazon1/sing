@@ -1,7 +1,8 @@
 ---
 title: "NoteEditor UDF fix — delegate link search to ViewModel"
 date: 2026-09-15
-tags: ["architecture", "udf", "notes", "di"]
+tags: [architecture, udf, notes, di]
+status: accepted
 ---
 
 ## Context

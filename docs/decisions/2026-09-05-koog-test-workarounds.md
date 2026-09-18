@@ -2,6 +2,7 @@
 title: "Avoid OpenAIModels.Chat.* — use KnownModels; explicit get<>() for SimpleTool<T>"
 date: 2026-09-05
 tags: [koog, koin, testing]
+status: accepted
 ---
 
 ## Context

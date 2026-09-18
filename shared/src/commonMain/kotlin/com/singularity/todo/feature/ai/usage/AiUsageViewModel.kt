@@ -26,6 +26,15 @@ data class AiUsageUiState(
     val totalCostUsdMicros: Long? = null,
 )
 
+/**
+ * AI usage statistics screen ViewModel.
+ *
+ * Owns: usage data aggregated by day, tool, and model for the active profile.
+ * Triggers: profile switch (re-queries with new profile ID).
+ * No one-shot events — purely observational state.
+ *
+ * @see AiUsageUiState
+ */
 class AiUsageViewModel(
     private val usageRecorder: UsageRecorder,
     profileRepository: ProfileRepository,

@@ -2,6 +2,7 @@
 title: "ListPickerDsl gains header/footer slots; T bound relaxed to Any?"
 date: 2026-09-18
 tags: [dsl, ui-components]
+status: accepted
 ---
 
 ## Context

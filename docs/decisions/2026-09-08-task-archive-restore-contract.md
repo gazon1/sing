@@ -1,7 +1,8 @@
 ---
 title: "Task archive vs delete: separate contracts via archiveAt"
 date: 2026-09-08
-tags: ["task-detail", "archive", "repository"]
+tags: [task-detail, archive, repository]
+status: accepted
 ---
 
 ## Context

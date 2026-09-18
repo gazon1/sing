@@ -2,6 +2,7 @@
 title: "Wire Koog AI agent for both JVM desktop and Android"
 date: 2026-09-05
 tags: [koog, kmp, ai]
+status: accepted
 ---
 
 ## Context

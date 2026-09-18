@@ -2,6 +2,7 @@
 title: "SettingsViewModel processIntent uses with(intent) stdlib receiver"
 date: 2026-09-18
 tags: [kotlin, viewmodel, settings]
+status: accepted
 ---
 
 ## Context

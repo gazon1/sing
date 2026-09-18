@@ -2,6 +2,7 @@
 title: "BottomSheetHost centralises LaunchedEffect sheet state boilerplate"
 date: 2026-09-22
 tags: [ui-components, sheet-state, compose]
+status: accepted
 ---
 
 ## Context

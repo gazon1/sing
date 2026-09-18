@@ -9,12 +9,38 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlin.time.Duration.Companion.milliseconds
 
+/**
+ * Repository for local backup management and remote backup push/pull.
+ *
+ * Local backups are zip files scanned from `backupDir` every 5 seconds via [backups].
+ * Remote operations use [RemoteBackupService] for upload/download.
+ */
 interface BackupRepository {
+    /**
+     * Emits the list of local backups, rescanned every 5 seconds.
+     * List is sorted newest-first by `createdAtEpochMillis`.
+     */
     val backups: Flow<List<BackupMetadata>>
+
+    /** Exports a full backup (tasks, notes, projects, tags, settings) to a zip in `backupDir`. */
     suspend fun export(options: ExportOptions): Result<BackupResult>
+
+    /** Imports a backup zip, restoring all entities. */
     suspend fun import(options: ImportOptions): Result<RestoreResult>
+
+    /** Deletes the local backup file with the given [BackupId]. */
     suspend fun delete(backupId: BackupId): Result<Unit>
+
+    /**
+     * Pushes a local backup to remote storage.
+     * Returns the remote reference (URL or path) on success.
+     */
     suspend fun push(backupId: BackupId): Result<String>
+
+    /**
+     * Pulls a backup from remote storage to `destPath`.
+     * The caller is responsible for importing it via [import].
+     */
     suspend fun pull(remoteRef: String, destPath: String): Result<Unit>
 }
 

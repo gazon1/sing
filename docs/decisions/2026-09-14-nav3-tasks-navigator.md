@@ -2,6 +2,7 @@
 title: "Nav3: TasksNavigator replaces callback-passing in task screens"
 date: 2026-09-14
 tags: [nav3, navigation, koin, refactor]
+status: accepted
 ---
 
 ## Context

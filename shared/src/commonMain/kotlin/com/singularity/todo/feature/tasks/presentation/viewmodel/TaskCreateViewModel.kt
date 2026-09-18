@@ -47,6 +47,18 @@ data class TaskCreateDeps(
     }
 }
 
+/**
+ * Task create screen ViewModel.
+ *
+ * Owns: new task draft with kind, title, description, due date, reminders, linked project.
+ * Triggers: kind/title/description/due date changes, AI actions (describe, checklist, pick time,
+ *   decompose), save (explicit or auto-save on navigate-away).
+ * One-shot events: [TaskCreateUiEvent.NavigateBack], [TaskCreateUiEvent.ShowAiResult],
+ *   [TaskCreateUiEvent.ShowError].
+ *
+ * @see TaskCreateUiState
+ * @see TaskCreateIntent
+ */
 class TaskCreateViewModel(
     private val deps: TaskCreateDeps,
     initialDueDate: LocalDate?,

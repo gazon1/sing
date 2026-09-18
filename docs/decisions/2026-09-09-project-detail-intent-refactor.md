@@ -2,6 +2,7 @@
 title: "ProjectDetailViewModel/Screen: sealed Intent + onIntent dispatcher pattern"
 date: 2026-09-09
 tags: [vm, intent, refactor, koin]
+status: accepted
 ---
 
 ## Context

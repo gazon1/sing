@@ -2,6 +2,7 @@
 title: "FAB at chrome level — single source of truth in shells"
 date: 2026-09-07
 tags: [ui, navigation, architecture]
+status: accepted
 ---
 
 ## Context

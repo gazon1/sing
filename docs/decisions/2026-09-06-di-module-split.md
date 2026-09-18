@@ -2,6 +2,7 @@
 title: "DI module split: one monolith → 7 feature modules"
 date: 2026-09-06
 tags: [di, koin, architecture]
+status: accepted
 ---
 
 ## Context

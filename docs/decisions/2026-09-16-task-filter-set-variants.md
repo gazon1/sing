@@ -2,6 +2,7 @@
 title: "TaskFilter and Selector set variants: ByTags/ByPriorities/ByRegexp SQL-backed filters"
 date: 2026-09-16
 tags: [tasks, domain-model, sql, selector, mr2a]
+status: accepted
 ---
 
 ## Context

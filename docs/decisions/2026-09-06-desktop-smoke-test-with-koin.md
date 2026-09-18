@@ -2,6 +2,7 @@
 title: "Desktop smoke test: Koin initialization pattern for Compose Multiplatform UI tests"
 date: 2026-09-06
 tags: [desktop, testing, compose, koin, ui-test]
+status: accepted
 ---
 
 ## Context

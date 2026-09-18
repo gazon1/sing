@@ -1,7 +1,8 @@
 ---
 title: "MCP dogfooding — round 2 plan index"
 date: 2026-09-08
-tags: ["mcp", "dogfooding", "round-2", "followups"]
+tags: [mcp, dogfooding, round-2, followups]
+status: accepted
 ---
 
 ## Idea

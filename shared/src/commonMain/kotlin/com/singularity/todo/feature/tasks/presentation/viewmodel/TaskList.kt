@@ -45,6 +45,18 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
+/**
+ * Tasks list screen ViewModel.
+ *
+ * Owns: filtered task list via [TasksUiState], task mutations, AI actions on tasks.
+ * Triggers: [TaskFilter] changes, task mutations (create/complete/pin/delete), AI actions
+ *   (refine, decompose, generate description/checklist, pick time, project review).
+ * One-shot events: [TasksUiEvent.NavigateToDetail], [TasksUiEvent.NavigateToCreate],
+ *   [TasksUiEvent.NavigateToProject], [TasksUiEvent.ShowAiResult], [TasksUiEvent.ShowError].
+ *
+ * @see TasksUiState
+ * @see TasksUiEvent
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TasksViewModel(
     private val taskRepo: TaskRepository,

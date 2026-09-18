@@ -2,6 +2,7 @@
 title: "Bridge suspend code into Koin factories via koinBridge { ... }"
 date: 2026-09-05
 tags: [koin, di, coroutines]
+status: accepted
 ---
 
 ## Context

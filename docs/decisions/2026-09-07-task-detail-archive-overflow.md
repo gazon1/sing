@@ -1,3 +1,6 @@
+---
+status: accepted
+---
 # Archive in Overflow menu + Picker sheet chrome
 
 ## Context

@@ -1,7 +1,8 @@
 ---
 title: "MCP plan tracking end-to-end"
 date: 2026-09-08
-tags: ["mcp", "dogfooding", "plan-tracking"]
+tags: [mcp, dogfooding, plan-tracking]
+status: accepted
 ---
 
 ## Idea

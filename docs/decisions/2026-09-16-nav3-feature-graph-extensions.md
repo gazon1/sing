@@ -2,6 +2,7 @@
 title: "NotesNavGraph start parameter, TasksStartRoute.Detail, AppDestination additions"
 date: 2026-09-16
 tags: [navigation, nav3, tasks, notes]
+status: accepted
 ---
 
 ## Context

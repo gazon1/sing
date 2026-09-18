@@ -2,6 +2,7 @@
 title: "DI bugfix: factory → viewModel for 4 VM registrations with runtime parameters"
 date: 2026-09-09
 tags: [koin, di, bugfix]
+status: accepted
 ---
 
 ## Context

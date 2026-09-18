@@ -2,6 +2,7 @@
 title: "Notes — split NoteDetail into NoteView (read-only) and NoteEditor (edit)"
 date: 2026-09-09
 tags: [notes, navigation, rich-editor, ux]
+status: accepted
 ---
 
 ## Context

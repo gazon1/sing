@@ -6,41 +6,64 @@
 
 ## 1. Карта пакетов
 
+> Автогенерируется: `just docs-audit` → `scripts/print-source-tree.sh`.
+> Для сверки с кодом: `python3 scripts/print-source-tree.py`.
+
 ### `core/` — инфраструктура (ports & adapters)
 
 | Пакет | Назначение |
 |---|---|
 | `core/auth/` | Supabase session, `SessionStore`, `AuthRepository` |
-| `core/attachments/` | Attachment entity, DAO, repository, storage/upload ports |
+| `core/attachments/` | Attachment entity, DAO, repository, storage (класс, не порт) |
 | `core/backup/` | BackupCodec, BackupExporter/Importer, migration chain, DSL builders |
-| `core/database/` | Room entities, DAOs, migrations, **Mappers.kt** (R5) |
-| `core/di/` | `Modules.kt` (domainModule), PlatformModule (expect/actual) |
+| `core/clock/` | `Clock` expect object, `todayFlow`, `AutosaveScheduler` |
+| `core/coroutines/` | `createBackgroundScope()` expect/actual — mandatory `CoroutineScope` для VM |
+| `core/database/` | Room entities, DAOs, migrations, **Mappers.kt** |
+| `core/di/` | `Modules.kt` (domainModule, 13 модулей), Koin Bridge, Platform/AI factories |
+| `core/draft/` | `DraftStore<T>` — DataStore-based, debounce 500ms, seed-if-empty |
 | `core/error/` | `AppError` sealed, `runCatchingResult` |
-| `core/files/` | `FileSystem` port, `MimeTypes`, `FileChecksum` |
-| `core/network/` | Ktor client config (CIO/OkHttp) |
+| `core/files/` | `FileSystem` порт (интерфейс), `MimeTypes`, `FileChecksum` |
+| `core/ids/` | Value class IDs: `TaskId`, `NoteId`, `ProjectId`, `TagId`, `UserId` |
+| `core/llm/` | `OpenAiConfig`, `AiTestResult`, `KnownModels`, `LlmProvider`, `TextGenPort` |
+| `core/log/` | `initLogging()` expect/actual — Kermit + platform-specific backend |
+| `core/network/` | Ktor/OkHttp client config |
 | `core/notifications/` | `NotificationPort` (expect/actual) |
-| `core/platform/` | `Clock` (expect/actual) |
-| `core/security/` | `SecureStoragePort` (expect/actual: secret-tool/AES-GCM + EncryptedSharedPreferences) |
-| `core/settings/` | `SettingsRepository` (DataStore) |
-| `core/sync/` | HLC, SyncEngine, ConflictResolver, SyncOutbox, SupabaseSyncApiClient |
-| `core/ui/` | Theme, shared composable library (`components/`), UiEvent contract |
+| `core/observability/` | `UsageRecorder`, `RoomUsageRecorder` — LLM token tracking |
+| `core/platform/` | `Clock`, `TimeZoneProvider`, `isDesktop` expect/actual |
+| `core/reminders/` | `ReminderRepository`, reminder scheduling |
+| `core/security/` | `SecureStoragePort` (expect/actual: secret-tool/AES-GCM + EncryptedSharedPreferences), `ProfileAwareSecureStorage` |
+| `core/serialization/` | `StableJson` — centralized JSON с `encodeDefaults` + `ignoreUnknownKeys` |
+| `core/settings/` | `SettingsRepository` (DataStore), `SettingsContributor` |
+| `core/sync/` | HLC, `SyncEngine`, `ConflictResolver`, `SyncOutbox`, Supabase API |
+| `core/tree/` | `Cascade.kt`, `TreeVisitor.kt` — pure infra для org-mode tree processing |
+| `core/ui/` | Theme, shared composable library (`components/`), `UiEvent` contract |
+| `core/validation/` | Domain validation helpers |
+| `core/backup/` | BackupCodec, BackupExporter/Importer, migration chain, DSL builders |
 
 ### `feature/` — UI-фичи (вертикали)
 
-| Пакет | ViewModel | Repository | Screen |
+| Пакет | Screen | ViewModel | Repository |
 |---|---|---|---|
-| `tasks/` | `TasksViewModel` | `TaskRepository` | `TasksScreen` |
-| `notes/` | `NotesViewModel` | `NotesRepository` + `NotesStore` | `NotesScreen` + `NoteEditorScreen` |
-| `projects/` | `ProjectsViewModel` | `ProjectsRepository` | `ProjectsScreen` |
-| `tags/` | `TagsViewModel` | `TagsRepository` | `TagsScreen` |
-| `search/` | — (composable) | — | `SearchScreen` |
-| `ai/` | — | — | `ChatScreen` (Koog agent) |
-| `auth/` | `AuthViewModel` | `AuthRepository` | `LoginScreen` |
-| `settings/` | `SettingsViewModel` | `SettingsRepository` | `SettingsScreen` + 5 sub-screens |
-| `backup/` | `BackupViewModel` | `BackupRepository` | `BackupScreen` |
-| `attachments/` | `AttachmentsViewModel` | `AttachmentRepository` | `AttachmentButton/Sheet/Tile/Thumbnail` |
-| `reminders/` | — | `ReminderRepository` | `ReminderPicker`, `ReminderTile` |
-| `nav/` | — | — | `Navigation.kt` (`HomeTab`) |
+| `tasks/` | `TaskDetailViewScreen` | `TaskCreateViewModel` | `TaskRepository` |
+| `notes/` | `NotesListScreen` | `NotesListViewModel`, `NoteEditor`, `NotePreview` | `NotesRepository` |
+| `projects/` | `ProjectsScreen` | `ProjectsViewModel`, `ProjectDetail`, `ProjectEditorViewModel` | `ProjectsRepository` |
+| `tags/` | — | `TagsViewModel` | `TagsRepository` |
+| `search/` | — | — | — |
+| `ai/` | `ChatScreen` | `ChatViewModel`, `GenUi*ViewModel` | — |
+| `auth/` | `LoginScreen` | `AuthViewModel` | `AuthRepository` |
+| `settings/` | `SettingsScreen` + sub-screens | `SettingsViewModel`, `AccountSettingsViewModel`, `TagPickerViewModel` | `SettingsRepository` |
+| `backup/` | `BackupScreen` | `BackupViewModel` | `BackupRepository` |
+| `attachments/` | — | `AttachmentsViewModel` | `AttachmentRepository` |
+| `reminders/` | — | — | `ReminderRepository` |
+| `agenda/` | `AgendaScreen` | `AgendaViewModel`, `SavedAgendaListViewModel`, `SavedAgendaViewModel` | `SavedAgendaViewsRepository` |
+| `archive/` | — | `ArchiveViewModel` | — |
+| `calendar/` | `CalendarScreen` | `CalendarViewModel` | — |
+| `checklist/` | — | `ChecklistViewModel` | `ChecklistRepository` |
+| `genui/` | — | `GenUi*ViewModel` | — |
+| `pomodoro/` | — | `PomodoroViewModel` | — |
+| `profile/` | — | `ProfileViewModel` | `ProfileRepository` |
+| `statistics/` | — | `StatisticsViewModel` | — |
+| `nav/` | — | — | — |
 
 ---
 
@@ -134,15 +157,33 @@ Room DAO (*Dao) + SQLite (jvmMain: sqlite-jdbc, androidMain: sqlite-bundled)
 
 ## 3. expect/actual таблица
 
-| Порт (commonMain) | jvmMain | androidMain |
+**Интерфейсы/классы** (platform boundaries):
+
+| Порт | commonMain | jvmMain | androidMain |
+|---|---|---|---|
+| `SecureStoragePort` | интерфейс | secret-tool + AES-GCM | EncryptedSharedPreferences |
+| `NotificationPort` | интерфейс | notify-send + at | AlarmManager + NotificationManager |
+| `FileSystem` | интерфейс | JvmFileSystem | AndroidFileSystem |
+| `BackupCodec` | интерфейс | — (zip via stdlib) | — |
+| `MarkdownHtmlPort` | интерфейс | RichEditorMarkdownHtmlPort | — (shared) |
+| `Clock` | expect object | — (kotlinx-datetime) | — (kotlinx-datetime) |
+| `AttachmentStorage` | **класс** (не интерфейс) | — | — |
+
+**Фабричные функции**:
+
+| Функция | jvmMain | androidMain |
 |---|---|---|
-| `SecureStoragePort` | `JvmSecureStorage` (secret-tool + AES-GCM) | `AndroidSecureStorage` (EncryptedSharedPreferences) |
-| `NotificationPort` | `JvmNotificationPort` (notify-send + at) | `AndroidNotificationPort` (AlarmManager + NotificationManager) |
-| `FileSystem` | `JvmFileSystem` | `AndroidFileSystem` |
-| `BackupCodec` | `JvmBackupCodec` (java.util.zip) | `AndroidBackupCodec` (java.util.zip) |
-| `MarkdownHtmlPort` | `RichEditorMarkdownHtmlPort` | — (shared) |
-| `createKoogPromptExecutor()` | `JvmKoogFactory` (MultiLLMPromptExecutor + OpenAILLMClient) | `AndroidKoogFactory` (error stub) |
-| `Clock` | — (kotlinx-datetime same) | — |
+| `createSqlDriver()` | SQLite JDBC driver | sqlite-bundled |
+| `createHttpClient()` | OkHttp | OkHttp |
+| `createBackgroundScope()` | `CoroutineScope(Dispatchers.Default)` | `CoroutineScope(Dispatchers.Default)` |
+| `initLogging()` | Kermit + Logback | Kermit + Logcat |
+| `createKoogPromptExecutor()` | MultiLLMPromptExecutor + OkHttp | AndroidKoogFactory (error stub) |
+| `platformModule()` | все platform bindings | все platform bindings |
+| `aiToolsModule()` | 32 Koog tools | 32 Koog tools |
+| `onSecondaryClick()` | AWT secondary click | desktop only |
+| `systemTimeZone` | expect val | expect val |
+
+**Навигация** (NavGraphs): `TasksNavGraph` + `tasksEntryProvider`, `ProjectsNavGraph` + `projectsEntryProvider`, `NotesNavGraph`, `SearchNavGraph`, `SettingsNavGraph`, `CalendarNavGraph` + `calendarEntryProvider`, `AgendaNavGraph` + `agendaEntryProvider`.
 
 ---
 
@@ -196,9 +237,13 @@ ChatScreen → KoogAgentService → AIAgent.builder()
 → LLM response → tools → JSON output → UseCase.decode → Result<String>
 ```
 
-**16 tools** (registered via `@IntoSet` → `Set<Tool<*, *>>`):
-Read-only: `GetNoteTool`, `GetProjectTool`, `GetTaskTool`, `ListTasksTool`, `ListLinkedTasksTool`, `SearchTasksTool`.
-LLM-powered: `RefineTaskTool`, `SmartRewriteTool`, `GenerateDescriptionTool`, `DecomposeTaskTool`, `GenerateChecklistTool`, `PickTimeTool`, `ClusterTasksTool`, `ClusterNotesTool`, `ProjectReviewTool`, `WeeklyPlanTool`.
+**32 tools** (registered via `single<List<Tool<*, *>>>` в `AiToolsDiModule.kt`, НЕ через `@IntoSet`):
+
+Write: `CreateTaskTool`, `UpdateTaskTool`, `DeleteTaskTool`, `CreateNoteTool`, `UpdateNoteTool`, `DeleteNoteTool`, `CreateProjectTool`, `UpdateProjectTool`, `DeleteProjectTool`, `CreateTagTool`, `DeleteTagTool`, `DecomposeAndCreateTool`, `WriteAdrTool`.
+
+Read/List: `GetTaskTool`, `GetNoteTool`, `GetProjectTool`, `ListTasksTool`, `ListLinkedTasksTool`, `SearchTasksTool`, `ListProjectsTool`, `ListAdrsTool`, `ReadAdrTool`.
+
+AI Gen: `RefineTaskTool`, `SmartRewriteTool`, `GenerateDescriptionTool`, `DecomposeTaskTool`, `GenerateChecklistTool`, `PickTimeTool`, `ClusterTasksTool`, `ClusterNotesTool`, `ProjectReviewTool`, `WeeklyPlanTool`, `ImproveNoteTool`.
 
 **Koog PromptExecutor** — `expect/actual`; JVM реализация использует `MultiLLMPromptExecutor` + `OpenAILLMClient` + OkHttp. Android бросает `error("...")`.
 
@@ -272,7 +317,7 @@ LLM-powered: `RefineTaskTool`, `SmartRewriteTool`, `GenerateDescriptionTool`, `D
 
 **Root `build.gradle.kts`** — глобальные pins:
 ```kotlin
-if (requested.group == "org.jetbrains.kotlin") useVersion("2.4.10")
+if (requested.group == "org.jetbrains.kotlin") useVersion("2.3.21")
 if (requested.name == "kotlinx-serialization-json") useVersion("1.11.0")
 ```
 
@@ -406,38 +451,44 @@ when (val result = repo.create(task)) {
 
 ---
 
-## 11. Рефакторинг-плейбук (R1–R20)
+## 11. Рефакторинг-плейбук (R1–R30)
 
-### ✅ Уже сделано в этом PR
+> R-номера с 1 по 20 из оригинального документа; новые — с 21.
 
-| # | Рефакторинг | Файлы |
-|---|---|---|
-| R1 | Убран `runBlocking { userId.first() }` из 4 ViewModels | TasksViewModel, NotesViewModel, ProjectsViewModel, TagsViewModel |
-| R5 | Извлечён `Mappers.kt` для Entity↔Domain | Mappers.kt + все repository impl |
-| R6 | `@Embedded SyncColumns` в 4 entities | Entities.kt |
-| R10 | Удалены 16 pass-through use cases | TasksUseCase, NotesUseCase, ProjectsUseCase, TagsUseCase, Modules.kt |
-| R11 | Исправлен `require { throw }` баг | CreateProjectUseCase |
-| R12 | Trimmed `ChecklistUseCase` + custom detekt rule `PassThroughUseCase` | `ChecklistUseCase.kt`, `:detekt-rules` module |
-
-### 📋 Предстоит (следующие PR)
+### ✅ Уже сделано
 
 | # | Рефакторинг | Суть |
 |---|---|---|
-| R2 | Удалить `NotesStore` | Дублирует `NotesRepository`; NotesViewModel перейти на NotesRepository |
-| R3 | Collapse UiState variants | Loading не наблюдаем; Empty payload не используется → data class |
-| R4 | Generic `ListViewModel<T,F>` | 3 почти идентичных VM (Tasks/Projects/Tags) → один базовый класс |
-| R7 | Koin Annotations | 295-строчный Modules.kt → @Module/@ComponentScan |
-| R8 | `@IntoSet` для 16 tools | ручной listOf(...) → Koin-агрегация |
-| R9 | Удалить typealias TestFakes.kt | 2 файла-пустышки |
-| R12 | `SettingsSnapshot<T>` | 19 DataStore-полей → typed data class |
-| R13 | TestScopeProvider | все VM с инжектируемым scope |
-| R14 | Удалить пустые Migration-объекты | Migration1To2, Migration2To3 — no-op |
-| R15 | Удалить skeleton smoke tests | SharedLogic*Test с одним assert(1==1) |
-| R16 | Централизовать все fakes | FakeReminderRepository из jvmTest → commonMain/test/fakes/ |
-| R17 | Fix `_filter.value` race | TasksViewModel: `_filter.value` внутри `map { }` → передавать через lambda param |
-| R18 | Reusable `taskWith()` factory | fixture в commonTest |
-| R19 | Merge EditorState.Empty+Saving | NoteEditorScreen рендерит один spinner для обоих |
-| R20 | `toggleComplete` через getById | `watchById().first()` → dedicated `suspend fun getById(id)` |
+| R1 | Убран `runBlocking { userId.first() }` | 4 ViewModels |
+| R2 | NotesStore удалён | NotesRepository — единственный источник |
+| R5 | `Mappers.kt` извлечён | Entity↔Domain |
+| R6 | `@Embedded SyncColumns` | 4 entities |
+| R10 | Pass-through use cases удалены | CRUD-UseCase'ы не создаются |
+| R11 | `require { throw }` bug исправлен | CreateProjectUseCase |
+| R12 | Custom detekt rule `PassThroughUseCase` | `ChecklistUseCase.kt` |
+| R16 | FakeReminderRepository централизован | `commonMain/test/fakes/FakeRepositories.kt` |
+
+### ❌ Отменено
+
+| # | Рефакторинг | Причина |
+|---|---|---|
+| R7 | Koin Annotations | `koin-annotations 4.x` несовместим с Koin 4.x |
+| R8 | `@IntoSet` для tools | `single<List<Tool>>` с `listOf(...)` — штатный Koin 4.x паттерн |
+
+### 📋 Предстоит (актуальный backlog)
+
+| # | Рефакторинг | Суть |
+|---|---|---|
+| R21 | Notes Clean Architecture | domain/data/presentation split для `feature/notes` |
+| R22 | Agenda Clean Architecture | domain/data/presentation split для `feature/agenda` |
+| R23 | GenUI subsystem ADR | `feature/genui/` — catalog, parser, render, schema |
+| R24 | Profile subsystem ADR | `ProfileAwareCurrentUser` refactor (блокирует VM testability) |
+| R25 | Nav3 type asymmetry | `rememberInMemoryNavBackStack` returns `NavBackStack<T>` — open ADR |
+| R26 | Instant migration | `kotlin.time.Instant` → `kotlinx.datetime.Instant` — deferred |
+| R27 | Collapsed UiState variants | Loading/Empty payload → data class |
+| R28 | Generic `ListViewModel<T,F>` | 3 похожих VM → базовый класс |
+| R29 | SettingsSnapshot | 19 DataStore-полей → typed data class |
+| R30 | Snapshot testing deferred | Roborazzi отложен, ADR зафиксирован |
 
 ---
 
@@ -445,18 +496,27 @@ when (val result = repo.create(task)) {
 
 ```
 App() (shared/App.kt)
-    ↓ startKoin(modules(domainModule(), platformModule()))
-platformModule() → DAOs, SecureStoragePort, NotificationPort, FileSystem, BackupCodec, KoogPromptExecutor
+    ↓ startKoin(modules(platformModule(), aiToolsModule(), domainModule()))
+platformModule() → DAOs, SecureStoragePort, NotificationPort, FileSystem, BackupCodec,
+                   createBackgroundScope, createSqlDriver, initLogging, createHttpClient
+aiToolsModule() → 32 Koog SimpleTools (single<List<Tool>>)
 domainModule()
     ├── SettingsRepository → DataStoreSettingsRepository
     ├── AuthRepository → SupabaseAuthRepository
-    ├── TaskRepository → TaskRepositoryImpl (watchTasks / changes SharedFlow)
+    ├── TaskRepository → TaskRepositoryImpl
     ├── NotesRepository → RoomNotesRepository
     ├── ProjectsRepository → ProjectsRepositoryImpl
     ├── TagsRepository → TagsRepositoryImpl
     ├── AttachmentRepository → AttachmentRepositoryImpl
     ├── ReminderRepository → RoomReminderRepository
+    ├── SavedAgendaViewsRepository
+    ├── ProfileRepository
     ├── HlcFactory + SyncEngine + SyncOutbox + SupabaseSyncApiClient
-    ├── KoogAgentService (TextGenPort) + 16 SimpleTools
-    └── 4 ViewModels (Tasks, Notes, Projects, Tags) + SettingsViewModel + BackupViewModel + AuthViewModel + AttachmentsViewModel
+    └── 20+ ViewModels (Tasks, Projects, Notes, Settings, AI, Agenda, Calendar, etc.)
 ```
+
+DI модули разнесены по 13 файлам в `core/di/`:
+`CoreDiModule.kt`, `TasksDiModule.kt`, `NotesDiModule.kt`, `ProjectsDiModule.kt`,
+`TagsDiModule.kt`, `CalendarDiModule.kt`, `AiToolsDiModule.kt`, `PlatformModule.kt`,
+`Modules.kt` (оркестратор), `KoinBridge.kt`, `KoogPromptExecutorFactory.kt`,
+`KoogPromptExecutorPort.kt`, `PromptExecutorPort.kt`.

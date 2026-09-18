@@ -2,6 +2,7 @@
 title: "Rename TaskListFilter → TaskStatus: domain-level completion status enum"
 date: 2026-09-16
 tags: [tasks, domain-model, rename]
+status: accepted
 ---
 
 ## Context

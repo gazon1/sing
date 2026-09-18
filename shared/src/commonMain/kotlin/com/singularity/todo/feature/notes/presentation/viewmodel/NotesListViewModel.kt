@@ -25,8 +25,17 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-// ─── ViewModel ───────────────────────────────────────────────────────────────
-
+/**
+ * Notes list screen ViewModel.
+ *
+ * Owns: note list filtered by [NoteFilter], sorted by [NoteSortOrder].
+ * Triggers: filter/sort changes, note create/delete/restore.
+ * One-shot events: [NotesUiEvent.NavigateToEditor], [NotesUiEvent.NavigateToPreview],
+ *   [NotesUiEvent.ShowError].
+ *
+ * @see NotesListState
+ * @see NotesUiEvent
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class NotesListViewModel(
     private val repo: NotesRepository,

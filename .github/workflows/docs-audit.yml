@@ -1,0 +1,53 @@
+name: Documentation Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/decisions/**'
+      - 'AGENTS.md'
+      - 'ARCHITECTURE.md'
+      - 'docs/doc-maintenance.md'
+      - '.github/workflows/docs-audit.yml'
+      - 'scripts/refresh-decisions-digest.*'
+      - 'scripts/normalize-adr-frontmatter.*'
+      - 'scripts/print-source-tree.*'
+
+jobs:
+  docs-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check ADR frontmatter
+        run: ./scripts/normalize-adr-frontmatter.sh --dry-run || true
+
+      - name: Refresh DIGEST
+        run: python3 scripts/refresh-decisions-digest.py
+
+      - name: Check for stale open/deferred ADRs
+        run: |
+          STALE=$(find docs/decisions -name "*.md" -newer docs/doc-maintenance.md -exec grep -l "status: open\|status: deferred" {} \; 2>/dev/null || true)
+          if [ -n "$STALE" ]; then
+            echo "Warning: open/deferred ADRs found (older than doc-maintenance.md):"
+            echo "$STALE"
+          fi
+
+      - name: Verify DIGEST has no double-suffix bugs
+        run: |
+          DOUBLE_SUFFIX_COUNT=$(grep -c "_(from " docs/decisions/DIGEST.md || echo "0")
+          if [ "$DOUBLE_SUFFIX_COUNT" -gt 100 ]; then
+            echo "Warning: DIGEST.md has $DOUBLE_SUFFIX_COUNT '_(from ' occurrences — possible double-suffix bug"
+          else
+            echo "DIGEST.md looks clean ($DOUBLE_SUFFIX_COUNT citations)"
+          fi
+
+      - name: Report DIGEST size
+        run: |
+          LINES=$(wc -l < docs/decisions/DIGEST.md)
+          echo "DIGEST.md: $LINES lines"
+          if [ "$LINES" -gt 1500 ]; then
+            echo "Warning: DIGEST.md exceeds 1500 lines — investigate deduplication"
+          fi

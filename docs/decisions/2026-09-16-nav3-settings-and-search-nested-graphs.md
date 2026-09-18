@@ -2,6 +2,7 @@
 title: "SettingsNavGraph and SearchNavGraph — single-route nested graphs"
 date: 2026-09-16
 tags: [navigation, nav3, settings, search]
+status: accepted
 ---
 
 ## Context

@@ -2,6 +2,7 @@
 title: "Org-mode functional patterns: pure composition extensions"
 date: 2026-09-17
 tags: [architecture]
+status: accepted
 ---
 
 ## Context

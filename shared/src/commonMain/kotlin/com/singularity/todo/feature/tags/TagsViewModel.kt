@@ -22,6 +22,15 @@ sealed interface TagsUiState {
     data class Error(val message: String) : TagsUiState
 }
 
+/**
+ * Tags list screen ViewModel.
+ *
+ * Owns: tag list filtered to current user.
+ * Triggers: tag create/delete.
+ * One-shot events: [TagUiEvent.ShowError].
+ *
+ * @see TagsUiState
+ */
 class TagsViewModel(
     private val tagRepo: TagsRepository,
     currentUser: ProfileAwareCurrentUser,

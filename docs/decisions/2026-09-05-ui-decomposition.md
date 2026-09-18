@@ -1,3 +1,6 @@
+---
+status: accepted
+---
 # UI Decomposition — reusable widgets, per-feature events, use-case extraction
 
 ## Context

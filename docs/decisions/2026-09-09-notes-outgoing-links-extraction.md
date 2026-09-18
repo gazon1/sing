@@ -2,6 +2,7 @@
 title: "Notes — wikilink extraction via HTML parsing + setOutgoingLinks wired to persist()"
 date: 2026-09-09
 tags: [notes, wikilinks, rich-editor, room]
+status: accepted
 ---
 
 ## Context

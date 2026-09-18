@@ -2,6 +2,7 @@
 title: "LocalAppNavigator + shared rememberNav3State factory"
 date: 2026-09-16
 tags: [navigation, nav3, architecture]
+status: accepted
 ---
 
 ## Context

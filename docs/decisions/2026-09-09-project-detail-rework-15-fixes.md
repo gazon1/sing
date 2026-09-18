@@ -2,6 +2,7 @@
 title: "ProjectDetailScreen — 15-fixes rework (2026-09-09)"
 date: 2026-09-09
 tags: [projects, screen-architecture, preview, koin, reactive]
+status: accepted
 ---
 
 ## Context

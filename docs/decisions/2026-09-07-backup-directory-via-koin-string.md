@@ -2,6 +2,7 @@
 title: "Delete throwing backupDirectoryPath; resolve backup directory via Koin get<String>()"
 date: 2026-09-07
 tags: [koin, di, backup, platform-module]
+status: accepted
 ---
 
 ## Context

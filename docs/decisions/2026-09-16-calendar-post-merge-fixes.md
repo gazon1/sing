@@ -1,19 +1,6 @@
-# ADR: Calendar Post-Merge Fixes
-
-**Date:** 2026-09-16
-**Status:** Accepted
-**Context:** Post-implementation review of the Calendar feature — three targeted fixes applied before first usage, plus a follow-up root-cause fix.
-
 ---
-
-## Context
-
-After completing the Calendar feature (commit `4dd094a`), a code review identified three issues requiring fixes:
-
-1. **`staticCompositionLocalOf` instead of `compositionLocalOf`** — palette wouldn't recompose on theme switch
-2. **`endTime`/`accentColor` always null without explanation** — misleading API surface
-3. **`Clock` shadowing in `CalendarDeps`** — initially addressed by FQDN `kotlinx.datetime.Clock`, which caused a runtime Koin error. The original FQDN fix was replaced with a root-cause fix (delete the field) after the runtime error surfaced.
-
+After completing the Calendar feature (commit `4dd094a`), a code review identified three issues requiring fixes: 
+status: accepted
 ---
 
 ## Decision 1 — `staticCompositionLocalOf` → `compositionLocalOf`

@@ -1,7 +1,8 @@
 ---
 title: "TaskDetail critical fixes: TOCTOU race, Saved-spam, dead condition"
 date: 2026-09-08
-tags: ["task-detail", "critical-fix", "ux"]
+tags: [task-detail, critical-fix, ux]
+status: accepted
 ---
 
 ## Context

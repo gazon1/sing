@@ -12,6 +12,15 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
+/**
+ * Attachments sheet ViewModel (per task).
+ *
+ * Owns: attachment list for the given task.
+ * Triggers: add file attachment, add URL attachment, delete attachment.
+ * One-shot events: [AttachmentsUiEvent.ShowError].
+ *
+ * @see AttachmentsUiState
+ */
 class AttachmentsViewModel(
     private val repository: AttachmentRepository,
     private val currentUser: ProfileAwareCurrentUser,

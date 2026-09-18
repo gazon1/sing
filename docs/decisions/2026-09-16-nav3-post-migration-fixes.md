@@ -2,6 +2,7 @@
 title: "Nav3 post-migration fixes — NotesNavGraph start, preview wrappers, FAB cleanup"
 date: 2026-09-16
 tags: [navigation, nav3]
+status: accepted
 ---
 
 ## Context

@@ -2,6 +2,7 @@
 title: "SelectorSerializer — Map-based registry + typeTag extension"
 date: 2026-09-18
 tags: [agenda, serialization, dsl]
+status: accepted
 ---
 
 ## Context

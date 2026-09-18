@@ -1,6 +1,7 @@
 ---
 date: 2026-09-14
 tags: [architecture, navigation, koin, viewmodel, bug]
+status: accepted
 ---
 
 # Nav3 ViewModelStore decorator fix

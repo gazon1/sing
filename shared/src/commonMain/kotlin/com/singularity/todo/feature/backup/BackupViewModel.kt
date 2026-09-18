@@ -30,6 +30,15 @@ data class BackupUiState(
 
 data class BackupSummary(val destPath: String, val byteSize: Long, val entityCount: Int)
 
+/**
+ * Backup management screen ViewModel.
+ *
+ * Owns: local backup list, export/import/push/pull operations.
+ * Triggers: export, import, delete, push to remote, pull from remote.
+ * One-shot events: [BackupUiEvent.ShowError], [BackupUiEvent.BackupExported].
+ *
+ * @see BackupUiState
+ */
 class BackupViewModel(
     private val repository: BackupRepository,
     private val authRepository: AuthRepository,

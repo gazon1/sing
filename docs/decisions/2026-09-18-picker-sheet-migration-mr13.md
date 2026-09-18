@@ -2,6 +2,7 @@
 title: "TaskAiBottomSheet migrates to ListPickerSheet; KindSheet and BacklinksSheet deferred"
 date: 2026-09-18
 tags: [ui-components, picker, migration]
+status: accepted
 ---
 
 ## Context

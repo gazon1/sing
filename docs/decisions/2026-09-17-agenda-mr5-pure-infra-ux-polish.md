@@ -2,6 +2,7 @@
 title: "Agenda MR5: Pure Infrastructure + Selector Cohesion + UX Polish"
 date: 2026-09-17
 tags: [agenda, infrastructure, selectors, ux]
+status: accepted
 ---
 
 ## Context

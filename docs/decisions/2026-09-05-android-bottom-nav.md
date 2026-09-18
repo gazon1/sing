@@ -2,6 +2,7 @@
 title: "Android bottom navigation bar via AppShell + NavHost (no separate ViewModels)"
 date: 2026-09-05
 tags: [navigation, compose, shell, ui]
+status: accepted
 ---
 
 ## Context
