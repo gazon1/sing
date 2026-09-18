@@ -6,6 +6,7 @@ import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
  * Read model для экрана просмотра задачи.
@@ -23,6 +24,10 @@ data class TaskDetailUi(
     val attachments: List<Attachment> = emptyList(),
     /** Direct child tasks (1-level hierarchy only). */
     val subtasks: List<Task> = emptyList(),
+    /** IDs of tasks this task depends on. Used to populate [DependencyPickerSheet]. */
+    val dependsOn: Set<TaskId> = emptySet(),
+    /** Tasks available for dependency selection (not trashed, not self). */
+    val availableTasks: List<Task> = emptyList(),
 )
 
 /**

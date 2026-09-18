@@ -50,7 +50,7 @@ object AgendaEvaluator {
                     tasks = matched.map { task ->
                         AgendaRowItem(
                             task = task,
-                            badge = computeBadge(task, section.selector, today),
+                            badge = computeBadge(task, section.selector, today, tasks),
                             isBlocked = TaskComputed.isBlocked(task, tasks),
                         )
                     },
@@ -74,7 +74,8 @@ object AgendaEvaluator {
     fun matches(task: Task, selector: Selector, today: LocalDate): Boolean =
         selector.matches(task, today)
 
-    private fun computeBadge(task: Task, selector: Selector, today: LocalDate): AgendaBadge? {
+    private fun computeBadge(task: Task, selector: Selector, today: LocalDate, allTasks: List<Task>): AgendaBadge? {
+        if (TaskComputed.isBlocked(task, allTasks)) return AgendaBadge.Blocked
         if (task.isPinned) return AgendaBadge.Pinned
         if (task.isCompleted) return AgendaBadge.Completed
         if (task.dueDate == null) return AgendaBadge.NoDate

@@ -92,6 +92,7 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
         onPriorityClick = { sheets.show(TaskEditorSheet.Priority) },
         onDueDateClick = { sheets.show(TaskEditorSheet.Date) },
         extraSections = null,
+        onSetDependencies = null,
         bottomBar = {
             TaskSaveBar(
                 isEnabled = state.isSaveEnabled,
@@ -135,6 +136,8 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
                 },
             )
         }
+
+        is TaskEditorSheet.Dependencies -> { /* not supported in create mode */ }
 
         null -> { /* no-op */ }
     }

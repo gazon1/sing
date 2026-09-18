@@ -7,4 +7,5 @@ sealed interface TaskEditorSheet {
     data object Date : TaskEditorSheet
     data object Time : TaskEditorSheet
     data object Priority : TaskEditorSheet
+    data object Dependencies : TaskEditorSheet
 }

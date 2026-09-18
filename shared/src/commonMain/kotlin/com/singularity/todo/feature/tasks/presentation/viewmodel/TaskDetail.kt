@@ -131,6 +131,8 @@ class TaskDetailViewModel(
                 val reminderFlow = deps.reminderRepo.watchByTask(taskId, deps.currentUser.current)
                 val attachmentsFlow = deps.attachmentsRepo.watchByTask(taskId, deps.currentUser.current)
                 val subtasksFlow = deps.taskRepo.watchSubtasks(taskId, deps.currentUser.current)
+                val availableTasksFlow = deps.taskRepo.watchTasks(deps.currentUser.current, com.singularity.todo.feature.tasks.domain.model.TaskFilter.All)
+                    .map { all -> all.filter { !it.isTrashed && it.id != taskId } }
 
                 combine(
                     projectFlow,
@@ -139,6 +141,7 @@ class TaskDetailViewModel(
                     reminderFlow,
                     attachmentsFlow,
                     subtasksFlow,
+                    availableTasksFlow,
                     draftState.state,
                 ) { values ->
                     @Suppress("UNCHECKED_CAST")
@@ -160,7 +163,10 @@ class TaskDetailViewModel(
                     val subtasks = values[5] as List<Task>
 
                     @Suppress("UNCHECKED_CAST")
-                    val draft = values[6] as TaskDetailDraft
+                    val availableTasks = values[6] as List<Task>
+
+                    @Suppress("UNCHECKED_CAST")
+                    val draft = values[7] as TaskDetailDraft
 
                     // Seed from loaded task — idempotent, won't overwrite user's active edits.
                     draftState.seed(task.title, task.description ?: "")
@@ -176,6 +182,8 @@ class TaskDetailViewModel(
                             reminders = reminders,
                             attachments = attachments,
                             subtasks = subtasks,
+                            dependsOn = task.dependsOn,
+                            availableTasks = availableTasks,
                         ),
                     )
                 }
@@ -234,6 +242,7 @@ class TaskDetailViewModel(
             is TaskDetailIntent.Domain.SetDependencies -> {
                 scope.launch {
                     deps.taskRepo.setDependencies(current.id, intent.dependsOn)
+                        .onSuccess { _events.emit(TaskDetailUiEvent.Saved("Dependencies updated")) }
                         .onFailure { emitError("Failed to set dependencies") }
                 }
             }

@@ -86,6 +86,9 @@ fun TaskDetailViewScreen(taskId: TaskId) {
                     onDueDateClear = null,
                     onDueTimeSelect = { vm.onIntent(TaskDetailIntent.Domain.SetDueTime(it)) },
                     showDueDate = ui.task.dueDate != null,
+                    dependsOn = ui.dependsOn,
+                    availableTasks = ui.availableTasks,
+                    onSetDependencies = { deps -> vm.onIntent(TaskDetailIntent.Domain.SetDependencies(deps)) },
                     extraSections = {
                         if (ui.checklist.isNotEmpty()) {
                             com.singularity.todo.feature.tasks.presentation.components.detail.TaskChecklistCard(

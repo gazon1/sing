@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.CalendarToday
@@ -37,7 +38,9 @@ import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.rememberDialogState
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
@@ -92,7 +95,13 @@ fun TaskEditorContent(
     onPriorityClick: (() -> Unit)? = null,
     /** Click on the Due Date row opens the date picker sheet. */
     onDueDateClick: (() -> Unit)? = null,
+    /** IDs of tasks this task depends on. Opens the [DependencyPickerSheet]. */
+    dependsOn: Set<TaskId> = emptySet(),
+    /** Tasks available for dependency selection. */
+    availableTasks: List<Task> = emptyList(),
     extraSections: (@Composable () -> Unit)?,
+    /** Called when the user confirms a new set of dependencies in [DependencyPickerSheet]. */
+    onSetDependencies: ((Set<TaskId>) -> Unit)?,
     bottomBar: (@Composable () -> Unit)?,
     menuItems: List<TaskEditorMenuItem>,
     onBack: () -> Unit,
@@ -134,6 +143,23 @@ fun TaskEditorContent(
 
             // View-mode extra sections
             extraSections?.invoke()
+
+            // Dependencies card — shown when task has dependencies
+            if (dependsOn.isNotEmpty() && availableTasks.isNotEmpty()) {
+                val depTitles = dependsOn.mapNotNull { depId ->
+                    availableTasks.find { it.id == depId }?.title?.ifBlank { null }
+                }
+                TaskAttributeCard(
+                    icon = Icons.Filled.Block,
+                    label = if (depTitles.isNotEmpty()) {
+                        depTitles.joinToString(", ")
+                    } else {
+                        "${dependsOn.size} dependency${if (dependsOn.size > 1) "s" else ""}"
+                    },
+                    isActive = true,
+                    onClick = { sheets.show(TaskEditorSheet.Dependencies) },
+                )
+            }
 
             // Priority attribute
             Row(
@@ -270,6 +296,16 @@ fun TaskEditorContent(
                 },
             )
         }
+
+        is TaskEditorSheet.Dependencies -> DependencyPickerSheet(
+            currentDeps = dependsOn,
+            availableTasks = availableTasks,
+            onApply = { newDeps ->
+                onSetDependencies?.invoke(newDeps)
+                sheets.dismiss()
+            },
+            onDismiss = { sheets.dismiss() },
+        )
 
         null -> { /* no-op */ }
     }

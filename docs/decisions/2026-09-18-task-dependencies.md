@@ -94,6 +94,35 @@ suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit>
 - Cycle detection is deferred — cycles are rare and the cost of a DFS on every `setDependencies` call is non-trivial for large task graphs.
 - Self-dependency is validated in the MCP tool and silently ignored by the join-table upsert (PRIMARY KEY prevents the duplicate).
 
+## Follow-ups (resolved)
+
+### Fake consolidation
+`FakeTaskRepository._depRefs` map removed. Replaced with private `InMemoryTaskDao`
+embedded in the same file; constructor accepts optional `dao: TaskDao = InMemoryTaskDao()`
+for test-shared state scenarios. The fake now mirrors `TaskRepositoryImpl`'s pattern
+of operating through DAO primitives (`upsertDependency`/`clearDependencies`).
+24 existing call sites untouched thanks to default-arg constructor.
+
+### BackupExporter end-to-end
+Added `TaskDao.listAllDependenciesForUser(userId)` and
+`TaskDao.listAllTagsForUser(userId)`. `BackupExporter.export` now populates
+`BackupPayload.taskTags` and `BackupPayload.taskDependencies` from the database;
+`EntityCounts` gains `taskDependencies: Int = 0` field. Full round-trip covered by
+`BackupRoundTripTest`.
+
+### DependencyPickerSheet
+Opens from a `TaskAttributeCard` rendered inside `TaskEditorContent` when
+`dependsOn.isNotEmpty()`. Uses `TaskEditorSheet.Dependencies` as the sheet key,
+`DependencyPickerSheet` composable for multi-select task picking, and
+`TaskDetailViewModel` receives the applied dependencies via
+`TaskDetailIntent.Domain.SetDependencies`. Not reusing `InternalLinkPickerSheet`
+which is single-select notes-only.
+
+### AgendaBadge.Blocked — now used
+`computeBadge` emits `Blocked` when `TaskComputed.isBlocked(task, allTasks)`
+is true. Visual rendering happens through `TaskMetaRow` (`Icons.Default.Block`)
+which already gates on `task.isBlocked && !task.isCompleted`.
+
 ## Links
 
 - MR-1 implementation: `TaskDependencyCrossRef`, `TaskDao`, `Computed.isBlocked`, `TaskDetailIntent.SetDependencies`, `SetDependenciesTool`
