@@ -1,10 +1,9 @@
 package com.singularity.todo.feature.agenda.domain.logic
 
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
-import com.singularity.todo.feature.agenda.domain.model.AgendaLayout
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
-import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
+import com.singularity.todo.feature.agenda.domain.model.agenda
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import kotlinx.datetime.LocalDate
@@ -20,13 +19,6 @@ import kotlinx.datetime.LocalDate
  * subclasses are annotated with `@SerialName`. In MR1 all filtering happens in-process.
  */
 object AgendaPresets {
-
-    private fun section(name: String, selector: Selector, order: Int = 0, discard: Boolean = false) = Section(
-        name = name,
-        order = order,
-        selector = selector,
-        discard = discard,
-    )
 
     /** All active tasks, grouped by relative date bucket. */
     val Inbox: AgendaDefinition = agenda("Inbox") {
@@ -90,28 +82,3 @@ object AgendaPresets {
     }
 }
 
-// ─── DSL helpers ─────────────────────────────────────────────────────────────
-
-private fun agenda(title: String, block: AgendaScope.() -> Unit): AgendaDefinition {
-    val scope = AgendaScope().apply(block)
-    return AgendaDefinition(
-        title = title,
-        sections = scope.sections,
-        layout = AgendaLayout.ListFlat,
-    )
-}
-
-private class AgendaScope {
-    internal val sections = mutableListOf<Section>()
-
-    fun section(name: String, selector: Selector, order: Int, discard: Boolean = false) {
-        sections.add(
-            Section(
-                name = name,
-                order = order,
-                selector = selector,
-                discard = discard,
-            ),
-        )
-    }
-}

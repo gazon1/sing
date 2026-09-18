@@ -101,4 +101,48 @@ class AgendaDslTest {
         val section = def.sections[0].selector as Selector.Not
         assertEquals(Selector.Completed, section.child)
     }
+
+    // ─── Baseline: current contract before MR1 strictens it ───────────────────
+
+    /**
+     * Empty title is currently accepted (MR1 will NOT add validation for title —
+     * title is user-facing metadata, not a structural constraint).
+     */
+    @Test
+    fun `empty title is accepted`() {
+        val def = agenda("") {
+            section("Today") {
+                selector = Selector.DateBucket(RelativeBucket.Today)
+            }
+        }
+        assertEquals("", def.title)
+    }
+
+    /**
+     * Section without selector in block and without selector parameter
+     * throws IllegalStateException from checkNotNull with a clear message.
+     * MR1 replaced the UninitializedPropertyAccessException with an explicit check.
+     */
+    @Test(expected = IllegalStateException::class)
+    fun `section without selector throws`() {
+        agenda("Test") {
+            section("X") {
+                // selector not assigned
+            }
+        }
+    }
+
+    /**
+     * Assigning selector via property in SectionScope works.
+     * This is the primary DSL usage pattern alongside the parameter form.
+     */
+    @Test
+    fun `section selector assignment in block works`() {
+        val def = agenda("Test") {
+            section("Today") {
+                this.selector = Selector.DateBucket(RelativeBucket.Today)
+            }
+        }
+        assertEquals(RelativeBucket.Today, (def.sections[0].selector as Selector.DateBucket).bucket)
+    }
 }

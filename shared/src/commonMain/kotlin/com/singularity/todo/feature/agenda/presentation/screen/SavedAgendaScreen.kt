@@ -18,23 +18,18 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,6 +44,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.components.BackTopAppBar
+import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -142,28 +139,15 @@ fun SavedAgendaScreen(
 
     val sheetState = rememberModalBottomSheetState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(modeHint) },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            val editing = state as? SavedAgendaViewState.Editing
-                            if (editing != null && editing.draft.isDirty) {
-                                activeDialog = ActiveDialog.ConfirmDiscard
-                            } else {
-                                navigator.back()
-                            }
-                        },
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+    BackTopAppBar(
+        title = modeHint,
+        onBack = {
+            val editing = state as? SavedAgendaViewState.Editing
+            if (editing != null && editing.draft.isDirty) {
+                activeDialog = ActiveDialog.ConfirmDiscard
+            } else {
+                navigator.back()
+            }
         },
         modifier = modifier,
     ) { paddingValues ->
@@ -202,25 +186,12 @@ fun SavedAgendaScreen(
 
     // ConfirmDiscard dialog
     if (activeDialog == ActiveDialog.ConfirmDiscard) {
-        AlertDialog(
-            onDismissRequest = { activeDialog = null },
-            title = { Text("Discard changes?") },
-            text = { Text("You have unsaved changes that will be lost.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        activeDialog = null
-                        navigator.back()
-                    },
-                ) {
-                    Text("Discard")
-                }
+        DiscardChangesDialog(
+            onDiscard = {
+                activeDialog = null
+                navigator.back()
             },
-            dismissButton = {
-                TextButton(onClick = { activeDialog = null }) {
-                    Text("Keep editing")
-                }
-            },
+            onKeepEditing = { activeDialog = null },
         )
     }
 
@@ -280,10 +251,10 @@ fun SavedAgendaScreen(
 }
 
 /** Active overlay dialog. */
-private enum class ActiveDialog {
-    ConfirmDelete,
-    ConfirmDiscard,
-    AddSection,
+private sealed interface ActiveDialog {
+    data object ConfirmDelete : ActiveDialog
+    data object ConfirmDiscard : ActiveDialog
+    data object AddSection : ActiveDialog
 }
 
 /**

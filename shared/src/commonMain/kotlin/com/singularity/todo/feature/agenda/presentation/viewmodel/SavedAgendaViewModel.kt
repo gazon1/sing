@@ -64,6 +64,11 @@ class DraftState(initial: Draft = Draft.empty()) {
             draft.copy(sections = sections)
         }
     }
+
+    /** Marks the current draft as saved — resets originalName/originalSections so isDirty becomes false. */
+    fun markSaved() {
+        _state.update { it.copy(originalName = it.name, originalSections = it.sections) }
+    }
 }
 
 data class Draft(
@@ -210,7 +215,10 @@ class SavedAgendaViewModel(
                 is SavedAgendaScreenMode.Edit -> {
                     val updated = current.view!!.copy(name = nameToSave, sectionsJson = sectionsJson, updatedAt = now)
                     deps.repo.upsert(updated).fold(
-                        onSuccess = { _events.emit(SavedAgendaEvent.SaveSuccess) },
+                        onSuccess = {
+                            draftState.markSaved()
+                            _events.emit(SavedAgendaEvent.SaveSuccess)
+                        },
                         onFailure = { _events.emit(SavedAgendaEvent.ShowError(it.message ?: "Save failed")) },
                     )
                 }

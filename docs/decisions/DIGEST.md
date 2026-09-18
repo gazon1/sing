@@ -72,24 +72,40 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `agenda`
 
+- Adding a new Selector variant: add `@SerialName` annotation + one `put()` in the registry (2 changes). _(from `2026-09-18-selector-serializer-registry`)_
 - `AgendaEngine MR1` полностью завершён _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
 - `agendaEntryProvider()` on both platforms must register `SavedAgendaList` and `SavedAgendaEdit` entries. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- All 633 JVM tests pass after migration. _(from `2026-09-18-agenda-ui-shared-adoption`)_
+- All 7 presets now use the canonical public DSL path. _(from `2026-09-18-agenda-selector-composer-dsl`)_
 - All new pure functions are `internal` or `private` where possible. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- `BackTopAppBar` now has `containerColor = surface` by default — all 6 existing callers benefit automatically. _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - `cascadeUp` throws `IllegalStateException` on cycle — no silent infinite loops. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- Composite selectors (`AllOf`, `AnyOf`, `Not`) encode their children via `registrySnapshot.getValue(child.typeTag).encode(child)` — works for any nesting depth. _(from `2026-09-18-selector-serializer-registry`)_
 - D5 (Settings tab + default view picker UI) and D7 (full notification→navigator deeplink wiring) are deferred — `SettingsRepository` storage is in place; UI wiring requires further settings-screen integration work. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - Detekt: 263 findings (pre-existing), 0 в изменённых файлах _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
+- `DiscardChangesDialog` can be repurposed for any "are you sure?" confirmation (not just agenda) by passing custom text. _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - **Fake reactive** (`MutableStateFlow<Map<K,V>>`) required for VM tests — `flowOf(snapshot)` not testable for transitions. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - MR1 JSON `{"_type":"Tag","id":"..."}` and MR2 JSON `{"_type":"Tags","ids":[...],"matchAll":false}` both round-trip correctly. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 - **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
 - **MR4 scope**: Create flow (FAB on list), deep-link guard for `SavedAgendaEdit`, section reorder. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
 - `navSavedStateConfig` on Android must include `SavedAgendaList.serializer()` and `SavedAgendaEdit.serializer()`. _(from `2026-09-16-agenda-mr3-saved-views-ui`)_
+- `onSave()` success in Edit mode clears `isDirty` immediately — no stale "unsaved changes" state after save. _(from `2026-09-18-saved-view-factory`)_
 - Process death during Create: seed lost, returns to list. Acceptable — Create is not critical path. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
 - `ProfilePickerSheet` depends on `ProfileRepository.all()` — screens requiring profile context must inject `ProfileRepository`. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - `ReorderableConfig` interface allows future swap to `sh.calvin.reorderable` without changing call sites. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - `SavedAgendaEditViewModel` → `SavedAgendaViewModel` rename propagates to all callers. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `SavedAgendaListScreen` keeps its FAB by using `Scaffold` directly (not `BackTopAppBar` which lacks FAB support). _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - `SavedAgendaSeedStore` is a global singleton — concurrent Create operations would race. Acceptable for current single-user model. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
+- `SavedAgendaView` companion object has no factory functions; VMs use inline `copy()`. _(from `2026-09-18-saved-view-factory`)_
+- `SavedAgendaViewModel` and `SavedAgendaListViewModel` are the only callers of `SavedAgendaView` construction. _(from `2026-09-18-saved-view-factory`)_
+- `sealed interface ActiveDialog` enables exhaustive `when` on JVM. _(from `2026-09-18-agenda-ui-shared-adoption`)_
+- `section("X") { }` without a selector now throws `IllegalStateException("Section 'X' has no selector — pass as parameter or assign inside block")` instead of `UninitializedPropertyAccessException`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
+- `SelectorBuilderTest` and `AgendaScopeSectionTest` added in `commonTest`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
+- Selector composition uses `selector { allOf(...); not(...) }` style instead of `Selector.AllOf(listOf(...))`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
+- `SelectorSerializer` is now in its own file, improving build isolation. _(from `2026-09-18-selector-serializer-registry`)_
 - `sh.calvin.reorderable` dependency deferred; `ReorderableSectionList` is a `LazyColumn` stub. _(from `2026-09-16-agenda-mr4-saved-views-create-reorder`)_
 - `TaskComputed.isOverdue` is the ONLY place `isOverdue` logic lives — `grep "dueDate < today"` returns 0 hits. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+- The `init` assertion catches missing entries at class load time with a clear message. _(from `2026-09-18-selector-serializer-registry`)_
 - The `@Serializable(with = ...)` annotation on the sealed interface activates the custom serializer for ALL paths including nested occurrences (e.g. `AllOf.children: List<Selector>`). _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 - `when (selector)` appears only in `SelectorMatcher.matches` and `SelectorDescriptor.typeDescription` — compile-time enforcement of exhaustiveness for all 13 variants. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - Компиляция Android + JVM успешна, все тесты проходят _(from `2026-09-16-agendaengine-post-mr1-nav-cleanup`)_
@@ -707,6 +723,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TaskRepositoryImpl.watchTasks` получает 4 новые dispatch branches _(from `2026-09-16-task-filter-set-variants`)_
 - `TaskStatus` в domain/model доступен для AgendaEngine DSL без добавления cross-layer импорта. _(from `2026-09-16-task-list-filter-to-task-status`)_
 
+### `draft`
+
+- `onSave()` success in Edit mode clears `isDirty` immediately — no stale "unsaved changes" state after save. _(from `2026-09-18-saved-view-factory`)_
+- `SavedAgendaView` companion object has no factory functions; VMs use inline `copy()`. _(from `2026-09-18-saved-view-factory`)_
+- `SavedAgendaViewModel` and `SavedAgendaListViewModel` are the only callers of `SavedAgendaView` construction. _(from `2026-09-18-saved-view-factory`)_
+
 ### `drafts`
 
 - `core/draft/DataStoreDraftStore.kt` _(from `2026-09-15-task-editor-unification`)_
@@ -733,7 +755,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `dsl`
 
+- Adding a new Selector variant: add `@SerialName` annotation + one `put()` in the registry (2 changes). _(from `2026-09-18-selector-serializer-registry`)_
+- All 7 presets now use the canonical public DSL path. _(from `2026-09-18-agenda-selector-composer-dsl`)_
+- Composite selectors (`AllOf`, `AnyOf`, `Not`) encode their children via `registrySnapshot.getValue(child.typeTag).encode(child)` — works for any nesting depth. _(from `2026-09-18-selector-serializer-registry`)_
 - **MR2**: `ByTags(set)`, `ByPriorities(set)`, `ByDateBucket` с SQL, `ByRegexp`, реактивный `todayFlow`, пользовательские saved views. _(from `2026-09-16-agenda-engine`)_
+- `section("X") { }` without a selector now throws `IllegalStateException("Section 'X' has no selector — pass as parameter or assign inside block")` instead of `UninitializedPropertyAccessException`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
+- `SelectorBuilderTest` and `AgendaScopeSectionTest` added in `commonTest`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
+- Selector composition uses `selector { allOf(...); not(...) }` style instead of `Selector.AllOf(listOf(...))`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
+- `SelectorSerializer` is now in its own file, improving build isolation. _(from `2026-09-18-selector-serializer-registry`)_
+- The `init` assertion catches missing entries at class load time with a clear message. _(from `2026-09-18-selector-serializer-registry`)_
 - **Нет saved views в v1**: пользовательские пресеты не сохраняются. Встроенные — захардкожены в `AgendaPresets`. _(from `2026-09-16-agenda-engine`)_
 - **Удаляются**: `UpcomingScreen`, `UpcomingViewModel`, `UpcomingUiState`, `TaskListScreen` (для Inbox/Today/ByProject), `TasksViewModel`, `TasksRoute.Inbox/Today/Upcoming/ByProject`, `AppDestination.Inbox/Today/Upcoming/TasksByProject`. _(from `2026-09-16-agenda-engine`)_
 - **Экраны не под заменой**: `ProjectDetailScreen`, `NotesListScreen`, `SearchScreen`, `ArchiveScreen` — не agenda-вью. _(from `2026-09-16-agenda-engine`)_
@@ -1614,6 +1644,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 ### `selector`
 
 - `AgendaEvaluator.matches` обновлён для `Selector.Tags` (список tags → `task.tags.any { it in ids }`) _(from `2026-09-16-task-filter-set-variants`)_
+- All 7 presets now use the canonical public DSL path. _(from `2026-09-18-agenda-selector-composer-dsl`)_
 - **Breaking**: MCP tool producer-side обновляется _(from `2026-09-16-task-filter-set-variants`)_
 - **Breaking**: `Selector.Tag` rename — `AgendaPresetsTest` JSON snapshots обновляются _(from `2026-09-16-task-filter-set-variants`)_
 - `FakeTaskDao` и `FakeTaskRepository` mirror для всех 4 новых queries _(from `2026-09-16-task-filter-set-variants`)_
@@ -1624,6 +1655,15 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - All new pure functions are `internal` or `private` where possible. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - `cascadeUp` throws `IllegalStateException` on cycle — no silent infinite loops. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - D5 (Settings tab + default view picker UI) and D7 (full notification→navigator deeplink wiring) are deferred — `SettingsRepository` storage is in place; UI wiring requires further settings-screen integration work. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
+
+### `selector`
+
+- `section("X") { }` without a selector now throws `IllegalStateException("Section 'X' has no selector — pass as parameter or assign inside block")` instead of `UninitializedPropertyAccessException`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
+- `SelectorBuilderTest` and `AgendaScopeSectionTest` added in `commonTest`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
+- Selector composition uses `selector { allOf(...); not(...) }` style instead of `Selector.AllOf(listOf(...))`. _(from `2026-09-18-agenda-selector-composer-dsl`)_
+
+### `selectors`
+
 - `ProfilePickerSheet` depends on `ProfileRepository.all()` — screens requiring profile context must inject `ProfileRepository`. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - `ReorderableConfig` interface allows future swap to `sh.calvin.reorderable` without changing call sites. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
 - `TaskComputed.isOverdue` is the ONLY place `isOverdue` logic lives — `grep "dueDate < today"` returns 0 hits. _(from `2026-09-17-agenda-mr5-pure-infra-ux-polish`)_
@@ -1636,8 +1676,12 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 ### `serialization`
 
+- Adding a new Selector variant: add `@SerialName` annotation + one `put()` in the registry (2 changes). _(from `2026-09-18-selector-serializer-registry`)_
+- Composite selectors (`AllOf`, `AnyOf`, `Not`) encode their children via `registrySnapshot.getValue(child.typeTag).encode(child)` — works for any nesting depth. _(from `2026-09-18-selector-serializer-registry`)_
 - MR1 JSON `{"_type":"Tag","id":"..."}` and MR2 JSON `{"_type":"Tags","ids":[...],"matchAll":false}` both round-trip correctly. _(from `2026-09-17-selector-serializer-plain-kserializer`)_
+- `SelectorSerializer` is now in its own file, improving build isolation. _(from `2026-09-18-selector-serializer-registry`)_
 - The Android no-arg overload `rememberNavBackStack(vararg elements)` (reflection path) is **not used** in this project anymore — every call goes through the configuration overload so Android and JVM share one contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
+- The `init` assertion catches missing entries at class load time with a clear message. _(from `2026-09-18-selector-serializer-registry`)_
 - The `@Serializable(with = ...)` annotation on the sealed interface activates the custom serializer for ALL paths including nested occurrences (e.g. `AllOf.children: List<Selector>`). _(from `2026-09-17-selector-serializer-plain-kserializer`)_
 - When adding a new `data object` or `data class` to `AppDestination` (or any sealed route hierarchy that backs a `rememberNavBackStack`), **always** add the matching `subclass(...)` line in every relevant `serializersModule` — the compiler does not enforce this. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 
@@ -1658,6 +1702,14 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `TextGenPort.listModels` — добавлен в интерфейс, реализация в `KoogAgentService` и `FakeTextGen`. _(from `2026-09-07-settings-fixes`)_
 - The Test connection "probe" prompt is hard-coded: `"Reply with the single word: pong."` — change together with the system prompt if needed. _(from `2026-09-05-llm-provider-settings`)_
 - Все 6 sub-screens имеют `verticalScroll` — контент больше не обрезается. _(from `2026-09-07-settings-fixes`)_
+
+### `shared-components`
+
+- All 633 JVM tests pass after migration. _(from `2026-09-18-agenda-ui-shared-adoption`)_
+- `BackTopAppBar` now has `containerColor = surface` by default — all 6 existing callers benefit automatically. _(from `2026-09-18-agenda-ui-shared-adoption`)_
+- `DiscardChangesDialog` can be repurposed for any "are you sure?" confirmation (not just agenda) by passing custom text. _(from `2026-09-18-agenda-ui-shared-adoption`)_
+- `SavedAgendaListScreen` keeps its FAB by using `Scaffold` directly (not `BackTopAppBar` which lacks FAB support). _(from `2026-09-18-agenda-ui-shared-adoption`)_
+- `sealed interface ActiveDialog` enables exhaustive `when` on JVM. _(from `2026-09-18-agenda-ui-shared-adoption`)_
 
 ### `shell`
 
@@ -1841,9 +1893,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 
 - 23 of 28 context menu items are wired to `actions.onDismiss()` — future iterations wire the _(from `2026-09-15-desktop-menus`)_
 - **8 экранов мигрируют одновременно** — невозможно сделать постепенную миграцию из-за смены типа `_events` _(from `2026-09-05-ui-event-per-feature`)_
+- All 633 JVM tests pass after migration. _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует. _(from `2026-09-07-fab-chrome-level`)_
 - `App.kt` инжектит `SettingsRepository` через Koin — это нормально, Koin доступен в Common startup. _(from `2026-09-07-settings-fixes`)_
 - `AppShell` — minor change: добавлен `FabAction` parameter. _(from `2026-09-07-fab-chrome-level`)_
+- `BackTopAppBar` now has `containerColor = surface` by default — all 6 existing callers benefit automatically. _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - **BottomBar taps** now have a single source of truth: `navigator.navigateTopLevel(dest)` — no `selectedIndex` to keep in sync. _(from `2026-09-05-android-bottom-nav`)_
 - **`Clock` must be passed to `CreateTaskUseCase` / `UpdateTaskUseCase`** — use the singleton `Clock` from `core.platform`. _(from `2026-09-05-robolectric-widget-tests`)_
 - `Clock.System.now()` must not appear in preview code — use _(from `2026-09-06-compose-previews`)_
@@ -1880,6 +1934,7 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Desktop chrome** is unchanged from the user's perspective — the drawer still works exactly as before. _(from `2026-09-05-android-bottom-nav`)_
 - `DesktopShellNav3.kt` owns `showAbout` state and `menuEntries` — natural location since _(from `2026-09-15-desktop-menus`)_
+- `DiscardChangesDialog` can be repurposed for any "are you sure?" confirmation (not just agenda) by passing custom text. _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - Easier to extend cards and editors without breaking call sites _(from `2026-09-09-content-slot-pattern`)_
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`. _(from `2026-09-06-desktop-sidebar-replaces-permanent-drawer`)_
 - **Fake repo returns empty by default** — widget tests that check `LazyColumn` with `testTag` will fail when repo is empty (state = `Empty`). Test the `EmptyState` text instead, or seed data via `fakeNotesRepo.seed(note)`. _(from `2026-09-05-robolectric-widget-tests`)_
@@ -1898,6 +1953,8 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Preview functions are `private` and placed at the end of the source file, _(from `2026-09-06-compose-previews`)_
 - `PreviewParameterProvider` is avoided — individual preview functions used instead _(from `2026-09-06-compose-previews`)_
 - **Robolectric 4.17-beta-4** — `4.16` maxes at SDK 36; `compileSdk=37` requires the beta. The beta is already cached. _(from `2026-09-05-robolectric-widget-tests`)_
+- `SavedAgendaListScreen` keeps its FAB by using `Scaffold` directly (not `BackTopAppBar` which lacks FAB support). _(from `2026-09-18-agenda-ui-shared-adoption`)_
+- `sealed interface ActiveDialog` enables exhaustive `when` on JVM. _(from `2026-09-18-agenda-ui-shared-adoption`)_
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`. _(from `2026-09-05-robolectric-widget-tests`)_
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor. _(from `2026-09-07-settings-fixes`)_
 - `SettingsViewModel.testConnection()` **always** short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`. _(from `2026-09-05-llm-provider-settings`)_
@@ -2107,8 +2164,11 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - Navigation между Detail и подзадачами/проектами становится _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - New file `TaskDetailIntent.kt` (~120 lines). _(from `2026-09-09-task-detail-intent-refactor`)_
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables _(from `2026-09-09-notes-vm-split`)_
+- `onSave()` success in Edit mode clears `isDirty` immediately — no stale "unsaved changes" state after save. _(from `2026-09-18-saved-view-factory`)_
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency _(from `2026-09-09-notes-vm-split`)_
 - `ProjectDetailViewModel(projectId)` — Project X → back → Project Y _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
+- `SavedAgendaView` companion object has no factory functions; VMs use inline `copy()`. _(from `2026-09-18-saved-view-factory`)_
+- `SavedAgendaViewModel` and `SavedAgendaListViewModel` are the only callers of `SavedAgendaView` construction. _(from `2026-09-18-saved-view-factory`)_
 - **`String`-encoded `initialDueDate`** — заменён на _(from `2026-09-14-tasks-feature-nested-nav3`)_
 - `TaskCreateViewModel(initialDueDate)` — два последовательных _(from `2026-09-14-nav3-vm-store-decorator-fix`)_
 - `TaskDetailContent` is now `internal` (stateless, previewable without Koin). _(from `2026-09-09-task-detail-intent-refactor`)_
@@ -2260,6 +2320,10 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-17-orgmode-architectural-lessons` — architecture
 - `2026-09-17-orgmode-functional-patterns` — architecture
 - `2026-09-17-selector-serializer-plain-kserializer` — serialization  agenda  selector
+- `2026-09-18-agenda-selector-composer-dsl` — agenda  dsl  selector
+- `2026-09-18-agenda-ui-shared-adoption` — agenda  ui  shared-components
+- `2026-09-18-saved-view-factory` — agenda  viewmodel  draft
+- `2026-09-18-selector-serializer-registry` — agenda  serialization  dsl
 - `2026-09-18-testing-best-practices` — testing  vm  kotlin-test  coroutines
 
 ## Active entries
@@ -2367,5 +2431,9 @@ Markers that surface as Critical: `**Always**`, `**Never**`, `**MUST**`.
 - `2026-09-17-orgmode-functional-patterns` — Org-mode functional patterns: pure composition extensions
 - `2026-09-17-selector-serializer-plain-kserializer` — SelectorSerializer: plain KSerializer instead of JsonContentPolymorphicSerializer
 - `2026-09-17-vm-testability-audit` — _(no title)
+- `2026-09-18-agenda-selector-composer-dsl` — Agenda — selector composer DSL + universal section() overload
+- `2026-09-18-agenda-ui-shared-adoption` — Agenda UI — shared BackTopAppBar, DiscardChangesDialog, SettingsRadioRow adoption
+- `2026-09-18-saved-view-factory` — SavedAgendaView — DraftState.markSaved(), inline copy() in VMs
+- `2026-09-18-selector-serializer-registry` — SelectorSerializer — Map-based registry + typeTag extension
 - `2026-09-18-testing-best-practices` — Testing best practices — Tier 1 infrastructure, canonical VM pattern, Fake over mocks
 - `2026-09-18-vm-migration-scope-injection` — _(no title)

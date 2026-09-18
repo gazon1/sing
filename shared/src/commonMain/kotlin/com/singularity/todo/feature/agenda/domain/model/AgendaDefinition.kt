@@ -70,7 +70,6 @@ data class AgendaDefinition(
  * }
  * ```
  */
-@AgendaDslMarker
 fun agenda(
     title: String,
     layout: AgendaLayout = AgendaLayout.ListFlat,
@@ -90,26 +89,25 @@ fun agenda(
 class AgendaScope {
     internal val sections = mutableListOf<Section>()
 
-    fun section(name: String, order: Int = sections.size, discard: Boolean = false, block: SectionScope.() -> Unit) {
-        val sectionScope = SectionScope().apply(block)
-        sections.add(
-            Section(
-                name = name,
-                order = order,
-                selector = sectionScope.selector,
-                discard = discard,
-            ),
-        )
+    fun section(
+        name: String,
+        selector: Selector? = null,
+        order: Int = sections.size,
+        discard: Boolean = false,
+        block: SectionScope.() -> Unit = {},
+    ) {
+        val scope = SectionScope().apply(block)
+        val effectiveSelector = selector ?: scope.selector
+        checkNotNull(effectiveSelector) {
+            "Section '$name' has no selector — pass as parameter or assign inside block"
+        }
+        sections.add(Section(name, order, effectiveSelector, discard))
     }
 }
 
 @AgendaDslMarker
 class SectionScope {
-    lateinit var selector: Selector
-
-    fun Selector.within(selector: Selector) {
-        this@SectionScope.selector = selector
-    }
+    var selector: Selector? = null
 }
 
 @DslMarker
