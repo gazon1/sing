@@ -3,6 +3,7 @@ package com.singularity.todo.core.ui.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -41,7 +42,7 @@ data class ListPickerItem<T>(
     val selected: Boolean = false,
     val enabled: Boolean = true,
     val leading: @Composable (RowScope.() -> Unit) = {},
-)
+) where T : Any?
 
 /**
  * A bottom sheet that displays a flat list of selectable items.
@@ -66,13 +67,15 @@ data class ListPickerItem<T>(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun <T : Any> ListPickerSheet(
+fun <T : Any?> ListPickerSheet(
     title: String,
     items: List<ListPickerItem<T>>,
     onItemSelected: (T) -> Unit,
     onDismiss: () -> Unit,
     sheetState: SheetState = rememberModalBottomSheetState(),
     leading: @Composable (RowScope.() -> Unit) = {},
+    header: (@Composable ColumnScope.() -> Unit)? = null,
+    footer: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -89,6 +92,8 @@ fun <T : Any> ListPickerSheet(
                 style = MaterialTheme.typography.titleLarge,
             )
             Spacer(modifier = Modifier.height(16.dp))
+
+            header?.invoke(this)
 
             if (items.isEmpty()) {
                 Text(
@@ -108,6 +113,8 @@ fun <T : Any> ListPickerSheet(
                     }
                 }
             }
+
+            footer?.invoke(this)
         }
     }
 }

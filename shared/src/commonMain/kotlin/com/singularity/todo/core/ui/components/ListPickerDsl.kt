@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.components
 
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -29,9 +30,26 @@ annotation class ListPickerDsl
  * @param T The type of the key emitted when an item is selected.
  */
 @ListPickerDsl
-class ListPickerScope<T : Any> internal constructor() {
+class ListPickerScope<T : Any?> internal constructor() {
 
     internal val items: MutableList<ListPickerItem<T>> = mutableListOf()
+
+    internal var headerSlot: (@Composable ColumnScope.() -> Unit)? = null
+    internal var footerSlot: (@Composable ColumnScope.() -> Unit)? = null
+
+    /**
+     * Adds a header composable rendered above the item list.
+     */
+    fun header(content: @Composable ColumnScope.() -> Unit) {
+        headerSlot = content
+    }
+
+    /**
+     * Adds a footer composable rendered below the item list.
+     */
+    fun footer(content: @Composable ColumnScope.() -> Unit) {
+        footerSlot = content
+    }
 
     /**
      * Adds a selectable item to the list.
@@ -89,7 +107,7 @@ class ListPickerScope<T : Any> internal constructor() {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun <T : Any> ListPickerSheet(
+fun <T : Any?> ListPickerSheet(
     title: String,
     onItemSelected: (T) -> Unit,
     onDismiss: () -> Unit,
@@ -103,5 +121,7 @@ fun <T : Any> ListPickerSheet(
         onItemSelected = onItemSelected,
         onDismiss = onDismiss,
         sheetState = sheetState,
+        header = scope.headerSlot,
+        footer = scope.footerSlot,
     )
 }
