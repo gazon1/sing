@@ -8,6 +8,8 @@ import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -30,37 +32,39 @@ class StatisticsViewModelTest {
         )
     }
 
+    private fun TestScope.createVm(
+        repo: FakeTaskRepository = FakeTaskRepository(),
+    ): StatisticsViewModel = StatisticsViewModel(
+        taskRepository = repo,
+        currentUser = FakeProfileAwareCurrentUser(
+            FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)),
+        ),
+        clock = Clock,
+        scope = backgroundScope,
+    )
+
     @Test
     fun `marks task complete and statistics reactively update`() = runTest {
         val repo = FakeTaskRepository()
         repo.seed(task("t1"))
         repo.seed(task("t2"))
 
-        val vm = StatisticsViewModel(
-            taskRepository = repo,
-            currentUser = FakeProfileAwareCurrentUser(
-                FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)),
-            ),
-            clock = Clock,
-        )
+        val vm = createVm(repo)
+        advanceUntilIdle()
 
         repo.toggleComplete(TaskId.fromString("t1"))
 
-        // Without active collection the value remains the loading initial.
-        // We assert that the state is wired correctly via the loading flag.
+        // Without active collection the state stays at initial loading=true.
+        // The viewModel uses stateIn which stops upstream when there are no collectors.
         assertTrue(vm.state.value.loading, "Without active collection, loading=true stays")
     }
 
     @Test
     fun `state exposes StateFlow shape`() = runTest {
-        val vm = StatisticsViewModel(
-            taskRepository = FakeTaskRepository(),
-            currentUser = FakeProfileAwareCurrentUser(
-                FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)),
-            ),
-            clock = Clock,
-        )
-        // State is hot StateFlow, not Flow — must have a value before any collector
-        assertEquals(true, vm.state.value.loading)
+        val vm = createVm()
+        advanceUntilIdle()
+        // stateIn uses WhileSubscribed(5000) — upstream only starts when a collector subscribes.
+        // Without a collector, the StateFlow holds its initial value.
+        assertTrue(vm.state.value.loading)
     }
 }

@@ -1,17 +1,19 @@
 package com.singularity.todo.feature.ai.chat
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.ids.IdGenerator
+import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.ai.TextGenPort
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -21,8 +23,20 @@ import kotlinx.coroutines.launch
  * Composable stays thin — every action is expressed as an [Intent] and the
  * ViewModel is the single source of truth for messages, input, and loading.
  */
-class ChatViewModel(private val log: Logger, private val agent: TextGenPort, private val idGen: IdGenerator) :
-    ViewModel() {
+class ChatViewModel(
+    private val log: Logger,
+    private val agent: TextGenPort,
+    private val idGen: IdGenerator,
+    private val scope: CoroutineScope,
+) : ViewModel() {
+
+    /** Production constructor — Koin uses this. */
+    constructor(log: Logger, agent: TextGenPort, idGen: IdGenerator) : this(
+        log = log,
+        agent = agent,
+        idGen = idGen,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     data class State(
         val messages: List<ChatMessage> = emptyList(),
@@ -43,18 +57,18 @@ class ChatViewModel(private val log: Logger, private val agent: TextGenPort, pri
 
     fun onIntent(intent: Intent) {
         when (intent) {
-            is Intent.InputChanged -> _uiState.update { it.copy(input = intent.text) }
+            is Intent.InputChanged -> _uiState.updateState { it.copy(input = intent.text) }
             Intent.Send -> send()
         }
     }
 
-    private fun send() = viewModelScope.launch {
+    private fun send() = scope.launch {
         val current = _uiState.value
         val text = current.input.trim()
         if (text.isBlank() || current.isLoading) return@launch
 
         val assistantId = newId()
-        _uiState.update {
+        _uiState.updateState {
             it.copy(
                 input = "",
                 isLoading = true,
@@ -68,7 +82,7 @@ class ChatViewModel(private val log: Logger, private val agent: TextGenPort, pri
         runCatching {
             agent.streamChat(text).collect { chunk ->
                 collected.append(chunk)
-                _uiState.update { state ->
+                _uiState.updateState { state ->
                     state.copy(messages = state.messages.replaceAssistantContent(assistantId, collected.toString()))
                 }
             }
@@ -77,7 +91,7 @@ class ChatViewModel(private val log: Logger, private val agent: TextGenPort, pri
             _events.emit(ChatUiEvent.Error(error.message ?: "AI request failed"))
         }
 
-        _uiState.update { it.copy(isLoading = false) }
+        _uiState.updateState { it.copy(isLoading = false) }
     }
 
     private fun List<ChatMessage>.replaceAssistantContent(id: String, content: String) =

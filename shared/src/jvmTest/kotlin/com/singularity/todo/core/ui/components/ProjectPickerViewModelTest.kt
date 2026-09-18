@@ -13,6 +13,8 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -58,7 +60,7 @@ class ProjectPickerViewModelTest {
         return repo
     }
 
-    private fun createVm(
+    private fun TestScope.createVm(
         repo: ProjectsRepository = createFakeRepo(),
         createProject: CreateProjectUseCase = CreateProjectUseCase(repo, Clock),
         currentUser: ProfileAwareCurrentUser = createFakeCurrentUser(),
@@ -66,6 +68,7 @@ class ProjectPickerViewModelTest {
         projectRepo = repo,
         createProject = createProject,
         currentUser = currentUser,
+        scope = backgroundScope,
         sharingStarted = { SharingStarted.WhileSubscribed(0) },
     )
 

@@ -1,11 +1,13 @@
 package com.singularity.todo.feature.checklist
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import com.singularity.todo.core.ui.state.updateState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class ChecklistEditorState(
@@ -27,16 +29,25 @@ sealed interface ChecklistEditorIntent {
     data object ErrorShown : ChecklistEditorIntent
 }
 
-class ChecklistEditorViewModel(private val checklistUseCase: ChecklistUseCase) : ViewModel() {
+class ChecklistEditorViewModel(
+    private val checklistUseCase: ChecklistUseCase,
+    private val scope: CoroutineScope,
+) : ViewModel() {
+
+    /** Production constructor — Koin uses this. */
+    constructor(checklistUseCase: ChecklistUseCase) : this(
+        checklistUseCase = checklistUseCase,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     private val _state = MutableStateFlow(ChecklistEditorState())
     val state: StateFlow<ChecklistEditorState> = _state.asStateFlow()
 
     fun bindToTask(taskId: String) {
-        _state.update { it.copy(taskId = taskId) }
-        viewModelScope.launch {
+        _state.updateState { it.copy(taskId = taskId) }
+        scope.launch {
             checklistUseCase.watchChecklist(taskId).collect { items ->
-                _state.update { st ->
+                _state.updateState { st ->
                     st.copy(
                         items = items.map { ChecklistItemUi(it.id, it.title, it.isCompleted) },
                     )
@@ -48,11 +59,11 @@ class ChecklistEditorViewModel(private val checklistUseCase: ChecklistUseCase) :
     fun onIntent(intent: ChecklistEditorIntent) {
         when (intent) {
             ChecklistEditorIntent.Load -> { /* handled by bindToTask */ }
-            is ChecklistEditorIntent.NewItemTextChanged -> _state.update { it.copy(newItemText = intent.text) }
+            is ChecklistEditorIntent.NewItemTextChanged -> _state.updateState { it.copy(newItemText = intent.text) }
             ChecklistEditorIntent.AddItem -> addItem()
             is ChecklistEditorIntent.ToggleItem -> toggleItem(intent.id)
             is ChecklistEditorIntent.DeleteItem -> deleteItem(intent.id)
-            ChecklistEditorIntent.ErrorShown -> _state.update { it.copy(errorMessage = null) }
+            ChecklistEditorIntent.ErrorShown -> _state.updateState { it.copy(errorMessage = null) }
         }
     }
 
@@ -62,14 +73,14 @@ class ChecklistEditorViewModel(private val checklistUseCase: ChecklistUseCase) :
         val taskId = _state.value.taskId
         if (taskId.isBlank()) return
 
-        viewModelScope.launch {
-            _state.update { it.copy(adding = true) }
+        scope.launch {
+            _state.updateState { it.copy(adding = true) }
             checklistUseCase.addItem(taskId, text)
                 .onSuccess {
-                    _state.update { st -> st.copy(newItemText = "", adding = false) }
+                    _state.updateState { st -> st.copy(newItemText = "", adding = false) }
                 }
                 .onFailure { err: Throwable ->
-                    _state.update { st -> st.copy(adding = false, errorMessage = err.message) }
+                    _state.updateState { st -> st.copy(adding = false, errorMessage = err.message) }
                 }
         }
     }
@@ -78,19 +89,19 @@ class ChecklistEditorViewModel(private val checklistUseCase: ChecklistUseCase) :
         val item = _state.value.items.find { it.id == id } ?: return
         val taskId = _state.value.taskId
 
-        viewModelScope.launch {
+        scope.launch {
             checklistUseCase.toggleItem(id, item.title, taskId, item.isCompleted)
                 .onFailure { err: Throwable ->
-                    _state.update { st -> st.copy(errorMessage = err.message) }
+                    _state.updateState { st -> st.copy(errorMessage = err.message) }
                 }
         }
     }
 
     private fun deleteItem(id: ChecklistItemId) {
-        viewModelScope.launch {
+        scope.launch {
             checklistUseCase.deleteItem(id)
                 .onFailure { err: Throwable ->
-                    _state.update { st -> st.copy(errorMessage = err.message) }
+                    _state.updateState { st -> st.copy(errorMessage = err.message) }
                 }
         }
     }

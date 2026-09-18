@@ -11,9 +11,12 @@ import com.singularity.todo.feature.notes.NotesListState
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -29,7 +32,19 @@ class NotesListViewModel(
     private val repo: NotesRepository,
     currentUser: ProfileAwareCurrentUser,
     private val idGen: IdGenerator,
+    private val scope: CoroutineScope,
+    sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
+
+    // Secondary — production Koin uses this
+    constructor(
+        repo: NotesRepository,
+        currentUser: ProfileAwareCurrentUser,
+        idGen: IdGenerator,
+    ) : this(
+        repo, currentUser, idGen,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     private val userId = currentUser.scopedUserId
 
@@ -46,7 +61,7 @@ class NotesListViewModel(
     private val _isSelectionMode = MutableStateFlow(false)
 
     init {
-        viewModelScope.launch(Dispatchers.Unconfined) {
+        scope.launch(Dispatchers.Unconfined) {
             // Watch notes based on current filter, then split into pinned/unpinned.
             combine(_filter, userId) { f, uid -> f to uid }
                 .flatMapLatest { (f, uid) ->
@@ -110,7 +125,7 @@ class NotesListViewModel(
     // ─── Pin ────────────────────────────────────────────────────────────────
 
     fun togglePin(id: NoteId) {
-        viewModelScope.launch(Dispatchers.Unconfined) {
+        scope.launch(Dispatchers.Unconfined) {
             val current = _notes.value as? NotesUiState.Content ?: return@launch
             val note = (current.list.pinned + current.list.unpinned).firstOrNull { it.id == id }
                 ?: return@launch
@@ -121,7 +136,7 @@ class NotesListViewModel(
     // ─── Archive ───────────────────────────────────────────────────────────
 
     fun archive(id: NoteId) {
-        viewModelScope.launch(Dispatchers.Unconfined) {
+        scope.launch(Dispatchers.Unconfined) {
             repo.archive(id).getOrThrow()
         }
     }
@@ -147,7 +162,7 @@ class NotesListViewModel(
     }
 
     fun deleteSelected() {
-        viewModelScope.launch(Dispatchers.Unconfined) {
+        scope.launch(Dispatchers.Unconfined) {
             _selectedIds.value.forEach { id -> repo.softDelete(id) }
             exitSelectionMode()
         }
@@ -158,7 +173,7 @@ class NotesListViewModel(
     /** Creates a note with the given title and returns its id. */
     fun createNoteWithTitle(title: String): String {
         val id = NoteId(idGen.next())
-        viewModelScope.launch(Dispatchers.Unconfined) {
+        scope.launch(Dispatchers.Unconfined) {
             repo.createNoteWithTitle(userId.value, title)
         }
         return id.value
@@ -167,7 +182,7 @@ class NotesListViewModel(
     // ─── Delete ────────────────────────────────────────────────────────────
 
     fun delete(id: NoteId) {
-        viewModelScope.launch(Dispatchers.Unconfined) {
+        scope.launch(Dispatchers.Unconfined) {
             repo.softDelete(id)
         }
     }

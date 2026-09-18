@@ -136,11 +136,11 @@ fun tasksModule(): org.koin.core.module.Module = module {
         )
     }
 
-    viewModelOf(::ChecklistEditorViewModel)
+    viewModel { ChecklistEditorViewModel(get()) }
 
-    viewModelOf(::ArchiveViewModel)
+    viewModel { ArchiveViewModel(get(), get(), get()) }
 
-    viewModelOf(::StatisticsViewModel)
+    viewModel { StatisticsViewModel(get(), get(), get()) }
 
     viewModel { SearchViewModel(get(), get()) }
 }

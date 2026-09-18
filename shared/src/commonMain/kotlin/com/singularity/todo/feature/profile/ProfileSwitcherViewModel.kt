@@ -1,7 +1,9 @@
 package com.singularity.todo.feature.profile
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -14,7 +16,16 @@ data class ProfileSwitcherUiState(
     val isLoading: Boolean = true,
 )
 
-class ProfileSwitcherViewModel(private val profileRepository: ProfileRepository) : ViewModel() {
+class ProfileSwitcherViewModel(
+    private val profileRepository: ProfileRepository,
+    private val scope: CoroutineScope,
+) : ViewModel() {
+
+    /** Production constructor — Koin uses this. */
+    constructor(profileRepository: ProfileRepository) : this(
+        profileRepository = profileRepository,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     val uiState: StateFlow<ProfileSwitcherUiState> = combine(
         profileRepository.all(),
@@ -26,32 +37,32 @@ class ProfileSwitcherViewModel(private val profileRepository: ProfileRepository)
             isLoading = false,
         )
     }.stateIn(
-        viewModelScope,
+        scope,
         SharingStarted.WhileSubscribed(5_000),
         ProfileSwitcherUiState(),
     )
 
     fun create(name: String, emoji: String, colorIdx: Int) {
-        viewModelScope.launch {
+        scope.launch {
             profileRepository.create(name, emoji, colorIdx)
         }
     }
 
     fun rename(id: ProfileId, name: String) {
-        viewModelScope.launch {
+        scope.launch {
             val profile = profileRepository.getById(id) ?: return@launch
             profileRepository.update(id, name, profile.emoji, profile.colorIdx)
         }
     }
 
     fun delete(id: ProfileId) {
-        viewModelScope.launch {
+        scope.launch {
             profileRepository.delete(id)
         }
     }
 
     fun switchTo(id: ProfileId) {
-        viewModelScope.launch {
+        scope.launch {
             profileRepository.switchTo(id)
         }
     }

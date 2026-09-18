@@ -137,9 +137,9 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModelOf(::AuthViewModel)
+    viewModel { AuthViewModel(get()) }
 
     viewModel { BackupViewModel(get(), get(), get(), get()) }
 
-    viewModelOf(::AttachmentsViewModel)
+    viewModel { AttachmentsViewModel(get(), get()) }
 }

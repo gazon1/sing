@@ -1,13 +1,15 @@
 package com.singularity.todo.feature.ai.usage
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.observability.DailyUsage
 import com.singularity.todo.core.observability.ModelUsage
 import com.singularity.todo.core.observability.ToolUsage
 import com.singularity.todo.core.observability.UsageRecorder
 import com.singularity.todo.feature.profile.ProfileRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -24,7 +26,18 @@ data class AiUsageUiState(
     val totalCostUsdMicros: Long? = null,
 )
 
-class AiUsageViewModel(private val usageRecorder: UsageRecorder, profileRepository: ProfileRepository) : ViewModel() {
+class AiUsageViewModel(
+    private val usageRecorder: UsageRecorder,
+    profileRepository: ProfileRepository,
+    private val scope: CoroutineScope,
+) : ViewModel() {
+
+    /** Production constructor — Koin uses this. */
+    constructor(usageRecorder: UsageRecorder, profileRepository: ProfileRepository) : this(
+        usageRecorder = usageRecorder,
+        profileRepository = profileRepository,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<AiUsageUiState> = combine(
@@ -51,7 +64,7 @@ class AiUsageViewModel(private val usageRecorder: UsageRecorder, profileReposito
             totalCostUsdMicros = totalCost,
         )
     }.stateIn(
-        viewModelScope,
+        scope,
         SharingStarted.WhileSubscribed(5_000),
         AiUsageUiState(),
     )

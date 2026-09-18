@@ -6,7 +6,10 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -21,7 +24,19 @@ class StatisticsViewModel(
     private val taskRepository: TaskRepository,
     currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
+    private val scope: CoroutineScope,
+    sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
+
+    // Secondary — production Koin uses this
+    constructor(
+        taskRepository: TaskRepository,
+        currentUser: ProfileAwareCurrentUser,
+        clock: Clock,
+    ) : this(
+        taskRepository, currentUser, clock,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     val state: StateFlow<StatisticsUiState> = currentUser.scopedUserId
         .flatMapLatest { uid ->
@@ -42,5 +57,5 @@ class StatisticsViewModel(
                 }
         }
         .catch { emit(StatisticsUiState(loading = false)) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), StatisticsUiState(loading = true))
+        .stateIn(scope, sharingStarted(), StatisticsUiState(loading = true))
 }

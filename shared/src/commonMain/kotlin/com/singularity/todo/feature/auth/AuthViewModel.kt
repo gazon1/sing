@@ -1,9 +1,11 @@
 package com.singularity.todo.feature.auth
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -12,7 +14,16 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
+class AuthViewModel(
+    private val authRepository: AuthRepository,
+    private val scope: CoroutineScope,
+) : ViewModel() {
+
+    /** Production constructor — Koin uses this. */
+    constructor(authRepository: AuthRepository) : this(
+        authRepository = authRepository,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     private val _state = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
@@ -23,7 +34,7 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
     val session: StateFlow<Session> = authRepository.session
 
     fun signIn(email: String, password: String) {
-        viewModelScope.launch {
+        scope.launch {
             _state.value = AuthUiState.Loading
             val result = authRepository.signIn(email, password)
             result.fold(
@@ -39,7 +50,7 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
     }
 
     fun signUp(email: String, password: String) {
-        viewModelScope.launch {
+        scope.launch {
             _state.value = AuthUiState.Loading
             val result = authRepository.signUp(email, password)
             result.fold(
@@ -55,7 +66,7 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
     }
 
     fun signInAnonymously() {
-        viewModelScope.launch {
+        scope.launch {
             _state.value = AuthUiState.Loading
             val result = authRepository.signInAnonymously()
             result.fold(
@@ -71,7 +82,7 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
     }
 
     fun signOut() {
-        viewModelScope.launch {
+        scope.launch {
             authRepository.signOut()
         }
     }

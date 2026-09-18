@@ -100,9 +100,9 @@ actual fun aiToolsModule(): Module = module {
 
     single<UsageRecorder> { RoomUsageRecorder(get(), get<Clock>()) }
 
-    viewModelOf(::ChatViewModel)
-    viewModelOf(::AiUsageViewModel)
-    viewModelOf(::ProfileSwitcherViewModel)
+    viewModel { ChatViewModel(get(), get(), get()) }
+    viewModel { AiUsageViewModel(get(), get()) }
+    viewModel { ProfileSwitcherViewModel(get()) }
 
     // ─── GenUI ───
 

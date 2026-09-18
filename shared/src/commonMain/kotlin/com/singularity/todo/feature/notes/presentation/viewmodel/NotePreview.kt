@@ -1,13 +1,14 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.InternalLinkRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +25,20 @@ class NotePreview(
     private val repo: NotesRepository,
     private val linkRepo: InternalLinkRepository,
     currentUser: ProfileAwareCurrentUser,
+    private val scope: CoroutineScope,
 ) : ViewModel() {
+
+    /** Production constructor — Koin uses this. */
+    constructor(
+        repo: NotesRepository,
+        linkRepo: InternalLinkRepository,
+        currentUser: ProfileAwareCurrentUser,
+    ) : this(
+        repo = repo,
+        linkRepo = linkRepo,
+        currentUser = currentUser,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     private val userId = currentUser.scopedUserId
 
@@ -32,7 +46,7 @@ class NotePreview(
     val state: StateFlow<NotePreviewState> = _state.asStateFlow()
 
     fun loadNote(noteId: String) {
-        viewModelScope.launch(Dispatchers.Unconfined) {
+        scope.launch(Dispatchers.Unconfined) {
             repo.watchNote(NoteId.fromString(noteId))
                 .filterNotNull()
                 .collect { note ->
@@ -51,7 +65,7 @@ class NotePreview(
 
     fun delete() {
         val current = _state.value as? NotePreviewState.Loaded ?: return
-        viewModelScope.launch(Dispatchers.Unconfined) {
+        scope.launch(Dispatchers.Unconfined) {
             repo.softDelete(current.note.id).getOrThrow()
         }
     }

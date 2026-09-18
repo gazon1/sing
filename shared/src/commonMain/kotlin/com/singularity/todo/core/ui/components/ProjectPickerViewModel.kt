@@ -1,13 +1,15 @@
 package com.singularity.todo.core.ui.components
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,8 +33,21 @@ class ProjectPickerViewModel(
     private val projectRepo: ProjectsRepository,
     private val createProject: CreateProjectUseCase,
     private val currentUser: ProfileAwareCurrentUser,
+    private val scope: CoroutineScope,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(0) },
 ) : ViewModel() {
+
+    /** Production constructor — Koin uses this. */
+    constructor(
+        projectRepo: ProjectsRepository,
+        createProject: CreateProjectUseCase,
+        currentUser: ProfileAwareCurrentUser,
+    ) : this(
+        projectRepo = projectRepo,
+        createProject = createProject,
+        currentUser = currentUser,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     private val _draftName = MutableStateFlow("")
     val draftName: StateFlow<String> = _draftName.asStateFlow()
@@ -46,7 +61,7 @@ class ProjectPickerViewModel(
     /** Reactive project list — updates automatically when user switches profile. */
     val projects: StateFlow<List<Project>> = currentUser.scopedUserId
         .flatMapLatest { uid -> projectRepo.watchProjects(uid) }
-        .stateIn(viewModelScope, sharingStarted(), emptyList())
+        .stateIn(scope, sharingStarted(), emptyList())
 
     /** Raw flow for testing — same source as [projects] but without stateIn caching. */
     internal val projectsFlow: Flow<List<Project>> = currentUser.scopedUserId
@@ -64,7 +79,7 @@ class ProjectPickerViewModel(
     fun confirmCreate() {
         val name = _draftName.value.trim()
         if (name.isBlank()) return
-        viewModelScope.launch {
+        scope.launch {
             val uid = currentUser.scopedUserId.value
             val input = CreateProjectInput(
                 name = name,

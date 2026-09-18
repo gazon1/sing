@@ -1,12 +1,14 @@
 package com.singularity.todo.feature.archive
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -30,7 +32,21 @@ class ArchiveViewModel(
     private val archiveRepo: ArchiveRepository,
     private val taskRepo: TaskRepository,
     currentUser: ProfileAwareCurrentUser,
+    private val scope: CoroutineScope,
+    sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
+
+    /** Production constructor — Koin uses this. */
+    constructor(
+        archiveRepo: ArchiveRepository,
+        taskRepo: TaskRepository,
+        currentUser: ProfileAwareCurrentUser,
+    ) : this(
+        archiveRepo = archiveRepo,
+        taskRepo = taskRepo,
+        currentUser = currentUser,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     private val _refreshing = MutableStateFlow(false)
     private val _events = MutableSharedFlow<ArchiveUiEvent>(extraBufferCapacity = 4)
@@ -44,9 +60,9 @@ class ArchiveViewModel(
                 }
         }
         .catch { emit(ArchiveUiState.Error(it.message ?: "Error")) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ArchiveUiState.Loading)
+        .stateIn(scope, sharingStarted(), ArchiveUiState.Loading)
 
-    fun refresh() = viewModelScope.launch {
+    fun refresh() = scope.launch {
         _refreshing.value = true
         val result = archiveRepo.archiveCompletedTasks()
         _refreshing.value = false
