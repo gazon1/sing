@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
+import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
@@ -113,11 +114,10 @@ class SavedAgendaListViewModel(
                         return@launch
                     }
                     val now = Clock.now()
-                    val copy = sourceView.copy(
-                        id = SavedAgendaViewId.generate(),
-                        userId = targetProfile.id.value,
-                        createdAt = now,
-                        updatedAt = now,
+                    val copy = SavedAgendaViewFactory.duplicateForProfile(
+                        source = sourceView,
+                        targetUserId = targetProfile.id.value,
+                        now = now,
                     )
                     deps.repo.upsert(copy)
                         .onSuccess {

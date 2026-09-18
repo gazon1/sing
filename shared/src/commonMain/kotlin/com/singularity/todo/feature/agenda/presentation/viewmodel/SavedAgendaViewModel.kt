@@ -3,9 +3,9 @@ package com.singularity.todo.feature.agenda.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
+import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -213,7 +213,7 @@ class SavedAgendaViewModel(
             val now = deps.clock.now()
             when (mode) {
                 is SavedAgendaScreenMode.Edit -> {
-                    val updated = current.view!!.copy(name = nameToSave, sectionsJson = sectionsJson, updatedAt = now)
+                    val updated = SavedAgendaViewFactory.update(current.view!!, nameToSave, sectionsJson, now)
                     deps.repo.upsert(updated).fold(
                         onSuccess = {
                             draftState.markSaved()
@@ -223,7 +223,7 @@ class SavedAgendaViewModel(
                     )
                 }
                 is SavedAgendaScreenMode.Create -> {
-                    val newView = SavedAgendaView(SavedAgendaViewId.generate(), userId, nameToSave, sectionsJson, now, now)
+                    val newView = SavedAgendaViewFactory.create(userId, nameToSave, sectionsJson, now)
                     deps.repo.upsert(newView).fold(
                         onSuccess = { _events.emit(SavedAgendaEvent.SaveSuccess) },
                         onFailure = { _events.emit(SavedAgendaEvent.ShowError(it.message ?: "Save failed")) },

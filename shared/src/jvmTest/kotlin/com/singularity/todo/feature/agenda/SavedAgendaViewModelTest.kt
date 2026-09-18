@@ -5,6 +5,7 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
+import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.presentation.viewmodel.Draft
@@ -29,6 +30,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * Unit tests for [SavedAgendaViewModel].
@@ -317,5 +319,100 @@ class SavedAgendaViewModelTest {
         assertIs<SavedAgendaViewState.Editing>(state)
         // After seeding: initialized=true, name=Test, isDirty=false → canSave=false
         assertFalse(state.canSave, "canSave should be false when not dirty")
+    }
+
+    // ─── markSaved ───────────────────────────────────────────────────────────
+
+    @Test
+    fun markSavedResetsIsDirtyToFalse() {
+        val sections = listOf(Section("Today", 0, Selector.DateBucket(RelativeBucket.Today)))
+        val draft = DraftState()
+        draft.seed(Draft("Name", sections, "Name", sections, initialized = true))
+        assertFalse(draft.current.isDirty)
+
+        // Modify name → isDirty
+        draft.setName("Modified")
+        assertTrue(draft.current.isDirty)
+
+        // markSaved → isDirty cleared
+        draft.markSaved()
+        assertFalse(draft.current.isDirty)
+        assertEquals("Modified", draft.current.name)
+        assertEquals("Modified", draft.current.originalName)
+    }
+
+    @Test
+    fun markSavedClearsDirtyAfterSectionChange() {
+        val sections = listOf(Section("Today", 0, Selector.DateBucket(RelativeBucket.Today)))
+        val draft = DraftState()
+        draft.seed(Draft("Name", sections, "Name", sections, initialized = true))
+        assertFalse(draft.current.isDirty)
+
+        draft.reorderSections(listOf(Section("Today", 1, Selector.DateBucket(RelativeBucket.Today))))
+        assertTrue(draft.current.isDirty)
+
+        draft.markSaved()
+        assertFalse(draft.current.isDirty)
+    }
+
+    // ─── SavedAgendaViewFactory ──────────────────────────────────────────────
+
+    @Test
+    fun factoryCreateGeneratesNewId() {
+        val now = Instant.fromEpochMilliseconds(1_000_000)
+        val view = SavedAgendaViewFactory.create("user-1", "My View", """{"title":"My View","sections":[]}""", now)
+
+        assertEquals("user-1", view.userId)
+        assertEquals("My View", view.name)
+        assertEquals("""{"title":"My View","sections":[]}""", view.sectionsJson)
+        assertEquals(now, view.createdAt)
+        assertEquals(now, view.updatedAt)
+        // Id is generated (not empty)
+        assertTrue(view.id.raw.isNotBlank())
+    }
+
+    @Test
+    fun factoryUpdatePreservesIdAndUserIdAndCreatedAt() {
+        val now = Instant.fromEpochMilliseconds(1_000_000)
+        val original = SavedAgendaView(
+            id = com.singularity.todo.feature.agenda.SavedAgendaViewId("original-id"),
+            userId = "user-1",
+            name = "Original",
+            sectionsJson = """{"title":"Original","sections":[]}""",
+            createdAt = Instant.fromEpochMilliseconds(500_000),
+            updatedAt = Instant.fromEpochMilliseconds(800_000),
+        )
+
+        val updated = SavedAgendaViewFactory.update(original, "Updated", """{"title":"Updated","sections":[]}""", now)
+
+        assertEquals(com.singularity.todo.feature.agenda.SavedAgendaViewId("original-id"), updated.id)
+        assertEquals("user-1", updated.userId)
+        assertEquals(Instant.fromEpochMilliseconds(500_000), updated.createdAt)
+        assertEquals(now, updated.updatedAt)
+        assertEquals("Updated", updated.name)
+    }
+
+    @Test
+    fun factoryDuplicateForProfileRegeneratesIdAndChangesUserId() {
+        val now = Instant.fromEpochMilliseconds(1_000_000)
+        val original = SavedAgendaView(
+            id = com.singularity.todo.feature.agenda.SavedAgendaViewId("original-id"),
+            userId = "user-1",
+            name = "Shared View",
+            sectionsJson = """{"title":"Shared View","sections":[]}""",
+            createdAt = Instant.fromEpochMilliseconds(500_000),
+            updatedAt = Instant.fromEpochMilliseconds(800_000),
+        )
+
+        val copy = SavedAgendaViewFactory.duplicateForProfile(original, "user-2", now)
+
+        assertEquals("user-2", copy.userId)
+        assertEquals("Shared View", copy.name)
+        assertEquals("""{"title":"Shared View","sections":[]}""", copy.sectionsJson)
+        // New id generated
+        assertTrue(copy.id.raw != original.id.raw)
+        // Timestamps reset
+        assertEquals(now, copy.createdAt)
+        assertEquals(now, copy.updatedAt)
     }
 }
