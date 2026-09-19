@@ -80,4 +80,7 @@ sealed interface SettingsIntent {
     sealed interface DefaultAgendaView : SettingsIntent {
         data class Update(val viewId: SavedAgendaViewId?) : DefaultAgendaView
     }
+
+    /** Clears any errorMessage in the UI state. */
+    data object DismissError : SettingsIntent
 }

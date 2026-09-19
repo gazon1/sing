@@ -13,7 +13,8 @@ import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -45,7 +46,7 @@ class SettingsViewModelTest {
     @Test
     fun `initial state is Content`() = runTest {
         val vm = createVm(backgroundScope)
-        runCurrent()
+        advanceUntilIdle()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals(false, state.darkTheme)
         assertEquals("blue", state.accentColor)
@@ -59,7 +60,7 @@ class SettingsViewModelTest {
     fun `UpdateDarkTheme updates state`() = runTest {
         val vm = createVm(backgroundScope)
         vm.processIntent(SettingsIntent.Appearance.UpdateDarkTheme(true))
-        runCurrent()
+        advanceUntilIdle()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals(true, state.darkTheme)
     }
@@ -68,7 +69,7 @@ class SettingsViewModelTest {
     fun `UpdateAccentColor updates state`() = runTest {
         val vm = createVm(backgroundScope)
         vm.processIntent(SettingsIntent.Appearance.UpdateAccentColor("green"))
-        runCurrent()
+        advanceUntilIdle()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals("green", state.accentColor)
     }
@@ -77,7 +78,7 @@ class SettingsViewModelTest {
     fun `UpdateFontSizeScale updates state`() = runTest {
         val vm = createVm(backgroundScope)
         vm.processIntent(SettingsIntent.Appearance.UpdateFontSizeScale(1.25f))
-        runCurrent()
+        advanceUntilIdle()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals(1.25f, state.fontSizeScale)
     }
@@ -88,7 +89,7 @@ class SettingsViewModelTest {
     fun `Notifications UpdateEnabled updates state`() = runTest {
         val vm = createVm(backgroundScope)
         vm.processIntent(SettingsIntent.Notifications.UpdateEnabled(false))
-        runCurrent()
+        advanceUntilIdle()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals(false, state.notificationsEnabled)
     }
@@ -99,7 +100,7 @@ class SettingsViewModelTest {
     fun `WorkSchedule UpdateWorkDayStart updates state`() = runTest {
         val vm = createVm(backgroundScope)
         vm.processIntent(SettingsIntent.WorkSchedule.UpdateWorkDayStart(600))
-        runCurrent()
+        advanceUntilIdle()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals(600, state.workDayStartMinutes)
     }
@@ -110,7 +111,7 @@ class SettingsViewModelTest {
     fun `Greeting UpdateMorningEnd updates state`() = runTest {
         val vm = createVm(backgroundScope)
         vm.processIntent(SettingsIntent.Greeting.UpdateMorningEnd(10))
-        runCurrent()
+        advanceUntilIdle()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals(10, state.greetingMorningEnd)
     }
@@ -120,8 +121,12 @@ class SettingsViewModelTest {
     @Test
     fun `Ai UpdateProvider changes provider`() = runTest {
         val vm = createVm(backgroundScope)
-        vm.processIntent(SettingsIntent.Ai.UpdateProvider(com.singularity.todo.core.llm.LlmProvider.OLLAMA))
-        runCurrent()
+        advanceUntilIdle()
+        val job = backgroundScope.launch {
+            vm.processIntent(SettingsIntent.Ai.UpdateProvider(com.singularity.todo.core.llm.LlmProvider.OLLAMA))
+        }
+        job.join()
+        advanceUntilIdle()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals("ollama", state.aiProvider)
     }
@@ -129,8 +134,12 @@ class SettingsViewModelTest {
     @Test
     fun `Ai TestConnection returns Error on missing API key`() = runTest {
         val vm = createVm(backgroundScope)
-        vm.processIntent(SettingsIntent.Ai.TestConnection)
-        runCurrent()
+        advanceUntilIdle()
+        val job = backgroundScope.launch {
+            vm.processIntent(SettingsIntent.Ai.TestConnection)
+        }
+        job.join()
+        advanceUntilIdle()
         val state = vm.state.value as SettingsUiState.Content
         val testResult = state.aiTestResult
         assertIs<AiTestResult.Error>(testResult)
@@ -141,8 +150,12 @@ class SettingsViewModelTest {
     fun `Ai TestConnection returns Ok on success`() = runTest {
         fakeStorage.write("ai_key_openai", "sk-test")
         val vm = createVm(backgroundScope)
-        vm.processIntent(SettingsIntent.Ai.TestConnection)
-        runCurrent()
+        advanceUntilIdle()
+        val job = backgroundScope.launch {
+            vm.processIntent(SettingsIntent.Ai.TestConnection)
+        }
+        job.join()
+        advanceUntilIdle()
         val state = vm.state.value as SettingsUiState.Content
         val testResult = state.aiTestResult
         assertIs<AiTestResult.Ok>(testResult)
@@ -163,8 +176,12 @@ class SettingsViewModelTest {
             savedAgendaViewsRepo = fakeSavedAgendaViews,
             currentUser = fakeCurrentUser,
         )
-        vm.processIntent(SettingsIntent.Ai.TestConnection)
-        runCurrent()
+        advanceUntilIdle()
+        val job = backgroundScope.launch {
+            vm.processIntent(SettingsIntent.Ai.TestConnection)
+        }
+        job.join()
+        advanceUntilIdle()
         val state = vm.state.value as SettingsUiState.Content
         val testResult = state.aiTestResult
         assertIs<AiTestResult.Error>(testResult)

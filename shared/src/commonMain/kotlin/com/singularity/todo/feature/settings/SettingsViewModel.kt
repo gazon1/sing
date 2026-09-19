@@ -2,10 +2,12 @@ package com.singularity.todo.feature.settings
 
 import androidx.lifecycle.ViewModel
 
+import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.ai.AiSettingsContributor
@@ -135,127 +137,186 @@ class SettingsViewModel(
     // ─── Intent ───────────────────────────────────────────────────────
 
     fun processIntent(intent: SettingsIntent) {
-        scope.launch {
-            when (intent) {
-                is SettingsIntent.Appearance.UpdateDarkTheme -> {
-                    settings.setDarkTheme(intent.value)
-                    updateState {
-                        it.copy(
-                            appearance = it.appearance.copy(darkTheme = with(intent) { value }),
-                            darkTheme = with(intent) { value },
-                        )
-                    }
+        when (intent) {
+            is SettingsIntent.Appearance.UpdateDarkTheme -> {
+                updateState {
+                    it.copy(
+                        appearance = it.appearance.copy(darkTheme = intent.value),
+                        darkTheme = intent.value,
+                        errorMessage = null,
+                    )
                 }
+                scope.fireAndForget(
+                    errorLabel = "Update dark theme failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update dark theme") } },
+                ) { runCatching { settings.setDarkTheme(intent.value) } }
+            }
 
-                is SettingsIntent.Appearance.UpdateAccentColor -> {
-                    settings.setAccentColor(intent.value)
-                    updateState {
-                        it.copy(
-                            appearance = it.appearance.copy(accentColor = with(intent) { value }),
-                            accentColor = with(intent) { value },
-                        )
-                    }
+            is SettingsIntent.Appearance.UpdateAccentColor -> {
+                updateState {
+                    it.copy(
+                        appearance = it.appearance.copy(accentColor = intent.value),
+                        accentColor = intent.value,
+                        errorMessage = null,
+                    )
                 }
+                scope.fireAndForget(
+                    errorLabel = "Update accent color failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update accent color") } },
+                ) { runCatching { settings.setAccentColor(intent.value) } }
+            }
 
-                is SettingsIntent.Appearance.UpdateFontSizeScale -> {
-                    settings.setFontSizeScale(intent.value)
-                    updateState {
-                        it.copy(
-                            appearance = it.appearance.copy(fontSizeScale = with(intent) { value }),
-                            fontSizeScale = with(intent) { value },
-                        )
-                    }
+            is SettingsIntent.Appearance.UpdateFontSizeScale -> {
+                updateState {
+                    it.copy(
+                        appearance = it.appearance.copy(fontSizeScale = intent.value),
+                        fontSizeScale = intent.value,
+                        errorMessage = null,
+                    )
                 }
+                scope.fireAndForget(
+                    errorLabel = "Update font size failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update font size") } },
+                ) { runCatching { settings.setFontSizeScale(intent.value) } }
+            }
 
-                is SettingsIntent.Notifications.UpdateEnabled -> {
-                    settings.setNotificationsEnabled(intent.value)
-                    updateState { it.copy(notificationsEnabled = with(intent) { value }) }
-                }
+            is SettingsIntent.Notifications.UpdateEnabled -> {
+                updateState { it.copy(notificationsEnabled = intent.value, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update notifications failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update notifications") } },
+                ) { runCatching { settings.setNotificationsEnabled(intent.value) } }
+            }
 
-                is SettingsIntent.Notifications.UpdateSound -> {
-                    settings.setNotificationSound(intent.value)
-                    updateState { it.copy(notificationSound = with(intent) { value }) }
-                }
+            is SettingsIntent.Notifications.UpdateSound -> {
+                updateState { it.copy(notificationSound = intent.value, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update notification sound failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update notification sound") } },
+                ) { runCatching { settings.setNotificationSound(intent.value) } }
+            }
 
-                is SettingsIntent.Notifications.UpdateVibration -> {
-                    settings.setNotificationVibration(intent.value)
-                    updateState { it.copy(notificationVibration = with(intent) { value }) }
-                }
+            is SettingsIntent.Notifications.UpdateVibration -> {
+                updateState { it.copy(notificationVibration = intent.value, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update vibration failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update vibration") } },
+                ) { runCatching { settings.setNotificationVibration(intent.value) } }
+            }
 
-                is SettingsIntent.Notifications.UpdateReminderDefault -> {
-                    settings.setReminderDefault(intent.value)
-                    updateState { it.copy(reminderDefault = with(intent) { value }) }
-                }
+            is SettingsIntent.Notifications.UpdateReminderDefault -> {
+                updateState { it.copy(reminderDefault = intent.value, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update reminder default failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update reminder default") } },
+                ) { runCatching { settings.setReminderDefault(intent.value) } }
+            }
 
-                is SettingsIntent.WorkSchedule.UpdateWorkDayStart -> {
-                    settings.setWorkDayStartMinutes(intent.minutes)
-                    updateState { it.copy(workDayStartMinutes = with(intent) { minutes }) }
-                }
+            is SettingsIntent.WorkSchedule.UpdateWorkDayStart -> {
+                updateState { it.copy(workDayStartMinutes = intent.minutes, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update work day start failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update work day start") } },
+                ) { runCatching { settings.setWorkDayStartMinutes(intent.minutes) } }
+            }
 
-                is SettingsIntent.WorkSchedule.UpdateWorkDayEnd -> {
-                    settings.setWorkDayEndMinutes(intent.minutes)
-                    updateState { it.copy(workDayEndMinutes = with(intent) { minutes }) }
-                }
+            is SettingsIntent.WorkSchedule.UpdateWorkDayEnd -> {
+                updateState { it.copy(workDayEndMinutes = intent.minutes, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update work day end failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update work day end") } },
+                ) { runCatching { settings.setWorkDayEndMinutes(intent.minutes) } }
+            }
 
-                is SettingsIntent.WorkSchedule.UpdateWorkLunchStart -> {
-                    settings.setWorkLunchStartMinutes(intent.minutes)
-                    updateState { it.copy(workLunchStartMinutes = with(intent) { minutes }) }
-                }
+            is SettingsIntent.WorkSchedule.UpdateWorkLunchStart -> {
+                updateState { it.copy(workLunchStartMinutes = intent.minutes, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update lunch start failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update lunch start") } },
+                ) { runCatching { settings.setWorkLunchStartMinutes(intent.minutes) } }
+            }
 
-                is SettingsIntent.WorkSchedule.UpdateWorkLunchEnd -> {
-                    settings.setWorkLunchEndMinutes(intent.minutes)
-                    updateState { it.copy(workLunchEndMinutes = with(intent) { minutes }) }
-                }
+            is SettingsIntent.WorkSchedule.UpdateWorkLunchEnd -> {
+                updateState { it.copy(workLunchEndMinutes = intent.minutes, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update lunch end failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update lunch end") } },
+                ) { runCatching { settings.setWorkLunchEndMinutes(intent.minutes) } }
+            }
 
-                is SettingsIntent.WorkSchedule.UpdateWeekendSat -> {
-                    settings.setWorkWeekendSat(intent.value)
-                    updateState { it.copy(workWeekendSat = with(intent) { value }) }
-                }
+            is SettingsIntent.WorkSchedule.UpdateWeekendSat -> {
+                updateState { it.copy(workWeekendSat = intent.value, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update Saturday setting failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update Saturday setting") } },
+                ) { runCatching { settings.setWorkWeekendSat(intent.value) } }
+            }
 
-                is SettingsIntent.WorkSchedule.UpdateWeekendSun -> {
-                    settings.setWorkWeekendSun(intent.value)
-                    updateState { it.copy(workWeekendSun = with(intent) { value }) }
-                }
+            is SettingsIntent.WorkSchedule.UpdateWeekendSun -> {
+                updateState { it.copy(workWeekendSun = intent.value, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update Sunday setting failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update Sunday setting") } },
+                ) { runCatching { settings.setWorkWeekendSun(intent.value) } }
+            }
 
-                is SettingsIntent.Greeting.UpdateMorningEnd -> {
-                    settings.setGreetingMorningEnd(intent.hour)
-                    updateState { it.copy(greetingMorningEnd = with(intent) { hour }) }
-                }
+            is SettingsIntent.Greeting.UpdateMorningEnd -> {
+                updateState { it.copy(greetingMorningEnd = intent.hour, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update morning greeting end failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update morning greeting end") } },
+                ) { runCatching { settings.setGreetingMorningEnd(intent.hour) } }
+            }
 
-                is SettingsIntent.Greeting.UpdateAfternoonEnd -> {
-                    settings.setGreetingAfternoonEnd(intent.hour)
-                    updateState { it.copy(greetingAfternoonEnd = with(intent) { hour }) }
-                }
+            is SettingsIntent.Greeting.UpdateAfternoonEnd -> {
+                updateState { it.copy(greetingAfternoonEnd = intent.hour, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update afternoon greeting end failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update afternoon greeting end") } },
+                ) { runCatching { settings.setGreetingAfternoonEnd(intent.hour) } }
+            }
 
-                is SettingsIntent.Ai.UpdateProvider,
-                is SettingsIntent.Ai.UpdateBaseUrl,
-                is SettingsIntent.Ai.UpdateModel,
-                is SettingsIntent.Ai.UpdateSystemPrompt,
-                -> {
+            is SettingsIntent.Ai.UpdateProvider,
+            is SettingsIntent.Ai.UpdateBaseUrl,
+            is SettingsIntent.Ai.UpdateModel,
+            is SettingsIntent.Ai.UpdateSystemPrompt,
+            -> {
+                scope.launch {
                     @Suppress("UNCHECKED_CAST")
                     (aiContributor as? SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>)
                         ?.process(intent)
                     reloadAiSection()
                 }
+            }
 
-                SettingsIntent.Ai.TestConnection,
-                SettingsIntent.Ai.FetchModels,
-                -> {
+            SettingsIntent.Ai.TestConnection,
+            SettingsIntent.Ai.FetchModels,
+            -> {
+                scope.launch {
                     @Suppress("UNCHECKED_CAST")
                     (aiContributor as? SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>)
                         ?.process(intent as SettingsIntent.Ai)
                     reloadAiSection()
                 }
+            }
 
-                is SettingsIntent.Ai.UpdateApiKey -> {
+            is SettingsIntent.Ai.UpdateApiKey -> {
+                scope.launch {
                     aiContributor?.updateApiKey(intent.value)
                     reloadAiSection()
                 }
+            }
 
-                is SettingsIntent.DefaultAgendaView.Update -> {
-                    settings.setDefaultSavedAgendaViewId(intent.viewId)
-                    updateState { it.copy(defaultSavedAgendaViewId = with(intent) { viewId }) }
-                }
+            is SettingsIntent.DefaultAgendaView.Update -> {
+                updateState { it.copy(defaultSavedAgendaViewId = intent.viewId, errorMessage = null) }
+                scope.fireAndForget(
+                    errorLabel = "Update default agenda view failed",
+                    onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update default agenda view") } },
+                ) { runCatching { settings.setDefaultSavedAgendaViewId(intent.viewId) } }
+            }
+
+            SettingsIntent.DismissError -> {
+                updateState { it.copy(errorMessage = null) }
             }
         }
     }

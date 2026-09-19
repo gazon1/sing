@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import com.singularity.todo.core.settings.SettingsIntent
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Folder
@@ -22,9 +23,13 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,19 +76,32 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     val viewModel: SettingsViewModel = koinViewModel()
     val uiState by viewModel.state.collectAsState()
     var selectedTab by remember { mutableStateOf(SettingsTab.Interface) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    when (val state = uiState) {
-        is SettingsUiState.Loading -> LoadingIndicator(modifier = modifier)
+    // Show snackbar on error, then dismiss it
+    LaunchedEffect((uiState as? SettingsUiState.Content)?.errorMessage) {
+        val msg = (uiState as? SettingsUiState.Content)?.errorMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(msg)
+        viewModel.processIntent(SettingsIntent.DismissError)
+    }
 
-        is SettingsUiState.Error -> EmptyState(title = "Error", subtitle = state.cause.toString(), modifier = modifier)
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        modifier = modifier,
+    ) { paddingValues ->
+        when (val state = uiState) {
+            is SettingsUiState.Loading -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
 
-        is SettingsUiState.Content -> SettingsContent(
-            state = state,
-            selectedTab = selectedTab,
-            onSelectTab = { selectedTab = it },
-            viewModel = viewModel,
-            modifier = modifier,
-        )
+            is SettingsUiState.Error -> EmptyState(title = "Error", subtitle = state.cause.toString(), modifier = Modifier.padding(paddingValues))
+
+            is SettingsUiState.Content -> SettingsContent(
+                state = state,
+                selectedTab = selectedTab,
+                onSelectTab = { selectedTab = it },
+                viewModel = viewModel,
+                modifier = Modifier.padding(paddingValues),
+            )
+        }
     }
 }
 

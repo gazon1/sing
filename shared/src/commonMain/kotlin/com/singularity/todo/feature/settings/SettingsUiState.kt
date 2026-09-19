@@ -70,5 +70,7 @@ sealed interface SettingsUiState {
         // Agenda
         val defaultSavedAgendaViewId: SavedAgendaViewId? = null,
         val savedAgendaViews: List<SavedAgendaView> = emptyList(),
+        // Error state
+        val errorMessage: String? = null,
     ) : SettingsUiState
 }
