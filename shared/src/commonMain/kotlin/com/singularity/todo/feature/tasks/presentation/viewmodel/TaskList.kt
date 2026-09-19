@@ -221,10 +221,15 @@ class TasksViewModel(
     }
 
     fun delete(taskUi: TaskUi) {
+        // Single-slot undo: a second delete pre-undo is dropped.
+        if (_recentlyDeleted.value != null) return
         _recentlyDeleted.value = taskUi
         scope.fireAndForget(
             errorLabel = "Delete failed",
-            onError = { e -> scope.launch { _events.trySend(TasksUiEvent.Error("Delete failed: ${e.message ?: "unknown"}")) } },
+            onError = { e ->
+                _recentlyDeleted.value = null
+                scope.launch { _events.trySend(TasksUiEvent.Error("Delete failed: ${e.message ?: "unknown"}")) }
+            },
         ) {
             taskRepo.softDelete(taskUi.id)
         }
@@ -232,11 +237,13 @@ class TasksViewModel(
 
     fun restore() {
         val task = _recentlyDeleted.value ?: return
+        // Consume the slot immediately — user triggered undo.
+        _recentlyDeleted.value = null
         scope.fireAndForget(
             errorLabel = "Restore failed",
             onError = { e -> scope.launch { _events.trySend(TasksUiEvent.Error("Restore failed: ${e.message ?: "unknown"}")) } },
         ) {
-            taskRepo.restore(task.id).onSuccess { _recentlyDeleted.value = null }
+            taskRepo.restore(task.id)
         }
     }
 

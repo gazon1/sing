@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.draft.DraftStore
+import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
+import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiState
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
@@ -76,8 +78,8 @@ class TaskCreateViewModel(
 
     private val initial: TaskDraft = TaskDraft(
         dueDate = initialDueDate?.let {
-            com.singularity.todo.feature.tasks.presentation.state.DueDateOption.Custom(it, it.toString())
-        } ?: com.singularity.todo.feature.tasks.presentation.state.DueDateOption.None,
+            DueDateOption.Custom(it, it.toString())
+        } ?: DueDateOption.None,
     )
 
     private val _draft = MutableStateFlow(initial)
@@ -149,8 +151,8 @@ class TaskCreateViewModel(
 
             is TaskCreateIntent.SetDueDate -> with(intent) {
                 val option = intent.date?.let {
-                    com.singularity.todo.feature.tasks.presentation.state.DueDateOption.Custom(it, it.toString())
-                } ?: com.singularity.todo.feature.tasks.presentation.state.DueDateOption.None
+                    DueDateOption.Custom(it, it.toString())
+                } ?: DueDateOption.None
                 _draft.updateState { it.copy(dueDate = option) }
             }
 
@@ -159,7 +161,7 @@ class TaskCreateViewModel(
             }
 
             is TaskCreateIntent.DueDateCleared -> _draft.updateState {
-                it.copy(dueDate = com.singularity.todo.feature.tasks.presentation.state.DueDateOption.None, dueTime = null)
+                it.copy(dueDate = DueDateOption.None, dueTime = null)
             }
 
             TaskCreateIntent.SaveClicked -> {
@@ -198,12 +200,12 @@ class TaskCreateViewModel(
         _isSaving.value = true
         try {
             when (val result = deps.createFromDraft(draftSnapshot, userId)) {
-                is com.singularity.todo.core.error.Either.Left -> {
+                is Either.Left -> {
                     deps.logger.e(tag = "TaskCreateViewModel") { "save failed: ${result.error.message}" }
                     _error.value = result.error.message ?: "Could not create task"
                 }
 
-                is com.singularity.todo.core.error.Either.Right -> {
+                is Either.Right -> {
                     _saved.trySend(Unit)
                     val key = "${userId.value}:${TaskCreateDeps.DRAFT_KEY}"
                     runCatching { deps.draftStore.clear(key) }
