@@ -10,6 +10,9 @@ sealed interface NotesUiEvent {
     /** Save failed. */
     data class SaveFailed(val message: String) : NotesUiEvent
 
+    /** Operation failed. */
+    data class Error(val message: String) : NotesUiEvent
+
     /** Navigate back. */
     data object NavigateBack : NotesUiEvent
 

@@ -14,10 +14,12 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectsUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.core.coroutines.fireAndForget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -29,6 +31,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -115,8 +118,8 @@ class ProjectsViewModel(
 
     private val _aiResult = MutableSharedFlow<String>()
 
-    private val _events = MutableSharedFlow<ProjectsUiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<ProjectsUiEvent> = _events.asSharedFlow()
+    private val _events = Channel<ProjectsUiEvent>(Channel.BUFFERED)
+    val events: kotlinx.coroutines.flow.Flow<ProjectsUiEvent> = _events.receiveAsFlow()
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
@@ -126,9 +129,13 @@ class ProjectsViewModel(
         _sortOrder.value = order
     }
 
-    fun delete(id: ProjectId) = scope.launch {
-        val userId = currentUser.current
-        deleteProject(id, userId)
+    fun delete(id: ProjectId) {
+        scope.fireAndForget(
+            errorLabel = "Delete project failed",
+            onError = { e -> scope.launch { _events.trySend(ProjectsUiEvent.Error("Delete project failed: ${e.message ?: "unknown"}")) } },
+        ) {
+            deleteProject(id, currentUser.current)
+        }
     }
 
     fun reviewProject(project: Project) = scope.launch {
@@ -141,6 +148,6 @@ class ProjectsViewModel(
             )
             ?: "AI not available on Android"
         _aiResult.emit(result)
-        _events.emit(ProjectsUiEvent.ProjectReviewResult(result))
+        _events.trySend(ProjectsUiEvent.ProjectReviewResult(result))
     }
 }

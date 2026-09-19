@@ -48,6 +48,7 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().checklistDao() }
     single { get<AppDatabase>().llmUsageDao() }
     single { get<AppDatabase>().profileDao() }
+    single { get<AppDatabase>().agendaViewDao() }
 
     // ─── DataStore ──────────────────────────────────────────────────────
 

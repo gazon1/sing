@@ -12,7 +12,7 @@ import com.singularity.todo.feature.nav.AgendaStartRoute
  * Used in @Preview composables to avoid needing a real [NavBackStack].
  */
 class PreviewAgendaNavigator : AgendaNavigator(
-    backStack = NavBackStack<AgendaStartRoute>(AgendaStartRoute.SavedAgendaList, AgendaStartRoute.SavedAgendaList),
+    backStack = NavBackStack(AgendaStartRoute.SavedAgendaList, AgendaStartRoute.SavedAgendaList),
     onExitGraph = {},
 ) {
     override fun openSavedAgendaList() { /* no-op for preview */ }

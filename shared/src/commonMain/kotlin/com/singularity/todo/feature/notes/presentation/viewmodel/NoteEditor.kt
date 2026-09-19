@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.clock.AutosaveScheduler
+import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.notes.EditorState
@@ -22,6 +23,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -30,6 +32,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 // ─── ViewModel ───────────────────────────────────────────────────────────────
@@ -94,8 +97,8 @@ open class NoteEditor(
     val savedPulse: SharedFlow<Unit> = _savedPulse.asSharedFlow()
 
     // One-shot UI events (errors, navigation)
-    private val _events = MutableSharedFlow<NotesUiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<NotesUiEvent> = _events.asSharedFlow()
+    private val _events = Channel<NotesUiEvent>(Channel.BUFFERED)
+    val events: kotlinx.coroutines.flow.Flow<NotesUiEvent> = _events.receiveAsFlow()
 
     private var autosaveJob: Job? = null
 
@@ -134,9 +137,11 @@ open class NoteEditor(
      */
     fun createNote(): String {
         val id = NoteId.fromString(idGen.next())
-        scope.launch(Dispatchers.Unconfined) {
-            val uid = userId.value
-            repo.createWithContent(uid, id, "", "", "").getOrThrow()
+        scope.fireAndForget(
+            errorLabel = "Create note failed",
+            onError = { e -> _events.trySend(NotesUiEvent.SaveFailed("Create note failed: ${e.message ?: "unknown"}")) },
+        ) {
+            repo.createWithContent(userId.value, id, "", "", "")
         }
         _editorState.value = EditorState.Editing(
             id = id.value,
@@ -183,35 +188,39 @@ open class NoteEditor(
      * share the exact same write logic — no duplication, no divergence.
      */
     private suspend fun persist(html: String, title: String, id: String, navigateBack: Boolean) {
-        try {
-            val markdown = com.mohamedrejeb.richeditor.model.RichTextState().apply {
-                setHtml(html)
-            }.toMarkdown()
-            repo.updateContent(
-                NoteId.fromString(id),
-                title,
-                markdown,
-                html,
-            ).getOrThrow()
+        val markdown = com.mohamedrejeb.richeditor.model.RichTextState().apply {
+            setHtml(html)
+        }.toMarkdown()
 
-            // Extract and persist outgoing wikilinks from the HTML
-            val outgoingLinks = extractOutgoingLinks(html).map { link ->
-                when (link) {
-                    is LinkRef.Note -> "note://${link.noteId}"
-                    is LinkRef.Task -> "task://${link.taskId}"
-                }
+        // Extract and persist outgoing wikilinks from the HTML
+        val outgoingLinks = extractOutgoingLinks(html).map { link ->
+            when (link) {
+                is LinkRef.Note -> "note://${link.noteId}"
+                is LinkRef.Task -> "task://${link.taskId}"
             }
-            repo.setOutgoingLinks(NoteId.fromString(id), outgoingLinks).getOrThrow()
+        }
 
-            val current = _editorState.value as? EditorState.Editing ?: return
-            _editorState.value = current.copy(isDirty = false)
-            _savedPulse.emit(Unit)
-            if (navigateBack) {
-                _events.emit(NotesUiEvent.NavigateBack)
-            }
-        } catch (e: Exception) {
+        val updateResult = repo.updateContent(NoteId.fromString(id), title, markdown, html)
+        if (updateResult.isFailure) {
+            val e = updateResult.exceptionOrNull() ?: return
             log.e(e) { "save failed for note $id" }
-            _events.emit(NotesUiEvent.SaveFailed(e.message ?: "Save failed"))
+            _events.trySend(NotesUiEvent.SaveFailed(e.message ?: "Save failed"))
+            return
+        }
+
+        val linksResult = repo.setOutgoingLinks(NoteId.fromString(id), outgoingLinks)
+        if (linksResult.isFailure) {
+            val e = linksResult.exceptionOrNull() ?: return
+            log.e(e) { "save failed for note $id" }
+            _events.trySend(NotesUiEvent.SaveFailed(e.message ?: "Save failed"))
+            return
+        }
+
+        val current = _editorState.value as? EditorState.Editing ?: return
+        _editorState.value = current.copy(isDirty = false)
+        _savedPulse.emit(Unit)
+        if (navigateBack) {
+            _events.trySend(NotesUiEvent.NavigateBack)
         }
     }
 
@@ -224,12 +233,12 @@ open class NoteEditor(
                     _editorState.value = current.copy(title = result.title, html = result.body, isDirty = true)
                     val r = NoteAiResult.Improved(result.title, result.body)
                     _aiResult.emit(r)
-                    _events.emit(NotesUiEvent.AiResult(formatNoteAiResult(r)))
+                    _events.trySend(NotesUiEvent.AiResult(formatNoteAiResult(r)))
                 }
                 .onFailure { error ->
                     val r = NoteAiResult.Error(error.message ?: "Failed")
                     _aiResult.emit(r)
-                    _events.emit(NotesUiEvent.AiResult(formatNoteAiResult(r)))
+                    _events.trySend(NotesUiEvent.AiResult(formatNoteAiResult(r)))
                 }
         }
     }

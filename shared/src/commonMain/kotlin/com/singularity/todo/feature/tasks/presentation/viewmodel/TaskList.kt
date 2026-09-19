@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
@@ -9,8 +10,8 @@ import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.tasks.domain.model.AiActionResult
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
+import com.singularity.todo.feature.tasks.domain.model.AiActionResult
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -29,6 +30,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +43,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -122,8 +125,8 @@ class TasksViewModel(
     private val _aiResult = MutableSharedFlow<AiActionResult>()
     val aiResult: SharedFlow<AiActionResult> = _aiResult.asSharedFlow()
 
-    private val _events = MutableSharedFlow<TasksUiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<TasksUiEvent> = _events.asSharedFlow()
+    private val _events = Channel<TasksUiEvent>(Channel.BUFFERED)
+    val events: kotlinx.coroutines.flow.Flow<TasksUiEvent> = _events.receiveAsFlow()
 
     private val _selectedIds = MutableStateFlow<Set<TaskId>>(emptySet())
     val selectedIds: StateFlow<Set<TaskId>> = _selectedIds.asStateFlow()
@@ -135,7 +138,7 @@ class TasksViewModel(
     val recentlyDeleted: StateFlow<TaskUi?> = _recentlyDeleted.asStateFlow()
 
     // All tasks from repo, updated when filter or user changes
-    private val tasksFlow: kotlinx.coroutines.flow.Flow<List<Task>> = combine(
+    private val tasksFlow: Flow<List<Task>> = combine(
         _filter,
         currentUser.scopedUserId,
     ) { filter, uid -> filter to uid }
@@ -213,23 +216,28 @@ class TasksViewModel(
         _filter.value = filter
     }
 
-    fun applyRoute(filter: TaskFilter) {
-        _filter.value = filter
-    }
-
     fun setStatusFilter(filter: TaskStatus) {
         _statusFilter.value = filter
     }
 
-    fun delete(taskUi: TaskUi) = scope.launch {
+    fun delete(taskUi: TaskUi) {
         _recentlyDeleted.value = taskUi
-        taskRepo.softDelete(taskUi.id)
+        scope.fireAndForget(
+            errorLabel = "Delete failed",
+            onError = { e -> scope.launch { _events.trySend(TasksUiEvent.Error("Delete failed: ${e.message ?: "unknown"}")) } },
+        ) {
+            taskRepo.softDelete(taskUi.id)
+        }
     }
 
-    fun restore() = scope.launch {
-        val task = _recentlyDeleted.value ?: return@launch
-        taskRepo.restore(task.id)
-            .onSuccess { _recentlyDeleted.value = null }
+    fun restore() {
+        val task = _recentlyDeleted.value ?: return
+        scope.fireAndForget(
+            errorLabel = "Restore failed",
+            onError = { e -> scope.launch { _events.trySend(TasksUiEvent.Error("Restore failed: ${e.message ?: "unknown"}")) } },
+        ) {
+            taskRepo.restore(task.id).onSuccess { _recentlyDeleted.value = null }
+        }
     }
 
     /** Clears undo state without restoring. Called when snackbar dismisses without action. */
@@ -237,12 +245,22 @@ class TasksViewModel(
         _recentlyDeleted.value = null
     }
 
-    fun toggle(id: TaskId) = scope.launch {
-        taskRepo.toggleComplete(id)
+    fun toggle(id: TaskId) {
+        scope.fireAndForget(
+            errorLabel = "Toggle failed",
+            onError = { e -> scope.launch { _events.trySend(TasksUiEvent.Error("Toggle failed: ${e.message ?: "unknown"}")) } },
+        ) {
+            taskRepo.toggleComplete(id)
+        }
     }
 
-    fun togglePin(id: TaskId) = scope.launch {
-        taskRepo.togglePinned(id)
+    fun togglePin(id: TaskId) {
+        scope.fireAndForget(
+            errorLabel = "Pin failed",
+            onError = { e -> scope.launch { _events.trySend(TasksUiEvent.Error("Pin failed: ${e.message ?: "unknown"}")) } },
+        ) {
+            taskRepo.togglePinned(id)
+        }
     }
 
     fun enterSelectionMode(taskId: TaskId) {
@@ -265,13 +283,25 @@ class TasksViewModel(
         }
     }
 
-    fun bulkCompleteSelected() = scope.launch {
-        mutations.bulkComplete(_selectedIds.value.toList())
+    fun bulkCompleteSelected() {
+        val ids = _selectedIds.value.toList()
+        scope.fireAndForget(
+            errorLabel = "Bulk complete failed",
+            onError = { e -> scope.launch { _events.trySend(TasksUiEvent.Error("Bulk complete failed: ${e.message ?: "unknown"}")) } },
+        ) {
+            mutations.bulkComplete(ids)
+        }
         exitSelectionMode()
     }
 
-    fun bulkDeleteSelected() = scope.launch {
-        mutations.bulkDelete(_selectedIds.value.toList())
+    fun bulkDeleteSelected() {
+        val ids = _selectedIds.value.toList()
+        scope.fireAndForget(
+            errorLabel = "Bulk delete failed",
+            onError = { e -> scope.launch { _events.trySend(TasksUiEvent.Error("Bulk delete failed: ${e.message ?: "unknown"}")) } },
+        ) {
+            mutations.bulkDelete(ids)
+        }
         exitSelectionMode()
     }
 
@@ -307,7 +337,7 @@ class TasksViewModel(
                 ?: AiActionResult.Error("AI not available")
         }
         _aiResult.emit(result)
-        _events.emit(TasksUiEvent.AiResult(formatAiResult(result)))
+        _events.trySend(TasksUiEvent.AiResult(formatAiResult(result)))
     }
 
     private fun <T> Result<T>.toResult(ok: (T) -> AiActionResult): AiActionResult =

@@ -38,9 +38,9 @@ import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.rememberDialogState
+import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
@@ -256,7 +256,7 @@ fun TaskEditorContent(
                 DropdownMenuItem(
                     text = { Text(item.label) },
                     onClick = {
-                        showMenu = false;
+                        showMenu = false
                         item.onClick()
                     },
                 )

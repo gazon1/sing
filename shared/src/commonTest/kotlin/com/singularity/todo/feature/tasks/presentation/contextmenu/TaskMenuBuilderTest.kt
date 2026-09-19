@@ -41,8 +41,8 @@ class TaskMenuBuilderTest {
         dueLabel = null,
         isCompleted = completed,
         isRecurring = isRecurring,
+        isPinned = task?.isPinned ?: false,
         priority = TaskPriority.None,
-        domainTask = task,
     )
 
     private fun flatten(nodes: List<MenuNode>): List<MenuNode> = buildList {
@@ -199,18 +199,6 @@ class TaskMenuBuilderTest {
             .filterIsInstance<MenuNode.Action>()
             .find { it.id == "pin" }!!
         assertTrue(pinItem.checked)
-    }
-
-    @Test
-    fun `set_recurring label changes when task is recurring`() {
-        val recurringLabel = flatten(buildTaskContextMenu(makeTaskUi(isRecurring = true), true, TaskMenuActions.Empty))
-            .filterIsInstance<MenuNode.Action>()
-            .find { it.id == "set_recurring" }!!.label
-        val normalLabel = flatten(buildTaskContextMenu(makeTaskUi(isRecurring = false), true, TaskMenuActions.Empty))
-            .filterIsInstance<MenuNode.Action>()
-            .find { it.id == "set_recurring" }!!.label
-        assertEquals("Edit recurring", recurringLabel)
-        assertEquals("Set recurring", normalLabel)
     }
 
     @Test

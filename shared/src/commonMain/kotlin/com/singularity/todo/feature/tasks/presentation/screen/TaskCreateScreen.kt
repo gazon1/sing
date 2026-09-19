@@ -8,15 +8,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
+import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
-import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorPrioritySheet
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSaveBar
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
+import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import kotlinx.datetime.LocalDate
 import org.koin.compose.viewmodel.koinViewModel
@@ -106,7 +110,7 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
 
     // Sheets
     when (sheets.active) {
-        is TaskEditorSheet.Date -> com.singularity.todo.core.ui.components.DatePickerSheet(
+        is TaskEditorSheet.Date -> DatePickerSheet(
             initialDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
             onDateSelected = { date ->
                 vm.onIntent(TaskCreateIntent.SetDueDate(date))
@@ -115,7 +119,7 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
             onDismiss = { sheets.dismiss() },
         )
 
-        is TaskEditorSheet.Time -> com.singularity.todo.core.ui.components.TimePickerSheet(
+        is TaskEditorSheet.Time -> TimePickerSheet(
             initialTime = state.draft.dueTime,
             onTimeSelected = { time ->
                 vm.onIntent(TaskCreateIntent.SetDueTime(time))
@@ -124,11 +128,11 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
             onDismiss = { sheets.dismiss() },
         )
 
-        is TaskEditorSheet.Priority -> com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost(
+        is TaskEditorSheet.Priority -> TaskEditorSheetHost(
             title = "Приоритет",
             onClose = { sheets.dismiss() },
         ) {
-            com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorPrioritySheet(
+            TaskEditorPrioritySheet(
                 selected = state.draft.priority,
                 onSelect = { p ->
                     vm.onIntent(TaskCreateIntent.SetPriority(p))

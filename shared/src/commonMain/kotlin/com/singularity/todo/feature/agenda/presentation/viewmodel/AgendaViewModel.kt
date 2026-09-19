@@ -12,11 +12,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -65,8 +65,8 @@ class AgendaViewModel(
     val title: String get() = definition.title
 
     /** One-shot UI events. */
-    private val _events = MutableSharedFlow<AgendaUiEvent>()
-    val events: Flow<AgendaUiEvent> = _events.asSharedFlow()
+    private val _events = Channel<AgendaUiEvent>(Channel.BUFFERED)
+    val events: Flow<AgendaUiEvent> = _events.receiveAsFlow()
 
     /**
      * Main state — watches all active tasks and evaluates them against [definition].
@@ -102,7 +102,7 @@ class AgendaViewModel(
         when (intent) {
             is AgendaIntent.TaskClicked -> with(intent) {
                 scope.launch {
-                    _events.emit(AgendaUiEvent.NavigateToTask(taskId))
+                    _events.trySend(AgendaUiEvent.NavigateToTask(taskId))
                 }
             }
 
@@ -114,7 +114,7 @@ class AgendaViewModel(
 
             is AgendaIntent.TaskLongClicked -> with(intent) {
                 scope.launch {
-                    _events.emit(AgendaUiEvent.ShowTaskContextMenu(taskId))
+                    _events.trySend(AgendaUiEvent.ShowTaskContextMenu(taskId))
                 }
             }
 
@@ -132,7 +132,7 @@ class AgendaViewModel(
 
             is AgendaIntent.TaskExpandClicked -> with(intent) {
                 scope.launch {
-                    _events.emit(AgendaUiEvent.ExpandTask(taskId))
+                    _events.trySend(AgendaUiEvent.ExpandTask(taskId))
                 }
             }
         }

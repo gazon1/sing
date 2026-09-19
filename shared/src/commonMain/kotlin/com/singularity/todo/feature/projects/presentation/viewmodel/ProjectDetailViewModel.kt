@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.ui.debounce.Debouncer
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -27,18 +28,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
@@ -223,8 +223,8 @@ class ProjectDetailViewModel(
 
     // ─── One-shot events ─────────────────────────────────────────────────────────
 
-    private val _events = MutableSharedFlow<ProjectDetailUiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<ProjectDetailUiEvent> = _events.asSharedFlow()
+    private val _events = Channel<ProjectDetailUiEvent>(Channel.BUFFERED)
+    val events: kotlinx.coroutines.flow.Flow<ProjectDetailUiEvent> = _events.receiveAsFlow()
 
     // ─── Intent dispatcher ─────────────────────────────────────────────────────
 
@@ -277,9 +277,9 @@ class ProjectDetailViewModel(
             is ProjectDetailIntent.Domain.Delete ->
                 scope.launch {
                     deleteProject(projectId, currentUser.scopedUserId.value)
-                        .onSuccess { _events.emit(ProjectDetailUiEvent.NavigateBack) }
+                        .onSuccess { _events.trySend(ProjectDetailUiEvent.NavigateBack) }
                         .onFailure { error ->
-                            _events.emit(
+                            _events.trySend(
                                 ProjectDetailUiEvent.ShowError(
                                 (error as? AppError)?.message ?: error.message ?: "Delete failed",
                             )
@@ -300,7 +300,7 @@ class ProjectDetailViewModel(
                             kind = TaskKind.Task,
                         ),
                     ).onFailure { error ->
-                        _events.emit(
+                        _events.trySend(
                             ProjectDetailUiEvent.ShowError(
                             (error as? AppError)?.message ?: error.message ?: "Create task failed",
                         )
@@ -313,7 +313,7 @@ class ProjectDetailViewModel(
                 scope.launch {
                     updateTask.invoke(intent.taskId) { it.copy(projectId = projectId) }
                         .onFailure { error ->
-                            _events.emit(
+                            _events.trySend(
                                 ProjectDetailUiEvent.ShowError(
                                 (error as? AppError)?.message ?: error.message ?: "Move task failed",
                             )
@@ -330,10 +330,13 @@ class ProjectDetailViewModel(
      * Uses [_latestProject] as the source of truth to avoid TOCTOU.
      */
     private fun mutate(current: Project, transform: Project.() -> Project) {
-        scope.launch {
-            updateProject(projectId, transform)
-                .onSuccess { _lastEditedAt.value = clock.now() }
-                .onFailure { e -> log.w("mutate failed: ${e.message?.take(80) ?: e::class.simpleName}") }
+        scope.fireAndForget(
+            errorLabel = "Update project failed",
+            onError = { e -> _events.trySend(ProjectDetailUiEvent.ShowError(e.message ?: "Update failed")) },
+        ) {
+            updateProject(projectId, transform).also {
+                if (it.isSuccess) _lastEditedAt.value = clock.now()
+            }
         }
     }
 }

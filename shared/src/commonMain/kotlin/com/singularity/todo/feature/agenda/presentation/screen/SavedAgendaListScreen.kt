@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -10,29 +9,28 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
-import com.singularity.todo.core.ui.components.ListPickerItem
-import com.singularity.todo.core.ui.components.ListPickerSheet
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.ListPickerItem
+import com.singularity.todo.core.ui.components.ListPickerSheet
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -47,7 +45,6 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaLis
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListIntent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListState
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListViewModel
-import com.singularity.todo.feature.profile.Profile
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Instant
@@ -66,7 +63,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
 
     var pendingCopyViewId by remember { mutableStateOf<SavedAgendaViewId?>(null) }
 
-    NotificationHost(
+    NotificationHost<SavedAgendaListEvent>(
         events = viewModel.events,
         mapper = { e ->
             when (e) {
@@ -182,7 +179,7 @@ private fun ProfilePickerSheet(
     onPick: (com.singularity.todo.feature.profile.ProfileId) -> Unit,
 ) {
     val profiles by profileRepo.all().collectAsStateWithLifecycle(initialValue = emptyList())
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
 
     ListPickerSheet(
         title = "Copy to profile",

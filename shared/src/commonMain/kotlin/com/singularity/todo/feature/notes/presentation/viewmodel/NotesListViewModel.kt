@@ -9,12 +9,15 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NoteSortOrder
 import com.singularity.todo.feature.notes.NotesListState
 import com.singularity.todo.feature.notes.NotesRepository
+import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.core.coroutines.fireAndForget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +26,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -68,6 +72,9 @@ class NotesListViewModel(
 
     private val _selectedIds = MutableStateFlow<Set<NoteId>>(emptySet())
     private val _isSelectionMode = MutableStateFlow(false)
+
+    private val _events = Channel<NotesUiEvent>(Channel.BUFFERED)
+    val events: kotlinx.coroutines.flow.Flow<NotesUiEvent> = _events.receiveAsFlow()
 
     init {
         scope.launch(Dispatchers.Unconfined) {
@@ -134,19 +141,25 @@ class NotesListViewModel(
     // ─── Pin ────────────────────────────────────────────────────────────────
 
     fun togglePin(id: NoteId) {
-        scope.launch(Dispatchers.Unconfined) {
-            val current = _notes.value as? NotesUiState.Content ?: return@launch
-            val note = (current.list.pinned + current.list.unpinned).firstOrNull { it.id == id }
-                ?: return@launch
-            repo.setPinned(id, !note.isPinned).getOrThrow()
+        val current = _notes.value as? NotesUiState.Content ?: return
+        val note = (current.list.pinned + current.list.unpinned).firstOrNull { it.id == id }
+            ?: return
+        scope.fireAndForget(
+            errorLabel = "Pin failed",
+            onError = { e -> _events.trySend(NotesUiEvent.Error("Pin failed: ${e.message ?: "unknown"}")) },
+        ) {
+            repo.setPinned(id, !note.isPinned)
         }
     }
 
     // ─── Archive ───────────────────────────────────────────────────────────
 
     fun archive(id: NoteId) {
-        scope.launch(Dispatchers.Unconfined) {
-            repo.archive(id).getOrThrow()
+        scope.fireAndForget(
+            errorLabel = "Archive failed",
+            onError = { e -> _events.trySend(NotesUiEvent.Error("Archive failed: ${e.message ?: "unknown"}")) },
+        ) {
+            repo.archive(id)
         }
     }
 
@@ -171,8 +184,11 @@ class NotesListViewModel(
     }
 
     fun deleteSelected() {
+        val ids = _selectedIds.value.toList()
         scope.launch(Dispatchers.Unconfined) {
-            _selectedIds.value.forEach { id -> repo.softDelete(id) }
+            ids.forEach { id ->
+                repo.softDelete(id)
+            }
             exitSelectionMode()
         }
     }

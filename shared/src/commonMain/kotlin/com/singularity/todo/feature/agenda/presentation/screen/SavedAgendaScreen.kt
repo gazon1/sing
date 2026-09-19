@@ -12,10 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
@@ -27,7 +26,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -116,7 +116,7 @@ fun SavedAgendaScreen(
         onNavigateBack = { navigator.back() },
     )
 
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
 
     BackTopAppBar(
         title = modeHint,
@@ -234,124 +234,131 @@ private fun SavedAgendaContent(
 
         is SavedAgendaViewState.Editing -> {
             val keyboardController = LocalSoftwareKeyboardController.current
-            val scrollState = rememberScrollState()
+            val listState = rememberLazyListState()
 
-            Column(
+            // A single LazyColumn owns scrolling. Nesting a LazyColumn inside a
+            // Column(verticalScroll()) would propagate unbounded height constraints
+            // and crash at measure time. Header (name field + section header / empty
+            // state) and footer (save + delete) are emitted via item {} so the
+            // sections list is the only itemsIndexed block.
+            LazyColumn(
                 modifier = modifier
                     .fillMaxSize()
-                    .verticalScroll(scrollState)
                     .padding(24.dp)
                     .imePadding(),
+                state = listState,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                OutlinedTextField(
-                    value = state.draft.name,
-                    onValueChange = { onIntent(SavedAgendaIntent.NameChanged(it)) },
-                    label = { Text("View name") },
-                    placeholder = { Text("My saved view") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Words,
-                        imeAction = ImeAction.Done,
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { keyboardController?.hide() },
-                    ),
-                    enabled = !state.isSaving,
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
+                item(key = "name_field") {
+                    OutlinedTextField(
+                        value = state.draft.name,
+                        onValueChange = { onIntent(SavedAgendaIntent.NameChanged(it)) },
+                        label = { Text("View name") },
+                        placeholder = { Text("My saved view") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Done,
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = { keyboardController?.hide() },
+                        ),
+                        enabled = !state.isSaving,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
 
                 when {
                     state.decodeError -> {
-                        Text(
-                            text = "Unable to decode sections",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                        )
+                        item(key = "decode_error") {
+                            Text(
+                                text = "Unable to decode sections",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
 
                     state.draft.sections.isNotEmpty() -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = "Sections",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            TextButton(onClick = onRequestAddSection) {
-                                Icon(Icons.Default.Add, contentDescription = null)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Add")
+                        item(key = "sections_header") {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "Sections",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                TextButton(onClick = onRequestAddSection) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Add")
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        LazyColumn(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            itemsIndexed(
-                                items = state.draft.sections,
-                                key = { index, section -> "${section.name}#${section.order}#$index" },
-                            ) { index, section ->
-                                SectionEditorCard(
-                                    section = section,
-                                    index = index,
-                                    onDelete = { onIntent(SavedAgendaIntent.SectionRemoved(index)) },
-                                )
-                            }
+                        itemsIndexed(
+                            items = state.draft.sections,
+                            key = { index, section -> "${section.name}#${section.order}#$index" },
+                        ) { index, section ->
+                            SectionEditorCard(
+                                section = section,
+                                index = index,
+                                onDelete = { onIntent(SavedAgendaIntent.SectionRemoved(index)) },
+                            )
                         }
                     }
 
                     else -> {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(
-                                text = "No sections",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            OutlinedButton(onClick = onRequestAddSection) {
-                                Icon(Icons.Default.Add, contentDescription = null)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Add first section")
+                        item(key = "no_sections") {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    text = "No sections",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                OutlinedButton(onClick = onRequestAddSection) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Add first section")
+                                }
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
-
-                Button(
-                    onClick = { onIntent(SavedAgendaIntent.Save) },
-                    enabled = state.canSave && !state.isSaving,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    if (state.isSaving) {
-                        CircularProgressIndicator(
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.height(18.dp),
-                        )
-                    } else {
-                        Text("Save")
-                    }
-                }
-
-                // Delete button only shown in Edit mode (view != null)
-                if (state.view != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                item(key = "actions") {
+                    Spacer(modifier = Modifier.height(32.dp))
                     Button(
-                        onClick = onRequestDelete,
-                        enabled = !state.isSaving,
+                        onClick = { onIntent(SavedAgendaIntent.Save) },
+                        enabled = state.canSave && !state.isSaving,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Delete view")
+                        if (state.isSaving) {
+                            CircularProgressIndicator(
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.height(18.dp),
+                            )
+                        } else {
+                            Text("Save")
+                        }
+                    }
+                    // Delete button only shown in Edit mode (view != null)
+                    if (state.view != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = onRequestDelete,
+                            enabled = !state.isSaving,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Delete view")
+                        }
                     }
                 }
             }

@@ -13,10 +13,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -78,8 +78,8 @@ class SavedAgendaListViewModel(
     )
 
     /** Delete failure events — routing (ViewSelected, CreateNew) is screen-side. */
-    private val _events = MutableSharedFlow<SavedAgendaListEvent>(extraBufferCapacity = 4)
-    val events = _events.asSharedFlow()
+    private val _events = Channel<SavedAgendaListEvent>(Channel.BUFFERED)
+    val events = _events.receiveAsFlow()
 
     val state: StateFlow<SavedAgendaListState> = deps.currentUser.scopedUserId
         .flatMapLatest { userId -> deps.repo.watchAll(userId.value) }
@@ -96,7 +96,7 @@ class SavedAgendaListViewModel(
                 scope.launch {
                     val userId = deps.currentUser.scopedUserId.value.value
                     deps.repo.delete(viewId, userId)
-                        .onFailure { _events.emit(SavedAgendaListEvent.ShowError(it.message ?: "Delete failed")) }
+                        .onFailure { _events.trySend(SavedAgendaListEvent.ShowError(it.message ?: "Delete failed")) }
                 }
             }
 
@@ -105,12 +105,12 @@ class SavedAgendaListViewModel(
                     val sourceUserId = deps.currentUser.scopedUserId.value.value
                     val sourceView = deps.repo.watchById(viewId, sourceUserId).first()
                     if (sourceView == null) {
-                        _events.emit(SavedAgendaListEvent.ShowError("View not found"))
+                        _events.trySend(SavedAgendaListEvent.ShowError("View not found"))
                         return@launch
                     }
                     val targetProfile = deps.profileRepo.getById(targetProfileId)
                     if (targetProfile == null) {
-                        _events.emit(SavedAgendaListEvent.ShowError("Profile not found"))
+                        _events.trySend(SavedAgendaListEvent.ShowError("Profile not found"))
                         return@launch
                     }
                     val now = Clock.now()
@@ -121,10 +121,10 @@ class SavedAgendaListViewModel(
                     )
                     deps.repo.upsert(copy)
                         .onSuccess {
-                            _events.emit(SavedAgendaListEvent.CopySuccess(sourceView.name.ifBlank { "Untitled" }, targetProfile.name))
+                            _events.trySend(SavedAgendaListEvent.CopySuccess(sourceView.name.ifBlank { "Untitled" }, targetProfile.name))
                         }
                         .onFailure {
-                            _events.emit(SavedAgendaListEvent.ShowError(it.message ?: "Copy failed"))
+                            _events.trySend(SavedAgendaListEvent.ShowError(it.message ?: "Copy failed"))
                         }
                 }
             }

@@ -20,12 +20,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -82,8 +82,8 @@ class CalendarViewModel(
     )
 
     /** Events emitted to the UI layer (navigate to task detail, errors). */
-    private val _events = MutableSharedFlow<CalendarUiEvent>()
-    val events: Flow<CalendarUiEvent> = _events.asSharedFlow()
+    private val _events = Channel<CalendarUiEvent>(Channel.BUFFERED)
+    val events: Flow<CalendarUiEvent> = _events.receiveAsFlow()
 
     /**
      * Main state — combines task flow with calendar selection state.
@@ -161,7 +161,7 @@ class CalendarViewModel(
 
             is CalendarIntent.TaskClicked -> {
                 scope.launch {
-                    _events.emit(CalendarUiEvent.NavigateToTask(intent.taskId))
+                    _events.trySend(CalendarUiEvent.NavigateToTask(intent.taskId))
                 }
             }
         }

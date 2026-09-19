@@ -3,7 +3,7 @@ package com.singularity.todo.feature.tasks
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
@@ -55,7 +55,7 @@ class TaskCreateViewModelTest {
 
     private fun createVm(scope: CoroutineScope): TaskCreateViewModel {
         val deps = TaskCreateDeps(
-            createTask = CreateTaskUseCase(fakeTaskRepo, Clock),
+            createFromDraft = CreateTaskFromDraftUseCase(fakeTaskRepo, Clock),
             currentUser = fakeCurrentUser,
             logger = Logger.withTag("TaskCreateTest"),
             draftStore = fakeDraftStore,

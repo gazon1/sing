@@ -4,15 +4,19 @@ import androidx.lifecycle.ViewModel
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
+import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -45,6 +49,9 @@ class NotePreview(
     private val _state = MutableStateFlow<NotePreviewState>(NotePreviewState.Loading)
     val state: StateFlow<NotePreviewState> = _state.asStateFlow()
 
+    private val _events = Channel<NotesUiEvent>(Channel.BUFFERED)
+    val events: kotlinx.coroutines.flow.Flow<NotesUiEvent> = _events.receiveAsFlow()
+
     fun loadNote(noteId: String) {
         scope.launch(Dispatchers.Unconfined) {
             repo.watchNote(NoteId.fromString(noteId))
@@ -65,8 +72,11 @@ class NotePreview(
 
     fun delete() {
         val current = _state.value as? NotePreviewState.Loaded ?: return
-        scope.launch(Dispatchers.Unconfined) {
-            repo.softDelete(current.note.id).getOrThrow()
+        scope.fireAndForget(
+            errorLabel = "Delete failed",
+            onError = { e -> _events.trySend(NotesUiEvent.Error("Delete failed: ${e.message ?: "unknown"}")) },
+        ) {
+            repo.softDelete(current.note.id)
         }
     }
 }

@@ -13,10 +13,10 @@ import com.singularity.todo.core.serialization.StableJson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -142,8 +142,8 @@ class SavedAgendaViewModel(
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     )
 
-    private val _events = MutableSharedFlow<SavedAgendaEvent>(extraBufferCapacity = 4)
-    val events = _events.asSharedFlow()
+    private val _events = Channel<SavedAgendaEvent>(Channel.BUFFERED)
+    val events = _events.receiveAsFlow()
     val draftState = DraftState()
     private val _state = MutableStateFlow<SavedAgendaViewState>(SavedAgendaViewState.Loading)
     val state: StateFlow<SavedAgendaViewState> = _state.asStateFlow()
@@ -229,16 +229,16 @@ class SavedAgendaViewModel(
                     deps.repo.upsert(updated).fold(
                         onSuccess = {
                             draftState.markSaved()
-                            _events.emit(SavedAgendaEvent.SaveSuccess)
+                            _events.trySend(SavedAgendaEvent.SaveSuccess)
                         },
-                        onFailure = { _events.emit(SavedAgendaEvent.ShowError(it.message ?: "Save failed")) },
+                        onFailure = { _events.trySend(SavedAgendaEvent.ShowError(it.message ?: "Save failed")) },
                     )
                 }
                 is SavedAgendaScreenMode.Create -> {
                     val newView = SavedAgendaViewFactory.create(userId, nameToSave, sectionsJson, now)
                     deps.repo.upsert(newView).fold(
-                        onSuccess = { _events.emit(SavedAgendaEvent.SaveSuccess) },
-                        onFailure = { _events.emit(SavedAgendaEvent.ShowError(it.message ?: "Save failed")) },
+                        onSuccess = { _events.trySend(SavedAgendaEvent.SaveSuccess) },
+                        onFailure = { _events.trySend(SavedAgendaEvent.ShowError(it.message ?: "Save failed")) },
                     )
                 }
             }
@@ -250,8 +250,8 @@ class SavedAgendaViewModel(
         scope.launch {
             val userId = deps.currentUser.scopedUserId.first().value
             deps.repo.delete(viewId, userId).fold(
-                onSuccess = { _events.emit(SavedAgendaEvent.DeleteSuccess) },
-                onFailure = { _events.emit(SavedAgendaEvent.ShowError(it.message ?: "Delete failed")) },
+                onSuccess = { _events.trySend(SavedAgendaEvent.DeleteSuccess) },
+                onFailure = { _events.trySend(SavedAgendaEvent.ShowError(it.message ?: "Delete failed")) },
             )
         }
     }

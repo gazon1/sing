@@ -15,11 +15,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
@@ -63,8 +62,8 @@ class ProjectEditorViewModel(
     private val _state = MutableStateFlow(ProjectEditorUiState(projectId = projectId))
     val state: StateFlow<ProjectEditorUiState> = _state.asStateFlow()
 
-    private val _events = MutableSharedFlow<ProjectEditorUiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<ProjectEditorUiEvent> = _events.asSharedFlow()
+    private val _events = Channel<ProjectEditorUiEvent>(Channel.BUFFERED)
+    val events: kotlinx.coroutines.flow.Flow<ProjectEditorUiEvent> = _events.receiveAsFlow()
 
     init {
         if (projectId != null) {
@@ -139,7 +138,7 @@ class ProjectEditorViewModel(
                     userId = userId,
                 )
                 createProject(input).fold(
-                    onSuccess = { _events.emit(ProjectEditorUiEvent.NavigateBack) },
+                    onSuccess = { _events.trySend(ProjectEditorUiEvent.NavigateBack) },
                     onFailure = { err ->
                         _state.updateState {
                             it.copy(
@@ -160,7 +159,7 @@ class ProjectEditorViewModel(
                         parentId = current.parentId,
                     )
                 }.fold(
-                    onSuccess = { _events.emit(ProjectEditorUiEvent.NavigateBack) },
+                    onSuccess = { _events.trySend(ProjectEditorUiEvent.NavigateBack) },
                     onFailure = { err ->
                         _state.updateState {
                             it.copy(

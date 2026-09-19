@@ -55,7 +55,8 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
             val menuEntries = remember(taskUi) {
                 buildTaskContextMenu(
                     taskUi = taskUi,
-                    hasAiContext = taskUi.domainTask != null,
+                    // domainTask removed — any visible task with a title is AI-context eligible
+                    hasAiContext = taskUi.title.isNotBlank(),
                     actions = menuActions,
                 )
             }

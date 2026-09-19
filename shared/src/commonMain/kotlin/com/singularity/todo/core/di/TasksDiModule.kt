@@ -24,6 +24,7 @@ import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
@@ -58,6 +59,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     // ─── Use Cases ──────────────────────────────────────────────────────
 
     factory { CreateTaskUseCase(get(), get()) }
+    factory { CreateTaskFromDraftUseCase(get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
     factory { TaskMutationsUseCase(get()) }
 
@@ -127,7 +129,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     viewModel { (initialDueDate: kotlinx.datetime.LocalDate?) ->
         TaskCreateViewModel(
             deps = TaskCreateDeps(
-                createTask = get(),
+                createFromDraft = get(),
                 currentUser = get(),
                 logger = Logger.withTag("TaskCreate"),
                 draftStore = get(),

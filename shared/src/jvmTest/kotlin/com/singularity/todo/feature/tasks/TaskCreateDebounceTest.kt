@@ -5,7 +5,7 @@ import com.singularity.todo.core.clock.FakeAutosaveScheduler
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
@@ -44,7 +44,7 @@ class TaskCreateDebounceTest {
 
     private fun createVm(scope: CoroutineScope): TaskCreateViewModel {
         val deps = TaskCreateDeps(
-            createTask = CreateTaskUseCase(fakeTaskRepo, Clock),
+            createFromDraft = CreateTaskFromDraftUseCase(fakeTaskRepo, Clock),
             currentUser = fakeCurrentUser,
             logger = Logger.withTag("TaskCreate"),
             draftStore = fakeDraftStore,

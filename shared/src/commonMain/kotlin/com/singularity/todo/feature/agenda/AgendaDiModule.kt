@@ -16,7 +16,6 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaVie
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
