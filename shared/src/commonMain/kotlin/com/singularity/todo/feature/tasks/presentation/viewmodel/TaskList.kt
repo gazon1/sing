@@ -47,6 +47,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlinx.datetime.LocalDate
 
 /**
@@ -349,4 +350,9 @@ class TasksViewModel(
 
     private fun <T> Result<T>.toResult(ok: (T) -> AiActionResult): AiActionResult =
         fold(onSuccess = ok, onFailure = { AiActionResult.Error(it.message ?: "Failed") })
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
+    }
 }

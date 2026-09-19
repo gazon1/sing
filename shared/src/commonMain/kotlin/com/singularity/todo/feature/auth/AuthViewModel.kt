@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 /**
  * Auth screen ViewModel (sign in / sign up / anonymous).
@@ -98,5 +99,10 @@ class AuthViewModel(
 
     fun resetState() {
         _state.value = AuthUiState.Idle
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }

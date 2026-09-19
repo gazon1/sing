@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.cancel
 
 data class ProfileSwitcherUiState(
     val profiles: List<Profile> = emptyList(),
@@ -109,6 +110,11 @@ class ProfileSwitcherViewModel(
             is ProfileSwitcherIntent.Delete -> delete(intent.id)
             is ProfileSwitcherIntent.SwitchTo -> switchTo(intent.id)
         }
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }
 

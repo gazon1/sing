@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 sealed interface TagsUiState {
     data object Loading : TagsUiState
@@ -64,5 +65,10 @@ class TagsViewModel(
 
     fun delete(id: TagId) = scope.launch {
         tagRepo.delete(id)
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }

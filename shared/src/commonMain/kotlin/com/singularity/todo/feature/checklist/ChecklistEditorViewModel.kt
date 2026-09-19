@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 data class ChecklistEditorState(
     val taskId: String = "",
@@ -119,5 +120,10 @@ class ChecklistEditorViewModel(
                     _state.updateState { st -> st.copy(errorMessage = err.message) }
                 }
         }
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }

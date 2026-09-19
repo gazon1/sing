@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -412,5 +413,10 @@ class TaskDetailViewModel(
             offset,
             deps.timeZoneProvider.current(),
         )
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 /**
  * AI chat state and intents.
@@ -98,6 +99,11 @@ class ChatViewModel(
         map { if (it.id == id) it.copy(content = content) else it }
 
     private fun newId(): String = idGen.next()
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
+    }
 }
 
 enum class ChatRole { User, Assistant }

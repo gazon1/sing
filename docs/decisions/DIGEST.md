@@ -78,6 +78,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches.
 - Agenda always shows correct bucket labels across midnight.
 - All 13 migrated VMs are now testable with `backgroundScope` injection
+- All 24 VMs gain deterministic scope cancellation.
 - All 593 existing tests continue to pass.
 - All notes screens now navigationally self-contained
 - Archive доступен с любого TaskDetailScreen через ⋮ menu
@@ -94,9 +95,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed.
 - Developers should prefer `kotlinx.datetime.Instant` in new code.
 - Domain/repo/data layers are fully isolated.
+- Every `_events.emit(x)` in VM code becomes `_events.trySend(x).isSuccess` (fire-and-forget) or `_events.send(x)` (back-pressure when needed).
 - Existing `AgendaDeps` binding must add `clock: Clock` parameter (no breaking change
 - Existing `viewModelOf` calls in DI modules updated to `viewModel { Vm(...) }` form
 - Expand-day-list (tap day in month view to show all tasks).
+- Exposed `events: Flow<UiEvent>` becomes `_events.receiveAsFlow()`.
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes)
 - Full filter panel with Project / Tags / Priority / Status.
 - Future developers understand which fields are stubbed vs. populated
@@ -126,12 +129,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - The 2 side-effects-in-combine anti-patterns remain in `TaskDetailViewModel`
 - The 4 untested VMs (`TaskCreateViewModel`, `ProjectEditorViewModel`,
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
+- The exemption list must be updated whenever a new intentionally-long-lived job is added to any VM.
 - Theme switching now correctly recomposes the calendar palette
 - Throttling prevents SQLite spam from polling.
 - Two new top-level entries added: `justfile` and `.just/`.
 - UI Automator тесты **удалены** (`UIAutomatorTest.kt`).
 - UI switching (MR3) requires adding `definition: AgendaDefinition` to `AgendaViewModel`
 - User switch cancels in-flight evaluations cleanly.
+- VM tests using `turbine` on `_events` need migration to `flow.test {}` from `kotlinx-coroutines-test`.
 - Week navigation via swipe on `DaySwitcherRow`.
 - Week-start locale handling is isolated and can be made configurable later.
 - `AgendaViewModel` binding is unchanged — does not consume saved views.
@@ -148,6 +153,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope`
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
+- `NoteEditorViewModel` and any future singleton services with intentionally long-lived jobs must opt out explicitly by not routing through the canonical scope or by using a separate non-cancellable scope.
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах
 - `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`.
@@ -160,12 +166,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика
 - `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly).
+- `applyRoute` in `TasksViewModel` is dead code — zero callers confirmed; deleted.
 - `deadlineDate` badge is rendered as a red flag + date for tasks due on the selected date.
 - `deadlineDate` badge rendering in month grid.
 - `delay(until-midnight)` means the flow never completes — collectors must be scoped
 - `endTime` / `accentColor` — blocked on Room migration for `startAt`/`endAt`/`accentColor` fields in `Task`
 - `expect object Clock` rename to `PlatformClock` — deferred until a broader cleanup window
 - `flatMapLatest` re-evaluates all tasks on every date change (necessary trade-off;
+- `getOrThrow()` removed from 5 VM sites; replaced with `fireAndForget` + channel emit.
 - `isRecurring` is always `false` in `CalendarTaskUi` — requires per-task
 - `just` must be installed (`just 1.57.0` is present in this environment).
 - `scopeOverride` добавлен в `ProjectsViewModel`
@@ -837,6 +845,7 @@ _1 entries need attention._
 - `2026-09-18-dialog-state-dsl` — ui, state-hoisting, refactor
 - `2026-09-18-dialog-state-migration-mr12` — ui-components, state-hoisting, dialogs
 - `2026-09-18-mcp-tool-catalog` — ai, mcp, koog, tools, architecture
+- `2026-09-18-mutation-result-handling` — _untagged_
 - `2026-09-18-no-pass-through-usecases` — usecase, detekt, architecture, lint
 - `2026-09-18-picker-dsl-slots-mr11` — dsl, ui-components
 - `2026-09-18-picker-sheet-dsl` — ui, dsl, refactor
@@ -853,6 +862,7 @@ _1 entries need attention._
 - `2026-09-18-version-catalog-cleanup` — gradle, version-catalog, build-config
 - `2026-09-18-vm-intent-with-receiver` — vm, refactor, kotlin
 - `2026-09-18-vm-migration-scope-injection` — _untagged_
+- `2026-09-18-vm-scope-cancellation-oncleared` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
@@ -967,6 +977,7 @@ _1 entries need attention._
 - `2026-09-18-dialog-state-dsl` — MR8: DialogState<T> — state hoisting for dialog overlays
 - `2026-09-18-dialog-state-migration-mr12` — TaskEditorSheet and ProjectDetailScreen migrate to DialogState<T>
 - `2026-09-18-mcp-tool-catalog` — MCP tool catalog: 32 Koog SimpleTools registered via Koin
+- `2026-09-18-mutation-result-handling` — _(no title)_
 - `2026-09-18-no-pass-through-usecases` — Eliminate pass-through UseCases + machine enforcement via custom detekt rule
 - `2026-09-18-picker-dsl-slots-mr11` — ListPickerDsl gains header/footer slots; T bound relaxed to Any?
 - `2026-09-18-picker-sheet-dsl` — MR6: ListPickerSheet<T> + DSL for agenda pickers
@@ -983,6 +994,7 @@ _1 entries need attention._
 - `2026-09-18-version-catalog-cleanup` — Version catalog cleanup — kebab-case, bundles, single resolutionStrategy
 - `2026-09-18-vm-intent-with-receiver` — MR9: with(intent) stdlib receiver pattern for VM intent dispatch
 - `2026-09-18-vm-migration-scope-injection` — _(no title)_
+- `2026-09-18-vm-scope-cancellation-oncleared` — _(no title)_
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed

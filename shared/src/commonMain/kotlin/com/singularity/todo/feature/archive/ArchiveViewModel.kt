@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 sealed interface ArchiveUiState {
     data object Loading : ArchiveUiState
@@ -82,5 +83,10 @@ class ArchiveViewModel(
             .onFailure { e ->
                 _events.emit(ArchiveUiEvent.Error(e.message ?: "Archive failed"))
             }
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }

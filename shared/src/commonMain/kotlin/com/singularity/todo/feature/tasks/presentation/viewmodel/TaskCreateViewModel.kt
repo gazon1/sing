@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 data class TaskCreateDeps(
     val createFromDraft: CreateTaskFromDraftUseCase,
@@ -219,4 +220,9 @@ class TaskCreateViewModel(
 
     private fun validateForSave(draft: TaskDraft): String? =
         if (draft.title.isBlank()) "Title is required" else null
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
+    }
 }

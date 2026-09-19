@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 /**
  * Dependencies for [SavedAgendaViewModel].
@@ -261,4 +262,9 @@ class SavedAgendaViewModel(
         else runCatching { StableJson.decodeFromString<AgendaDefinition>(json).sections }
             .onFailure { e -> deps.log.w("agenda decode failed: ${e.message}") }
             .getOrNull()
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
+    }
 }

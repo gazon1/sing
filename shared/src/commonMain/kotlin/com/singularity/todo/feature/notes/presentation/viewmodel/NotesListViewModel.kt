@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 /**
  * Notes list screen ViewModel.
@@ -210,5 +211,10 @@ class NotesListViewModel(
         scope.launch(Dispatchers.Unconfined) {
             repo.softDelete(id)
         }
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }

@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.cancel
 
 data class StatisticsUiState(val snapshot: StatisticsSnapshot? = null, val loading: Boolean = true)
 
@@ -67,4 +68,9 @@ class StatisticsViewModel(
         }
         .catch { emit(StatisticsUiState(loading = false)) }
         .stateIn(scope, sharingStarted(), StatisticsUiState(loading = true))
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
+    }
 }

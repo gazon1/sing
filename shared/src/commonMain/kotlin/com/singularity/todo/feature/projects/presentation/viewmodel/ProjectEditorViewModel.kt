@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 /**
  * Project editor screen ViewModel (create or edit).
@@ -177,5 +178,10 @@ class ProjectEditorViewModel(
         name.isBlank() -> "Name cannot be blank"
         name.length > 50 -> "Name too long (max 50 characters)"
         else -> null
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }

@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
@@ -338,5 +339,10 @@ class ProjectDetailViewModel(
                 if (it.isSuccess) _lastEditedAt.value = clock.now()
             }
         }
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }

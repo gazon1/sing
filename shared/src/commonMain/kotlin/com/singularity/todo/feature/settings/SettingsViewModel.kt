@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 /**
  * Settings screen ViewModel.
@@ -351,5 +352,10 @@ class SettingsViewModel(
             aiContributor?.updateApiKey(value)
             reloadAiSection()
         }
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }

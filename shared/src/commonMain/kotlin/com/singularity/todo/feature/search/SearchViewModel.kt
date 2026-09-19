@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 data class SearchUiState(
     val query: String = "",
@@ -108,5 +109,10 @@ class SearchViewModel(
 
     fun onQueryChange(query: String) {
         _query.value = query
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }

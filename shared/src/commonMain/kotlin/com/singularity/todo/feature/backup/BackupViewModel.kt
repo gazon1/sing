@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 data class BackupUiState(
     val isWorking: Boolean = false,
@@ -157,5 +158,10 @@ class BackupViewModel(
                     _state.update { it.copy(isWorking = false) }
                 }
         }
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.cancel
 
 data class AiUsageUiState(
     val isLoading: Boolean = true,
@@ -77,4 +78,9 @@ class AiUsageViewModel(
         SharingStarted.WhileSubscribed(5_000),
         AiUsageUiState(),
     )
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
+    }
 }

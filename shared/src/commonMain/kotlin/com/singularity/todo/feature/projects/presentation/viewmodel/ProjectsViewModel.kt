@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 /**
  * Projects list screen ViewModel.
@@ -149,5 +150,10 @@ class ProjectsViewModel(
             ?: "AI not available on Android"
         _aiResult.emit(result)
         _events.trySend(ProjectsUiEvent.ProjectReviewResult(result))
+    }
+
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
     }
 }
