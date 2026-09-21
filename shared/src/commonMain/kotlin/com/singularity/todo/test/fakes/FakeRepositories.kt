@@ -358,6 +358,7 @@ private class InMemoryTaskDao : TaskDao {
     override suspend fun setPinned(id: String, pinned: Boolean, ts: Long) = error("not implemented")
 
     override suspend fun getById(id: String): com.singularity.todo.core.database.TaskEntity? = error("not implemented")
+    override suspend fun getByIdForUser(id: String, userId: String): com.singularity.todo.core.database.TaskEntity? = error("not implemented")
 
     override fun watchSearchResults(userId: String, q: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
 
@@ -483,6 +484,11 @@ class FakeTaskRepository(
     }
 
     override suspend fun getById(id: TaskId): Task? = store[id.value]
+
+    override suspend fun getByIdForCurrentUser(id: TaskId): Task? {
+        val uid = currentUser.scopedUserId.value
+        return store[id.value]?.takeIf { it.userId == uid }
+    }
 
     override suspend fun restore(id: TaskId): Result<Unit> = runCatching {
         store[id.value]?.let { task ->

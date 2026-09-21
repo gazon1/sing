@@ -9,7 +9,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import kotlinx.coroutines.flow.first
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -35,7 +34,7 @@ class UpdateTaskTool(private val taskRepository: TaskRepository, private val clo
     SimpleTool<UpdateTaskInput>(TypeToken.of(UpdateTaskInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: UpdateTaskInput): String {
-        val existing = taskRepository.watchTask(TaskId(args.taskId)).first()
+        val existing = taskRepository.getByIdForCurrentUser(TaskId(args.taskId))
             ?: return Json.encodeToString(
                 UpdateTaskOutput.serializer(),
                 UpdateTaskOutput(args.taskId, false),

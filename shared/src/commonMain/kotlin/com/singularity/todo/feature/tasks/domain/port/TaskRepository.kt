@@ -69,6 +69,12 @@ interface TaskRepository : UserScopedRepository<Task, TaskId> {
     suspend fun exists(id: TaskId): Boolean
     suspend fun getById(id: TaskId): Task?
 
+    /**
+     * Returns a single task by [id] for the currently authenticated user.
+     * Returns null if the task does not exist or belongs to another user.
+     */
+    suspend fun getByIdForCurrentUser(id: TaskId): Task?
+
     // ── User-scoped observers (new API — use these in VMs) ──────────────────────
 
     /**

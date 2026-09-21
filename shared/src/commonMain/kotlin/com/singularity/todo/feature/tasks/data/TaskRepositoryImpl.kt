@@ -205,6 +205,11 @@ class TaskRepositoryImpl(
 
     override suspend fun getById(id: TaskId): Task? = taskDao.getById(id.value)?.toTask()
 
+    override suspend fun getByIdForCurrentUser(id: TaskId): Task? {
+        val uid = currentUser.scopedUserId.value
+        return taskDao.getByIdForUser(id.value, uid.value)?.toTask()
+    }
+
     override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
         val existing = taskDao.getTagIdsForTask(taskId.value).first()
         existing.forEach { tagId ->

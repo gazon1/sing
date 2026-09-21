@@ -4,7 +4,6 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -23,7 +22,7 @@ class GetTaskTool(private val taskRepository: TaskRepository) :
     SimpleTool<GetTaskInput>(TypeToken.of(GetTaskInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: GetTaskInput): String {
-        val task = taskRepository.watchTask(TaskId(args.taskId)).first()
+        val task = taskRepository.getByIdForCurrentUser(TaskId(args.taskId))
         val output = if (task != null) {
             GetTaskOutput(task.id.value, task.title, task.description, task.isCompleted, task.projectId?.value)
         } else {
