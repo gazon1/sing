@@ -36,6 +36,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Always** read entity state from the write-through `_latest<Entity>` cache, never from `state.value` snapshot in mutation methods. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - **Always** update `_latest<Entity>` before any async operation that reads it. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - **Never** emit `Saved` events for debounced inline edits — update `_lastEditedAt` only. _(from `2026-09-09-projectdetail-write-through-fix`)_
+- **Always** use `GenericUserScopedRepository<E, ID>` as the base for any new _(from `2026-09-21-generic-user-scoped-repository`)_
+- **Never** add `ForCurrentUser` suffix to new method names — the type guarantees user-scope. _(from `2026-09-21-generic-user-scoped-repository`)_
+- **Never** return `Result<Unit>` from `create` / `update` — return `Result<E>`. _(from `2026-09-21-generic-user-scoped-repository`)_
 - **Never** add an `aiApiKey` (or any secret) field back to `SettingsRepository`. Adding one is a regression. _(from `2026-09-05-secret-storage-split`)_
 - **Never** add an `aiApiKey` field to `SettingsUiState.Content`. _(from `2026-09-05-secret-storage-split`)_
 - The password field on `AiProviderSettingsScreen` is a local `mutableStateOf`. **Never** lift it to the VM. _(from `2026-09-05-secret-storage-split`)_
@@ -602,6 +605,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `ProjectDetailScreen` is fully functional: quick-add creates tasks, parent picker works, Remind/Attach/DueDate/Children sheets open, task click navigates to `TaskDetailScreen`
 - `ProjectPickerSheet` is reactive — newly created projects appear without reopening the sheet
 
+### `repository`
+
+- **When** a second entity acquires free-text search — extract `Searchable<E>` mixin
+- **When** adding a cross-cutting repository helper (batch op, transactional wrap) —
+- Fakes in `test/fakes/FakeRepositories.kt` simplify: one constructor parameter
+- The old `UserScopedRepository<T, ID>` typealias is removed in the cleanup commit
+- `PomodoroRepository` has 0 production call sites. It is a candidate for deletion
+
 ### `security`
 
 - Adding a new secret (e.g. another provider's API key) **always** follows the same pattern: new `KEY_*` constant, new config object, migration on first DataStore access, no DataStore copy.
@@ -881,9 +892,11 @@ _1 entries need attention._
 - `2026-09-18-vm-migration-scope-injection` — _untagged_
 - `2026-09-18-vm-scope-cancellation-oncleared` — _untagged_
 - `2026-09-21-auto-closeable-coroutine-scope` — _untagged_
+- `2026-09-21-generic-user-scoped-repository` — repository, architecture, kotlin, kmp
 - `2026-09-21-kotlin-auto-closeable-vs-java-closeable` — _untagged_
 - `2026-09-21-out-of-scope-after-phase-5-5` — _untagged_
 - `2026-09-21-state-hoisting-audit` — vm, compose, state-hoisting, refactor
+- `2026-09-21-state-hoisting-p3-dispatchers-overlay` — _untagged_
 - `2026-09-21-user-scoped-repository` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
@@ -1019,9 +1032,11 @@ _1 entries need attention._
 - `2026-09-18-vm-migration-scope-injection` — _(no title)_
 - `2026-09-18-vm-scope-cancellation-oncleared` — _(no title)_
 - `2026-09-21-auto-closeable-coroutine-scope` — _(no title)_
+- `2026-09-21-generic-user-scoped-repository` — GenericUserScopedRepository<E, ID> — unified CRUD base for all user-scoped repositories
 - `2026-09-21-kotlin-auto-closeable-vs-java-closeable` — _(no title)_
 - `2026-09-21-out-of-scope-after-phase-5-5` — _(no title)_
 - `2026-09-21-state-hoisting-audit` — _(no title)_
+- `2026-09-21-state-hoisting-p3-dispatchers-overlay` — _(no title)_
 - `2026-09-21-user-scoped-repository` — _(no title)_
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
