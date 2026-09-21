@@ -66,20 +66,31 @@ class ProjectsRepositoryImpl(
         list.map { it.toProject() }
     }
 
-    override fun watchProject(id: ProjectId): Flow<Project?> = projectDao.watchById(id.value).map { it?.toProject() }
+    override fun watchProject(id: ProjectId): Flow<Project?> {
+        val uid = currentUser.scopedUserId.value
+        return projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
+    }
 
-    override suspend fun getById(id: ProjectId): Project? = projectDao.getById(id.value)?.toProject()
+    override suspend fun getById(id: ProjectId): Project? {
+        val uid = currentUser.scopedUserId.value
+        return projectDao.getByIdForUser(id.value, uid.value)?.toProject()
+    }
 
-    override fun changes(id: ProjectId): Flow<Project?> = projectDao.watchById(id.value).map { it?.toProject() }
+    override fun changes(id: ProjectId): Flow<Project?> {
+        val uid = currentUser.scopedUserId.value
+        return projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
+    }
 
     override fun watchProjectsWithCounts(
         userId: UserId,
     ): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> = projectDao.watchAllWithCounts(userId.value)
 
-    override fun watchByParent(parentId: ProjectId): Flow<List<Project>> =
-        projectDao.watchByParent(parentId.value).map { list ->
+    override fun watchByParent(parentId: ProjectId): Flow<List<Project>> {
+        val uid = currentUser.scopedUserId.value
+        return projectDao.watchByParentForUser(parentId.value, uid.value).map { list ->
             list.map { it.toProject() }
         }
+    }
 
     override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {
         projectDao.setParent(id.value, parentId?.value, updatedAt)

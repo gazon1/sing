@@ -188,20 +188,11 @@ interface NoteDao {
     )
     fun watchChildren(parentId: String): Flow<List<NoteEntity>>
 
-    @Query("SELECT * FROM notes WHERE id = :id")
-    fun watchById(id: String): Flow<NoteEntity?>
-
     @Query("SELECT * FROM notes WHERE id = :id AND user_id = :userId")
     fun watchByIdForUser(id: String, userId: String): Flow<NoteEntity?>
 
-    @Query("SELECT * FROM notes WHERE id = :id")
-    suspend fun getById(id: String): NoteEntity?
-
     @Query("SELECT * FROM notes WHERE id = :id AND user_id = :userId")
     suspend fun getByIdForUser(id: String, userId: String): NoteEntity?
-
-    @Query("SELECT * FROM notes WHERE title LIKE '%' || :q || '%' OR body_markdown LIKE '%' || :q || '%'")
-    fun search(q: String): Flow<List<NoteEntity>>
 
     @Query(
         "SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
@@ -285,13 +276,6 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE parent_id = :parentId AND user_id = :userId AND is_deleted = 0 ORDER BY sort_order ASC, name ASC")
     fun watchByParentForUser(parentId: String, userId: String): Flow<List<ProjectEntity>>
 
-    // ─── Legacy (internal / Phase 3 migration target) ───────────────────────
-    @Query("SELECT * FROM projects WHERE id = :id")
-    fun watchById(id: String): Flow<ProjectEntity?>
-
-    @Query("SELECT * FROM projects WHERE id = :id")
-    suspend fun getById(id: String): ProjectEntity?
-
     @Query(
         """
         SELECT p.*,
@@ -305,9 +289,6 @@ interface ProjectDao {
     """
     )
     fun watchAllWithCounts(userId: String): Flow<List<ProjectWithCountRow>>
-
-    @Query("SELECT * FROM projects WHERE parent_id = :parentId AND is_deleted = 0 ORDER BY sort_order ASC, name ASC")
-    fun watchByParent(parentId: String): Flow<List<ProjectEntity>>
 
     @Query("UPDATE projects SET parent_id = :parentId, updated_at = :ts WHERE id = :id")
     suspend fun setParent(id: String, parentId: String?, ts: Long)

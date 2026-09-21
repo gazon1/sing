@@ -32,8 +32,7 @@ class AndroidPomodoroTimer(
 
     init {
         viewModelScope.launch {
-            val uid = currentUser.current
-            taskRepository.watchTasks(uid, TaskFilter.Inbox).collect { _tasks.value = it }
+            taskRepository.observeByFilter(TaskFilter.Inbox).collect { _tasks.value = it }
         }
     }
 

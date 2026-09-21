@@ -154,12 +154,17 @@ class RoomNotesRepository(
     override fun watchRootNotes(userId: UserId): Flow<List<Note>> =
         noteDao.watchRootNotes(userId.value).map { list -> list.map { it.toNote() } }
 
-    override fun watchNote(id: NoteId): Flow<Note?> = noteDao.watchById(id.value).map { it?.toNote() }
+    override fun watchNote(id: NoteId): Flow<Note?> {
+        val uid = currentUser.scopedUserId.value
+        return noteDao.watchByIdForUser(id.value, uid.value).map { it?.toNote() }
+    }
 
     // ─── Deprecated (remove in Phase 3) ─────────────────────────────────────
 
-    override fun searchNotes(query: String): Flow<List<Note>> =
-        noteDao.search(query).map { list -> list.map { it.toNote() } }
+    override fun searchNotes(query: String): Flow<List<Note>> {
+        val uid = currentUser.scopedUserId.value
+        return noteDao.watchSearchByTitle(uid.value, query).map { list -> list.map { it.toNote() } }
+    }
 
     override suspend fun create(note: Note): Result<Unit> = runCatching {
         noteDao.upsert(note.toEntity())

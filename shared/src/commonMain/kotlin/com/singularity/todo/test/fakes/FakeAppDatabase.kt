@@ -344,24 +344,15 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
             .sortedWith(compareBy({ it.sortOrder }, { -it.updatedAt }))
     }
 
-    override fun watchById(id: String): Flow<NoteEntity?> = store.map { it[id] }
     override fun watchByIdForUser(id: String, userId: String): Flow<NoteEntity?> = store.map { n ->
         n.values.find { it.id == id && it.userId == userId }
     }
-    override suspend fun getById(id: String): NoteEntity? = store.value[id]
     override suspend fun getByIdForUser(id: String, userId: String): NoteEntity? =
         store.value.values.find { it.id == id && it.userId == userId }
 
     override fun watchChildren(parentId: String): Flow<List<NoteEntity>> = store.map {
         it.values.filter { n -> n.parentNoteId == parentId && n.deletedAt == null }
             .sortedWith(compareBy({ it.sortOrder }, { it.title }))
-    }
-
-    override fun search(q: String): Flow<List<NoteEntity>> = store.map {
-        it.values.filter { n ->
-            n.title.contains(q, ignoreCase = true) ||
-                (n.bodyMarkdown?.contains(q, ignoreCase = true) == true)
-        }
     }
 
     override fun watchSearchByTitle(userId: String, q: String): Flow<List<NoteEntity>> = store.map { map ->
@@ -447,9 +438,6 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
     override fun watchByParentForUser(parentId: String, userId: String): Flow<List<ProjectEntity>> =
         store.map { it.values.filter { it.parentId == parentId && it.userId == userId && !it.isDeleted } }
 
-    // ─── Legacy ────────────────────────────────────────────────────────────────
-    override fun watchById(id: String): Flow<ProjectEntity?> = store.map { it[id] }
-    override suspend fun getById(id: String): ProjectEntity? = store.value[id]
     override fun watchAllWithCounts(
         userId: String,
     ): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> = store.map { map ->
@@ -463,8 +451,6 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
                 )
             }
     }
-    override fun watchByParent(parentId: String): Flow<List<ProjectEntity>> =
-        store.map { it.values.filter { it.parentId == parentId && !it.isDeleted } }
     override suspend fun setParent(id: String, parentId: String?, ts: Long) =
         mutate(id) { it.copy(parentId = parentId, updatedAt = ts) }
     override suspend fun setSortOrder(id: String, sortOrder: Int, ts: Long) =

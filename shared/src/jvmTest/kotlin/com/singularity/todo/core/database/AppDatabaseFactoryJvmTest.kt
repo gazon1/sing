@@ -87,7 +87,7 @@ class AppDatabaseFactoryJvmTest {
         dao.softDelete("n1", ts = now + 1)
 
         assertEquals(0, dao.watchAll("u1").first().size)
-        val byId = dao.watchById("n1").first()
+        val byId = dao.watchByIdForUser("n1", "u1").first()
         assertNotNull(byId)
         assertEquals(now + 1, byId.deletedAt)
     }
@@ -107,7 +107,7 @@ class AppDatabaseFactoryJvmTest {
         dao.restore("n1", ts = now + 2)
 
         assertEquals(1, dao.watchAll("u1").first().size)
-        assertEquals(null, dao.watchById("n1").first()?.deletedAt)
+        assertEquals(null, dao.watchByIdForUser("n1", "u1").first()?.deletedAt)
     }
 
     @Test
