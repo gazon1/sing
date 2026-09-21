@@ -10,7 +10,6 @@ import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 class RoomSavedAgendaViewsRepository(
@@ -32,7 +31,7 @@ class RoomSavedAgendaViewsRepository(
 
     override suspend fun get(id: SavedAgendaViewId): SavedAgendaView? {
         val uid = currentUser.scopedUserId.value
-        return agendaViewDao.watchById(uid.value, id.raw).first()?.toDomain()
+        return agendaViewDao.getById(uid.value, id.raw)?.toDomain()
     }
 
     override suspend fun create(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)

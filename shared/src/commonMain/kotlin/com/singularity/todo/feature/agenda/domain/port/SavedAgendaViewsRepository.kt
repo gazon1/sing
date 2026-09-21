@@ -12,4 +12,9 @@ interface SavedAgendaViewsRepository : GenericUserScopedRepository<SavedAgendaVi
 
     /** Deletes a saved view. Idempotent — succeeds even if the view doesn't exist. */
     override suspend fun delete(id: SavedAgendaViewId): Result<Unit>
+
+    /** Canonical CRUD — delegates to [upsert]. */
+    override suspend fun create(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
+
+    override suspend fun update(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
 }

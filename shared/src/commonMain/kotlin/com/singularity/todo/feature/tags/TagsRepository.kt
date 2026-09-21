@@ -9,7 +9,6 @@ import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
@@ -43,9 +42,14 @@ class TagsRepositoryImpl(
         }
 
     override fun observe(id: TagId): Flow<Tag?> =
-        tagDao.watchById(id.value).map { it?.toTag() }
+        currentUser.observeForCurrentUser { uid ->
+            tagDao.watchByIdForUser(id.value, uid.value).map { it?.toTag() }
+        }
 
-    override suspend fun get(id: TagId): Tag? = tagDao.watchById(id.value).first()?.toTag()
+    override suspend fun get(id: TagId): Tag? {
+        val uid = currentUser.scopedUserId.value
+        return tagDao.getByIdForUser(id.value, uid.value)?.toTag()
+    }
 
     override suspend fun create(tag: Tag): Result<Tag> = runCatching {
         tagDao.upsert(tag.toEntity())
@@ -58,8 +62,10 @@ class TagsRepositoryImpl(
     }
 
     override suspend fun delete(id: TagId): Result<Unit> = runCatching {
+        val uid = currentUser.scopedUserId.value
         val ts = clock.now().toEpochMilliseconds()
-        tagDao.softDelete(id.value, ts)
+        val rows = tagDao.softDeleteForUser(id.value, ts, uid.value)
+        require(rows > 0) { "Tag $id not found or not owned by user" }
     }
 
     // ─── Explicit userId overloads ──────────────────────────────────────────

@@ -320,11 +320,20 @@ interface TagDao {
     @Query("SELECT * FROM tags WHERE id = :id")
     fun watchById(id: String): Flow<TagEntity?>
 
+    @Query("SELECT * FROM tags WHERE id = :id AND user_id = :userId AND deleted_at IS NULL")
+    fun watchByIdForUser(id: String, userId: String): Flow<TagEntity?>
+
+    @Query("SELECT * FROM tags WHERE id = :id AND user_id = :userId AND deleted_at IS NULL")
+    suspend fun getByIdForUser(id: String, userId: String): TagEntity?
+
     @Upsert
     suspend fun upsert(tag: TagEntity)
 
     @Query("UPDATE tags SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
     suspend fun softDelete(id: String, ts: Long)
+
+    @Query("UPDATE tags SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
 
     @Query("SELECT * FROM tags WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TagEntity>
@@ -352,6 +361,9 @@ interface ReminderDao {
 
     @Query("SELECT * FROM task_reminders WHERE id = :id AND user_id = :userId")
     suspend fun getById(id: String, userId: String): TaskReminderEntity?
+
+    @Query("SELECT * FROM task_reminders WHERE id = :id AND user_id = :userId")
+    fun watchByIdForUser(id: String, userId: String): Flow<TaskReminderEntity?>
 }
 
 @Dao

@@ -46,7 +46,11 @@ interface GenericUserScopedRepository<E, ID> {
 
     /**
      * Observes a single entity by [id] for the currently authenticated user.
-     * Emits `null` if the entity does not exist or belongs to another user.
+     *
+     * - **null emission** = entity was soft/hard deleted
+     * - **no emission** = entity never existed (cold start before first observation)
+     *
+     * Use [exists] to distinguish "never existed" from "was deleted".
      */
     fun observe(id: ID): Flow<E?>
 

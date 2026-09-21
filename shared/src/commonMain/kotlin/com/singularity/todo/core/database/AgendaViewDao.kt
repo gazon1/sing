@@ -14,6 +14,9 @@ interface AgendaViewDao {
     @Query("SELECT * FROM agenda_views WHERE user_id = :userId AND id = :id")
     fun watchById(userId: String, id: String): Flow<AgendaViewEntity?>
 
+    @Query("SELECT * FROM agenda_views WHERE user_id = :userId AND id = :id")
+    suspend fun getById(userId: String, id: String): AgendaViewEntity?
+
     @Upsert(entity = AgendaViewEntity::class)
     suspend fun upsert(entity: AgendaViewEntity)
 

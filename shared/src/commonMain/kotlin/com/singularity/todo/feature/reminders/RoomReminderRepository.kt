@@ -28,7 +28,9 @@ class RoomReminderRepository(
         }
 
     override fun observe(id: ReminderId): Flow<Reminder?> =
-        observeAll().map { list -> list.find { it.id == id } }
+        currentUser.observeForCurrentUser { uid ->
+            dao.watchByIdForUser(id.value, uid.value).map { it?.toReminder() }
+        }
 
     override suspend fun get(id: ReminderId): Reminder? {
         val uid = currentUser.scopedUserId.value

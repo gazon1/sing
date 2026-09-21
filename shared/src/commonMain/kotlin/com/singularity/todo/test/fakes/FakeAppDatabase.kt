@@ -486,10 +486,30 @@ private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEnti
     }
 
     override fun watchById(id: String): Flow<TagEntity?> = store.map { it[id] }
+
+    override fun watchByIdForUser(id: String, userId: String): Flow<TagEntity?> = store.map {
+        it[id]?.takeIf { t -> t.userId == userId && t.deletedAt == null }
+    }
+
+    override suspend fun getByIdForUser(id: String, userId: String): TagEntity? =
+        store.value[id]?.takeIf { it.userId == userId && it.deletedAt == null }
+
     override suspend fun upsert(tag: TagEntity) {
         store.update { it + (tag.id to tag) }
     }
+
     override suspend fun softDelete(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
+
+    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int {
+        val entity = store.value[id]
+        return if (entity != null && entity.userId == userId) {
+            mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
+            1
+        } else {
+            0
+        }
+    }
+
     override suspend fun listAllForUser(userId: String): List<TagEntity> =
         store.value.values.filter { it.userId == userId }
 
@@ -616,6 +636,9 @@ private class FakeReminderDao(
 
     override suspend fun getById(id: String, userId: String): com.singularity.todo.core.database.TaskReminderEntity? =
         store.value[userId to id]
+
+    override fun watchByIdForUser(id: String, userId: String): Flow<com.singularity.todo.core.database.TaskReminderEntity?> =
+        store.map { it[userId to id] }
 }
 
 // ─── ChecklistDao ───────────────────────────────────────────────────────────────
@@ -738,6 +761,9 @@ private class FakeAgendaViewDao(private val store: MutableStateFlow<Map<String, 
     override fun watchById(userId: String, id: String): Flow<AgendaViewEntity?> = store.map {
         it.values.find { v -> v.userId == userId && v.id == id }
     }
+
+    override suspend fun getById(userId: String, id: String): AgendaViewEntity? =
+        store.value.values.find { v -> v.userId == userId && v.id == id }
 
     override suspend fun upsert(entity: AgendaViewEntity) {
         store.update { it + (entity.id to entity) }
