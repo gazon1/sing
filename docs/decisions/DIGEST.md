@@ -70,12 +70,16 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 ### `_untagged_`
 
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска
+- **No new auth-safety risk**: each tool still stamps the user-provided
+- **Tool APIs lose their `currentUser: ProfileAwareCurrentUser` parameter** — any
+- **Unit tests gain an `init { ProfileAwareCurrentUser.setInstance(fake) }` setup
 - **`koinInject()` в Screen** требует Koin контекст — widget тесты обходят это через Robolectric + `createComposeRule` без Koin
 - **`performTextClear`** не доступен в Robolectric — используется `performTextInput` напрямую
 - **~14 изменённых файлов**: Screen.kt + testTag, VM constructors, DI module
 - **~25 новых файлов**: 4 порта, 7 Page Objects, test infrastructure, integration tests
 - 8 экранов мигрированы: Tasks, Notes, TaskDetail, TaskEditor, Projects, ProjectEditor, Chat, Archive
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches.
+- AI tools (11 Koog `SimpleTool` implementations) drop `currentUser` from
 - Agenda always shows correct bucket labels across midnight.
 - All 13 migrated VMs are now testable with `backgroundScope` injection
 - All 24 VMs gain deterministic scope cancellation.
@@ -112,6 +116,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - None
 - Per-feature events устранили конфликты имён (до: `ShowDialog` everywhere; после: `TasksUiEvent.AiResult`, `NotesUiEvent.SaveFailed`)
+- Performance: one extra `StateFlow.distinctUntilChanged().flatMapLatest()` per
 - Phase 8 (test rewrites) and Phase 9 (verification) follow from this migration
 - Picker sheets визуально согласованы с остальными sheets (drag-handle, chrome)
 - Pre-existing test failures (`RussianDateFormatterTest`, `TaskCreateViewModelTest`,
@@ -137,6 +142,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - UI switching (MR3) requires adding `definition: AgendaDefinition` to `AgendaViewModel`
 - User switch cancels in-flight evaluations cleanly.
 - VM tests using `turbine` on `_events` need migration to `flow.test {}` from `kotlinx-coroutines-test`.
+- ViewModels become thin read-through: `tasks = taskRepo.observeByFilter(filter)
 - Week navigation via swipe on `DaySwitcherRow`.
 - Week-start locale handling is isolated and can be made configurable later.
 - `AgendaViewModel` binding is unchanged — does not consume saved views.
@@ -156,6 +162,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `NoteEditorViewModel` and any future singleton services with intentionally long-lived jobs must opt out explicitly by not routing through the canonical scope or by using a separate non-cancellable scope.
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах
+- `ProfileAwareCurrentUser` moves **inside** repositories; the DI graph registers
 - `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`.
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates
 - `TaskEditorDeps.clock` is also dead (the file's own KDoc flags it for deletion alongside `TaskEditorViewModel`)
@@ -180,6 +187,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model
 - `startAt`/`endAt`/`allDay`/`recurrence` in `Task` (Room migration).
 - `weight` modifier requires careful structuring inside `Row { Column(weight) }`.
+- ~12 MRs total, ~6–9 weeks.
 - Все ViewModel'ы с `scopeOverride` — консистентны в тестах
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear()
 - Все импорты в 30+ файлах обновлены на новые FQN (`.domain.model`, `.domain.port`, `.domain.usecase`, `.data`, `.presentation.state`, `.presentation.viewmodel`).
@@ -863,9 +871,11 @@ _1 entries need attention._
 - `2026-09-18-vm-intent-with-receiver` — vm, refactor, kotlin
 - `2026-09-18-vm-migration-scope-injection` — _untagged_
 - `2026-09-18-vm-scope-cancellation-oncleared` — _untagged_
+- `2026-09-21-user-scoped-repository` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
+- `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
 
 ## Active entries
 
@@ -995,7 +1005,9 @@ _1 entries need attention._
 - `2026-09-18-vm-intent-with-receiver` — MR9: with(intent) stdlib receiver pattern for VM intent dispatch
 - `2026-09-18-vm-migration-scope-injection` — _(no title)_
 - `2026-09-18-vm-scope-cancellation-oncleared` — _(no title)_
+- `2026-09-21-user-scoped-repository` — _(no title)_
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
+- `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
 
