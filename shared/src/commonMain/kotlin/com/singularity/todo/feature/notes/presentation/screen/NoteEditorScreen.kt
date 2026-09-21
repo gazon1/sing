@@ -108,8 +108,6 @@ fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewM
             navigator.back()
         },
         onAiClick = viewModel::improveNote,
-        onNavigateToNote = { id -> navigator.openPreview(NoteId.fromString(id)) },
-        onNavigateToTask = { id -> navigator.openTask(TaskId.fromString(id)) },
         savedVisible = savedVisible,
         searchNotesForLink = viewModel::searchNotesForLink,
         searchTasksForLink = viewModel::searchTasksForLink,
@@ -142,8 +140,6 @@ fun NoteEditorScreenContent(
     onSaveNow: () -> Unit,
     onBack: () -> Unit,
     onAiClick: () -> Unit,
-    onNavigateToNote: (String) -> Unit = {},
-    onNavigateToTask: (String) -> Unit = {},
     savedVisible: Boolean = false,
     searchNotesForLink: (suspend (String) -> List<LinkResult>)? = null,
     searchTasksForLink: (suspend (String) -> List<LinkResult>)? = null,
@@ -224,8 +220,6 @@ fun NoteEditorScreenContent(
                                 editorSession.titleFieldValue = newTitle
                                 onTitleChange(editorState.id, newTitle)
                             },
-                            onNavigateToNote = onNavigateToNote,
-                            onNavigateToTask = onNavigateToTask,
                         )
                     }
                 }
@@ -285,8 +279,6 @@ fun NoteEditorScreenContent(
 private fun EditorTitleAndBody(
     session: EditorSession,
     onTitleChange: (String) -> Unit,
-    onNavigateToNote: (String) -> Unit,
-    onNavigateToTask: (String) -> Unit,
 ) {
     val richTextState = session.richTextState
 
@@ -391,8 +383,6 @@ private fun NoteEditorScreenEditingPreview() = PreviewThemed(darkTheme = false, 
             onSaveNow = {},
             onBack = {},
             onAiClick = {},
-            onNavigateToNote = {},
-            onNavigateToTask = {},
             savedVisible = false,
         )
     }
@@ -414,8 +404,6 @@ private fun NoteEditorScreenDirtyPreview() = PreviewThemed(darkTheme = true, use
             onSaveNow = {},
             onBack = {},
             onAiClick = {},
-            onNavigateToNote = {},
-            onNavigateToTask = {},
             savedVisible = false,
         )
     }
