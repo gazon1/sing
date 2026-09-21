@@ -90,24 +90,25 @@ class ReadToolsProfileAwareTest {
         repo.add(task)
     }
 
-    private fun buildProfileAware(authUserId: String): Pair<ProfileAwareCurrentUser, FakeProfileRepository> {
+    private fun buildProfileAware(authUserId: String): Triple<ProfileAwareCurrentUser, FakeAuthRepository, FakeProfileRepository> {
         val auth = FakeAuthRepository(initialSession = Session.Anonymous(UserId.fromString(authUserId)))
         val profiles = FakeProfileRepository()
         // commonTest doesn't have access to a TestScope, so we use createBackgroundScope().
         // Safe here: tests read .value synchronously and never subscribe to the
         // StateFlow, so the Dispatchers.Default collector never runs.
-        return ProfileAwareCurrentUser(
+        val currentUser = ProfileAwareCurrentUser(
             currentUser = CurrentUser(auth, scope = createBackgroundScope()),
             profileRepository = profiles,
             scope = createBackgroundScope(),
-        ) to profiles
+        )
+        return Triple(currentUser, auth, profiles)
     }
 
     // ─── list_tasks ────────────────────────────────────────────────────────────
 
     @Test
     fun list_tasks_uses_profile_scoped_userId_when_userId_is_blank() = runTest {
-        val (currentUser, profiles) = buildProfileAware(
+        val (currentUser, auth, profiles) = buildProfileAware(
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
@@ -121,7 +122,7 @@ class ReadToolsProfileAwareTest {
 
         ProfileAwareCurrentUser.setInstance(currentUser)
         val tool = ListTasksTool(repo)
-        val output = tool.execute(ListTasksInput(userId = "", limit = 50))
+        val output = tool.execute(ListTasksInput(limit = 50))
         val parsed = Json.parseToJsonElement(output).jsonObject
         val tasks = parsed["tasks"]!!.jsonArray
 
@@ -129,28 +130,11 @@ class ReadToolsProfileAwareTest {
         assertEquals(listOf("AI-Agent task A"), titles, "only the AI Agent task should be returned")
     }
 
-    @Test
-    fun list_tasks_uses_explicit_userId_when_provided() = runTest {
-        val (currentUser, _) = buildProfileAware(
-            authUserId = "u-1",
-        )
-        val repo = FakeTaskRepository()
-        seedTask(repo, UserId("u-1"), "scoped-personal task")
-
-        ProfileAwareCurrentUser.setInstance(currentUser)
-        val tool = ListTasksTool(repo)
-        // Explicit "u-1" should NOT be prefixed by the profile — caller wins.
-        val output = tool.execute(ListTasksInput(userId = "u-1", limit = 50))
-        val parsed = Json.parseToJsonElement(output).jsonObject
-        val tasks = parsed["tasks"]!!.jsonArray
-        assertEquals(1, tasks.size, "explicit userId must be used as-is")
-    }
-
     // ─── list_linked_tasks ─────────────────────────────────────────────────────
 
     @Test
     fun list_linked_tasks_uses_profile_scoped_userId_when_blank() = runTest {
-        val (currentUser, profiles) = buildProfileAware(
+        val (currentUser, auth, profiles) = buildProfileAware(
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
@@ -174,7 +158,7 @@ class ReadToolsProfileAwareTest {
 
     @Test
     fun search_tasks_uses_profile_scoped_userId_when_blank() = runTest {
-        val (currentUser, profiles) = buildProfileAware(
+        val (currentUser, auth, profiles) = buildProfileAware(
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
@@ -197,7 +181,7 @@ class ReadToolsProfileAwareTest {
     fun search_tasks_does_not_match_local_user_when_profile_is_agent() = runTest {
         // Regression guard for the historical bug where blank userId silently
         // resolved to "local-user" — leaking personal data into agent queries.
-        val (currentUser, profiles) = buildProfileAware(
+        val (currentUser, auth, profiles) = buildProfileAware(
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))

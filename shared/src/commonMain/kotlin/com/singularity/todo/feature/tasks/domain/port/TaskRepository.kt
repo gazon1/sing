@@ -36,17 +36,6 @@ interface TaskRepository : UserScopedRepository<Task, TaskId> {
     suspend fun toggleComplete(id: TaskId): Result<Unit>
     suspend fun togglePinned(id: TaskId): Result<Unit>
     suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit>
-    fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>>
-
-    /**
-     * Returns tasks scheduled for exactly [date], ordered by pin status then due time.
-     * Used by the Upcoming screen's day picker.
-     */
-    fun watchTasksByDate(userId: UserId, date: kotlinx.datetime.LocalDate): Flow<List<Task>>
-    fun watchTask(id: TaskId): Flow<Task?>
-
-    /** Returns direct child tasks of the given parent. */
-    fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>>
     fun getTagIds(taskId: TaskId): Flow<List<TagId>>
 
     /**
@@ -68,12 +57,6 @@ interface TaskRepository : UserScopedRepository<Task, TaskId> {
 
     suspend fun exists(id: TaskId): Boolean
     suspend fun getById(id: TaskId): Task?
-
-    /**
-     * Returns a single task by [id] for the currently authenticated user.
-     * Returns null if the task does not exist or belongs to another user.
-     */
-    suspend fun getByIdForCurrentUser(id: TaskId): Task?
 
     // ── User-scoped observers (new API — use these in VMs) ──────────────────────
 

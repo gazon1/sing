@@ -2,8 +2,6 @@ package com.singularity.todo.feature.ai.tools
 
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
-import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -11,7 +9,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class ListLinkedTasksInput(val projectId: String, val userId: String = "")
+data class ListLinkedTasksInput(val projectId: String)
 
 @Serializable
 data class ListLinkedTasksOutput(val tasks: List<TaskSummary>)
@@ -21,8 +19,7 @@ class ListLinkedTasksTool(
 ) : SimpleTool<ListLinkedTasksInput>(TypeToken.of(ListLinkedTasksInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: ListLinkedTasksInput): String {
-        val effectiveUserId = if (args.userId.isNotBlank()) UserId(args.userId) else ProfileAwareCurrentUser.current
-        val tasks = taskRepository.watchTasks(effectiveUserId, TaskFilter.ByProject(ProjectId(args.projectId))).first()
+        val tasks = taskRepository.observeByFilter(TaskFilter.ByProject(ProjectId(args.projectId))).first()
             .map { TaskSummary(it.id.value, it.title, it.isCompleted, it.projectId?.value) }
         return kotlinx.serialization.json.Json.encodeToString(
             ListLinkedTasksOutput.serializer(),

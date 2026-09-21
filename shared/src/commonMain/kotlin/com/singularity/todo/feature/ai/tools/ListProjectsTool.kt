@@ -2,8 +2,6 @@ package com.singularity.todo.feature.ai.tools
 
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
-import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
@@ -30,7 +28,6 @@ class ListProjectsTool(
 ) : SimpleTool<ListProjectsInput>(TypeToken.of(ListProjectsInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: ListProjectsInput): String {
-        val userId = ProfileAwareCurrentUser.scopedUserId.value.value
         val rows = projectsRepository.observeProjectsWithCountsForCurrentUser().first()
             .take(args.limit)
             .map { row ->

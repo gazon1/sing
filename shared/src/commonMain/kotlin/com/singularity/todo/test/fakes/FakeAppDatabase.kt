@@ -233,8 +233,6 @@ private class FakeTaskDao(
     override suspend fun softDelete(id: String, ts: Long) = mutateTask(id) { it.copy(archivedAt = ts, updatedAt = ts) }
     override suspend fun restore(id: String, ts: Long) = mutateTask(id) { it.copy(archivedAt = null, updatedAt = ts) }
     override suspend fun getById(id: String): TaskEntity? = store.value[id]
-    override suspend fun getByIdForUser(id: String, userId: String): TaskEntity? =
-        store.value[id]?.takeIf { it.userId == userId }
     override suspend fun markComplete(id: String, ts: Long) = mutateTask(
         id,
     ) { it.copy(completedAt = ts, updatedAt = ts) }

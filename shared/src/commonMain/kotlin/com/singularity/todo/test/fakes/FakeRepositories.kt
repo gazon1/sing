@@ -358,7 +358,6 @@ private class InMemoryTaskDao : TaskDao {
     override suspend fun setPinned(id: String, pinned: Boolean, ts: Long) = error("not implemented")
 
     override suspend fun getById(id: String): com.singularity.todo.core.database.TaskEntity? = error("not implemented")
-    override suspend fun getByIdForUser(id: String, userId: String): com.singularity.todo.core.database.TaskEntity? = error("not implemented")
 
     override fun watchSearchResults(userId: String, q: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
 
@@ -385,11 +384,15 @@ private class InMemoryTaskDao : TaskDao {
 
 class FakeTaskRepository(
     private val dao: TaskDao = InMemoryTaskDao(),
-    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+    private val explicitCurrentUser: ProfileAwareCurrentUser? = null,
 ) : TaskRepository {
     private val store = InMemoryStore<Task>(keyOf = { it.id.value })
     private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
     override val changes: SharedFlow<Task> = _changes.asSharedFlow()
+
+    // The effective currentUser — either injected (for tests) or lazily resolved from singleton.
+    private val currentUser: ProfileAwareCurrentUser
+        get() = explicitCurrentUser ?: ProfileAwareCurrentUser.instance ?: FakeProfileAwareCurrentUser()
 
     /** Expose store state as [StateFlow] for [watchTasks] and other flows. */
     internal val tasks: StateFlow<Map<String, Task>> = store.state
@@ -485,10 +488,7 @@ class FakeTaskRepository(
 
     override suspend fun getById(id: TaskId): Task? = store[id.value]
 
-    override suspend fun getByIdForCurrentUser(id: TaskId): Task? {
-        val uid = currentUser.scopedUserId.value
-        return store[id.value]?.takeIf { it.userId == uid }
-    }
+    // getByIdForCurrentUser intentionally omitted — use getById + caller-side userId check
 
     override suspend fun restore(id: TaskId): Result<Unit> = runCatching {
         store[id.value]?.let { task ->
@@ -527,7 +527,8 @@ class FakeTaskRepository(
         }
     }
 
-    override fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> = store.state
+    // Legacy observation methods kept for binary compat — not part of TaskRepository interface.
+    fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> = store.state
         .onStart { emit(store.state.value) }
         .map { map ->
             map.values
@@ -544,10 +545,10 @@ class FakeTaskRepository(
                 .sortedWith(compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }))
         }
 
-    override fun watchTask(id: TaskId): Flow<Task?> =
+    fun watchTask(id: TaskId): Flow<Task?> =
         store.state.onStart { emit(store.state.value) }.map { it[id.value] }
 
-    override fun watchTasksByDate(userId: UserId, date: kotlinx.datetime.LocalDate): Flow<List<Task>> = store.state
+    fun watchTasksByDate(userId: UserId, date: kotlinx.datetime.LocalDate): Flow<List<Task>> = store.state
         .onStart { emit(store.state.value) }
         .map { map ->
             map.values
@@ -556,7 +557,7 @@ class FakeTaskRepository(
                 .sortedWith(compareBy({ !it.isPinned }))
         }
 
-    override fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> = store.state
+    fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> = store.state
         .onStart { emit(store.state.value) }
         .map { map -> map.values.filter { it.parentTaskId == parentId && it.userId.value == userId.value } }
 

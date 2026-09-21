@@ -49,7 +49,11 @@ class TaskRepositoryImpl(
         }
 
     override fun observeForCurrentUser(id: TaskId): Flow<Task?> =
-        watchTask(id) // watchTask already looks up by id only (userId is entity-level)
+        currentUser.observeForCurrentUser { uid ->
+            taskDao.watchById(id.value).map { entity ->
+                if (entity?.userId == uid.value) entity?.toTask() else null
+            }
+        }
 
     override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid -> watchTasks(uid, filter) }
@@ -73,8 +77,8 @@ class TaskRepositoryImpl(
         watchBlockingBy(taskId) // already id-only, no userId needed
 
     // ── Legacy observation (Phase 3 — migrate callers to user-scoped API above) ──
-
-    override fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> {
+    // Kept for AI tools (Commit 4) — do NOT call from new code.
+    fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> {
         val today = LocalDate.fromEpochDays(
             clock.now().toEpochMilliseconds() / (24 * 60 * 60 * 1000),
         ).toString()
@@ -110,7 +114,7 @@ class TaskRepositoryImpl(
                 userId.value,
                 filter.from.toString(),
                 filter.to.toString(),
-            ).map { it.map { e -> e.toTask() } }
+            ).map { list -> list.map { e -> e.toTask() } }
 
             is TaskFilter.ByStatuses -> flowOf(emptyList()) // implemented in AgendaEngine; here as stub
 
@@ -145,13 +149,13 @@ class TaskRepositoryImpl(
         }
     }
 
-    override fun watchTasksByDate(userId: UserId, date: LocalDate): Flow<List<Task>> =
+    fun watchTasksByDate(userId: UserId, date: LocalDate): Flow<List<Task>> =
         taskDao.watchByDate(userId.value, date.toString())
             .map { list -> list.map { it.toTask() } }
 
-    override fun watchTask(id: TaskId): Flow<Task?> = taskDao.watchById(id.value).map { it?.toTask() }
+    fun watchTask(id: TaskId): Flow<Task?> = taskDao.watchById(id.value).map { it?.toTask() }
 
-    override fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> =
+    fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> =
         taskDao.watchActive(userId.value).map { list ->
             list.filter { it.parentTaskId == parentId.value }.map { it.toTask() }
         }
@@ -204,11 +208,6 @@ class TaskRepositoryImpl(
     override suspend fun exists(id: TaskId): Boolean = taskDao.watchById(id.value).first() != null
 
     override suspend fun getById(id: TaskId): Task? = taskDao.getById(id.value)?.toTask()
-
-    override suspend fun getByIdForCurrentUser(id: TaskId): Task? {
-        val uid = currentUser.scopedUserId.value
-        return taskDao.getByIdForUser(id.value, uid.value)?.toTask()
-    }
 
     override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
         val existing = taskDao.getTagIdsForTask(taskId.value).first()

@@ -37,7 +37,7 @@ class TaskRepositoryImplTest {
     fun observeAllForCurrentUser_re_subscribes_on_user_switch() = runTest {
         val authRepo = FakeAuthRepository(Session.Anonymous(userA))
         val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
-        val repo = FakeTaskRepository(currentUser = currentUser)
+        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
 
         val taskA = makeTask(title = "Task for A", userId = userA)
         repo.seed(taskA)
@@ -59,7 +59,7 @@ class TaskRepositoryImplTest {
     fun observeByFilter_re_subscribes_on_user_switch() = runTest {
         val authRepo = FakeAuthRepository(Session.Anonymous(userA))
         val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
-        val repo = FakeTaskRepository(currentUser = currentUser)
+        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
 
         val taskA = makeTask(title = "Inbox A", userId = userA)
         repo.seed(taskA)
@@ -80,7 +80,7 @@ class TaskRepositoryImplTest {
     fun create_and_observeForCurrentUser_round_trip() = runTest {
         val authRepo = FakeAuthRepository(Session.Anonymous(userA))
         val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
-        val repo = FakeTaskRepository(currentUser = currentUser)
+        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
 
         val task = makeTask(title = "New Task", userId = userA)
         repo.create(task)

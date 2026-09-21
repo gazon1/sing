@@ -95,9 +95,6 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getById(id: String): TaskEntity?
 
-    @Query("SELECT * FROM tasks WHERE id = :id AND user_id = :userId")
-    suspend fun getByIdForUser(id: String, userId: String): TaskEntity?
-
     @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND (title LIKE '%' || :q || '%' OR description LIKE '%' || :q || '%') ORDER BY due_date ASC, is_pinned DESC")
     fun watchSearchResults(userId: String, q: String): Flow<List<TaskEntity>>
 

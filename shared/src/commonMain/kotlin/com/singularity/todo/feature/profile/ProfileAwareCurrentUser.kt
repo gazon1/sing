@@ -61,6 +61,10 @@ open class ProfileAwareCurrentUser(
         val current: UserId
             get() = _currentUserInstance?.current
                 ?: error("ProfileAwareCurrentUser.globalInstance not set. Call ProfileAwareCurrentUser.setInstance() in your app module.")
+
+        /** Exposes the singleton for FakeTaskRepository default — resolves at access time. */
+        internal val instance: ProfileAwareCurrentUser?
+            get() = _currentUserInstance
     }
 
     /**
