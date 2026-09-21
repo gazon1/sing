@@ -9,12 +9,13 @@ import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.feature.search.InternalLinkRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -54,30 +55,42 @@ class NotePreview(
     val state: StateFlow<NotePreviewState> = _state.asStateFlow()
 
     private val _events = Channel<NotesUiEvent>(Channel.BUFFERED)
-    val events: kotlinx.coroutines.flow.Flow<NotesUiEvent> = _events.receiveAsFlow()
+    val events: Flow<NotesUiEvent> = _events.receiveAsFlow()
 
     private var loadNoteJob: Job? = null
 
-    fun loadNote(noteId: String) {
-        loadNoteJob?.cancel()
-        loadNoteJob = scope.launch(Dispatchers.Unconfined) {
-            repo.watchNoteForCurrentUser(NoteId.fromString(noteId))
-                .filterNotNull()
-                .collect { note ->
-                    val backlinks = try {
-                        linkRepo.getBacklinkNotes(noteId, userId.value)
-                    } catch (e: Exception) {
-                        emptyList()
-                    }
-                    _state.value = NotePreviewState.Loaded(
-                        note = note,
-                        backlinks = backlinks,
-                    )
-                }
+    fun onIntent(intent: NotePreviewIntent) {
+        when (intent) {
+            is NotePreviewIntent.Load -> loadNote(intent.noteId)
+            NotePreviewIntent.Refresh -> refresh()
+            NotePreviewIntent.Delete -> delete()
         }
     }
 
-    fun delete() {
+    private fun refresh() {
+        val currentId = (_state.value as? NotePreviewState.Loaded)?.note?.id ?: return
+        loadNote(currentId.value)
+    }
+
+    private fun loadNote(noteId: String) {
+        loadNoteJob?.cancel()
+        loadNoteJob = scope.launch {
+            val note = repo.watchNoteForCurrentUser(NoteId.fromString(noteId))
+                .filterNotNull()
+                .first()
+            val backlinks = try {
+                linkRepo.getBacklinkNotes(noteId, userId.value)
+            } catch (e: Exception) {
+                emptyList()
+            }
+            _state.value = NotePreviewState.Loaded(
+                note = note,
+                backlinks = backlinks,
+            )
+        }
+    }
+
+    private fun delete() {
         val current = _state.value as? NotePreviewState.Loaded ?: return
         scope.fireAndForget(
             errorLabel = "Delete failed",
@@ -93,4 +106,11 @@ sealed interface NotePreviewState {
     data class Loaded(val note: Note, val backlinks: List<Note>) : NotePreviewState {
         val backlinkCount: Int get() = backlinks.size
     }
+}
+
+/** One-shot intents for [NotePreview]. */
+sealed interface NotePreviewIntent {
+    data class Load(val noteId: String) : NotePreviewIntent
+    data object Refresh : NotePreviewIntent
+    data object Delete : NotePreviewIntent
 }

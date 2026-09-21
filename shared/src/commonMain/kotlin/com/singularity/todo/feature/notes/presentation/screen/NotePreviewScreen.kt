@@ -50,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mohamedrejeb.richeditor.annotation.ExperimentalRichTextApi
@@ -64,6 +65,7 @@ import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
+import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewIntent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewState
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import org.koin.compose.viewmodel.koinViewModel
@@ -81,7 +83,7 @@ fun NotePreviewScreen(route: NotesRoute.Preview, viewModel: NotePreview = koinVi
     var backlinksSheetVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(route.noteId) {
-        viewModel.loadNote(route.noteId.value)
+        viewModel.onIntent(NotePreviewIntent.Load(route.noteId.value))
     }
 
     NotePreviewScreenContent(
@@ -103,7 +105,7 @@ fun NotePreviewScreen(route: NotesRoute.Preview, viewModel: NotePreview = koinVi
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.delete()
+                        viewModel.onIntent(NotePreviewIntent.Delete)
                         deleteDialogVisible = false
                         navigator.back()
                     },
@@ -403,7 +405,7 @@ private fun formatRelativeShort(updatedAt: Instant): String {
 
 // ─── Preview ─────────────────────────────────────────────────────────────────
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun NotePreviewLoadingPreview() = NotesPreviewWrapper {
     NotePreviewScreenContent(
