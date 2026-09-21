@@ -173,6 +173,7 @@ private fun BackupScreenWrapper(onBack: () -> Unit, onSelectRestoreFile: () -> U
     BackupScreen(
         state = backupState,
         events = backupVm.events,
+        snackbar = backupVm.snackbar,
         onBack = onBack,
         onCreateBackup = backupVm::createBackup,
         onSelectRestoreFile = onSelectRestoreFile,

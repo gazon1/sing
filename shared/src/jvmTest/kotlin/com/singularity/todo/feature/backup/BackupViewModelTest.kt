@@ -100,6 +100,24 @@ class BackupViewModelTest {
     }
 
     @Test
+    fun `createBackup emits snackbar on success`() = runTest {
+        val repo = FakeBackupRepository()
+        repo.exportResult = Result.success(BackupResult(testManifest, "test.zip", 1024L))
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
+        advanceUntilIdle(); testScheduler.runCurrent()
+
+        // Collect snackbar in background so emit() has an active collector
+        var capturedSnackbar: String? = null
+        backgroundScope.launch { vm.snackbar.collect { capturedSnackbar = it } }
+        advanceUntilIdle(); testScheduler.runCurrent()
+
+        vm.createBackup()
+        advanceUntilIdle(); testScheduler.runCurrent()
+
+        assertEquals("Backup created", capturedSnackbar)
+    }
+
+    @Test
     fun `createBackup emits error event on failure`() = runTest {
         val repo = FakeBackupRepository()
         repo.exportResult = Result.failure(RuntimeException("disk full"))

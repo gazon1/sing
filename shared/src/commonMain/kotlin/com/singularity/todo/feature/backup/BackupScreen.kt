@@ -49,7 +49,6 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,6 +56,7 @@ import kotlinx.datetime.TimeZone
 fun BackupScreen(
     state: BackupUiState,
     events: SharedFlow<BackupUiEvent>,
+    snackbar: SharedFlow<String>,
     onBack: () -> Unit,
     onCreateBackup: () -> Unit,
     /** Called when user wants to restore — platform shell should open file picker and call [onRestore]. */
@@ -72,16 +72,13 @@ fun BackupScreen(
         mapper = { event ->
             when (event) {
                 is BackupUiEvent.Error -> Notification.Error(event.message)
-                is BackupUiEvent.ShowSnackbar -> Notification.None
             }
         },
     )
 
-    LaunchedEffect(events) {
-        events.collect { event ->
-            if (event is BackupUiEvent.ShowSnackbar) {
-                snackbarHostState.showSnackbar(event.message)
-            }
+    LaunchedEffect(snackbar) {
+        snackbar.collect { message ->
+            snackbarHostState.showSnackbar(message)
         }
     }
 

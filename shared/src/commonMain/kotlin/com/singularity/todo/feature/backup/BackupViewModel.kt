@@ -69,6 +69,9 @@ class BackupViewModel(
     private val _events = MutableSharedFlow<BackupUiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<BackupUiEvent> = _events.asSharedFlow()
 
+    private val _snackbar = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val snackbar: SharedFlow<String> = _snackbar.asSharedFlow()
+
     private val effectiveUserId: UserId
         get() = AuthDomain.effectiveUserId(authRepository.session.value)
 
@@ -104,7 +107,7 @@ class BackupViewModel(
                             ),
                         )
                     }
-                    _events.emit(BackupUiEvent.ShowSnackbar("Backup created"))
+                    _snackbar.emit("Backup created")
                 }
                 .onFailure { e ->
                     _state.update { it.copy(isWorking = false) }
@@ -131,7 +134,7 @@ class BackupViewModel(
             result
                 .onSuccess {
                     _state.update { it.copy(isWorking = false) }
-                    _events.emit(BackupUiEvent.ShowSnackbar("Restore complete"))
+                    _snackbar.emit("Restore complete")
                 }
                 .onFailure { e ->
                     _state.update { it.copy(isWorking = false) }
@@ -144,7 +147,7 @@ class BackupViewModel(
         scope.launch {
             repository.delete(backupId)
                 .onSuccess {
-                    _events.emit(BackupUiEvent.ShowSnackbar("Backup deleted"))
+                    _snackbar.emit("Backup deleted")
                 }
                 .onFailure { e ->
                     _events.emit(BackupUiEvent.Error(e.message ?: "Delete failed"))
@@ -162,7 +165,7 @@ class BackupViewModel(
                 }
                 .onSuccess {
                     _state.update { it.copy(isWorking = false) }
-                    _events.emit(BackupUiEvent.ShowSnackbar("Backup pushed"))
+                    _snackbar.emit("Backup pushed")
                 }
         }
     }
