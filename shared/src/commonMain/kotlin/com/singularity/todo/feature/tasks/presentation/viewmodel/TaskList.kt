@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
@@ -25,11 +26,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.tasks.presentation.model.toTaskUi
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -75,8 +72,12 @@ class TasksViewModel(
     private val decomposeTask: DecomposeTaskUseCase? = null,
     private val pickTime: PickTimeUseCase? = null,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
@@ -103,7 +104,7 @@ class TasksViewModel(
         generateChecklist = generateChecklist,
         decomposeTask = decomposeTask,
         pickTime = pickTime,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
         sharingStarted = { SharingStarted.WhileSubscribed(5000) },
     )
 
@@ -342,9 +343,4 @@ class TasksViewModel(
 
     private fun <T> Result<T>.toResult(ok: (T) -> AiActionResult): AiActionResult =
         fold(onSuccess = ok, onFailure = { AiActionResult.Error(it.message ?: "Failed") })
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
-    }
 }

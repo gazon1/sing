@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks
 
 import app.cash.turbine.test
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
@@ -66,7 +67,7 @@ class TasksViewModelTest {
         decomposeTask = decomposeTask,
         pickTime = pickTime,
         sharingStarted = sharingStarted,
-        scope = scope,
+        scope = testScope(scope),
     )
 
     private fun seedTask(

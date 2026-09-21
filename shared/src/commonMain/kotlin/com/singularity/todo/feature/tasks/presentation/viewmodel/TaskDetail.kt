@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
@@ -9,10 +10,7 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,8 +49,12 @@ class TaskDetailViewModel(
     private val deps: TaskDetailDeps,
     private val taskId: TaskId,
     private val currentUser: ProfileAwareCurrentUser,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Used for entity creation in mutation intents (caller-trust userId injection). */
     private val userId get() = currentUser.scopedUserId.value
@@ -66,7 +68,7 @@ class TaskDetailViewModel(
         deps = deps,
         taskId = taskId,
         currentUser = currentUser,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val _events = Channel<TaskDetailUiEvent>(Channel.BUFFERED)
@@ -420,10 +422,5 @@ class TaskDetailViewModel(
             offset,
             deps.timeZoneProvider.current(),
         )
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

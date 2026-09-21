@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.clock.FakeAutosaveScheduler
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
@@ -50,7 +51,7 @@ class TaskCreateDebounceTest {
             draftStore = fakeDraftStore,
             autosaveScheduler = fakeScheduler,
         )
-        return TaskCreateViewModel(deps = deps, initialDueDate = null, scope = scope)
+        return TaskCreateViewModel(deps = deps, initialDueDate = null, scope = testScope(scope))
     }
 
     private val draftKey get() = "${testUserId.value}:${TaskCreateDeps.DRAFT_KEY}"

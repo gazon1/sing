@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks
 
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -61,7 +62,7 @@ class TaskCreateViewModelTest {
             draftStore = fakeDraftStore,
             autosaveScheduler = fakeAutosaveScheduler,
         )
-        return TaskCreateViewModel(deps = deps, initialDueDate = null, scope = scope)
+        return TaskCreateViewModel(deps = deps, initialDueDate = null, scope = testScope(scope))
     }
 
     private val draftKey get() = "${testUserId.value}:${TaskCreateDeps.DRAFT_KEY}"

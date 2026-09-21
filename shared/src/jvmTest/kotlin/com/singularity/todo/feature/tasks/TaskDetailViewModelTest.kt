@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks
 
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
@@ -80,7 +81,7 @@ class TaskDetailViewModelTest {
             clock = Clock,
             debounceMs = 300L,
         )
-        val vm = TaskDetailViewModel(deps = deps, taskId = taskId, currentUser = fakeCurrentUser, scope = scope)
+        val vm = TaskDetailViewModel(deps = deps, taskId = taskId, currentUser = fakeCurrentUser, scope = testScope(scope))
         // Activate the stateIn chain (WhileSubscribed requires an initial subscriber).
         // Use launchIn so the upstream starts immediately in tests without waiting
         // for the 5-second WhileSubscribed timeout.

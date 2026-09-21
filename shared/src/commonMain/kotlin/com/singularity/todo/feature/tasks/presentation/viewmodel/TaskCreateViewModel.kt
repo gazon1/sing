@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.clock.AutosaveScheduler
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.UserId
@@ -13,10 +14,7 @@ import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiState
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +26,6 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 data class TaskCreateDeps(
     val createFromDraft: CreateTaskFromDraftUseCase,
@@ -64,8 +61,12 @@ data class TaskCreateDeps(
 class TaskCreateViewModel(
     private val deps: TaskCreateDeps,
     initialDueDate: kotlinx.datetime.LocalDate?,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
@@ -74,7 +75,7 @@ class TaskCreateViewModel(
     ) : this(
         deps = deps,
         initialDueDate = initialDueDate,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val initial: TaskDraft = TaskDraft(
@@ -220,9 +221,4 @@ class TaskCreateViewModel(
 
     private fun validateForSave(draft: TaskDraft): String? =
         if (draft.title.isBlank()) "Title is required" else null
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
-    }
 }
