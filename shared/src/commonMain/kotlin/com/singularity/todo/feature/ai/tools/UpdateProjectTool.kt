@@ -24,7 +24,7 @@ class UpdateProjectTool(private val projectsRepository: ProjectsRepository, priv
     SimpleTool<UpdateProjectInput>(TypeToken.of(UpdateProjectInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: UpdateProjectInput): String {
-        val existing = projectsRepository.getByIdForCurrentUser(ProjectId(args.projectId))
+        val existing = projectsRepository.get(ProjectId(args.projectId))
             ?: return Json.encodeToString(
                 UpdateProjectOutput.serializer(),
                 UpdateProjectOutput(args.projectId, false),

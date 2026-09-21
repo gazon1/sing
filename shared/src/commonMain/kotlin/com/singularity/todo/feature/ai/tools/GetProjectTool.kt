@@ -16,7 +16,7 @@ class GetProjectTool(private val projectsRepository: ProjectsRepository) :
     SimpleTool<GetProjectInput>(TypeToken.of(GetProjectInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: GetProjectInput): String {
-        val project = projectsRepository.getByIdForCurrentUser(ProjectId(args.projectId))
+        val project = projectsRepository.get(ProjectId(args.projectId))
         val output = if (project != null) {
             GetProjectOutput(project.id.value, project.name, project.description)
         } else {

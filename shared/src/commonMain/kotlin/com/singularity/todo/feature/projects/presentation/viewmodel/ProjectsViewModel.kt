@@ -91,7 +91,7 @@ class ProjectsViewModel(
     ) { query, sort ->
         query to sort
     }.flatMapLatest { (query, sort) ->
-        projectRepo.observeProjectsWithCountsForCurrentUser().map { rows ->
+        projectRepo.observeProjectsWithCounts().map { rows ->
             val domainRows = rows.map { row ->
                 ProjectWithCounts(
                     project = row.project.toProject(),

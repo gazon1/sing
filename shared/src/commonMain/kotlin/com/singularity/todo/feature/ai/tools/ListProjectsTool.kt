@@ -28,7 +28,7 @@ class ListProjectsTool(
 ) : SimpleTool<ListProjectsInput>(TypeToken.of(ListProjectsInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: ListProjectsInput): String {
-        val rows = projectsRepository.observeProjectsWithCountsForCurrentUser().first()
+        val rows = projectsRepository.observeProjectsWithCounts().first()
             .take(args.limit)
             .map { row ->
                 ProjectSummary(

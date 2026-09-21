@@ -715,14 +715,58 @@ class FakeProjectsRepository(
     fun add(project: Project) = store.upsert(project)
     fun clear() = store.clear()
 
-    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────
+    // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun observeAllForCurrentUser(): Flow<List<Project>> =
+    override fun observeAll(): Flow<List<Project>> =
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list -> list.values.filter { it.userId == uid && !it.isDeleted } }
         }
 
-    override fun observeProjectsWithCountsForCurrentUser(): Flow<List<ProjectWithCountRow>> =
+    override fun observe(id: ProjectId): Flow<Project?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
+
+    override suspend fun get(id: ProjectId): Project? {
+        val uid = currentUser.scopedUserId.value
+        return store[id.value]?.takeIf { it.userId == uid }
+    }
+
+    override suspend fun create(item: Project): Result<Project> = runCatching {
+        store.upsert(item)
+        item
+    }
+
+    override suspend fun update(item: Project): Result<Project> = runCatching {
+        store.upsert(item)
+        item
+    }
+
+    override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.now()))
+        }
+    }
+
+    // ─── SoftDeletable ───────────────────────────────────────────────────────
+
+    override suspend fun restore(id: ProjectId): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store.upsert(existing.copy(isDeleted = false, deletedAt = null))
+        }
+    }
+
+    // ─── Explicit userId overloads ───────────────────────────────────────────
+
+    override fun watchProjects(userId: UserId): Flow<List<Project>> =
+        store.state.map { list -> list.values.filter { it.userId == userId && !it.isDeleted } }
+
+    override fun watchProject(id: ProjectId): Flow<Project?> =
+        store.state.map { list -> list.values.firstOrNull { it.id == id } }
+
+    // ─── Domain methods ─────────────────────────────────────────────────────
+
+    override fun observeProjectsWithCounts(): Flow<List<ProjectWithCountRow>> =
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
                 list.values
@@ -745,40 +789,12 @@ class FakeProjectsRepository(
             }
         }
 
-    override fun watchProjectForCurrentUser(id: ProjectId): Flow<Project?> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
-        }
-
-    override suspend fun getByIdForCurrentUser(id: ProjectId): Project? {
-        val uid = currentUser.scopedUserId.value
-        return store[id.value]?.takeIf { it.userId == uid }
-    }
-
-    override fun changesForCurrentUser(id: ProjectId): Flow<Project?> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
-        }
-
-    override fun watchChildrenOfForCurrentUser(parentId: ProjectId): Flow<List<Project>> =
+    override fun watchChildrenOf(parentId: ProjectId): Flow<List<Project>> =
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
                 list.values.filter { it.parentId == parentId && it.userId == uid && !it.isDeleted }
             }
         }
-
-    // ─── Explicit userId overloads ──────────────────────────────────────────
-
-    override fun watchProjects(userId: UserId): Flow<List<Project>> =
-        store.state.map { list -> list.values.filter { it.userId == userId && !it.isDeleted } }
-
-    override fun watchProject(id: ProjectId): Flow<Project?> =
-        store.state.map { list -> list.values.firstOrNull { it.id == id } }
-
-    override suspend fun getById(id: ProjectId): Project? = store[id.value]
-
-    override fun changes(id: ProjectId): Flow<Project?> =
-        store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
     override fun watchProjectsWithCounts(userId: UserId): Flow<List<ProjectWithCountRow>> = store.state.map { list ->
         list.values
@@ -803,6 +819,9 @@ class FakeProjectsRepository(
     override fun watchByParent(parentId: ProjectId): Flow<List<Project>> =
         store.state.map { list -> list.values.filter { it.parentId == parentId && !it.isDeleted } }
 
+    override fun changes(id: ProjectId): Flow<Project?> =
+        store.state.map { list -> list.values.firstOrNull { it.id == id } }
+
     override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {
         store[id.value]?.let { existing ->
             store.upsert(
@@ -819,28 +838,8 @@ class FakeProjectsRepository(
         }
     }
 
-    override suspend fun restore(id: ProjectId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(isDeleted = false, deletedAt = null))
-        }
-    }
-
     override suspend fun findByIdempotencyKey(key: String): Project? =
         store.values().firstOrNull { it.idempotencyKey == key }
-
-    override suspend fun create(project: Project): Result<Unit> = runCatching {
-        store.upsert(project)
-    }
-
-    override suspend fun update(project: Project): Result<Unit> = runCatching {
-        store.upsert(project)
-    }
-
-    override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.now()))
-        }
-    }
 }
 
 // ─── TagsRepository ──────────────────────────────────────────────────────────

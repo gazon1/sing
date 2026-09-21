@@ -141,7 +141,7 @@ class TasksViewModel(
 
     // Reactive project names — automatically updates when projects change or user switches profile
     private val projectNamesFlow: StateFlow<Map<String, String>> =
-        projectRepo.observeAllForCurrentUser()
+        projectRepo.observeAll()
             .map { list -> list.associate { it.id.value to it.name } }
             .stateIn(scope, SharingStarted.WhileSubscribed(5000), emptyMap())
 

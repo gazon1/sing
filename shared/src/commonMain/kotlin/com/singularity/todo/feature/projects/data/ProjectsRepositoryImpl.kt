@@ -9,6 +9,8 @@ import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.database.toLocalDateOrNull
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.GenericUserScopedRepository
+import com.singularity.todo.core.repository.SoftDeletable
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -26,70 +28,84 @@ class ProjectsRepositoryImpl(
     private val currentUser: ProfileAwareCurrentUser,
 ) : ProjectsRepository {
 
-    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────
+    // ── GenericUserScopedRepository ────────────────────────────────────────────
 
-    override fun observeAllForCurrentUser(): Flow<List<Project>> =
+    override fun observeAll(): Flow<List<Project>> =
         currentUser.observeForCurrentUser { uid ->
             projectDao.watchAll(uid.value).map { list -> list.map { it.toProject() } }
         }
 
-    override fun observeProjectsWithCountsForCurrentUser(): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
-        currentUser.observeForCurrentUser { uid ->
-            projectDao.watchAllWithCounts(uid.value)
-        }
-
-    override fun watchProjectForCurrentUser(id: ProjectId): Flow<Project?> =
+    override fun observe(id: ProjectId): Flow<Project?> =
         currentUser.observeForCurrentUser { uid ->
             projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
         }
 
-    override suspend fun getByIdForCurrentUser(id: ProjectId): Project? {
+    override suspend fun get(id: ProjectId): Project? {
         val uid = currentUser.scopedUserId.value
         return projectDao.getByIdForUser(id.value, uid.value)?.toProject()
     }
 
-    override fun changesForCurrentUser(id: ProjectId): Flow<Project?> =
-        currentUser.observeForCurrentUser { uid ->
-            projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
-        }
-
-    override fun watchChildrenOfForCurrentUser(parentId: ProjectId): Flow<List<Project>> =
-        currentUser.observeForCurrentUser { uid ->
-            projectDao.watchByParentForUser(parentId.value, uid.value).map { list ->
-                list.map { it.toProject() }
-            }
-        }
-
-    // ─── Explicit userId overloads ──────────────────────────────────────────
-
-    override fun watchProjects(userId: UserId): Flow<List<Project>> = projectDao.watchAll(userId.value).map { list ->
-        list.map { it.toProject() }
+    override suspend fun create(item: Project): Result<Project> = runCatching {
+        projectDao.upsert(item.toEntity())
+        item
     }
+
+    override suspend fun update(item: Project): Result<Project> = runCatching {
+        projectDao.upsert(item.toEntity())
+        item
+    }
+
+    override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
+        val ts = clock.now().toEpochMilliseconds()
+        projectDao.softDelete(id.value, ts)
+    }
+
+    // ── SoftDeletable ─────────────────────────────────────────────────────────
+
+    override suspend fun restore(id: ProjectId): Result<Unit> = runCatching {
+        val ts = clock.now().toEpochMilliseconds()
+        projectDao.restore(id.value, ts)
+    }
+
+    // ── Explicit userId overloads ───────────────────────────────────────────
+
+    override fun watchProjects(userId: UserId): Flow<List<Project>> =
+        projectDao.watchAll(userId.value).map { list -> list.map { it.toProject() } }
 
     override fun watchProject(id: ProjectId): Flow<Project?> {
         val uid = currentUser.scopedUserId.value
         return projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
     }
 
-    override suspend fun getById(id: ProjectId): Project? {
-        val uid = currentUser.scopedUserId.value
-        return projectDao.getByIdForUser(id.value, uid.value)?.toProject()
-    }
+    // ── Domain methods ───────────────────────────────────────────────────────
 
-    override fun changes(id: ProjectId): Flow<Project?> {
-        val uid = currentUser.scopedUserId.value
-        return projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
-    }
+    override fun observeProjectsWithCounts(): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
+        currentUser.observeForCurrentUser { uid ->
+            projectDao.watchAllWithCounts(uid.value)
+        }
+
+    override fun watchChildrenOf(parentId: ProjectId): Flow<List<Project>> =
+        currentUser.observeForCurrentUser { uid ->
+            projectDao.watchByParentForUser(parentId.value, uid.value).map { list ->
+                list.map { it.toProject() }
+            }
+        }
 
     override fun watchProjectsWithCounts(
         userId: UserId,
-    ): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> = projectDao.watchAllWithCounts(userId.value)
+    ): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
+        projectDao.watchAllWithCounts(userId.value)
 
     override fun watchByParent(parentId: ProjectId): Flow<List<Project>> {
         val uid = currentUser.scopedUserId.value
         return projectDao.watchByParentForUser(parentId.value, uid.value).map { list ->
             list.map { it.toProject() }
         }
+    }
+
+    override fun changes(id: ProjectId): Flow<Project?> {
+        val uid = currentUser.scopedUserId.value
+        return projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
     }
 
     override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {
@@ -100,25 +116,8 @@ class ProjectsRepositoryImpl(
         projectDao.setSortOrder(id.value, sortOrder, updatedAt)
     }
 
-    override suspend fun restore(id: ProjectId): Result<Unit> = runCatching {
-        val ts = clock.now().toEpochMilliseconds()
-        projectDao.restore(id.value, ts)
-    }
-
-    override suspend fun findByIdempotencyKey(key: String): Project? = projectDao.findByIdempotencyKey(key)?.toProject()
-
-    override suspend fun create(project: Project): Result<Unit> = runCatching {
-        projectDao.upsert(project.toEntity())
-    }
-
-    override suspend fun update(project: Project): Result<Unit> = runCatching {
-        projectDao.upsert(project.toEntity())
-    }
-
-    override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
-        val ts = clock.now().toEpochMilliseconds()
-        projectDao.softDelete(id.value, ts)
-    }
+    override suspend fun findByIdempotencyKey(key: String): Project? =
+        projectDao.findByIdempotencyKey(key)?.toProject()
 }
 
 internal fun ProjectEntity.toProject(): Project = Project(

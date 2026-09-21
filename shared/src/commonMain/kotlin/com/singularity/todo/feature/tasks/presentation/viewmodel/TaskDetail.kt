@@ -135,7 +135,7 @@ class TaskDetailViewModel(
                 flowOf<TaskDetailUiState>(TaskDetailUiState.Error("Not found"))
             } else {
                 val projectFlow = task.projectId?.let { pid ->
-                    deps.projectsRepo.watchProjectForCurrentUser(pid)
+                    deps.projectsRepo.observe(pid)
                 } ?: flowOf(null)
 
                 val tagsFlow = deps.tagsRepo.observeAll()

@@ -78,7 +78,7 @@ class ProjectEditorViewModel(
     private fun loadProject(id: ProjectId) {
         scope.launch {
             _state.updateState { it.copy(loading = true) }
-            val project = projectsRepo.watchProjectForCurrentUser(id).firstOrNull()
+            val project = projectsRepo.observe(id).firstOrNull()
             if (project != null) {
                 _state.updateState {
                     it.copy(

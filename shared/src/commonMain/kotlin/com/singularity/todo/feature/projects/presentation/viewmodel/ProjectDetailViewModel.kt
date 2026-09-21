@@ -106,7 +106,7 @@ class ProjectDetailViewModel(
     val hideCompleted: StateFlow<Boolean> = _hideCompleted
 
     /** Emits null on start (loading placeholder), then the project flow. */
-    private val projectFlow: StateFlow<Project?> = projectRepo.watchProjectForCurrentUser(projectId)
+    private val projectFlow: StateFlow<Project?> = projectRepo.observe(projectId)
         .onStart { emit(null) }
         .stateIn(scope, sharingStarted(), null)
 
@@ -117,7 +117,7 @@ class ProjectDetailViewModel(
      */
     val parentOptionsFlow: StateFlow<List<ParentOption>> = combine(
         projectFlow,
-        projectRepo.observeAllForCurrentUser(),
+        projectRepo.observeAll(),
     ) { project, allProjects ->
         if (project == null) {
             emptyList()
@@ -158,14 +158,14 @@ class ProjectDetailViewModel(
             if (project == null) {
                 flowOf(emptyList())
             } else {
-                projectRepo.watchChildrenOfForCurrentUser(projectId)
+                projectRepo.watchChildrenOf(projectId)
             }
         },
         projectFlow.flatMapLatest { p ->
             if (p == null || p.parentId == null) {
                 flowOf(null)
             } else {
-                    projectRepo.watchProjectForCurrentUser(p.parentId)
+                    projectRepo.observe(p.parentId)
             }
         },
         _hideCompleted,

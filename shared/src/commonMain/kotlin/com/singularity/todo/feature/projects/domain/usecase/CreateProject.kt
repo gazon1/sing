@@ -25,6 +25,6 @@ class CreateProjectUseCase(private val repo: ProjectsRepository, private val clo
             createdAt = now,
             updatedAt = now,
         )
-        return repo.create(project).map { project.id }
+        return repo.create(project).map { it.id }
     }
 }

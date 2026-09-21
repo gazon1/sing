@@ -25,7 +25,7 @@ class SearchUseCase(
     operator fun invoke(query: String): Flow<SearchResults> = combine(
         taskRepo.observeByFilter(TaskFilter.Search(query)),
         noteRepo.searchNotesForCurrentUser(query),
-        projectRepo.observeAllForCurrentUser(),
+        projectRepo.observeAll(),
         tagRepo.observeAll(),
     ) { tasks, notes, projects, tags ->
         SearchResults(
