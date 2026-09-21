@@ -66,6 +66,8 @@ class ProjectEditorViewModel(
     private val _events = Channel<ProjectEditorUiEvent>(Channel.BUFFERED)
     val events: kotlinx.coroutines.flow.Flow<ProjectEditorUiEvent> = _events.receiveAsFlow()
 
+    private val userId get() = currentUser.scopedUserId.value
+
     init {
         if (projectId != null) {
             loadProject(projectId)
@@ -75,7 +77,7 @@ class ProjectEditorViewModel(
     private fun loadProject(id: ProjectId) {
         scope.launch {
             _state.updateState { it.copy(loading = true) }
-            val project = projectsRepo.watchProject(id).firstOrNull()
+            val project = projectsRepo.watchProjectForCurrentUser(id).firstOrNull()
             if (project != null) {
                 _state.updateState {
                     it.copy(
@@ -127,7 +129,6 @@ class ProjectEditorViewModel(
 
         _state.updateState { it.copy(saving = true, errorMessage = null) }
         scope.launch {
-            val userId = currentUser.scopedUserId.value
             if (current.projectId == null) {
                 // Create mode
                 val input = CreateProjectInput(

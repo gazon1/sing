@@ -18,11 +18,13 @@ data class ListTasksOutput(val tasks: List<TaskSummary>)
 @Serializable
 data class TaskSummary(val id: String, val title: String, val isCompleted: Boolean, val projectId: String?)
 
-class ListTasksTool(private val taskRepository: TaskRepository, private val currentUser: ProfileAwareCurrentUser) :
+class ListTasksTool(private val taskRepository: TaskRepository) :
     SimpleTool<ListTasksInput>(TypeToken.of(ListTasksInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: ListTasksInput): String {
-        val effectiveUserId = if (args.userId.isNotBlank()) UserId(args.userId) else currentUser.scopedUserId.value
+        // MCP callers can pass an explicit userId to run as a specific user.
+        // When blank, use the current profile's scoped userId.
+        val effectiveUserId = if (args.userId.isNotBlank()) UserId(args.userId) else ProfileAwareCurrentUser.current
         val filter = args.projectId?.let {
             TaskFilter.ByProject(
                 com.singularity.todo.feature.projects.domain.model.ProjectId(it),

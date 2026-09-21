@@ -76,12 +76,11 @@ class TaskDetailViewModelTest {
             checklistUseCase = ChecklistUseCase(fakeChecklistRepo),
             reminderRepo = fakeReminderRepo,
             attachmentsRepo = fakeAttachmentsRepo,
-            currentUser = fakeCurrentUser,
             timeZoneProvider = TEST_TZ,
             clock = Clock,
             debounceMs = 300L,
         )
-        val vm = TaskDetailViewModel(deps = deps, taskId = taskId, scope = scope)
+        val vm = TaskDetailViewModel(deps = deps, taskId = taskId, currentUser = fakeCurrentUser, scope = scope)
         // Activate the stateIn chain (WhileSubscribed requires an initial subscriber).
         // Use launchIn so the upstream starts immediately in tests without waiting
         // for the 5-second WhileSubscribed timeout.

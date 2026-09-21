@@ -9,6 +9,8 @@ import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.database.toLocalDateOrNull
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -18,7 +20,48 @@ import kotlinx.coroutines.flow.map
 /**
  * Room-backed production [ProjectsRepository].
  */
-class ProjectsRepositoryImpl(private val projectDao: ProjectDao, private val clock: Clock) : ProjectsRepository {
+class ProjectsRepositoryImpl(
+    private val projectDao: ProjectDao,
+    private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
+) : ProjectsRepository {
+
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────
+
+    override fun observeAllForCurrentUser(): Flow<List<Project>> =
+        currentUser.observeForCurrentUser { uid ->
+            projectDao.watchAll(uid.value).map { list -> list.map { it.toProject() } }
+        }
+
+    override fun observeProjectsWithCountsForCurrentUser(): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
+        currentUser.observeForCurrentUser { uid ->
+            projectDao.watchAllWithCounts(uid.value)
+        }
+
+    override fun watchProjectForCurrentUser(id: ProjectId): Flow<Project?> =
+        currentUser.observeForCurrentUser { uid ->
+            projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
+        }
+
+    override suspend fun getByIdForCurrentUser(id: ProjectId): Project? {
+        val uid = currentUser.scopedUserId.value
+        return projectDao.getByIdForUser(id.value, uid.value)?.toProject()
+    }
+
+    override fun changesForCurrentUser(id: ProjectId): Flow<Project?> =
+        currentUser.observeForCurrentUser { uid ->
+            projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
+        }
+
+    override fun watchChildrenOfForCurrentUser(parentId: ProjectId): Flow<List<Project>> =
+        currentUser.observeForCurrentUser { uid ->
+            projectDao.watchByParentForUser(parentId.value, uid.value).map { list ->
+                list.map { it.toProject() }
+            }
+        }
+
+    // ─── Explicit userId overloads ──────────────────────────────────────────
+
     override fun watchProjects(userId: UserId): Flow<List<Project>> = projectDao.watchAll(userId.value).map { list ->
         list.map { it.toProject() }
     }
@@ -34,9 +77,7 @@ class ProjectsRepositoryImpl(private val projectDao: ProjectDao, private val clo
     ): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> = projectDao.watchAllWithCounts(userId.value)
 
     override fun watchByParent(parentId: ProjectId): Flow<List<Project>> =
-        projectDao.watchByParent(parentId.value).map {
-            list,
-            ->
+        projectDao.watchByParent(parentId.value).map { list ->
             list.map { it.toProject() }
         }
 

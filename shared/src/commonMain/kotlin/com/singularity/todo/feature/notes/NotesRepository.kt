@@ -8,6 +8,8 @@ import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -19,12 +21,40 @@ import kotlinx.coroutines.flow.map
  * handled uniformly across list, editor, and tool callers.
  */
 interface NotesRepository {
-    // ─── Reads ──────────────────────────────────────────────────────────────
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+
+    /** All non-deleted notes for the current user. */
+    fun watchNotesForCurrentUser(): Flow<List<Note>>
+
+    /** All pinned non-deleted notes for the current user. */
+    fun watchPinnedForCurrentUser(): Flow<List<Note>>
+
+    /** All archived non-deleted notes for the current user. */
+    fun watchArchivedForCurrentUser(): Flow<List<Note>>
+
+    /** Single note by ID, scoped to current user. Returns null if not found or not owned. */
+    fun watchNoteForCurrentUser(id: NoteId): Flow<Note?>
+
+    /** Suspend version for one-shot reads (e.g. in use cases). */
+    suspend fun getNoteByIdForCurrentUser(id: NoteId): Note?
+
+    /** Root notes (no parent) for the current user. */
+    fun watchRootNotesForCurrentUser(): Flow<List<Note>>
+
+    // ─── Explicit userId overloads (Phase 3 migration target) ──────────────────
     fun watchNotes(userId: UserId): Flow<List<Note>>
     fun watchPinned(userId: UserId): Flow<List<Note>>
     fun watchArchived(userId: UserId): Flow<List<Note>>
     fun watchRootNotes(userId: UserId): Flow<List<Note>>
     fun watchNote(id: NoteId): Flow<Note?>
+
+    // ─── UserId-free search ──────────────────────────────────────────────
+    fun searchNotesForCurrentUser(query: String): Flow<List<Note>>
+
+    /** Search notes scoped to a specific user. Used by SearchUseCase. */
+    fun searchNotes(query: String, userId: UserId): Flow<List<Note>>
+
+    // ─── Deprecated (remove in Phase 3) ─────────────────────────────────────
     fun searchNotes(query: String): Flow<List<Note>>
 
     // ─── Editor mutations (whole-Note) ──────────────────────────────────────
@@ -64,7 +94,53 @@ interface NotesRepository {
 /**
  * Room-backed production [NotesRepository].
  */
-class RoomNotesRepository(private val noteDao: NoteDao, private val clock: Clock) : NotesRepository {
+class RoomNotesRepository(
+    private val noteDao: NoteDao,
+    private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
+) : NotesRepository {
+
+    // ─── UserId-free reads (Phase 2 pattern) ─────────────────────────────────
+
+    override fun searchNotesForCurrentUser(query: String): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchSearchByTitle(uid.value, query).map { list -> list.map { it.toNote() } }
+        }
+
+    override fun watchNotesForCurrentUser(): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchAll(uid.value).map { list -> list.map { it.toNote() } }
+        }
+
+    override fun watchPinnedForCurrentUser(): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchPinned(uid.value).map { list -> list.map { it.toNote() } }
+        }
+
+    override fun watchArchivedForCurrentUser(): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchArchived(uid.value).map { list -> list.map { it.toNote() } }
+        }
+
+    override fun watchNoteForCurrentUser(id: NoteId): Flow<Note?> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchByIdForUser(id.value, uid.value).map { it?.toNote() }
+        }
+
+    override suspend fun getNoteByIdForCurrentUser(id: NoteId): Note? {
+        val uid = currentUser.scopedUserId.value
+        return noteDao.getByIdForUser(id.value, uid.value)?.toNote()
+    }
+
+    override fun watchRootNotesForCurrentUser(): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchRootNotes(uid.value).map { list -> list.map { it.toNote() } }
+        }
+
+    // ─── Explicit userId reads ───────────────────────────────────────────────
+
+    override fun searchNotes(query: String, userId: UserId): Flow<List<Note>> =
+        noteDao.watchSearchByTitle(userId.value, query).map { list -> list.map { it.toNote() } }
 
     override fun watchNotes(userId: UserId): Flow<List<Note>> =
         noteDao.watchAll(userId.value).map { list -> list.map { it.toNote() } }
@@ -79,6 +155,8 @@ class RoomNotesRepository(private val noteDao: NoteDao, private val clock: Clock
         noteDao.watchRootNotes(userId.value).map { list -> list.map { it.toNote() } }
 
     override fun watchNote(id: NoteId): Flow<Note?> = noteDao.watchById(id.value).map { it?.toNote() }
+
+    // ─── Deprecated (remove in Phase 3) ─────────────────────────────────────
 
     override fun searchNotes(query: String): Flow<List<Note>> =
         noteDao.search(query).map { list -> list.map { it.toNote() } }

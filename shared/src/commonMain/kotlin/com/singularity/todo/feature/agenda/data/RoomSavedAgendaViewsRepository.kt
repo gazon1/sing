@@ -4,15 +4,32 @@ import com.singularity.todo.core.database.AgendaViewDao
 import com.singularity.todo.core.database.AgendaViewEntity
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toInstant
+import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class RoomSavedAgendaViewsRepository(
     private val agendaViewDao: AgendaViewDao,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : SavedAgendaViewsRepository {
+
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+
+    override fun watchAllForCurrentUser(): Flow<List<SavedAgendaView>> =
+        currentUser.observeForCurrentUser { uid ->
+            agendaViewDao.watchAll(uid.value).map { entities -> entities.map { it.toDomain() } }
+        }
+
+    override fun watchByIdForCurrentUser(id: SavedAgendaViewId): Flow<SavedAgendaView?> =
+        currentUser.observeForCurrentUser { uid ->
+            agendaViewDao.watchById(uid.value, id.raw).map { it?.toDomain() }
+        }
+
+    // ─── Explicit userId overloads ──────────────────────────────────────────
 
     override fun watchAll(userId: String): Flow<List<SavedAgendaView>> =
         agendaViewDao.watchAll(userId).map { entities ->

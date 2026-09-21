@@ -138,7 +138,7 @@ actual fun aiToolsModule(): Module = module {
     factory { SmartRewriteTool(get(), get()) }
     factory { GenerateDescriptionTool(get(), get()) }
     factory { DecomposeTaskTool(get(), get()) }
-    factory { DecomposeAndCreateTool(get(), get(), get(), get(), get()) }
+    factory { DecomposeAndCreateTool(get(), get(), get(), get()) }
     factory { GenerateChecklistTool(get(), get()) }
     factory { PickTimeTool(get(), get()) }
     factory { ClusterTasksTool(get(), get()) }
@@ -149,20 +149,20 @@ actual fun aiToolsModule(): Module = module {
     factory { GetNoteTool(get()) }
     factory { GetProjectTool(get()) }
     factory { GetTaskTool(get()) }
-    factory { ListLinkedTasksTool(get<TaskRepository>(), get<ProfileAwareCurrentUser>()) }
-    factory { ListTasksTool(get<TaskRepository>(), get<ProfileAwareCurrentUser>()) }
-    factory { SearchTasksTool(get<TaskRepository>(), get<ProfileAwareCurrentUser>()) }
-    factory { CreateTaskTool(get(), get(), get()) }
+    factory { ListLinkedTasksTool(get<TaskRepository>()) }
+    factory { ListTasksTool(get<TaskRepository>()) }
+    factory { SearchTasksTool(get<TaskRepository>()) }
+    factory { CreateTaskTool(get(), get()) }
     factory { UpdateTaskTool(get(), get()) }
     factory { DeleteTaskTool(get()) }
-    factory { CreateNoteTool(get(), get(), get()) }
+    factory { CreateNoteTool(get(), get()) }
     factory { UpdateNoteTool(get(), get()) }
     factory { DeleteNoteTool(get()) }
-    factory { CreateProjectTool(get(), get(), get()) }
+    factory { CreateProjectTool(get(), get()) }
     factory { UpdateProjectTool(get(), get()) }
-    factory { DeleteProjectTool(get(), get()) }
-    factory { ListProjectsTool(get(), get()) }
-    factory { CreateTagTool(get(), get(), get()) }
+    factory { DeleteProjectTool(get()) }
+    factory { ListProjectsTool(get()) }
+    factory { CreateTagTool(get(), get()) }
     factory { DeleteTagTool(get()) }
     factory { ListAdrsTool() }
     factory { ReadAdrTool() }

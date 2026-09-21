@@ -9,6 +9,12 @@ import kotlinx.coroutines.flow.Flow
  * Platform implementations: Room (Android/desktop) via [ReminderDao].
  */
 interface ReminderRepository {
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+    fun watchAllForCurrentUser(): Flow<List<Reminder>>
+    fun watchByTaskForCurrentUser(taskId: TaskId): Flow<List<Reminder>>
+    fun watchDueBeforeForCurrentUser(nowEpochMs: Long): Flow<List<Reminder>>
+
+    // ─── Explicit userId overloads (Phase 3 migration target) ──────────────────
     fun watchAll(userId: UserId): Flow<List<Reminder>>
     fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Reminder>>
     fun watchDueBefore(nowEpochMs: Long, userId: UserId): Flow<List<Reminder>>

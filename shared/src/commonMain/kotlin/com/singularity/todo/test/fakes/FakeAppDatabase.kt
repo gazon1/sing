@@ -219,10 +219,11 @@ private class FakeTaskDao(
             .sortedWith(compareBy({ !it.isPinned }, { it.dueDate ?: "" }))
     }
 
-    override fun search(q: String): Flow<List<TaskEntity>> = store.map {
+    override fun watchSearchResults(userId: String, q: String): Flow<List<TaskEntity>> = store.map {
         it.values.filter { t ->
-            t.title.contains(q, ignoreCase = true) ||
-                (t.description?.contains(q, ignoreCase = true) == true)
+            t.userId == userId && t.archivedAt == null &&
+                (t.title.contains(q, ignoreCase = true) ||
+                    (t.description?.contains(q, ignoreCase = true) == true))
         }
     }
 
@@ -303,9 +304,10 @@ private class FakeTaskDao(
             store.value[ref.taskId]?.userId == userId
         }
 
-    override suspend fun searchByTitle(q: String): List<TaskEntity> =
-        store.value.values.filter { it.archivedAt == null && it.title.contains(q, ignoreCase = true) }
-            .sortedByDescending { it.updatedAt }.take(20)
+    override suspend fun searchTitles(userId: String, q: String): List<TaskEntity> =
+        store.value.values.filter {
+            it.userId == userId && it.archivedAt == null && it.title.contains(q, ignoreCase = true)
+        }.sortedByDescending { it.updatedAt }.take(20)
 
     private fun mutateTask(id: String, fn: (TaskEntity) -> TaskEntity) {
         store.update { current ->
@@ -343,7 +345,12 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
     }
 
     override fun watchById(id: String): Flow<NoteEntity?> = store.map { it[id] }
+    override fun watchByIdForUser(id: String, userId: String): Flow<NoteEntity?> = store.map { n ->
+        n.values.find { it.id == id && it.userId == userId }
+    }
     override suspend fun getById(id: String): NoteEntity? = store.value[id]
+    override suspend fun getByIdForUser(id: String, userId: String): NoteEntity? =
+        store.value.values.find { it.id == id && it.userId == userId }
 
     override fun watchChildren(parentId: String): Flow<List<NoteEntity>> = store.map {
         it.values.filter { n -> n.parentNoteId == parentId && n.deletedAt == null }
@@ -355,6 +362,12 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
             n.title.contains(q, ignoreCase = true) ||
                 (n.bodyMarkdown?.contains(q, ignoreCase = true) == true)
         }
+    }
+
+    override fun watchSearchByTitle(userId: String, q: String): Flow<List<NoteEntity>> = store.map { map ->
+        map.values.filter { n ->
+            n.userId == userId && n.deletedAt == null && n.title.contains(q, ignoreCase = true)
+        }.sortedByDescending { it.updatedAt }.take(20)
     }
 
     override suspend fun upsert(note: NoteEntity) {
@@ -407,8 +420,8 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
     override suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long) =
         mutate(id) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
 
-    override suspend fun getBacklinkNotes(noteId: String): List<NoteEntity> = store.value.values.filter { n ->
-        n.deletedAt == null && n.outgoingLinks.contains("note://$noteId")
+    override suspend fun getBacklinkNotes(noteId: String, userId: String): List<NoteEntity> = store.value.values.filter { n ->
+        n.userId == userId && n.deletedAt == null && n.outgoingLinks.contains("note://$noteId")
     }.take(20)
 
     private fun mutate(id: String, fn: (NoteEntity) -> NoteEntity) {
@@ -428,6 +441,13 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
             .sortedWith(compareBy({ it.sortOrder }, { it.name }))
     }
 
+    // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────
+    override fun watchByIdForUser(id: String, userId: String): Flow<ProjectEntity?> = store.map { it[id]?.takeIf { p -> p.userId == userId } }
+    override suspend fun getByIdForUser(id: String, userId: String): ProjectEntity? = store.value[id]?.takeIf { it.userId == userId }
+    override fun watchByParentForUser(parentId: String, userId: String): Flow<List<ProjectEntity>> =
+        store.map { it.values.filter { it.parentId == parentId && it.userId == userId && !it.isDeleted } }
+
+    // ─── Legacy ────────────────────────────────────────────────────────────────
     override fun watchById(id: String): Flow<ProjectEntity?> = store.map { it[id] }
     override suspend fun getById(id: String): ProjectEntity? = store.value[id]
     override fun watchAllWithCounts(
@@ -532,6 +552,16 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
             .sortedByDescending { it.createdAt }
     }
 
+    // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────
+    override fun watchByTaskForUser(taskId: String, userId: String): Flow<List<AttachmentEntity>> = store.map {
+        it.values.filter { a -> a.taskId == taskId && a.userId == userId && a.deletedAt == null }
+            .sortedByDescending { it.createdAt }
+    }
+    override fun watchByIdForUser(id: String, userId: String): Flow<AttachmentEntity?> = store.map { it[id]?.takeIf { a -> a.userId == userId } }
+    override fun watchBySyncStatusForUser(status: String, userId: String): Flow<List<AttachmentEntity>> =
+        store.map { it.values.filter { a -> a.syncStatus == status && a.userId == userId && a.deletedAt == null } }
+
+    // ─── Legacy ────────────────────────────────────────────────────────────────
     override fun watchById(id: String): Flow<AttachmentEntity?> = store.map { it[id] }
 
     override suspend fun upsert(entity: AttachmentEntity) {

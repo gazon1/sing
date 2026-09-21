@@ -4,7 +4,6 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -17,7 +16,7 @@ class GetProjectTool(private val projectsRepository: ProjectsRepository) :
     SimpleTool<GetProjectInput>(TypeToken.of(GetProjectInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: GetProjectInput): String {
-        val project = projectsRepository.watchProject(ProjectId(args.projectId)).first()
+        val project = projectsRepository.getByIdForCurrentUser(ProjectId(args.projectId))
         val output = if (project != null) {
             GetProjectOutput(project.id.value, project.name, project.description)
         } else {

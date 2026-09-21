@@ -18,8 +18,6 @@ import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
-import com.singularity.todo.test.fakes.FakeAuthRepository
-import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
@@ -46,9 +44,6 @@ class TasksViewModelTest {
     private val testUserId = UserId("test-user")
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeProjectsRepo = FakeProjectsRepository()
-    private val fakeCurrentUser = FakeProfileAwareCurrentUser(
-        FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)),
-    )
 
     private fun createVm(
         refineTask: RefineTaskUseCase? = null,
@@ -62,7 +57,6 @@ class TasksViewModelTest {
         taskRepo = fakeTaskRepo,
         createTask = CreateTaskUseCase(fakeTaskRepo, Clock),
         updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
-        currentUser = fakeCurrentUser,
         mutations = TaskMutationsUseCase(fakeTaskRepo),
         projectRepo = fakeProjectsRepo,
         clock = Clock,

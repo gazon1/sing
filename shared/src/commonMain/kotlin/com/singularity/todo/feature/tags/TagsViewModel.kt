@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tags
 
 import androidx.lifecycle.ViewModel
 
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -10,7 +9,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -34,25 +32,19 @@ sealed interface TagsUiState {
  */
 class TagsViewModel(
     private val tagRepo: TagsRepository,
-    currentUser: ProfileAwareCurrentUser,
     private val scope: CoroutineScope,
 ) : ViewModel() {
 
     /** Production constructor — Koin uses this. */
     constructor(
         tagRepo: TagsRepository,
-        currentUser: ProfileAwareCurrentUser,
     ) : this(
         tagRepo = tagRepo,
-        currentUser = currentUser,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     )
 
-    private val userIdFlow = currentUser.scopedUserId
-
     @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<TagsUiState> = userIdFlow
-        .flatMapLatest { uid -> tagRepo.watchTags(uid.value) }
+    val state: StateFlow<TagsUiState> = tagRepo.watchTagsForCurrentUser()
         .map { tags ->
             if (tags.isEmpty()) {
                 TagsUiState.Empty("")

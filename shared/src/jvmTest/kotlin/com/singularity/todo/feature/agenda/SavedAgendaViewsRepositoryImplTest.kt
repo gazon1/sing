@@ -5,6 +5,7 @@ import com.singularity.todo.feature.agenda.data.RoomSavedAgendaViewsRepository
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.test.fakes.FakeAppDatabase
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -24,7 +25,8 @@ class SavedAgendaViewsRepositoryImplTest {
 
     private fun repo(): SavedAgendaViewsRepository {
         val db = FakeAppDatabase()
-        return RoomSavedAgendaViewsRepository(db.agendaViewDao())
+        val currentUser = FakeProfileAwareCurrentUser(initialUserId = UserId("test-user"))
+        return RoomSavedAgendaViewsRepository(db.agendaViewDao(), currentUser)
     }
 
     private fun makeView(

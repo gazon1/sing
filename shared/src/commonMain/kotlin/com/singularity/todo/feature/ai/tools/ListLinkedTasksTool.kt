@@ -18,11 +18,10 @@ data class ListLinkedTasksOutput(val tasks: List<TaskSummary>)
 
 class ListLinkedTasksTool(
     private val taskRepository: TaskRepository,
-    private val currentUser: ProfileAwareCurrentUser,
 ) : SimpleTool<ListLinkedTasksInput>(TypeToken.of(ListLinkedTasksInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: ListLinkedTasksInput): String {
-        val effectiveUserId = if (args.userId.isNotBlank()) UserId(args.userId) else currentUser.scopedUserId.value
+        val effectiveUserId = if (args.userId.isNotBlank()) UserId(args.userId) else ProfileAwareCurrentUser.current
         val tasks = taskRepository.watchTasks(effectiveUserId, TaskFilter.ByProject(ProjectId(args.projectId))).first()
             .map { TaskSummary(it.id.value, it.title, it.isCompleted, it.projectId?.value) }
         return kotlinx.serialization.json.Json.encodeToString(

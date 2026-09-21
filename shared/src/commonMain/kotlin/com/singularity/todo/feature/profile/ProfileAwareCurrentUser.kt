@@ -23,17 +23,51 @@ import kotlinx.coroutines.flow.stateIn
  *   this comes from Koin's `single { ... createBackgroundScope() }`. In tests,
  *   inject a `TestScope` or `backgroundScope`.
  */
-class ProfileAwareCurrentUser(
+/**
+ * Global accessor for the production [ProfileAwareCurrentUser] singleton.
+ * Set during app startup via `ProfileAwareCurrentUser.instance = ...`.
+ * AI tools and other non-DI-instantiated classes use this to access the
+ * current userId without requiring constructor injection.
+ */
+/**
+ * Global accessor for the production [ProfileAwareCurrentUser] singleton.
+ * Set during app startup via `ProfileAwareCurrentUser.setInstance(...)`.
+ * AI tools and other non-DI-instantiated classes use this to access the
+ * current userId without requiring constructor injection.
+ */
+private var _currentUserInstance: ProfileAwareCurrentUser? = null
+
+/**
+ * DI injection point — call this from the app's root module to wire the global accessor.
+ */
+fun ProfileAwareCurrentUser.Companion.setInstance(instance: ProfileAwareCurrentUser) {
+    _currentUserInstance = instance
+}
+
+open class ProfileAwareCurrentUser(
     currentUser: CurrentUser,
     profileRepository: ProfileRepository,
     private val scope: CoroutineScope,
 ) {
 
+    /** Static singleton accessor for use in AI tools that don't receive ProfileAwareCurrentUser via DI. */
+    companion object {
+        private var _scopedUserId: StateFlow<UserId>? = null
+
+        val scopedUserId: StateFlow<UserId>
+            get() = _scopedUserId ?: _currentUserInstance?.scopedUserId
+                ?: error("ProfileAwareCurrentUser.globalInstance not set. Call ProfileAwareCurrentUser.setInstance() in your app module.")
+
+        val current: UserId
+            get() = _currentUserInstance?.current
+                ?: error("ProfileAwareCurrentUser.globalInstance not set. Call ProfileAwareCurrentUser.setInstance() in your app module.")
+    }
+
     /**
      * Profile-scoped userId: `"{profileId}/{userId}"` or just `userId`
      * when the profile is the default one (backwards-compatible).
      */
-    val scopedUserId: StateFlow<UserId> = combine(
+    open val scopedUserId: StateFlow<UserId> = combine(
         currentUser.userId,
         profileRepository.activeProfileId,
     ) { userId, profileId ->

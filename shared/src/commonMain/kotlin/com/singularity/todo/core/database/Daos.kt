@@ -95,13 +95,13 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getById(id: String): TaskEntity?
 
-    @Query("SELECT * FROM tasks WHERE title LIKE '%' || :q || '%' OR description LIKE '%' || :q || '%'")
-    fun search(q: String): Flow<List<TaskEntity>>
+    @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND (title LIKE '%' || :q || '%' OR description LIKE '%' || :q || '%') ORDER BY due_date ASC, is_pinned DESC")
+    fun watchSearchResults(userId: String, q: String): Flow<List<TaskEntity>>
 
     @Query(
-        "SELECT * FROM tasks WHERE archived_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
+        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
     )
-    suspend fun searchByTitle(q: String): List<TaskEntity>
+    suspend fun searchTitles(userId: String, q: String): List<TaskEntity>
 
     @Upsert
     suspend fun upsert(task: TaskEntity)
@@ -191,11 +191,22 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE id = :id")
     fun watchById(id: String): Flow<NoteEntity?>
 
+    @Query("SELECT * FROM notes WHERE id = :id AND user_id = :userId")
+    fun watchByIdForUser(id: String, userId: String): Flow<NoteEntity?>
+
     @Query("SELECT * FROM notes WHERE id = :id")
     suspend fun getById(id: String): NoteEntity?
 
+    @Query("SELECT * FROM notes WHERE id = :id AND user_id = :userId")
+    suspend fun getByIdForUser(id: String, userId: String): NoteEntity?
+
     @Query("SELECT * FROM notes WHERE title LIKE '%' || :q || '%' OR body_markdown LIKE '%' || :q || '%'")
     fun search(q: String): Flow<List<NoteEntity>>
+
+    @Query(
+        "SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
+    )
+    fun watchSearchByTitle(userId: String, q: String): Flow<List<NoteEntity>>
 
     @Query(
         "SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
@@ -246,16 +257,17 @@ interface NoteDao {
     @Query("UPDATE notes SET outgoing_links = :linksJson, updated_at = :updatedAt WHERE id = :id")
     suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long)
 
-    /** Notes that link TO the given noteId via note:// URL scheme. */
+    /** Notes that link TO the given noteId via note:// URL scheme, for the current user only. */
     @Query(
         """
         SELECT * FROM notes
-        WHERE deleted_at IS NULL
+        WHERE user_id = :userId
+        AND deleted_at IS NULL
         AND outgoing_links LIKE '%note://' || :noteId || '%'
         LIMIT 20
     """
     )
-    suspend fun getBacklinkNotes(noteId: String): List<NoteEntity>
+    suspend fun getBacklinkNotes(noteId: String, userId: String): List<NoteEntity>
 }
 
 @Dao
@@ -263,6 +275,17 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE user_id = :userId AND is_deleted = 0 ORDER BY sort_order ASC, name ASC")
     fun watchAll(userId: String): Flow<List<ProjectEntity>>
 
+    // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────
+    @Query("SELECT * FROM projects WHERE id = :id AND user_id = :userId")
+    fun watchByIdForUser(id: String, userId: String): Flow<ProjectEntity?>
+
+    @Query("SELECT * FROM projects WHERE id = :id AND user_id = :userId")
+    suspend fun getByIdForUser(id: String, userId: String): ProjectEntity?
+
+    @Query("SELECT * FROM projects WHERE parent_id = :parentId AND user_id = :userId AND is_deleted = 0 ORDER BY sort_order ASC, name ASC")
+    fun watchByParentForUser(parentId: String, userId: String): Flow<List<ProjectEntity>>
+
+    // ─── Legacy (internal / Phase 3 migration target) ───────────────────────
     @Query("SELECT * FROM projects WHERE id = :id")
     fun watchById(id: String): Flow<ProjectEntity?>
 

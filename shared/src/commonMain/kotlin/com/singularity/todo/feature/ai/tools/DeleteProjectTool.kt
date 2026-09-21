@@ -2,8 +2,6 @@ package com.singularity.todo.feature.ai.tools
 
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
-import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import kotlinx.serialization.Serializable
@@ -17,12 +15,10 @@ data class DeleteProjectOutput(val projectId: String, val deleted: Boolean, val 
 
 class DeleteProjectTool(
     private val deleteProject: DeleteProjectUseCase,
-    private val currentUser: ProfileAwareCurrentUser,
 ) : SimpleTool<DeleteProjectInput>(TypeToken.of(DeleteProjectInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: DeleteProjectInput): String {
-        val userId = currentUser.scopedUserId.value.value
-        val result = deleteProject(ProjectId.fromString(args.projectId), UserId(userId))
+        val result = deleteProject(ProjectId.fromString(args.projectId))
         return Json.encodeToString(
             DeleteProjectOutput.serializer(),
             DeleteProjectOutput(

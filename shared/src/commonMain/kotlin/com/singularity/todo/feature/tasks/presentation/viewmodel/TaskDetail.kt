@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -49,16 +50,22 @@ import kotlin.time.Duration.Companion.milliseconds
 class TaskDetailViewModel(
     private val deps: TaskDetailDeps,
     private val taskId: TaskId,
+    private val currentUser: ProfileAwareCurrentUser,
     private val scope: CoroutineScope,
 ) : ViewModel() {
+
+    /** Used for entity creation in mutation intents (caller-trust userId injection). */
+    private val userId get() = currentUser.scopedUserId.value
 
     /** Production constructor — Koin uses this. */
     constructor(
         deps: TaskDetailDeps,
         taskId: TaskId,
+        currentUser: ProfileAwareCurrentUser,
     ) : this(
         deps = deps,
         taskId = taskId,
+        currentUser = currentUser,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     )
 
@@ -118,7 +125,7 @@ class TaskDetailViewModel(
         flowOf(taskId),
         _retryVersion,
     ) { id, _ -> id }
-        .flatMapLatest { deps.taskRepo.watchTask(it) }
+        .flatMapLatest { deps.taskRepo.observeForCurrentUser(it) }
         .flatMapLatest { task ->
             // Update latestTask BEFORE combine starts — so debounce collectors always have fresh task
             _latestTask.value = task
@@ -126,15 +133,15 @@ class TaskDetailViewModel(
                 flowOf<TaskDetailUiState>(TaskDetailUiState.Error("Not found"))
             } else {
                 val projectFlow = task.projectId?.let { pid ->
-                    deps.projectsRepo.watchProject(pid)
+                    deps.projectsRepo.watchProjectForCurrentUser(pid)
                 } ?: flowOf(null)
 
-                val tagsFlow = deps.tagsRepo.watchTags(deps.currentUser.current.value)
+                val tagsFlow = deps.tagsRepo.watchTagsForCurrentUser()
                 val checklistFlow = deps.checklistRepository.watchByTask(taskId.value)
-                val reminderFlow = deps.reminderRepo.watchByTask(taskId, deps.currentUser.current)
-                val attachmentsFlow = deps.attachmentsRepo.watchByTask(taskId, deps.currentUser.current)
-                val subtasksFlow = deps.taskRepo.watchSubtasks(taskId, deps.currentUser.current)
-                val availableTasksFlow = deps.taskRepo.watchTasks(deps.currentUser.current, com.singularity.todo.feature.tasks.domain.model.TaskFilter.All)
+                val reminderFlow = deps.reminderRepo.watchByTaskForCurrentUser(taskId)
+                val attachmentsFlow = deps.attachmentsRepo.watchByTaskForCurrentUser(taskId)
+                val subtasksFlow = deps.taskRepo.observeSubtasks(taskId)
+                val availableTasksFlow = deps.taskRepo.observeByFilter(com.singularity.todo.feature.tasks.domain.model.TaskFilter.All)
                     .map { all -> all.filter { !it.isTrashed && it.id != taskId } }
 
                 combine(
@@ -292,7 +299,7 @@ class TaskDetailViewModel(
                     deps.createTask(
                         com.singularity.todo.feature.tasks.domain.model.CreateTaskInput(
                             title = intent.title.trim(),
-                            userId = deps.currentUser.current,
+                            userId = userId,
                             parentTaskId = current.id,
                         ),
                     )
@@ -304,7 +311,7 @@ class TaskDetailViewModel(
             is TaskDetailIntent.Domain.SetReminder -> {
                 scope.launch {
                     if (intent.offset == com.singularity.todo.core.reminders.ReminderOffset.AT_DUE) {
-                        deps.reminderRepo.deleteByTask(current.id, deps.currentUser.current)
+                        deps.reminderRepo.deleteByTask(current.id, userId)
                             .onFailure { emitError("Failed to set reminder") }
                         return@launch
                     }
@@ -313,7 +320,7 @@ class TaskDetailViewModel(
                     val reminder = com.singularity.todo.feature.reminders.Reminder(
                         id = com.singularity.todo.feature.reminders.ReminderId.generate(),
                         taskId = current.id,
-                        userId = deps.currentUser.current,
+                        userId = userId,
                         type = com.singularity.todo.feature.reminders.ReminderType.Gentle,
                         offsetMinutes = -intent.offset.minutes,
                         fireAt = fireAt,
@@ -326,7 +333,7 @@ class TaskDetailViewModel(
 
             TaskDetailIntent.Domain.DeleteReminder -> {
                 scope.launch {
-                    deps.reminderRepo.deleteByTask(current.id, deps.currentUser.current)
+                    deps.reminderRepo.deleteByTask(current.id, userId)
                         .onFailure { emitError("Failed to remove reminder") }
                 }
             }

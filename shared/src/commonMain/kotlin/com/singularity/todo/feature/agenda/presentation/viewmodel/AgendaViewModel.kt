@@ -17,8 +17,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -73,15 +71,12 @@ class AgendaViewModel(
      * Main state — watches all active tasks and evaluates them against [definition].
      * Produces [AgendaUiState.Loaded] with rendered sections.
      *
-     * Reactive: re-evaluates on user switch OR date change.
+     * Reactive: re-evaluates when the date changes. User switch is handled automatically
+     * by [TaskRepository.observeByFilter].
      */
-    val state: StateFlow<AgendaUiState> = combine(
-        deps.currentUser.scopedUserId,
-        deps.clock.todayFlow(),
-    ) { userId, today -> userId to today }
-        .distinctUntilChanged()
-        .flatMapLatest { (userId, today) ->
-            deps.taskRepo.watchTasks(userId, TaskFilter.All)
+    val state: StateFlow<AgendaUiState> = deps.clock.todayFlow()
+        .flatMapLatest { today ->
+            deps.taskRepo.observeByFilter(TaskFilter.All)
                 .map { tasks ->
                     val sections = AgendaEvaluator.evaluate(tasks, definition, today)
                     AgendaUiState.Loaded(

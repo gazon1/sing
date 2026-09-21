@@ -90,21 +90,20 @@ class CalendarViewModel(
      * Main state — combines task flow with calendar selection state.
      * Starts as [CalendarUiState.Loading] and transitions to [CalendarUiState.Loaded]
      * once the first batch of tasks arrives.
+     * User switch is handled automatically by [TaskRepository.observeByFilter].
      */
-    val state: StateFlow<CalendarUiState> = deps.currentUser.scopedUserId
-        .flatMapLatest { userId ->
-            _calendarState.flatMapLatest { cal ->
-                // Extend query window by ±7 days so neighbouring months are preloaded
-                val from = firstDayOfMonth(cal.anchor).minus(7, DateTimeUnit.DAY)
-                val to = lastDayOfMonth(cal.anchor).plus(7, DateTimeUnit.DAY)
-                deps.taskRepo.watchTasks(userId, TaskFilter.ByDateRange(from, to))
-                    .map { tasks ->
-                        val tasksByDate = tasks
-                            .map { CalendarTaskMapper.toCalendarTaskUi(it, today) }
-                            .groupBy { it.date }
-                        cal.toLoadedState(tasksByDate, today)
-                    }
-            }
+    val state: StateFlow<CalendarUiState> = _calendarState
+        .flatMapLatest { cal ->
+            // Extend query window by ±7 days so neighbouring months are preloaded
+            val from = firstDayOfMonth(cal.anchor).minus(7, DateTimeUnit.DAY)
+            val to = lastDayOfMonth(cal.anchor).plus(7, DateTimeUnit.DAY)
+            deps.taskRepo.observeByFilter(TaskFilter.ByDateRange(from, to))
+                .map { tasks ->
+                    val tasksByDate = tasks
+                        .map { CalendarTaskMapper.toCalendarTaskUi(it, today) }
+                        .groupBy { it.date }
+                    cal.toLoadedState(tasksByDate, today)
+                }
         }
         .stateIn(
             scope,

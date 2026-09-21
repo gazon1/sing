@@ -21,8 +21,8 @@ import org.koin.dsl.module
 fun notesModule(): org.koin.core.module.Module = module {
     // ─── Repository ─────────────────────────────────────────────────────
 
-    single<NotesRepository> { RoomNotesRepository(get(), get()) }
-    single<InternalLinkRepository> { InternalLinkRepositoryImpl(get(), get()) }
+    single<NotesRepository> { RoomNotesRepository(get(), get(), get()) }
+    single<InternalLinkRepository> { InternalLinkRepositoryImpl(get(), get(), get()) }
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 

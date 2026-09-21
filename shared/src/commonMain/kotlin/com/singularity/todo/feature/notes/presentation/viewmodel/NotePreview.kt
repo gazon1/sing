@@ -54,11 +54,11 @@ class NotePreview(
 
     fun loadNote(noteId: String) {
         scope.launch(Dispatchers.Unconfined) {
-            repo.watchNote(NoteId.fromString(noteId))
+            repo.watchNoteForCurrentUser(NoteId.fromString(noteId))
                 .filterNotNull()
                 .collect { note ->
                     val backlinks = try {
-                        linkRepo.getBacklinkNotes(noteId)
+                        linkRepo.getBacklinkNotes(noteId, userId.value)
                     } catch (e: Exception) {
                         emptyList()
                     }

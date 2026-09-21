@@ -15,11 +15,11 @@ data class SearchTasksInput(val query: String, val userId: String = "", val limi
 @Serializable
 data class SearchTasksOutput(val tasks: List<TaskSummary>)
 
-class SearchTasksTool(private val taskRepository: TaskRepository, private val currentUser: ProfileAwareCurrentUser) :
+class SearchTasksTool(private val taskRepository: TaskRepository) :
     SimpleTool<SearchTasksInput>(TypeToken.of(SearchTasksInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: SearchTasksInput): String {
-        val effectiveUserId = if (args.userId.isNotBlank()) UserId(args.userId) else currentUser.scopedUserId.value
+        val effectiveUserId = if (args.userId.isNotBlank()) UserId(args.userId) else ProfileAwareCurrentUser.current
         val tasks = taskRepository.watchTasks(effectiveUserId, TaskFilter.All).first()
             .filter { it.title.contains(args.query, ignoreCase = true) }
             .take(args.limit)

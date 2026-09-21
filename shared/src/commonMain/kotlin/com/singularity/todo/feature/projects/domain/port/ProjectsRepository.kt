@@ -10,6 +10,28 @@ import kotlinx.coroutines.flow.Flow
  * Contract for projects persistence.
  */
 interface ProjectsRepository {
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+
+    /** All non-deleted projects for the current user. */
+    fun observeAllForCurrentUser(): Flow<List<Project>>
+
+    /** All non-deleted projects with task counts for the current user. */
+    fun observeProjectsWithCountsForCurrentUser(): Flow<List<ProjectWithCountRow>>
+
+    /** Single project by ID, scoped to current user. Returns null if not found or not owned. */
+    fun watchProjectForCurrentUser(id: ProjectId): Flow<Project?>
+
+    /** Suspend version for one-shot reads (e.g. in use cases). */
+    suspend fun getByIdForCurrentUser(id: ProjectId): Project?
+
+    /** Emits a new value whenever the project changes (used for inline-edit debounce). */
+    fun changesForCurrentUser(id: ProjectId): Flow<Project?>
+
+    /** Children of a parent project, scoped to current user. */
+    fun watchChildrenOfForCurrentUser(parentId: ProjectId): Flow<List<Project>>
+
+    // ─── Explicit userId overloads (Phase 3 migration target) ──────────────────
+
     fun watchProjects(userId: UserId): Flow<List<Project>>
     fun watchProject(id: ProjectId): Flow<Project?>
 

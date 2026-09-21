@@ -5,10 +5,12 @@ import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import kotlinx.coroutines.flow.Flow
 
 interface SavedAgendaViewsRepository {
-    /** Emits all saved views for the given user, ordered by name. */
-    fun watchAll(userId: String): Flow<List<SavedAgendaView>>
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+    fun watchAllForCurrentUser(): Flow<List<SavedAgendaView>>
+    fun watchByIdForCurrentUser(id: SavedAgendaViewId): Flow<SavedAgendaView?>
 
-    /** Emits a single saved view by id, or null if not found. */
+    // ─── Explicit userId overloads (Phase 3 migration target) ──────────────────
+    fun watchAll(userId: String): Flow<List<SavedAgendaView>>
     fun watchById(id: SavedAgendaViewId, userId: String): Flow<SavedAgendaView?>
 
     /** Creates or updates a saved view. Returns the saved view on success. */

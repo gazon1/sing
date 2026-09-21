@@ -80,7 +80,7 @@ class SearchViewModel(
             if (q.isBlank()) {
                 flowOf(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
             } else {
-                searchUseCase(q, userId.value)
+                searchUseCase(q)
             }
         }
         .stateIn(

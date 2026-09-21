@@ -4,7 +4,6 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
-import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -17,7 +16,7 @@ class GetNoteTool(private val notesRepo: NotesRepository) :
     SimpleTool<GetNoteInput>(TypeToken.of(GetNoteInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: GetNoteInput): String {
-        val note = notesRepo.watchNote(NoteId.fromString(args.noteId)).first()
+        val note = notesRepo.getNoteByIdForCurrentUser(NoteId.fromString(args.noteId))
         val output = if (note != null) {
             GetNoteOutput(note.id.value, note.title, note.bodyMarkdown)
         } else {

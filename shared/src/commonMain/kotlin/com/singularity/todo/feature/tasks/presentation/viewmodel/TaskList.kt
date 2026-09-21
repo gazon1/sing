@@ -8,7 +8,6 @@ import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.AiActionResult
@@ -30,6 +29,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -47,7 +47,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 import kotlinx.datetime.LocalDate
 
 /**
@@ -67,7 +66,6 @@ class TasksViewModel(
     private val taskRepo: TaskRepository,
     private val createTask: CreateTaskUseCase,
     private val updateTask: UpdateTaskUseCase,
-    currentUser: ProfileAwareCurrentUser,
     private val mutations: TaskMutationsUseCase,
     private val projectRepo: ProjectsRepository,
     private val clock: Clock,
@@ -85,7 +83,6 @@ class TasksViewModel(
         taskRepo: TaskRepository,
         createTask: CreateTaskUseCase,
         updateTask: UpdateTaskUseCase,
-        currentUser: ProfileAwareCurrentUser,
         mutations: TaskMutationsUseCase,
         projectRepo: ProjectsRepository,
         clock: Clock,
@@ -98,7 +95,6 @@ class TasksViewModel(
         taskRepo = taskRepo,
         createTask = createTask,
         updateTask = updateTask,
-        currentUser = currentUser,
         mutations = mutations,
         projectRepo = projectRepo,
         clock = clock,
@@ -127,7 +123,7 @@ class TasksViewModel(
     val aiResult: SharedFlow<AiActionResult> = _aiResult.asSharedFlow()
 
     private val _events = Channel<TasksUiEvent>(Channel.BUFFERED)
-    val events: kotlinx.coroutines.flow.Flow<TasksUiEvent> = _events.receiveAsFlow()
+    val events: Flow<TasksUiEvent> = _events.receiveAsFlow()
 
     private val _selectedIds = MutableStateFlow<Set<TaskId>>(emptySet())
     val selectedIds: StateFlow<Set<TaskId>> = _selectedIds.asStateFlow()
@@ -139,16 +135,12 @@ class TasksViewModel(
     val recentlyDeleted: StateFlow<TaskUi?> = _recentlyDeleted.asStateFlow()
 
     // All tasks from repo, updated when filter or user changes
-    private val tasksFlow: Flow<List<Task>> = combine(
-        _filter,
-        currentUser.scopedUserId,
-    ) { filter, uid -> filter to uid }
-        .flatMapLatest { (filter, uid) -> taskRepo.watchTasks(uid, filter) }
+    private val tasksFlow: Flow<List<Task>> = _filter
+        .flatMapLatest { filter -> taskRepo.observeByFilter(filter) }
 
     // Reactive project names — automatically updates when projects change or user switches profile
     private val projectNamesFlow: StateFlow<Map<String, String>> =
-        currentUser.scopedUserId
-            .flatMapLatest { uid -> projectRepo.watchProjects(uid) }
+        projectRepo.observeAllForCurrentUser()
             .map { list -> list.associate { it.id.value to it.name } }
             .stateIn(scope, SharingStarted.WhileSubscribed(5000), emptyMap())
 

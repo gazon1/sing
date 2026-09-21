@@ -48,7 +48,7 @@ import org.koin.dsl.module
 fun tasksModule(): org.koin.core.module.Module = module {
     // ─── Repositories ─────────────────────────────────────────────────────
 
-    single<TaskRepository> { TaskRepositoryImpl(get(), get()) }
+    single<TaskRepository> { TaskRepositoryImpl(get(), get(), get()) }
 
     single<ArchiveRepository> { TaskDaoArchiveRepository(get(), get()) }
 
@@ -99,7 +99,6 @@ fun tasksModule(): org.koin.core.module.Module = module {
             taskRepo = get(),
             createTask = get(),
             updateTask = get(),
-            currentUser = get(),
             mutations = get(),
             projectRepo = get(),
             clock = get(),
@@ -118,11 +117,11 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 checklistUseCase = get(),
                 reminderRepo = get(),
                 attachmentsRepo = get(),
-                currentUser = get(),
                 timeZoneProvider = get(),
                 clock = get(),
             ),
             taskId = taskId,
+            currentUser = get(),
         )
     }
 
@@ -141,9 +140,9 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     viewModel { ChecklistEditorViewModel(get(), get()) }
 
-    viewModel { ArchiveViewModel(get(), get(), get()) }
+    viewModel { ArchiveViewModel(get(), get()) }
 
-    viewModel { StatisticsViewModel(get(), get(), get()) }
+    viewModel { StatisticsViewModel(get(), get()) }
 
     viewModel { SearchViewModel(get(), get()) }
 }

@@ -41,7 +41,7 @@ class ProjectLifecycleIntegrationTest {
         )
         val useCase = createDeleteProjectUseCase()
 
-        useCase(ProjectId.fromString("p1"), testUserId)
+        useCase(ProjectId.fromString("p1"))
         advanceUntilIdle()
 
         // Soft-delete sets isDeleted = true; verify via watchProjects flow
@@ -75,7 +75,7 @@ class ProjectLifecycleIntegrationTest {
         )
         val useCase = createDeleteProjectUseCase()
 
-        val result = useCase(projectId, testUserId)
+        val result = useCase(projectId)
         advanceUntilIdle()
 
         assertTrue(result.isFailure)

@@ -112,7 +112,7 @@ open class NoteEditor(
             val current = _editorState.value
             if (current is EditorState.Editing && current.id == noteId) return@launch
 
-            val note = repo.watchNote(NoteId.fromString(noteId)).filterNotNull().first()
+            val note = repo.getNoteByIdForCurrentUser(NoteId.fromString(noteId)) ?: return@launch
             // Prefer stored HTML (lossless). Fall back to markdown→HTML for legacy notes.
             val html = note.bodyHtml
                 ?: note.bodyMarkdown?.let {
@@ -254,7 +254,7 @@ open class NoteEditor(
      * Searches tasks for the internal link picker.
      * Called by NoteEditorScreen via a suspend lambda on InternalLinkPickerSheet.
      */
-    suspend fun searchTasksForLink(query: String): List<LinkResult> = linkRepo.searchTasks(query)
+    suspend fun searchTasksForLink(query: String): List<LinkResult> = linkRepo.searchTasks(userId.value, query)
         .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
 
     fun closeEditor() {

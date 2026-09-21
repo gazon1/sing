@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -82,8 +81,7 @@ class SavedAgendaListViewModel(
     private val _events = Channel<SavedAgendaListEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
 
-    val state: StateFlow<SavedAgendaListState> = deps.currentUser.scopedUserId
-        .flatMapLatest { userId -> deps.repo.watchAll(userId.value) }
+    val state: StateFlow<SavedAgendaListState> = deps.repo.watchAllForCurrentUser()
         .map { views -> SavedAgendaListState.Loaded(views) }
         .stateIn(
             scope,

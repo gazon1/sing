@@ -4,8 +4,6 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.test.fakes.FakeAuthRepository
-import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -36,9 +34,6 @@ class StatisticsViewModelTest {
         repo: FakeTaskRepository = FakeTaskRepository(),
     ): StatisticsViewModel = StatisticsViewModel(
         taskRepository = repo,
-        currentUser = FakeProfileAwareCurrentUser(
-            FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)),
-        ),
         clock = Clock,
         scope = backgroundScope,
     )

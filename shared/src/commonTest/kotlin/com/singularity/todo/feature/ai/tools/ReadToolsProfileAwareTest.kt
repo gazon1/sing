@@ -6,6 +6,7 @@ import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
+import com.singularity.todo.feature.profile.setInstance
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -118,7 +119,8 @@ class ReadToolsProfileAwareTest {
         seedTask(repo, scoped, "AI-Agent task A")
         seedTask(repo, UserId("local-user"), "Personal-only task") // must NOT show up
 
-        val tool = ListTasksTool(repo, currentUser)
+        ProfileAwareCurrentUser.setInstance(currentUser)
+        val tool = ListTasksTool(repo)
         val output = tool.execute(ListTasksInput(userId = "", limit = 50))
         val parsed = Json.parseToJsonElement(output).jsonObject
         val tasks = parsed["tasks"]!!.jsonArray
@@ -135,7 +137,8 @@ class ReadToolsProfileAwareTest {
         val repo = FakeTaskRepository()
         seedTask(repo, UserId("u-1"), "scoped-personal task")
 
-        val tool = ListTasksTool(repo, currentUser)
+        ProfileAwareCurrentUser.setInstance(currentUser)
+        val tool = ListTasksTool(repo)
         // Explicit "u-1" should NOT be prefixed by the profile — caller wins.
         val output = tool.execute(ListTasksInput(userId = "u-1", limit = 50))
         val parsed = Json.parseToJsonElement(output).jsonObject
@@ -157,7 +160,8 @@ class ReadToolsProfileAwareTest {
         seedTask(repo, scoped, "AI-Agent linked task", projectId = projectId)
         seedTask(repo, UserId("local-user"), "Personal linked task", projectId = projectId)
 
-        val tool = ListLinkedTasksTool(repo, currentUser)
+        ProfileAwareCurrentUser.setInstance(currentUser)
+        val tool = ListLinkedTasksTool(repo)
         val output = tool.execute(ListLinkedTasksInput(projectId = "p1"))
         val parsed = Json.parseToJsonElement(output).jsonObject
         val tasks = parsed["tasks"]!!.jsonArray
@@ -179,7 +183,8 @@ class ReadToolsProfileAwareTest {
         seedTask(repo, scoped, "Findable AI-Agent task")
         seedTask(repo, UserId("local-user"), "Findable personal task")
 
-        val tool = SearchTasksTool(repo, currentUser)
+        ProfileAwareCurrentUser.setInstance(currentUser)
+        val tool = SearchTasksTool(repo)
         val output = tool.execute(SearchTasksInput(query = "Findable", limit = 50))
         val parsed = Json.parseToJsonElement(output).jsonObject
         val tasks = parsed["tasks"]!!.jsonArray
@@ -200,7 +205,8 @@ class ReadToolsProfileAwareTest {
         seedTask(repo, UserId("local-user"), "private personal task")
         seedTask(repo, resolveScopedUserId(currentUser, profiles), "agent task")
 
-        val tool = SearchTasksTool(repo, currentUser)
+        ProfileAwareCurrentUser.setInstance(currentUser)
+        val tool = SearchTasksTool(repo)
         val output = tool.execute(SearchTasksInput(query = "task", limit = 50))
         val parsed = Json.parseToJsonElement(output).jsonObject
         val tasks = parsed["tasks"]!!.jsonArray

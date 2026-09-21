@@ -10,6 +10,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.profile.setInstance
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
@@ -33,12 +35,14 @@ class WriteToolsTest {
     private val userId = UserId("test-user")
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeNotesRepo = FakeNotesRepository()
-    private val profileAwareUser = FakeProfileAwareCurrentUser(
-        authRepository = FakeAuthRepository(initialSession = Session.Anonymous(userId)),
-    )
     private val existingTaskId = TaskId.generate()
 
     init {
+        // Wire the global singleton for AI tools that use ProfileAwareCurrentUser.scopedUserId.
+        val profileAwareUser = FakeProfileAwareCurrentUser(
+            authRepository = FakeAuthRepository(initialSession = Session.Anonymous(userId)),
+        )
+        ProfileAwareCurrentUser.setInstance(profileAwareUser)
         // Seed one existing task for update/delete tests
         fakeTaskRepo.seed(
             Task(
@@ -66,7 +70,7 @@ class WriteToolsTest {
 
     @Test
     fun `CreateTaskTool creates a task and returns taskId`() = runTest {
-        val tool = CreateTaskTool(fakeTaskRepo, profileAwareUser, clock)
+        val tool = CreateTaskTool(fakeTaskRepo, clock)
         val input = CreateTaskInput(title = "Buy groceries")
         val outputJson = tool.execute(input)
 
@@ -77,7 +81,7 @@ class WriteToolsTest {
 
     @Test
     fun `CreateTaskTool persists task in repository`() = runTest {
-        val tool = CreateTaskTool(fakeTaskRepo, profileAwareUser, clock)
+        val tool = CreateTaskTool(fakeTaskRepo, clock)
         tool.execute(CreateTaskInput(title = "Write tests"))
 
         val allTasks = fakeTaskRepo.tasks.value
@@ -86,7 +90,7 @@ class WriteToolsTest {
 
     @Test
     fun `CreateTaskTool accepts all optional fields`() = runTest {
-        val tool = CreateTaskTool(fakeTaskRepo, profileAwareUser, clock)
+        val tool = CreateTaskTool(fakeTaskRepo, clock)
         val input = CreateTaskInput(
             title = "Complex Task",
             description = "A description",
@@ -216,7 +220,7 @@ class WriteToolsTest {
 
     @Test
     fun `CreateNoteTool creates a note`() = runTest {
-        val tool = CreateNoteTool(fakeNotesRepo, profileAwareUser, clock)
+        val tool = CreateNoteTool(fakeNotesRepo, clock)
         val input = CreateNoteInput(title = "Meeting Notes", bodyMarkdown = "# Agenda")
         val outputJson = tool.execute(input)
 
@@ -231,7 +235,7 @@ class WriteToolsTest {
 
     @Test
     fun `CreateNoteTool creates a folder`() = runTest {
-        val tool = CreateNoteTool(fakeNotesRepo, profileAwareUser, clock)
+        val tool = CreateNoteTool(fakeNotesRepo, clock)
         val input = CreateNoteInput(title = "My Folder", isFolder = true)
         val outputJson = tool.execute(input)
 
@@ -243,7 +247,7 @@ class WriteToolsTest {
 
     @Test
     fun `CreateNoteTool uses scoped userId from profile`() = runTest {
-        val tool = CreateNoteTool(fakeNotesRepo, profileAwareUser, clock)
+        val tool = CreateNoteTool(fakeNotesRepo, clock)
         tool.execute(CreateNoteInput(title = "Scoped Note"))
 
         val created = fakeNotesRepo.notes.values.first { it.title == "Scoped Note" }

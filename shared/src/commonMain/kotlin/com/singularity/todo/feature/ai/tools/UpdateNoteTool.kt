@@ -5,7 +5,6 @@ import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
-import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -24,7 +23,7 @@ class UpdateNoteTool(private val notesRepository: NotesRepository, private val c
     SimpleTool<UpdateNoteInput>(TypeToken.of(UpdateNoteInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: UpdateNoteInput): String {
-        val existing = notesRepository.watchNote(NoteId(args.noteId)).first()
+        val existing = notesRepository.getNoteByIdForCurrentUser(NoteId(args.noteId))
             ?: return Json.encodeToString(
                 UpdateNoteOutput.serializer(),
                 UpdateNoteOutput(args.noteId, false),

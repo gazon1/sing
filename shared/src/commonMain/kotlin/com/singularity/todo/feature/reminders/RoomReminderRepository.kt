@@ -3,6 +3,8 @@ package com.singularity.todo.feature.reminders
 import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -11,7 +13,30 @@ import kotlinx.coroutines.flow.map
  * Room-backed implementation of [ReminderRepository].
  * Delegates all persistence to [ReminderDao]; this class only maps entities → domain.
  */
-class RoomReminderRepository(private val dao: ReminderDao, private val clock: Clock) : ReminderRepository {
+class RoomReminderRepository(
+    private val dao: ReminderDao,
+    private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
+) : ReminderRepository {
+
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+
+    override fun watchAllForCurrentUser(): Flow<List<Reminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            dao.watchAll(uid.value).map { list -> list.map { it.toReminder() } }
+        }
+
+    override fun watchByTaskForCurrentUser(taskId: TaskId): Flow<List<Reminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            dao.watchByTask(taskId.value, uid.value).map { list -> list.map { it.toReminder() } }
+        }
+
+    override fun watchDueBeforeForCurrentUser(nowEpochMs: Long): Flow<List<Reminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            dao.watchDueBefore(nowEpochMs, uid.value).map { list -> list.map { it.toReminder() } }
+        }
+
+    // ─── Explicit userId overloads ──────────────────────────────────────────
 
     override fun watchAll(userId: UserId): Flow<List<Reminder>> =
         dao.watchAll(userId.value).map { list -> list.map { it.toReminder() } }

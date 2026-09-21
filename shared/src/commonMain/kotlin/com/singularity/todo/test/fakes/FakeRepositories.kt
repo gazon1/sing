@@ -19,12 +19,13 @@ import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.profile.Profile
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -43,6 +44,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,9 +52,16 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -350,9 +359,9 @@ private class InMemoryTaskDao : TaskDao {
 
     override suspend fun getById(id: String): com.singularity.todo.core.database.TaskEntity? = error("not implemented")
 
-    override fun search(q: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
+    override fun watchSearchResults(userId: String, q: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
 
-    override suspend fun searchByTitle(q: String): List<com.singularity.todo.core.database.TaskEntity> = error("not implemented")
+    override suspend fun searchTitles(userId: String, q: String): List<com.singularity.todo.core.database.TaskEntity> = error("not implemented")
 
     override suspend fun upsert(task: com.singularity.todo.core.database.TaskEntity) = error("not implemented")
 
@@ -375,6 +384,7 @@ private class InMemoryTaskDao : TaskDao {
 
 class FakeTaskRepository(
     private val dao: TaskDao = InMemoryTaskDao(),
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
 ) : TaskRepository {
     private val store = InMemoryStore<Task>(keyOf = { it.id.value })
     private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
@@ -390,15 +400,79 @@ class FakeTaskRepository(
 
     fun clear() = store.clear()
 
-    override suspend fun create(task: Task): Result<Unit> = runCatching {
-        store.upsert(task)
-        _changes.emit(task)
+    // ── UserScopedRepository implementation ──────────────────────────────────────
+
+    override fun observeAllForCurrentUser(): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
+        store.state
+            .onStart { emit(store.state.value) }
+            .map { map -> map.values.filter { it.userId == uid }.toList() }
     }
 
-    override suspend fun update(task: Task): Result<Unit> = runCatching {
-        store.upsert(task)
-        _changes.emit(task)
+    override fun observeForCurrentUser(id: TaskId): Flow<Task?> =
+        store.state.onStart { emit(store.state.value) }.map { it[id.value] }
+
+    override suspend fun create(item: Task): Result<Unit> = runCatching {
+        store.upsert(item)
+        _changes.emit(item)
     }
+
+    override suspend fun update(item: Task): Result<Unit> = runCatching {
+        store.upsert(item)
+        _changes.emit(item)
+    }
+
+    override suspend fun delete(id: TaskId): Result<Unit> = runCatching {
+        store.remove(id.value)
+    }
+
+    // ── Domain-specific user-scoped observers ────────────────────────────────────
+
+    override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state
+                .onStart { emit(store.state.value) }
+                .map { map ->
+                    map.values
+                        .filter { it.userId == uid }
+                        .filter {
+                            TaskDomain.matchesFilter(
+                                it,
+                                filter,
+                                kotlin.time.Instant.fromEpochMilliseconds(
+                                    Clock.now().toEpochMilliseconds(),
+                                ).toLocalDateTime(TimeZone.currentSystemDefault()).date,
+                            )
+                        }
+                        .sortedWith(compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }))
+                }
+        }
+
+    override fun observeByDate(date: kotlinx.datetime.LocalDate): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state
+                .onStart { emit(store.state.value) }
+                .map { map ->
+                    map.values
+                        .filter { it.userId == uid }
+                        .filter { !it.isTrashed && !it.someday && it.dueDate == date }
+                        .sortedWith(compareBy({ !it.isPinned }))
+                }
+        }
+
+    override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state
+                .onStart { emit(store.state.value) }
+                .map { map -> map.values.filter { it.parentTaskId == parentId && it.userId == uid } }
+        }
+
+    override fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>> =
+        dao.getDependencyIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
+
+    override fun observeBlockingBy(taskId: TaskId): Flow<Set<TaskId>> =
+        dao.getBlockingTaskIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
+
+    // ── Legacy / DAO-backed methods ─────────────────────────────────────────────
 
     override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
         store[id.value]?.let { task ->
@@ -533,12 +607,33 @@ class FakeChecklistRepository : ChecklistRepository {
 
 // ─── ReminderRepository ──────────────────────────────────────────────────────
 
-class FakeReminderRepository(initialUserId: UserId = UserId("test-user")) : ReminderRepository {
+class FakeReminderRepository(
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+) : ReminderRepository {
     internal val reminders = MutableStateFlow<Map<String, Reminder>>(emptyMap())
 
     fun seed(vararg reminders: Reminder) {
         this.reminders.value = reminders.associateBy { it.id.value }
     }
+
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+
+    override fun watchAllForCurrentUser(): Flow<List<Reminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { map -> map.values.filter { it.userId == uid }.sortedBy { it.fireAt } }
+        }
+
+    override fun watchByTaskForCurrentUser(taskId: TaskId): Flow<List<Reminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { map -> map.values.filter { it.taskId == taskId && it.userId == uid }.sortedBy { it.fireAt } }
+        }
+
+    override fun watchDueBeforeForCurrentUser(nowEpochMs: Long): Flow<List<Reminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { map -> map.values.filter { it.fireAt <= nowEpochMs && it.userId == uid }.sortedBy { it.fireAt } }
+        }
+
+    // ─── Explicit userId overloads ──────────────────────────────────────────
 
     override fun watchAll(userId: UserId): Flow<List<Reminder>> =
         reminders.map { map -> map.values.filter { it.userId == userId }.sortedBy { it.fireAt } }
@@ -571,7 +666,10 @@ class FakeReminderRepository(initialUserId: UserId = UserId("test-user")) : Remi
 
 class FakeAuthRepository(initialSession: Session = Session.Anonymous(UserId.anonymous)) : AuthRepository {
     private val _session = MutableStateFlow(initialSession)
-    override val session: StateFlow<Session> = _session.asStateFlow()
+    // Return _session directly — MutableStateFlow IS a StateFlow, so this satisfies
+    // the interface. Using asStateFlow() creates a new wrapper each call, which
+    // breaks shared subscription state between callers.
+    override val session: StateFlow<Session> = _session
 
     private val _isLoading = MutableStateFlow(false)
     override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -584,11 +682,21 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(UserId.anon
     }
 
     override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> = Result.success(Unit)
+
+    /**
+     * Switches the session to a new anonymous user with [userId].
+     * For use in tests that simulate profile/user switches.
+     */
+    fun setUserId(userId: UserId) {
+        _session.value = Session.Anonymous(userId)
+    }
 }
 
 // ─── ProjectsRepository ──────────────────────────────────────────────────────
 
-class FakeProjectsRepository : ProjectsRepository {
+class FakeProjectsRepository(
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+) : ProjectsRepository {
     internal val store = InMemoryStore<Project>(
         keyOf = { it.id.value },
     )
@@ -596,6 +704,60 @@ class FakeProjectsRepository : ProjectsRepository {
     fun seed(vararg projects: Project) = store.seed(projects.toList())
     fun add(project: Project) = store.upsert(project)
     fun clear() = store.clear()
+
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────
+
+    override fun observeAllForCurrentUser(): Flow<List<Project>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.filter { it.userId == uid && !it.isDeleted } }
+        }
+
+    override fun observeProjectsWithCountsForCurrentUser(): Flow<List<ProjectWithCountRow>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values
+                    .filter { it.userId == uid && !it.isDeleted }
+                    .map { p ->
+                        ProjectWithCountRow(
+                            project = ProjectEntity(
+                                id = p.id.value, userId = p.userId.value, name = p.name, color = p.color,
+                                icon = p.icon, description = p.description, createdAt = p.createdAt.toEpochMilliseconds(),
+                                updatedAt = p.updatedAt.toEpochMilliseconds(), isDefault = p.isDefault,
+                                dueDate = p.dueDate?.toString(), team = p.team, isDeleted = p.isDeleted,
+                                deletedAt = p.deletedAt?.toEpochMilliseconds(), parentId = p.parentId?.value,
+                                sortOrder = p.sortOrder, idempotencyKey = p.idempotencyKey, externalId = p.externalId,
+                                sync = SyncColumns(),
+                            ),
+                            totalCount = 0,
+                            completedCount = 0,
+                        )
+                    }
+            }
+        }
+
+    override fun watchProjectForCurrentUser(id: ProjectId): Flow<Project?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
+
+    override suspend fun getByIdForCurrentUser(id: ProjectId): Project? {
+        val uid = currentUser.scopedUserId.value
+        return store[id.value]?.takeIf { it.userId == uid }
+    }
+
+    override fun changesForCurrentUser(id: ProjectId): Flow<Project?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
+
+    override fun watchChildrenOfForCurrentUser(parentId: ProjectId): Flow<List<Project>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { it.parentId == parentId && it.userId == uid && !it.isDeleted }
+            }
+        }
+
+    // ─── Explicit userId overloads ──────────────────────────────────────────
 
     override fun watchProjects(userId: UserId): Flow<List<Project>> =
         store.state.map { list -> list.values.filter { it.userId == userId && !it.isDeleted } }
@@ -673,12 +835,25 @@ class FakeProjectsRepository : ProjectsRepository {
 
 // ─── TagsRepository ──────────────────────────────────────────────────────────
 
-class FakeTagsRepository : com.singularity.todo.feature.tags.TagsRepository {
+class FakeTagsRepository(
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+) : com.singularity.todo.feature.tags.TagsRepository {
     private val store = InMemoryStore<com.singularity.todo.feature.tags.Tag>(keyOf = { it.id.value })
 
     fun seed(vararg tags: com.singularity.todo.feature.tags.Tag) = store.seed(tags.toList())
     fun add(tag: com.singularity.todo.feature.tags.Tag) = store.upsert(tag)
     fun clear() = store.clear()
+
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+
+    override fun watchTagsForCurrentUser(): Flow<List<com.singularity.todo.feature.tags.Tag>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state
+                .onStart { emit(store.state.value) }
+                .map { list -> list.values.filter { it.userId == uid.value } }
+        }
+
+    // ─── Explicit userId overloads ──────────────────────────────────────────
 
     override fun watchTags(userId: String): Flow<List<com.singularity.todo.feature.tags.Tag>> = store.state
         .onStart { emit(store.state.value) }
@@ -702,10 +877,19 @@ class FakeTagsRepository : com.singularity.todo.feature.tags.TagsRepository {
 
 // ─── AttachmentRepository ────────────────────────────────────────────────────
 
-class FakeAttachmentRepository : com.singularity.todo.core.attachments.AttachmentRepository {
+class FakeAttachmentRepository(
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+) : com.singularity.todo.core.attachments.AttachmentRepository {
     private val store = InMemoryStore<com.singularity.todo.core.attachments.Attachment>(keyOf = { it.id.value })
 
     fun seed(vararg attachments: com.singularity.todo.core.attachments.Attachment) = store.seed(attachments.toList())
+
+    // ─── UserId-free reads (Phase 2 pattern) ─────────────────────────────────
+
+    override fun watchByTaskForCurrentUser(taskId: TaskId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.filter { it.taskId == taskId && it.userId == uid } }
+        }
 
     override fun watchByTask(
         taskId: TaskId,
@@ -765,7 +949,9 @@ class FakeAttachmentRepository : com.singularity.todo.core.attachments.Attachmen
 
 // ─── NotesRepository ─────────────────────────────────────────────────────────
 
-class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
+class FakeNotesRepository(
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+) : com.singularity.todo.feature.notes.NotesRepository {
     /** Exposes raw store map for tests that need direct map access. */
     val notes: Map<String, com.singularity.todo.feature.notes.Note> get() = store.state.value
     private val store = InMemoryStore<com.singularity.todo.feature.notes.Note>(keyOf = { it.id.value })
@@ -773,6 +959,56 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
     fun seed(note: com.singularity.todo.feature.notes.Note) = store.upsert(note)
     fun add(note: com.singularity.todo.feature.notes.Note) = store.upsert(note)
     fun clear() = store.clear()
+
+    // ─── UserId-free reads (Phase 2 pattern) ─────────────────────────────────
+
+    override fun searchNotesForCurrentUser(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { note ->
+                    note.userId == uid && note.deletedAt == null && (
+                        note.title.contains(query, ignoreCase = true) ||
+                            (note.bodyMarkdown?.contains(query, ignoreCase = true) == true)
+                    )
+                }
+            }
+        }
+
+    override fun watchNotesForCurrentUser(): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.filter { it.userId == uid && it.deletedAt == null } }
+        }
+
+    override fun watchPinnedForCurrentUser(): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.filter { it.userId == uid && it.isPinned && it.deletedAt == null } }
+        }
+
+    override fun watchArchivedForCurrentUser(): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { it.userId == uid && it.archivedAt != null && it.deletedAt == null }
+            }
+        }
+
+    override fun watchNoteForCurrentUser(id: com.singularity.todo.feature.notes.NoteId): Flow<com.singularity.todo.feature.notes.Note?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
+
+    override suspend fun getNoteByIdForCurrentUser(id: com.singularity.todo.feature.notes.NoteId): com.singularity.todo.feature.notes.Note? {
+        val uid = currentUser.scopedUserId.value
+        return store.state.value.values.firstOrNull { it.id == id && it.userId == uid }
+    }
+
+    override fun watchRootNotesForCurrentUser(): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { it.userId == uid && it.parentNoteId == null && !it.isFolder && it.deletedAt == null }
+            }
+        }
+
+    // ─── Explicit userId reads ───────────────────────────────────────────────
 
     override fun watchNotes(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
         store.state.map { list -> list.values.filter { it.userId == userId && it.deletedAt == null } }
@@ -800,6 +1036,18 @@ class FakeNotesRepository : com.singularity.todo.feature.notes.NotesRepository {
         id: com.singularity.todo.feature.notes.NoteId,
     ): Flow<com.singularity.todo.feature.notes.Note?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
+
+    override fun searchNotes(query: String, userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        store.state.map { list ->
+            list.values.filter { note ->
+                note.userId == userId && note.deletedAt == null && (
+                    note.title.contains(query, ignoreCase = true) ||
+                        (note.bodyMarkdown?.contains(query, ignoreCase = true) == true)
+                )
+            }
+        }
+
+    // ─── Deprecated (remove in Phase 3) ─────────────────────────────────────
 
     override fun searchNotes(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
         store.state.map { list ->
@@ -1049,8 +1297,8 @@ fun FakeProfileAwareCurrentUser(
     initialUserId: UserId = UserId("test-user"),
     profileRepository: ProfileRepository = FakeProfileRepository(),
     scope: kotlinx.coroutines.CoroutineScope = com.singularity.todo.core.coroutines.createBackgroundScope(),
-): ProfileAwareCurrentUser = ProfileAwareCurrentUser(
-    currentUser = CurrentUser(FakeAuthRepository(Session.Anonymous(initialUserId)), scope),
+): ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(
+    authRepository = FakeAuthRepository(Session.Anonymous(initialUserId)),
     profileRepository = profileRepository,
     scope = scope,
 )
@@ -1058,16 +1306,57 @@ fun FakeProfileAwareCurrentUser(
 /**
  * Overload that accepts an existing [AuthRepository] — for call sites that already
  * have a [FakeAuthRepository] instance configured.
+ *
+ * Returns a [ProfileAwareCurrentUser] subclass. The `scopedUserId` is set directly
+ * to `currentUser.userId` (bypassing the `combine(profileRepository.activeProfileId)`
+ * step). This avoids the synchronous double-emission problem that `combine` produces
+ * when both upstreams are already seeded with values: `combine` emits once per
+ * upstream change, but its first emission can be lost if `stateIn` subscribes
+ * before all upstreams have emitted. Using `currentUser.userId` directly is
+ * correct for all test scenarios that exercise auth-session-driven user switches.
  */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 fun FakeProfileAwareCurrentUser(
     authRepository: AuthRepository,
     profileRepository: ProfileRepository = FakeProfileRepository(),
     scope: kotlinx.coroutines.CoroutineScope = com.singularity.todo.core.coroutines.createBackgroundScope(),
-): ProfileAwareCurrentUser = ProfileAwareCurrentUser(
-    currentUser = CurrentUser(authRepository, scope),
-    profileRepository = profileRepository,
-    scope = scope,
-)
+): ProfileAwareCurrentUser {
+    val currentUser = CurrentUser(authRepository, scope)
+
+    // Build scopedUserId as a simple MutableStateFlow, seeded with the current
+    // effective userId from the session. We monitor session changes in the scope
+    // and update it reactively. This avoids the combine+stateIn synchronous
+    // double-emission problem entirely.
+    val initialUid = (authRepository.session.value.let {
+        when (it) {
+            is Session.SignedIn -> it.userId
+            is Session.Anonymous -> it.userId
+            else -> UserId.anonymous
+        }
+    })
+
+    // Build scopedUserId from session changes via plain collect. The collector
+    // is launched on the provided [scope] so when the test passes `backgroundScope`,
+    // `advanceUntilIdle()` drives it via the TestDispatcher. UNDISPATCHED so the
+    // collector subscribes to session synchronously (avoiding the TestDispatcher's
+    // "schedule and return" semantics for the initial subscription).
+    val fakeScopedUserId = MutableStateFlow(initialUid)
+    scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+        authRepository.session.collect { session ->
+            fakeScopedUserId.value = extractUserId(session)
+        }
+    }
+
+    return object : ProfileAwareCurrentUser(currentUser, profileRepository, scope) {
+        override val scopedUserId: kotlinx.coroutines.flow.StateFlow<UserId> = fakeScopedUserId.asStateFlow()
+    }
+}
+
+private fun extractUserId(session: Session): UserId = when (session) {
+    is Session.SignedIn -> session.userId
+    is Session.Anonymous -> session.userId
+    else -> UserId.anonymous
+}
 
 // ─── AttachmentSaver ──────────────────────────────────────────────────────────
 
@@ -1089,9 +1378,27 @@ class FakeAttachmentSaver : com.singularity.todo.feature.tasks.domain.model.Atta
  * Unlike the production [RoomSavedAgendaViewsRepository], this implementation
  * replays the current state on every subscription — suitable for unit tests.
  */
-class FakeSavedAgendaViewsRepository : SavedAgendaViewsRepository {
+class FakeSavedAgendaViewsRepository(
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+) : SavedAgendaViewsRepository {
 
     private val store = MutableStateFlow<Map<SavedAgendaViewKey, SavedAgendaView>>(emptyMap())
+
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+
+    override fun watchAllForCurrentUser(): Flow<List<SavedAgendaView>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.map { map ->
+                map.values.filter { it.userId == uid.value }.sortedBy { it.name }
+            }
+        }
+
+    override fun watchByIdForCurrentUser(id: SavedAgendaViewId): Flow<SavedAgendaView?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.map { map -> map[SavedAgendaViewKey.of(uid.value, id.raw)] }
+        }
+
+    // ─── Explicit userId overloads ──────────────────────────────────────────
 
     override fun watchAll(userId: String): Flow<List<SavedAgendaView>> =
         store.map { map ->

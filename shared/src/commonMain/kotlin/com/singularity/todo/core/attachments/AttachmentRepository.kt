@@ -3,6 +3,8 @@ package com.singularity.todo.core.attachments
 import com.singularity.todo.core.files.MimeTypes
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -19,6 +21,11 @@ import kotlinx.coroutines.flow.map
  * by a background sync job.
  */
 interface AttachmentRepository {
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+    /** Emits all (non-deleted) attachments for the given task, scoped to the current user. */
+    fun watchByTaskForCurrentUser(taskId: TaskId): Flow<List<Attachment>>
+
+    // ─── Explicit userId overloads (Phase 3 migration target) ──────────────────
     /** Emits all (non-deleted) attachments for the given task. */
     fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Attachment>>
 
@@ -54,10 +61,18 @@ class AttachmentRepositoryImpl(
     private val storage: AttachmentStorage,
     private val uploadService: AttachmentUploadService,
     private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : AttachmentRepository {
 
+    override fun watchByTaskForCurrentUser(taskId: TaskId): Flow<List<Attachment>> =
+        currentUser.observeForCurrentUser { uid ->
+            dao.watchByTaskForUser(taskId.value, uid.value).map { entities ->
+                entities.map { it.toAttachment() }
+            }
+        }
+
     override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Attachment>> =
-        dao.watchByTask(taskId.value).map { entities ->
+        dao.watchByTaskForUser(taskId.value, userId.value).map { entities ->
             entities.map { it.toAttachment() }
         }
 

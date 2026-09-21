@@ -63,7 +63,6 @@ data class DecomposeAndCreateOutput(
 
 class DecomposeAndCreateTool(
     private val taskRepository: TaskRepository,
-    private val profileAwareCurrentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
     private val promptExecutor: PromptExecutor,
     private val model: LLModel,
@@ -75,7 +74,7 @@ class DecomposeAndCreateTool(
 
     override suspend fun execute(args: DecomposeAndCreateInput): String {
         val now = clock.now()
-        val userId = profileAwareCurrentUser.scopedUserId.value
+        val userId = ProfileAwareCurrentUser.scopedUserId.value
 
         // 1) plan via LLM
         var subTitles: List<String>

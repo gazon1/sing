@@ -5,6 +5,8 @@ import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -12,6 +14,11 @@ import kotlinx.coroutines.flow.map
  * Contract for tags persistence.
  */
 interface TagsRepository {
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+    fun watchTagsForCurrentUser(): Flow<List<Tag>>
+    fun observeAllForCurrentUser(): Flow<List<Tag>> = watchTagsForCurrentUser()
+
+    // ─── Explicit userId overloads (Phase 3 migration target) ──────────────────
     fun watchTags(userId: String): Flow<List<Tag>>
     fun watchTag(id: TagId): Flow<Tag?>
     suspend fun create(tag: Tag): Result<Unit>
@@ -22,7 +29,21 @@ interface TagsRepository {
 /**
  * Room-backed production [TagsRepository].
  */
-class TagsRepositoryImpl(private val tagDao: TagDao, private val clock: Clock) : TagsRepository {
+class TagsRepositoryImpl(
+    private val tagDao: TagDao,
+    private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
+) : TagsRepository {
+
+    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+
+    override fun watchTagsForCurrentUser(): Flow<List<Tag>> =
+        currentUser.observeForCurrentUser { uid ->
+            tagDao.watchAll(uid.value).map { list -> list.map { it.toTag() } }
+        }
+
+    // ─── Explicit userId overloads ──────────────────────────────────────────
+
     override fun watchTags(userId: String): Flow<List<Tag>> = tagDao.watchAll(userId).map { list ->
         list.map { it.toTag() }
     }

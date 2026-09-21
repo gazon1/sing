@@ -159,8 +159,7 @@ class SavedAgendaViewModel(
     }
 
     private suspend fun initEditMode(mode: SavedAgendaScreenMode.Edit) {
-        val userId = deps.currentUser.scopedUserId.first().value
-        val view = deps.repo.watchById(mode.viewId, userId).first()
+        val view = deps.repo.watchByIdForCurrentUser(mode.viewId).first()
         if (view == null) {
             _state.value = SavedAgendaViewState.NotFound
             return

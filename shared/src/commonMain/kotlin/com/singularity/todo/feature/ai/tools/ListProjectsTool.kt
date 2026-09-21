@@ -27,12 +27,11 @@ data class ProjectSummary(
 
 class ListProjectsTool(
     private val projectsRepository: ProjectsRepository,
-    private val currentUser: ProfileAwareCurrentUser,
 ) : SimpleTool<ListProjectsInput>(TypeToken.of(ListProjectsInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: ListProjectsInput): String {
-        val userId = currentUser.scopedUserId.value.value
-        val rows = projectsRepository.watchProjectsWithCounts(UserId(userId)).first()
+        val userId = ProfileAwareCurrentUser.scopedUserId.value.value
+        val rows = projectsRepository.observeProjectsWithCountsForCurrentUser().first()
             .take(args.limit)
             .map { row ->
                 ProjectSummary(

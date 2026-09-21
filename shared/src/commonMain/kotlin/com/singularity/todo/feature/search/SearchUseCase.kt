@@ -3,6 +3,7 @@ package com.singularity.todo.feature.search
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NotesRepository
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tags.Tag
@@ -21,11 +22,11 @@ class SearchUseCase(
     private val projectRepo: ProjectsRepository,
     private val tagRepo: TagsRepository,
 ) {
-    operator fun invoke(query: String, userId: String): Flow<SearchResults> = combine(
-        taskRepo.watchTasks(UserId.fromString(userId), TaskFilter.Search(query)),
-        noteRepo.searchNotes(query),
-        projectRepo.watchProjects(UserId.fromString(userId)),
-        tagRepo.watchTags(userId),
+    operator fun invoke(query: String): Flow<SearchResults> = combine(
+        taskRepo.observeByFilter(TaskFilter.Search(query)),
+        noteRepo.searchNotesForCurrentUser(query),
+        projectRepo.observeAllForCurrentUser(),
+        tagRepo.observeAllForCurrentUser(),
     ) { tasks, notes, projects, tags ->
         SearchResults(
             tasks = tasks,

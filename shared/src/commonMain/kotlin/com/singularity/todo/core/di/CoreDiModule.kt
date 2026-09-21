@@ -73,11 +73,11 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Repositories ───────────────────────────────────────────────────
 
-    single<AttachmentRepository> { AttachmentRepositoryImpl(get(), get(), get(), get()) }
+    single<AttachmentRepository> { AttachmentRepositoryImpl(get(), get(), get(), get(), get()) }
 
     factory { AttachmentStorage(get(), "/attachments") }
 
-    single<ReminderRepository> { RoomReminderRepository(get(), get()) }
+    single<ReminderRepository> { RoomReminderRepository(get(), get(), get()) }
 
     // ─── Ports ───────────────────────────────────────────────────────────
 

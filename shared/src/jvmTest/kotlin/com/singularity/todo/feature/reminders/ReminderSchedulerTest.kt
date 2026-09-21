@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.notifications.FakeNotificationPort
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeReminderRepository
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -18,7 +19,8 @@ class ReminderSchedulerTest {
     @Test
     fun `poll fires notification for due reminder`() = runTest {
         val fakePort = FakeNotificationPort()
-        val repo = FakeReminderRepository(userId)
+        val currentUser = FakeProfileAwareCurrentUser(initialUserId = userId, scope = backgroundScope)
+        val repo = FakeReminderRepository(currentUser)
         val scheduler = ReminderScheduler(testLog, fakePort, repo, userId)
 
         val reminder = Reminder(
@@ -41,7 +43,8 @@ class ReminderSchedulerTest {
     @Test
     fun `poll deletes one-shot reminder after firing`() = runTest {
         val fakePort = FakeNotificationPort()
-        val repo = FakeReminderRepository(userId)
+        val currentUser = FakeProfileAwareCurrentUser(initialUserId = userId, scope = backgroundScope)
+        val repo = FakeReminderRepository(currentUser)
         val scheduler = ReminderScheduler(testLog, fakePort, repo, userId)
 
         val reminder = Reminder(
@@ -63,7 +66,8 @@ class ReminderSchedulerTest {
     @Test
     fun `poll does not delete recurring reminder`() = runTest {
         val fakePort = FakeNotificationPort()
-        val repo = FakeReminderRepository(userId)
+        val currentUser = FakeProfileAwareCurrentUser(initialUserId = userId, scope = backgroundScope)
+        val repo = FakeReminderRepository(currentUser)
         val scheduler = ReminderScheduler(testLog, fakePort, repo, userId)
 
         val reminder = Reminder(
@@ -85,7 +89,8 @@ class ReminderSchedulerTest {
     @Test
     fun `poll skips future reminders`() = runTest {
         val fakePort = FakeNotificationPort()
-        val repo = FakeReminderRepository(userId)
+        val currentUser = FakeProfileAwareCurrentUser(initialUserId = userId, scope = backgroundScope)
+        val repo = FakeReminderRepository(currentUser)
         val scheduler = ReminderScheduler(testLog, fakePort, repo, userId)
 
         val futureReminder = Reminder(

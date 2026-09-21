@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.archive
 
 import androidx.lifecycle.ViewModel
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -16,7 +15,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -41,7 +39,6 @@ sealed interface ArchiveUiState {
 class ArchiveViewModel(
     private val archiveRepo: ArchiveRepository,
     private val taskRepo: TaskRepository,
-    currentUser: ProfileAwareCurrentUser,
     private val scope: CoroutineScope,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
@@ -50,11 +47,9 @@ class ArchiveViewModel(
     constructor(
         archiveRepo: ArchiveRepository,
         taskRepo: TaskRepository,
-        currentUser: ProfileAwareCurrentUser,
     ) : this(
         archiveRepo = archiveRepo,
         taskRepo = taskRepo,
-        currentUser = currentUser,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     )
 
@@ -62,12 +57,9 @@ class ArchiveViewModel(
     private val _events = MutableSharedFlow<ArchiveUiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<ArchiveUiEvent> = _events.asSharedFlow()
 
-    val state: StateFlow<ArchiveUiState> = currentUser.scopedUserId
-        .flatMapLatest { uid ->
-            taskRepo.watchTasks(uid, TaskFilter.Trash)
-                .map<List<Task>, ArchiveUiState> { tasks ->
-                    ArchiveUiState.Content(tasks, refreshing = _refreshing.value)
-                }
+    val state: StateFlow<ArchiveUiState> = taskRepo.observeByFilter(TaskFilter.Trash)
+        .map<List<Task>, ArchiveUiState> { tasks ->
+            ArchiveUiState.Content(tasks, refreshing = _refreshing.value)
         }
         .catch { emit(ArchiveUiState.Error(it.message ?: "Error")) }
         .stateIn(scope, sharingStarted(), ArchiveUiState.Loading)

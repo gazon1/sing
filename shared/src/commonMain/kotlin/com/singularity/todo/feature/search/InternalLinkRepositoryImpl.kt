@@ -8,7 +8,11 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.toNote
 import com.singularity.todo.feature.tasks.domain.model.Task
 
-class InternalLinkRepositoryImpl(private val noteDao: NoteDao, private val taskDao: TaskDao) : InternalLinkRepository {
+class InternalLinkRepositoryImpl(
+    private val noteDao: NoteDao,
+    private val taskDao: TaskDao,
+    private val currentUser: com.singularity.todo.feature.profile.ProfileAwareCurrentUser,
+) : InternalLinkRepository {
 
     override suspend fun searchNotes(userId: UserId, query: String): List<Note> {
         if (query.isBlank()) return emptyList()
@@ -16,12 +20,13 @@ class InternalLinkRepositoryImpl(private val noteDao: NoteDao, private val taskD
             .map { it.toNote() }
     }
 
-    override suspend fun searchTasks(query: String): List<Task> {
+    override suspend fun searchTasks(userId: UserId, query: String): List<Task> {
         if (query.isBlank()) return emptyList()
-        return taskDao.searchByTitle(query)
+        return taskDao.searchTitles(userId.value, query)
             .map { it.toTask() }
     }
 
-    override suspend fun getBacklinkNotes(noteId: String): List<Note> = noteDao.getBacklinkNotes(noteId)
-        .map { it.toNote() }
+    override suspend fun getBacklinkNotes(noteId: String, userId: UserId): List<Note> =
+        noteDao.getBacklinkNotes(noteId, userId.value)
+            .map { it.toNote() }
 }

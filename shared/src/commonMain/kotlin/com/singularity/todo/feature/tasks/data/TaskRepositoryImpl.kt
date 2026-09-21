@@ -11,6 +11,8 @@ import com.singularity.todo.core.database.toLocalTimeIsoOrNull
 import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -24,15 +26,53 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class TaskRepositoryImpl(private val taskDao: TaskDao, private val clock: Clock) : TaskRepository {
+class TaskRepositoryImpl(
+    private val taskDao: TaskDao,
+    private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
+) : TaskRepository {
 
     private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
     override val changes: SharedFlow<Task> = _changes.asSharedFlow()
+
+    // ── User-scoped observation (new API) ──────────────────────────────────────
+
+    override fun observeAllForCurrentUser(): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid ->
+            taskDao.watchActive(uid.value).map { it.map { e -> e.toTask() } }
+        }
+
+    override fun observeForCurrentUser(id: TaskId): Flow<Task?> =
+        watchTask(id) // watchTask already looks up by id only (userId is entity-level)
+
+    override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid -> watchTasks(uid, filter) }
+
+    override fun observeByDate(date: LocalDate): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid ->
+            taskDao.watchByDate(uid.value, date.toString()).map { it.map { e -> e.toTask() } }
+        }
+
+    override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid ->
+            taskDao.watchActive(uid.value).map { list ->
+                list.filter { it.parentTaskId == parentId.value }.map { it.toTask() }
+            }
+        }
+
+    override fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>> =
+        watchDependencies(taskId) // already id-only, no userId needed
+
+    override fun observeBlockingBy(taskId: TaskId): Flow<Set<TaskId>> =
+        watchBlockingBy(taskId) // already id-only, no userId needed
+
+    // ── Legacy observation (Phase 3 — migrate callers to user-scoped API above) ──
 
     override fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> {
         val today = LocalDate.fromEpochDays(
@@ -63,7 +103,8 @@ class TaskRepositoryImpl(private val taskDao: TaskDao, private val clock: Clock)
 
             is TaskFilter.ByTag -> taskDao.watchByTag(userId.value, filter.id.value).map { it.map { e -> e.toTask() } }
 
-            is TaskFilter.Search -> taskDao.search(filter.query).map { it.map { e -> e.toTask() } }
+            is TaskFilter.Search -> taskDao.watchSearchResults(userId.value, filter.query)
+                .map { list -> list.map { e -> e.toTask() } }
 
             is TaskFilter.ByDateRange -> taskDao.watchByDateRange(
                 userId.value,
@@ -111,9 +152,7 @@ class TaskRepositoryImpl(private val taskDao: TaskDao, private val clock: Clock)
     override fun watchTask(id: TaskId): Flow<Task?> = taskDao.watchById(id.value).map { it?.toTask() }
 
     override fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> =
-        taskDao.watchActive(userId.value).map {
-            list,
-            ->
+        taskDao.watchActive(userId.value).map { list ->
             list.filter { it.parentTaskId == parentId.value }.map { it.toTask() }
         }
 
@@ -129,6 +168,8 @@ class TaskRepositoryImpl(private val taskDao: TaskDao, private val clock: Clock)
         taskDao.upsert(task.toEntity())
         _changes.tryEmit(task)
     }
+
+    override suspend fun delete(id: TaskId): Result<Unit> = softDelete(id)
 
     override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()

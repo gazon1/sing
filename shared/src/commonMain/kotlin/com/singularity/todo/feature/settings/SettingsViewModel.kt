@@ -18,7 +18,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 
@@ -74,9 +73,7 @@ class SettingsViewModel(
             _state.value = buildState()
         }
         scope.launch {
-            currentUser.userId.flatMapLatest { userId ->
-                savedAgendaViewsRepo.watchAll(userId.value)
-            }.collect { views ->
+            savedAgendaViewsRepo.watchAllForCurrentUser().collect { views ->
                 savedAgendaViews.value = views
             }
         }

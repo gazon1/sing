@@ -71,6 +71,8 @@ class ProjectDetailViewModel(
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
 
+    private val userId get() = currentUser.scopedUserId.value
+
     /** Production constructor — Koin uses this. */
     constructor(
         projectId: ProjectId,
@@ -103,7 +105,7 @@ class ProjectDetailViewModel(
     val hideCompleted: StateFlow<Boolean> = _hideCompleted
 
     /** Emits null on start (loading placeholder), then the project flow. */
-    private val projectFlow: StateFlow<Project?> = projectRepo.watchProject(projectId)
+    private val projectFlow: StateFlow<Project?> = projectRepo.watchProjectForCurrentUser(projectId)
         .onStart { emit(null) }
         .stateIn(scope, sharingStarted(), null)
 
@@ -114,7 +116,7 @@ class ProjectDetailViewModel(
      */
     val parentOptionsFlow: StateFlow<List<ParentOption>> = combine(
         projectFlow,
-        projectRepo.watchProjects(currentUser.scopedUserId.value),
+        projectRepo.observeAllForCurrentUser(),
     ) { project, allProjects ->
         if (project == null) {
             emptyList()
@@ -131,7 +133,7 @@ class ProjectDetailViewModel(
      * Sorted by dueDate ascending (nulls last), then updatedAt descending.
      */
     val availableTasksFlow: StateFlow<List<Task>> =
-        taskRepo.watchTasks(currentUser.scopedUserId.value, TaskFilter.All)
+        taskRepo.observeByFilter(TaskFilter.All)
             .map { all ->
                 all
                     .filter { it.projectId != null && it.projectId != projectId && it.completedAt == null }
@@ -148,24 +150,21 @@ class ProjectDetailViewModel(
             if (project == null) {
                 flowOf(emptyList())
             } else {
-                taskRepo.watchTasks(
-                currentUser.scopedUserId.value,
-                TaskFilter.ByProject(projectId),
-            )
+                taskRepo.observeByFilter(TaskFilter.ByProject(projectId))
             }
         },
         projectFlow.flatMapLatest { project ->
             if (project == null) {
                 flowOf(emptyList())
             } else {
-                projectRepo.watchByParent(projectId)
+                projectRepo.watchChildrenOfForCurrentUser(projectId)
             }
         },
         projectFlow.flatMapLatest { p ->
             if (p == null || p.parentId == null) {
                 flowOf(null)
             } else {
-                projectRepo.watchProject(p.parentId)
+                    projectRepo.watchProjectForCurrentUser(p.parentId)
             }
         },
         _hideCompleted,
@@ -277,12 +276,12 @@ class ProjectDetailViewModel(
 
             is ProjectDetailIntent.Domain.Delete ->
                 scope.launch {
-                    deleteProject(projectId, currentUser.scopedUserId.value)
+                    deleteProject(projectId)
                         .onSuccess { _events.trySend(ProjectDetailUiEvent.NavigateBack) }
-                        .onFailure { error ->
+                        .onFailure { e ->
                             _events.trySend(
                                 ProjectDetailUiEvent.ShowError(
-                                (error as? AppError)?.message ?: error.message ?: "Delete failed",
+                                (e as? AppError)?.message ?: e.message ?: "Delete failed",
                             )
                             )
                         }
@@ -296,14 +295,14 @@ class ProjectDetailViewModel(
                     createTaskUseCase(
                         CreateTaskInput(
                             title = trimmed,
-                            userId = currentUser.scopedUserId.value,
+                            userId = userId,
                             projectId = projectId,
                             kind = TaskKind.Task,
                         ),
-                    ).onFailure { error ->
+                    ).onFailure { e ->
                         _events.trySend(
                             ProjectDetailUiEvent.ShowError(
-                            (error as? AppError)?.message ?: error.message ?: "Create task failed",
+                            (e as? AppError)?.message ?: e.message ?: "Create task failed",
                         )
                         )
                     }
@@ -313,10 +312,10 @@ class ProjectDetailViewModel(
             is ProjectDetailIntent.Domain.MoveTaskToProject ->
                 scope.launch {
                     updateTask.invoke(intent.taskId) { it.copy(projectId = projectId) }
-                        .onFailure { error ->
+                        .onFailure { e ->
                             _events.trySend(
                                 ProjectDetailUiEvent.ShowError(
-                                (error as? AppError)?.message ?: error.message ?: "Move task failed",
+                                (e as? AppError)?.message ?: e.message ?: "Move task failed",
                             )
                             )
                         }

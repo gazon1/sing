@@ -119,7 +119,7 @@ class ProjectsUseCaseTest {
             CreateProjectInput(name = "Empty", color = 0xFF2196F3.toInt(), userId = testUserId),
         ).getOrNull()!!
 
-        val result = deleteProjectUseCase()(id, testUserId)
+        val result = deleteProjectUseCase()(id)
         assertTrue(result.isSuccess)
     }
 
@@ -143,7 +143,7 @@ class ProjectsUseCaseTest {
             ),
         )
 
-        val result = deleteProjectUseCase()(id, testUserId)
+        val result = deleteProjectUseCase()(id)
         assertTrue(result.isFailure)
     }
 }

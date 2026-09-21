@@ -3,6 +3,7 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.ids.IdGenerator
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteFilter
 import com.singularity.todo.feature.notes.NoteId
@@ -23,8 +24,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -44,10 +46,9 @@ import kotlinx.coroutines.cancel
 @OptIn(ExperimentalCoroutinesApi::class)
 class NotesListViewModel(
     private val repo: NotesRepository,
-    currentUser: ProfileAwareCurrentUser,
+    private val currentUser: ProfileAwareCurrentUser,
     private val idGen: IdGenerator,
     private val scope: CoroutineScope,
-    sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
 
     // Secondary — production Koin uses this
@@ -60,7 +61,7 @@ class NotesListViewModel(
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     )
 
-    private val userId = currentUser.scopedUserId
+    private val userId get() = currentUser.scopedUserId.value
 
     private val _notes = MutableStateFlow<NotesUiState>(NotesUiState.Loading)
     val state: StateFlow<NotesUiState> = _notes.asStateFlow()
@@ -80,35 +81,34 @@ class NotesListViewModel(
     init {
         scope.launch(Dispatchers.Unconfined) {
             // Watch notes based on current filter, then split into pinned/unpinned.
-            combine(_filter, userId) { f, uid -> f to uid }
-                .flatMapLatest { (f, uid) ->
-                    val flow = when (f) {
-                        NoteFilter.All -> repo.watchNotes(uid)
-                        NoteFilter.Pinned -> repo.watchPinned(uid)
-                        NoteFilter.Archived -> repo.watchArchived(uid)
-                    }
-                    flow.map { notes -> f to notes }
-                }.catch { emit(NoteFilter.All to emptyList()) }
-                .collect { (filter, allNotes) ->
-                    val uid = userId.value
-                    if (allNotes.isEmpty() && filter == NoteFilter.All) {
-                        _notes.value = NotesUiState.Empty(uid)
-                    } else {
-                        val sorted = sortNotes(allNotes, _sortOrder.value)
-                        val pinned = sorted.filter { it.isPinned }
-                        val unpinned = sorted.filter { !it.isPinned }
-                        _notes.value = NotesUiState.Content(
-                            NotesListState(
-                                pinned = pinned,
-                                unpinned = unpinned,
-                                filter = filter,
-                                sortOrder = _sortOrder.value,
-                                selectedIds = _selectedIds.value,
-                                isSelectionMode = _isSelectionMode.value,
-                            ),
-                        )
-                    }
+            _filter.flatMapLatest { f ->
+                val flow = when (f) {
+                    NoteFilter.All -> repo.watchNotesForCurrentUser()
+                    NoteFilter.Pinned -> repo.watchPinnedForCurrentUser()
+                    NoteFilter.Archived -> repo.watchArchivedForCurrentUser()
                 }
+                flow.map { notes -> f to notes }
+            }.catch { emit(NoteFilter.All to emptyList()) }
+            .collect { (filter, allNotes) ->
+                val uid = userId
+                if (allNotes.isEmpty() && filter == NoteFilter.All) {
+                    _notes.value = NotesUiState.Empty(uid)
+                } else {
+                    val sorted = sortNotes(allNotes, _sortOrder.value)
+                    val pinned = sorted.filter { it.isPinned }
+                    val unpinned = sorted.filter { !it.isPinned }
+                    _notes.value = NotesUiState.Content(
+                        NotesListState(
+                            pinned = pinned,
+                            unpinned = unpinned,
+                            filter = filter,
+                            sortOrder = _sortOrder.value,
+                            selectedIds = _selectedIds.value,
+                            isSelectionMode = _isSelectionMode.value,
+                        ),
+                    )
+                }
+            }
         }
     }
 
@@ -139,7 +139,7 @@ class NotesListViewModel(
         }
     }
 
-    // ─── Pin ────────────────────────────────────────────────────────────────
+    // ─── Pin ───────────────────────────────────────────────────────────────
 
     fun togglePin(id: NoteId) {
         val current = _notes.value as? NotesUiState.Content ?: return
@@ -200,12 +200,12 @@ class NotesListViewModel(
     fun createNoteWithTitle(title: String): String {
         val id = NoteId(idGen.next())
         scope.launch(Dispatchers.Unconfined) {
-            repo.createNoteWithTitle(userId.value, title)
+            repo.createNoteWithTitle(userId, title)
         }
         return id.value
     }
 
-    // ─── Delete ────────────────────────────────────────────────────────────
+    // ─── Delete ───────────────────────────────────────────────────────────
 
     fun delete(id: NoteId) {
         scope.launch(Dispatchers.Unconfined) {

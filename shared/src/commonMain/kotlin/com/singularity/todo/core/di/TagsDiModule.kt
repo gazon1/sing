@@ -14,7 +14,7 @@ import org.koin.dsl.module
 fun tagsModule(): org.koin.core.module.Module = module {
     // ─── Repository ─────────────────────────────────────────────────────
 
-    single<TagsRepository> { TagsRepositoryImpl(get(), get()) }
+    single<TagsRepository> { TagsRepositoryImpl(get(), get(), get()) }
 
     // ─── Use Cases ──────────────────────────────────────────────────────
 
@@ -23,5 +23,5 @@ fun tagsModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModel { TagsViewModel(get(), get()) }
+    viewModel { TagsViewModel(get()) }
 }

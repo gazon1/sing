@@ -49,28 +49,28 @@ import kotlinx.coroutines.cancel
  */
 class ProjectsViewModel(
     private val projectRepo: ProjectsRepository,
-    private val currentUser: ProfileAwareCurrentUser,
     private val taskRepository: TaskRepository,
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
     private val scope: CoroutineScope,
+    private val currentUser: ProfileAwareCurrentUser,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
 
     /** Production constructor — Koin uses this. */
     constructor(
         projectRepo: ProjectsRepository,
-        currentUser: ProfileAwareCurrentUser,
         taskRepository: TaskRepository,
         projectReview: ProjectReviewUseCase? = null,
         deleteProject: DeleteProjectUseCase,
+        currentUser: ProfileAwareCurrentUser,
     ) : this(
         projectRepo = projectRepo,
-        currentUser = currentUser,
         taskRepository = taskRepository,
         projectReview = projectReview,
         deleteProject = deleteProject,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        currentUser = currentUser,
         sharingStarted = { SharingStarted.WhileSubscribed(5000) },
     )
 
@@ -80,17 +80,17 @@ class ProjectsViewModel(
     private val _sortOrder = MutableStateFlow(ProjectSortOrder.Name)
     val sortOrder: StateFlow<ProjectSortOrder> = _sortOrder
 
-    private val userIdFlow = currentUser.scopedUserId
+    /** userId for mutations — read once at call time (caller-trust). */
+    private val userId get() = currentUser.scopedUserId.value
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val state: StateFlow<ProjectsUiState> = combine(
-        userIdFlow,
         _searchQuery,
         _sortOrder,
-    ) { uid, query, sort ->
-        Triple(uid, query, sort)
-    }.flatMapLatest { (uid, query, sort) ->
-        projectRepo.watchProjectsWithCounts(uid).map { rows ->
+    ) { query, sort ->
+        query to sort
+    }.flatMapLatest { (query, sort) ->
+        projectRepo.observeProjectsWithCountsForCurrentUser().map { rows ->
             val domainRows = rows.map { row ->
                 ProjectWithCounts(
                     project = row.project.toProject(),
@@ -108,7 +108,7 @@ class ProjectsViewModel(
                 ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
             }
             if (sorted.isEmpty()) {
-                ProjectsUiState.Empty(uid)
+                ProjectsUiState.Empty(userId)
             } else {
                 ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
             }
@@ -135,13 +135,12 @@ class ProjectsViewModel(
             errorLabel = "Delete project failed",
             onError = { e -> scope.launch { _events.trySend(ProjectsUiEvent.Error("Delete project failed: ${e.message ?: "unknown"}")) } },
         ) {
-            deleteProject(id, currentUser.current)
+            deleteProject(id)
         }
     }
 
     fun reviewProject(project: Project) = scope.launch {
-        val uid = currentUser.current
-        val tasks = taskRepository.watchTasks(uid, TaskFilter.ByProject(project.id)).first()
+        val tasks = taskRepository.observeByFilter(TaskFilter.ByProject(project.id)).first()
         val result = projectReview?.invoke(project.name, tasks.map { it.title })
             ?.fold(
                 onSuccess = { it },

@@ -10,8 +10,8 @@ import com.singularity.todo.feature.tasks.domain.model.Task
  */
 interface InternalLinkRepository {
     suspend fun searchNotes(userId: UserId, query: String): List<Note>
-    suspend fun searchTasks(query: String): List<Task>
+    suspend fun searchTasks(userId: UserId, query: String): List<Task>
 
-    /** Returns notes that link TO the given noteId via note:// URL scheme. */
-    suspend fun getBacklinkNotes(noteId: String): List<Note>
+    /** Returns notes that link TO the given noteId via note:// URL scheme, for the current user only. */
+    suspend fun getBacklinkNotes(noteId: String, userId: UserId): List<Note>
 }

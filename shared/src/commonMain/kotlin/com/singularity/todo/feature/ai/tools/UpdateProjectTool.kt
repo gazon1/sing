@@ -5,7 +5,6 @@ import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -25,7 +24,7 @@ class UpdateProjectTool(private val projectsRepository: ProjectsRepository, priv
     SimpleTool<UpdateProjectInput>(TypeToken.of(UpdateProjectInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: UpdateProjectInput): String {
-        val existing = projectsRepository.watchProject(ProjectId(args.projectId)).first()
+        val existing = projectsRepository.getByIdForCurrentUser(ProjectId(args.projectId))
             ?: return Json.encodeToString(
                 UpdateProjectOutput.serializer(),
                 UpdateProjectOutput(args.projectId, false),
