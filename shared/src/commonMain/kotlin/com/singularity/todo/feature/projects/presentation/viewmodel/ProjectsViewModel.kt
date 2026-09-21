@@ -14,11 +14,9 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectsUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +32,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 /**
  * Projects list screen ViewModel.
@@ -52,10 +49,14 @@ class ProjectsViewModel(
     private val taskRepository: TaskRepository,
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
     private val currentUser: ProfileAwareCurrentUser,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
@@ -69,7 +70,7 @@ class ProjectsViewModel(
         taskRepository = taskRepository,
         projectReview = projectReview,
         deleteProject = deleteProject,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
         currentUser = currentUser,
         sharingStarted = { SharingStarted.WhileSubscribed(5000) },
     )
@@ -149,10 +150,5 @@ class ProjectsViewModel(
             ?: "AI not available on Android"
         _aiResult.emit(result)
         _events.trySend(ProjectsUiEvent.ProjectReviewResult(result))
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

@@ -2,9 +2,10 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.ui.debounce.Debouncer
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -24,10 +25,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,7 +39,6 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
@@ -67,9 +64,13 @@ class ProjectDetailViewModel(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
     private val log: Logger,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     private val userId get() = currentUser.scopedUserId.value
 
@@ -95,7 +96,7 @@ class ProjectDetailViewModel(
         currentUser = currentUser,
         clock = clock,
         log = Logger.withTag("ProjectDetail"),
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
         sharingStarted = { SharingStarted.WhileSubscribed(5000) },
     )
 
@@ -338,10 +339,5 @@ class ProjectDetailViewModel(
                 if (it.isSuccess) _lastEditedAt.value = clock.now()
             }
         }
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

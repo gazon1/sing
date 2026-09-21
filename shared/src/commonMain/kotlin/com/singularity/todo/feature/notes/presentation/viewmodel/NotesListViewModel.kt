@@ -2,6 +2,7 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.Note
@@ -14,10 +15,8 @@ import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.coroutines.fireAndForget
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,7 +29,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 /**
  * Notes list screen ViewModel.
@@ -48,8 +46,12 @@ class NotesListViewModel(
     private val repo: NotesRepository,
     private val currentUser: ProfileAwareCurrentUser,
     private val idGen: IdGenerator,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     // Secondary — production Koin uses this
     constructor(
@@ -58,7 +60,7 @@ class NotesListViewModel(
         idGen: IdGenerator,
     ) : this(
         repo, currentUser, idGen,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val userId get() = currentUser.scopedUserId.value
@@ -211,10 +213,5 @@ class NotesListViewModel(
         scope.launch(Dispatchers.Unconfined) {
             repo.softDelete(id)
         }
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

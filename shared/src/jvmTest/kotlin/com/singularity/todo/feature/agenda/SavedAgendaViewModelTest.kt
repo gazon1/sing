@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.agenda
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
@@ -53,7 +54,7 @@ class SavedAgendaViewModelTest {
         deps = SavedAgendaDeps(repo = fakeRepo, currentUser = fakeCurrentUser, clock = Clock, log = Logger),
         mode = mode,
         seedStore = seedStore,
-        scope = scope,
+        scope = testScope(scope),
     )
 
     @AfterTest

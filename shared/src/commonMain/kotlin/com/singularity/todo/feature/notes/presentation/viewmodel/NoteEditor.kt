@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.clock.AutosaveScheduler
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
@@ -19,10 +20,8 @@ import com.singularity.todo.feature.notes.extractOutgoingLinks
 import com.singularity.todo.feature.notes.formatNoteAiResult
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.InternalLinkRepository
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,8 +54,12 @@ open class NoteEditor(
     private val autosaveScheduler: AutosaveScheduler,
     private val improveNote: ImproveNoteUseCase? = null,
     logger: Logger? = null,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     private val log: Logger = logger ?: Logger.withTag("NoteEditor")
 
@@ -77,7 +80,7 @@ open class NoteEditor(
         autosaveScheduler = autosaveScheduler,
         improveNote = improveNote,
         logger = logger,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val userId = currentUser.scopedUserId

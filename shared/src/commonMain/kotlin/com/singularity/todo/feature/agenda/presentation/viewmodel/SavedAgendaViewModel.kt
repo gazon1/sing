@@ -2,6 +2,7 @@ package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -10,9 +11,6 @@ import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.serialization.StableJson
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +19,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 /**
  * Dependencies for [SavedAgendaViewModel].
@@ -128,8 +125,12 @@ class SavedAgendaViewModel(
     private val deps: SavedAgendaDeps,
     private val mode: SavedAgendaScreenMode,
     private val seedStore: SavedAgendaSeedStore,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
@@ -140,7 +141,7 @@ class SavedAgendaViewModel(
         deps = deps,
         mode = mode,
         seedStore = seedStore,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val _events = Channel<SavedAgendaEvent>(Channel.BUFFERED)
@@ -260,9 +261,4 @@ class SavedAgendaViewModel(
         else runCatching { StableJson.decodeFromString<AgendaDefinition>(json).sections }
             .onFailure { e -> deps.log.w("agenda decode failed: ${e.message}") }
             .getOrNull()
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
-    }
 }

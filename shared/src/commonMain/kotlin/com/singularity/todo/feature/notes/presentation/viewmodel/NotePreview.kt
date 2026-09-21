@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
@@ -8,9 +9,7 @@ import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.feature.search.InternalLinkRepository
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,8 +28,12 @@ class NotePreview(
     private val repo: NotesRepository,
     private val linkRepo: InternalLinkRepository,
     currentUser: ProfileAwareCurrentUser,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
@@ -41,7 +44,7 @@ class NotePreview(
         repo = repo,
         linkRepo = linkRepo,
         currentUser = currentUser,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val userId = currentUser.scopedUserId

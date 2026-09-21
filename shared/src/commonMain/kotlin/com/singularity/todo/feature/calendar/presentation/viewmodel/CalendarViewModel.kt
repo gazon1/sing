@@ -2,6 +2,7 @@ package com.singularity.todo.feature.calendar.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
@@ -16,10 +17,7 @@ import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiEvent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +28,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
@@ -55,8 +52,12 @@ class CalendarViewModel(
     private val deps: CalendarDeps,
     initialDate: LocalDate,
     initialMode: CalendarViewMode = CalendarViewMode.MONTH,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
@@ -67,7 +68,7 @@ class CalendarViewModel(
         deps = deps,
         initialDate = initialDate,
         initialMode = initialMode,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     /** Today's date, stable for the lifetime of this VM (captured at construction). */
@@ -186,10 +187,5 @@ class CalendarViewModel(
                 selectedTaskId = null,
             )
         }
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

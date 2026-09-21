@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.calendar
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
@@ -63,7 +64,7 @@ class CalendarViewModelTest {
         ),
         initialDate = initialDate,
         initialMode = initialMode,
-        scope = scope,
+        scope = testScope(scope),
     )
 
     private fun seedTask(

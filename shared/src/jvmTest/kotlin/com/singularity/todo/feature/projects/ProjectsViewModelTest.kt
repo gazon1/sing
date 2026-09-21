@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects
 
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -51,7 +52,7 @@ class ProjectsViewModelTest {
         currentUser = fakeCurrentUser,
         taskRepository = fakeTaskRepo,
         deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),
-        scope = backgroundScope,
+        scope = testScope(backgroundScope),
         sharingStarted = { SharingStarted.Eagerly },
     )
 

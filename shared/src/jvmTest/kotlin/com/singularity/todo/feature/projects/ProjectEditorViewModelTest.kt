@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -37,7 +38,7 @@ class ProjectEditorViewModelTest {
             updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock),
             projectsRepo = fakeProjectsRepo,
             currentUser = fakeCurrentUser,
-            scope = scope,
+            scope = testScope(scope),
         )
 
     @Test

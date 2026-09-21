@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
@@ -8,10 +9,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -21,7 +19,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 /**
  * ViewModel for the Agenda screen.
@@ -44,8 +41,12 @@ import kotlinx.coroutines.cancel
 class AgendaViewModel(
     private val deps: AgendaDeps,
     definition: AgendaDefinition,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production/Koin constructor — defaults scope to Main-immediate. */
     constructor(
@@ -54,7 +55,7 @@ class AgendaViewModel(
     ) : this(
         deps = deps,
         definition = definition,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     /** The definition being evaluated — stable reference. */
@@ -132,10 +133,5 @@ class AgendaViewModel(
                 }
             }
         }
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

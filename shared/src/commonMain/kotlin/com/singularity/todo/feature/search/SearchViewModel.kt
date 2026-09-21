@@ -1,11 +1,9 @@
 package com.singularity.todo.feature.search
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.state.updateState
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -20,7 +18,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 data class SearchUiState(
     val query: String = "",
@@ -44,15 +41,19 @@ sealed interface SearchUiEvent {
 @OptIn(ExperimentalCoroutinesApi::class)
 class SearchViewModel(
     private val searchUseCase: SearchUseCase,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
         searchUseCase: SearchUseCase,
     ) : this(
         searchUseCase = searchUseCase,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val _query = MutableStateFlow("")
@@ -102,10 +103,5 @@ class SearchViewModel(
 
     fun onQueryChange(query: String) {
         _query.value = query
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

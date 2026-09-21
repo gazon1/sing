@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
@@ -11,10 +12,7 @@ import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiState
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +20,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 /**
  * Project editor screen ViewModel (create or edit).
@@ -41,8 +38,12 @@ class ProjectEditorViewModel(
     private val updateProject: UpdateProjectUseCase,
     private val projectsRepo: ProjectsRepository,
     private val currentUser: ProfileAwareCurrentUser,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
@@ -57,7 +58,7 @@ class ProjectEditorViewModel(
         updateProject = updateProject,
         projectsRepo = projectsRepo,
         currentUser = currentUser,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val _state = MutableStateFlow(ProjectEditorUiState(projectId = projectId))
@@ -179,10 +180,5 @@ class ProjectEditorViewModel(
         name.isBlank() -> "Name cannot be blank"
         name.length > 50 -> "Name too long (max 50 characters)"
         else -> null
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }
