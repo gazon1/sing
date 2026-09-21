@@ -17,6 +17,7 @@ import com.singularity.todo.core.coroutines.fireAndForget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -77,10 +78,10 @@ class NotesListViewModel(
     private val _isSelectionMode = MutableStateFlow(false)
 
     private val _events = Channel<NotesUiEvent>(Channel.BUFFERED)
-    val events: kotlinx.coroutines.flow.Flow<NotesUiEvent> = _events.receiveAsFlow()
+    val events: Flow<NotesUiEvent> = _events.receiveAsFlow()
 
     init {
-        scope.launch(Dispatchers.Unconfined) {
+        scope.launch(Dispatchers.Default) {
             // Watch notes based on current filter, then split into pinned/unpinned.
             _filter.flatMapLatest { f ->
                 val flow = when (f) {
