@@ -144,5 +144,5 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     viewModel { StatisticsViewModel(get(), get()) }
 
-    viewModel { SearchViewModel(get(), get()) }
+    viewModel { SearchViewModel(get()) }
 }

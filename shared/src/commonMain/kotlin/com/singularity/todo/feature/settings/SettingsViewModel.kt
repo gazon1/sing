@@ -11,7 +11,6 @@ import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.ai.AiSettingsContributor
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,7 +34,6 @@ class SettingsViewModel(
     private val settings: SettingsRepository,
     private val scope: CoroutineScope,
     private val savedAgendaViewsRepo: SavedAgendaViewsRepository,
-    private val currentUser: ProfileAwareCurrentUser,
 ) : ViewModel() {
 
     /** Production constructor — Koin uses this. */
@@ -43,13 +41,11 @@ class SettingsViewModel(
         contributors: Set<SettingsContributor<*, *>>,
         settings: SettingsRepository,
         savedAgendaViewsRepo: SavedAgendaViewsRepository,
-        currentUser: ProfileAwareCurrentUser,
     ) : this(
         contributors = contributors,
         settings = settings,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
         savedAgendaViewsRepo = savedAgendaViewsRepo,
-        currentUser = currentUser,
     )
 
     private val aiContributor: AiSettingsContributor?

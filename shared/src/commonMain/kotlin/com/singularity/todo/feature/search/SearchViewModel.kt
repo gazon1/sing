@@ -1,9 +1,7 @@
 package com.singularity.todo.feature.search
 
 import androidx.lifecycle.ViewModel
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.state.updateState
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -46,17 +44,14 @@ sealed interface SearchUiEvent {
 @OptIn(ExperimentalCoroutinesApi::class)
 class SearchViewModel(
     private val searchUseCase: SearchUseCase,
-    private val currentUser: ProfileAwareCurrentUser,
     private val scope: CoroutineScope,
 ) : ViewModel() {
 
     /** Production constructor — Koin uses this. */
     constructor(
         searchUseCase: SearchUseCase,
-        currentUser: ProfileAwareCurrentUser,
     ) : this(
         searchUseCase = searchUseCase,
-        currentUser = currentUser,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     )
 
@@ -68,8 +63,6 @@ class SearchViewModel(
 
     private val _state = MutableStateFlow(SearchUiState())
     val state: StateFlow<SearchUiState> = _state.asStateFlow()
-
-    private val userId: UserId get() = currentUser.scopedUserId.value
 
     /**
      * Pure results flow — no side effects on [_state].

@@ -131,7 +131,6 @@ fun coreModule(): org.koin.core.module.Module = module {
             contributors = getAll<com.singularity.todo.core.settings.SettingsContributor<*, *>>().toSet(),
             settings = get(),
             savedAgendaViewsRepo = get(),
-            currentUser = get(),
         )
     }
 

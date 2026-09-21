@@ -28,7 +28,6 @@ class SettingsViewModelTest {
     private val fakeSavedAgendaViews = FakeSavedAgendaViewsRepository()
 
     private fun createVm(scope: CoroutineScope): SettingsViewModel {
-        val fakeCurrentUser = FakeProfileAwareCurrentUser(scope = scope)
         val aiStore = AiSettingsStore(fakeStorage, fakeSettings, FakeTextGen())
         val aiContributor = AiSettingsContributor(aiStore)
         val contributors: Set<SettingsContributor<*, *>> = setOf(aiContributor)
@@ -37,7 +36,6 @@ class SettingsViewModelTest {
             settings = fakeSettings,
             scope = scope,
             savedAgendaViewsRepo = fakeSavedAgendaViews,
-            currentUser = fakeCurrentUser,
         )
     }
 
@@ -168,13 +166,11 @@ class SettingsViewModelTest {
         val aiStore = AiSettingsStore(fakeStorage, fakeSettings, textGen)
         val aiContributor = AiSettingsContributor(aiStore)
         val contributors: Set<SettingsContributor<*, *>> = setOf(aiContributor)
-        val fakeCurrentUser = FakeProfileAwareCurrentUser(scope = backgroundScope)
         val vm = SettingsViewModel(
             contributors = contributors,
             settings = fakeSettings,
             scope = backgroundScope,
             savedAgendaViewsRepo = fakeSavedAgendaViews,
-            currentUser = fakeCurrentUser,
         )
         advanceUntilIdle()
         val job = backgroundScope.launch {
