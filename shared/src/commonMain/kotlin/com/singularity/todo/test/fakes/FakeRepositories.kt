@@ -626,22 +626,46 @@ class FakeReminderRepository(
         this.reminders.value = reminders.associateBy { it.id.value }
     }
 
-    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+    // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
 
-    override fun watchAllForCurrentUser(): Flow<List<Reminder>> =
+    override fun observeAll(): Flow<List<Reminder>> =
         currentUser.observeForCurrentUser { uid ->
             reminders.map { map -> map.values.filter { it.userId == uid }.sortedBy { it.fireAt } }
         }
 
-    override fun watchByTaskForCurrentUser(taskId: TaskId): Flow<List<Reminder>> =
+    override fun observe(id: ReminderId): Flow<Reminder?> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { map -> map.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
+
+    override suspend fun get(id: ReminderId): Reminder? {
+        val uid = currentUser.scopedUserId.value
+        return reminders.value.values.firstOrNull { it.id == id && it.userId == uid }
+    }
+
+    override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatching {
+        reminders.value += (reminder.id.value to reminder)
+    }
+
+    override suspend fun delete(id: ReminderId): Result<Unit> = runCatching {
+        reminders.value = reminders.value.filterKeys { it != id.value }
+    }
+
+    // ─── Domain methods ─────────────────────────────────────────────────────
+
+    override fun watchByTask(taskId: TaskId): Flow<List<Reminder>> =
         currentUser.observeForCurrentUser { uid ->
             reminders.map { map -> map.values.filter { it.taskId == taskId && it.userId == uid }.sortedBy { it.fireAt } }
         }
 
-    override fun watchDueBeforeForCurrentUser(nowEpochMs: Long): Flow<List<Reminder>> =
+    override fun watchDueBefore(nowEpochMs: Long): Flow<List<Reminder>> =
         currentUser.observeForCurrentUser { uid ->
             reminders.map { map -> map.values.filter { it.fireAt <= nowEpochMs && it.userId == uid }.sortedBy { it.fireAt } }
         }
+
+    override suspend fun deleteByTask(taskId: TaskId): Result<Unit> = runCatching {
+        reminders.value = reminders.value.filterValues { it.taskId != taskId }
+    }
 
     // ─── Explicit userId overloads ──────────────────────────────────────────
 
@@ -655,20 +679,16 @@ class FakeReminderRepository(
         map.values.filter { it.fireAt <= nowEpochMs && it.userId == userId }.sortedBy { it.fireAt }
     }
 
-    override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatching {
-        reminders.value += (reminder.id.value to reminder)
-    }
-
-    override suspend fun delete(reminderId: ReminderId, userId: UserId): Result<Unit> = runCatching {
-        reminders.value = reminders.value.filterKeys { it != reminderId.value }
+    override suspend fun delete(id: ReminderId, userId: UserId): Result<Unit> = runCatching {
+        reminders.value = reminders.value.filterKeys { it != id.value }
     }
 
     override suspend fun deleteByTask(taskId: TaskId, userId: UserId): Result<Unit> = runCatching {
         reminders.value = reminders.value.filterValues { it.taskId != taskId || it.userId != userId }
     }
 
-    override suspend fun getById(reminderId: ReminderId, userId: UserId): Result<Reminder?> = runCatching {
-        reminders.value[reminderId.value]
+    override suspend fun getById(id: ReminderId, userId: UserId): Result<Reminder?> = runCatching {
+        reminders.value[id.value]
     }
 }
 
@@ -901,27 +921,44 @@ class FakeAttachmentRepository(
 
     fun seed(vararg attachments: com.singularity.todo.core.attachments.Attachment) = store.seed(attachments.toList())
 
-    // ─── UserId-free reads (Phase 2 pattern) ─────────────────────────────────
+    // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
 
-    override fun watchByTaskForCurrentUser(taskId: TaskId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
+    override fun observeAll(): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
         currentUser.observeForCurrentUser { uid ->
-            store.state.map { list -> list.values.filter { it.taskId == taskId && it.userId == uid } }
+            store.state.map { list -> list.values.filter { it.userId == uid } }
         }
 
-    override fun watchByTask(
-        taskId: TaskId,
-        userId: UserId,
-    ): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
-        store.state.map { list -> list.values.filter { it.taskId == taskId && it.userId == userId } }
+    override fun observe(id: com.singularity.todo.core.attachments.AttachmentId): Flow<com.singularity.todo.core.attachments.Attachment?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
 
-    override suspend fun create(attachment: com.singularity.todo.core.attachments.Attachment): Result<Unit> =
+    override suspend fun get(id: com.singularity.todo.core.attachments.AttachmentId): com.singularity.todo.core.attachments.Attachment? {
+        val uid = currentUser.scopedUserId.value
+        return store.state.value.values.firstOrNull { it.id == id && it.userId == uid }
+    }
+
+    override suspend fun create(attachment: com.singularity.todo.core.attachments.Attachment): Result<com.singularity.todo.core.attachments.Attachment> =
         runCatching {
             store.upsert(attachment)
+            attachment
         }
 
     override suspend fun delete(id: com.singularity.todo.core.attachments.AttachmentId): Result<Unit> = runCatching {
         store.remove(id.value)
     }
+
+    // ─── Domain methods ─────────────────────────────────────────────────────
+
+    override fun watchByTask(taskId: TaskId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.filter { it.taskId == taskId && it.userId == uid } }
+        }
+
+    // ─── Explicit userId overloads ──────────────────────────────────────────
+
+    override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
+        store.state.map { list -> list.values.filter { it.taskId == taskId && it.userId == userId } }
 
     override suspend fun saveFileAttachment(
         taskId: TaskId,

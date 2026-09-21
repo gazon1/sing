@@ -21,19 +21,33 @@ import kotlinx.coroutines.flow.map
  * by a background sync job.
  */
 interface AttachmentRepository {
-    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
-    /** Emits all (non-deleted) attachments for the given task, scoped to the current user. */
-    fun watchByTaskForCurrentUser(taskId: TaskId): Flow<List<Attachment>>
 
-    // ─── Explicit userId overloads (Phase 3 migration target) ──────────────────
-    /** Emits all (non-deleted) attachments for the given task. */
-    fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Attachment>>
+    // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
 
-    /** Upserts an [Attachment] entity directly. Prefer typed factory methods below. */
-    suspend fun create(attachment: Attachment): Result<Unit>
+    /** All attachments for the current user. */
+    fun observeAll(): Flow<List<Attachment>>
 
-    /** Soft-deletes the attachment by ID. */
+    /** Single attachment observation by [id] for the current user. */
+    fun observe(id: AttachmentId): Flow<Attachment?>
+
+    /** Get an attachment by [id] for the current user. */
+    suspend fun get(id: AttachmentId): Attachment?
+
+    /** Creates or updates an attachment. Returns the saved attachment. */
+    suspend fun create(attachment: Attachment): Result<Attachment>
+
+    /** Deletes an attachment by [id]. */
     suspend fun delete(id: AttachmentId): Result<Unit>
+
+    // ─── Domain methods ─────────────────────────────────────────────────────
+
+    /** Emits all (non-deleted) attachments for the given task, scoped to the current user. */
+    fun watchByTask(taskId: TaskId): Flow<List<Attachment>>
+
+    // ─── Explicit userId overloads (kept for callers that pass userId explicitly) ──
+
+    /** Emits all (non-deleted) attachments for a specific [userId]. */
+    fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Attachment>>
 
     /**
      * Copies a file from `sourcePath` into local attachment storage and creates a DB record.
@@ -64,26 +78,48 @@ class AttachmentRepositoryImpl(
     private val currentUser: ProfileAwareCurrentUser,
 ) : AttachmentRepository {
 
-    override fun watchByTaskForCurrentUser(taskId: TaskId): Flow<List<Attachment>> =
+    // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
+
+    override fun observeAll(): Flow<List<Attachment>> =
         currentUser.observeForCurrentUser { uid ->
-            dao.watchByTaskForUser(taskId.value, uid.value).map { entities ->
-                entities.map { it.toAttachment() }
-            }
+            dao.watchAll(uid.value).map { entities -> entities.map { it.toAttachment() } }
         }
 
-    override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Attachment>> =
-        dao.watchByTaskForUser(taskId.value, userId.value).map { entities ->
-            entities.map { it.toAttachment() }
+    override fun observe(id: AttachmentId): Flow<Attachment?> =
+        currentUser.observeForCurrentUser { uid ->
+            dao.watchByIdForUser(id.value, uid.value).map { it?.toAttachment() }
         }
 
-    override suspend fun create(attachment: Attachment): Result<Unit> = runCatching {
+    override suspend fun get(id: AttachmentId): Attachment? {
+        val uid = currentUser.scopedUserId.value
+        return dao.getById(id.value, uid.value)?.toAttachment()
+    }
+
+    override suspend fun create(attachment: Attachment): Result<Attachment> = runCatching {
         dao.upsert(attachment.toEntity())
+        attachment
     }
 
     override suspend fun delete(id: AttachmentId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
         dao.softDelete(id.value, ts)
     }
+
+    // ─── Domain methods ─────────────────────────────────────────────────────
+
+    override fun watchByTask(taskId: TaskId): Flow<List<Attachment>> =
+        currentUser.observeForCurrentUser { uid ->
+            dao.watchByTaskForUser(taskId.value, uid.value).map { entities ->
+                entities.map { it.toAttachment() }
+            }
+        }
+
+    // ─── Explicit userId overloads ──────────────────────────────────────────
+
+    override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Attachment>> =
+        dao.watchByTaskForUser(taskId.value, userId.value).map { entities ->
+            entities.map { it.toAttachment() }
+        }
 
     override suspend fun saveFileAttachment(
         taskId: TaskId,

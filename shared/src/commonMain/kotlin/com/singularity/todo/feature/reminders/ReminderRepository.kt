@@ -9,17 +9,52 @@ import kotlinx.coroutines.flow.Flow
  * Platform implementations: Room (Android/desktop) via [ReminderDao].
  */
 interface ReminderRepository {
-    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
-    fun watchAllForCurrentUser(): Flow<List<Reminder>>
-    fun watchByTaskForCurrentUser(taskId: TaskId): Flow<List<Reminder>>
-    fun watchDueBeforeForCurrentUser(nowEpochMs: Long): Flow<List<Reminder>>
 
-    // ─── Explicit userId overloads (Phase 3 migration target) ──────────────────
-    fun watchAll(userId: UserId): Flow<List<Reminder>>
-    fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Reminder>>
-    fun watchDueBefore(nowEpochMs: Long, userId: UserId): Flow<List<Reminder>>
+    // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
+
+    /** All reminders for the current user. */
+    fun observeAll(): Flow<List<Reminder>>
+
+    /** Single reminder observation by [id] for the current user. */
+    fun observe(id: ReminderId): Flow<Reminder?>
+
+    /** Get a reminder by [id] for the current user. */
+    suspend fun get(id: ReminderId): Reminder?
+
+    /** Creates or updates a reminder. Returns the saved reminder. */
     suspend fun upsert(reminder: Reminder): Result<Unit>
-    suspend fun delete(reminderId: ReminderId, userId: UserId): Result<Unit>
+
+    /** Deletes a reminder by [id]. */
+    suspend fun delete(id: ReminderId): Result<Unit>
+
+    // ─── Domain methods ───────────────────────────────────────────────────────
+
+    /** Reminders for a specific task. */
+    fun watchByTask(taskId: TaskId): Flow<List<Reminder>>
+
+    /** Reminders due before [nowEpochMs] for the current user. */
+    fun watchDueBefore(nowEpochMs: Long): Flow<List<Reminder>>
+
+    /** Deletes all reminders for a task. */
+    suspend fun deleteByTask(taskId: TaskId): Result<Unit>
+
+    // ─── Explicit userId overloads (kept for callers that pass userId explicitly) ──
+
+    /** All reminders for a specific [userId]. */
+    fun watchAll(userId: UserId): Flow<List<Reminder>>
+
+    /** Reminders for a specific task and user. */
+    fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Reminder>>
+
+    /** Reminders due before [nowEpochMs] for a specific [userId]. */
+    fun watchDueBefore(nowEpochMs: Long, userId: UserId): Flow<List<Reminder>>
+
+    /** Delete a reminder by id (two-arg form). */
+    suspend fun delete(id: ReminderId, userId: UserId): Result<Unit>
+
+    /** Delete all reminders for a task (two-arg form). */
     suspend fun deleteByTask(taskId: TaskId, userId: UserId): Result<Unit>
-    suspend fun getById(reminderId: ReminderId, userId: UserId): Result<Reminder?>
+
+    /** Get a reminder by id (two-arg form). */
+    suspend fun getById(id: ReminderId, userId: UserId): Result<Reminder?>
 }

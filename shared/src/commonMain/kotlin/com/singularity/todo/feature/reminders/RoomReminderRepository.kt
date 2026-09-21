@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.reminders
 
 import com.singularity.todo.core.database.ReminderDao
+import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.observeForCurrentUser
@@ -19,22 +20,46 @@ class RoomReminderRepository(
     private val currentUser: ProfileAwareCurrentUser,
 ) : ReminderRepository {
 
-    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+    // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
 
-    override fun watchAllForCurrentUser(): Flow<List<Reminder>> =
+    override fun observeAll(): Flow<List<Reminder>> =
         currentUser.observeForCurrentUser { uid ->
             dao.watchAll(uid.value).map { list -> list.map { it.toReminder() } }
         }
 
-    override fun watchByTaskForCurrentUser(taskId: TaskId): Flow<List<Reminder>> =
+    override fun observe(id: ReminderId): Flow<Reminder?> =
+        observeAll().map { list -> list.find { it.id == id } }
+
+    override suspend fun get(id: ReminderId): Reminder? {
+        val uid = currentUser.scopedUserId.value
+        return dao.getById(id.value, uid.value)?.toReminder()
+    }
+
+    override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatching {
+        dao.upsert(reminder.toEntity(clock.now().toEpochMillis()))
+    }
+
+    override suspend fun delete(id: ReminderId): Result<Unit> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        dao.delete(id.value, uid.value)
+    }
+
+    // ─── Domain methods ───────────────────────────────────────────────────────
+
+    override fun watchByTask(taskId: TaskId): Flow<List<Reminder>> =
         currentUser.observeForCurrentUser { uid ->
             dao.watchByTask(taskId.value, uid.value).map { list -> list.map { it.toReminder() } }
         }
 
-    override fun watchDueBeforeForCurrentUser(nowEpochMs: Long): Flow<List<Reminder>> =
+    override fun watchDueBefore(nowEpochMs: Long): Flow<List<Reminder>> =
         currentUser.observeForCurrentUser { uid ->
             dao.watchDueBefore(nowEpochMs, uid.value).map { list -> list.map { it.toReminder() } }
         }
+
+    override suspend fun deleteByTask(taskId: TaskId): Result<Unit> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        dao.deleteByTask(taskId.value, uid.value)
+    }
 
     // ─── Explicit userId overloads ──────────────────────────────────────────
 
@@ -47,19 +72,15 @@ class RoomReminderRepository(
     override fun watchDueBefore(nowEpochMs: Long, userId: UserId): Flow<List<Reminder>> =
         dao.watchDueBefore(nowEpochMs, userId.value).map { list -> list.map { it.toReminder() } }
 
-    override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatching {
-        dao.upsert(reminder.toEntity(clock.now().toEpochMilliseconds()))
-    }
-
-    override suspend fun delete(reminderId: ReminderId, userId: UserId): Result<Unit> = runCatching {
-        dao.delete(reminderId.value, userId.value)
+    override suspend fun delete(id: ReminderId, userId: UserId): Result<Unit> = runCatching {
+        dao.delete(id.value, userId.value)
     }
 
     override suspend fun deleteByTask(taskId: TaskId, userId: UserId): Result<Unit> = runCatching {
         dao.deleteByTask(taskId.value, userId.value)
     }
 
-    override suspend fun getById(reminderId: ReminderId, userId: UserId): Result<Reminder?> = runCatching {
-        dao.getById(reminderId.value, userId.value)?.toReminder()
+    override suspend fun getById(id: ReminderId, userId: UserId): Result<Reminder?> = runCatching {
+        dao.getById(id.value, userId.value)?.toReminder()
     }
 }

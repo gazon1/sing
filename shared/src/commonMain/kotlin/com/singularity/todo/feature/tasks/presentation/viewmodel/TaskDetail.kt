@@ -140,8 +140,8 @@ class TaskDetailViewModel(
 
                 val tagsFlow = deps.tagsRepo.observeAll()
                 val checklistFlow = deps.checklistRepository.watchByTask(taskId.value)
-                val reminderFlow = deps.reminderRepo.watchByTaskForCurrentUser(taskId)
-                val attachmentsFlow = deps.attachmentsRepo.watchByTaskForCurrentUser(taskId)
+                val reminderFlow = deps.reminderRepo.watchByTask(taskId)
+                val attachmentsFlow = deps.attachmentsRepo.watchByTask(taskId)
                 val subtasksFlow = deps.taskRepo.observeSubtasks(taskId)
                 val availableTasksFlow = deps.taskRepo.observeByFilter(com.singularity.todo.feature.tasks.domain.model.TaskFilter.All)
                     .map { all -> all.filter { !it.isTrashed && it.id != taskId } }

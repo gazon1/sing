@@ -543,6 +543,12 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
         it.values.filter { a -> a.taskId == taskId && a.userId == userId && a.deletedAt == null }
             .sortedByDescending { it.createdAt }
     }
+    override fun watchAll(userId: String): Flow<List<AttachmentEntity>> = store.map {
+        it.values.filter { a -> a.userId == userId && a.deletedAt == null }
+            .sortedByDescending { it.createdAt }
+    }
+    override suspend fun getById(id: String, userId: String): AttachmentEntity? =
+        store.value[id]?.takeIf { a -> a.userId == userId && a.deletedAt == null }
     override fun watchByIdForUser(id: String, userId: String): Flow<AttachmentEntity?> = store.map { it[id]?.takeIf { a -> a.userId == userId } }
     override fun watchBySyncStatusForUser(status: String, userId: String): Flow<List<AttachmentEntity>> =
         store.map { it.values.filter { a -> a.syncStatus == status && a.userId == userId && a.deletedAt == null } }

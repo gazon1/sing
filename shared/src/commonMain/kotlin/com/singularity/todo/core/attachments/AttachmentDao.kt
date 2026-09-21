@@ -14,6 +14,12 @@ interface AttachmentDao {
     @Query("SELECT * FROM attachments WHERE id = :id AND user_id = :userId")
     fun watchByIdForUser(id: String, userId: String): Flow<AttachmentEntity?>
 
+    @Query("SELECT * FROM attachments WHERE user_id = :userId AND deleted_at IS NULL ORDER BY created_at DESC")
+    fun watchAll(userId: String): Flow<List<AttachmentEntity>>
+
+    @Query("SELECT * FROM attachments WHERE id = :id AND user_id = :userId AND deleted_at IS NULL")
+    suspend fun getById(id: String, userId: String): AttachmentEntity?
+
     @Query("SELECT * FROM attachments WHERE sync_status = :status AND user_id = :userId AND deleted_at IS NULL")
     fun watchBySyncStatusForUser(status: String, userId: String): Flow<List<AttachmentEntity>>
 

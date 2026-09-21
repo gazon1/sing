@@ -8,7 +8,6 @@ import com.singularity.todo.core.attachments.AttachmentUploadService
 import com.singularity.todo.core.attachments.StubAttachmentUploadService
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
-import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.auth.SupabaseAuthRepository
@@ -20,6 +19,7 @@ import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.RemoteBackupService
 import com.singularity.todo.core.backup.StubRemoteBackupService
+import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.ids.IdGenerator
@@ -27,6 +27,7 @@ import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.settings.DataStoreSettingsRepository
+import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
@@ -38,8 +39,6 @@ import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.RoomReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
-import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -127,7 +126,7 @@ fun coreModule(): org.koin.core.module.Module = module {
     // Each contributor (Appearance, AI, …) is registered in its own feature module.
     viewModel {
         SettingsViewModel(
-            contributors = getAll<com.singularity.todo.core.settings.SettingsContributor<*, *>>().toSet(),
+            contributors = getAll<SettingsContributor<*, *>>().toSet(),
             settings = get(),
             savedAgendaViewsRepo = get(),
             fileRevealer = get(),
