@@ -10,6 +10,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,8 +56,11 @@ class NotePreview(
     private val _events = Channel<NotesUiEvent>(Channel.BUFFERED)
     val events: kotlinx.coroutines.flow.Flow<NotesUiEvent> = _events.receiveAsFlow()
 
+    private var loadNoteJob: Job? = null
+
     fun loadNote(noteId: String) {
-        scope.launch(Dispatchers.Unconfined) {
+        loadNoteJob?.cancel()
+        loadNoteJob = scope.launch(Dispatchers.Unconfined) {
             repo.watchNoteForCurrentUser(NoteId.fromString(noteId))
                 .filterNotNull()
                 .collect { note ->

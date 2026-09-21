@@ -12,21 +12,19 @@ import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.agenda.domain.logic.toDateRange
-import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.LocalDate
@@ -51,7 +49,7 @@ class TaskRepositoryImpl(
     override fun observeForCurrentUser(id: TaskId): Flow<Task?> =
         currentUser.observeForCurrentUser { uid ->
             taskDao.watchById(id.value).map { entity ->
-                if (entity?.userId == uid.value) entity?.toTask() else null
+                if (entity?.userId == uid.value) entity.toTask() else null
             }
         }
 
@@ -160,17 +158,17 @@ class TaskRepositoryImpl(
             list.filter { it.parentTaskId == parentId.value }.map { it.toTask() }
         }
 
-    override suspend fun create(task: Task): Result<Unit> = runCatching {
-        taskDao.upsert(task.toEntity())
-        task.tags.forEach { tagId ->
-            taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = task.id.value, tagId = tagId.value))
+    override suspend fun create(item: Task): Result<Unit> = runCatching {
+        taskDao.upsert(item.toEntity())
+        item.tags.forEach { tagId ->
+            taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = item.id.value, tagId = tagId.value))
         }
-        _changes.tryEmit(task)
+        _changes.tryEmit(item)
     }
 
-    override suspend fun update(task: Task): Result<Unit> = runCatching {
-        taskDao.upsert(task.toEntity())
-        _changes.tryEmit(task)
+    override suspend fun update(item: Task): Result<Unit> = runCatching {
+        taskDao.upsert(item.toEntity())
+        _changes.tryEmit(item)
     }
 
     override suspend fun delete(id: TaskId): Result<Unit> = softDelete(id)

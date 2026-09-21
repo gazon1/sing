@@ -74,7 +74,7 @@ import org.koin.dsl.module
 /**
  * JVM actual for [aiToolsModule].
  *
- * Combines the shared AI bindings from [aiToolsCoreModule] with the JVM-specific
+ * Combines all shared AI bindings with the JVM-specific
  * Koog executor and LLM into a single module (no `includes()` to avoid child-scope
  * isolation in Koin 4).
  */

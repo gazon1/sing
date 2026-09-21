@@ -21,7 +21,7 @@ import org.koin.dsl.module
  * Add this module to [com.singularity.todo.core.di.domainModule] to enable the
  * AI Provider settings section.
  *
- * Note: [TextGenPort] is registered separately by [com.singularity.todo.core.di.aiToolsCoreModule].
+ * Note: [TextGenPort] is registered separately by [aiToolsModule].
  * This module depends on it being already available.
  */
 fun aiSettingsModule() = module {

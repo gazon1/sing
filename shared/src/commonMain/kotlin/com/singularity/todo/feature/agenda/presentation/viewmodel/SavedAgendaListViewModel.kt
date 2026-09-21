@@ -56,8 +56,8 @@ sealed interface SavedAgendaListEvent {
 /**
  * ViewModel for the saved agenda views list screen.
  * No runtime parameters — injected via explicit `viewModel { }` block in AgendaDiModule.
- * Note: `viewModelOf` does not work with multi-arg constructors — Koin cannot provide
- * `CoroutineScope` as a bean. Use `viewModel { SavedAgendaListViewModel(get()) }` instead.
+ * Note: `viewModelOf` does not work here — two-constructor testable-VM pattern creates
+ * constructor ambiguity. Use explicit `viewModel { }` block instead.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SavedAgendaListViewModel(

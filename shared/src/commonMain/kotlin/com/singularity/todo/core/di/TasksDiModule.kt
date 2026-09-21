@@ -33,12 +33,11 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewM
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
 import org.koin.core.module.dsl.viewModel
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
  * Tasks feature DI: repositories, use cases, ViewModels.
- * Does NOT include AI tools — those live in [aiToolsCoreModule].
+ * Does NOT include AI tools — those live in [aiToolsModule].
  *
  * Navigation entries (navigation{}) live in platform-specific sources:
  * - androidMain: TasksNavEntries.kt (Nav3)
@@ -138,11 +137,11 @@ fun tasksModule(): org.koin.core.module.Module = module {
         )
     }
 
-    viewModel { ChecklistEditorViewModel(get(), get()) }
+    viewModel { ChecklistEditorViewModel(checklistUseCase = get(), checklistRepository = get()) }
 
-    viewModel { ArchiveViewModel(get(), get()) }
+    viewModel { ArchiveViewModel(archiveRepo = get(), taskRepo = get()) }
 
-    viewModel { StatisticsViewModel(get(), get()) }
+    viewModel { StatisticsViewModel(taskRepository = get(), clock = get()) }
 
-    viewModel { SearchViewModel(get()) }
+    viewModel { SearchViewModel(searchUseCase = get()) }
 }

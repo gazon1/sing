@@ -23,5 +23,5 @@ fun tagsModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModel { TagsViewModel(get()) }
+    viewModel { TagsViewModel(tagRepo = get()) }
 }

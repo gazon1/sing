@@ -13,7 +13,7 @@ import org.koin.dsl.module
 
 /**
  * Projects feature DI: repositories, use cases, ViewModels.
- * Does NOT include AI tools — those live in [aiToolsCoreModule].
+ * Does NOT include AI tools — those live in [aiToolsModule].
  */
 fun projectsModule(): org.koin.core.module.Module = module {
     // ─── Repository ─────────────────────────────────────────────────────
@@ -28,7 +28,7 @@ fun projectsModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    // ProjectsViewModel with AI deps: registered in aiToolsCoreModule
+    // ProjectsViewModel with AI deps: registered in aiToolsModule
     // (has nullable ProjectReviewUseCase — handles null gracefully on Android)
 
     viewModel { (projectId: ProjectId?) ->

@@ -42,7 +42,6 @@ import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepositor
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.dsl.viewModel
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
@@ -136,9 +135,9 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModel { AuthViewModel(get()) }
+    viewModel { AuthViewModel(authRepository = get()) }
 
-    viewModel { BackupViewModel(get(), get(), get(), get()) }
+    viewModel { BackupViewModel(repository = get(), authRepository = get(), backupFileNamer = get(), clock = get()) }
 
-    viewModel { AttachmentsViewModel(get(), get()) }
+    viewModel { AttachmentsViewModel(repository = get(), currentUser = get()) }
 }

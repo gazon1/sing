@@ -51,7 +51,7 @@ fun domainModule(): List<Module> = buildList {
             instance
         }
         factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
-        factory { AccountSettingsViewModel(get()) }
+        factory { AccountSettingsViewModel(profileRepository = get()) }
     }
     )
     add(coreModule())

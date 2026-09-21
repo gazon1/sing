@@ -72,7 +72,7 @@ import org.koin.dsl.module
 /**
  * Android actual for [aiToolsModule].
  *
- * Combines the shared AI bindings from [aiToolsCoreModule] with the Android-specific
+ * Combines all shared AI bindings with the Android-specific
  * Koog executor and LLM into a single module (no `includes()` to avoid child-scope
  * isolation in Koin 4).
  */
