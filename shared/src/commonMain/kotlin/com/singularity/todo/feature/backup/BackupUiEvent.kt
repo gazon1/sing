@@ -8,4 +8,5 @@ package com.singularity.todo.feature.backup
  */
 sealed interface BackupUiEvent {
     data class Error(val message: String) : BackupUiEvent
+    data class ShowSnackbar(val message: String) : BackupUiEvent
 }

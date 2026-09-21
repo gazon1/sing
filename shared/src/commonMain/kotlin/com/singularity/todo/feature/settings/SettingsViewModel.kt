@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
+import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsRepository
@@ -31,6 +32,7 @@ class SettingsViewModel(
     private val settings: SettingsRepository,
     private val scope: AutoCloseableCoroutineScope,
     private val savedAgendaViewsRepo: SavedAgendaViewsRepository,
+    private val fileRevealer: FileRevealer,
 ) : ViewModel() {
 
     init {
@@ -42,11 +44,13 @@ class SettingsViewModel(
         contributors: Set<SettingsContributor<*, *>>,
         settings: SettingsRepository,
         savedAgendaViewsRepo: SavedAgendaViewsRepository,
+        fileRevealer: FileRevealer,
     ) : this(
         contributors = contributors,
         settings = settings,
         scope = AutoCloseableCoroutineScope(),
         savedAgendaViewsRepo = savedAgendaViewsRepo,
+        fileRevealer = fileRevealer,
     )
 
     private val aiContributor: AiSettingsContributor?
@@ -312,6 +316,12 @@ class SettingsViewModel(
 
             SettingsIntent.DismissError -> {
                 updateState { it.copy(errorMessage = null) }
+            }
+
+            SettingsIntent.OpenAttachmentsFolder -> {
+                scope.launch {
+                    fileRevealer.revealAttachmentsFolder(fileRevealer.attachmentsBasePath())
+                }
             }
         }
     }

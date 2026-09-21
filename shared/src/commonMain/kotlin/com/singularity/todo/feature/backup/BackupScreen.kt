@@ -31,10 +31,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +45,8 @@ import com.singularity.todo.core.backup.BackupId
 import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ButtonSpinner
-import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.components.Notification
+import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
@@ -65,11 +66,22 @@ fun BackupScreen(
     onPush: (BackupId) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-    val snackbarScope = rememberCoroutineScope()
 
-    CollectEvents(events) { event ->
-        when (event) {
-            is BackupUiEvent.Error -> snackbarScope.launch { snackbarHostState.showSnackbar(event.message) }
+    NotificationHost(
+        events = events,
+        mapper = { event ->
+            when (event) {
+                is BackupUiEvent.Error -> Notification.Error(event.message)
+                is BackupUiEvent.ShowSnackbar -> Notification.None
+            }
+        },
+    )
+
+    LaunchedEffect(events) {
+        events.collect { event ->
+            if (event is BackupUiEvent.ShowSnackbar) {
+                snackbarHostState.showSnackbar(event.message)
+            }
         }
     }
 

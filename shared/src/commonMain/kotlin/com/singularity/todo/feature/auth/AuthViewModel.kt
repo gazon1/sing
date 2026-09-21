@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
  *
  * Owns: sign-in/sign-up form state, authentication session.
  * Triggers: sign-in, sign-up, sign-out anonymous.
- * One-shot events: [AuthUiEvent.NavigateToMain], [AuthUiEvent.ShowError].
+ * One-shot events: [AuthUiEvent.NavigateToHome], [AuthUiEvent.Error].
  *
  * @see AuthUiState
  */
@@ -54,7 +54,8 @@ class AuthViewModel(
                     _events.emit(AuthUiEvent.NavigateToHome)
                 },
                 onFailure = {
-                    _state.value = AuthUiState.Error(it.message ?: "Sign in failed")
+                    _state.value = AuthUiState.Idle
+                    _events.emit(AuthUiEvent.Error(it.message ?: "Sign in failed"))
                 },
             )
         }
@@ -70,7 +71,8 @@ class AuthViewModel(
                     _events.emit(AuthUiEvent.NavigateToHome)
                 },
                 onFailure = {
-                    _state.value = AuthUiState.Error(it.message ?: "Sign up failed")
+                    _state.value = AuthUiState.Idle
+                    _events.emit(AuthUiEvent.Error(it.message ?: "Sign up failed"))
                 },
             )
         }
@@ -86,7 +88,8 @@ class AuthViewModel(
                     _events.emit(AuthUiEvent.NavigateToHome)
                 },
                 onFailure = {
-                    _state.value = AuthUiState.Error(it.message ?: "Failed")
+                    _state.value = AuthUiState.Idle
+                    _events.emit(AuthUiEvent.Error(it.message ?: "Failed"))
                 },
             )
         }

@@ -33,7 +33,7 @@ data class BackupSummary(val destPath: String, val byteSize: Long, val entityCou
  *
  * Owns: local backup list, export/import/push/pull operations.
  * Triggers: export, import, delete, push to remote, pull from remote.
- * One-shot events: [BackupUiEvent.ShowError], [BackupUiEvent.BackupExported].
+ * One-shot events: [BackupUiEvent.ShowSnackbar], [BackupUiEvent.Error].
  *
  * @see BackupUiState
  */
@@ -104,6 +104,7 @@ class BackupViewModel(
                             ),
                         )
                     }
+                    _events.emit(BackupUiEvent.ShowSnackbar("Backup created"))
                 }
                 .onFailure { e ->
                     _state.update { it.copy(isWorking = false) }
@@ -130,6 +131,7 @@ class BackupViewModel(
             result
                 .onSuccess {
                     _state.update { it.copy(isWorking = false) }
+                    _events.emit(BackupUiEvent.ShowSnackbar("Restore complete"))
                 }
                 .onFailure { e ->
                     _state.update { it.copy(isWorking = false) }
@@ -141,6 +143,9 @@ class BackupViewModel(
     fun delete(backupId: com.singularity.todo.core.backup.BackupId) {
         scope.launch {
             repository.delete(backupId)
+                .onSuccess {
+                    _events.emit(BackupUiEvent.ShowSnackbar("Backup deleted"))
+                }
                 .onFailure { e ->
                     _events.emit(BackupUiEvent.Error(e.message ?: "Delete failed"))
                 }
@@ -157,6 +162,7 @@ class BackupViewModel(
                 }
                 .onSuccess {
                     _state.update { it.copy(isWorking = false) }
+                    _events.emit(BackupUiEvent.ShowSnackbar("Backup pushed"))
                 }
         }
     }

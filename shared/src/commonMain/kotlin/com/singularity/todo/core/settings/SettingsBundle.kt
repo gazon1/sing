@@ -83,4 +83,7 @@ sealed interface SettingsIntent {
 
     /** Clears any errorMessage in the UI state. */
     data object DismissError : SettingsIntent
+
+    /** Opens the file manager at the attachments folder. */
+    data object OpenAttachmentsFolder : SettingsIntent
 }

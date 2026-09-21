@@ -9,6 +9,7 @@ import com.singularity.todo.feature.ai.AiSettingsContributor
 import com.singularity.todo.feature.ai.FakeTextGen
 import com.singularity.todo.feature.ai.data.AiSettingsStore
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeFileRevealer
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import com.singularity.todo.test.fakes.FakeSettingsRepository
@@ -37,6 +38,7 @@ class SettingsViewModelTest {
             settings = fakeSettings,
             scope = testScope(scope),
             savedAgendaViewsRepo = fakeSavedAgendaViews,
+            fileRevealer = FakeFileRevealer(),
         )
     }
 
@@ -172,6 +174,7 @@ class SettingsViewModelTest {
             settings = fakeSettings,
             scope = testScope(backgroundScope),
             savedAgendaViewsRepo = fakeSavedAgendaViews,
+            fileRevealer = FakeFileRevealer(),
         )
         advanceUntilIdle()
         val job = backgroundScope.launch {

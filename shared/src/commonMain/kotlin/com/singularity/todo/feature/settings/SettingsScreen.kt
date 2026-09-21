@@ -34,7 +34,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,7 +55,6 @@ import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
 import com.singularity.todo.test.fakes.FakeProfileRepository
-import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -113,10 +111,6 @@ private fun SettingsContent(
     viewModel: SettingsViewModel,
     modifier: Modifier = Modifier,
 ) {
-    val fileRevealer: FileRevealer = koinInject()
-    val attachmentsPath = fileRevealer.attachmentsBasePath()
-    val scope = rememberCoroutineScope()
-
     Row(modifier = modifier.fillMaxSize()) {
         // Navigation rail on wide screens (disabled until WindowSizeClass is wired)
         SettingsNavRail(
@@ -155,9 +149,9 @@ private fun SettingsContent(
                 )
 
                 SettingsTab.Files -> FilesSettingsScreen(
-                    attachmentsPath = attachmentsPath,
+                    attachmentsPath = koinInject<FileRevealer>().attachmentsBasePath(),
                     onOpenAttachmentsFolder = {
-                        scope.launch { fileRevealer.revealAttachmentsFolder(attachmentsPath) }
+                        viewModel.processIntent(SettingsIntent.OpenAttachmentsFolder)
                     },
                 )
 

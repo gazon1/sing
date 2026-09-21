@@ -11,6 +11,7 @@ import com.singularity.todo.core.backup.BackupResult
 import com.singularity.todo.core.backup.ExportOptions
 import com.singularity.todo.core.backup.ImportOptions
 import com.singularity.todo.core.backup.RestoreResult
+import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ProjectWithCountRow
 import com.singularity.todo.core.database.SyncColumns
@@ -1432,4 +1433,15 @@ class FakeSavedAgendaViewsRepository(
     fun clear() {
         store.value = emptyMap()
     }
+}
+
+/**
+ * No-op [FileRevealer] for tests.
+ */
+class FakeFileRevealer : FileRevealer {
+    override suspend fun revealAttachmentsFolder(folderPath: String) {
+        // no-op in tests
+    }
+
+    override fun attachmentsBasePath(): String = "/fake/attachments"
 }

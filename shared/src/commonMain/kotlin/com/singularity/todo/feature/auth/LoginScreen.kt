@@ -36,16 +36,15 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsState()
-
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var isSignUp by remember { mutableStateOf(false) }
+    val form = rememberLoginFormState()
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val navigator = LocalAppNavigator.current
 
     CollectEvents(viewModel.events) { event ->
         when (event) {
             is AuthUiEvent.NavigateToHome -> navigator.navigate(AppDestination.Today)
+            is AuthUiEvent.Error -> errorMessage = event.message
         }
     }
 
@@ -64,8 +63,8 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
         Spacer(modifier = Modifier.height(32.dp))
 
         OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
+            value = form.value.email,
+            onValueChange = { newEmail -> form.update { copy(email = newEmail) } },
             label = { Text("Email") },
             modifier = Modifier
                 .fillMaxWidth()
@@ -77,8 +76,8 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
+            value = form.value.password,
+            onValueChange = { newPassword -> form.update { copy(password = newPassword) } },
             label = { Text("Password") },
             modifier = Modifier
                 .fillMaxWidth()
@@ -88,10 +87,10 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
             singleLine = true,
         )
 
-        if (state is AuthUiState.Error) {
+        if (errorMessage != null) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = (state as AuthUiState.Error).message,
+                text = errorMessage!!,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),
@@ -105,29 +104,32 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
         } else {
             Button(
                 onClick = {
-                    if (isSignUp) {
-                        viewModel.signUp(email, password)
+                    if (form.value.isSignUp) {
+                        viewModel.signUp(form.value.email, form.value.password)
                     } else {
-                        viewModel.signIn(email, password)
+                        viewModel.signIn(form.value.email, form.value.password)
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag(TestTags.AUTH_SIGN_IN_BUTTON),
             ) {
-                Text(if (isSignUp) "Sign Up" else "Sign In")
+                Text(if (form.value.isSignUp) "Sign Up" else "Sign In")
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             TextButton(
-                onClick = { isSignUp = !isSignUp },
+                onClick = {
+                    form.update { copy(isSignUp = !isSignUp) }
+                    errorMessage = null
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag(TestTags.AUTH_TOGGLE_MODE_BUTTON),
             ) {
                 Text(
-                    if (isSignUp) {
+                    if (form.value.isSignUp) {
                         "Already have an account? Sign In"
                     } else {
                         "Don't have an account? Sign Up"
@@ -154,7 +156,6 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun LoginScreenFormPreview() = PreviewThemed(darkTheme = false) {
-    // Preview the static form layout — email/password state is local to the composable
     LoginScreenFormContent(
         email = "user@example.com",
         password = "password",
