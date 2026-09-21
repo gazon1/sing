@@ -102,6 +102,10 @@ The default `invoke()` companion factory delegates to `createBackgroundScope()`,
 - Tier-2 VMs are unaffected.
 - The default `viewModelScope` is still created by the ViewModel but is unused in Tier-1 VMs (negligible memory cost: one empty `SupervisorJob`).
 
+## Supersedes
+
+- [2026-09-18-vm-scope-cancellation-oncleared](./2026-09-18-vm-scope-cancellation-oncleared.md) — replaced manual `override fun onCleared() { scope.cancel() }` with this pattern
+
 ## Related
 
 - [2026-09-06-koin-vm-viewmodelof-koinviewmodel](./2026-09-06-koin-vm-viewmodelof-koinviewmodel.md) — canonical VM constructor pattern

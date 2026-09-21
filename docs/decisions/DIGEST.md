@@ -64,6 +64,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Never** write inline test doubles — add to `test/fakes/` _(from `2026-09-18-testing-best-practices`)_
 - **Never** migrate a sheet to `ListPickerSheet` if it uses `FilterChip`, `ListItem` with rich content, or custom item layouts. _(from `2026-09-18-picker-sheet-migration-mr13`)_
 - **Never** use `mutableStateOf<X?>` for sheet/dialog state — always use `rememberDialogState()`. _(from `2026-09-18-dialog-state-migration-mr12`)_
+- **Always** use `kotlin.AutoCloseable` (not `java.io.Closeable`) for `ViewModel.addCloseable()` — they are different types in KMP commonMain. _(from `2026-09-21-kotlin-auto-closeable-vs-java-closeable`)_
+- **Never** implement `java.io.Closeable` or `kotlin.io.Closeable` where `kotlin.AutoCloseable` is expected in commonMain KMP. _(from `2026-09-21-kotlin-auto-closeable-vs-java-closeable`)_
+- **Always** use `init { addCloseable(scope) }` pattern for Tier-1 VMs (scope cancellation only) — never pass `AutoCloseableCoroutineScope` to `ViewModel(scope)` constructor (ambiguity). _(from `2026-09-21-auto-closeable-coroutine-scope`)_
+- **Never** use `kotlinx.coroutines.CoroutineContext` in `expect`/`actual` declarations — it is a type alias. Use `kotlin.coroutines.CoroutineContext` directly. _(from `2026-09-21-auto-closeable-coroutine-scope`)_
+- **Always** use `testScope(scope)` in VM test factories — `TestScope` does not implement `kotlin.AutoCloseable`. _(from `2026-09-21-auto-closeable-coroutine-scope`)_
+- **Never** add `override fun onCleared() { scope.cancel() }` to new Tier-1 VMs — use `AutoCloseableCoroutineScope` + `init { addCloseable(scope) }` instead. _(from `2026-09-21-auto-closeable-coroutine-scope`)_
+- **Always** check `onCleared()` body for extra cleanup beyond `scope.cancel()` — if extra cleanup exists, keep manual `onCleared()` (Tier-2). _(from `2026-09-21-auto-closeable-coroutine-scope`)_
 
 ## Per-tag
 
