@@ -53,7 +53,7 @@ class SyncEngine(
     init {
         // React to session changes: start/stop the push loop
         scope.launch {
-            authRepository.session.collect { session ->
+            authRepository.currentSession.collect { session ->
                 when (session) {
                     is Session.SignedIn -> {
                         if (pushJob?.isActive != true) {
@@ -106,7 +106,7 @@ class SyncEngine(
      * Pushes all pending patches to the server.
      */
     suspend fun push(): PushResult {
-        val session = authRepository.session.value
+        val session = authRepository.currentSession.value
         if (session !is Session.SignedIn) {
             return PushResult(0, 0)
         }
@@ -165,7 +165,7 @@ class SyncEngine(
      * Pulls events from the server since the given LSN.
      */
     suspend fun pull(sinceLsn: Long = 0): PullResult {
-        val session = authRepository.session.value
+        val session = authRepository.currentSession.value
         if (session !is Session.SignedIn) {
             return PullResult(0)
         }

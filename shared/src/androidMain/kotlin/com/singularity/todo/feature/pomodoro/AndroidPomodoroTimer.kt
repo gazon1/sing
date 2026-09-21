@@ -74,7 +74,7 @@ class AndroidPomodoroTimer(
     private fun onPhaseComplete() {
         val current = _state.value
         viewModelScope.launch {
-            repository.saveSession(
+            repository.save(
                 PomodoroSession(
                     taskId = current.taskId,
                     phase = current.phase.name,

@@ -28,7 +28,7 @@ class CurrentUser(
     authRepository: AuthRepository,
     private val scope: CoroutineScope,
 ) {
-    val userId: StateFlow<UserId> = authRepository.session
+    val userId: StateFlow<UserId> = authRepository.currentSession
         .map { AuthDomain.effectiveUserId(it) }
         .stateIn(scope, SharingStarted.Eagerly, UserId.anonymous)
 

@@ -73,11 +73,11 @@ class BackupViewModel(
     val snackbar: SharedFlow<String> = _snackbar.asSharedFlow()
 
     private val effectiveUserId: UserId
-        get() = AuthDomain.effectiveUserId(authRepository.session.value)
+        get() = AuthDomain.effectiveUserId(authRepository.currentSession.value)
 
     init {
         scope.launch {
-            repository.backups.collect { backups ->
+            repository.observeAll().collect { backups ->
                 _state.update { it.copy(backups = backups) }
             }
         }

@@ -15,7 +15,7 @@ import kotlin.coroutines.CoroutineContext
  * Repository interface for authentication.
  */
 interface AuthRepository {
-    val session: StateFlow<Session>
+    val currentSession: StateFlow<Session>
     val isLoading: StateFlow<Boolean>
     suspend fun signUp(email: String, password: String): Result<Unit>
     suspend fun signIn(email: String, password: String): Result<Unit>
@@ -36,8 +36,8 @@ class SupabaseAuthRepository(
 
     private val sessionScope = CoroutineScope(sessionCoroutineContext + SupervisorJob())
 
-    private val _session = MutableStateFlow<Session>(Session.Anonymous(UserId.anonymous))
-    override val session: StateFlow<Session> = _session.asStateFlow()
+    private val _currentSession = MutableStateFlow<Session>(Session.Anonymous(UserId.anonymous))
+    override val currentSession: StateFlow<Session> = _currentSession.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -45,7 +45,7 @@ class SupabaseAuthRepository(
     init {
         sessionScope.launch {
             val deviceId = sessionStore.getOrInitDeviceId()
-            _session.value = Session.Anonymous(UserId.fromString(deviceId))
+            _currentSession.value = Session.Anonymous(UserId.fromString(deviceId))
         }
     }
 
@@ -76,14 +76,14 @@ class SupabaseAuthRepository(
 
     override suspend fun signInAnonymously(): Result<Unit> = runCatchingResult {
         val deviceId = sessionStore.getOrInitDeviceId()
-        _session.value = Session.Anonymous(UserId.fromString(deviceId))
+        _currentSession.value = Session.Anonymous(UserId.fromString(deviceId))
     }
 
     override suspend fun signOut(): Result<Unit> {
         _isLoading.value = true
         val result = runCatchingResult {
             sessionStore.clear()
-            _session.value = Session.SignedOut
+            _currentSession.value = Session.SignedOut
         }
         _isLoading.value = false
         result.onFailure { e -> log.e(e) { "signOut failed" } }

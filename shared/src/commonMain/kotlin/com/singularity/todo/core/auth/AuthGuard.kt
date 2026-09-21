@@ -21,7 +21,7 @@ import org.koin.compose.koinInject
  */
 @Composable
 fun AuthGuard(authRepository: AuthRepository = koinInject(), content: @Composable () -> Unit) {
-    val session by authRepository.session.collectAsStateWithLifecycle()
+    val session by authRepository.currentSession.collectAsStateWithLifecycle()
     when (session) {
         Session.Loading -> LoadingIndicator()
         Session.SignedOut -> LoginScreen()

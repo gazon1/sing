@@ -12,7 +12,7 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * Repository for local backup management and remote backup push/pull.
  *
- * Local backups are zip files scanned from `backupDir` every 5 seconds via [backups].
+ * Local backups are zip files scanned from `backupDir` every 5 seconds via [observeAll].
  * Remote operations use [RemoteBackupService] for upload/download.
  */
 interface BackupRepository {
@@ -20,7 +20,7 @@ interface BackupRepository {
      * Emits the list of local backups, rescanned every 5 seconds.
      * List is sorted newest-first by `createdAtEpochMillis`.
      */
-    val backups: Flow<List<BackupMetadata>>
+    fun observeAll(): Flow<List<BackupMetadata>>
 
     /** Exports a full backup (tasks, notes, projects, tags, settings) to a zip in `backupDir`. */
     suspend fun export(options: ExportOptions): Result<BackupResult>
@@ -52,7 +52,7 @@ class BackupRepositoryImpl(
     private val backupDir: String,
 ) : BackupRepository {
 
-    override val backups: Flow<List<BackupMetadata>> = flow {
+    override fun observeAll(): Flow<List<BackupMetadata>> = flow {
         while (currentCoroutineContext().isActive) {
             emit(scanBackups())
             delay(5_000.milliseconds)

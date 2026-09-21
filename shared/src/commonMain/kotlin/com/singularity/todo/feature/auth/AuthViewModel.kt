@@ -42,7 +42,7 @@ class AuthViewModel(
     private val _events = MutableSharedFlow<AuthUiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<AuthUiEvent> = _events.asSharedFlow()
 
-    val session: StateFlow<Session> = authRepository.session
+    val session: StateFlow<Session> = authRepository.currentSession
 
     fun signIn(email: String, password: String) {
         scope.launch {

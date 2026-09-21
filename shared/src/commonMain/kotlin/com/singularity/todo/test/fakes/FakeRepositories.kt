@@ -212,8 +212,8 @@ class FakeSettingsRepository(initialUserId: String = "test-user") : SettingsRepo
 // ─── BackupRepository ─────────────────────────────────────────────────────────
 
 class FakeBackupRepository : BackupRepository {
-    private val _backups = MutableStateFlow<List<BackupMetadata>>(emptyList())
-    override val backups: Flow<List<BackupMetadata>> = _backups
+    private val backupsStore = MutableStateFlow<List<BackupMetadata>>(emptyList())
+    override fun observeAll(): Flow<List<BackupMetadata>> = backupsStore
 
     // ─── Recording fields (for assertions) ───────────────────────────────────
     var lastExportOptions: ExportOptions? = null
@@ -232,7 +232,7 @@ class FakeBackupRepository : BackupRepository {
     var pushResult: Result<String> = Result.success("https://remote/backup.zip")
 
     fun addBackup(backup: BackupMetadata) {
-        _backups.value += backup
+        backupsStore.value += backup
     }
 
     fun clearRecordings() {
@@ -254,7 +254,7 @@ class FakeBackupRepository : BackupRepository {
 
     override suspend fun delete(backupId: BackupId): Result<Unit> {
         lastDeletedId = backupId
-        _backups.value = _backups.value.filter { it.id != backupId }
+        backupsStore.value = backupsStore.value.filter { it.id != backupId }
         return deleteResult
     }
 
@@ -695,11 +695,12 @@ class FakeReminderRepository(
 // ─── AuthRepository ───────────────────────────────────────────────────────────
 
 class FakeAuthRepository(initialSession: Session = Session.Anonymous(UserId.anonymous)) : AuthRepository {
-    private val _session = MutableStateFlow(initialSession)
-    // Return _session directly — MutableStateFlow IS a StateFlow, so this satisfies
+    private val _currentSession = MutableStateFlow(initialSession)
+
+    // Return _currentSession directly — MutableStateFlow IS a StateFlow, so this satisfies
     // the interface. Using asStateFlow() creates a new wrapper each call, which
     // breaks shared subscription state between callers.
-    override val session: StateFlow<Session> = _session
+    override val currentSession: StateFlow<Session> = _currentSession
 
     private val _isLoading = MutableStateFlow(false)
     override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -708,7 +709,7 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(UserId.anon
     override suspend fun signIn(email: String, password: String): Result<Unit> = Result.success(Unit)
     override suspend fun signInAnonymously(): Result<Unit> = Result.success(Unit)
     override suspend fun signOut(): Result<Unit> = runCatching {
-        _session.value = Session.SignedOut
+        _currentSession.value = Session.SignedOut
     }
 
     override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> = Result.success(Unit)
@@ -718,7 +719,7 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(UserId.anon
      * For use in tests that simulate profile/user switches.
      */
     fun setUserId(userId: UserId) {
-        _session.value = Session.Anonymous(userId)
+        _currentSession.value = Session.Anonymous(userId)
     }
 }
 
@@ -1368,7 +1369,7 @@ fun FakeProfileAwareCurrentUser(
     // effective userId from the session. We monitor session changes in the scope
     // and update it reactively. This avoids the combine+stateIn synchronous
     // double-emission problem entirely.
-    val initialUid = (authRepository.session.value.let {
+    val initialUid = (authRepository.currentSession.value.let {
         when (it) {
             is Session.SignedIn -> it.userId
             is Session.Anonymous -> it.userId
@@ -1383,7 +1384,7 @@ fun FakeProfileAwareCurrentUser(
     // "schedule and return" semantics for the initial subscription).
     val fakeScopedUserId = MutableStateFlow(initialUid)
     scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
-        authRepository.session.collect { session ->
+        authRepository.currentSession.collect { session ->
             fakeScopedUserId.value = extractUserId(session)
         }
     }
