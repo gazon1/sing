@@ -2,6 +2,7 @@ package com.singularity.todo.feature.notes
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import com.mohamedrejeb.richeditor.model.RichTextState
 
@@ -20,6 +21,7 @@ import com.mohamedrejeb.richeditor.model.RichTextState
  *                     The initial load is skipped to avoid echoing the loaded
  *                     content back to the ViewModel as a phantom edit.
  */
+@Stable
 class EditorSession(
     val richTextState: RichTextState,
     var titleFieldValue: String,

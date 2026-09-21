@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
@@ -34,6 +35,7 @@ data class SavedAgendaDeps(
  * Editable draft state — single source of truth for name/sections.
  * Mutated directly via typed methods. No flow magic, no combine.
  */
+@Stable
 class DraftState(initial: Draft = Draft.empty()) {
     private val _state = MutableStateFlow(initial)
     val state: StateFlow<Draft> = _state.asStateFlow()

@@ -1,11 +1,14 @@
 package com.singularity.todo.feature.notes
 
+import androidx.compose.runtime.Stable
+
 /**
  * Formatting action for the rich-text toolbar.
  *
  * Sealed hierarchy so `when` over [EditorAction] can be exhaustive without
  * falling back to string keys.
  */
+@Stable
 sealed interface EditorAction {
     // ─── Inline spans ──────────────────────────────────────────────────────
     data object Bold : EditorAction

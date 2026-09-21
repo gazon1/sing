@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.components
 
+import androidx.compose.runtime.Stable
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -13,7 +14,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  * (no VM call needed). Domain variants are dispatched to [ProjectDetailViewModel.onIntent].
  *
  * Screen dispatcher:
- * ```kotlin
+ * ```
  * ProjectDetailActions { intent ->
  *     when (intent) {
  *         is ProjectDetailIntent.Routing.NavigateToTasks -> onNavigateToTasks(intent.projectId)
@@ -25,6 +26,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  *
  * @see ProjectDetailIntent — исчерпывающий список всех операций.
  */
+@Stable
 @JvmInline
 value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Unit) {
 

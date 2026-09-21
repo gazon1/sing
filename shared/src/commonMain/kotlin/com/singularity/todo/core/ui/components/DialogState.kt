@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui.components
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,6 +20,7 @@ import androidx.compose.runtime.setValue
  *
  * @param T The dialog/sheet type, typically a sealed interface.
  */
+@Stable
 class DialogState<T : Any> {
     private var current: T? by mutableStateOf(null)
 

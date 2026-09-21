@@ -31,6 +31,8 @@ Read this skill first when touching any Compose screen. The two sub-concerns int
 | `SettingsSection(title, modifier) { content }` | Titled card used as a visual sub-section | `Card { Column { Text("Section", titleSmall) … } }` repeated in every settings screen |
 | `SettingsSwitchRow(title, subtitle?, checked, onCheckedChange, modifier)` | Label + optional subtitle + Switch | `Row { Column { Text; Text } Switch }` for every toggle setting |
 | `Formatters.kt` (`priorityColorByIndex`, `hexColor`) | Pure color helpers, testable without Compose | `when (priority) { … Color(0xFF…) … }` blocks duplicated across screens |
+| `OverlayState<S>` (`show`, `dismissSheet`, `toggleOverflow`, `dismissAll`, `snackbarHostState`) | Coordinates sheet + overflow menu + snackbar in one place | 3 independent `remember { mutableStateOf(false/true) }` flags per screen |
+| `FormState<T>` (abstract base) | Immutable form data with `update { copy() }`; concrete subclass provides `Saver` | Mutable `var` fields + manual `rememberSaveable` in each screen |
 
 All of these live at `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/`.
 

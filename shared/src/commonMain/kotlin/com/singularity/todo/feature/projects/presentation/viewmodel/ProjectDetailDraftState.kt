@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
+import androidx.compose.runtime.Stable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * if the draft has not yet been initialized (prevents overwriting user's edits
  * from a prior editing session after screen rotation).
  */
+@Stable
 class ProjectDetailDraftState(
     initial: ProjectDetailDraft = ProjectDetailDraft.empty(),
 ) {

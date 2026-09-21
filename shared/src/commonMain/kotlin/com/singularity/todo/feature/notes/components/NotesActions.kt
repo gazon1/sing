@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.notes.components
 
+import androidx.compose.runtime.Stable
 import com.singularity.todo.feature.notes.NoteFilter
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NoteSortOrder
@@ -14,6 +15,7 @@ import com.singularity.todo.feature.notes.NoteSortOrder
  * - **List control**: set filter, set sort order
  * - **Selection mode**: enter, toggle, exit selection, delete selected
  */
+@Stable
 @JvmInline
 value class NotesActions(val block: (Action) -> Unit) {
     /** Sealed action hierarchy — enables exhaustive `when` with smart-cast. */

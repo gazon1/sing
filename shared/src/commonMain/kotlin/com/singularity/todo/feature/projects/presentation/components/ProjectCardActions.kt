@@ -1,10 +1,13 @@
 package com.singularity.todo.feature.projects.presentation.components
 
+import androidx.compose.runtime.Stable
+
 /**
  * Callbacks for [ProjectCard], packed into a single value-class parameter.
  * Lets the card take a single `actions:` argument that's easy to extend
  * (delete / review / pin / archive / …) without breaking call sites.
  */
+@Stable
 @JvmInline
 value class ProjectCardActions(val block: (Action) -> Unit) {
     enum class Action { Delete, Review }

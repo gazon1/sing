@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.contextmenu
 
+import androidx.compose.runtime.Stable
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
@@ -18,6 +19,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  * @param onAiAction     dispatch an AI action; the lambda receives the specific action
  * @param onDismiss       close the context menu (called by every item's onClick)
  */
+@Stable
 data class TaskMenuActions(
     val onTogglePin: (() -> Unit)? = null,
     val onToggleComplete: (() -> Unit)? = null,
