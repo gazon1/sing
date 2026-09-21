@@ -42,6 +42,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,8 +70,10 @@ import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewIntent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewState
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlinx.coroutines.flow.debounce
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 // ─── Screen entry ──────────────────────────────────────────────────────────────
@@ -399,7 +402,11 @@ private fun NotePreviewBody(
     onNavigateToTask: (String) -> Unit,
 ) {
     val richTextState = rememberRichTextState()
-    LaunchedEffect(html) { richTextState.setHtml(html) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { html }
+            .debounce(100.milliseconds)
+            .collect { richTextState.setHtml(it) }
+    }
 
     val uriHandler = LocalUriHandler.current
     val interceptedUriHandler = remember(uriHandler, onNavigateToNote, onNavigateToTask) {
