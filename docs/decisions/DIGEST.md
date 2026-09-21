@@ -64,14 +64,6 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Never** write inline test doubles — add to `test/fakes/` _(from `2026-09-18-testing-best-practices`)_
 - **Never** migrate a sheet to `ListPickerSheet` if it uses `FilterChip`, `ListItem` with rich content, or custom item layouts. _(from `2026-09-18-picker-sheet-migration-mr13`)_
 - **Never** use `mutableStateOf<X?>` for sheet/dialog state — always use `rememberDialogState()`. _(from `2026-09-18-dialog-state-migration-mr12`)_
-- **Always** use `kotlin.AutoCloseable` (not `java.io.Closeable`) for `ViewModel.addCloseable()` — they are different types in KMP commonMain. _(from `2026-09-21-kotlin-auto-closeable-vs-java-closeable`)_
-- **Never** implement `java.io.Closeable` or `kotlin.io.Closeable` where `kotlin.AutoCloseable` is expected in commonMain KMP. _(from `2026-09-21-kotlin-auto-closeable-vs-java-closeable`)_
-- **Never** subscribe to `TaskRepository.changes` without filtering by `currentUser.scopedUserId` — the flow emits cross-user. _(from `2026-09-21-out-of-scope-after-phase-5-5`)_
-- **Always** use `init { addCloseable(scope) }` pattern for Tier-1 VMs (scope cancellation only) — never pass `AutoCloseableCoroutineScope` to `ViewModel(scope)` constructor (ambiguity). _(from `2026-09-21-auto-closeable-coroutine-scope`)_
-- **Never** use `kotlinx.coroutines.CoroutineContext` in `expect`/`actual` declarations — it is a type alias. Use `kotlin.coroutines.CoroutineContext` directly. _(from `2026-09-21-auto-closeable-coroutine-scope`)_
-- **Always** use `testScope(scope)` in VM test factories — `TestScope` does not implement `kotlin.AutoCloseable`. _(from `2026-09-21-auto-closeable-coroutine-scope`)_
-- **Never** add `override fun onCleared() { scope.cancel() }` to new Tier-1 VMs — use `AutoCloseableCoroutineScope` + `init { addCloseable(scope) }` instead. _(from `2026-09-21-auto-closeable-coroutine-scope`)_
-- **Always** check `onCleared()` body for extra cleanup beyond `scope.cancel()` — if extra cleanup exists, keep manual `onCleared()` (Tier-2). _(from `2026-09-21-auto-closeable-coroutine-scope`)_
 
 ## Per-tag
 
@@ -85,12 +77,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`performTextClear`** не доступен в Robolectric — используется `performTextInput` напрямую
 - **~14 изменённых файлов**: Screen.kt + testTag, VM constructors, DI module
 - **~25 новых файлов**: 4 порта, 7 Page Objects, test infrastructure, integration tests
+- 23 Tier-1 VMs lose their `onCleared()` override — the scope is now auto-cancelled via `addCloseable(scope)`.
 - 8 экранов мигрированы: Tasks, Notes, TaskDetail, TaskEditor, Projects, ProjectEditor, Chat, Archive
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches.
 - AI tools (11 Koog `SimpleTool` implementations) drop `currentUser` from
 - Agenda always shows correct bucket labels across midnight.
 - All 13 migrated VMs are now testable with `backgroundScope` injection
-- All 24 VMs gain deterministic scope cancellation.
 - All 593 existing tests continue to pass.
 - All notes screens now navigationally self-contained
 - Archive доступен с любого TaskDetailScreen через ⋮ menu
@@ -139,12 +131,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Slot-API (`CalendarContent` separate from `CalendarScreen`) enables preview without Koin.
 - StableJson round-trip test verifies no data loss.
 - Test classes updated: `createVm()` now takes `scope = backgroundScope` via `TestScope.createVm()`
+- Test factories for those VMs use `testScope(backgroundScope)` (or `testScope(this)` in `runTest`).
 - The 2 side-effects-in-combine anti-patterns remain in `TaskDetailViewModel`
 - The 4 untested VMs (`TaskCreateViewModel`, `ProjectEditorViewModel`,
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
-- The exemption list must be updated whenever a new intentionally-long-lived job is added to any VM.
+- The default `viewModelScope` is still created by the ViewModel but is unused in Tier-1 VMs (negligible memory cost: one empty `SupervisorJob`).
 - Theme switching now correctly recomposes the calendar palette
 - Throttling prevents SQLite spam from polling.
+- Tier-2 VMs are unaffected.
 - Two new top-level entries added: `justfile` and `.just/`.
 - UI Automator тесты **удалены** (`UIAutomatorTest.kt`).
 - UI switching (MR3) requires adding `definition: AgendaDefinition` to `AgendaViewModel`
@@ -167,7 +161,6 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope`
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
-- `NoteEditorViewModel` and any future singleton services with intentionally long-lived jobs must opt out explicitly by not routing through the canonical scope or by using a separate non-cancellable scope.
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах
 - `ProfileAwareCurrentUser` moves **inside** repositories; the DI graph registers
@@ -737,9 +730,17 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`ProjectDetailUiEvent`** now has only 2 cases: `NavigateBack` (post-delete) and `ShowError`
 - **`createTask` and `moveTaskToProject`** remain in VM (require repository writes)
 - **`toggleArchive`** no longer emits `Saved` — `lastEditedAt` drives "Saved X ago" UI via the `mutate{}` helper
+- 4 PRs instead of 1 (review overhead).
 - All new VMs in this codebase should prefer `with(intent) { ... }` for data class intents with ≥2 properties.
+- Internal note/task links now navigate correctly.
+- Pre-work required 3-4 hours before any visible feature change.
+- Recomposition skip — `@Stable` on 11 holders.
 - Single-property intents may remain as `intent.X` for simplicity — the overhead is minimal.
+- Testability — `NotePreviewTest`, `LoginFormStateTest`, `OverlayStateTest`,
 - This pattern does NOT require a custom DSL marker or annotation; stdlib `with` is sufficient.
+- Unified mental model for state holders.
+- `Dispatchers.Default` fixes flaky VM tests.
+- `OverlayState` (Phase 1) is not yet saved across process death — acceptable
 
 ## Open / Deferred
 
@@ -879,6 +880,10 @@ _1 entries need attention._
 - `2026-09-18-vm-intent-with-receiver` — vm, refactor, kotlin
 - `2026-09-18-vm-migration-scope-injection` — _untagged_
 - `2026-09-18-vm-scope-cancellation-oncleared` — _untagged_
+- `2026-09-21-auto-closeable-coroutine-scope` — _untagged_
+- `2026-09-21-kotlin-auto-closeable-vs-java-closeable` — _untagged_
+- `2026-09-21-out-of-scope-after-phase-5-5` — _untagged_
+- `2026-09-21-state-hoisting-audit` — vm, compose, state-hoisting, refactor
 - `2026-09-21-user-scoped-repository` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
@@ -1013,6 +1018,10 @@ _1 entries need attention._
 - `2026-09-18-vm-intent-with-receiver` — MR9: with(intent) stdlib receiver pattern for VM intent dispatch
 - `2026-09-18-vm-migration-scope-injection` — _(no title)_
 - `2026-09-18-vm-scope-cancellation-oncleared` — _(no title)_
+- `2026-09-21-auto-closeable-coroutine-scope` — _(no title)_
+- `2026-09-21-kotlin-auto-closeable-vs-java-closeable` — _(no title)_
+- `2026-09-21-out-of-scope-after-phase-5-5` — _(no title)_
+- `2026-09-21-state-hoisting-audit` — _(no title)_
 - `2026-09-21-user-scoped-repository` — _(no title)_
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
