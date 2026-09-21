@@ -81,7 +81,7 @@ class NotesListViewModel(
     val events: Flow<NotesUiEvent> = _events.receiveAsFlow()
 
     init {
-        scope.launch(Dispatchers.Default) {
+        scope.launch {
             // Watch notes based on current filter, then split into pinned/unpinned.
             _filter.flatMapLatest { f ->
                 val flow = when (f) {
