@@ -43,17 +43,6 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
     fun getTagIds(taskId: TaskId): Flow<List<TagId>>
 
     /**
-     * Returns the set of task IDs that [taskId] depends on (is blocked by).
-     */
-    fun watchDependencies(taskId: TaskId): Flow<Set<TaskId>>
-
-    /**
-     * Returns the set of task IDs that depend on [taskId] (it blocks them).
-     * The reverse direction of `watchDependencies`.
-     */
-    fun watchBlockingBy(taskId: TaskId): Flow<Set<TaskId>>
-
-    /**
      * Replaces the full dependency set for [taskId].
      * Uses a diff-and-apply strategy: clears all existing refs, inserts the new set.
      */

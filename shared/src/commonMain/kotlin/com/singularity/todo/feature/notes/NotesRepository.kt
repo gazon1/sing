@@ -26,20 +26,6 @@ interface NotesRepository :
     GenericUserScopedRepository<Note, NoteId>,
     SoftDeletable<Note, NoteId> {
 
-    // ─── Explicit userId overloads (kept for callers that pass userId explicitly) ──
-
-    /** All notes for a specific [userId]. */
-    fun watchAll(userId: UserId): Flow<List<Note>>
-
-    /** Pinned notes for a specific [userId]. */
-    fun watchPinned(userId: UserId): Flow<List<Note>>
-
-    /** Archived notes for a specific [userId]. */
-    fun watchArchived(userId: UserId): Flow<List<Note>>
-
-    /** Root notes (no parent) for a specific [userId]. */
-    fun watchRootNotes(userId: UserId): Flow<List<Note>>
-
     // ─── Domain methods ───────────────────────────────────────────────────────
 
     /** Pinned non-deleted notes for the current user. */
@@ -53,9 +39,6 @@ interface NotesRepository :
 
     /** Search notes for the current user. */
     fun search(query: String): Flow<List<Note>>
-
-    /** Search notes scoped to a specific [userId]. Used by SearchUseCase. */
-    fun searchNotes(query: String, userId: UserId): Flow<List<Note>>
 
     /** Creates a note with content (autosave path). Returns the saved note. */
     suspend fun createWithContent(
@@ -137,20 +120,6 @@ class RoomNotesRepository(
         noteDao.restore(id.value, clock.now().toEpochMilliseconds())
     }
 
-    // ─── Explicit userId overloads ─────────────────────────────────────────────
-
-    override fun watchAll(userId: UserId): Flow<List<Note>> =
-        noteDao.watchAll(userId.value).map { list -> list.map { it.toNote() } }
-
-    override fun watchPinned(userId: UserId): Flow<List<Note>> =
-        noteDao.watchPinned(userId.value).map { list -> list.map { it.toNote() } }
-
-    override fun watchArchived(userId: UserId): Flow<List<Note>> =
-        noteDao.watchArchived(userId.value).map { list -> list.map { it.toNote() } }
-
-    override fun watchRootNotes(userId: UserId): Flow<List<Note>> =
-        noteDao.watchRootNotes(userId.value).map { list -> list.map { it.toNote() } }
-
     // ─── Domain methods ───────────────────────────────────────────────────────
 
     override fun watchPinned(): Flow<List<Note>> =
@@ -172,9 +141,6 @@ class RoomNotesRepository(
         currentUser.observeForCurrentUser { uid ->
             noteDao.watchSearchByTitle(uid.value, query).map { list -> list.map { it.toNote() } }
         }
-
-    override fun searchNotes(query: String, userId: UserId): Flow<List<Note>> =
-        noteDao.watchSearchByTitle(userId.value, query).map { list -> list.map { it.toNote() } }
 
     override suspend fun createWithContent(
         userId: UserId,

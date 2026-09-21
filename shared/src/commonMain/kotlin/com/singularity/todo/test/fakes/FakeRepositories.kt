@@ -567,12 +567,6 @@ class FakeTaskRepository(
     override fun getTagIds(taskId: TaskId): Flow<List<TagId>> =
         store.state.map { it[taskId.value]?.tags ?: emptyList() }
 
-    override fun watchDependencies(taskId: TaskId): Flow<Set<TaskId>> =
-        dao.getDependencyIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
-
-    override fun watchBlockingBy(taskId: TaskId): Flow<Set<TaskId>> =
-        dao.getBlockingTaskIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
-
     override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> = runCatching {
         dao.clearDependencies(taskId.value)
         deps.forEach { dep ->
@@ -1058,28 +1052,6 @@ class FakeNotesRepository(
         }
     }
 
-    // ─── Explicit userId overloads ───────────────────────────────────────────
-
-    override fun watchAll(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        store.state.map { list -> list.values.filter { it.userId == userId && it.deletedAt == null } }
-
-    override fun watchPinned(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        store.state.map { list -> list.values.filter { it.userId == userId && it.isPinned && it.deletedAt == null } }
-
-    override fun watchArchived(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        store.state.map { list ->
-            list.values.filter {
-                it.userId == userId && it.archivedAt != null && it.deletedAt == null
-            }
-        }
-
-    override fun watchRootNotes(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        store.state.map { list ->
-            list.values.filter {
-                it.userId == userId && it.parentNoteId == null && !it.isFolder && it.deletedAt == null
-            }
-        }
-
     // ─── Domain methods ─────────────────────────────────────────────────────
 
     override fun watchPinned(): Flow<List<com.singularity.todo.feature.notes.Note>> =
@@ -1110,16 +1082,6 @@ class FakeNotesRepository(
                             (note.bodyMarkdown?.contains(query, ignoreCase = true) == true)
                     )
                 }
-            }
-        }
-
-    override fun searchNotes(query: String, userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        store.state.map { list ->
-            list.values.filter { note ->
-                note.userId == userId && note.deletedAt == null && (
-                    note.title.contains(query, ignoreCase = true) ||
-                        (note.bodyMarkdown?.contains(query, ignoreCase = true) == true)
-                )
             }
         }
 
