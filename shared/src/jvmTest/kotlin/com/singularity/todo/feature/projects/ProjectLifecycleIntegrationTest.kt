@@ -47,7 +47,7 @@ class ProjectLifecycleIntegrationTest {
         // Soft-delete sets isDeleted = true; verify via watchProjects flow
         val projectList = fakeProjectRepo.watchProjects(testUserId).first()
         assertTrue(projectList.isEmpty(), "Deleted project should be filtered from watchProjects")
-        assertTrue(fakeProjectRepo.watchProject(ProjectId.fromString("p1")).first()?.isDeleted == true)
+        assertTrue(fakeProjectRepo.observeProject(ProjectId.fromString("p1")).first()?.isDeleted == true)
     }
 
     @Test
@@ -80,7 +80,7 @@ class ProjectLifecycleIntegrationTest {
 
         assertTrue(result.isFailure)
         // Project should NOT be soft-deleted (guard blocked deletion)
-        val project = fakeProjectRepo.watchProject(projectId).first()
+        val project = fakeProjectRepo.observeProject(projectId).first()
         assertTrue(project?.isDeleted == false)
     }
 }

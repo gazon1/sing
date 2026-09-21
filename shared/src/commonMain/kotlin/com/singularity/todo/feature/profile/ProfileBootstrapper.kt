@@ -41,7 +41,7 @@ class ProfileBootstrapper(
         repository.ensureDefaults(extraProfiles = seedTuples)
         if (activateName != null) {
             // Look up the id by name. first() suspends until the Flow emits at least once.
-            val match = repository.all().first()
+            val match = repository.observeAll().first()
                 .firstOrNull { it.name == activateName }
             if (match != null) {
                 repository.switchTo(match.id)

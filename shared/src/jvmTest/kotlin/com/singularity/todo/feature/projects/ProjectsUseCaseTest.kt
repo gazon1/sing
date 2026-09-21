@@ -100,7 +100,7 @@ class ProjectsUseCaseTest {
         assertTrue(result.isSuccess)
 
         // Verify via repository
-        val updated = fakeProjectRepo.watchProject(id).first()
+        val updated = fakeProjectRepo.observeProject(id).first()
         assertEquals("New Name", updated?.name)
     }
 

@@ -4,7 +4,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.database.ProfileDao
 import com.singularity.todo.core.database.ProfileEntity
 import com.singularity.todo.core.platform.Clock
@@ -45,42 +44,34 @@ class ProfileRepositoryImpl(
         }
         .stateIn(scope, SharingStarted.Eagerly, ProfileId.default)
 
-    override fun all(): Flow<List<Profile>> = profileDao.all().map { entities -> entities.map { it.toDomain() } }
+    // ── GenericUserScopedRepository ────────────────────────────────────────────
 
-    override fun activeProfile(): Flow<Profile> = _activeProfileId.map { id ->
+    override fun observeAll(): Flow<List<Profile>> =
+        profileDao.all().map { entities -> entities.map { it.toDomain() } }
+
+    override fun observe(id: ProfileId): Flow<Profile?> =
+        profileDao.all().map { entities -> entities.find { it.id == id.value }?.toDomain() }
+
+    override suspend fun get(id: ProfileId): Profile? =
         profileDao.getById(id.value)?.toDomain()
-            ?: profileDao.getDefault()?.toDomain()
-            ?: Profile.createDefault(clock)
-    }
 
-    override val activeProfileId: StateFlow<ProfileId> = _activeProfileId
-
-    override suspend fun create(name: String, emoji: String, colorIdx: Int): ProfileId {
-        val now = clock.now()
-        val id = ProfileId.generate()
-        val entity = ProfileEntity(
-            id = id.value,
-            name = name,
-            emoji = emoji,
-            colorIdx = colorIdx,
-            isDefault = false,
-            createdAt = instantToEpochMillis(now),
-            updatedAt = instantToEpochMillis(now),
-        )
+    override suspend fun create(item: Profile): Result<Profile> = runCatching {
+        val entity = item.toEntity()
         profileDao.upsert(entity)
-        return id
+        item
     }
 
-    override suspend fun update(id: ProfileId, name: String, emoji: String, colorIdx: Int) {
-        val existing = profileDao.getById(id.value)
-            ?: throw IllegalArgumentException("Profile not found: ${id.value}")
+    override suspend fun update(item: Profile): Result<Profile> = runCatching {
+        val existing = profileDao.getById(item.id.value)
+            ?: throw IllegalArgumentException("Profile not found: ${item.id.value}")
         val updated = existing.copy(
-            name = name,
-            emoji = emoji,
-            colorIdx = colorIdx,
+            name = item.name,
+            emoji = item.emoji,
+            colorIdx = item.colorIdx,
             updatedAt = instantToEpochMillis(clock.now()),
         )
         profileDao.upsert(updated)
+        updated.toDomain()
     }
 
     override suspend fun delete(id: ProfileId): Result<Unit> {
@@ -98,13 +89,55 @@ class ProfileRepositoryImpl(
         return Result.success(Unit)
     }
 
-    override suspend fun switchTo(id: ProfileId) {
+    // ── Profile-specific observers ─────────────────────────────────────────────
+
+    override fun activeProfile(): Flow<Profile> = _activeProfileId.map { id ->
+        profileDao.getById(id.value)?.toDomain()
+            ?: profileDao.getDefault()?.toDomain()
+            ?: Profile.createDefault(clock)
+    }
+
+    override val activeProfileId: StateFlow<ProfileId> = _activeProfileId
+
+    // ── Legacy convenience overloads (deprecated — use generic create/update) ───
+
+    @Deprecated("Use create(Profile)", ReplaceWith("create(Profile(...))"))
+    suspend fun create(name: String, emoji: String, colorIdx: Int): ProfileId {
+        val now = clock.now()
+        val id = ProfileId.generate()
+        val entity = ProfileEntity(
+            id = id.value,
+            name = name,
+            emoji = emoji,
+            colorIdx = colorIdx,
+            isDefault = false,
+            createdAt = instantToEpochMillis(now),
+            updatedAt = instantToEpochMillis(now),
+        )
+        profileDao.upsert(entity)
+        return id
+    }
+
+    @Deprecated("Use update(Profile)", ReplaceWith("update(Profile(...))"))
+    suspend fun update(id: ProfileId, name: String, emoji: String, colorIdx: Int) {
+        val existing = profileDao.getById(id.value)
+            ?: throw IllegalArgumentException("Profile not found: ${id.value}")
+        val updated = existing.copy(
+            name = name,
+            emoji = emoji,
+            colorIdx = colorIdx,
+            updatedAt = instantToEpochMillis(clock.now()),
+        )
+        profileDao.upsert(updated)
+    }
+
+    // ── Domain methods ─────────────────────────────────────────────────────────
+
+    override suspend fun switchTo(id: ProfileId): Result<Unit> = runCatching {
         profileDao.getById(id.value)
             ?: throw IllegalArgumentException("Profile not found: ${id.value}")
         dataStore.edit { it[ACTIVE_PROFILE_ID] = id.value }
     }
-
-    override suspend fun getById(id: ProfileId): Profile? = profileDao.getById(id.value)?.toDomain()
 
     override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
         // Idempotent: if a default profile already exists, leave it.
@@ -154,6 +187,16 @@ private fun ProfileEntity.toDomain(): Profile = Profile(
     isDefault = isDefault,
     createdAt = Instant.fromEpochMilliseconds(createdAt),
     updatedAt = Instant.fromEpochMilliseconds(updatedAt),
+)
+
+private fun Profile.toEntity(): ProfileEntity = ProfileEntity(
+    id = id.value,
+    name = name,
+    emoji = emoji,
+    colorIdx = colorIdx,
+    isDefault = isDefault,
+    createdAt = instantToEpochMillis(createdAt),
+    updatedAt = instantToEpochMillis(updatedAt),
 )
 
 private fun instantToEpochMillis(instant: Instant): Long = instant.toEpochMilliseconds()

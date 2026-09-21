@@ -178,7 +178,7 @@ private fun ProfilePickerSheet(
     onDismiss: () -> Unit,
     onPick: (com.singularity.todo.feature.profile.ProfileId) -> Unit,
 ) {
-    val profiles by profileRepo.all().collectAsStateWithLifecycle(initialValue = emptyList())
+    val profiles by profileRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
 
     ListPickerSheet(

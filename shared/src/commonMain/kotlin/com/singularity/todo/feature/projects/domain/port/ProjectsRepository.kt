@@ -20,8 +20,8 @@ interface ProjectsRepository :
     /** All projects for a specific [userId]. */
     fun watchProjects(userId: UserId): Flow<List<Project>>
 
-    /** Single project by [id] for a specific [userId]. */
-    fun watchProject(id: ProjectId): Flow<Project?>
+    /** Single project by [id] for the current user. */
+    fun observeProject(id: ProjectId): Flow<Project?>
 
     // ─── Domain methods ─────────────────────────────────────────────────────────
 
@@ -29,13 +29,13 @@ interface ProjectsRepository :
     fun observeProjectsWithCounts(): Flow<List<ProjectWithCountRow>>
 
     /** Children of a parent project, scoped to current user. */
-    fun watchChildrenOf(parentId: ProjectId): Flow<List<Project>>
+    fun observeChildrenOf(parentId: ProjectId): Flow<List<Project>>
 
     /** Projects with task counts (total + completed) for a specific [userId]. */
     fun watchProjectsWithCounts(userId: UserId): Flow<List<ProjectWithCountRow>>
 
     /** Projects under a specific parent, scoped to current user. */
-    fun watchByParent(parentId: ProjectId): Flow<List<Project>>
+    fun observeByParent(parentId: ProjectId): Flow<List<Project>>
 
     /** Changes to a project (for inline-edit debounce). */
     fun changes(id: ProjectId): Flow<Project?>

@@ -46,7 +46,7 @@ class ProfileSwitcherViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<ProfileSwitcherUiState> = combine(
-        profileRepository.all(),
+        profileRepository.observeAll(),
         profileRepository.activeProfileId,
         _errorMessage,
     ) { profiles, activeId, errorMsg ->
@@ -67,7 +67,16 @@ class ProfileSwitcherViewModel(
             errorLabel = "Create profile failed",
             onError = { e -> _errorMessage.value = e.message ?: "Failed to create profile" },
         ) {
-            runCatching { profileRepository.create(name, emoji, colorIdx) }
+            val now = com.singularity.todo.core.platform.Clock.now()
+            profileRepository.create(Profile(
+                id = ProfileId.generate(),
+                name = name,
+                emoji = emoji,
+                colorIdx = colorIdx,
+                isDefault = false,
+                createdAt = now,
+                updatedAt = now,
+            ))
         }
     }
 
@@ -77,10 +86,10 @@ class ProfileSwitcherViewModel(
             onError = { e -> _errorMessage.value = e.message ?: "Failed to rename profile" },
         ) {
             runCatching {
-                val profile = profileRepository.getById(id) ?: return@runCatching Result.failure<Unit>(
+                val profile = profileRepository.get(id) ?: return@runCatching Result.failure<Unit>(
                     IllegalArgumentException("Profile not found")
                 )
-                profileRepository.update(id, name, profile.emoji, profile.colorIdx)
+                profileRepository.update(profile.copy(name = name))
             }
         }
     }

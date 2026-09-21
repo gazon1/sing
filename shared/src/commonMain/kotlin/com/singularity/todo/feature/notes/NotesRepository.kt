@@ -52,7 +52,7 @@ interface NotesRepository :
     fun watchRootNotes(): Flow<List<Note>>
 
     /** Search notes for the current user. */
-    fun searchNotesForCurrentUser(query: String): Flow<List<Note>>
+    fun search(query: String): Flow<List<Note>>
 
     /** Search notes scoped to a specific [userId]. Used by SearchUseCase. */
     fun searchNotes(query: String, userId: UserId): Flow<List<Note>>
@@ -168,7 +168,7 @@ class RoomNotesRepository(
             noteDao.watchRootNotes(uid.value).map { list -> list.map { it.toNote() } }
         }
 
-    override fun searchNotesForCurrentUser(query: String): Flow<List<Note>> =
+    override fun search(query: String): Flow<List<Note>> =
         currentUser.observeForCurrentUser { uid ->
             noteDao.watchSearchByTitle(uid.value, query).map { list -> list.map { it.toNote() } }
         }

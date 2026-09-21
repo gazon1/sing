@@ -782,7 +782,7 @@ class FakeProjectsRepository(
     override fun watchProjects(userId: UserId): Flow<List<Project>> =
         store.state.map { list -> list.values.filter { it.userId == userId && !it.isDeleted } }
 
-    override fun watchProject(id: ProjectId): Flow<Project?> =
+    override fun observeProject(id: ProjectId): Flow<Project?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
     // ─── Domain methods ─────────────────────────────────────────────────────
@@ -810,7 +810,7 @@ class FakeProjectsRepository(
             }
         }
 
-    override fun watchChildrenOf(parentId: ProjectId): Flow<List<Project>> =
+    override fun observeChildrenOf(parentId: ProjectId): Flow<List<Project>> =
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
                 list.values.filter { it.parentId == parentId && it.userId == uid && !it.isDeleted }
@@ -837,7 +837,7 @@ class FakeProjectsRepository(
             }
     }
 
-    override fun watchByParent(parentId: ProjectId): Flow<List<Project>> =
+    override fun observeByParent(parentId: ProjectId): Flow<List<Project>> =
         store.state.map { list -> list.values.filter { it.parentId == parentId && !it.isDeleted } }
 
     override fun changes(id: ProjectId): Flow<Project?> =
@@ -1101,7 +1101,7 @@ class FakeNotesRepository(
             }
         }
 
-    override fun searchNotesForCurrentUser(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
+    override fun search(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
                 list.values.filter { note ->
@@ -1256,36 +1256,24 @@ class FakeProfileRepository : ProfileRepository {
 
     private val _activeProfileId = MutableStateFlow(ProfileId.default)
 
-    override fun all(): Flow<List<Profile>> = _profiles
+    // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun activeProfile(): Flow<Profile> = _activeProfileId.map { id ->
-        _profiles.value.find { it.id == id } ?: _profiles.value.first()
+    override fun observeAll(): Flow<List<Profile>> = _profiles
+
+    override fun observe(id: ProfileId): Flow<Profile?> = _profiles.map { list ->
+        list.find { it.id == id }
     }
 
-    override val activeProfileId: StateFlow<ProfileId> = _activeProfileId
+    override suspend fun get(id: ProfileId): Profile? = _profiles.value.find { it.id == id }
 
-    override suspend fun create(name: String, emoji: String, colorIdx: Int): ProfileId {
-        val id = ProfileId.generate()
-        _profiles.value += Profile(
-            id = id,
-            name = name,
-            emoji = emoji,
-            colorIdx = colorIdx,
-            isDefault = false,
-            createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
-            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
-        )
-        return id
+    override suspend fun create(item: Profile): Result<Profile> = runCatching {
+        _profiles.value += item
+        item
     }
 
-    override suspend fun update(id: ProfileId, name: String, emoji: String, colorIdx: Int) {
-        _profiles.value = _profiles.value.map {
-            if (it.id == id) {
-                it.copy(name = name, emoji = emoji, colorIdx = colorIdx)
-            } else {
-                it
-            }
-        }
+    override suspend fun update(item: Profile): Result<Profile> = runCatching {
+        _profiles.value = _profiles.value.map { if (it.id == item.id) item else it }
+        item
     }
 
     override suspend fun delete(id: ProfileId): Result<Unit> {
@@ -1299,11 +1287,53 @@ class FakeProfileRepository : ProfileRepository {
         return Result.success(Unit)
     }
 
-    override suspend fun switchTo(id: ProfileId) {
-        _activeProfileId.value = id
+    // ─── Profile-specific observers ────────────────────────────────────────────
+
+    override fun activeProfile(): Flow<Profile> = _activeProfileId.map { id ->
+        _profiles.value.find { it.id == id } ?: _profiles.value.first()
     }
 
-    override suspend fun getById(id: ProfileId): Profile? = _profiles.value.find { it.id == id }
+    override val activeProfileId: StateFlow<ProfileId> = _activeProfileId
+
+    // ─── Legacy convenience overloads ─────────────────────────────────────────
+
+    @Deprecated("Use observeAll", ReplaceWith("observeAll()"))
+    fun all(): Flow<List<Profile>> = _profiles
+
+    @Deprecated("Use create(Profile)", ReplaceWith("create(Profile(...))"))
+    suspend fun create(name: String, emoji: String, colorIdx: Int): ProfileId {
+        val id = ProfileId.generate()
+        _profiles.value += Profile(
+            id = id,
+            name = name,
+            emoji = emoji,
+            colorIdx = colorIdx,
+            isDefault = false,
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+        )
+        return id
+    }
+
+    @Deprecated("Use update(Profile)", ReplaceWith("update(Profile(...))"))
+    suspend fun update(id: ProfileId, name: String, emoji: String, colorIdx: Int) {
+        _profiles.value = _profiles.value.map {
+            if (it.id == id) {
+                it.copy(name = name, emoji = emoji, colorIdx = colorIdx)
+            } else {
+                it
+            }
+        }
+    }
+
+    @Deprecated("Use get(ProfileId)", ReplaceWith("get(id)"))
+    suspend fun getById(id: ProfileId): Profile? = _profiles.value.find { it.id == id }
+
+    // ─── Domain methods ───────────────────────────────────────────────────────
+
+    override suspend fun switchTo(id: ProfileId): Result<Unit> = runCatching {
+        _activeProfileId.value = id
+    }
 
     override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
         // In-memory fake: just append any missing extras; default already present

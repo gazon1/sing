@@ -72,7 +72,7 @@ class ProjectsRepositoryImpl(
     override fun watchProjects(userId: UserId): Flow<List<Project>> =
         projectDao.watchAll(userId.value).map { list -> list.map { it.toProject() } }
 
-    override fun watchProject(id: ProjectId): Flow<Project?> {
+    override fun observeProject(id: ProjectId): Flow<Project?> {
         val uid = currentUser.scopedUserId.value
         return projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
     }
@@ -84,7 +84,7 @@ class ProjectsRepositoryImpl(
             projectDao.watchAllWithCounts(uid.value)
         }
 
-    override fun watchChildrenOf(parentId: ProjectId): Flow<List<Project>> =
+    override fun observeChildrenOf(parentId: ProjectId): Flow<List<Project>> =
         currentUser.observeForCurrentUser { uid ->
             projectDao.watchByParentForUser(parentId.value, uid.value).map { list ->
                 list.map { it.toProject() }
@@ -96,7 +96,7 @@ class ProjectsRepositoryImpl(
     ): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
         projectDao.watchAllWithCounts(userId.value)
 
-    override fun watchByParent(parentId: ProjectId): Flow<List<Project>> {
+    override fun observeByParent(parentId: ProjectId): Flow<List<Project>> {
         val uid = currentUser.scopedUserId.value
         return projectDao.watchByParentForUser(parentId.value, uid.value).map { list ->
             list.map { it.toProject() }

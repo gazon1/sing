@@ -140,7 +140,7 @@ private suspend fun bootstrapProfiles(profileCliArg: String?) {
         if (activateName == "AI Agent") {
             // Retro-migrate rows from the unscoped local user id.
             val agentId = (GlobalContext.get().get<com.singularity.todo.feature.profile.ProfileRepository>()
-                .all().first().first { it.name == "AI Agent" }).id.value
+                .observeAll().first().first { it.name == "AI Agent" }).id.value
             val localUserId: String = GlobalContext.get().get<com.singularity.todo.feature.profile.ProfileAwareCurrentUser>()
                 .current.value
             retromigrateRowsToAgentScope(

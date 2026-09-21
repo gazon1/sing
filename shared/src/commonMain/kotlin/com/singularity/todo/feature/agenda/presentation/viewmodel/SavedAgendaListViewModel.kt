@@ -105,7 +105,7 @@ class SavedAgendaListViewModel(
                         _events.trySend(SavedAgendaListEvent.ShowError("View not found"))
                         return@launch
                     }
-                    val targetProfile = deps.profileRepo.getById(targetProfileId)
+                    val targetProfile = deps.profileRepo.get(targetProfileId)
                     if (targetProfile == null) {
                         _events.trySend(SavedAgendaListEvent.ShowError("Profile not found"))
                         return@launch

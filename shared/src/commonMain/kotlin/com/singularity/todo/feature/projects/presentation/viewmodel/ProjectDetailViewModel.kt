@@ -158,7 +158,7 @@ class ProjectDetailViewModel(
             if (project == null) {
                 flowOf(emptyList())
             } else {
-                projectRepo.watchChildrenOf(projectId)
+                projectRepo.observeChildrenOf(projectId)
             }
         },
         projectFlow.flatMapLatest { p ->
