@@ -9,13 +9,9 @@ interface SavedAgendaViewsRepository {
     fun watchAllForCurrentUser(): Flow<List<SavedAgendaView>>
     fun watchByIdForCurrentUser(id: SavedAgendaViewId): Flow<SavedAgendaView?>
 
-    // ─── Explicit userId overloads (Phase 3 migration target) ──────────────────
-    fun watchAll(userId: String): Flow<List<SavedAgendaView>>
-    fun watchById(id: SavedAgendaViewId, userId: String): Flow<SavedAgendaView?>
-
     /** Creates or updates a saved view. Returns the saved view on success. */
     suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView>
 
     /** Deletes a saved view. Idempotent — succeeds even if the view doesn't exist. */
-    suspend fun delete(id: SavedAgendaViewId, userId: String): Result<Unit>
+    suspend fun delete(id: SavedAgendaViewId): Result<Unit>
 }

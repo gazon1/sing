@@ -1405,23 +1405,14 @@ class FakeSavedAgendaViewsRepository(
             store.map { map -> map[SavedAgendaViewKey.of(uid.value, id.raw)] }
         }
 
-    // ─── Explicit userId overloads ──────────────────────────────────────────
-
-    override fun watchAll(userId: String): Flow<List<SavedAgendaView>> =
-        store.map { map ->
-            map.values.filter { it.userId == userId }.sortedBy { it.name }
-        }
-
-    override fun watchById(id: SavedAgendaViewId, userId: String): Flow<SavedAgendaView?> =
-        store.map { map -> map[SavedAgendaViewKey.of(userId, id.raw)] }
-
     override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatching {
         store.update { map -> map + (SavedAgendaViewKey.of(view.userId, view.id.raw) to view) }
         view
     }
 
-    override suspend fun delete(id: SavedAgendaViewId, userId: String): Result<Unit> = runCatching {
-        store.update { map -> map - SavedAgendaViewKey.of(userId, id.raw) }
+    override suspend fun delete(id: SavedAgendaViewId): Result<Unit> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        store.update { map -> map - SavedAgendaViewKey.of(uid.value, id.raw) }
     }
 
     /** Synchronous upsert for tests. */

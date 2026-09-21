@@ -29,16 +29,6 @@ class RoomSavedAgendaViewsRepository(
             agendaViewDao.watchById(uid.value, id.raw).map { it?.toDomain() }
         }
 
-    // ─── Explicit userId overloads ──────────────────────────────────────────
-
-    override fun watchAll(userId: String): Flow<List<SavedAgendaView>> =
-        agendaViewDao.watchAll(userId).map { entities ->
-            entities.map { it.toDomain() }
-        }
-
-    override fun watchById(id: SavedAgendaViewId, userId: String): Flow<SavedAgendaView?> =
-        agendaViewDao.watchById(userId, id.raw).map { it?.toDomain() }
-
     override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> {
         return runCatching {
             agendaViewDao.upsert(view.toEntity())
@@ -46,9 +36,10 @@ class RoomSavedAgendaViewsRepository(
         }
     }
 
-    override suspend fun delete(id: SavedAgendaViewId, userId: String): Result<Unit> {
+    override suspend fun delete(id: SavedAgendaViewId): Result<Unit> {
         return runCatching {
-            agendaViewDao.delete(userId, id.raw)
+            val uid = currentUser.scopedUserId.value
+            agendaViewDao.delete(uid.value, id.raw)
         }
     }
 

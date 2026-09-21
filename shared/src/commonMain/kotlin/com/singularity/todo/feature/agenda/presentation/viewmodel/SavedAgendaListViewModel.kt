@@ -28,7 +28,6 @@ import kotlinx.coroutines.cancel
  */
 data class SavedAgendaListDeps(
     val repo: SavedAgendaViewsRepository,
-    val currentUser: ProfileAwareCurrentUser,
     val profileRepo: ProfileRepository,
 )
 
@@ -93,16 +92,14 @@ class SavedAgendaListViewModel(
         when (intent) {
             is SavedAgendaListIntent.Delete -> with(intent) {
                 scope.launch {
-                    val userId = deps.currentUser.scopedUserId.value.value
-                    deps.repo.delete(viewId, userId)
+                    deps.repo.delete(viewId)
                         .onFailure { _events.trySend(SavedAgendaListEvent.ShowError(it.message ?: "Delete failed")) }
                 }
             }
 
             is SavedAgendaListIntent.CopyToProfile -> with(intent) {
                 scope.launch {
-                    val sourceUserId = deps.currentUser.scopedUserId.value.value
-                    val sourceView = deps.repo.watchById(viewId, sourceUserId).first()
+                    val sourceView = deps.repo.watchByIdForCurrentUser(viewId).first()
                     if (sourceView == null) {
                         _events.trySend(SavedAgendaListEvent.ShowError("View not found"))
                         return@launch

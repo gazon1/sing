@@ -60,7 +60,6 @@ fun agendaModule(): Module = module {
         SavedAgendaListViewModel(
             SavedAgendaListDeps(
                 repo = get(),
-                currentUser = get(),
                 profileRepo = get(),
             ),
         )

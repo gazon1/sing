@@ -248,8 +248,7 @@ class SavedAgendaViewModel(
     private fun onDelete() {
         val viewId = (mode as? SavedAgendaScreenMode.Edit)?.viewId ?: return
         scope.launch {
-            val userId = deps.currentUser.scopedUserId.first().value
-            deps.repo.delete(viewId, userId).fold(
+            deps.repo.delete(viewId).fold(
                 onSuccess = { _events.trySend(SavedAgendaEvent.DeleteSuccess) },
                 onFailure = { _events.trySend(SavedAgendaEvent.ShowError(it.message ?: "Delete failed")) },
             )
