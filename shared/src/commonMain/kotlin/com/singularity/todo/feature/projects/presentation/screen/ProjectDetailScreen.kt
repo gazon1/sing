@@ -56,6 +56,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +72,7 @@ import com.singularity.todo.core.ui.components.BottomSheetHost
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.rememberDialogState
+import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -637,9 +639,9 @@ private fun ProjectDetailQuickAddInput(
     actions: ProjectDetailActions,
     modifier: Modifier = Modifier,
 ) {
-    var text by remember { mutableStateOf("") }
-    var popupOpen by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
+    var text by rememberSaveable { mutableStateOf("") }
+    val popup = rememberOverlayState<QuickAddSheet>()
+    var query by rememberSaveable { mutableStateOf("") }
     val focus = LocalFocusManager.current
 
     Box(modifier = modifier.fillMaxWidth()) {
@@ -647,7 +649,7 @@ private fun ProjectDetailQuickAddInput(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { popupOpen = true }) {
+            IconButton(onClick = { popup.show(QuickAddSheet.Picker) }) {
                 Icon(Icons.Filled.Add, "Add existing task", tint = MaterialTheme.colorScheme.primary)
             }
             Spacer(Modifier.width(4.dp))
@@ -668,23 +670,27 @@ private fun ProjectDetailQuickAddInput(
             )
         }
 
-        if (popupOpen) {
+        if (popup.sheet == QuickAddSheet.Picker) {
             AddExistingTaskPopup(
                 tasks = availableTasks,
                 query = query,
                 onQueryChange = { query = it },
                 onPick = { taskId ->
                     actions.onMoveTaskToProject(taskId)
-                    popupOpen = false
+                    popup.dismissAll()
                     query = ""
                 },
                 onDismiss = {
-                    popupOpen = false
+                    popup.dismissAll()
                     query = ""
                 },
             )
         }
     }
+}
+
+private sealed class QuickAddSheet {
+    data object Picker : QuickAddSheet()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
