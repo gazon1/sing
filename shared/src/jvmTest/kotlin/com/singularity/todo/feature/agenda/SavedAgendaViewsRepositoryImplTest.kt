@@ -21,7 +21,7 @@ import kotlinx.datetime.Instant
 /**
  * Tests for [RoomSavedAgendaViewsRepository] via [FakeAppDatabase].
  *
- * Verifies: watchAll, watchById, upsert, delete, and the StableJson sections round-trip.
+ * Verifies: observeAll, observe, upsert, delete, and the StableJson sections round-trip.
  */
 class SavedAgendaViewsRepositoryImplTest {
 
@@ -47,9 +47,9 @@ class SavedAgendaViewsRepositoryImplTest {
     )
 
     @Test
-    fun watchAll_returnsEmptyForUnknownUser() = runTest {
+    fun observeAll_returnsEmptyForUnknownUser() = runTest {
         val r = repo()
-        val result = r.watchAllForCurrentUser().first()
+        val result = r.observeAll().first()
         assertTrue(result.isEmpty())
     }
 
@@ -60,7 +60,7 @@ class SavedAgendaViewsRepositoryImplTest {
         r.upsert(makeView(id = "v2", userId = "u1", name = "Beta"))
         r.upsert(makeView(id = "v3", userId = "u2", name = "Gamma")) // other user — not returned by scoped query
 
-        val result = r.watchAllForCurrentUser().first()
+        val result = r.observeAll().first()
         assertEquals(2, result.size)
         assertEquals("Alpha", result[0].name)
         assertEquals("Beta", result[1].name)
@@ -73,7 +73,7 @@ class SavedAgendaViewsRepositoryImplTest {
         r.upsert(makeView(id = "v2", userId = "u1", name = "Alpha"))
         r.upsert(makeView(id = "v3", userId = "u1", name = "Beta"))
 
-        val result = r.watchAllForCurrentUser().first()
+        val result = r.observeAll().first()
         assertEquals(listOf("Alpha", "Beta", "Zeta"), result.map { it.name })
     }
 
@@ -82,7 +82,7 @@ class SavedAgendaViewsRepositoryImplTest {
         val r = repo()
         val created = r.upsert(makeView(id = "v1", userId = "u1")).getOrThrow()
 
-        val result = r.watchByIdForCurrentUser(SavedAgendaViewId.fromString("v1")).first()
+        val result = r.observe(SavedAgendaViewId.fromString("v1")).first()
         assertNotNull(result)
         assertEquals(created.id, result.id)
         assertEquals("My Agenda", result.name)
@@ -91,7 +91,7 @@ class SavedAgendaViewsRepositoryImplTest {
     @Test
     fun watchById_returnsNullForUnknownId() = runTest {
         val r = repo()
-        val result = r.watchByIdForCurrentUser(SavedAgendaViewId.fromString("unknown")).first()
+        val result = r.observe(SavedAgendaViewId.fromString("unknown")).first()
         assertNull(result)
     }
 
@@ -113,7 +113,7 @@ class SavedAgendaViewsRepositoryImplTest {
         val updated = r.upsert(makeView(id = "v1", userId = "u1", name = "Updated")).getOrThrow()
         assertEquals("Updated", updated.name)
 
-        val all = r.watchAllForCurrentUser().first()
+        val all = r.observeAll().first()
         assertEquals(1, all.size)
     }
 
@@ -124,7 +124,7 @@ class SavedAgendaViewsRepositoryImplTest {
 
         r.delete(SavedAgendaViewId.fromString("v1"))
 
-        val result = r.watchAllForCurrentUser().first()
+        val result = r.observeAll().first()
         assertTrue(result.isEmpty())
     }
 
@@ -148,9 +148,9 @@ class SavedAgendaViewsRepositoryImplTest {
         val view = makeView(id = "v1", userId = "u1", sectionsJson = sectionsJson)
         r.upsert(view).getOrThrow()
 
-        val restored = r.watchByIdForCurrentUser(SavedAgendaViewId.fromString("v1")).first()
+        val restored = r.observe(SavedAgendaViewId.fromString("v1")).first()
         assertNotNull(restored)
-        assertTrue(restored.sectionsJson.contains("Upcoming"))
-        assertTrue(restored.sectionsJson.contains("ThisWeek"))
+        assertTrue(restored!!.sectionsJson.contains("Upcoming"))
+        assertTrue(restored!!.sectionsJson.contains("ThisWeek"))
     }
 }

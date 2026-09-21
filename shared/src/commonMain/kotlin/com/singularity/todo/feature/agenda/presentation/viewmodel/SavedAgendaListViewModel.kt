@@ -81,7 +81,7 @@ class SavedAgendaListViewModel(
     private val _events = Channel<SavedAgendaListEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
 
-    val state: StateFlow<SavedAgendaListState> = deps.repo.watchAllForCurrentUser()
+    val state: StateFlow<SavedAgendaListState> = deps.repo.observeAll()
         .map { views -> SavedAgendaListState.Loaded(views) }
         .stateIn(
             scope,
@@ -100,7 +100,7 @@ class SavedAgendaListViewModel(
 
             is SavedAgendaListIntent.CopyToProfile -> with(intent) {
                 scope.launch {
-                    val sourceView = deps.repo.watchByIdForCurrentUser(viewId).first()
+                    val sourceView = deps.repo.observe(viewId).first()
                     if (sourceView == null) {
                         _events.trySend(SavedAgendaListEvent.ShowError("View not found"))
                         return@launch

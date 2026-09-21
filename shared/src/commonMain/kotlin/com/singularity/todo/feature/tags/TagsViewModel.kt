@@ -45,7 +45,7 @@ class TagsViewModel(
     )
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<TagsUiState> = tagRepo.watchTagsForCurrentUser()
+    val state: StateFlow<TagsUiState> = tagRepo.observeAll()
         .map { tags ->
             if (tags.isEmpty()) {
                 TagsUiState.Empty("")

@@ -74,7 +74,7 @@ class SettingsViewModel(
             _state.value = buildState()
         }
         scope.launch {
-            savedAgendaViewsRepo.watchAllForCurrentUser().collect { views ->
+            savedAgendaViewsRepo.observeAll().collect { views ->
                 savedAgendaViews.value = views
             }
         }

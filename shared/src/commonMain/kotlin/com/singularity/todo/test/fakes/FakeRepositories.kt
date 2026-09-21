@@ -854,31 +854,39 @@ class FakeTagsRepository(
     fun add(tag: com.singularity.todo.feature.tags.Tag) = store.upsert(tag)
     fun clear() = store.clear()
 
-    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+    // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun watchTagsForCurrentUser(): Flow<List<com.singularity.todo.feature.tags.Tag>> =
+    override fun observeAll(): Flow<List<com.singularity.todo.feature.tags.Tag>> =
         currentUser.observeForCurrentUser { uid ->
             store.state
                 .onStart { emit(store.state.value) }
                 .map { list -> list.values.filter { it.userId == uid.value } }
         }
 
-    // ─── Explicit userId overloads ──────────────────────────────────────────
+    override fun observe(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
+        store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
-    override fun watchTags(userId: String): Flow<List<com.singularity.todo.feature.tags.Tag>> = store.state
+    override suspend fun get(id: TagId): com.singularity.todo.feature.tags.Tag? =
+        store[id.value]
+
+    override suspend fun create(tag: com.singularity.todo.feature.tags.Tag): Result<com.singularity.todo.feature.tags.Tag> = runCatching {
+        store.upsert(tag)
+        tag
+    }
+
+    override suspend fun update(tag: com.singularity.todo.feature.tags.Tag): Result<com.singularity.todo.feature.tags.Tag> = runCatching {
+        store.upsert(tag)
+        tag
+    }
+
+    // ─── Explicit userId overload ──────────────────────────────────────────
+
+    override fun watchAll(userId: String): Flow<List<com.singularity.todo.feature.tags.Tag>> = store.state
         .onStart { emit(store.state.value) }
         .map { list -> list.values.filter { it.userId == userId } }
 
-    override fun watchTag(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
+    override fun observeTag(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
-
-    override suspend fun create(tag: com.singularity.todo.feature.tags.Tag): Result<Unit> = runCatching {
-        store.upsert(tag)
-    }
-
-    override suspend fun update(tag: com.singularity.todo.feature.tags.Tag): Result<Unit> = runCatching {
-        store.upsert(tag)
-    }
 
     override suspend fun delete(id: TagId): Result<Unit> = runCatching {
         store.remove(id.value)
@@ -1394,19 +1402,28 @@ class FakeSavedAgendaViewsRepository(
 
     private val store = MutableStateFlow<Map<SavedAgendaViewKey, SavedAgendaView>>(emptyMap())
 
-    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+    // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun watchAllForCurrentUser(): Flow<List<SavedAgendaView>> =
+    override fun observeAll(): Flow<List<SavedAgendaView>> =
         currentUser.observeForCurrentUser { uid ->
             store.map { map ->
                 map.values.filter { it.userId == uid.value }.sortedBy { it.name }
             }
         }
 
-    override fun watchByIdForCurrentUser(id: SavedAgendaViewId): Flow<SavedAgendaView?> =
+    override fun observe(id: SavedAgendaViewId): Flow<SavedAgendaView?> =
         currentUser.observeForCurrentUser { uid ->
             store.map { map -> map[SavedAgendaViewKey.of(uid.value, id.raw)] }
         }
+
+    override suspend fun get(id: SavedAgendaViewId): SavedAgendaView? {
+        val uid = currentUser.scopedUserId.value
+        return store.value[SavedAgendaViewKey.of(uid.value, id.raw)]
+    }
+
+    override suspend fun create(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
+
+    override suspend fun update(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
 
     override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatching {
         store.update { map -> map + (SavedAgendaViewKey.of(view.userId, view.id.raw) to view) }

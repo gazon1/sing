@@ -10,6 +10,7 @@ import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 class RoomSavedAgendaViewsRepository(
@@ -17,17 +18,26 @@ class RoomSavedAgendaViewsRepository(
     private val currentUser: ProfileAwareCurrentUser,
 ) : SavedAgendaViewsRepository {
 
-    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+    // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun watchAllForCurrentUser(): Flow<List<SavedAgendaView>> =
+    override fun observeAll(): Flow<List<SavedAgendaView>> =
         currentUser.observeForCurrentUser { uid ->
             agendaViewDao.watchAll(uid.value).map { entities -> entities.map { it.toDomain() } }
         }
 
-    override fun watchByIdForCurrentUser(id: SavedAgendaViewId): Flow<SavedAgendaView?> =
+    override fun observe(id: SavedAgendaViewId): Flow<SavedAgendaView?> =
         currentUser.observeForCurrentUser { uid ->
             agendaViewDao.watchById(uid.value, id.raw).map { it?.toDomain() }
         }
+
+    override suspend fun get(id: SavedAgendaViewId): SavedAgendaView? {
+        val uid = currentUser.scopedUserId.value
+        return agendaViewDao.watchById(uid.value, id.raw).first()?.toDomain()
+    }
+
+    override suspend fun create(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
+
+    override suspend fun update(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
 
     override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> {
         return runCatching {

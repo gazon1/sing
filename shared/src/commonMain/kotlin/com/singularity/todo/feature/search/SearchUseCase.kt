@@ -26,7 +26,7 @@ class SearchUseCase(
         taskRepo.observeByFilter(TaskFilter.Search(query)),
         noteRepo.searchNotesForCurrentUser(query),
         projectRepo.observeAllForCurrentUser(),
-        tagRepo.observeAllForCurrentUser(),
+        tagRepo.observeAll(),
     ) { tasks, notes, projects, tags ->
         SearchResults(
             tasks = tasks,

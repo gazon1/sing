@@ -138,7 +138,7 @@ class TaskDetailViewModel(
                     deps.projectsRepo.watchProjectForCurrentUser(pid)
                 } ?: flowOf(null)
 
-                val tagsFlow = deps.tagsRepo.watchTagsForCurrentUser()
+                val tagsFlow = deps.tagsRepo.observeAll()
                 val checklistFlow = deps.checklistRepository.watchByTask(taskId.value)
                 val reminderFlow = deps.reminderRepo.watchByTaskForCurrentUser(taskId)
                 val attachmentsFlow = deps.attachmentsRepo.watchByTaskForCurrentUser(taskId)

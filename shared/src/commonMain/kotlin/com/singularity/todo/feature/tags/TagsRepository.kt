@@ -5,25 +5,25 @@ import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
  * Contract for tags persistence.
  */
-interface TagsRepository {
-    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
-    fun watchTagsForCurrentUser(): Flow<List<Tag>>
-    fun observeAllForCurrentUser(): Flow<List<Tag>> = watchTagsForCurrentUser()
+interface TagsRepository : GenericUserScopedRepository<Tag, TagId> {
 
-    // ─── Explicit userId overloads (Phase 3 migration target) ──────────────────
-    fun watchTags(userId: String): Flow<List<Tag>>
-    fun watchTag(id: TagId): Flow<Tag?>
-    suspend fun create(tag: Tag): Result<Unit>
-    suspend fun update(tag: Tag): Result<Unit>
-    suspend fun delete(id: TagId): Result<Unit>
+    // ─── Explicit userId overloads (kept for explicit-userId callers) ───────────
+    fun watchAll(userId: String): Flow<List<Tag>>
+
+    // ─── Domain methods ─────────────────────────────────────────────────────────
+
+    /** Single tag observation by id (no user-filter, uses ambient current user). */
+    fun observeTag(id: TagId): Flow<Tag?>
 }
 
 /**
@@ -35,33 +35,40 @@ class TagsRepositoryImpl(
     private val currentUser: ProfileAwareCurrentUser,
 ) : TagsRepository {
 
-    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+    // ── GenericUserScopedRepository ────────────────────────────────────────────
 
-    override fun watchTagsForCurrentUser(): Flow<List<Tag>> =
+    override fun observeAll(): Flow<List<Tag>> =
         currentUser.observeForCurrentUser { uid ->
             tagDao.watchAll(uid.value).map { list -> list.map { it.toTag() } }
         }
 
-    // ─── Explicit userId overloads ──────────────────────────────────────────
+    override fun observe(id: TagId): Flow<Tag?> =
+        tagDao.watchById(id.value).map { it?.toTag() }
 
-    override fun watchTags(userId: String): Flow<List<Tag>> = tagDao.watchAll(userId).map { list ->
-        list.map { it.toTag() }
+    override suspend fun get(id: TagId): Tag? = tagDao.watchById(id.value).first()?.toTag()
+
+    override suspend fun create(tag: Tag): Result<Tag> = runCatching {
+        tagDao.upsert(tag.toEntity())
+        tag
     }
 
-    override fun watchTag(id: TagId): Flow<Tag?> = tagDao.watchById(id.value).map { it?.toTag() }
-
-    override suspend fun create(tag: Tag): Result<Unit> = runCatching {
+    override suspend fun update(tag: Tag): Result<Tag> = runCatching {
         tagDao.upsert(tag.toEntity())
-    }
-
-    override suspend fun update(tag: Tag): Result<Unit> = runCatching {
-        tagDao.upsert(tag.toEntity())
+        tag
     }
 
     override suspend fun delete(id: TagId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
         tagDao.softDelete(id.value, ts)
     }
+
+    // ─── Explicit userId overloads ──────────────────────────────────────────
+
+    override fun watchAll(userId: String): Flow<List<Tag>> = tagDao.watchAll(userId).map { list ->
+        list.map { it.toTag() }
+    }
+
+    override fun observeTag(id: TagId): Flow<Tag?> = tagDao.watchById(id.value).map { it?.toTag() }
 }
 
 private fun TagEntity.toTag(): Tag = Tag(
