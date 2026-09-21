@@ -35,7 +35,7 @@ class UpdateTaskTool(private val taskRepository: TaskRepository, private val clo
     SimpleTool<UpdateTaskInput>(TypeToken.of(UpdateTaskInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: UpdateTaskInput): String {
-        val existing = taskRepository.observeForCurrentUser(TaskId(args.taskId)).first()
+        val existing = taskRepository.observe(TaskId(args.taskId)).first()
             ?: return Json.encodeToString(
                 UpdateTaskOutput.serializer(),
                 UpdateTaskOutput(args.taskId, false),

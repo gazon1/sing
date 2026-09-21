@@ -23,7 +23,7 @@ class GetTaskTool(private val taskRepository: TaskRepository) :
     SimpleTool<GetTaskInput>(TypeToken.of(GetTaskInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: GetTaskInput): String {
-        val task = taskRepository.observeForCurrentUser(TaskId(args.taskId)).first()
+        val task = taskRepository.observe(TaskId(args.taskId)).first()
         val output = if (task != null) {
             GetTaskOutput(task.id.value, task.title, task.description, task.isCompleted, task.projectId?.value)
         } else {

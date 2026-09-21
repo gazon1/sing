@@ -44,14 +44,14 @@ class TaskRepositoryImplTest {
         advanceUntilIdle()
 
         // take(1) auto-cancels after first emission so the subscription is not leaked
-        val resultA = repo.observeAllForCurrentUser().take(1).first()
+        val resultA = repo.observeAll().take(1).first()
         assertEquals(1, resultA.size, "user-a should see their task")
         assertEquals("Task for A", resultA.first().title)
 
         authRepo.setUserId(userB)
         advanceUntilIdle()
 
-        val resultB = repo.observeAllForCurrentUser().take(1).first()
+        val resultB = repo.observeAll().take(1).first()
         assertTrue(resultB.isEmpty(), "user-b should see no tasks")
     }
 
@@ -87,7 +87,7 @@ class TaskRepositoryImplTest {
         advanceUntilIdle()
 
         // take(1) prevents the never-completing flatMapLatest subscription from leaking
-        val observed = repo.observeForCurrentUser(task.id).take(1).first()
+        val observed = repo.observe(task.id).take(1).first()
         assertNotNull(observed, "created task should be observable by id")
         assertEquals("New Task", observed.title)
     }

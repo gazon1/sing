@@ -32,6 +32,6 @@ class CreateTaskUseCase(private val repo: TaskRepository, private val clock: Clo
             createdAt = clock.now(),
             updatedAt = clock.now(),
         )
-        return repo.create(task).map { task.id }
+        return repo.create(task).map { it.id }
     }
 }

@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks.domain.port
 
-import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.repository.UserScopedRepository
+import com.singularity.todo.core.repository.SoftDeletable
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -13,26 +12,31 @@ import kotlinx.datetime.LocalDate
 /**
  * Repository for task persistence and observation.
  *
- * Implements [UserScopedRepository]: all [observeAllForCurrentUser] and [observeByFilter]
- * variants automatically re-subscribe when the active user changes.
- *
- * ## Observation naming convention
- * - Methods with `ForCurrentUser` suffix: base interface contract
- *   ([observeAllForCurrentUser], [observeForCurrentUser]).
- * - Domain-specific observers: short form without suffix
- *   ([observeByFilter], [observeByDate], [observeSubtasks], etc.).
- *
- * ## Auth-safety (caller-trust)
- * The repository does **not** overwrite `entity.userId` on create/update.
- * Callers are responsible for providing correct `userId` (typically via
- * [com.singularity.todo.feature.profile.ProfileAwareCurrentUser.current]).
+ * Extends [SoftDeletable]: soft-delete + restore are supported.
+ * All observation variants automatically re-subscribe when the active user changes.
  */
-interface TaskRepository : UserScopedRepository<Task, TaskId> {
+interface TaskRepository : SoftDeletable<Task, TaskId> {
+
     /** Emits every task after it's created or updated — for SyncEngine observer */
     val changes: SharedFlow<Task>
 
+    // ── GenericUserScopedRepository contract ─────────────────────────────────────
+
+    fun observeAll(): Flow<List<Task>>
+
+    fun observe(id: TaskId): Flow<Task?>
+
+    suspend fun get(id: TaskId): Task?
+
+    suspend fun create(item: Task): Result<Task>
+
+    suspend fun update(item: Task): Result<Task>
+
+    suspend fun delete(id: TaskId): Result<Unit>
+
+    // ── Domain-specific ─────────────────────────────────────────────────────────
+
     suspend fun softDelete(id: TaskId): Result<Unit>
-    suspend fun restore(id: TaskId): Result<Unit>
     suspend fun toggleComplete(id: TaskId): Result<Unit>
     suspend fun togglePinned(id: TaskId): Result<Unit>
     suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit>
@@ -56,9 +60,8 @@ interface TaskRepository : UserScopedRepository<Task, TaskId> {
     suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit>
 
     suspend fun exists(id: TaskId): Boolean
-    suspend fun getById(id: TaskId): Task?
 
-    // ── User-scoped observers (new API — use these in VMs) ──────────────────────
+    // ── User-scoped observers ──────────────────────────────────────────────────
 
     /**
      * Observes tasks matching [filter] for the currently active user.

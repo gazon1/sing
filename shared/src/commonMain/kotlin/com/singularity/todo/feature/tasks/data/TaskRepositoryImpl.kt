@@ -39,14 +39,14 @@ class TaskRepositoryImpl(
     private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
     override val changes: SharedFlow<Task> = _changes.asSharedFlow()
 
-    // ── User-scoped observation (new API) ──────────────────────────────────────
+    // ── GenericUserScopedRepository ───────────────────────────────────────────
 
-    override fun observeAllForCurrentUser(): Flow<List<Task>> =
+    override fun observeAll(): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
             taskDao.watchActive(uid.value).map { it.map { e -> e.toTask() } }
         }
 
-    override fun observeForCurrentUser(id: TaskId): Flow<Task?> =
+    override fun observe(id: TaskId): Flow<Task?> =
         currentUser.observeForCurrentUser { uid ->
             taskDao.watchById(id.value).map { entity ->
                 if (entity?.userId == uid.value) entity.toTask() else null
@@ -158,17 +158,19 @@ class TaskRepositoryImpl(
             list.filter { it.parentTaskId == parentId.value }.map { it.toTask() }
         }
 
-    override suspend fun create(item: Task): Result<Unit> = runCatching {
+    override suspend fun create(item: Task): Result<Task> = runCatching {
         taskDao.upsert(item.toEntity())
         item.tags.forEach { tagId ->
             taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = item.id.value, tagId = tagId.value))
         }
         _changes.tryEmit(item)
+        item
     }
 
-    override suspend fun update(item: Task): Result<Unit> = runCatching {
+    override suspend fun update(item: Task): Result<Task> = runCatching {
         taskDao.upsert(item.toEntity())
         _changes.tryEmit(item)
+        item
     }
 
     override suspend fun delete(id: TaskId): Result<Unit> = softDelete(id)
@@ -205,7 +207,7 @@ class TaskRepositoryImpl(
 
     override suspend fun exists(id: TaskId): Boolean = taskDao.watchById(id.value).first() != null
 
-    override suspend fun getById(id: TaskId): Task? = taskDao.getById(id.value)?.toTask()
+    override suspend fun get(id: TaskId): Task? = taskDao.getById(id.value)?.toTask()
 
     override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
         val existing = taskDao.getTagIdsForTask(taskId.value).first()

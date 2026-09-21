@@ -11,7 +11,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
  */
 class UpdateTaskUseCase(private val repo: TaskRepository, private val clock: Clock) {
     /** Full-entity update. */
-    suspend operator fun invoke(task: Task): Result<Unit> {
+    suspend operator fun invoke(task: Task): Result<Task> {
         val updated = task.copy(updatedAt = clock.now())
         return repo.update(updated)
     }
@@ -19,8 +19,8 @@ class UpdateTaskUseCase(private val repo: TaskRepository, private val clock: Clo
     /**
      * Read-modify-write update for atomic partial updates.
      */
-    suspend operator fun invoke(id: TaskId, transform: (Task) -> Task): Result<Unit> {
-        val current = repo.getById(id)
+    suspend operator fun invoke(id: TaskId, transform: (Task) -> Task): Result<Task> {
+        val current = repo.get(id)
             ?: return Result.failure(AppError.NotFound("Task $id not found"))
         val updated = transform(current).copy(updatedAt = clock.now())
         return repo.update(updated)

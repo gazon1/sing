@@ -405,25 +405,27 @@ class FakeTaskRepository(
 
     fun clear() = store.clear()
 
-    // ── UserScopedRepository implementation ──────────────────────────────────────
+    // ── GenericUserScopedRepository implementation ────────────────────────────────
 
-    override fun observeAllForCurrentUser(): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
+    override fun observeAll(): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
         store.state
             .onStart { emit(store.state.value) }
             .map { map -> map.values.filter { it.userId == uid }.toList() }
     }
 
-    override fun observeForCurrentUser(id: TaskId): Flow<Task?> =
+    override fun observe(id: TaskId): Flow<Task?> =
         store.state.onStart { emit(store.state.value) }.map { it[id.value] }
 
-    override suspend fun create(item: Task): Result<Unit> = runCatching {
+    override suspend fun create(item: Task): Result<Task> = runCatching {
         store.upsert(item)
         _changes.emit(item)
+        item
     }
 
-    override suspend fun update(item: Task): Result<Unit> = runCatching {
+    override suspend fun update(item: Task): Result<Task> = runCatching {
         store.upsert(item)
         _changes.emit(item)
+        item
     }
 
     override suspend fun delete(id: TaskId): Result<Unit> = runCatching {
@@ -487,7 +489,7 @@ class FakeTaskRepository(
         }
     }
 
-    override suspend fun getById(id: TaskId): Task? = store[id.value]
+    override suspend fun get(id: TaskId): Task? = store[id.value]
 
     // getByIdForCurrentUser intentionally omitted — use getById + caller-side userId check
 

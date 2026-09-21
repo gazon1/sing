@@ -127,7 +127,7 @@ class TaskDetailViewModel(
         flowOf(taskId),
         _retryVersion,
     ) { id, _ -> id }
-        .flatMapLatest { deps.taskRepo.observeForCurrentUser(it) }
+        .flatMapLatest { deps.taskRepo.observe(it) }
         .flatMapLatest { task ->
             // Update latestTask BEFORE combine starts — so debounce collectors always have fresh task
             _latestTask.value = task
