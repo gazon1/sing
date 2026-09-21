@@ -115,7 +115,7 @@ open class NoteEditor(
             val current = _editorState.value
             if (current is EditorState.Editing && current.id == noteId) return@launch
 
-            val note = repo.getNoteByIdForCurrentUser(NoteId.fromString(noteId)) ?: return@launch
+            val note = repo.get(NoteId.fromString(noteId)) ?: return@launch
             // Prefer stored HTML (lossless). Fall back to markdown→HTML for legacy notes.
             val html = note.bodyHtml
                 ?: note.bodyMarkdown?.let {

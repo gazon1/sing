@@ -23,7 +23,7 @@ class UpdateNoteTool(private val notesRepository: NotesRepository, private val c
     SimpleTool<UpdateNoteInput>(TypeToken.of(UpdateNoteInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: UpdateNoteInput): String {
-        val existing = notesRepository.getNoteByIdForCurrentUser(NoteId(args.noteId))
+        val existing = notesRepository.get(NoteId(args.noteId))
             ?: return Json.encodeToString(
                 UpdateNoteOutput.serializer(),
                 UpdateNoteOutput(args.noteId, false),

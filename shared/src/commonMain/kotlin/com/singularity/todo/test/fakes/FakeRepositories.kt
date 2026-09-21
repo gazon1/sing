@@ -977,7 +977,91 @@ class FakeNotesRepository(
     fun add(note: com.singularity.todo.feature.notes.Note) = store.upsert(note)
     fun clear() = store.clear()
 
-    // ─── UserId-free reads (Phase 2 pattern) ─────────────────────────────────
+    // ─── GenericUserScopedRepository ──────────────────────────────────────────
+
+    override fun observeAll(): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.filter { it.userId == uid && it.deletedAt == null } }
+        }
+
+    override fun observe(id: com.singularity.todo.feature.notes.NoteId): Flow<com.singularity.todo.feature.notes.Note?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
+
+    override suspend fun get(id: com.singularity.todo.feature.notes.NoteId): com.singularity.todo.feature.notes.Note? {
+        val uid = currentUser.scopedUserId.value
+        return store.state.value.values.firstOrNull { it.id == id && it.userId == uid }
+    }
+
+    override suspend fun create(item: com.singularity.todo.feature.notes.Note): Result<com.singularity.todo.feature.notes.Note> =
+        runCatching {
+            store.upsert(item)
+            item
+        }
+
+    override suspend fun update(item: com.singularity.todo.feature.notes.Note): Result<com.singularity.todo.feature.notes.Note> =
+        runCatching {
+            store.upsert(item)
+            item
+        }
+
+    override suspend fun delete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store.upsert(existing.copy(deletedAt = Clock.now()))
+        }
+    }
+
+    // ─── SoftDeletable ─────────────────────────────────────────────────────
+
+    override suspend fun restore(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store.upsert(existing.copy(deletedAt = null))
+        }
+    }
+
+    // ─── Explicit userId overloads ───────────────────────────────────────────
+
+    override fun watchAll(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        store.state.map { list -> list.values.filter { it.userId == userId && it.deletedAt == null } }
+
+    override fun watchPinned(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        store.state.map { list -> list.values.filter { it.userId == userId && it.isPinned && it.deletedAt == null } }
+
+    override fun watchArchived(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        store.state.map { list ->
+            list.values.filter {
+                it.userId == userId && it.archivedAt != null && it.deletedAt == null
+            }
+        }
+
+    override fun watchRootNotes(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        store.state.map { list ->
+            list.values.filter {
+                it.userId == userId && it.parentNoteId == null && !it.isFolder && it.deletedAt == null
+            }
+        }
+
+    // ─── Domain methods ─────────────────────────────────────────────────────
+
+    override fun watchPinned(): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.filter { it.userId == uid && it.isPinned && it.deletedAt == null } }
+        }
+
+    override fun watchArchived(): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { it.userId == uid && it.archivedAt != null && it.deletedAt == null }
+            }
+        }
+
+    override fun watchRootNotes(): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { it.userId == uid && it.parentNoteId == null && !it.isFolder && it.deletedAt == null }
+            }
+        }
 
     override fun searchNotesForCurrentUser(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
         currentUser.observeForCurrentUser { uid ->
@@ -991,69 +1075,6 @@ class FakeNotesRepository(
             }
         }
 
-    override fun watchNotesForCurrentUser(): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.map { list -> list.values.filter { it.userId == uid && it.deletedAt == null } }
-        }
-
-    override fun watchPinnedForCurrentUser(): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.map { list -> list.values.filter { it.userId == uid && it.isPinned && it.deletedAt == null } }
-        }
-
-    override fun watchArchivedForCurrentUser(): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.map { list ->
-                list.values.filter { it.userId == uid && it.archivedAt != null && it.deletedAt == null }
-            }
-        }
-
-    override fun watchNoteForCurrentUser(id: com.singularity.todo.feature.notes.NoteId): Flow<com.singularity.todo.feature.notes.Note?> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
-        }
-
-    override suspend fun getNoteByIdForCurrentUser(id: com.singularity.todo.feature.notes.NoteId): com.singularity.todo.feature.notes.Note? {
-        val uid = currentUser.scopedUserId.value
-        return store.state.value.values.firstOrNull { it.id == id && it.userId == uid }
-    }
-
-    override fun watchRootNotesForCurrentUser(): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.map { list ->
-                list.values.filter { it.userId == uid && it.parentNoteId == null && !it.isFolder && it.deletedAt == null }
-            }
-        }
-
-    // ─── Explicit userId reads ───────────────────────────────────────────────
-
-    override fun watchNotes(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        store.state.map { list -> list.values.filter { it.userId == userId && it.deletedAt == null } }
-
-    override fun watchPinned(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        store.state.map { list -> list.values.filter { it.userId == userId && it.isPinned && it.deletedAt == null } }
-
-    override fun watchArchived(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        store.state.map { list ->
-            list.values.filter {
-                it.userId == userId && it.archivedAt != null &&
-                    it.deletedAt == null
-            }
-        }
-
-    override fun watchRootNotes(userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        store.state.map { list ->
-            list.values.filter {
-                it.userId == userId && it.parentNoteId == null && !it.isFolder &&
-                    it.deletedAt == null
-            }
-        }
-
-    override fun watchNote(
-        id: com.singularity.todo.feature.notes.NoteId,
-    ): Flow<com.singularity.todo.feature.notes.Note?> =
-        store.state.map { list -> list.values.firstOrNull { it.id == id } }
-
     override fun searchNotes(query: String, userId: UserId): Flow<List<com.singularity.todo.feature.notes.Note>> =
         store.state.map { list ->
             list.values.filter { note ->
@@ -1063,28 +1084,6 @@ class FakeNotesRepository(
                 )
             }
         }
-
-    // ─── Deprecated (remove in Phase 3) ─────────────────────────────────────
-
-    override fun searchNotes(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        store.state.map { list ->
-            list.values.filter { note ->
-                note.deletedAt == null && (
-                    note.title.contains(
-                    query,
-                    ignoreCase = true,
-                ) || (note.bodyMarkdown?.contains(query, ignoreCase = true) == true)
-                )
-            }
-        }
-
-    override suspend fun create(note: com.singularity.todo.feature.notes.Note): Result<Unit> = runCatching {
-        store.upsert(note)
-    }
-
-    override suspend fun update(note: com.singularity.todo.feature.notes.Note): Result<Unit> = runCatching {
-        store.upsert(note)
-    }
 
     override suspend fun createWithContent(
         userId: UserId,
@@ -1147,18 +1146,6 @@ class FakeNotesRepository(
                     updatedAt = Clock.now(),
                 ),
             )
-        }
-    }
-
-    override suspend fun softDelete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(deletedAt = Clock.now()))
-        }
-    }
-
-    override suspend fun restore(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(deletedAt = null))
         }
     }
 

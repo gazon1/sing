@@ -17,7 +17,7 @@ class DeleteNoteTool(private val notesRepository: NotesRepository) :
     SimpleTool<DeleteNoteInput>(TypeToken.of(DeleteNoteInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: DeleteNoteInput): String {
-        val result = notesRepository.softDelete(NoteId(args.noteId))
+        val result = notesRepository.delete(NoteId(args.noteId))
         return Json.encodeToString(
             DeleteNoteOutput.serializer(),
             DeleteNoteOutput(

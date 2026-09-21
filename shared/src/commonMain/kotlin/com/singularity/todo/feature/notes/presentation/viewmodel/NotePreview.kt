@@ -75,7 +75,7 @@ class NotePreview(
     private fun loadNote(noteId: String) {
         loadNoteJob?.cancel()
         loadNoteJob = scope.launch {
-            val note = repo.watchNoteForCurrentUser(NoteId.fromString(noteId))
+            val note = repo.observe(NoteId.fromString(noteId))
                 .filterNotNull()
                 .first()
             val backlinks = try {
@@ -96,7 +96,7 @@ class NotePreview(
             errorLabel = "Delete failed",
             onError = { e -> _events.trySend(NotesUiEvent.Error("Delete failed: ${e.message ?: "unknown"}")) },
         ) {
-            repo.softDelete(current.note.id)
+            repo.delete(current.note.id)
         }
     }
 }

@@ -16,7 +16,7 @@ class GetNoteTool(private val notesRepo: NotesRepository) :
     SimpleTool<GetNoteInput>(TypeToken.of(GetNoteInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: GetNoteInput): String {
-        val note = notesRepo.getNoteByIdForCurrentUser(NoteId.fromString(args.noteId))
+        val note = notesRepo.get(NoteId.fromString(args.noteId))
         val output = if (note != null) {
             GetNoteOutput(note.id.value, note.title, note.bodyMarkdown)
         } else {

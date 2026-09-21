@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.settings
 
 import androidx.lifecycle.ViewModel
-
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.files.FileRevealer
@@ -9,7 +8,6 @@ import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.settings.SettingsSection
-import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.ai.AiSettingsContributor
@@ -56,7 +54,7 @@ class SettingsViewModel(
     private val aiContributor: AiSettingsContributor?
         @Suppress("DEPRECATION")
         get() =
-            contributors.filterIsInstance(AiSettingsContributor::class.java).firstOrNull()
+            contributors.filterIsInstance<AiSettingsContributor>().firstOrNull()
 
     // ─── State ─────────────────────────────────────────────────────────────
 

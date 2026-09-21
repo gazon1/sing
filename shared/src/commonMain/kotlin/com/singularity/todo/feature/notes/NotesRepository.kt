@@ -8,6 +8,8 @@ import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.GenericUserScopedRepository
+import com.singularity.todo.core.repository.SoftDeletable
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
@@ -20,48 +22,42 @@ import kotlinx.coroutines.flow.map
  * Mutation contract returns [Result] so transport failures (DB errors) are
  * handled uniformly across list, editor, and tool callers.
  */
-interface NotesRepository {
-    // ─── UserId-free observation (Phase 2 pattern) ───────────────────────────────
+interface NotesRepository :
+    GenericUserScopedRepository<Note, NoteId>,
+    SoftDeletable<Note, NoteId> {
 
-    /** All non-deleted notes for the current user. */
-    fun watchNotesForCurrentUser(): Flow<List<Note>>
+    // ─── Explicit userId overloads (kept for callers that pass userId explicitly) ──
 
-    /** All pinned non-deleted notes for the current user. */
-    fun watchPinnedForCurrentUser(): Flow<List<Note>>
+    /** All notes for a specific [userId]. */
+    fun watchAll(userId: UserId): Flow<List<Note>>
 
-    /** All archived non-deleted notes for the current user. */
-    fun watchArchivedForCurrentUser(): Flow<List<Note>>
+    /** Pinned notes for a specific [userId]. */
+    fun watchPinned(userId: UserId): Flow<List<Note>>
 
-    /** Single note by ID, scoped to current user. Returns null if not found or not owned. */
-    fun watchNoteForCurrentUser(id: NoteId): Flow<Note?>
+    /** Archived notes for a specific [userId]. */
+    fun watchArchived(userId: UserId): Flow<List<Note>>
 
-    /** Suspend version for one-shot reads (e.g. in use cases). */
-    suspend fun getNoteByIdForCurrentUser(id: NoteId): Note?
+    /** Root notes (no parent) for a specific [userId]. */
+    fun watchRootNotes(userId: UserId): Flow<List<Note>>
+
+    // ─── Domain methods ───────────────────────────────────────────────────────
+
+    /** Pinned non-deleted notes for the current user. */
+    fun watchPinned(): Flow<List<Note>>
+
+    /** Archived non-deleted notes for the current user. */
+    fun watchArchived(): Flow<List<Note>>
 
     /** Root notes (no parent) for the current user. */
-    fun watchRootNotesForCurrentUser(): Flow<List<Note>>
+    fun watchRootNotes(): Flow<List<Note>>
 
-    // ─── Explicit userId overloads (Phase 3 migration target) ──────────────────
-    fun watchNotes(userId: UserId): Flow<List<Note>>
-    fun watchPinned(userId: UserId): Flow<List<Note>>
-    fun watchArchived(userId: UserId): Flow<List<Note>>
-    fun watchRootNotes(userId: UserId): Flow<List<Note>>
-    fun watchNote(id: NoteId): Flow<Note?>
-
-    // ─── UserId-free search ──────────────────────────────────────────────
+    /** Search notes for the current user. */
     fun searchNotesForCurrentUser(query: String): Flow<List<Note>>
 
-    /** Search notes scoped to a specific user. Used by SearchUseCase. */
+    /** Search notes scoped to a specific [userId]. Used by SearchUseCase. */
     fun searchNotes(query: String, userId: UserId): Flow<List<Note>>
 
-    // ─── Deprecated (remove in Phase 3) ─────────────────────────────────────
-    fun searchNotes(query: String): Flow<List<Note>>
-
-    // ─── Editor mutations (whole-Note) ──────────────────────────────────────
-    suspend fun create(note: Note): Result<Unit>
-    suspend fun update(note: Note): Result<Unit>
-
-    // ─── Editor mutations (id + fields — autosave path) ─────────────────────
+    /** Creates a note with content (autosave path). Returns the saved note. */
     suspend fun createWithContent(
         userId: UserId,
         id: NoteId,
@@ -72,20 +68,24 @@ interface NotesRepository {
 
     /** Creates a note with an initial title (quick-add path). Returns the new id. */
     suspend fun createNoteWithTitle(userId: UserId, title: String): Result<NoteId>
+
+    /** Updates title and body content (autosave path). */
     suspend fun updateContent(id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<Unit>
 
-    // ─── Lifecycle ─────────────────────────────────────────────────────────
-    suspend fun softDelete(id: NoteId): Result<Unit>
-    suspend fun restore(id: NoteId): Result<Unit>
+    /** Archives a note. */
     suspend fun archive(id: NoteId): Result<Unit>
+
+    /** Unarchives a note. */
     suspend fun unarchive(id: NoteId): Result<Unit>
 
-    // ─── Pin / Color / Sort ─────────────────────────────────────────────────
+    /** Pins or unpins a note. */
     suspend fun setPinned(id: NoteId, pinned: Boolean): Result<Unit>
-    suspend fun setColor(id: NoteId, color: NoteColor?): Result<Unit>
-    suspend fun setSortOrder(id: NoteId, sortOrder: Int): Result<Unit>
 
-    // ─── Internal links (wikilinks) ─────────────────────────────────────────
+    /** Sets note color. */
+    suspend fun setColor(id: NoteId, color: NoteColor?): Result<Unit>
+
+    /** Sets sort order. */
+    suspend fun setSortOrder(id: NoteId, sortOrder: Int): Result<Unit>
 
     /** Updates the outgoing links column for a note. Called after each save. */
     suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit>
@@ -100,49 +100,46 @@ class RoomNotesRepository(
     private val currentUser: ProfileAwareCurrentUser,
 ) : NotesRepository {
 
-    // ─── UserId-free reads (Phase 2 pattern) ─────────────────────────────────
+    // ─── GenericUserScopedRepository ───────────────────────────────────────────
 
-    override fun searchNotesForCurrentUser(query: String): Flow<List<Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            noteDao.watchSearchByTitle(uid.value, query).map { list -> list.map { it.toNote() } }
-        }
-
-    override fun watchNotesForCurrentUser(): Flow<List<Note>> =
+    override fun observeAll(): Flow<List<Note>> =
         currentUser.observeForCurrentUser { uid ->
             noteDao.watchAll(uid.value).map { list -> list.map { it.toNote() } }
         }
 
-    override fun watchPinnedForCurrentUser(): Flow<List<Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            noteDao.watchPinned(uid.value).map { list -> list.map { it.toNote() } }
-        }
-
-    override fun watchArchivedForCurrentUser(): Flow<List<Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            noteDao.watchArchived(uid.value).map { list -> list.map { it.toNote() } }
-        }
-
-    override fun watchNoteForCurrentUser(id: NoteId): Flow<Note?> =
+    override fun observe(id: NoteId): Flow<Note?> =
         currentUser.observeForCurrentUser { uid ->
             noteDao.watchByIdForUser(id.value, uid.value).map { it?.toNote() }
         }
 
-    override suspend fun getNoteByIdForCurrentUser(id: NoteId): Note? {
+    override suspend fun get(id: NoteId): Note? {
         val uid = currentUser.scopedUserId.value
         return noteDao.getByIdForUser(id.value, uid.value)?.toNote()
     }
 
-    override fun watchRootNotesForCurrentUser(): Flow<List<Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            noteDao.watchRootNotes(uid.value).map { list -> list.map { it.toNote() } }
-        }
+    override suspend fun create(item: Note): Result<Note> = runCatching {
+        noteDao.upsert(item.toEntity())
+        item
+    }
 
-    // ─── Explicit userId reads ───────────────────────────────────────────────
+    override suspend fun update(item: Note): Result<Note> = runCatching {
+        noteDao.upsert(item.toEntity())
+        item
+    }
 
-    override fun searchNotes(query: String, userId: UserId): Flow<List<Note>> =
-        noteDao.watchSearchByTitle(userId.value, query).map { list -> list.map { it.toNote() } }
+    override suspend fun delete(id: NoteId): Result<Unit> = runCatching {
+        noteDao.softDelete(id.value, clock.now().toEpochMilliseconds())
+    }
 
-    override fun watchNotes(userId: UserId): Flow<List<Note>> =
+    // ─── SoftDeletable ────────────────────────────────────────────────────────
+
+    override suspend fun restore(id: NoteId): Result<Unit> = runCatching {
+        noteDao.restore(id.value, clock.now().toEpochMilliseconds())
+    }
+
+    // ─── Explicit userId overloads ─────────────────────────────────────────────
+
+    override fun watchAll(userId: UserId): Flow<List<Note>> =
         noteDao.watchAll(userId.value).map { list -> list.map { it.toNote() } }
 
     override fun watchPinned(userId: UserId): Flow<List<Note>> =
@@ -154,25 +151,30 @@ class RoomNotesRepository(
     override fun watchRootNotes(userId: UserId): Flow<List<Note>> =
         noteDao.watchRootNotes(userId.value).map { list -> list.map { it.toNote() } }
 
-    override fun watchNote(id: NoteId): Flow<Note?> {
-        val uid = currentUser.scopedUserId.value
-        return noteDao.watchByIdForUser(id.value, uid.value).map { it?.toNote() }
-    }
+    // ─── Domain methods ───────────────────────────────────────────────────────
 
-    // ─── Deprecated (remove in Phase 3) ─────────────────────────────────────
+    override fun watchPinned(): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchPinned(uid.value).map { list -> list.map { it.toNote() } }
+        }
 
-    override fun searchNotes(query: String): Flow<List<Note>> {
-        val uid = currentUser.scopedUserId.value
-        return noteDao.watchSearchByTitle(uid.value, query).map { list -> list.map { it.toNote() } }
-    }
+    override fun watchArchived(): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchArchived(uid.value).map { list -> list.map { it.toNote() } }
+        }
 
-    override suspend fun create(note: Note): Result<Unit> = runCatching {
-        noteDao.upsert(note.toEntity())
-    }
+    override fun watchRootNotes(): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchRootNotes(uid.value).map { list -> list.map { it.toNote() } }
+        }
 
-    override suspend fun update(note: Note): Result<Unit> = runCatching {
-        noteDao.upsert(note.toEntity())
-    }
+    override fun searchNotesForCurrentUser(query: String): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchSearchByTitle(uid.value, query).map { list -> list.map { it.toNote() } }
+        }
+
+    override fun searchNotes(query: String, userId: UserId): Flow<List<Note>> =
+        noteDao.watchSearchByTitle(userId.value, query).map { list -> list.map { it.toNote() } }
 
     override suspend fun createWithContent(
         userId: UserId,
@@ -247,14 +249,6 @@ class RoomNotesRepository(
             bodyMarkdown.length,
             clock.now().toEpochMilliseconds(),
         )
-    }
-
-    override suspend fun softDelete(id: NoteId): Result<Unit> = runCatching {
-        noteDao.softDelete(id.value, clock.now().toEpochMilliseconds())
-    }
-
-    override suspend fun restore(id: NoteId): Result<Unit> = runCatching {
-        noteDao.restore(id.value, clock.now().toEpochMilliseconds())
     }
 
     override suspend fun archive(id: NoteId): Result<Unit> = runCatching {
@@ -339,11 +333,11 @@ private fun List<String>.toLinksJson(): String = if (isEmpty()) {
     "[]"
 } else {
     buildString {
-    append('[')
-    forEachIndexed { index, link ->
-        if (index > 0) append(',')
-        append('"').append(link).append('"')
+        append('[')
+        forEachIndexed { index, link ->
+            if (index > 0) append(',')
+            append('"').append(link).append('"')
+        }
+        append(']')
     }
-    append(']')
-}
 }

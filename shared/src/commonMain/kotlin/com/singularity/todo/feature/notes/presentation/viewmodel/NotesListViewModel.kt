@@ -85,9 +85,9 @@ class NotesListViewModel(
             // Watch notes based on current filter, then split into pinned/unpinned.
             _filter.flatMapLatest { f ->
                 val flow = when (f) {
-                    NoteFilter.All -> repo.watchNotesForCurrentUser()
-                    NoteFilter.Pinned -> repo.watchPinnedForCurrentUser()
-                    NoteFilter.Archived -> repo.watchArchivedForCurrentUser()
+                    NoteFilter.All -> repo.observeAll()
+                    NoteFilter.Pinned -> repo.watchPinned()
+                    NoteFilter.Archived -> repo.watchArchived()
                 }
                 flow.map { notes -> f to notes }
             }.catch { emit(NoteFilter.All to emptyList()) }
@@ -190,7 +190,7 @@ class NotesListViewModel(
         val ids = _selectedIds.value.toList()
         scope.launch(Dispatchers.Unconfined) {
             ids.forEach { id ->
-                repo.softDelete(id)
+                repo.delete(id)
             }
             exitSelectionMode()
         }
@@ -211,7 +211,7 @@ class NotesListViewModel(
 
     fun delete(id: NoteId) {
         scope.launch(Dispatchers.Unconfined) {
-            repo.softDelete(id)
+            repo.delete(id)
         }
     }
 }
