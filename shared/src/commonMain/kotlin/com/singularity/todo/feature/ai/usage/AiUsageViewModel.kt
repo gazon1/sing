@@ -1,21 +1,18 @@
 package com.singularity.todo.feature.ai.usage
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.observability.DailyUsage
 import com.singularity.todo.core.observability.ModelUsage
 import com.singularity.todo.core.observability.ToolUsage
 import com.singularity.todo.core.observability.UsageRecorder
 import com.singularity.todo.feature.profile.ProfileRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.cancel
 
 data class AiUsageUiState(
     val isLoading: Boolean = true,
@@ -39,14 +36,18 @@ data class AiUsageUiState(
 class AiUsageViewModel(
     private val usageRecorder: UsageRecorder,
     profileRepository: ProfileRepository,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(usageRecorder: UsageRecorder, profileRepository: ProfileRepository) : this(
         usageRecorder = usageRecorder,
         profileRepository = profileRepository,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -78,9 +79,4 @@ class AiUsageViewModel(
         SharingStarted.WhileSubscribed(5_000),
         AiUsageUiState(),
     )
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
-    }
 }

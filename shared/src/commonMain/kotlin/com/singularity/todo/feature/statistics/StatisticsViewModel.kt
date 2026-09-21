@@ -1,19 +1,16 @@
 package com.singularity.todo.feature.statistics
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.cancel
 
 data class StatisticsUiState(val snapshot: StatisticsSnapshot? = null, val loading: Boolean = true)
 
@@ -30,9 +27,13 @@ data class StatisticsUiState(val snapshot: StatisticsSnapshot? = null, val loadi
 class StatisticsViewModel(
     private val taskRepository: TaskRepository,
     private val clock: Clock,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     // Secondary — production Koin uses this
     constructor(
@@ -40,7 +41,7 @@ class StatisticsViewModel(
         clock: Clock,
     ) : this(
         taskRepository, clock,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     val state: StateFlow<StatisticsUiState> = taskRepository.observeByFilter(TaskFilter.All)
@@ -60,9 +61,4 @@ class StatisticsViewModel(
         }
         .catch { emit(StatisticsUiState(loading = false)) }
         .stateIn(scope, sharingStarted(), StatisticsUiState(loading = true))
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
-    }
 }

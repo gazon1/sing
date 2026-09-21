@@ -1,21 +1,18 @@
 package com.singularity.todo.feature.ai.chat
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.SequenceIdGenerator
 import com.singularity.todo.feature.ai.FakeTextGen
 import com.singularity.todo.feature.ai.TextGenPort
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -24,27 +21,19 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModelTest {
 
-    private val dispatcher = UnconfinedTestDispatcher()
     private val testLog = Logger.withTag("ChatViewModelTest")
 
-    @BeforeTest
-    fun setUp() {
-        Dispatchers.setMain(dispatcher)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    private fun newVm(flow: Flow<String> = flowOf("Hi ", "there!")) =
-        ChatViewModel(testLog, ScriptedTextGen(flow), SequenceIdGenerator())
+    private fun newVm(
+        scope: CoroutineScope,
+        flow: Flow<String> = flowOf("Hi ", "there!"),
+    ) = ChatViewModel(testLog, ScriptedTextGen(flow), SequenceIdGenerator(), testScope(scope))
 
     @Test
     fun sendAppendsUserAndAssistantPlaceholder() = runTest {
-        val vm = newVm()
+        val vm = newVm(this)
         vm.onIntent(ChatViewModel.Intent.InputChanged("Hello"))
         vm.onIntent(ChatViewModel.Intent.Send)
+        advanceUntilIdle()
 
         val messages = vm.uiState.value.messages
         assertEquals(2, messages.size)
@@ -55,9 +44,10 @@ class ChatViewModelTest {
 
     @Test
     fun sendStreamsChunksIntoAssistantMessage() = runTest {
-        val vm = newVm(flowOf("alpha", " beta", " gamma"))
+        val vm = newVm(this, flowOf("alpha", " beta", " gamma"))
         vm.onIntent(ChatViewModel.Intent.InputChanged("x"))
         vm.onIntent(ChatViewModel.Intent.Send)
+        advanceUntilIdle()
 
         val assistant = vm.uiState.value.messages.last { it.role == ChatRole.Assistant }
         assertEquals("alpha beta gamma", assistant.content)
@@ -66,9 +56,10 @@ class ChatViewModelTest {
 
     @Test
     fun sendIgnoresBlankInput() = runTest {
-        val vm = newVm()
+        val vm = newVm(this)
         vm.onIntent(ChatViewModel.Intent.InputChanged("   "))
         vm.onIntent(ChatViewModel.Intent.Send)
+        advanceUntilIdle()
 
         assertTrue(vm.uiState.value.messages.isEmpty())
     }

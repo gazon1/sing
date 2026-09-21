@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.settings
 
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.security.FakeSecureStorage
 import com.singularity.todo.core.settings.SettingsContributor
@@ -34,7 +35,7 @@ class SettingsViewModelTest {
         return SettingsViewModel(
             contributors = contributors,
             settings = fakeSettings,
-            scope = scope,
+            scope = testScope(scope),
             savedAgendaViewsRepo = fakeSavedAgendaViews,
         )
     }
@@ -169,7 +170,7 @@ class SettingsViewModelTest {
         val vm = SettingsViewModel(
             contributors = contributors,
             settings = fakeSettings,
-            scope = backgroundScope,
+            scope = testScope(backgroundScope),
             savedAgendaViewsRepo = fakeSavedAgendaViews,
         )
         advanceUntilIdle()

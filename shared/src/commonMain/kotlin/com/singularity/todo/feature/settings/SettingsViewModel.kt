@@ -2,6 +2,7 @@ package com.singularity.todo.feature.settings
 
 import androidx.lifecycle.ViewModel
 
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
@@ -11,14 +12,10 @@ import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.ai.AiSettingsContributor
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 /**
  * Settings screen ViewModel.
@@ -32,9 +29,13 @@ import kotlinx.coroutines.cancel
 class SettingsViewModel(
     private val contributors: Set<SettingsContributor<*, *>>,
     private val settings: SettingsRepository,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
     private val savedAgendaViewsRepo: SavedAgendaViewsRepository,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
@@ -44,7 +45,7 @@ class SettingsViewModel(
     ) : this(
         contributors = contributors,
         settings = settings,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
         savedAgendaViewsRepo = savedAgendaViewsRepo,
     )
 
@@ -345,10 +346,5 @@ class SettingsViewModel(
             aiContributor?.updateApiKey(value)
             reloadAiSection()
         }
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

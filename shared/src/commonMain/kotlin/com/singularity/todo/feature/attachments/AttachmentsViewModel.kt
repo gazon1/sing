@@ -2,16 +2,13 @@ package com.singularity.todo.feature.attachments
 
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.attachments.AttachmentRepository
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 /**
  * Attachments sheet ViewModel (per task).
@@ -25,8 +22,12 @@ import kotlinx.coroutines.cancel
 class AttachmentsViewModel(
     private val repository: AttachmentRepository,
     private val currentUser: ProfileAwareCurrentUser,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
@@ -35,7 +36,7 @@ class AttachmentsViewModel(
     ) : this(
         repository = repository,
         currentUser = currentUser,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val _events = MutableSharedFlow<AttachmentsUiEvent>(extraBufferCapacity = 4)
@@ -62,10 +63,5 @@ class AttachmentsViewModel(
             repository.delete(attachmentId)
                 .onFailure { e -> _events.emit(AttachmentsUiEvent.Error(e.message ?: "Delete failed")) }
         }
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

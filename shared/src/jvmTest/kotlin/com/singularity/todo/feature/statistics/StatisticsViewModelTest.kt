@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.statistics
 
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -35,7 +36,7 @@ class StatisticsViewModelTest {
     ): StatisticsViewModel = StatisticsViewModel(
         taskRepository = repo,
         clock = Clock,
-        scope = backgroundScope,
+        scope = testScope(backgroundScope),
     )
 
     @Test

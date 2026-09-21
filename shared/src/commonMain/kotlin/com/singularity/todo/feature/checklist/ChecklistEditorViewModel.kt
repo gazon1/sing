@@ -1,15 +1,12 @@
 package com.singularity.todo.feature.checklist
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.state.updateState
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 data class ChecklistEditorState(
     val taskId: String = "",
@@ -43,8 +40,12 @@ sealed interface ChecklistEditorIntent {
 class ChecklistEditorViewModel(
     private val checklistUseCase: ChecklistUseCase,
     private val checklistRepository: ChecklistRepository,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
@@ -53,7 +54,7 @@ class ChecklistEditorViewModel(
     ) : this(
         checklistUseCase = checklistUseCase,
         checklistRepository = checklistRepository,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val _state = MutableStateFlow(ChecklistEditorState())
@@ -120,10 +121,5 @@ class ChecklistEditorViewModel(
                     _state.updateState { st -> st.copy(errorMessage = err.message) }
                 }
         }
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

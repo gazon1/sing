@@ -11,6 +11,7 @@ import com.singularity.todo.core.backup.EntityCounts
 import com.singularity.todo.core.backup.ExportOptions
 import com.singularity.todo.core.backup.ImportOptions
 import com.singularity.todo.core.backup.RestoreResult
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeBackupRepository
@@ -51,7 +52,7 @@ class BackupViewModelTest {
         val namer: BackupFileNamer = object : BackupFileNamer {
             override fun nextBackupName(timestampMs: Long): String = "test_backup.zip"
         }
-        return BackupViewModel(repo, auth, namer, com.singularity.todo.core.platform.Clock, scope)
+        return BackupViewModel(repo, auth, namer, com.singularity.todo.core.platform.Clock, testScope(scope))
     }
 
     // ─── init subscribes to backups ───────────────────────────────────────────

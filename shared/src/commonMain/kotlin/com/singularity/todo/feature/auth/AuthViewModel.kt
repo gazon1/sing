@@ -3,9 +3,7 @@ package com.singularity.todo.feature.auth
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -13,7 +11,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 /**
  * Auth screen ViewModel (sign in / sign up / anonymous).
@@ -26,13 +23,17 @@ import kotlinx.coroutines.cancel
  */
 class AuthViewModel(
     private val authRepository: AuthRepository,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(authRepository: AuthRepository) : this(
         authRepository = authRepository,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val _state = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
@@ -99,10 +100,5 @@ class AuthViewModel(
 
     fun resetState() {
         _state.value = AuthUiState.Idle
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

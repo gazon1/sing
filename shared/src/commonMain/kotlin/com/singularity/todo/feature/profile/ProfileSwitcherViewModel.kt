@@ -1,16 +1,13 @@
 package com.singularity.todo.feature.profile
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.cancel
 
 data class ProfileSwitcherUiState(
     val profiles: List<Profile> = emptyList(),
@@ -33,13 +30,17 @@ data object DismissError
  */
 class ProfileSwitcherViewModel(
     private val profileRepository: ProfileRepository,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(profileRepository: ProfileRepository) : this(
         profileRepository = profileRepository,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val _errorMessage = MutableStateFlow<String?>(null)
@@ -110,11 +111,6 @@ class ProfileSwitcherViewModel(
             is ProfileSwitcherIntent.Delete -> delete(intent.id)
             is ProfileSwitcherIntent.SwitchTo -> switchTo(intent.id)
         }
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }
 

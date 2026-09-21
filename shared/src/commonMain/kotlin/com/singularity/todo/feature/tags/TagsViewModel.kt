@@ -2,17 +2,14 @@ package com.singularity.todo.feature.tags
 
 import androidx.lifecycle.ViewModel
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 sealed interface TagsUiState {
     data object Loading : TagsUiState
@@ -32,15 +29,19 @@ sealed interface TagsUiState {
  */
 class TagsViewModel(
     private val tagRepo: TagsRepository,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
         tagRepo: TagsRepository,
     ) : this(
         tagRepo = tagRepo,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -57,10 +58,5 @@ class TagsViewModel(
 
     fun delete(id: TagId) = scope.launch {
         tagRepo.delete(id)
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

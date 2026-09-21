@@ -1,13 +1,11 @@
 package com.singularity.todo.feature.archive
 
 import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -18,7 +16,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 sealed interface ArchiveUiState {
     data object Loading : ArchiveUiState
@@ -39,9 +36,13 @@ sealed interface ArchiveUiState {
 class ArchiveViewModel(
     private val archiveRepo: ArchiveRepository,
     private val taskRepo: TaskRepository,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(
@@ -50,7 +51,7 @@ class ArchiveViewModel(
     ) : this(
         archiveRepo = archiveRepo,
         taskRepo = taskRepo,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     private val _refreshing = MutableStateFlow(false)
@@ -75,10 +76,5 @@ class ArchiveViewModel(
             .onFailure { e ->
                 _events.emit(ArchiveUiEvent.Error(e.message ?: "Archive failed"))
             }
-    }
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
     }
 }

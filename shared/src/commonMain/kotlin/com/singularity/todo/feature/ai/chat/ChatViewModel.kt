@@ -2,12 +2,10 @@ package com.singularity.todo.feature.ai.chat
 
 import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.ai.TextGenPort
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -15,7 +13,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 
 /**
  * AI chat state and intents.
@@ -28,15 +25,19 @@ class ChatViewModel(
     private val log: Logger,
     private val agent: TextGenPort,
     private val idGen: IdGenerator,
-    private val scope: CoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
 
     /** Production constructor — Koin uses this. */
     constructor(log: Logger, agent: TextGenPort, idGen: IdGenerator) : this(
         log = log,
         agent = agent,
         idGen = idGen,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        scope = AutoCloseableCoroutineScope(),
     )
 
     data class State(
@@ -99,11 +100,6 @@ class ChatViewModel(
         map { if (it.id == id) it.copy(content = content) else it }
 
     private fun newId(): String = idGen.next()
-
-    override fun onCleared() {
-        scope.cancel()
-        super.onCleared()
-    }
 }
 
 enum class ChatRole { User, Assistant }
