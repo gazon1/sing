@@ -25,6 +25,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +43,8 @@ import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.OverlayState
+import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.notes.EditorSession
 import com.singularity.todo.feature.notes.EditorState
@@ -59,6 +63,13 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration.Companion.milliseconds
+
+// ─── Link overlay types ─────────────────────────────────────────────────────────
+
+private sealed class NoteLinkSheet {
+    data object External : NoteLinkSheet()
+    data class InternalPicker(val query: String = "") : NoteLinkSheet()
+}
 
 // ─── Screen entry ──────────────────────────────────────────────────────────────
 
@@ -142,9 +153,8 @@ fun NoteEditorScreenContent(
         label = "savedAlpha",
     )
 
-    var linkDialogVisible by remember { mutableStateOf(false) }
-    var linkUrl by remember { mutableStateOf("") }
-    var internalLinkPickerVisible by remember { mutableStateOf(false) }
+    val linkOverlay = rememberOverlayState<NoteLinkSheet>()
+    var linkUrl by rememberSaveable { mutableStateOf("") }
     val linkQueryFlow = remember { MutableStateFlow("") }
 
     val session = (editorState as? EditorState.Editing)?.let { editing ->
@@ -187,8 +197,8 @@ fun NoteEditorScreenContent(
                         richTextState = editorSession.richTextState,
                         onHtmlChange = { editorSession.dispatchHtml() },
                         onAiClick = onAiClick,
-                        onLinkClick = { linkDialogVisible = true },
-                        onInternalLinkClick = { internalLinkPickerVisible = true },
+                        onLinkClick = { linkOverlay.show(NoteLinkSheet.External) },
+                        onInternalLinkClick = { linkOverlay.show(NoteLinkSheet.InternalPicker()) },
                     )
                 }
             }
@@ -222,25 +232,26 @@ fun NoteEditorScreenContent(
         }
     }
 
-    if (linkDialogVisible) {
+    if (linkOverlay.sheet == NoteLinkSheet.External) {
         LinkUrlDialog(
             url = linkUrl,
             onUrlChange = { linkUrl = it },
             onConfirm = { url ->
                 session?.richTextState?.addLinkToSelection(url = url)
                 session?.recordLink(url)
-                linkDialogVisible = false
+                linkOverlay.dismissAll()
                 linkUrl = ""
                 session?.dispatchHtml()
             },
             onDismiss = {
-                linkDialogVisible = false
+                linkOverlay.dismissAll()
                 linkUrl = ""
             },
         )
     }
 
-    if (internalLinkPickerVisible) {
+    val internalPicker = linkOverlay.sheet as? NoteLinkSheet.InternalPicker
+    if (internalPicker != null) {
         InternalLinkPickerSheet(
             queryFlow = linkQueryFlow,
             onSearch = { q ->
@@ -259,7 +270,7 @@ fun NoteEditorScreenContent(
                 linkQueryFlow.value = ""
             },
             onDismiss = {
-                internalLinkPickerVisible = false
+                linkOverlay.dismissAll()
                 linkQueryFlow.value = ""
             },
         )

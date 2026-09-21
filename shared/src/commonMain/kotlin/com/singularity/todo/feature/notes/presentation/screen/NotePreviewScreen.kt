@@ -54,8 +54,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mohamedrejeb.richeditor.annotation.ExperimentalRichTextApi
-import com.mohamedrejeb.richeditor.model.RichTextState
+import com.mohamedrejeb.richeditor.model.rememberRichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichText
+import androidx.compose.ui.platform.LocalUriHandler
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.notes.Note
@@ -237,7 +238,7 @@ fun NotePreviewScreenContent(
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                    // Body: read-only RichText
+                    // Body: read-only RichText with internal link interception
                     if (note.bodyHtml.isNullOrBlank()) {
                         Text(
                             text = "No content",
@@ -246,16 +247,13 @@ fun NotePreviewScreenContent(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp),
                         )
                     } else {
-                        val richTextState = remember(note.id) {
-                            RichTextState().also { it.setHtml(note.bodyHtml) }
-                        }
-
-                        RichText(
-                            state = richTextState,
+                        NotePreviewBody(
+                            html = note.bodyHtml,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp),
-                            // Handle note:// and task:// links manually via uriHandler
+                            onNavigateToNote = onNavigateToNote,
+                            onNavigateToTask = onNavigateToTask,
                         )
                     }
 
@@ -391,6 +389,37 @@ private fun BacklinksSheet(backlinks: List<Note>, onNoteSelected: (String) -> Un
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalRichTextApi::class)
+@Composable
+private fun NotePreviewBody(
+    html: String,
+    modifier: Modifier = Modifier,
+    onNavigateToNote: (String) -> Unit,
+    onNavigateToTask: (String) -> Unit,
+) {
+    val richTextState = rememberRichTextState()
+    LaunchedEffect(html) { richTextState.setHtml(html) }
+
+    val uriHandler = LocalUriHandler.current
+    val interceptedUriHandler = remember(uriHandler, onNavigateToNote, onNavigateToTask) {
+        object : androidx.compose.ui.platform.UriHandler {
+            override fun openUri(uri: String) {
+                when {
+                    uri.startsWith("note://") -> onNavigateToNote(uri.removePrefix("note://"))
+                    uri.startsWith("task://") -> onNavigateToTask(uri.removePrefix("task://"))
+                    else -> uriHandler.openUri(uri)
+                }
+            }
+        }
+    }
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalUriHandler provides interceptedUriHandler,
+    ) {
+        RichText(state = richTextState, modifier = modifier)
+    }
+}
 
 private fun formatRelativeShort(updatedAt: Instant): String {
     val now = Clock.System.now()
