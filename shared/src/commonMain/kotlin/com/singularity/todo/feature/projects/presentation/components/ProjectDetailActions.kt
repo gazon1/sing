@@ -75,6 +75,10 @@ value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Uni
 
     fun onMoveTaskToProject(taskId: TaskId) = block(ProjectDetailIntent.Domain.MoveTaskToProject(taskId))
 
+    fun onPin(taskId: TaskId) = block(ProjectDetailIntent.Domain.ToggleTaskPin(taskId))
+
+    fun onDeleteTask(taskId: TaskId) = block(ProjectDetailIntent.Domain.DeleteTask(taskId))
+
     companion object {
         /** No-op actions — для превью и тестов. */
         val Empty = ProjectDetailActions {}

@@ -71,9 +71,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.BottomSheetHost
 import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.rememberOverlayState
-import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
@@ -123,7 +123,6 @@ fun ProjectDetailScreen(
     projectId: ProjectId,
     modifier: Modifier = Modifier,
 ) {
-    val nav = LocalProjectsNavigator.current
     val viewModel: ProjectDetailViewModel = koinViewModel { parametersOf(projectId) }
     ProjectDetailContent(
         viewModel = viewModel,
@@ -590,7 +589,10 @@ private fun ProjectBodySection(
                     TaskCard(
                         task = task,
                         onClick = { nav.openTask(task.id) },
-                        actions = TaskCardActions.Empty,
+                        actions = TaskCardActions(
+                            onPin = { actions.onPin(task.id) },
+                            onDelete = { actions.onDeleteTask(task.id) },
+                        ),
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
                 }

@@ -2,6 +2,9 @@ package com.singularity.todo.feature.search
 
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.fireAndForget
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -41,7 +44,8 @@ sealed interface SearchUiEvent {
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class SearchViewModel(
     private val searchUseCase: SearchUseCase,
-    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val taskRepo: TaskRepository,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
     init {
         addCloseable(scope)
@@ -94,5 +98,16 @@ class SearchViewModel(
 
     fun onQueryChange(query: String) {
         _query.value = query
+    }
+
+    fun togglePin(taskId: TaskId) {
+        scope.fireAndForget(
+            errorLabel = "Pin failed",
+            onError = { e ->
+                _events.tryEmit(SearchUiEvent.Error("Pin failed: ${e.message ?: "unknown"}"))
+            },
+        ) {
+            taskRepo.togglePinned(taskId)
+        }
     }
 }

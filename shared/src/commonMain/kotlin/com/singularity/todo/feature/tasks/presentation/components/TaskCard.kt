@@ -87,7 +87,7 @@ fun TaskCard(
  */
 @Composable
 internal fun RowScope.DefaultTaskCardBody(task: Task, actions: TaskCardActions) {
-    ToggleButton(isCompleted = task.isCompleted, onClick = actions::onToggle, taskTitle = task.title)
+    ToggleButton(isCompleted = task.isCompleted, onClick = actions.onToggle ?: {}, taskTitle = task.title)
     TaskText(task = task, modifier = Modifier.weight(1f))
     if (task.parentTaskId != null) {
         SubtaskChip()
@@ -97,12 +97,13 @@ internal fun RowScope.DefaultTaskCardBody(task: Task, actions: TaskCardActions) 
 
 /**
  * Default trailing actions for [TaskCard] — pin, AI, delete buttons.
+ * Each button is conditionally rendered only when the corresponding callback is non-null.
  */
 @Composable
 internal fun DefaultTaskCardTrailing(task: Task, actions: TaskCardActions) {
-    PinButton(isPinned = task.isPinned, onClick = actions::onPin)
-    AiActionButton(onClick = actions::onAiClick)
-    DeleteActionButton(onClick = actions::onDelete)
+    actions.onPin?.let { PinButton(isPinned = task.isPinned, onClick = it) }
+    actions.onAiClick?.let { AiActionButton(onClick = it) }
+    actions.onDelete?.let { DeleteActionButton(onClick = it) }
 }
 
 @Composable

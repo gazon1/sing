@@ -56,14 +56,22 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
             if (query.isBlank()) {
                 EmptyState(title = "Enter a search query")
             } else {
-                SearchResultsList(results = state.results, navigator = navigator)
+                SearchResultsList(
+                results = state.results,
+                navigator = navigator,
+                onPin = viewModel::togglePin,
+            )
             }
         }
     }
 }
 
 @Composable
-private fun SearchResultsList(results: SearchResults, navigator: SearchNavigator) {
+private fun SearchResultsList(
+    results: SearchResults,
+    navigator: SearchNavigator,
+    onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
+) {
     val hasAny = results.tasks.isNotEmpty() || results.notes.isNotEmpty() ||
         results.projects.isNotEmpty() || results.tags.isNotEmpty()
     if (!hasAny) {
@@ -80,7 +88,7 @@ private fun SearchResultsList(results: SearchResults, navigator: SearchNavigator
                 TaskCard(
                     task = task,
                     onClick = { navigator.openTask(task.id) },
-                    actions = TaskCardActions.Empty,
+                    actions = TaskCardActions(onPin = { onPin(task.id) }),
                 )
             }
         }
@@ -132,7 +140,7 @@ private fun SimpleResultCard(title: String, onClick: () -> Unit) {
  */
 @Composable
 private fun SearchResultsListPreviewContent(results: SearchResults, navigator: SearchNavigator) {
-    SearchResultsList(results = results, navigator = navigator)
+    SearchResultsList(results = results, navigator = navigator, onPin = {})
 }
 
 @Preview

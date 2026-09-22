@@ -295,6 +295,32 @@ class ProjectDetailViewModel(
                             )
                         }
                 }
+
+            is ProjectDetailIntent.Domain.ToggleTaskPin ->
+                scope.fireAndForget(
+                    errorLabel = "Pin failed",
+                    onError = { e ->
+                        _events.trySend(
+                            ProjectDetailUiEvent.ShowError(
+                                (e as? AppError)?.message ?: e.message ?: "Pin failed",
+                            ),
+                        )
+                    },
+                ) {
+                    taskRepo.togglePinned(intent.taskId)
+                }
+
+            is ProjectDetailIntent.Domain.DeleteTask ->
+                scope.launch {
+                    taskRepo.softDelete(intent.taskId)
+                        .onFailure { e ->
+                            _events.trySend(
+                                ProjectDetailUiEvent.ShowError(
+                                (e as? AppError)?.message ?: e.message ?: "Delete task failed",
+                            )
+                            )
+                        }
+                }
         }
     }
 

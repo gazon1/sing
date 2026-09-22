@@ -60,5 +60,7 @@ sealed interface ProjectDetailIntent {
 
         data class CreateTask(val title: String) : Domain
         data class MoveTaskToProject(val taskId: TaskId) : Domain
+        data class ToggleTaskPin(val taskId: TaskId) : Domain
+        data class DeleteTask(val taskId: TaskId) : Domain
     }
 }
