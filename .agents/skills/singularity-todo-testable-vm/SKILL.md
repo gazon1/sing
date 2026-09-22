@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-testable-vm
-description: Testable ViewModel pattern for the Singularity Todo KMP app. Use when writing a new ViewModel, when a VM has hard-to-test combine/stateIn logic, or when existing VM tests are flaky. Covers the DraftState pattern, scope injection via 4-arg constructor, plain MutableStateFlow (no stateIn/combine), and the simple `vm.state.value + advanceUntilIdle()` test pattern.
+description: Testable ViewModel pattern for the Singularity Todo KMP app. Use when writing a new ViewModel, when a VM has hard-to-test combine/stateIn logic, or when existing VM tests are flaky. Covers the current canonical shape (primary ctor with `scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope()` default, no secondary ctor), the DraftState pattern, plain MutableStateFlow (no stateIn/combine), and the simple `vm.state.value + advanceUntilIdle()` test pattern.
 ---
 
 # Testable ViewModel Pattern
@@ -23,7 +23,9 @@ For pure read-through VMs (no init, no intents, just `flow.map { … }.stateIn(W
 
 ---
 
-## The Testable VM Template
+## The Testable VM Template (current canonical — 2026-09-21)
+
+The canonical shape uses `AutoCloseableCoroutineScope` as a **default param in the primary constructor** — NO secondary constructor, NO `scopeOverride`, NO `viewModelScope` direct usage. Tests pass `scope` explicitly; production uses the default.
 
 ```kotlin
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -31,33 +33,12 @@ class SavedAgendaViewModel(
     private val deps: SavedAgendaDeps,
     private val mode: SavedAgendaScreenMode,
     private val seedStore: SavedAgendaSeedStore,
-    private val scope: CoroutineScope,                       // ← injected
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
-    /** Production constructor — Koin uses this. */
-    constructor(
-        deps: SavedAgendaDeps,
-        mode: SavedAgendaScreenMode,
-        seedStore: SavedAgendaSeedStore,
-    ) : this(
-        deps = deps,
-        mode = mode,
-        seedStore = seedStore,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
-    )
-
-    // Why Dispatchers.Main.immediate?
-    // - This project ships Android (real `Main`) and JVM Desktop (Main is provided
-    //   by `kotlinx-coroutines-swing` / Compose for Desktop's UI dispatcher).
-    // - `immediate` posts to the current thread if already on Main, avoiding an
-    //   unnecessary re-post for fast UI updates (e.g. saving `DraftState.setName`).
-    // - It assumes a Main dispatcher is available on the runtime classpath. This
-    //   is true for our two targets today. If you add a target without a Main
-    //   dispatcher (pure JVM CLI, server, etc.), swap this for a different
-    //   dispatcher — DO NOT add a `serviceLoader` fallback here.
-    // - Koin's VM factory creates one of these scopes per VM instance. It is
-    //   cancelled when the ViewModel is cleared (Koin's `viewModel { }` ties its
-    //   lifecycle to the closest `ViewModelStoreOwner`).
+    init {
+        addCloseable(scope)  // Tier-1 cleanup: scope cancels when VM cleared
+    }
 
     // ─── Plain MutableStateFlow, no stateIn ────────────────────────────────
     private val _state = MutableStateFlow<SavedAgendaViewState>(SavedAgendaViewState.Loading)
@@ -117,6 +98,12 @@ class SavedAgendaViewModel(
     // ...
 }
 ```
+
+**Why `AutoCloseableCoroutineScope` (not `CoroutineScope`)?**
+
+`AutoCloseableCoroutineScope` implements both `CoroutineScope` and `AutoCloseable`. This lets us register cleanup via `addCloseable(scope)` (the ViewModel lifecycle 2.8+ API) instead of overriding `onCleared()`. The default ctor `AutoCloseableCoroutineScope()` uses `createBackgroundScope()` internally (a `CoroutineScope(SupervisorJob() + Dispatchers.Default)` for production, controllable per-test).
+
+See `core/coroutines/AutoCloseableCoroutineScope.kt` for the full rationale.
 
 ---
 
@@ -229,7 +216,7 @@ class SavedAgendaViewModelTest {
         deps = SavedAgendaDeps(repo = fakeRepo, currentUser = fakeCurrentUser, clock = Clock),
         mode = mode,
         seedStore = seedStore,
-        scope = scope,                    // ← pass test scope directly
+        scope = testScope(scope),           // ← wrap TestScope in AutoCloseableCoroutineScope
     )
 
     @Test
@@ -260,7 +247,7 @@ class SavedAgendaViewModelTest {
 }
 ```
 
-**The whole test pattern is 3 lines per case:**
+The `testScope(scope)` helper from `singularity-todo-test-helpers` wraps `TestScope` in `AutoCloseableCoroutineScope` so it matches the production ctor signature. The whole test pattern is 3 lines per case:
 1. `runTest { ... }`
 2. `vm.state.value` (or `advanceUntilIdle()` first if you want to flush init)
 3. Standard assertions
@@ -375,12 +362,20 @@ class MyViewModel : ViewModel() {
 }
 ```
 
-**Fix:** use `viewModelScope` lazily via a getter:
+**Fix (current canonical):** Use `AutoCloseableCoroutineScope` as a default param in the primary constructor:
+
 ```kotlin
-class MyViewModel(scopeOverride: CoroutineScope? = null) : ViewModel() {
-    private val scope: CoroutineScope = scopeOverride ?: viewModelScope
+class MyViewModel(
+    private val deps: MyDeps,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+) : ViewModel() {
+    init {
+        addCloseable(scope)  // Tier-1 cleanup: scope cancels when VM cleared
+    }
 }
 ```
+
+For migration from old `scopeOverride` / secondary ctor patterns, see `singularity-todo-vm-migration-playbook`.
 
 ### ❌ Stale closures on `_state`
 
@@ -424,27 +419,33 @@ private fun emitEditingState() {
 
 ## Concrete VMs Following This Pattern
 
-The following VMs have been migrated to the canonical testable shape (primary ctor with `scope: CoroutineScope` + secondary ctor for Koin). Use these as reference when writing new VMs or migrating old ones.
+The following VMs have been migrated to the canonical testable shape (primary ctor with `scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope()` default + `init { addCloseable(scope) }` — **no secondary ctor**). Use these as reference when writing new VMs or migrating old ones.
 
-### Canonical (fully testable)
+### Canonical (fully testable) — all 25+ VMs in the project
 
 | VM | File | Notes |
 |---|---|---|
 | `SavedAgendaViewModel` | `feature/agenda/presentation/viewmodel/` | Primary reference — all patterns |
-| `TasksViewModel` | `feature/tasks/presentation/viewmodel/TaskList.kt` | 4-arg primary + secondary ctor; `stateIn` replaced with plain `MutableStateFlow` |
+| `TasksViewModel` | `feature/tasks/presentation/viewmodel/TaskList.kt` | `scope` default + `stateIn` replaced with plain `MutableStateFlow` |
 | `TaskCreateViewModel` | `feature/tasks/presentation/viewmodel/TaskCreateViewModel.kt` | Plain `MutableStateFlow`; `DraftState` candidate |
-| `ProjectsViewModel` | `feature/projects/presentation/viewmodel/ProjectsViewModel.kt` | Pure read-through → `stateIn` still OK |
-| `ProjectEditorViewModel` | `feature/projects/presentation/viewmodel/ProjectEditorViewModel.kt` | No previous `scopeOverride`; now has `scope` injection |
-| `CalendarViewModel` | `feature/calendar/presentation/viewmodel/CalendarViewModel.kt` | Pure read-through → `stateIn` still OK |
-| `NotesListViewModel` | `feature/notes/presentation/viewmodel/NotesListViewModel.kt` | No previous `scopeOverride`; now has `scope` injection |
-| `AgendaViewModel` | `feature/agenda/presentation/viewmodel/AgendaViewModel.kt` | Pure read-through → `stateIn(WhileSubscribed)` — legitimate exception |
-| `SavedAgendaListViewModel` | `feature/agenda/presentation/viewmodel/SavedAgendaListViewModel.kt` | Uses `viewModel { }` not `viewModelOf` (Koin cannot provide `CoroutineScope`) |
 | `TaskDetailViewModel` | `feature/tasks/presentation/viewmodel/TaskDetail.kt` | Side-effects extracted from `combine`; `_latestTask` cache in dedicated `collect {}` |
-| `ProjectDetailViewModel` | `feature/projects/presentation/viewmodel/ProjectDetailViewModel.kt` | Side-effects extracted from `combine`; 5× `viewModelScope.launch` → `scope.launch` |
+| `ProjectsViewModel` | `feature/projects/presentation/viewmodel/ProjectsViewModel.kt` | Pure read-through → `stateIn` still OK |
+| `ProjectEditorViewModel` | `feature/projects/presentation/viewmodel/ProjectEditorViewModel.kt` | `scope` default; was migrated from old `viewModelScope` direct usage |
+| `ProjectDetailViewModel` | `feature/projects/presentation/viewmodel/ProjectDetailViewModel.kt` | Side-effects extracted from `combine`; `log: Logger` injected via DI |
+| `CalendarViewModel` | `feature/calendar/presentation/viewmodel/CalendarViewModel.kt` | Pure read-through → `stateIn` still OK |
+| `NotesListViewModel` | `feature/notes/presentation/viewmodel/NotesListViewModel.kt` | `scope` default; `viewModel { }` lambda |
+| `NoteEditor` | `feature/notes/presentation/viewmodel/NoteEditor.kt` | `scope` default + nullable `logger: Logger?` + nullable `improveNote` |
+| `NotePreview` | `feature/notes/presentation/viewmodel/NotePreview.kt` | `scope` default |
+| `AgendaViewModel` | `feature/agenda/presentation/viewmodel/AgendaViewModel.kt` | Pure read-through → `stateIn(WhileSubscribed)` — legitimate exception |
+| `SavedAgendaListViewModel` | `feature/agenda/presentation/viewmodel/SavedAgendaListViewModel.kt` | `viewModel { }` not `viewModelOf` (Koin cannot provide `CoroutineScope`) |
+| `SavedAgendaViewModel` | `feature/agenda/presentation/viewmodel/SavedAgendaViewModel.kt` | Runtime param + `scope` default |
+| `ChatViewModel` | `feature/ai/chat/ChatViewModel.kt` | `scope` default + `log: Logger` injected via `Logger.withTag(...)` in DI |
+| `AiUsageViewModel` | `feature/ai/usage/AiUsageViewModel.kt` | `scope` default |
+| `TagsViewModel`, `SearchViewModel`, `SettingsViewModel`, `ArchiveViewModel`, `ProfileSwitcherViewModel`, `AuthViewModel`, `AttachmentsViewModel`, `BackupViewModel`, `ChecklistEditorViewModel`, `StatisticsViewModel` | various | All migrated in `fac2e38` + `0413ee7` MRs |
 
 ### Migration status
 
-All 11 VMs in the project follow this pattern as of 2026-09-17 (MR vm-testability-mr1). The canonical shape is **enforced** for all new VMs via this skill and `singularity-todo-vm-migration-playbook`.
+All 25+ VMs in the project follow this canonical shape as of 2026-09-21 (commits `fac2e38` and `0413ee7`). The canonical shape is **enforced** for all new VMs via this skill and `singularity-todo-vm-migration-playbook`.
 
 ### Key deviations from canonical
 
@@ -459,6 +460,9 @@ These are the **narrow legitimate exceptions** documented in "When to Use Each P
 ## See Also
 
 - `singularity-todo-vm-intent-pattern` — sealed Intent + onIntent dispatcher
-- `singularity-todo-vm-koin-scoping` — how to register a two-constructor VM in Koin (never `viewModelOf`, always explicit `viewModel { ... }`)
+- `singularity-todo-vm-koin-scoping` — how to register a VM in Koin (always explicit `viewModel { }`, never `viewModelOf`)
+- `singularity-todo-vm-migration-playbook` — migrating old `scopeOverride` / secondary ctor VMs to canonical shape
+- `singularity-todo-test-helpers` — `testScope(...)` helper for VM tests
 - `singularity-todo-feature-scaffold` — canonical 7-file feature template
 - `docs/decisions/2026-09-16-agenda-mr4-saved-views-create-reorder.md` — original ADR for this pattern
+- `docs/decisions/2026-09-21-tier1-interface-cleanup.md` — recent MR with the canonical default-param VM migration (25 VMs across all features)

@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-koin-di
-description: Koin Annotations 4.2.2 DI pattern for this KMP project. Use when adding new repository, use case, ViewModel, or AI tool to the DI graph. Covers domainModule() DSL as the current source of truth, layer-aware binding (interface from domain, impl from data), @Module/@ComponentScan annotations (planned but not adopted), @Single/@Factory/@IntoSet/@Named qualifiers, and Fake test doubles registration. Also covers the scopeOverride pattern for testable coroutines in ViewModels.
+description: Koin DSL pattern for this KMP project. Use when adding new repository, use case, ViewModel, or AI tool to the DI graph. Covers domainModule() DSL as the current source of truth, layer-aware binding (interface from domain, impl from data), `singleOf`/`factoryOf` gotchas (4 documented failure modes), explicit `viewModel { }` lambda (never `viewModelOf` due to constructor ambiguity with `CoroutineScope`/`SharingStarted`), Logger injection patterns, Fake test doubles registration, and DI graph dedup.
 ---
 
 # Singularity TODO — Koin DI Pattern
@@ -17,8 +17,17 @@ description: Koin Annotations 4.2.2 DI pattern for this KMP project. Use when ad
 // ✅ CURRENT — domainModule() DSL in Modules.kt
 fun domainModule(): Module = module {
     single<TaskRepository> { TaskRepositoryImpl(get(), get()) }
-    factory { CreateTaskUseCase(get(), get()) }
-    viewModelOf(::TasksViewModel)
+    factoryOf(::CreateTaskUseCase)
+    viewModel {
+        TasksViewModel(
+            taskRepo = get(),
+            createTask = get(),
+            updateTask = get(),
+            mutations = get(),
+            projectRepo = get(),
+            clock = get(),
+        )
+    }
 }
 ```
 
@@ -108,16 +117,38 @@ factory { CreateNoteUseCase(get(), get()) }
 ```
 
 ### ViewModels without runtime parameters
+
 ```kotlin
-// viewModelOf is preferred — auto-resolves all constructor dependencies
-viewModelOf(::TasksViewModel)
-viewModelOf(::ProjectsViewModel)
+// Explicit viewModel { } lambda — REQUIRED for VMs with scope default + sharingStarted.
+// viewModelOf(::Vm) fails: Koin reflection cannot disambiguate CoroutineScope bean
+// from () -> SharingStarted parameter.
+viewModel {
+    TasksViewModel(
+        taskRepo = get(),
+        createTask = get(),
+        updateTask = get(),
+        mutations = get(),
+        projectRepo = get(),
+        clock = get(),
+    )
+}
 
 // Notes uses 3 separate VMs (list / editor / preview) — each scoped to its screen:
-viewModel { NotesListViewModel(get(), get(), get()) }
-viewModel { NoteEditor(repo=get(), currentUser=get(), idGen=get(), autosaveScheduler=get(), improveNote=getOrNull()) }
-viewModel { NotePreview(repo=get(), linkRepo=get(), currentUser=get()) }
+viewModel { NotesListViewModel(repo = get(), currentUser = get(), idGen = get()) }
+viewModel {
+    NoteEditor(
+        repo = get(),
+        linkRepo = get(),
+        currentUser = get(),
+        idGen = get(),
+        autosaveScheduler = get(),
+        improveNote = getOrNull(),
+    )
+}
+viewModel { NotePreview(repo = get(), linkRepo = get(), currentUser = get()) }
 ```
+
+See "Why ViewModels use `viewModel { }` (NOT `viewModelOf`)" below for the full rationale.
 
 ### ViewModels with runtime parameters
 ```kotlin
@@ -145,10 +176,11 @@ viewModel { (initialDueDate: LocalDate?) ->
 // ❌ WRONG — memory leak, new instance on every get()
 factory { TasksViewModel(get(), get(), ...) }
 
-// ✅ CORRECT — viewModelOf or viewModel { }
-viewModelOf(::TasksViewModel)
+// ✅ CORRECT — always explicit viewModel { } lambda
 viewModel { TasksViewModel(get(), get(), ...) }
 ```
+
+For the full rationale (why `viewModelOf` is also wrong), see the dedicated section below.
 
 ## Qualifiers (@Named)
 
@@ -199,58 +231,77 @@ class NotesListViewModelTest {
 }
 ```
 
-## Testing ViewModels with scopeOverride
+## Testing ViewModels (canonical pattern)
 
-`NoteEditor` launches coroutines directly in `viewModelScope`. To test in synchronous `runTest` context, use `scopeOverride`:
+The canonical VM shape uses `AutoCloseableCoroutineScope` as a **default param in the primary constructor** (NOT `scopeOverride`, NOT a secondary ctor). Tests pass scope explicitly:
 
 ```kotlin
-class NoteEditor(
-    private val repo: NotesRepository,
-    private val currentUser: ProfileAwareCurrentUser,
-    private val idGen: IdGenerator,
-    private val autosaveScheduler: AutosaveScheduler,
-    private val improveNote: ImproveNoteUseCase? = null,
-    logger: Logger? = null,
-    private val scopeOverride: CoroutineScope? = null,  // ADD
+class TasksViewModel(
+    private val taskRepo: TaskRepository,
+    // ... other deps ...
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
-    private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
+    init { addCloseable(scope) }
 }
-```
 
-**In tests:**
-```kotlin
+// In tests:
 @OptIn(ExperimentalCoroutinesApi::class)
-class NoteEditorTest {
+class TasksViewModelTest {
     @Test
-    fun `saveNow emits NavigateBack`() = runTest {
-        val vm = createVm(scope = backgroundScope)
-        vm.saveNow()
+    fun `something`() = runTest {
+        val vm = TasksViewModel(
+            taskRepo = FakeTaskRepository(),
+            // ... other deps ...
+            scope = testScope(this),  // ← test passes scope explicitly
+        )
         advanceUntilIdle()
+        // ...
     }
 }
 ```
 
+For the canonical VM pattern with all rationale, see `singularity-todo-testable-vm`. For migration steps from old `scopeOverride` pattern, see `singularity-todo-vm-migration-playbook`.
+
 ## ⚠️ Logger injection in ViewModels
 
-`NoteEditor` accepts an optional `Logger`. Use `getOrNull<Logger>()`:
+Two patterns coexist in this project — match the VM's logging needs:
+
+### Pattern A — Logger injected via DI (for VMs where logging is essential)
+
+VMs like `ChatViewModel`, `ProjectDetailViewModel` take `log: Logger` (non-nullable). Register the logger inline in the DI binding:
+
+```kotlin
+viewModel {
+    ChatViewModel(
+        log = Logger.withTag("ChatViewModel"),
+        agent = get(),
+        idGen = get(),
+    )
+}
+```
+
+### Pattern B — Logger as nullable fallback (for VMs where logging is opportunistic)
+
+VMs like `NoteEditor` accept `logger: Logger? = null` with `private val log: Logger = logger ?: Logger.withTag("NoteEditor")` fallback. Use `getOrNull<Logger>()`:
 
 ```kotlin
 viewModel {
     NoteEditor(
         repo = get(),
+        linkRepo = get(),
         currentUser = get(),
         idGen = get(),
         autosaveScheduler = get(),
         improveNote = getOrNull(),
-        logger = getOrNull(),  // nullable
-        scopeOverride = null,
+        logger = getOrNull(),  // nullable fallback
     )
 }
 ```
 
-**⚠️ When to switch from `viewModelOf` to `viewModel { }`:**
-- `viewModelOf(::Vm)` works when all constructor parameters have Koin bindings and there are **≤7 parameters**
-- When ≥8 parameters or when `getOrNull()` is needed → use `viewModel { Vm(get(), ...) }`
+**When to use which pattern:**
+- VMs that always log (chat, backup, project detail) → Pattern A (DI-injected, never null)
+- VMs where logging is a nice-to-have and tests often skip it → Pattern B (nullable fallback to default tag)
+- Don't force one pattern — both serve legitimate needs
 
 ## Runtime Parameters in ViewModels
 
@@ -310,10 +361,143 @@ private fun ProjectDetailScreen_Preview() {
 
 ## Gotchas
 
-1. **Last-wins**: if two modules define the same type, the later-loaded one wins.
+1. **Last-wins**: if two modules define the same type, the later-loaded one wins. **Deduplicate before refactoring** — Koin silently overrides, but the first binding becomes dead code (latent bug).
 2. **`@ComponentScan` requires KSP** — ensure `koin-annotations-compiler` is in `kspJvm` / `kspAndroid`.
 3. **`@IntoSet` only works with `Set<T>`** — declare the target as `Set<TheInterface>`.
-4. **`singleOf` for repositories** — constructor-reference form doesn't support complex constructors. Use `single { RepoImpl(get(), get()) }`.
+
+---
+
+## `singleOf` / `factoryOf` — Constructor-Reference DSL
+
+The shorthand form `singleOf(::Class)` / `factoryOf(::Class)` is preferred for simple constructors — but **4 documented gotchas** cause runtime failures if missed. Always check these before converting from `single { ... }`.
+
+### When `singleOf` / `factoryOf` WORKS
+
+Use the shorthand for **concrete classes** whose constructor:
+- Has **only Koin beans** (no function types, no value classes, no inline literals)
+- Has **≤7 parameters** (Koin reflection limit)
+- Is **not** an `object` declaration (see gotcha #4)
+
+```kotlin
+// ✅ WORKS — concrete class, simple ctor, all Koin beans
+singleOf(::StubAttachmentUploadService)         // no-arg ctor
+singleOf(::HlcFactory)                          // simple ctor
+factoryOf(::CreateTaskUseCase)                  // 2 ctor args, both Koin beans
+factoryOf(::PomodoroRepository)                 // 1 ctor arg, Koin bean
+```
+
+### Gotcha #1 — `single<T>(::Impl)` does NOT work for interface bindings
+
+Koin's `single<T>(::Impl)` form requires Koin to resolve `Impl`'s constructor parameters via `get()` from the **interface** lookup, not the impl lookup. This doesn't work — Impl's ctor params aren't reachable through the interface.
+
+```kotlin
+// ❌ FAILS at runtime — Koin tries to resolve Impl's ctor params via the interface binding
+single<NotesRepository>(::RoomNotesRepository)
+
+// ✅ CORRECT — explicit lambda for interface bindings
+single<NotesRepository> { RoomNotesRepository(get(), get(), get()) }
+```
+
+**Rule**: `single<T>(::Impl)` is for cases where Koin can already resolve Impl's ctor params from its own bean graph (which it can't through an interface binding). Use `single { Impl(get(), ...) }` for all interface bindings.
+
+### Gotcha #2 — Function-type ctor parameters fail
+
+Koin's reflection-based `singleOf`/`factoryOf` tries to resolve every ctor param via `get()`. A function-type param (e.g. `(Long) -> String`) gets resolved as `Function1` — which is not a registered Koin bean.
+
+```kotlin
+// ❌ FAILS at runtime — Koin tries to resolve Function1<Long, String> from DI
+singleOf(::DefaultBackupFileNamer)  // ctor: (timestampToName: (Long) -> String = { ... })
+
+// ✅ CORRECT — explicit lambda preserves Kotlin default for function-type params
+single { DefaultBackupFileNamer() }  // uses class default
+```
+
+**Rule**: any class with a function-type ctor param (lambda, `(T) -> R`, etc.) must use the explicit `single { }` lambda form.
+
+### Gotcha #3 — Non-Koin-bean value params require explicit construction
+
+If a ctor param isn't a Koin bean (e.g. `Logger`, `Duration`, custom value classes), `singleOf` fails because Koin can't resolve it.
+
+```kotlin
+// ❌ FAILS at runtime — Logger is not a Koin bean (only LoggerHolder is)
+singleOf(::BackupImporter)  // first ctor param: log: Logger
+
+// ✅ CORRECT — construct the value inline
+single {
+    BackupImporter(
+        Logger.withTag("BackupImporter"),
+        get(), get(), get(), get(), get(), get(), get(), get(),
+    )
+}
+```
+
+**Rule**: classes that take `Logger`, `kotlin.time.Duration`, `kotlinx.datetime.Instant`, or other non-Koin-bean values as ctor params must use the explicit lambda form. The lambda is the right place to call `Logger.withTag(...)`, `Clock.System.now()`, etc.
+
+### Gotcha #4 — `object` declarations don't work with `singleOf`
+
+Kotlin `object` declarations are not constructor-referenceable — `::ObjectSingleton` is not a valid `(...) -> Class` reference.
+
+```kotlin
+// ❌ COMPILE ERROR — UlidIdGenerator is `object UlidIdGenerator : IdGenerator`
+factoryOf(::UlidIdGenerator)
+
+// ✅ CORRECT — explicit lambda for object singletons
+factory<IdGenerator> { UlidIdGenerator }
+```
+
+**Rule**: stateless `object` singletons (`LoggerHolder`, `UlidIdGenerator`, etc.) use `factory<Interface> { Object }` or `single<Interface> { Object }`. The choice between `factory` and `single` is semantic — `single` returns the same instance every time (no overhead), `factory` creates a new ref per `get()` call.
+
+### Quick reference
+
+| Ctor characteristic | DSL form | Example |
+|---|---|---|
+| All params are Koin beans | `singleOf(::Class)` | `singleOf(::HlcFactory)` |
+| Interface binding (Koin needs Impl) | `single<T> { Impl(...) }` | `single<NotesRepository> { RoomNotesRepository(get(), get(), get()) }` |
+| Function-type ctor param | `single { Class() }` | `single { DefaultBackupFileNamer() }` |
+| Non-Koin-bean value param | `single { Class(Logger.withTag(...), get(), ...) }` | `single { BackupImporter(Logger.withTag("BackupImporter"), get(), ...) }` |
+| `object` declaration | `single<T> { Object }` | `factory<IdGenerator> { UlidIdGenerator }` |
+
+---
+
+## Why ViewModels use `viewModel { }` (NOT `viewModelOf`)
+
+Koin's `viewModelOf(::Vm)` reflection-based DSL tries to resolve every ctor param via `get()`. When the VM has:
+- A `scope: AutoCloseableCoroutineScope` param (Koin may match a `CoroutineScope` bean by mistake)
+- A `sharingStarted: () -> SharingStarted` param (Koin cannot resolve this — it's not a bean)
+- Multiple params of the same type (Koin resolution ambiguity, open issue #2347)
+
+`viewModelOf` fails silently (ClassCastException) at runtime.
+
+**Always use explicit `viewModel { }` lambda** for VMs in this project — the Kotlin compiler validates parameter assignment.
+
+```kotlin
+// ❌ FAILS — Koin can't disambiguate CoroutineScope bean from () -> SharingStarted
+viewModelOf(::TasksViewModel)
+
+// ✅ CORRECT — explicit lambda, named args make assignment compiler-checked
+viewModel {
+    TasksViewModel(
+        taskRepo = get(),
+        createTask = get(),
+        updateTask = get(),
+        mutations = get(),
+        projectRepo = get(),
+        clock = get(),
+    )
+}
+```
+
+For VMs with runtime params:
+
+```kotlin
+viewModel { (projectId: ProjectId) ->
+    ProjectDetailViewModel(
+        projectId = projectId,
+        projectRepo = get(),
+        // ...
+    )
+}
+```
 
 ## Key Files
 
