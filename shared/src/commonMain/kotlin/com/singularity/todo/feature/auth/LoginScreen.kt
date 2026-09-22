@@ -29,6 +29,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
 import org.koin.compose.viewmodel.koinViewModel
@@ -43,7 +44,7 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
 
     CollectEvents(viewModel.events) { event ->
         when (event) {
-            is AuthUiEvent.NavigateToHome -> navigator.navigate(AppDestination.Today)
+            is AuthUiEvent.NavigateToHome -> navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today))
             is AuthUiEvent.Error -> errorMessage = event.message
         }
     }
