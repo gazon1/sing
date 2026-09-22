@@ -13,7 +13,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * Repository for local backup management and remote backup push/pull.
  *
  * Local backups are zip files scanned from `backupDir` every 5 seconds via [observeAll].
- * Remote operations use [RemoteBackupService] for upload/download.
+ * Remote operations use [StubRemoteBackupService] for upload/download.
  */
 interface BackupRepository {
     /**
@@ -47,7 +47,7 @@ interface BackupRepository {
 class BackupRepositoryImpl(
     private val exporter: BackupExporter,
     private val importer: BackupImporter,
-    private val remoteService: RemoteBackupService,
+    private val remoteService: StubRemoteBackupService,
     private val fs: FileSystem,
     private val backupDir: String,
 ) : BackupRepository {

@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.backup
 
 import com.singularity.todo.core.auth.Session
-import com.singularity.todo.core.backup.BackupFileNamer
+import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.BackupId
 import com.singularity.todo.feature.backup.BackupUiEvent
 import com.singularity.todo.core.backup.BackupManifest
@@ -49,9 +49,7 @@ class BackupViewModelTest {
         auth: FakeAuthRepository,
         scope: CoroutineScope,
     ): BackupViewModel {
-        val namer: BackupFileNamer = object : BackupFileNamer {
-            override fun nextBackupName(timestampMs: Long): String = "test_backup.zip"
-        }
+        val namer = DefaultBackupFileNamer { _ -> "test_backup.zip" }
         return BackupViewModel(repo, auth, namer, com.singularity.todo.core.platform.Clock, testScope(scope))
     }
 

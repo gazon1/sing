@@ -7,13 +7,9 @@ import com.singularity.todo.core.platform.Clock
  * Bulk-archive completed tasks. The repository owns the side effect;
  * ViewModels only call [archiveCompletedTasks].
  */
-interface ArchiveRepository {
+class TaskDaoArchiveRepository(private val taskDao: TaskDao, private val clock: Clock) {
     /** Archives all tasks with completed_at != null AND archived_at IS NULL. */
-    suspend fun archiveCompletedTasks(): Result<Int>
-}
-
-class TaskDaoArchiveRepository(private val taskDao: TaskDao, private val clock: Clock) : ArchiveRepository {
-    override suspend fun archiveCompletedTasks(): Result<Int> = runCatching {
+    suspend fun archiveCompletedTasks(): Result<Int> = runCatching {
         taskDao.archiveCompleted(clock.now().toEpochMilliseconds())
     }
 }

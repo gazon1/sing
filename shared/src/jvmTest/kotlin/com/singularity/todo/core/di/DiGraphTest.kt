@@ -1,6 +1,6 @@
 package com.singularity.todo.core.di
 
-import com.singularity.todo.core.backup.BackupFileNamer
+import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.platform.TimeZoneProvider
@@ -44,7 +44,7 @@ class DiGraphTest {
         try {
             app.koin.get<IdGenerator>()
             app.koin.get<TimeZoneProvider>()
-            app.koin.get<BackupFileNamer>()
+            app.koin.get<DefaultBackupFileNamer>()
             app.koin.get<AttachmentSaver>()
         } finally {
             app.close()

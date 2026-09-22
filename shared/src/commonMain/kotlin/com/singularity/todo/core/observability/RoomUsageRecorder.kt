@@ -11,12 +11,12 @@ import kotlinx.coroutines.flow.map
 import kotlin.time.Instant
 
 /**
- * Room-based [UsageRecorder] implementation.
+ * Room-based AI usage recorder.
  * Persists [ToolUsageEvent] rows to the [LlmUsageDao] and exposes aggregated flows.
  */
-class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock: Clock) : UsageRecorder {
+class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock: Clock) {
 
-    override suspend fun record(event: ToolUsageEvent) {
+    suspend fun record(event: ToolUsageEvent) {
         val entity = LlmUsageEntity(
             id = "${event.profileId}_${event.toolName}_${event.timestamp.epochSeconds}_${(0..9999).random()}",
             profileId = event.profileId,
@@ -33,33 +33,33 @@ class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock:
         llmUsageDao.upsert(entity)
     }
 
-    override fun observeRecent(profileId: String, limit: Int): Flow<List<ToolUsageEvent>> =
+    fun observeRecent(profileId: String, limit: Int = 100): Flow<List<ToolUsageEvent>> =
         llmUsageDao.observeRecent(profileId, limit).map {
             rows,
             ->
             rows.map { it.toEvent() }
         }
 
-    override fun observeByDay(profileId: String, days: Int): Flow<List<DailyUsage>> {
+    fun observeByDay(profileId: String, days: Int = 30): Flow<List<DailyUsage>> {
         val sinceEpochMs = clock.now().toEpochMilliseconds() - (days.toLong() * 86_400_000)
         return llmUsageDao.observeByDay(profileId, sinceEpochMs).map { rows ->
             rows.map { it.toDailyUsage() }
         }
     }
 
-    override fun observeByTool(profileId: String): Flow<List<ToolUsage>> = llmUsageDao.observeByTool(profileId).map {
+    fun observeByTool(profileId: String): Flow<List<ToolUsage>> = llmUsageDao.observeByTool(profileId).map {
         rows,
         ->
         rows.map { it.toToolUsage() }
     }
 
-    override fun observeByModel(profileId: String): Flow<List<ModelUsage>> = llmUsageDao.observeByModel(profileId).map {
+    fun observeByModel(profileId: String): Flow<List<ModelUsage>> = llmUsageDao.observeByModel(profileId).map {
         rows,
         ->
         rows.map { it.toModelUsage() }
     }
 
-    override suspend fun prune(olderThanDays: Int) {
+    suspend fun prune(olderThanDays: Int = 90) {
         val cutoff = clock.now().toEpochMilliseconds() - (olderThanDays.toLong() * 86_400_000)
         llmUsageDao.pruneOlderThan(cutoff)
     }

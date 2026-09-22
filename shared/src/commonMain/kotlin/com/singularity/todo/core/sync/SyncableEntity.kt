@@ -1,6 +1,5 @@
 package com.singularity.todo.core.sync
 
-import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -15,11 +14,4 @@ interface SyncableEntity {
 
     /** Returns the JSON representation of this entity for sync. */
     fun toJson(): JsonObject
-}
-
-/**
- * Marker interface for repositories that emit change events for sync.
- */
-interface SyncableRepository {
-    val changes: Flow<SyncableEntity>
 }

@@ -38,7 +38,7 @@ data class ModelUsage(val modelId: String, val totalTokens: Long, val totalCostU
  * Port for recording and observing AI token usage.
  *
  * Implementations persist to Room ([LlmUsageEntity]) or an external observability backend.
- * Call [record] after every AI tool execution, and query via observe* flows.
+ * Call [record][com.singularity.todo.core.observability.RoomUsageRecorder.record] after every AI tool execution, and query via observe* flows.
  *
  * ## Clock contract
  * All timestamps use [kotlin.time.Instant] (from [com.singularity.todo.core.platform.Clock.now]).
@@ -47,22 +47,3 @@ data class ModelUsage(val modelId: String, val totalTokens: Long, val totalCostU
  * **Do not use [kotlinx.datetime.Instant]** — it is used only for date arithmetic
  * in `todayInSystemZone()` and will eventually be removed from the codebase.
  */
-interface UsageRecorder {
-    /** Record a single tool invocation event. */
-    suspend fun record(event: ToolUsageEvent)
-
-    /** Most recent [limit] events for a profile, newest first. */
-    fun observeRecent(profileId: String, limit: Int = 100): Flow<List<ToolUsageEvent>>
-
-    /** Daily usage for the past [days] days. */
-    fun observeByDay(profileId: String, days: Int = 30): Flow<List<DailyUsage>>
-
-    /** Per-tool aggregation for a profile. */
-    fun observeByTool(profileId: String): Flow<List<ToolUsage>>
-
-    /** Per-model aggregation for a profile. */
-    fun observeByModel(profileId: String): Flow<List<ModelUsage>>
-
-    /** Delete records older than [olderThanDays] days. */
-    suspend fun prune(olderThanDays: Int = 90)
-}

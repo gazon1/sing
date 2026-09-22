@@ -73,7 +73,7 @@ interface AttachmentRepository {
 class AttachmentRepositoryImpl(
     private val dao: AttachmentDao,
     private val storage: AttachmentStorage,
-    private val uploadService: AttachmentUploadService,
+    private val uploadService: StubAttachmentUploadService,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
 ) : AttachmentRepository {

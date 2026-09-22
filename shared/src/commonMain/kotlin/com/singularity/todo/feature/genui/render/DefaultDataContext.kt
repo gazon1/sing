@@ -9,7 +9,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 /**
- * Default [DataContext] implementation backed by a [SurfaceController].
+ * Default runtime context backed by a [SurfaceController].
  *
  * @param surfaceId which surface to render
  * @param controller the surface controller
@@ -18,11 +18,14 @@ import kotlinx.serialization.json.JsonObject
  * @param onDataChange called when user edits a form field
  */
 class DefaultDataContext(
-    override val surfaceId: SurfaceId,
+    val surfaceId: SurfaceId,
     private val controller: SurfaceController,
-    override val registry: ComponentRegistry,
-    override val onAction: (SurfaceId, String, JsonObject?) -> Unit,
-    override val onDataChange: (SurfaceId, UiPath, JsonElement) -> Unit,
-) : DataContext {
-    override val surfaces: StateFlow<Map<SurfaceId, Surface>> = controller.surfaces
+    val registry: ComponentRegistry,
+    val onAction: (SurfaceId, String, JsonObject?) -> Unit,
+    val onDataChange: (SurfaceId, UiPath, JsonElement) -> Unit,
+) {
+    val surfaces: StateFlow<Map<SurfaceId, Surface>> = controller.surfaces
 }
+
+/** Type alias for the canonical [DefaultDataContext] implementation. */
+typealias DataContext = DefaultDataContext

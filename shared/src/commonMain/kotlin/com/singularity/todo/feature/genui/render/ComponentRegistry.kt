@@ -21,7 +21,7 @@ class ComponentRegistry {
 
     /**
      * Registers a builder for [kind]. The builder receives the concrete [UiNode] subtype
-     * (already cast from the sealed interface), the [DataContext] and an optional [Modifier].
+     * (already cast from the sealed interface), the [DefaultDataContext] and an optional [Modifier].
      */
     fun register(kind: String, builder: @Composable (UiNode, DataContext, Modifier) -> Unit) {
         builders[kind] = builder
