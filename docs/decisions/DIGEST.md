@@ -87,19 +87,24 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Agenda always shows correct bucket labels across midnight.
 - All 13 migrated VMs are now testable with `backgroundScope` injection
 - All 593 existing tests continue to pass.
+- All 6 repositories now extend `GenericUserScopedRepository`: Tasks, Notes, Projects, Tags, SavedAgendaViews, Profile.
+- All `FakeRepositories` updated to match
 - All notes screens now navigationally self-contained
 - Archive доступен с любого TaskDetailScreen через ⋮ menu
 - Autosave вынесен из `delay()` в VM в отдельный port — теперь тестируем без `advanceTimeBy`
 - Backlinks queryable via SQL without HTML parsing
+- Before using `singleOf`/`factoryOf`, deduplicate existing `single<X> { ... }` bindings for the same type — Koin throws `BeanOverrideException` on duplicates.
 - Both Android and Desktop now use the same Nav3 architecture (multi-back-stack, `Navigator`, `NavDisplay`)
 - Bulk-операции fail-fast при отсутствующих ID
 - CI may later call `just tests::check` instead of `./check.sh` — the behavior is identical.
 - Cannot filter by `name` in SQL without parsing JSON — acceptable; user-facing
+- DI bindings for canonical types: `singleOf(::Class)` for simple ctors (≤3 args, singleton scope), `factoryOf(::Class)` for per-injection scope. No `bind<Interface>()`.
 - DI-граф упрощён: 5 factory → 1
 - Dead Nav2 code removed from Android
 - Dead dependency removed from `CalendarDeps` — DI graph is now consistent
 - Deadline indicator rendering in `UpcomingBadges`.
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed.
+- Detekt `ParameterNaming` rule suppressed in two places (`TagsRepository.kt:54,59`) because `create(item: Tag)` vs `create(item: E)` parameter naming follows the domain convention — not a bug.
 - Developers should prefer `kotlinx.datetime.Instant` in new code.
 - Domain/repo/data layers are fully isolated.
 - Every `_events.emit(x)` in VM code becomes `_events.trySend(x).isSuccess` (fire-and-forget) or `_events.send(x)` (back-pressure when needed).
@@ -111,7 +116,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Full filter panel with Project / Tags / Priority / Status.
 - Future developers understand which fields are stubbed vs. populated
 - Horizontal swipe between dates.
+- If a Tier 1 interface gains a 2nd implementation, restore the interface — never compromise final-by-default by adding `open` to the existing concrete class.
 - Internal links survive HTML round-trip (stored as `note://` / `task://` href)
+- Keep `Stub` prefix for honest no-op documentation; drop only when the real implementation arrives.
 - Link tap detection requires cursor placement (no visual link highlight tap) — acceptable tradeoff given library limitation
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP).
 - Locale-aware first day of week.
@@ -131,8 +138,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed.
 - Simple schema, no migration complexity beyond bumping SCHEMA_VERSION.
 - Single narrow Room query (`watchByDate`) reused for the new use case.
+- Single-impl interface with no test fake is YAGNI — inline the concrete class as canonical.
 - Slot-API (`CalendarContent` separate from `CalendarScreen`) enables preview without Koin.
 - StableJson round-trip test verifies no data loss.
+- Stale KDoc references `[OldInterface]` are dangling after inlining — always grep the whole repo and replace with `[CanonicalType]`.
 - Test classes updated: `createVm()` now takes `scope = backgroundScope` via `TestScope.createVm()`
 - Test factories for those VMs use `testScope(backgroundScope)` (or `testScope(this)` in `runTest`).
 - The 2 side-effects-in-combine anti-patterns remain in `TaskDetailViewModel`
@@ -150,6 +159,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - ViewModels become thin read-through: `tasks = taskRepo.observeByFilter(filter)
 - Week navigation via swipe on `DaySwitcherRow`.
 - Week-start locale handling is isolated and can be made configurable later.
+- When converting a strategy class (`BackupFileNamer`-like), prefer `class(c: (T) -> R)` lambda strategy over `open class`. Composition beats inheritance for testability.
 - `AgendaViewModel` binding is unchanged — does not consume saved views.
 - `AiSettingsContributor` remains as the sole `SettingsContributor` implementation — used only for AI test/fetch ephemeral state.
 - `AppDestination.Habits` → `AppDestination.Pomodoro`, `AppDestination.Calendar` → `AppDestination.Statistics`
@@ -162,6 +172,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `ContentStateMapper` — добавлен object с двумя методами
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно.
 - `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope`
+- `FakeProfileRepository` implements both new generic methods and deprecated legacy overloads for test compatibility.
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph
@@ -175,6 +186,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `TaskEditorViewModel` constructor signature unchanged; DI registration unchanged.
 - `TaskFilter` remains untouched — Search feature is unaffected.
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика
+- `TaskRepository.delete()` now calls `taskDao.softDelete()` directly instead of delegating to `softDelete()`
 - `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly).
 - `applyRoute` in `TasksViewModel` is dead code — zero callers confirmed; deleted.
@@ -187,7 +199,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `getOrThrow()` removed from 5 VM sites; replaced with `fireAndForget` + channel emit.
 - `isRecurring` is always `false` in `CalendarTaskUi` — requires per-task
 - `just` must be installed (`just 1.57.0` is present in this environment).
+- `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
 - `scopeOverride` добавлен в `ProjectsViewModel`
+- `single<Interface>(::Impl)` does NOT work — Koin can't resolve `Impl`'s constructor params from DI when called through `single<T>(::Impl)`. Use `single { Impl(get(), ...) }` for interface bindings.
+- `singleOf` fails for classes with function-type constructor parameters (Koin tries to resolve `Function1` from DI) — use explicit lambda in those cases.
 - `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model
 - `startAt`/`endAt`/`allDay`/`recurrence` in `Task` (Room migration).
 - `weight` modifier requires careful structuring inside `Row { Column(weight) }`.
@@ -895,12 +910,15 @@ _1 entries need attention._
 - `2026-09-21-generic-user-scoped-repository` — repository, architecture, kotlin, kmp
 - `2026-09-21-kotlin-auto-closeable-vs-java-closeable` — _untagged_
 - `2026-09-21-out-of-scope-after-phase-5-5` — _untagged_
+- `2026-09-21-profile-repository-migration` — _untagged_
 - `2026-09-21-state-hoisting-audit` — vm, compose, state-hoisting, refactor
 - `2026-09-21-state-hoisting-p3-dispatchers-overlay` — _untagged_
+- `2026-09-21-tier1-interface-cleanup` — _untagged_
 - `2026-09-21-user-scoped-repository` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
+- `2026-09-22-explicit-overload-removal` — _untagged_
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
 
 ## Active entries
@@ -1035,11 +1053,14 @@ _1 entries need attention._
 - `2026-09-21-generic-user-scoped-repository` — GenericUserScopedRepository<E, ID> — unified CRUD base for all user-scoped repositories
 - `2026-09-21-kotlin-auto-closeable-vs-java-closeable` — _(no title)_
 - `2026-09-21-out-of-scope-after-phase-5-5` — _(no title)_
+- `2026-09-21-profile-repository-migration` — _(no title)_
 - `2026-09-21-state-hoisting-audit` — _(no title)_
 - `2026-09-21-state-hoisting-p3-dispatchers-overlay` — _(no title)_
+- `2026-09-21-tier1-interface-cleanup` — Tier 1 interface cleanup — remove single-implementation contracts
 - `2026-09-21-user-scoped-repository` — _(no title)_
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
+- `2026-09-22-explicit-overload-removal` — _(no title)_
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
 
