@@ -66,6 +66,7 @@ class DecomposeAndCreateTool(
     private val clock: Clock,
     private val promptExecutor: PromptExecutor,
     private val model: LLModel,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : SimpleTool<DecomposeAndCreateInput>(
         TypeToken.of(DecomposeAndCreateInput::class.java),
         NAME,
@@ -74,7 +75,7 @@ class DecomposeAndCreateTool(
 
     override suspend fun execute(args: DecomposeAndCreateInput): String {
         val now = clock.now()
-        val userId = ProfileAwareCurrentUser.scopedUserId.value
+        val userId = currentUser.scopedUserId.value
 
         // 1) plan via LLM
         var subTitles: List<String>

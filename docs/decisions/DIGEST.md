@@ -360,6 +360,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `PreviewParameterProvider` is avoided — individual preview functions used instead
 - `useSurface = false` when the preview root already contains a `Scaffold`
 
+### `dao`
+
+- Fake implementations in `FakeProjectDao` add `mutateForUser` that guards by `userId` before mutating, returning 0 if the entity belongs to a different user.
+- Old non-`*ForUser` DAO methods remain in the interface for binary compatibility but are no longer called by production code.
+
 ### `desktop`
 
 - 23 of 28 context menu items are wired to `actions.onDismiss()` — future iterations wire the
@@ -477,12 +482,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - One new e2e test in `mcp-server` (`McpToolRoundTripTest`).
 - One new unit test file in `mcp-server` (`KoogJsonSchemaBuilderTest`).
 - Process exit semantics change from "instant" to "on stdin EOF or session error". A passing test asserts the process stays alive ≥3s with empty stdin.
+- The `created` field is not currently consumed by any caller — it is there for future observability / logging use cases.
 - The downstream `ToolRegistrar` and tools still run inside `runBlocking { koogTool.execute(args) }` per call — coroutine scope inside the request handler, no change.
 - Three new unit test files in `shared/commonTest` for the read tools.
 - ZCode подключается через `mcpServers.singularity-todo` в настройках
 - `./gradlew :mcp-server:test` now includes a regression test (`McpServerEndToEndTest.server_blocks_until_stdin_closes`) that asserts `process.isAlive` after 3s of empty stdin. If anyone removes the blocking primitive, this test fails.
 - `ErrorMapper.kt` маппит `McpToolError` в `CallToolResult` или бросает `McpException`
 - `McpToolError.kt` в `mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/`
+- `ProfileBootstrapper.run()` now returns a value; all 3 call sites (`Main.kt`, any Android/Desktop bootstrappers) must handle the result or ignore it.
 - `Runtime.getRuntime().addShutdownHook { server.close() }` becomes redundant for normal EOF exits — `onClose → done.complete() → done.join() returns → runBlocking exits → JVM exits cleanly`. We keep the shutdown hook only as a backstop for SIGTERM.
 - `TaskEntity` получает `@ColumnInfo("idempotency_key") val idempotencyKey: String?`
 - `TaskRepository` получает `findByIdempotencyKey(key, userId)` метод
@@ -603,10 +610,16 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `profile`
 
+- **Breaking for any future external callers** that relied on the deprecated overloads — they must migrate to `create(Profile(...))`.
 - **Negative**: Compound `scopedUserId` is a string manipulation — a proper `ScopedUserId` value class would be cleaner (future work)
 - **Negative**: Profile deletion cascades to all that profile's data — no soft-delete for profiles
 - **Positive**: Clean separation of auth (user) vs data namespace (profile)
 - **Positive**: MCP server can route to any profile via `--profile=<id>`
+- Any future code that needs `ProfileAwareCurrentUser` must receive it via constructor injection.
+- The `FakeProfileAwareCurrentUser()` factory function in tests remains — it creates a real `ProfileAwareCurrentUser` instance using `FakeAuthRepository` + `FakeProfileRepository`.
+- The `Profile` factory is verbose for tests; consider adding a test-specific builder or factory if the pattern repeats.
+- `FakeProfileRepository` is now fully consistent with the real `ProfileRepository` interface.
+- `FakeTaskRepository` retains a backward-compat `FakeProfileAwareCurrentUser()` fallback for its `currentUser` property when no explicit user is provided, so existing tests continue to compile.
 
 ### `project-detail`
 
@@ -699,6 +712,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill.
 - Baseline images stored in `shared/src/commonTest/resources/roborazzi/`.
 - Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional.
+- No breaking change — these methods were never called externally.
+- `Clock` import may become unused in `FakeRepositories.kt` if not used elsewhere.
+- `FakeTaskRepository` is now ~30 lines shorter.
 
 ### `ui`
 
@@ -920,6 +936,11 @@ _1 entries need attention._
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
 - `2026-09-22-explicit-overload-removal` — _untagged_
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
+- `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
+- `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
+- `2026-09-24-dao-userid-guards` — dao, auth, security, userid
+- `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
+- `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
 
 ## Active entries
 
@@ -1063,4 +1084,9 @@ _1 entries need attention._
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
 - `2026-09-22-explicit-overload-removal` — _(no title)_
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
+- `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
+- `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
+- `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
+- `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
+- `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
 

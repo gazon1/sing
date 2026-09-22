@@ -391,9 +391,9 @@ class FakeTaskRepository(
     private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
     override val changes: SharedFlow<Task> = _changes.asSharedFlow()
 
-    // The effective currentUser — either injected (for tests) or lazily resolved from singleton.
+    // The effective currentUser — injected for tests, or a default fake for backward compatibility.
     private val currentUser: ProfileAwareCurrentUser
-        get() = explicitCurrentUser ?: ProfileAwareCurrentUser.instance ?: FakeProfileAwareCurrentUser()
+        get() = explicitCurrentUser ?: FakeProfileAwareCurrentUser()
 
     /** Expose store state as [StateFlow] for [watchTasks] and other flows. */
     internal val tasks: StateFlow<Map<String, Task>> = store.state
@@ -529,40 +529,6 @@ class FakeTaskRepository(
             store.upsert(updated)
         }
     }
-
-    // Legacy observation methods kept for binary compat — not part of TaskRepository interface.
-    fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>> = store.state
-        .onStart { emit(store.state.value) }
-        .map { map ->
-            map.values
-                .filter { it.userId == userId }
-                .filter {
-                    TaskDomain.matchesFilter(
-                        it,
-                        filter,
-                        kotlin.time.Instant.fromEpochMilliseconds(
-                            Clock.now().toEpochMilliseconds(),
-                        ).toLocalDateTime(TimeZone.currentSystemDefault()).date,
-                    )
-                }
-                .sortedWith(compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }))
-        }
-
-    fun watchTask(id: TaskId): Flow<Task?> =
-        store.state.onStart { emit(store.state.value) }.map { it[id.value] }
-
-    fun watchTasksByDate(userId: UserId, date: kotlinx.datetime.LocalDate): Flow<List<Task>> = store.state
-        .onStart { emit(store.state.value) }
-        .map { map ->
-            map.values
-                .filter { it.userId == userId }
-                .filter { !it.isTrashed && !it.someday && it.dueDate == date }
-                .sortedWith(compareBy({ !it.isPinned }))
-        }
-
-    fun watchSubtasks(parentId: TaskId, userId: UserId): Flow<List<Task>> = store.state
-        .onStart { emit(store.state.value) }
-        .map { map -> map.values.filter { it.parentTaskId == parentId && it.userId.value == userId.value } }
 
     override fun getTagIds(taskId: TaskId): Flow<List<TagId>> =
         store.state.map { it[taskId.value]?.tags ?: emptyList() }
@@ -1256,40 +1222,6 @@ class FakeProfileRepository : ProfileRepository {
     }
 
     override val activeProfileId: StateFlow<ProfileId> = _activeProfileId
-
-    // ─── Legacy convenience overloads ─────────────────────────────────────────
-
-    @Deprecated("Use observeAll", ReplaceWith("observeAll()"))
-    fun all(): Flow<List<Profile>> = _profiles
-
-    @Deprecated("Use create(Profile)", ReplaceWith("create(Profile(...))"))
-    suspend fun create(name: String, emoji: String, colorIdx: Int): ProfileId {
-        val id = ProfileId.generate()
-        _profiles.value += Profile(
-            id = id,
-            name = name,
-            emoji = emoji,
-            colorIdx = colorIdx,
-            isDefault = false,
-            createdAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
-            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis()),
-        )
-        return id
-    }
-
-    @Deprecated("Use update(Profile)", ReplaceWith("update(Profile(...))"))
-    suspend fun update(id: ProfileId, name: String, emoji: String, colorIdx: Int) {
-        _profiles.value = _profiles.value.map {
-            if (it.id == id) {
-                it.copy(name = name, emoji = emoji, colorIdx = colorIdx)
-            } else {
-                it
-            }
-        }
-    }
-
-    @Deprecated("Use get(ProfileId)", ReplaceWith("get(id)"))
-    suspend fun getById(id: ProfileId): Profile? = _profiles.value.find { it.id == id }
 
     // ─── Domain methods ───────────────────────────────────────────────────────
 

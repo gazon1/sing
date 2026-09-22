@@ -35,22 +35,46 @@ class ProfileBootstrapper(
      * @param activateName set the active profile to the one with this name, if
      *                     it exists after seeding. Pass null to leave whatever
      *                     DataStore already had.
+     * @return [ProfileBootstrapResult] describing what was created and which profile
+     *         was activated, if any. Callers (e.g. MCP server) can read the activated
+     *         id directly without a separate `.first()` call — avoiding a potential
+     *         race between bootstrap and subsequent tool calls.
      */
-    suspend fun run(seedExtras: List<SeedProfile> = emptyList(), activateName: String? = null) {
+    suspend fun run(
+        seedExtras: List<SeedProfile> = emptyList(),
+        activateName: String? = null,
+    ): ProfileBootstrapResult {
+        val alreadyExisted = repository.observeAll().first().associateBy { it.name }
         val seedTuples = seedExtras.map { Triple(it.name, it.emoji, it.colorIdx) }
         repository.ensureDefaults(extraProfiles = seedTuples)
-        if (activateName != null) {
-            // Look up the id by name. first() suspends until the Flow emits at least once.
-            val match = repository.observeAll().first()
-                .firstOrNull { it.name == activateName }
-            if (match != null) {
-                repository.switchTo(match.id)
-                logger.i { "ProfileBootstrapper: activated '$activateName' (${match.id.value})" }
-            } else {
+        val profiles = repository.observeAll().first().associateBy { it.name }
+        val activated = if (activateName != null) {
+            profiles[activateName]?.also { profile ->
+                repository.switchTo(profile.id)
+                logger.i { "ProfileBootstrapper: activated '$activateName' (${profile.id.value})" }
+            } ?: run {
                 logger.w { "ProfileBootstrapper: '$activateName' not found after seed" }
+                null
             }
-        }
+        } else null
+        return ProfileBootstrapResult(
+            created = profiles.keys - alreadyExisted.keys,
+            activated = activated?.id,
+        )
     }
+
+    /**
+     * Immutable result carrier returned by [ProfileBootstrapper.run].
+     *
+     * @property created Set of profile names that were created during this bootstrap run
+     *                  (i.e. did not exist before).
+     * @property activated The activated [ProfileId] if a profile was activated, or null
+     *                    if [run] was called with `activateName = null`.
+     */
+    data class ProfileBootstrapResult(
+        val created: Set<String>,
+        val activated: ProfileId?,
+    )
 
     /** Compact carrier for the (name, emoji, colorIdx) tuple. */
     data class SeedProfile(val name: String, val emoji: String, val colorIdx: Int) {

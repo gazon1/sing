@@ -57,14 +57,18 @@ class ProjectsRepositoryImpl(
 
     override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
-        projectDao.softDelete(id.value, ts)
+        val uid = currentUser.scopedUserId.value.value
+        val rows = projectDao.softDeleteForUser(id.value, ts, uid)
+        require(rows > 0) { "Project $id not found or not owned by user" }
     }
 
     // ── SoftDeletable ─────────────────────────────────────────────────────────
 
     override suspend fun restore(id: ProjectId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
-        projectDao.restore(id.value, ts)
+        val uid = currentUser.scopedUserId.value.value
+        val rows = projectDao.restoreForUser(id.value, ts, uid)
+        require(rows > 0) { "Project $id not found or not owned by user" }
     }
 
     // ── Explicit userId overloads ───────────────────────────────────────────
@@ -109,15 +113,19 @@ class ProjectsRepositoryImpl(
     }
 
     override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {
-        projectDao.setParent(id.value, parentId?.value, updatedAt)
+        val uid = currentUser.scopedUserId.value.value
+        projectDao.setParentForUser(id.value, parentId?.value, updatedAt, uid)
     }
 
     override suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long) {
-        projectDao.setSortOrder(id.value, sortOrder, updatedAt)
+        val uid = currentUser.scopedUserId.value.value
+        projectDao.setSortOrderForUser(id.value, sortOrder, updatedAt, uid)
     }
 
-    override suspend fun findByIdempotencyKey(key: String): Project? =
-        projectDao.findByIdempotencyKey(key)?.toProject()
+    override suspend fun findByIdempotencyKey(key: String): Project? {
+        val uid = currentUser.scopedUserId.value.value
+        return projectDao.findByIdempotencyKeyForUser(key, uid)?.toProject()
+    }
 }
 
 internal fun ProjectEntity.toProject(): Project = Project(

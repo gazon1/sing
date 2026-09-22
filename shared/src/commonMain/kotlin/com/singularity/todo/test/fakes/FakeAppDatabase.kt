@@ -451,22 +451,30 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
                 )
             }
     }
-    override suspend fun setParent(id: String, parentId: String?, ts: Long) =
-        mutate(id) { it.copy(parentId = parentId, updatedAt = ts) }
-    override suspend fun setSortOrder(id: String, sortOrder: Int, ts: Long) =
-        mutate(id) { it.copy(sortOrder = sortOrder, updatedAt = ts) }
-    override suspend fun restore(id: String, ts: Long) =
-        mutate(id) { it.copy(isDeleted = false, deletedAt = null, updatedAt = ts) }
-    override suspend fun findByIdempotencyKey(key: String): ProjectEntity? =
-        store.value.values.firstOrNull { it.idempotencyKey == key }
+    override suspend fun setParentForUser(id: String, parentId: String?, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(parentId = parentId, updatedAt = ts) }
+    override suspend fun setSortOrderForUser(id: String, sortOrder: Int, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(sortOrder = sortOrder, updatedAt = ts) }
+    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(isDeleted = false, deletedAt = null, updatedAt = ts) }
+    override suspend fun findByIdempotencyKeyForUser(key: String, userId: String): ProjectEntity? =
+        store.value.values.firstOrNull { it.idempotencyKey == key && it.userId == userId }
     override suspend fun upsert(project: ProjectEntity) {
         store.update { it + (project.id to project) }
     }
-    override suspend fun softDelete(id: String, ts: Long) = mutate(
-        id,
-    ) { it.copy(isDeleted = true, deletedAt = ts, updatedAt = ts) }
+    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(isDeleted = true, deletedAt = ts, updatedAt = ts) }
     override suspend fun listAllForUser(userId: String): List<ProjectEntity> =
         store.value.values.filter { it.userId == userId }
+
+    private fun mutateForUser(id: String, userId: String, fn: (ProjectEntity) -> ProjectEntity): Int {
+        store.update { current ->
+            val existing = current[id] ?: return@update current
+            if (existing.userId != userId) return@update current
+            current + (id to fn(existing))
+        }
+        return 1
+    }
 
     private fun mutate(id: String, fn: (ProjectEntity) -> ProjectEntity) {
         store.update { current ->

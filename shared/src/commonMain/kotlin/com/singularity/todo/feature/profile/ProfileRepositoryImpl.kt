@@ -99,38 +99,6 @@ class ProfileRepositoryImpl(
 
     override val activeProfileId: StateFlow<ProfileId> = _activeProfileId
 
-    // ── Legacy convenience overloads (deprecated — use generic create/update) ───
-
-    @Deprecated("Use create(Profile)", ReplaceWith("create(Profile(...))"))
-    suspend fun create(name: String, emoji: String, colorIdx: Int): ProfileId {
-        val now = clock.now()
-        val id = ProfileId.generate()
-        val entity = ProfileEntity(
-            id = id.value,
-            name = name,
-            emoji = emoji,
-            colorIdx = colorIdx,
-            isDefault = false,
-            createdAt = instantToEpochMillis(now),
-            updatedAt = instantToEpochMillis(now),
-        )
-        profileDao.upsert(entity)
-        return id
-    }
-
-    @Deprecated("Use update(Profile)", ReplaceWith("update(Profile(...))"))
-    suspend fun update(id: ProfileId, name: String, emoji: String, colorIdx: Int) {
-        val existing = profileDao.getById(id.value)
-            ?: throw IllegalArgumentException("Profile not found: ${id.value}")
-        val updated = existing.copy(
-            name = name,
-            emoji = emoji,
-            colorIdx = colorIdx,
-            updatedAt = instantToEpochMillis(clock.now()),
-        )
-        profileDao.upsert(updated)
-    }
-
     // ── Domain methods ─────────────────────────────────────────────────────────
 
     override suspend fun switchTo(id: ProfileId): Result<Unit> = runCatching {

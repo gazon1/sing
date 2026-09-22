@@ -1,11 +1,14 @@
 package com.singularity.todo.feature.profile.presentation
 
+import com.singularity.todo.feature.profile.Profile
+import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 /**
  * Tests for [AccountSettingsViewModel].
@@ -20,7 +23,17 @@ class AccountSettingsViewModelTest {
     fun `activeProfile emits profile from repository`() = runTest {
         val fakeProfileRepo = FakeProfileRepository()
         // Create a second profile and switch to it so we have a non-default active profile.
-        val newId = fakeProfileRepo.create("Alice", "😀", 0)
+        val newId = fakeProfileRepo.create(
+            Profile(
+                id = ProfileId.generate(),
+                name = "Alice",
+                emoji = "😀",
+                colorIdx = 0,
+                isDefault = false,
+                createdAt = Instant.fromEpochMilliseconds(0),
+                updatedAt = Instant.fromEpochMilliseconds(0),
+            ),
+        ).getOrThrow().id
         fakeProfileRepo.switchTo(newId)
 
         val vm = AccountSettingsViewModel(fakeProfileRepo)

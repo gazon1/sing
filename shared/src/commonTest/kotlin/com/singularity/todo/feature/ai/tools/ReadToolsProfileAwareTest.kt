@@ -6,7 +6,6 @@ import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
-import com.singularity.todo.feature.profile.setInstance
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -112,7 +111,7 @@ class ReadToolsProfileAwareTest {
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
-        val repo = FakeTaskRepository()
+        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
 
         // Seed a task under the scoped userId the ProfileAwareCurrentUser would
         // actually emit for the AI Agent profile.
@@ -120,7 +119,6 @@ class ReadToolsProfileAwareTest {
         seedTask(repo, scoped, "AI-Agent task A")
         seedTask(repo, UserId("local-user"), "Personal-only task") // must NOT show up
 
-        ProfileAwareCurrentUser.setInstance(currentUser)
         val tool = ListTasksTool(repo)
         val output = tool.execute(ListTasksInput(limit = 50))
         val parsed = Json.parseToJsonElement(output).jsonObject
@@ -138,13 +136,12 @@ class ReadToolsProfileAwareTest {
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
-        val repo = FakeTaskRepository()
+        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
         val scoped = resolveScopedUserId(currentUser, profiles)
         val projectId = com.singularity.todo.feature.projects.domain.model.ProjectId("p1")
         seedTask(repo, scoped, "AI-Agent linked task", projectId = projectId)
         seedTask(repo, UserId("local-user"), "Personal linked task", projectId = projectId)
 
-        ProfileAwareCurrentUser.setInstance(currentUser)
         val tool = ListLinkedTasksTool(repo)
         val output = tool.execute(ListLinkedTasksInput(projectId = "p1"))
         val parsed = Json.parseToJsonElement(output).jsonObject
@@ -162,12 +159,11 @@ class ReadToolsProfileAwareTest {
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
-        val repo = FakeTaskRepository()
+        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
         val scoped = resolveScopedUserId(currentUser, profiles)
         seedTask(repo, scoped, "Findable AI-Agent task")
         seedTask(repo, UserId("local-user"), "Findable personal task")
 
-        ProfileAwareCurrentUser.setInstance(currentUser)
         val tool = SearchTasksTool(repo)
         val output = tool.execute(SearchTasksInput(query = "Findable", limit = 50))
         val parsed = Json.parseToJsonElement(output).jsonObject
@@ -185,11 +181,10 @@ class ReadToolsProfileAwareTest {
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
-        val repo = FakeTaskRepository()
+        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
         seedTask(repo, UserId("local-user"), "private personal task")
         seedTask(repo, resolveScopedUserId(currentUser, profiles), "agent task")
 
-        ProfileAwareCurrentUser.setInstance(currentUser)
         val tool = SearchTasksTool(repo)
         val output = tool.execute(SearchTasksInput(query = "task", limit = 50))
         val parsed = Json.parseToJsonElement(output).jsonObject

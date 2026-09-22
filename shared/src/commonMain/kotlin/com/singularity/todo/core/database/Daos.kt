@@ -290,23 +290,23 @@ interface ProjectDao {
     )
     fun watchAllWithCounts(userId: String): Flow<List<ProjectWithCountRow>>
 
-    @Query("UPDATE projects SET parent_id = :parentId, updated_at = :ts WHERE id = :id")
-    suspend fun setParent(id: String, parentId: String?, ts: Long)
+    @Query("UPDATE projects SET parent_id = :parentId, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun setParentForUser(id: String, parentId: String?, ts: Long, userId: String): Int
 
-    @Query("UPDATE projects SET sort_order = :sortOrder, updated_at = :ts WHERE id = :id")
-    suspend fun setSortOrder(id: String, sortOrder: Int, ts: Long)
+    @Query("UPDATE projects SET sort_order = :sortOrder, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun setSortOrderForUser(id: String, sortOrder: Int, ts: Long, userId: String): Int
 
-    @Query("UPDATE projects SET is_deleted = 0, deleted_at = NULL, updated_at = :ts WHERE id = :id")
-    suspend fun restore(id: String, ts: Long)
+    @Query("UPDATE projects SET is_deleted = 0, deleted_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun restoreForUser(id: String, ts: Long, userId: String): Int
 
-    @Query("SELECT * FROM projects WHERE idempotency_key = :key LIMIT 1")
-    suspend fun findByIdempotencyKey(key: String): ProjectEntity?
+    @Query("SELECT * FROM projects WHERE idempotency_key = :key AND user_id = :userId LIMIT 1")
+    suspend fun findByIdempotencyKeyForUser(key: String, userId: String): ProjectEntity?
 
     @Upsert
     suspend fun upsert(project: ProjectEntity)
 
-    @Query("UPDATE projects SET is_deleted = 1, deleted_at = :ts, updated_at = :ts WHERE id = :id")
-    suspend fun softDelete(id: String, ts: Long)
+    @Query("UPDATE projects SET is_deleted = 1, deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
 
     @Query("SELECT * FROM projects WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<ProjectEntity>

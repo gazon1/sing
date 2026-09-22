@@ -31,12 +31,13 @@ data class CreateTagOutput(val tagId: String, val name: String)
 class CreateTagTool(
     private val tagsRepository: TagsRepository,
     private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : SimpleTool<CreateTagInput>(TypeToken.of(CreateTagInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: CreateTagInput): String {
         val now = clock.now()
         val tagId = TagId.generate()
-        val userId = ProfileAwareCurrentUser.scopedUserId.value.value
+        val userId = currentUser.scopedUserId.value.value
         val finalColor = parseColor(args.colorHex, defaultColor = args.color)
         val tag = Tag(
             id = tagId,

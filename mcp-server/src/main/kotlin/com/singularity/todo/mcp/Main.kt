@@ -17,7 +17,6 @@ import io.ktor.utils.io.asSource
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.streams.asByteWriteChannel
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.buffered
 import org.koin.core.context.GlobalContext
@@ -133,14 +132,13 @@ private suspend fun bootstrapProfiles(profileCliArg: String?) {
             "default", "personal", null -> null
             else -> null
         }
-        bootstrapper.run(
+        val result = bootstrapper.run(
             seedExtras = listOf(ProfileBootstrapper.SeedProfile.AI_AGENT),
             activateName = activateName,
         )
-        if (activateName == "AI Agent") {
+        result.activated?.let { activated ->
             // Retro-migrate rows from the unscoped local user id.
-            val agentId = (GlobalContext.get().get<com.singularity.todo.feature.profile.ProfileRepository>()
-                .observeAll().first().first { it.name == "AI Agent" }).id.value
+            val agentId = activated.value
             val localUserId: String = GlobalContext.get().get<com.singularity.todo.feature.profile.ProfileAwareCurrentUser>()
                 .current.value
             retromigrateRowsToAgentScope(

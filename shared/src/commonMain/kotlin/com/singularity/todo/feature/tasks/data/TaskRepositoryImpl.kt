@@ -170,7 +170,7 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatching {
-        val task = taskDao.watchById(id.value).first() ?: return@runCatching
+        val task = taskDao.getById(id.value) ?: return@runCatching
         val ts = clock.now().toEpochMilliseconds()
         if (task.completedAt != null) {
             taskDao.markIncomplete(id.value, ts)
@@ -180,7 +180,7 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatching {
-        val task = taskDao.watchById(id.value).first() ?: return@runCatching
+        val task = taskDao.getById(id.value) ?: return@runCatching
         val ts = clock.now().toEpochMilliseconds()
         taskDao.setPinned(id.value, !task.isPinned, ts)
     }
@@ -189,7 +189,7 @@ class TaskRepositoryImpl(
         it.map { id -> TagId.fromString(id) }
     }
 
-    override suspend fun exists(id: TaskId): Boolean = taskDao.watchById(id.value).first() != null
+    override suspend fun exists(id: TaskId): Boolean = taskDao.getById(id.value) != null
 
     override suspend fun get(id: TaskId): Task? = taskDao.getById(id.value)?.toTask()
 

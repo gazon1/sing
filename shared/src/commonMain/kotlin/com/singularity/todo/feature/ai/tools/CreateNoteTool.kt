@@ -24,12 +24,13 @@ data class CreateNoteOutput(val noteId: String, val title: String)
 class CreateNoteTool(
     private val notesRepository: NotesRepository,
     private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : SimpleTool<CreateNoteInput>(TypeToken.of(CreateNoteInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: CreateNoteInput): String {
         val now = clock.now()
         val noteId = NoteId.generate()
-        val userId = ProfileAwareCurrentUser.scopedUserId.value
+        val userId = currentUser.scopedUserId.value
         val note = Note(
             id = noteId,
             title = args.title,

@@ -6,7 +6,6 @@ import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.profile.setInstance
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.profile.ProfileRepositoryImpl
 import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
@@ -46,11 +45,7 @@ fun domainModule(): List<Module> = buildList {
     add(
         module {
         single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get(), createBackgroundScope()) }
-        single {
-            val instance = ProfileAwareCurrentUser(get(), get(), createBackgroundScope())
-            ProfileAwareCurrentUser.setInstance(instance)
-            instance
-        }
+        single { ProfileAwareCurrentUser(get(), get(), createBackgroundScope()) }
         factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
         factory { AccountSettingsViewModel(profileRepository = get()) }
     }

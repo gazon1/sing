@@ -35,12 +35,13 @@ data class CreateTaskOutput(val taskId: String, val title: String, val descripti
 class CreateTaskTool(
     private val taskRepository: TaskRepository,
     private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : SimpleTool<CreateTaskInput>(TypeToken.of(CreateTaskInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: CreateTaskInput): String {
         val now = clock.now()
         val taskId = TaskId.generate()
-        val userId = ProfileAwareCurrentUser.scopedUserId.value
+        val userId = currentUser.scopedUserId.value
         val task = Task(
             id = taskId,
             title = args.title,

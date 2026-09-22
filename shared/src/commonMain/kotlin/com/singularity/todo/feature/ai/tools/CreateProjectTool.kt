@@ -34,12 +34,13 @@ data class CreateProjectOutput(val projectId: String, val name: String)
 class CreateProjectTool(
     private val projectsRepository: ProjectsRepository,
     private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : SimpleTool<CreateProjectInput>(TypeToken.of(CreateProjectInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: CreateProjectInput): String {
         val now = clock.now()
         val projectId = ProjectId.generate()
-        val userId = ProfileAwareCurrentUser.scopedUserId.value.value
+        val userId = currentUser.scopedUserId.value.value
         val finalColor = parseColor(args.colorHex, defaultColor = args.color)
         val project = Project(
             id = projectId,
