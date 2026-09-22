@@ -84,15 +84,15 @@ fun headerLabel(anchor: LocalDate, viewMode: CalendarViewMode): String {
     return when (viewMode) {
         CalendarViewMode.MONTH -> "${anchor.month.displayName()} ${anchor.year}"
 
-        CalendarViewMode.DAY -> "${anchor.month.displayName()} ${anchor.dayOfMonth}, ${anchor.year}"
+        CalendarViewMode.DAY -> "${anchor.month.displayName()} ${anchor.day}, ${anchor.year}"
 
         else -> {
             val start = range.first()
             val end = range.last()
             if (start.month == end.month) {
-                "${start.month.displayName()} ${start.dayOfMonth} – ${end.dayOfMonth}, ${end.year}"
+                "${start.month.displayName()} ${start.day} – ${end.day}, ${end.year}"
             } else {
-                "${start.month.displayName()} ${start.dayOfMonth} – ${end.month.displayName()} ${end.dayOfMonth}, ${end.year}"
+                "${start.month.displayName()} ${start.day} – ${end.month.displayName()} ${end.day}, ${end.year}"
             }
         }
     }

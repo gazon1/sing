@@ -35,7 +35,7 @@ sealed interface ArchiveUiState {
 @OptIn(ExperimentalCoroutinesApi::class)
 class ArchiveViewModel(
     private val archiveRepo: TaskDaoArchiveRepository,
-    private val taskRepo: TaskRepository,
+    taskRepo: TaskRepository,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {

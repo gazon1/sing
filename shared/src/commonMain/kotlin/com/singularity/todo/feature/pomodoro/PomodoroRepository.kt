@@ -8,7 +8,7 @@ class PomodoroRepository {
 
     fun observeAll(): Flow<List<PomodoroSession>> = _sessions
 
-    suspend fun save(session: PomodoroSession): Result<Unit> = runCatching {
+    fun save(session: PomodoroSession): Result<Unit> = runCatching {
         _sessions.value += session
     }
 }

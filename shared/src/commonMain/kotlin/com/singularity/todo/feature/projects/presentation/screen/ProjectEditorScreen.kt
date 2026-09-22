@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.BottomSheetHost
@@ -305,6 +306,7 @@ private fun ProjectEditorUiEvent.toNotification(): Notification = when (this) {
 
 @Suppress("ViewModelConstructorInComposable")
 @OptIn(ExperimentalMaterial3Api::class)
+@Preview
 @Composable
 private fun ProjectEditorCreatePreview() = ProjectsPreviewWrapper {
     // Build fake dependencies manually — no Koin needed in previews.
@@ -328,6 +330,7 @@ private fun ProjectEditorCreatePreview() = ProjectsPreviewWrapper {
 
 @Suppress("ViewModelConstructorInComposable")
 @OptIn(ExperimentalMaterial3Api::class)
+@Preview
 @Composable
 private fun ProjectEditorEditPreview() = ProjectsPreviewWrapper {
     val sample = com.singularity.todo.core.ui.preview.PreviewSamples.project("p1", "Work")

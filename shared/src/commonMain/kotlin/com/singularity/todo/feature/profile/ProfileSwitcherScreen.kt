@@ -32,6 +32,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -229,7 +230,7 @@ private fun CreateProfileDialog(
 ) {
     var name by remember { mutableStateOf("") }
     var emoji by remember { mutableStateOf("🤖") }
-    var colorIdx by remember { mutableStateOf(1) }
+    var colorIdx by remember { mutableIntStateOf(1) }
 
     AlertDialog(
         onDismissRequest = onDismiss,

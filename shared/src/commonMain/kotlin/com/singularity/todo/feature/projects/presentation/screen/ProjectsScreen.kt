@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ids.UserId
@@ -37,7 +38,7 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProjectsScreen(modifier: Modifier = Modifier) {
+fun ProjectsScreen() {
     val nav = LocalProjectsNavigator.current
     val viewModel: ProjectsViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -127,7 +128,7 @@ private fun ProjectList(
 
 // ===== Preview =====
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun ProjectsScreenContentPreview() = ProjectsPreviewWrapper {
     PreviewThemed(darkTheme = false, useSurface = false) {
@@ -147,7 +148,7 @@ private fun ProjectsScreenContentPreview() = ProjectsPreviewWrapper {
     }
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun ProjectsScreenEmptyPreview() = ProjectsPreviewWrapper {
     PreviewThemed(darkTheme = false, useSurface = false) {
@@ -161,7 +162,7 @@ private fun ProjectsScreenEmptyPreview() = ProjectsPreviewWrapper {
     }
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun ProjectsScreenDarkPreview() = ProjectsPreviewWrapper {
     PreviewThemed(darkTheme = true, useSurface = false) {

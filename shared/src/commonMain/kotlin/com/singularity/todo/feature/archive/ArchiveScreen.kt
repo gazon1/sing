@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.EmptyState
@@ -136,7 +137,7 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
     }
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun ArchiveScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     ArchiveContentPreview(
@@ -150,13 +151,13 @@ private fun ArchiveScreenContentPreview() = PreviewThemed(darkTheme = false, use
     )
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun ArchiveScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     ArchiveContentPreview(ArchiveUiState.Content(tasks = emptyList()))
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun ArchiveScreenLoadingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     ArchiveContentPreview(ArchiveUiState.Loading)

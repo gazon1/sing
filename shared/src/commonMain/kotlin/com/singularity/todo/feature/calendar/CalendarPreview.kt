@@ -2,6 +2,7 @@ package com.singularity.todo.feature.calendar
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.tooling.preview.Preview
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.calendar.domain.logic.visibleRange
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
@@ -62,7 +63,6 @@ private object CalendarPreviewData {
 
 @Composable
 private fun CalendarContentPreview(
-    name: String = "Month",
     state: CalendarUiState = CalendarPreviewData.loadedState(CalendarViewMode.MONTH),
 ) {
     MaterialTheme {
@@ -74,32 +74,32 @@ private fun CalendarContentPreview(
     }
 }
 
+@Preview
 @Composable
 private fun CalendarPreviewMonth() = CalendarContentPreview(
-    name = "Month",
     state = CalendarPreviewData.loadedState(CalendarViewMode.MONTH),
 )
 
+@Preview
 @Composable
 private fun CalendarPreviewWeek() = CalendarContentPreview(
-    name = "Week",
     state = CalendarPreviewData.loadedState(CalendarViewMode.WEEK),
 )
 
+@Preview
 @Composable
 private fun CalendarPreview4Days() = CalendarContentPreview(
-    name = "4 Days",
     state = CalendarPreviewData.loadedState(CalendarViewMode.FOUR_DAYS),
 )
 
+@Preview
 @Composable
 private fun CalendarPreviewDay() = CalendarContentPreview(
-    name = "Day",
     state = CalendarPreviewData.loadedState(CalendarViewMode.DAY),
 )
 
+@Preview
 @Composable
 private fun CalendarPreviewMiniOpen() = CalendarContentPreview(
-    name = "MiniOpen",
     state = CalendarPreviewData.loadedState(CalendarViewMode.MONTH, isMiniOpen = true),
 )
