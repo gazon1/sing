@@ -602,6 +602,10 @@ class FakeReminderRepository(
         reminders.value = reminders.value.filterKeys { it != id.value }
     }
 
+    override suspend fun delete(id: ReminderId, userId: com.singularity.todo.core.ids.UserId): Result<Unit> = runCatching {
+        reminders.value = reminders.value.filterKeys { it != id.value }
+    }
+
     // ─── Domain methods ─────────────────────────────────────────────────────
 
     override fun watchByTask(taskId: TaskId): Flow<List<Reminder>> =

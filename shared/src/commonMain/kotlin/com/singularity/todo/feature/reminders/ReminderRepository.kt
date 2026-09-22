@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.reminders
 
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 
@@ -25,6 +26,9 @@ interface ReminderRepository {
 
     /** Deletes a reminder by [id]. */
     suspend fun delete(id: ReminderId): Result<Unit>
+
+    /** Deletes a reminder by [id] for an explicit [userId]. Used by [AlarmReceiver] to ensure cross-profile correctness. */
+    suspend fun delete(id: ReminderId, userId: UserId): Result<Unit>
 
     // ─── Domain methods ───────────────────────────────────────────────────────
 

@@ -228,6 +228,16 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Все импорты в 30+ файлах обновлены на новые FQN (`.domain.model`, `.domain.port`, `.domain.usecase`, `.data`, `.presentation.state`, `.presentation.viewmodel`).
 - Для UI-тестов на реальном устройстве: Kaspresso или `contentDescription` + `By.desc()`.
 - Оставшиеся `androidHostTest`: только `AppNavigatorTest` (nav contract, без Espresso),
+- ✅ Multi-profile isolation
+- ✅ No `SCHEDULE_EXACT_ALARM` permission
+- ✅ Phase transitions гарантированы даже после process death
+- ✅ Reminders работают после reboot (catch-up)
+- ✅ Smooth countdown UI через 1 Hz ticker
+- ✅ Stale-text fix: fresh task title в notifications
+- ✅ `phaseStartedAtEpochMs` в State (single source of truth) для точного recompute
+- ❌ Catch-up capped at 20 to avoid notification storm
+- ❌ Requires `RECEIVE_BOOT_COMPLETED` permission
+- ❌ Нужен catch-up логики (recompute from `Clock.now()`)
 
 ### `agenda`
 
@@ -977,12 +987,14 @@ _1 entries need attention._
 - `2026-09-21-state-hoisting-p3-dispatchers-overlay` — _untagged_
 - `2026-09-21-tier1-interface-cleanup` — _untagged_
 - `2026-09-21-user-scoped-repository` — _untagged_
+- `2026-09-22-alarmmanager-reminders` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — repository, checklist, currentuser, koin, refactor
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
 - `2026-09-22-explicit-overload-removal` — _untagged_
 - `2026-09-22-koin-annotations-4x-skill-correction` — _untagged_
+- `2026-09-22-pomodoro-hybrid-timer` — _untagged_
 - `2026-09-22-reminder-lastfiredat-schema` — reminders, database, scheduler
 - `2026-09-22-reminder-scheduler-critical-fixes` — reminders, scheduler, concurrency, coroutines, di
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — repository, currentuser, userid, draft-store, use-case, koin
@@ -1132,12 +1144,14 @@ _1 entries need attention._
 - `2026-09-21-state-hoisting-p3-dispatchers-overlay` — _(no title)_
 - `2026-09-21-tier1-interface-cleanup` — Tier 1 interface cleanup — remove single-implementation contracts
 - `2026-09-21-user-scoped-repository` — _(no title)_
+- `2026-09-22-alarmmanager-reminders` — AlarmManager + BootReceiver для reminders ( Orgzly pattern)
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — Delete ChecklistUseCase; drop unused ProfileAwareCurrentUser from AgendaDeps/CalendarDeps; inject taskId via ChecklistEditorViewModel constructor
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
 - `2026-09-22-explicit-overload-removal` — _(no title)_
 - `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
+- `2026-09-22-pomodoro-hybrid-timer` — Hybrid Pomodoro Timer — in-app ticker + AlarmManager.setAlarmClock
 - `2026-09-22-reminder-lastfiredat-schema` — _(no title)_
 - `2026-09-22-reminder-scheduler-critical-fixes` — _(no title)_
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — Repository stamps ambient userId on create; drop userId params from input classes and use cases

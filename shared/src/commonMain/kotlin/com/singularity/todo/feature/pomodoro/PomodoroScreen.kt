@@ -53,11 +53,8 @@ fun PomodoroScreen(timer: PomodoroTimer) {
         PomodoroPhase.LongBreak -> MaterialTheme.colorScheme.tertiary
     }
 
-    val totalSeconds = when (state.phase) {
-        PomodoroPhase.Work -> 25 * 60
-        PomodoroPhase.ShortBreak -> 5 * 60
-        PomodoroPhase.LongBreak -> 15 * 60
-    }
+    val config = timer.config
+    val totalSeconds = config.phaseSecondsOf(state.phase)
     val progress = state.remainingSeconds.toFloat() / totalSeconds.toFloat()
 
     Column(
@@ -210,11 +207,8 @@ private fun PomodoroContentPreview(
         PomodoroPhase.LongBreak -> MaterialTheme.colorScheme.tertiary
     }
 
-    val totalSeconds = when (pomodoroState.phase) {
-        PomodoroPhase.Work -> 25 * 60
-        PomodoroPhase.ShortBreak -> 5 * 60
-        PomodoroPhase.LongBreak -> 15 * 60
-    }
+    val defaultConfig = PomodoroConfig()
+    val totalSeconds = defaultConfig.phaseSecondsOf(pomodoroState.phase)
     val progress = pomodoroState.remainingSeconds.toFloat() / totalSeconds.toFloat()
 
     Column(

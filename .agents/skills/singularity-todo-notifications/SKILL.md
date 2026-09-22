@@ -1,13 +1,13 @@
 ---
 name: singularity-todo-notifications
-description: Notification port pattern for KMP with notify-send/at on JVM, AlarmManager/NotificationManager on Android, and ReminderScheduler background polling. Use when building cross-platform reminder and notification systems.
+description: Notification port pattern for KMP with notify-send/at on JVM, AlarmManager+BootReceiver on Android. Use when building cross-platform reminder and notification systems.
 ---
 
 # Singularity TODO — Notification Port Pattern
 
-This skill documents the notification architecture in the Singularity TODO KMP app: a `NotificationPort` interface with `notify-send`/`at` on JVM, `AlarmManager`/`NotificationManager` on Android, and a `ReminderScheduler` background poller.
+This skill documents the notification architecture in the Singularity TODO KMP app.
 
-## Architecture
+## Current Architecture (2026-09-22)
 
 ```
 NotificationPort (interface — commonMain)
@@ -16,183 +16,83 @@ NotificationPort (interface — commonMain)
     │       ├── notify-send (immediate notifications)
     │       └── at daemon (scheduled notifications)
     │
-    ├── AndroidNotificationPort (androidMain)
-    │       ├── AlarmManager.setExactAndAllowWhileIdle (scheduling)
-    │       └── NotificationManagerCompat (delivery)
-    │
-    └── FakeNotificationPort (commonMain — tests)
-            └── Records scheduled/canceled calls in mutable lists
+    └── AndroidNotificationPort (androidMain)  ← stub: scheduling moved to AlarmManager
+            └── NotificationManagerCompat (channel only)
 
-ReminderScheduler (commonMain)
-    └── Polls ReminderRepository.watchDueBefore() every 60s
-        └── Calls NotificationPort.scheduleAt() for due items
-        └── Deletes one-shot reminders after firing
+AndroidNotifier (androidMain)
+    └── NotificationManagerCompat.notify() — called by AlarmReceiver
+
+ReminderScheduler (interface — commonMain)
+    │
+    ├── AlarmManagerReminderScheduler (androidMain)
+    │       └── AlarmManager.setAlarmClock(fireAt, pending)
+    │
+    └── JvmReminderScheduler (jvmMain)  ← no-op
+
+AlarmReceiver (androidMain) — multi-action BroadcastReceiver
+    ├── ACTION_REMINDER_FIRE        → read DB, post notification (stale-text fix)
+    ├── ACTION_POMODORO_PHASE_END  → post "Work ended / Back to work"
+    ├── ACTION_BOOT_COMPLETED      → catch-up (≤20) + reschedule all
+    └── ACTION_REMINDER_DATA_CHANGED → reschedule all
 ```
+
+## Why AlarmManager (not WorkManager)?
+
+| Критерий | WorkManager | AlarmManager |
+|---|---|---|
+| Exact timing in Doze | ❌ (approximate only) | ✅ (`setAlarmClock`) |
+| Survives process death | ✅ | ✅ |
+| Survives reboot | ✅ | ✅ (BOOT_COMPLETED) |
+| Permission | `SCHEDULE_EXACT_ALARM` | None (`setAlarmClock` exempt) |
+| Extra dependency | Heavy | None (built-in) |
+| Multi-action receiver | N/A | ✅ (Orgzly pattern) |
 
 ## NotificationPort Interface
 
 ```kotlin
 interface NotificationPort {
     val isAvailable: Boolean
-    suspend fun scheduleAt(
-        key: String,
-        title: String,
-        body: String,
-        fireAtEpochMs: Long,
-        payload: String? = null
-    )
+    suspend fun scheduleAt(key, title, body, fireAtEpochMs, payload, viewId)
     suspend fun cancel(key: String)
     suspend fun cancelAll()
 }
 ```
 
-Key conventions:
-- `key` is the unique identifier (e.g., `"reminder:r1"`)
-- `payload` is passed through to the notification (e.g., reminder ID for deep-link)
-- `isAvailable` checks binary presence (`which notify-send` on JVM, `NotificationManagerCompat.areNotificationsEnabled()` on Android)
+On Android: `scheduleAt`/`cancel` are **stubs** — all scheduling goes through
+`AlarmManagerReminderScheduler`. `NotificationPort` remains to satisfy any callers.
 
-## JVM Implementation — JvmNotificationPort
+## ReminderScheduler Interface
 
-**Immediate notification** (fire-at is now or past):
 ```kotlin
-if (fireAtEpochMs <= System.currentTimeMillis() + 500) {
-    val proc = ProcessBuilder("notify-send", "-a", "Singularity", title, body)
-        .redirectErrorStream(true).start()
-    proc.outputStream.close()
-    proc.waitFor()
-    return
+interface ReminderScheduler {
+    suspend fun schedule(reminder: Reminder)
+    suspend fun cancel(id: ReminderId, userId: UserId)
+    suspend fun cancelByTask(taskId: TaskId, userId: UserId)
 }
 ```
 
-**Future notification** via `at` daemon:
-```kotlin
-val atJob = "$fireAtEpochMs".byteInputStream()
-ProcessBuilder("at", "-f", "-", "-t",
-    SimpleDateFormat("HHmmyyyyMMdd").format(Date(fireAtEpochMs)))
-    .redirectErrorStream(true)
-    .start()
-    .apply { outputStream.use { it.write(atJob.readBytes()) } }
-    .waitFor()
+## AlarmManagerReminderScheduler
 
-// Persist key → at job mapping for cancellation
-jobFile.appendText("$key=$atJobId\n")
-```
+Uses `AlarmManager.setAlarmClock` — exempt from Doze, no permission needed.
 
-**Cancellation**: reads `jobFile`, extracts the at-job ID, runs `atrm $jobId`, removes from file.
+Key format: `"reminder:${userId.value}:${id.value}"` (cross-profile isolation).
 
-**Job file**: `~/.singularity-todo/notify-jobs.txt` — format `key=atJobId\n` per line.
+**Stale-text fix:** title/body are NOT passed via PendingIntent extras.
+`AlarmReceiver.handleReminderFire()` reads the fresh task title from Room DB at fire time.
 
-**Return type rule**: `cancel` and `cancelAll` must return `Unit`, not `Result<Unit>`:
+## AlarmReceiver (Multi-action)
 
 ```kotlin
-override suspend fun cancel(key: String) {
-    // correct: block body, not expression
-    withContext(Dispatchers.IO) {
-        runCatching { /* ... */ }
-    }
+class AlarmReceiver : BroadcastReceiver(), KoinComponent {
+    // goAsync() + CoroutineScope for clean lifecycle
+    // Handles 4 actions
+    // catch-up on BOOT_COMPLETED: watchDueBefore(now), takeLast(20)
 }
 ```
 
-## Android Implementation — AndroidNotificationPort
+## Notification Channel
 
-**Scheduling** with `AlarmManager`:
-```kotlin
-val intent = Intent(context, NotificationReceiver::class.java).apply {
-    putExtra("key", key)
-    putExtra("title", title)
-    putExtra("body", body)
-    putExtra("payload", payload)
-}
-val pending = PendingIntent.getBroadcast(
-    context, key.hashCode(), intent,
-    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-)
-alarmManager.setExactAndAllowWhileIdle(
-    AlarmManager.RTC_WAKEUP, fireAtEpochMs, pending
-)
-```
-
-**BroadcastReceiver** wakes at fire time, posts notification:
-```kotlin
-class NotificationReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        val nm = NotificationManagerCompat.from(context)
-        val notif = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(intent.getStringExtra("title"))
-            .setContentText(intent.getStringExtra("body"))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .build()
-        nm.notify(intent.getStringExtra("key").hashCode(), notif)
-    }
-}
-```
-
-**Cancellation**: `alarmManager.cancel(pendingIntent)` + `nm.cancel(key.hashCode())`.
-
-## ReminderScheduler — Background Polling
-
-Rather than relying on OS scheduled-intent guarantees, `ReminderScheduler` polls every 60 seconds:
-
-```kotlin
-class ReminderScheduler(
-    private val notificationPort: NotificationPort,
-    private val reminderRepository: ReminderRepository,
-    private val currentUserId: UserId = UserId("current_user"),
-) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
-    suspend fun poll(nowEpochMs: Long = System.currentTimeMillis()) {
-        if (!notificationPort.isAvailable) return
-        val due = reminderRepository.watchDueBefore(nowEpochMs, currentUserId).first()
-        for (reminder in due) {
-            notificationPort.scheduleAt(
-                key = "reminder:${reminder.id.value}",
-                title = "Task Reminder",
-                body = "A task reminder is due",
-                fireAtEpochMs = reminder.fireAt,
-                payload = reminder.id.value
-            )
-            // Delete one-shot after firing; recurring remain for caller to re-schedule
-            if (reminder.recurringPattern == null) {
-                reminderRepository.delete(reminder.id, currentUserId)
-            }
-        }
-    }
-
-    companion object { const val POLL_INTERVAL_MS = 60_000L }
-}
-```
-
-**Polling interval**: 60 seconds — a balance between responsiveness and battery. The `ReminderScheduler` is started in `Application.onCreate()` (Android) or `main()` (JVM).
-
-**One-shot vs recurring**:
-- **One-shot** (`recurringPattern == null`): deleted after `poll()` fires the notification
-- **Recurring**: caller re-creates the reminder after each firing (or a separate recurring scheduler handles it)
-
-## Database Schema
-
-Room entities for reminders:
-
-```kotlin
-@Entity(
-    tableName = "task_reminders",
-    primaryKeys = ["user_id", "id"],
-    indices = [Index("user_id"), Index("task_id"), Index("fire_at")]
-)
-data class TaskReminderEntity(
-    val id: String,
-    @ColumnInfo("task_id") val taskId: String,
-    @ColumnInfo("user_id") val userId: String,
-    val type: String,          // "gentle" | "annoying"
-    @ColumnInfo("offset_minutes") val offsetMinutes: Int,
-    @ColumnInfo("fire_at") val fireAt: Long,
-    @ColumnInfo("recurring_pattern") val recurringPattern: String?, // cron expr or null
-    @ColumnInfo("created_at") val createdAt: Long,
-    @ColumnInfo("updated_at") val updatedAt: Long,
-)
-```
+Created by both `AndroidNotificationPort.init {}` and `AndroidNotifier {}`.
 
 ## Fake for Testing — FakeNotificationPort
 
@@ -213,46 +113,23 @@ class FakeNotificationPort(
 }
 ```
 
-## Testing Pattern
-
-```kotlin
-@Test
-fun `poll fires notification for due reminder`() = runTest {
-    val fakePort = FakeNotificationPort()
-    val repo = FakeReminderRepository(userId)
-    val scheduler = ReminderScheduler(fakePort, repo, userId)
-
-    repo.add(Reminder(id, taskId, userId, Gentle, -15,
-        System.currentTimeMillis() - 1000, null))
-    scheduler.poll()
-
-    assertEquals(1, fakePort.scheduled.size)
-    assertEquals("reminder:r1", fakePort.scheduled[0].key)
-}
-
-@Test
-fun `poll deletes one-shot reminder after firing`() = runTest {
-    // ...
-    assertTrue(repo.getById(ReminderId("r2"), userId) == null)
-}
-```
-
-No mocks — `FakeNotificationPort` and `FakeReminderRepository` are the test doubles.
-
-## When to Use This Pattern
-
-- Building reminder/notification features in a KMP app targeting JVM and Android
-- Polling is acceptable (60s interval) — for tighter SLAs, add platform-specific exact alarms
-- Needing to test notification logic without platform APIs or root access
-- Using Room for reminder persistence with a DAO that supports `watchDueBefore`
-
 ## Key Files
 
 | File | Purpose |
 |---|---|
 | `shared/src/commonMain/.../core/notifications/NotificationPort.kt` | Interface |
+| `shared/src/androidMain/.../core/notifications/AndroidNotificationPort.kt` | Stub (channel only) |
+| `shared/src/androidMain/.../core/notifications/AndroidNotifier.kt` | Posts notifications |
+| `shared/src/androidMain/.../feature/reminders/AlarmManagerReminderScheduler.kt` | setAlarmClock scheduling |
+| `shared/src/androidMain/.../feature/alarms/AlarmReceiver.kt` | Multi-action BroadcastReceiver |
 | `shared/src/jvmMain/.../core/notifications/JvmNotificationPort.kt` | notify-send + at |
-| `shared/src/androidMain/.../core/notifications/AndroidNotificationPort.kt` | AlarmManager + NotificationManager |
-| `shared/src/commonMain/.../core/notifications/FakeNotificationPort.kt` | In-memory test double |
-| `shared/src/commonMain/.../feature/reminders/ReminderScheduler.kt` | Background polling |
-| `shared/src/commonMain/.../core/database/Entities.kt` | TaskReminderEntity |
+| `shared/src/jvmMain/.../feature/reminders/JvmReminderScheduler.kt` | no-op |
+| `shared/src/commonMain/.../feature/reminders/ReminderScheduler.kt` | Interface |
+| `shared/src/commonMain/.../feature/reminders/ReminderFireLogic.kt` | Pure business logic |
+
+## When to Use This Pattern
+
+- Building reminder/notification features in a KMP app targeting JVM and Android
+- Exact timing required (not approximate) — use `setAlarmClock`
+- Need to survive process death and reboot
+- Multi-action receiver to consolidate broadcast handling

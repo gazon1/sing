@@ -8,8 +8,6 @@ import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
 import com.singularity.todo.feature.checklist.ChecklistEditorViewModel
 import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.checklist.RoomChecklistRepository
-import com.singularity.todo.feature.pomodoro.PomodoroRepository
-import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
 import com.singularity.todo.feature.statistics.StatisticsViewModel
@@ -48,8 +46,6 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     single<ChecklistRepository> { RoomChecklistRepository(get(), get()) }
 
-    factoryOf(::PomodoroRepository)
-
     // ─── Use Cases ──────────────────────────────────────────────────────
 
     factory { CreateTaskUseCase(get(), get(), get()) }
@@ -72,10 +68,6 @@ fun tasksModule(): org.koin.core.module.Module = module {
     // Registered as DraftStore so it satisfies TaskCreateDeps.draftStore: DraftStore.
     single<DraftStore> { UserScopedDraftStore(get(), get()) }
 
-    // ─── Reminders ──────────────────────────────────────────────────────
-
-    factory { ReminderScheduler(Logger.withTag("ReminderScheduler"), get(), get(), get()) }
-
     // ─── ViewModels ─────────────────────────────────────────────────────
 
     viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
@@ -88,6 +80,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 tagsRepo = get(),
                 checklistRepository = get(),
                 reminderRepo = get(),
+                reminderScheduler = get(),
                 attachmentsRepo = get(),
                 timeZoneProvider = get(),
                 clock = get(),

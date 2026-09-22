@@ -6,6 +6,7 @@ import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
@@ -21,6 +22,7 @@ data class TaskDetailDeps(
     val tagsRepo: com.singularity.todo.feature.tags.TagsRepository,
     val checklistRepository: ChecklistRepository,
     val reminderRepo: ReminderRepository,
+    val reminderScheduler: ReminderScheduler,
     val attachmentsRepo: AttachmentRepository,
     val timeZoneProvider: TimeZoneProvider,
     val clock: Clock,

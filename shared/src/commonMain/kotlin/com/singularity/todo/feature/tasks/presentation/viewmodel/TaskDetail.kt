@@ -288,6 +288,7 @@ class TaskDetailViewModel(
             is TaskDetailIntent.Domain.SetReminder -> {
                 scope.launch {
                     if (intent.offset == com.singularity.todo.core.reminders.ReminderOffset.AT_DUE) {
+                        deps.reminderScheduler.cancelByTask(current.id, userId)
                         deps.reminderRepo.deleteByTask(current.id)
                             .onFailure { emitError("Failed to set reminder") }
                         return@launch
@@ -304,12 +305,14 @@ class TaskDetailViewModel(
                         recurringPattern = null,
                     )
                     deps.reminderRepo.upsert(reminder)
+                        .onSuccess { deps.reminderScheduler.schedule(reminder) }
                         .onFailure { emitError("Failed to set reminder") }
                 }
             }
 
             TaskDetailIntent.Domain.DeleteReminder -> {
                 scope.launch {
+                    deps.reminderScheduler.cancelByTask(current.id, userId)
                     deps.reminderRepo.deleteByTask(current.id)
                         .onFailure { emitError("Failed to remove reminder") }
                 }
@@ -318,6 +321,7 @@ class TaskDetailViewModel(
             TaskDetailIntent.Domain.Delete -> {
                 scope.launch {
                     _recentlyDeleted.value = current
+                    deps.reminderScheduler.cancelByTask(current.id, userId)
                     deps.taskRepo.softDelete(current.id)
                         .onSuccess { _events.trySend(TaskDetailUiEvent.UndoDelete(current.id)) }
                         .onFailure {

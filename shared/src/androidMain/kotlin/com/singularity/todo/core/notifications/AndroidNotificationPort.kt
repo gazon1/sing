@@ -1,27 +1,22 @@
 package com.singularity.todo.core.notifications
 
-import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.os.Build
 
 /**
  * Android implementation of [NotificationPort].
  *
- * Uses [AlarmManager.setExactAndAllowWhileIdle] for scheduling and
- * [NotificationManager] for posting. A [BroadcastReceiver] (registered in
- * AndroidManifest) receives the alarm broadcast and fires the notification.
+ * Note: The [scheduleAt] and [cancel] methods are stubs — reminder scheduling
+ * is now handled by [AlarmManagerReminderScheduler][com.singularity.todo.feature.reminders.AlarmManagerReminderScheduler]
+ * which posts notifications via [AndroidNotifier][AndroidNotifier].
+ * This class remains to satisfy the [NotificationPort] interface.
  *
- * The notification taps open the app via [PendingIntent.FLAG_UPDATE_CURRENT].
+ * Actual notification posting (used by [AlarmReceiver][com.singularity.todo.feature.alarms.AlarmReceiver])
+ * is done via [AndroidNotifier].
  */
 class AndroidNotificationPort(private val context: Context) : NotificationPort {
 
-    private val alarmManager: AlarmManager =
-        context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val notificationManager: NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -32,56 +27,13 @@ class AndroidNotificationPort(private val context: Context) : NotificationPort {
     override val isAvailable: Boolean = true
 
     override suspend fun scheduleAt(key: String, title: String, body: String, fireAtEpochMs: Long, payload: String?, viewId: String?) {
-        val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
-            action = ACTION_REMINDER
-            putExtra(EXTRA_KEY, key)
-            putExtra(EXTRA_TITLE, title)
-            putExtra(EXTRA_BODY, body)
-            putExtra(EXTRA_PAYLOAD, payload)
-            putExtra(EXTRA_VIEW_ID, viewId)
-        }
-
-        val pending = PendingIntent.getBroadcast(
-            context,
-            key.hashCode(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (alarmManager.canScheduleExactAlarms()) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    fireAtEpochMs,
-                    pending,
-                )
-            } else {
-                alarmManager.setAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    fireAtEpochMs,
-                    pending,
-                )
-            }
-        } else {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                fireAtEpochMs,
-                pending,
-            )
-        }
+        // Stub: reminder scheduling moved to AlarmManagerReminderScheduler + AlarmReceiver.
+        // No-op here.
     }
 
     override suspend fun cancel(key: String) {
-        val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
-            action = ACTION_REMINDER
-        }
-        val pending = PendingIntent.getBroadcast(
-            context,
-            key.hashCode(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        alarmManager.cancel(pending)
+        // Stub: reminder cancellation moved to AlarmManagerReminderScheduler.
+        // No-op here.
     }
 
     override suspend fun cancelAll() {
@@ -101,66 +53,5 @@ class AndroidNotificationPort(private val context: Context) : NotificationPort {
 
     companion object {
         const val CHANNEL_ID = "singularity_reminders"
-        const val ACTION_REMINDER = "com.singularity.todo.ACTION_REMINDER"
-        const val EXTRA_KEY = "reminder_key"
-        const val EXTRA_TITLE = "reminder_title"
-        const val EXTRA_BODY = "reminder_body"
-        const val EXTRA_PAYLOAD = "reminder_payload"
-        const val EXTRA_VIEW_ID = "reminder_view_id"
-    }
-}
-
-/**
- * [BroadcastReceiver] that receives alarm broadcasts and posts notifications.
- * Subclass must be registered in `AndroidManifest.xml`:
- *
- * ```xml
- * <receiver
- *     android:name=".core.notifications.ReminderBroadcastReceiver"
- *     android:exported="false" />
- * ```
- */
-class ReminderBroadcastReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != AndroidNotificationPort.ACTION_REMINDER) return
-
-        val key = intent.getStringExtra(AndroidNotificationPort.EXTRA_KEY) ?: return
-        val title = intent.getStringExtra(AndroidNotificationPort.EXTRA_TITLE) ?: "Reminder"
-        val body = intent.getStringExtra(AndroidNotificationPort.EXTRA_BODY) ?: ""
-
-        val notificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        // Build the launch intent — EXTRA_VIEW_ID is read by MainActivity to deeplink
-        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
-            // Carry viewId so MainActivity can navigate to the correct saved agenda view
-            val viewId = intent.getStringExtra(AndroidNotificationPort.EXTRA_VIEW_ID)
-            if (viewId != null) {
-                putExtra(ReminderBroadcastReceiver.EXTRA_DEEPLINK_VIEW_ID, viewId)
-            }
-        }
-
-        val pending = PendingIntent.getActivity(
-            context,
-            key.hashCode(),
-            launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        val notification = android.app.Notification.Builder(context, AndroidNotificationPort.CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(title)
-            .setContentText(body)
-            .setAutoCancel(true)
-            .setContentIntent(pending)
-            .build()
-
-        @Suppress("UnspecifiedFlag")
-        notificationManager.notify(key.hashCode(), notification)
-    }
-
-    companion object {
-        /** Extra key for the SavedAgendaViewId deeplink, read by MainActivity. */
-        const val EXTRA_DEEPLINK_VIEW_ID = "reminder_deeplink_view_id"
     }
 }

@@ -6,7 +6,7 @@ import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.checklist.ChecklistRepository
-import com.singularity.todo.feature.pomodoro.PomodoroRepository
+import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
 import kotlin.test.Test
 
@@ -14,7 +14,7 @@ import kotlin.test.Test
  * Smoke-test the DI graph on JVM.
  *
  * Registers both `domainModule` and `platformModule` so that
- * DAO-based repositories (ChecklistRepository, PomodoroRepository) can
+ * DAO-based repositories (ChecklistRepository, ReminderScheduler) can
  * resolve their database dependencies on JVM.
  *
  * Run with: ./gradlew :shared:jvmTest --tests "com.singularity.todo.core.di.DiGraphTest"
@@ -29,7 +29,7 @@ class DiGraphTest {
         try {
             app.koin.get<SettingsRepository>()
             app.koin.get<ChecklistRepository>()
-            app.koin.get<PomodoroRepository>()
+            app.koin.get<ReminderScheduler>()
             app.koin.get<BackupRepository>()
         } finally {
             app.close()

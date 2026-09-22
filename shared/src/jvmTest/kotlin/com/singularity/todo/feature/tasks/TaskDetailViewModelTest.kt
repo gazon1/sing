@@ -7,6 +7,8 @@ import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.reminders.ReminderId
+import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
@@ -56,6 +58,11 @@ class TaskDetailViewModelTest {
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeChecklistRepo = FakeChecklistRepository()
     private val fakeReminderRepo = FakeReminderRepository()
+    private val fakeReminderScheduler = object : ReminderScheduler {
+        override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) {}
+        override suspend fun cancel(id: ReminderId, userId: UserId) {}
+        override suspend fun cancelByTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId, userId: UserId) {}
+    }
     private val fakeProjectRepo = FakeProjectsRepository()
     private val fakeTagsRepo = FakeTagsRepository()
     private val fakeAttachmentsRepo = FakeAttachmentRepository()
@@ -74,6 +81,7 @@ class TaskDetailViewModelTest {
             tagsRepo = fakeTagsRepo,
             checklistRepository = fakeChecklistRepo,
             reminderRepo = fakeReminderRepo,
+            reminderScheduler = fakeReminderScheduler,
             attachmentsRepo = fakeAttachmentsRepo,
             timeZoneProvider = TEST_TZ,
             clock = Clock,

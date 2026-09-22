@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.singularity.todo.core.notifications.ReminderBroadcastReceiver
+import com.singularity.todo.core.notifications.AndroidNotifier
 
 /**
  * Main (and only) Activity.
@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
 
         // Read the deeplink viewId from notification tap.
         // Null when launching normally or from an intent without this extra.
-        val deeplinkViewId: String? = intent.getStringExtra(ReminderBroadcastReceiver.EXTRA_DEEPLINK_VIEW_ID)
+        val deeplinkViewId: String? = intent.getStringExtra(AndroidNotifier.EXTRA_DEEPLINK_VIEW_ID)
 
         setContent {
             App(deeplinkViewId = deeplinkViewId)

@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * start/pause/stop buttons will have no effect.
  */
 class JvmPomodoroTimer : PomodoroTimer {
+    override val config: PomodoroConfig = PomodoroConfig()
+
     private val _state = MutableStateFlow(PomodoroState())
     override val state: StateFlow<PomodoroState> = _state.asStateFlow()
 

@@ -13,10 +13,14 @@ import com.singularity.todo.core.files.AndroidFileSystem
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.notifications.AndroidNotificationPort
+import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.AndroidSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
+import com.singularity.todo.feature.pomodoro.PomodoroAlarmScheduler
+import com.singularity.todo.feature.reminders.AlarmManagerReminderScheduler
+import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.settings.AiApiKeyMigration
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
@@ -81,9 +85,24 @@ actual fun platformModule(): Module = module {
 
     single<String> { get<android.content.Context>().filesDir.absolutePath + "/backups" }
 
+    // ─── Notifications ─────────────────────────────────────────────────
+
+    // AndroidNotifier handles notification posting (channel, launch intent).
+    // AlarmReceiver receives alarm broadcasts and calls notifier.post().
+    single { AndroidNotifier(get()) }
+
+    // ─── Reminder Scheduler ────────────────────────────────────────────
+
+    single<ReminderScheduler> {
+        AlarmManagerReminderScheduler(get(), get(), get())
+    }
+
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
+
+    single { PomodoroAlarmScheduler(get()) }
 
     // Use viewModel so AndroidPomodoroTimer (a ViewModel) is scoped correctly.
     // koinInject<PomodoroTimer>() in entry composables gets the scoped instance.
-    viewModel { AndroidPomodoroTimer(get(), get(), get()) }
+    // Constructor: (clock, taskRepository, alarmScheduler, config)
+    viewModel { AndroidPomodoroTimer(get(), get(), get(), get()) }
 }

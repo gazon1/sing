@@ -45,6 +45,10 @@ class RoomReminderRepository(
         dao.delete(id.value, uid.value)
     }
 
+    override suspend fun delete(id: ReminderId, userId: com.singularity.todo.core.ids.UserId): Result<Unit> = runCatching {
+        dao.delete(id.value, userId.value)
+    }
+
     // ─── Domain methods ───────────────────────────────────────────────────────
 
     override fun watchByTask(taskId: TaskId): Flow<List<Reminder>> =

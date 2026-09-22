@@ -16,6 +16,8 @@ import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
+import com.singularity.todo.feature.reminders.JvmReminderScheduler
+import com.singularity.todo.feature.reminders.ReminderScheduler
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -77,4 +79,8 @@ actual fun platformModule(): Module = module {
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 
     factory<PomodoroTimer> { JvmPomodoroTimer() }
+
+    // ─── Reminder Scheduler ────────────────────────────────────────────
+
+    single<ReminderScheduler> { JvmReminderScheduler() }
 }
