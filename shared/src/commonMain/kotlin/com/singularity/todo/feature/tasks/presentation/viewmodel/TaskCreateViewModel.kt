@@ -82,7 +82,7 @@ class TaskCreateViewModel(
     init {
         // 1. Restore draft from DataStore — seed-if-empty pattern
         scope.launch {
-            val key = "${deps.currentUser.current.value}:${TaskCreateDeps.DRAFT_KEY}"
+            val key = "${deps.currentUser.scopedUserId.value.value}:${TaskCreateDeps.DRAFT_KEY}"
             runCatching { deps.draftStore.load(key, TaskDraft.serializer()) }
                 .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft restore failed: ${it.message}" } }
                 .getOrNull()
@@ -96,7 +96,7 @@ class TaskCreateViewModel(
             _draft.drop(1)
                 .debounce { 500L }
                 .collect { draft ->
-                    val key = "${deps.currentUser.current.value}:${TaskCreateDeps.DRAFT_KEY}"
+                    val key = "${deps.currentUser.scopedUserId.value.value}:${TaskCreateDeps.DRAFT_KEY}"
                     runCatching {
                         deps.draftStore.save(key, draft, TaskDraft.serializer())
                     }.onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft save failed: ${it.message}" } }
@@ -164,7 +164,7 @@ class TaskCreateViewModel(
                 _isSaving.value = false
                 _error.value = null
                 scope.launch {
-                    val key = "${deps.currentUser.current.value}:${TaskCreateDeps.DRAFT_KEY}"
+                    val key = "${deps.currentUser.scopedUserId.value.value}:${TaskCreateDeps.DRAFT_KEY}"
                     deps.draftStore.clear(key)
                 }
             }
@@ -175,7 +175,7 @@ class TaskCreateViewModel(
     }
 
     private suspend fun save() {
-        val userId: UserId = deps.currentUser.current
+        val userId: UserId = deps.currentUser.scopedUserId.value
         val draftSnapshot: TaskDraft = _draft.value
 
         // Client-side guard mirrors `validateForSave` so we don't even hit the
