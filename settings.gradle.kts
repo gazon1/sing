@@ -13,6 +13,16 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
     }
+    // Map plugin id "koin" → module "io.insert-koin:koin-gradle-plugin".
+    // Koin 4.x publishes the compiler as a plain Gradle plugin JAR without a
+    // plugin-marker artifact, so the plugins DSL alone can't resolve it.
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == "koin") {
+                useModule("io.insert-koin:koin-gradle-plugin:${requested.version}")
+            }
+        }
+    }
 }
 
 dependencyResolutionManagement {

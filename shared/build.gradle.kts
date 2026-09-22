@@ -7,9 +7,12 @@ plugins {
 	alias(libs.plugins.composeCompiler)
 	alias(libs.plugins.kotlinxSerialization)
 	// KSP for Room annotation processing
-	alias(libs.plugins.ksp)
-	// Room 3 KSP plugin (schema export)
-	alias(libs.plugins.room3)
+    alias(libs.plugins.ksp)
+    // Room 3 KSP plugin (schema export)
+    alias(libs.plugins.room3)
+    // Koin Compiler Plugin (processes @Single, @Factory, @IntoSet annotations
+    // across KMP source sets — replaces legacy `ksp("koin-annotations-compiler")`)
+    alias(libs.plugins.koin)
 	// Code quality
 	alias(libs.plugins.detekt)
 	alias(libs.plugins.kover)
