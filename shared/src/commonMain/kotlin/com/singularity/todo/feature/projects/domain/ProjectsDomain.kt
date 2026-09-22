@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects.domain
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -53,12 +54,14 @@ object ProjectsDomain {
     /**
      * Builds a [Project] from validated input.
      * Pure function — no side effects.
+     * @param userId The ambient user ID, resolved by the caller (use case / repository).
      */
     fun buildProject(
         input: CreateProjectInput,
         id: ProjectId = ProjectId.generate(),
         createdAt: Instant,
         updatedAt: Instant,
+        userId: UserId,
     ): Project = Project(
         id = id,
         name = input.name.trim(),
@@ -76,6 +79,6 @@ object ProjectsDomain {
         sortOrder = 0,
         idempotencyKey = null,
         externalId = null,
-        userId = input.userId,
+        userId = userId,
     )
 }

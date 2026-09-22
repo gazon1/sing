@@ -46,8 +46,17 @@ class ProjectsRepositoryImpl(
     }
 
     override suspend fun create(item: Project): Result<Project> = runCatching {
-        projectDao.upsert(item.toEntity())
-        item
+        val currentUid = currentUser.scopedUserId.value
+        // Cross-user guard: fail loud rather than silently write to the wrong user.
+        val toInsert = if (item.userId == currentUid) {
+            item
+        } else {
+            throw IllegalStateException(
+                "Cross-user create attempted: entity.userId=${item.userId}, current=$currentUid",
+            )
+        }
+        projectDao.upsert(toInsert.toEntity())
+        toInsert
     }
 
     override suspend fun update(item: Project): Result<Project> = runCatching {

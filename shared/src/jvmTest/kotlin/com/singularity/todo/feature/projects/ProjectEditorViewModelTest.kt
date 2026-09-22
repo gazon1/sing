@@ -34,7 +34,7 @@ class ProjectEditorViewModelTest {
     private fun createVm(scope: CoroutineScope, projectId: ProjectId? = null) =
         ProjectEditorViewModel(
             projectId = projectId,
-            createProject = CreateProjectUseCase(fakeProjectsRepo, Clock),
+            createProject = CreateProjectUseCase(fakeProjectsRepo, Clock, fakeCurrentUser),
             updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock),
             projectsRepo = fakeProjectsRepo,
             currentUser = fakeCurrentUser,

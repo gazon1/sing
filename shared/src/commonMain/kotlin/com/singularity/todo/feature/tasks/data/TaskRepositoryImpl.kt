@@ -143,12 +143,22 @@ class TaskRepositoryImpl(
         taskDao.getBlockingTaskIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
 
     override suspend fun create(item: Task): Result<Task> = runCatching {
-        taskDao.upsert(item.toEntity())
-        item.tags.forEach { tagId ->
-            taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = item.id.value, tagId = tagId.value))
+        val currentUid = currentUser.scopedUserId.value
+        // Cross-user guard: fail loud rather than silently write to the wrong user.
+        // Anonymous entities (userId == UserId.anonymous) are stamped with the real user.
+        val toInsert = if (item.userId == currentUid || item.userId == com.singularity.todo.core.ids.UserId.anonymous) {
+            item.copy(userId = currentUid)
+        } else {
+            throw IllegalStateException(
+                "Cross-user create attempted: entity.userId=${item.userId}, current=$currentUid",
+            )
         }
-        _changes.tryEmit(item)
-        item
+        taskDao.upsert(toInsert.toEntity())
+        toInsert.tags.forEach { tagId ->
+            taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = toInsert.id.value, tagId = tagId.value))
+        }
+        _changes.tryEmit(toInsert)
+        toInsert
     }
 
     override suspend fun update(item: Task): Result<Task> = runCatching {

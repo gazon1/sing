@@ -42,5 +42,4 @@ data class CreateProjectInput(
     val icon: String? = null,
     val description: String? = null,
     val parentId: ProjectId? = null,
-    val userId: UserId,
 )

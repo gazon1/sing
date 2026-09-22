@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.domain.usecase
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -10,8 +11,13 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 
 /**
  * Creates a new task with domain validation and timestamp injection.
+ * The ambient user ID is resolved internally via [ProfileAwareCurrentUser].
  */
-class CreateTaskUseCase(private val repo: TaskRepository, private val clock: Clock) {
+class CreateTaskUseCase(
+    private val repo: TaskRepository,
+    private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
+) {
     suspend operator fun invoke(input: CreateTaskInput): Result<TaskId> {
         val validated: Either<AppError.Validation, CreateTaskInput> = TaskDomain.createInput(
             title = input.title,
@@ -23,14 +29,15 @@ class CreateTaskUseCase(private val repo: TaskRepository, private val clock: Clo
             dueDate = input.dueDate,
             dueTime = input.dueTime,
             someday = input.someday,
-            userId = input.userId,
         )
         if (validated is Either.Left) return Result.failure(validated.error)
 
+        val userId = currentUser.scopedUserId.value
         val task = TaskDomain.buildTask(
             input = (validated as Either.Right).value,
             createdAt = clock.now(),
             updatedAt = clock.now(),
+            userId = userId,
         )
         return repo.create(task).map { it.id }
     }

@@ -52,7 +52,7 @@ class TasksDomainTest {
 
     @Test
     fun `createInput - blank title returns Left`() {
-        val result = TaskDomain.createInput(title = "", userId = UserId.anonymous)
+        val result = TaskDomain.createInput(title = "")
         assertIs<Either.Left<AppError.Validation>>(result)
     }
 
@@ -60,7 +60,6 @@ class TasksDomainTest {
     fun `createInput - valid input returns Right with trimmed title`() {
         val result = TaskDomain.createInput(
             title = "  Buy groceries  ",
-            userId = UserId.anonymous,
         )
         assertIs<Either.Right<CreateTaskInput>>(result)
         assertEquals("Buy groceries", result.value.title)
@@ -82,7 +81,6 @@ class TasksDomainTest {
             dueDate = dueDate,
             dueTime = com.singularity.todo.core.database.LocalTimeFormats.parse("14:00:00"),
             someday = false,
-            userId = UserId.anonymous,
         )
 
         assertIs<Either.Right<CreateTaskInput>>(result)
@@ -102,16 +100,21 @@ class TasksDomainTest {
     fun `buildTask - creates task with correct fields`() {
         val input = CreateTaskInput(
             title = "Test task",
-            userId = UserId.fromString("user-1"),
         )
         val createdAt = Instant.fromEpochMilliseconds(1000)
         val updatedAt = Instant.fromEpochMilliseconds(2000)
 
-        val task = TaskDomain.buildTask(input, createdAt = createdAt, updatedAt = updatedAt)
+        val task = TaskDomain.buildTask(
+            input = input,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            userId = UserId.fromString("user-1"),
+        )
 
         assertEquals("Test task", task.title)
         assertEquals(createdAt, task.createdAt)
         assertEquals(updatedAt, task.updatedAt)
+        assertEquals(UserId.fromString("user-1"), task.userId)
         assertEquals(TaskPriority.None, task.priority)
         assertEquals(TaskKind.Task, task.kind)
         assertFalse(task.someday)

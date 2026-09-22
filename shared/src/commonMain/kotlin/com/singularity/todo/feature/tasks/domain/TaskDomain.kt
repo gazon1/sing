@@ -54,7 +54,6 @@ object TaskDomain {
         dueDate: kotlinx.datetime.LocalDate? = null,
         dueTime: kotlinx.datetime.LocalTime? = null,
         someday: Boolean = false,
-        userId: UserId,
     ): Either<AppError.Validation, CreateTaskInput> {
         val trimmed: String = when (val v = validateTitle(title)) {
             is Either.Left -> return v
@@ -72,7 +71,6 @@ object TaskDomain {
                 dueDate = dueDate,
                 dueTime = dueTime,
                 someday = someday,
-                userId = userId,
             ),
         )
     }
@@ -80,12 +78,14 @@ object TaskDomain {
     /**
      * Builds a Task from validated input.
      * Pure function - no side effects.
+     * @param userId The ambient user ID, resolved by the caller (use case / repository).
      */
     fun buildTask(
         input: CreateTaskInput,
         id: TaskId = generateTaskId(),
         createdAt: Instant,
         updatedAt: Instant,
+        userId: UserId,
     ): Task = Task(
         id = id,
         title = input.title,
@@ -100,7 +100,7 @@ object TaskDomain {
         someday = input.someday,
         createdAt = createdAt,
         updatedAt = updatedAt,
-        userId = input.userId,
+        userId = userId,
     )
 
     /**

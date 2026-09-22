@@ -270,7 +270,6 @@ class ProjectDetailViewModel(
                     createTaskUseCase(
                         CreateTaskInput(
                             title = trimmed,
-                            userId = userId,
                             projectId = projectId,
                             kind = TaskKind.Task,
                         ),

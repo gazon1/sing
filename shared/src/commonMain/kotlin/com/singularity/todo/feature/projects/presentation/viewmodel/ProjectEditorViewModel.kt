@@ -122,7 +122,6 @@ class ProjectEditorViewModel(
                     description = current.description.ifBlank { null },
                     icon = current.icon,
                     parentId = current.parentId,
-                    userId = userId,
                 )
                 createProject(input).fold(
                     onSuccess = { _events.trySend(ProjectEditorUiEvent.NavigateBack) },

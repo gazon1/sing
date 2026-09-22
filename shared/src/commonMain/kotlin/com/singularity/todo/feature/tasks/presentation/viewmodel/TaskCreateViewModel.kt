@@ -5,9 +5,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.Either
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.state.updateState
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
@@ -26,13 +24,19 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/**
+ * Dependencies for [TaskCreateViewModel].
+ *
+ * @param draftStore A [UserScopedDraftStore] — caller is responsible for injecting
+ *   the user-scoped wrapper so draft keys stay bare (no manual userId prefix拼接).
+ */
 data class TaskCreateDeps(
     val createFromDraft: CreateTaskFromDraftUseCase,
-    val currentUser: ProfileAwareCurrentUser,
     val logger: Logger,
     val draftStore: DraftStore,
 ) {
     companion object {
+        /** Bare draft key — [UserScopedDraftStore] prepends the user prefix internally. */
         const val DRAFT_KEY = "task_create_draft"
     }
 }
@@ -80,10 +84,10 @@ class TaskCreateViewModel(
     val saved: Flow<Unit> = _saved.receiveAsFlow()
 
     init {
-        // 1. Restore draft from DataStore — seed-if-empty pattern
+        // 1. Restore draft from DataStore — seed-if-empty pattern.
+        // Key is bare (no userId prefix) — UserScopedDraftStore handles isolation.
         scope.launch {
-            val key = "${deps.currentUser.scopedUserId.value.value}:${TaskCreateDeps.DRAFT_KEY}"
-            runCatching { deps.draftStore.load(key, TaskDraft.serializer()) }
+            runCatching { deps.draftStore.load(TaskCreateDeps.DRAFT_KEY, TaskDraft.serializer()) }
                 .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft restore failed: ${it.message}" } }
                 .getOrNull()
                 ?.let { restored ->
@@ -96,9 +100,8 @@ class TaskCreateViewModel(
             _draft.drop(1)
                 .debounce { 500L }
                 .collect { draft ->
-                    val key = "${deps.currentUser.scopedUserId.value.value}:${TaskCreateDeps.DRAFT_KEY}"
                     runCatching {
-                        deps.draftStore.save(key, draft, TaskDraft.serializer())
+                        deps.draftStore.save(TaskCreateDeps.DRAFT_KEY, draft, TaskDraft.serializer())
                     }.onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft save failed: ${it.message}" } }
                 }
         }
@@ -164,8 +167,7 @@ class TaskCreateViewModel(
                 _isSaving.value = false
                 _error.value = null
                 scope.launch {
-                    val key = "${deps.currentUser.scopedUserId.value.value}:${TaskCreateDeps.DRAFT_KEY}"
-                    deps.draftStore.clear(key)
+                    deps.draftStore.clear(TaskCreateDeps.DRAFT_KEY)
                 }
             }
 
@@ -175,7 +177,6 @@ class TaskCreateViewModel(
     }
 
     private suspend fun save() {
-        val userId: UserId = deps.currentUser.scopedUserId.value
         val draftSnapshot: TaskDraft = _draft.value
 
         // Client-side guard mirrors `validateForSave` so we don't even hit the
@@ -189,7 +190,7 @@ class TaskCreateViewModel(
 
         _isSaving.value = true
         try {
-            when (val result = deps.createFromDraft(draftSnapshot, userId)) {
+            when (val result = deps.createFromDraft(draftSnapshot)) {
                 is Either.Left -> {
                     deps.logger.e(tag = "TaskCreateViewModel") { "save failed: ${result.error.message}" }
                     _error.value = result.error.message ?: "Could not create task"
@@ -197,8 +198,7 @@ class TaskCreateViewModel(
 
                 is Either.Right -> {
                     _saved.trySend(Unit)
-                    val key = "${userId.value}:${TaskCreateDeps.DRAFT_KEY}"
-                    runCatching { deps.draftStore.clear(key) }
+                    runCatching { deps.draftStore.clear(TaskCreateDeps.DRAFT_KEY) }
                         .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft clear failed: ${it.message}" } }
                 }
             }

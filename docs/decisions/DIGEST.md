@@ -668,15 +668,23 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `repository`
 
+- **PR 3** (VM cleanup) is unblocked: all repository `create` methods now stamp ambient `userId`, so VMs no longer need to pass it. `currentUser` can be dropped from remaining VMs (`TaskDetailViewModel`, `NotePreview`, `NoteEditor`, `ProjectsViewModel`, `NotesListViewModel`, `ProjectEditorViewModel`, `AttachmentsViewModel`, `SavedAgendaViewModel`, `ProjectDetailViewModel`).
 - **When** a second entity acquires free-text search — extract `Searchable<E>` mixin
 - **When** adding a cross-cutting repository helper (batch op, transactional wrap) —
+- AI tools (`CreateTaskTool`, `CreateProjectTool`) still pass `userId` in their input classes — those are separate from this PR's scope (the AI tool MCP adapter work).
 - Fakes in `test/fakes/FakeRepositories.kt` simplify: one constructor parameter
 - The old `UserScopedRepository<T, ID>` typealias is removed in the cleanup commit
+- `AttachmentRepository.addUrlAttachment` and `saveFileAttachment` already resolved ambient `userId` internally — no change needed.
 - `ChecklistEditorViewModel` is constructed with `taskId` via Koin `parametersOf`. Any existing call site that used `bindToTask()` is broken by design — that method no longer exists. Verify no production call site calls `bindToTask()` before merging.
 - `ChecklistRepository` is the single source of truth for checklist mutations. All consumers (VMs, AI tools) must use `addItem` / `toggleItem` / `upsert` / `delete` on the repository.
 - `GenerateChecklistUseCase` (AI feature, `feature/ai/use_cases/`) is a separate class and is not affected by this deletion.
+- `InternalLinkRepositoryImpl` methods (`searchNotes`, `searchTasks`, `getBacklinkNotes`) already resolved ambient internally — no change needed.
 - `PomodoroRepository` has 0 production call sites. It is a candidate for deletion
 - `ProfileAwareCurrentUser` remains in `feature/profile/` and is still injected into repositories (`TaskRepositoryImpl`, `RoomNotesRepository`, `AttachmentRepository`, `ReminderRepository`, `ProjectsRepositoryImpl`, `InternalLinkRepositoryImpl`, `RoomSavedAgendaViewsRepository`). It is **not** injected into presentation-layer VMs except where actually read.
+- `RoomNotesRepository.createWithContent` and `createNoteWithTitle` already resolved ambient `userId` internally — no change needed.
+- `RoomReminderRepository.deleteByTask` already resolved ambient internally — no change needed.
+- `RoomSavedAgendaViewsRepository.upsert` delegates to `create`/`update`; since `SavedAgendaView` is constructed by the VM with `userId` already on it (from the domain model), stamping happens inside the repository. The Create branch was already handled by the existing `userId` on the entity — no structural change needed.
+- `TaskRepositoryImpl.create` and `ProjectsRepositoryImpl.create` now enforce user scoping. Any caller passing a mismatched `userId` will get a loud `IllegalStateException`.
 - `TaskRepositoryImpl` does **not** yet stamp `userId` on `create` — that is PR 2 (Repository infrastructure). Until that lands, callers must still pass `userId`-stamped entities to `TaskRepository.create`.
 
 ### `security`
@@ -977,6 +985,7 @@ _1 entries need attention._
 - `2026-09-22-koin-annotations-4x-skill-correction` — _untagged_
 - `2026-09-22-reminder-lastfiredat-schema` — reminders, database, scheduler
 - `2026-09-22-reminder-scheduler-critical-fixes` — reminders, scheduler, concurrency, coroutines, di
+- `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — repository, currentuser, userid, draft-store, use-case, koin
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
@@ -1131,6 +1140,7 @@ _1 entries need attention._
 - `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
 - `2026-09-22-reminder-lastfiredat-schema` — _(no title)_
 - `2026-09-22-reminder-scheduler-critical-fixes` — _(no title)_
+- `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — Repository stamps ambient userId on create; drop userId params from input classes and use cases
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads

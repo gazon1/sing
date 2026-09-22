@@ -51,15 +51,15 @@ class TaskCreateViewModelTest {
 
     private fun createVm(scope: CoroutineScope): TaskCreateViewModel {
         val deps = TaskCreateDeps(
-            createFromDraft = CreateTaskFromDraftUseCase(fakeTaskRepo, Clock),
-            currentUser = fakeCurrentUser,
+            createFromDraft = CreateTaskFromDraftUseCase(fakeTaskRepo, Clock, fakeCurrentUser),
             logger = Logger.withTag("TaskCreateTest"),
             draftStore = fakeDraftStore,
         )
         return TaskCreateViewModel(deps = deps, initialDueDate = null, scope = testScope(scope))
     }
 
-    private val draftKey get() = "${testUserId.value}:${TaskCreateDeps.DRAFT_KEY}"
+    // FakeDraftStore stores bare keys (no user prefix), matching TaskCreateViewModel's bare key usage.
+    private val draftKey get() = TaskCreateDeps.DRAFT_KEY
 
     // ─── Draft restore (seed-if-empty) ────────────────────────────────────────
 

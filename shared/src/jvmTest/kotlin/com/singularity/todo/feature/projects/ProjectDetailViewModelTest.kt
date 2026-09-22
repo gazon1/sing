@@ -56,7 +56,7 @@ class ProjectDetailViewModelTest {
             deleteProject = DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
             updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock),
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
-            createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, Clock),
+            createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, Clock, fakeCurrentUser),
             currentUser = fakeCurrentUser,
             clock = Clock,
             log = Logger,

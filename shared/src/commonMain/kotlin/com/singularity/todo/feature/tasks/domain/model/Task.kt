@@ -140,5 +140,4 @@ data class CreateTaskInput(
     val dueDate: kotlinx.datetime.LocalDate? = null,
     val dueTime: kotlinx.datetime.LocalTime? = null,
     val someday: Boolean = false,
-    val userId: UserId,
 )

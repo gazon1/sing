@@ -277,7 +277,6 @@ class TaskDetailViewModel(
                     deps.createTask(
                         com.singularity.todo.feature.tasks.domain.model.CreateTaskInput(
                             title = intent.title.trim(),
-                            userId = userId,
                             parentTaskId = current.id,
                         ),
                     )

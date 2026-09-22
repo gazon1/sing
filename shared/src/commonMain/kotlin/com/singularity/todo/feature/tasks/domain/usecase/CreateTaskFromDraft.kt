@@ -2,9 +2,9 @@ package com.singularity.todo.feature.tasks.domain.usecase
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.TaskDomain
@@ -30,6 +30,8 @@ import kotlinx.datetime.plus
  *  - converts any persistence failure from [TaskRepository.create] into
  *    [AppError.Persistence] so the caller doesn't have to inspect exceptions either.
  *
+ * The ambient user ID is resolved internally via [ProfileAwareCurrentUser].
+ *
  * Use this when you have a draft (e.g. from `TaskCreateViewModel.save`). For an
  * already-validated [CreateTaskInput] coming from detail view, use
  * [CreateTaskUseCase] directly.
@@ -37,11 +39,9 @@ import kotlinx.datetime.plus
 class CreateTaskFromDraftUseCase(
     private val repo: TaskRepository,
     private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
 ) {
-    suspend operator fun invoke(
-        draft: TaskDraft,
-        userId: UserId,
-    ): Either<AppError, TaskId> {
+    suspend operator fun invoke(draft: TaskDraft): Either<AppError, TaskId> {
         val dueDate: LocalDate? = when (val option = draft.dueDate) {
             is DueDateOption.Custom -> option.date
             DueDateOption.Today -> todayInSystemZone()
@@ -63,13 +63,13 @@ class CreateTaskFromDraftUseCase(
             dueDate = dueDate,
             dueTime = draft.dueTime,
             someday = false,
-            userId = userId,
         )
         return when (validated) {
             is Either.Left -> Either.Left(validated.error)
             is Either.Right -> {
                 // Mint the id once so the caller can observe it (logs, snackbar
                 // deep links) before / independent of repo.create.
+                val userId = currentUser.scopedUserId.value
                 val now = clock.now()
                 val taskId = TaskDomain.generateTaskId()
                 val task = TaskDomain.buildTask(
@@ -77,6 +77,7 @@ class CreateTaskFromDraftUseCase(
                     id = taskId,
                     createdAt = now,
                     updatedAt = now,
+                    userId = userId,
                 )
                 repo.create(task).fold(
                     onSuccess = { Either.Right(taskId) },

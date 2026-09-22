@@ -10,6 +10,8 @@ import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.test.fakes.FakeAuthRepository
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.flow.first
@@ -22,8 +24,13 @@ class ProjectsUseCaseTest {
     private val testUserId = UserId("test-user")
     private val fakeProjectRepo = FakeProjectsRepository()
     private val fakeTaskRepo = FakeTaskRepository()
+    private val fakeCurrentUser = FakeProfileAwareCurrentUser(
+        FakeAuthRepository(
+            initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
+        ),
+    )
 
-    private fun createProjectUseCase() = CreateProjectUseCase(fakeProjectRepo, Clock)
+    private fun createProjectUseCase() = CreateProjectUseCase(fakeProjectRepo, Clock, fakeCurrentUser)
     private fun updateProjectUseCase() = UpdateProjectUseCase(fakeProjectRepo, Clock)
     private fun deleteProjectUseCase() = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo)
 
@@ -34,7 +41,6 @@ class ProjectsUseCaseTest {
         val input = CreateProjectInput(
             name = "Work",
             color = 0xFF2196F3.toInt(),
-            userId = testUserId,
         )
         val result = createProjectUseCase()(input)
         assertTrue(result.isSuccess)
@@ -46,7 +52,6 @@ class ProjectsUseCaseTest {
         val input = CreateProjectInput(
             name = "   ",
             color = 0xFF2196F3.toInt(),
-            userId = testUserId,
         )
         val result = createProjectUseCase()(input)
         assertTrue(result.isFailure)
@@ -57,7 +62,6 @@ class ProjectsUseCaseTest {
         val input = CreateProjectInput(
             name = "A".repeat(51),
             color = 0xFF2196F3.toInt(),
-            userId = testUserId,
         )
         val result = createProjectUseCase()(input)
         assertTrue(result.isFailure)
@@ -68,7 +72,6 @@ class ProjectsUseCaseTest {
         val input = CreateProjectInput(
             name = "Work",
             color = 0x002196F3, // transparent alpha
-            userId = testUserId,
         )
         val result = createProjectUseCase()(input)
         assertTrue(result.isFailure)
@@ -81,7 +84,6 @@ class ProjectsUseCaseTest {
             color = 0xFFFF0000.toInt(),
             icon = "work",
             parentId = ProjectId.fromString("parent1"),
-            userId = testUserId,
         )
         val result = createProjectUseCase()(input)
         assertTrue(result.isSuccess)
@@ -93,7 +95,7 @@ class ProjectsUseCaseTest {
     fun `update project name succeeds`() = runTest {
         // Create first
         val id = createProjectUseCase()(
-            CreateProjectInput(name = "Old", color = 0xFF2196F3.toInt(), userId = testUserId),
+            CreateProjectInput(name = "Old", color = 0xFF2196F3.toInt()),
         ).getOrNull()!!
 
         val result = updateProjectUseCase()(id) { it.copy(name = "New Name") }
@@ -116,7 +118,7 @@ class ProjectsUseCaseTest {
     @Test
     fun `delete empty project succeeds`() = runTest {
         val id = createProjectUseCase()(
-            CreateProjectInput(name = "Empty", color = 0xFF2196F3.toInt(), userId = testUserId),
+            CreateProjectInput(name = "Empty", color = 0xFF2196F3.toInt()),
         ).getOrNull()!!
 
         val result = deleteProjectUseCase()(id)
@@ -126,7 +128,7 @@ class ProjectsUseCaseTest {
     @Test
     fun `delete project with tasks fails with Validation error`() = runTest {
         val id = createProjectUseCase()(
-            CreateProjectInput(name = "With Tasks", color = 0xFF2196F3.toInt(), userId = testUserId),
+            CreateProjectInput(name = "With Tasks", color = 0xFF2196F3.toInt()),
         ).getOrNull()!!
 
         // Seed a task belonging to this project

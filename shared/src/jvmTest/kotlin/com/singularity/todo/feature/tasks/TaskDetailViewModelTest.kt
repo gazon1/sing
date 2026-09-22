@@ -69,7 +69,7 @@ class TaskDetailViewModelTest {
         val deps = TaskDetailDeps(
             taskRepo = fakeTaskRepo,
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
-            createTask = CreateTaskUseCase(fakeTaskRepo, Clock),
+            createTask = CreateTaskUseCase(fakeTaskRepo, Clock, fakeCurrentUser),
             projectsRepo = fakeProjectRepo,
             tagsRepo = fakeTagsRepo,
             checklistRepository = fakeChecklistRepo,

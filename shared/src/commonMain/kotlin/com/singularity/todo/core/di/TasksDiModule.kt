@@ -1,6 +1,8 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.draft.DraftStore
+import com.singularity.todo.core.draft.UserScopedDraftStore
 import com.singularity.todo.feature.archive.ArchiveViewModel
 import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
 import com.singularity.todo.feature.checklist.ChecklistEditorViewModel
@@ -50,12 +52,12 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     // ─── Use Cases ──────────────────────────────────────────────────────
 
-    factoryOf(::CreateTaskUseCase)
-    factoryOf(::CreateTaskFromDraftUseCase)
-    factoryOf(::UpdateTaskUseCase)
+    factory { CreateTaskUseCase(get(), get(), get()) }
+    factory { CreateTaskFromDraftUseCase(get(), get(), get()) }
+    factory { UpdateTaskUseCase(get(), get()) }
     factoryOf(::TaskMutationsUseCase)
 
-    factoryOf(::SearchUseCase)
+    factory { SearchUseCase(get(), get(), get(), get()) }
 
     // PomodoroTimer is registered in platform-specific modules:
     // - androidMain: AndroidPomodoroTimer(get(), get(), get())
@@ -64,6 +66,11 @@ fun tasksModule(): org.koin.core.module.Module = module {
     // ─── Ports ──────────────────────────────────────────────────────────
 
     single<AttachmentSaver> { AttachmentSaverImpl(get()) }
+
+    // ─── Drafts ──────────────────────────────────────────────────────────
+    // UserScopedDraftStore wraps DraftStore, prepending the user ID prefix internally.
+    // Registered as DraftStore so it satisfies TaskCreateDeps.draftStore: DraftStore.
+    single<DraftStore> { UserScopedDraftStore(get(), get()) }
 
     // ─── Reminders ──────────────────────────────────────────────────────
 
@@ -94,7 +101,6 @@ fun tasksModule(): org.koin.core.module.Module = module {
         TaskCreateViewModel(
             deps = TaskCreateDeps(
                 createFromDraft = get(),
-                currentUser = get(),
                 logger = Logger.withTag("TaskCreate"),
                 draftStore = get(),
             ),

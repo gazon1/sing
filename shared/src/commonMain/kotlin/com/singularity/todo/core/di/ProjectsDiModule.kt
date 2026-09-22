@@ -25,7 +25,7 @@ fun projectsModule(): org.koin.core.module.Module = module {
 
     // ─── Use Cases ─────────────────────────────────────────────────────
 
-    factoryOf(::CreateProjectUseCase)
+    factory { CreateProjectUseCase(get(), get(), get()) }
     factoryOf(::UpdateProjectUseCase)
     factory { DeleteProjectUseCase(get<ProjectsRepository>(), get()) }
 
