@@ -225,23 +225,5 @@ internal object PreviewSamples {
 
 // ===== PreviewParameterProvider for enum types =====
 
-/**
- * Provides all [TaskPriority] values as a sequence for use with
- * [@PreviewParameter][androidx.compose.ui.tooling.preview.PreviewParameter].
- *
- * Usage:
- * ```
- * @Preview
- * @Composable
- * private fun PriorityChipAllPreview(
- *     @PreviewParameter(TaskPriorityProvider::class) priority: TaskPriority,
- * ) = PreviewThemed { PriorityChip(priority = priority) }
- * ```
- * Android Studio renders one preview cell per enum entry.
- */
-// DISABLED: PreviewParameterProvider requires ui-tooling which may not be available
-// in all KMP targets. Use individual preview functions instead.
-// internal class TaskPriorityProvider : androidx.compose.ui.tooling.preview.PreviewParameterProvider<TaskPriority> {
-//     override val values: Sequence<TaskPriority> = TaskPriority.entries.asSequence()
-//     override val count: Int = TaskPriority.entries.size
-// }
+// DISABLED: ui-tooling not available on all KMP targets.
+// Use individual preview functions instead.

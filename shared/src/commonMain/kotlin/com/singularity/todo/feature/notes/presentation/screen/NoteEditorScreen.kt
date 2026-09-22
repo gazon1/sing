@@ -100,8 +100,8 @@ fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewM
 
     NoteEditorScreenContent(
         editorState = editorState,
-        onTitleChange = viewModel::editTitle,
-        onBodyChange = viewModel::editBody,
+        onTitleChange = { _, title -> viewModel.editTitle(title) },
+        onBodyChange = { _, html -> viewModel.editBody(html) },
         onSaveNow = viewModel::saveNow,
         onBack = {
             viewModel.closeEditor()

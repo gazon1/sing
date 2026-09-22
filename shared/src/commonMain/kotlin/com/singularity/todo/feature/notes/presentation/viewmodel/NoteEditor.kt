@@ -1,9 +1,7 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.ids.IdGenerator
@@ -18,11 +16,11 @@ import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.extractOutgoingLinks
 import com.singularity.todo.feature.notes.formatNoteAiResult
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -31,6 +29,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 // ─── ViewModel ───────────────────────────────────────────────────────────────
 
@@ -47,9 +46,7 @@ import kotlinx.coroutines.launch
 open class NoteEditor(
     private val repo: NotesRepository,
     private val linkRepo: InternalLinkRepository,
-    currentUser: ProfileAwareCurrentUser,
     private val idGen: IdGenerator,
-    private val autosaveScheduler: AutosaveScheduler,
     private val improveNote: ImproveNoteUseCase? = null,
     logger: Logger? = null,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
@@ -60,8 +57,6 @@ open class NoteEditor(
     }
 
     private val log: Logger = logger ?: Logger.withTag("NoteEditor")
-
-    private val userId = currentUser.scopedUserId
 
     // Editor state — only `Empty` and `Editing`. Saves happen in the background
     // without remounting EditorBody (the previous `Editing ↔ Saving` swap caused
@@ -122,7 +117,7 @@ open class NoteEditor(
             errorLabel = "Create note failed",
             onError = { e -> _events.trySend(NotesUiEvent.SaveFailed("Create note failed: ${e.message ?: "unknown"}")) },
         ) {
-            repo.createWithContent(userId.value, id, "", "", "")
+            repo.createWithContent(id, "", "", "")
         }
         _editorState.value = EditorState.Editing(
             id = id.value,
@@ -133,19 +128,19 @@ open class NoteEditor(
         return id.value
     }
 
-    fun editTitle(id: String, title: String) {
+    fun editTitle(title: String) {
         val current = _editorState.value as? EditorState.Editing ?: return
         _editorState.value = current.copy(title = title, isDirty = true)
-        scheduleAutosave(id)
+        scheduleAutosave()
     }
 
-    fun editBody(id: String, html: String) {
+    fun editBody(html: String) {
         val current = _editorState.value as? EditorState.Editing ?: return
         _editorState.value = current.copy(html = html, isDirty = true)
-        scheduleAutosave(id)
+        scheduleAutosave()
     }
 
-    /** Immediate save — cancels pending autosave. Errors route through events. */
+    /** Immediate save — cancels pending autosave and persists immediately. Errors route through events. */
     fun saveNow() {
         val current = _editorState.value as? EditorState.Editing ?: return
         autosaveJob?.cancel()
@@ -154,10 +149,10 @@ open class NoteEditor(
         }
     }
 
-    private fun scheduleAutosave(id: String) {
+    private fun scheduleAutosave() {
         autosaveJob?.cancel()
         autosaveJob = scope.launch(Dispatchers.Unconfined) {
-            autosaveScheduler.awaitTick()
+            delay(AUTOSAVE_DEBOUNCE_MS)
             val current = _editorState.value as? EditorState.Editing ?: return@launch
             persist(html = current.html, title = current.title, id = current.id, navigateBack = false)
         }
@@ -207,7 +202,7 @@ open class NoteEditor(
 
     fun improveNote() {
         val tool = improveNote ?: return
-        scope.launch(Dispatchers.Unconfined) {
+        scope.launch(Dispatchers.IO) {
             val current = _editorState.value as? EditorState.Editing ?: return@launch
             tool(current.title, current.html)
                 .onSuccess { result ->
@@ -228,18 +223,23 @@ open class NoteEditor(
      * Searches notes for the internal link picker.
      * Called by NoteEditorScreen via a suspend lambda on InternalLinkPickerSheet.
      */
-    suspend fun searchNotesForLink(query: String): List<LinkResult> = linkRepo.searchNotes(userId.value, query)
+    suspend fun searchNotesForLink(query: String): List<LinkResult> = linkRepo.searchNotes(query)
         .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
 
     /**
      * Searches tasks for the internal link picker.
      * Called by NoteEditorScreen via a suspend lambda on InternalLinkPickerSheet.
      */
-    suspend fun searchTasksForLink(query: String): List<LinkResult> = linkRepo.searchTasks(userId.value, query)
+    suspend fun searchTasksForLink(query: String): List<LinkResult> = linkRepo.searchTasks(query)
         .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
 
     fun closeEditor() {
         autosaveJob?.cancel()
         _editorState.value = EditorState.Empty
+    }
+
+    companion object {
+        /** 500мс — пауза между словами, не внутри слова. */
+         val AUTOSAVE_DEBOUNCE_MS = 500L.milliseconds
     }
 }

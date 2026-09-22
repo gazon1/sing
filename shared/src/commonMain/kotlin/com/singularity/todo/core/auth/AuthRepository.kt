@@ -1,15 +1,13 @@
 package com.singularity.todo.core.auth
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.ids.UserId
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlin.coroutines.CoroutineContext
 
 /**
  * Repository interface for authentication.
@@ -31,10 +29,8 @@ interface AuthRepository {
 class SupabaseAuthRepository(
     private val log: Logger,
     private val sessionStore: SessionStore,
-    sessionCoroutineContext: CoroutineContext,
+    private val scope: AutoCloseableCoroutineScope,
 ) : AuthRepository {
-
-    private val sessionScope = CoroutineScope(sessionCoroutineContext + SupervisorJob())
 
     private val _currentSession = MutableStateFlow<Session>(Session.Anonymous(UserId.anonymous))
     override val currentSession: StateFlow<Session> = _currentSession.asStateFlow()
@@ -43,7 +39,7 @@ class SupabaseAuthRepository(
     override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     init {
-        sessionScope.launch {
+        scope.launch {
             val deviceId = sessionStore.getOrInitDeviceId()
             _currentSession.value = Session.Anonymous(UserId.fromString(deviceId))
         }

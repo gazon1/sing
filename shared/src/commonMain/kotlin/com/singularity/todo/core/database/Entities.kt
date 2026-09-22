@@ -200,6 +200,7 @@ data class TaskReminderEntity(
     @ColumnInfo("recurring_pattern") val recurringPattern: String?, // null or cron expr
     /** SavedAgendaViewId — when a reminder is set from within a saved agenda view, this tracks which view it belongs to, enabling deeplink back to that view when the notification is tapped. */
     @ColumnInfo("view_id") val viewId: String?, // null for reminders not tied to a saved view
+    @ColumnInfo("last_fired_at") val lastFiredAt: Long? = null, // epoch millis of last fire; guards against re-firing recurring reminders too soon
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
 )

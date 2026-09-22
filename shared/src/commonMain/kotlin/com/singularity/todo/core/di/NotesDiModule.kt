@@ -35,9 +35,7 @@ fun notesModule(): org.koin.core.module.Module = module {
         NoteEditor(
             repo = get(),
             linkRepo = get(),
-            currentUser = get(),
             idGen = get(),
-            autosaveScheduler = get(),
             improveNote = getOrNull(),
         )
     }
@@ -46,7 +44,6 @@ fun notesModule(): org.koin.core.module.Module = module {
         NotePreview(
             repo = get(),
             linkRepo = get(),
-            currentUser = get(),
         )
     }
 }

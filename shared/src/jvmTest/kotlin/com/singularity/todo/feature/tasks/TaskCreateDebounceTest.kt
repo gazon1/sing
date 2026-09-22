@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.clock.FakeAutosaveScheduler
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
@@ -21,6 +20,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Unit tests for [TaskCreateViewModel] debounce + draft persistence behavior.
@@ -40,7 +40,6 @@ class TaskCreateDebounceTest {
     private val testUserId = UserId("test-user")
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeDraftStore = FakeDraftStore()
-    private val fakeScheduler = FakeAutosaveScheduler().apply { setDelayMs(50L) }
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(initialUserId = testUserId)
 
     private fun createVm(scope: CoroutineScope): TaskCreateViewModel {
@@ -49,7 +48,6 @@ class TaskCreateDebounceTest {
             currentUser = fakeCurrentUser,
             logger = Logger.withTag("TaskCreate"),
             draftStore = fakeDraftStore,
-            autosaveScheduler = fakeScheduler,
         )
         return TaskCreateViewModel(deps = deps, initialDueDate = null, scope = testScope(scope))
     }
@@ -60,19 +58,19 @@ class TaskCreateDebounceTest {
     fun `draft saved after debounce delay elapses`() = runTest {
         val vm = createVm(backgroundScope)
         // Wait for init coroutines to settle (restore + debounce collector)
-        delay(10)
+        delay(10.milliseconds)
 
         // Type a title — triggers a new debounce window
         vm.onIntent(TaskCreateIntent.TitleChanged("Buy groceries"))
 
-        // Draft NOT saved yet — debounce hasn't fired (only 10ms elapsed, delay = 50ms)
-        assertNull(fakeDraftStore.load<TaskDraft>(draftKey, TaskDraft.serializer()))
+        // Draft NOT saved yet — debounce hasn't fired (only 10ms elapsed, delay = 500ms)
+        assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
 
-        // Wait past the 50ms debounce delay
-        delay(60)
+        // Wait past the 500ms debounce delay
+        delay(600.milliseconds)
 
         // Draft SHOULD be saved now
-        val saved = fakeDraftStore.load<TaskDraft>(draftKey, TaskDraft.serializer())
+        val saved = fakeDraftStore.load(draftKey, TaskDraft.serializer())
         assertNotNull(saved)
         assertEquals("Buy groceries", saved.title)
     }
@@ -80,13 +78,13 @@ class TaskCreateDebounceTest {
     @Test
     fun `draft NOT saved before debounce delay elapses`() = runTest {
         val vm = createVm(backgroundScope)
-        delay(10)
+        delay(10.milliseconds)
 
         vm.onIntent(TaskCreateIntent.TitleChanged("Quick note"))
-        // Wait only 20ms — less than the 50ms debounce delay
-        delay(20)
+        // Wait only 200ms — less than the 500ms debounce delay
+        delay(200.milliseconds)
 
-        val saved = fakeDraftStore.load<TaskDraft>(draftKey, TaskDraft.serializer())
+        val saved = fakeDraftStore.load(draftKey, TaskDraft.serializer())
         // debounce hasn't fired yet — still null
         assertNull(saved)
     }
@@ -94,18 +92,18 @@ class TaskCreateDebounceTest {
     @Test
     fun `draft cleared after successful save`() = runTest {
         val vm = createVm(backgroundScope)
-        delay(10)
+        delay(10.milliseconds)
 
         vm.onIntent(TaskCreateIntent.TitleChanged("Task to create"))
         // Wait for debounce to fire and draft to be saved
-        delay(100)
-        assertNotNull(fakeDraftStore.load<TaskDraft>(draftKey, TaskDraft.serializer()))
+        delay(600.milliseconds)
+        assertNotNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
 
         // Trigger save (title is non-blank → createTask is called)
         vm.onIntent(TaskCreateIntent.SaveClicked)
         // Wait for save + clear to complete
-        delay(50)
+        delay(200.milliseconds)
 
-        assertNull(fakeDraftStore.load<TaskDraft>(draftKey, TaskDraft.serializer()))
+        assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
     }
 }

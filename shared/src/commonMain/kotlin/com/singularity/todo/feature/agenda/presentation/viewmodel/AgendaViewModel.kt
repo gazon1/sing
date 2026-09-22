@@ -65,7 +65,7 @@ class AgendaViewModel(
      * Reactive: re-evaluates when the date changes. User switch is handled automatically
      * by [TaskRepository.observeByFilter].
      */
-    val state: StateFlow<AgendaUiState> = deps.clock.todayFlow()
+    val state: StateFlow<AgendaUiState> = todayFlow()
         .flatMapLatest { today ->
             deps.taskRepo.observeByFilter(TaskFilter.All)
                 .map { tasks ->

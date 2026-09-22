@@ -16,9 +16,6 @@ import kotlinx.coroutines.flow.map
  */
 interface TagsRepository : GenericUserScopedRepository<Tag, TagId> {
 
-    // ─── Explicit userId overloads (kept for explicit-userId callers) ───────────
-    fun watchAll(userId: String): Flow<List<Tag>>
-
     // ─── Domain methods ─────────────────────────────────────────────────────────
 
     /** Single tag observation by id (no user-filter, uses ambient current user). */
@@ -66,12 +63,6 @@ class TagsRepositoryImpl(
         val ts = clock.now().toEpochMilliseconds()
         val rows = tagDao.softDeleteForUser(id.value, ts, uid.value)
         require(rows > 0) { "Tag $id not found or not owned by user" }
-    }
-
-    // ─── Explicit userId overloads ──────────────────────────────────────────
-
-    override fun watchAll(userId: String): Flow<List<Tag>> = tagDao.watchAll(userId).map { list ->
-        list.map { it.toTag() }
     }
 
     override fun observeTag(id: TagId): Flow<Tag?> = tagDao.watchById(id.value).map { it?.toTag() }

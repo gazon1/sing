@@ -4,21 +4,19 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atTime
-import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
-import kotlin.time.Instant as KotlinInstant
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 expect object Clock {
-    fun now(): kotlin.time.Instant
+    fun now(): Instant
 }
 
-expect fun todayInSystemZone(): kotlinx.datetime.LocalDate
+expect fun todayInSystemZone(): LocalDate
 
 expect val isDesktop: Boolean
 
@@ -31,14 +29,14 @@ expect val isDesktop: Boolean
  *
  * @param zone The time zone used to compute midnight. Defaults to system default.
  */
-fun Clock.todayFlow(zone: TimeZone = TimeZone.currentSystemDefault()): Flow<LocalDate> =
+fun todayFlow(zone: TimeZone = TimeZone.currentSystemDefault()): Flow<LocalDate> =
     flow {
         var current = todayAt(zone)
         while (true) {
             emit(current)
             val delayMs = delayUntilNextMidnight(current, zone)
             if (delayMs > 0) {
-                delay(delayMs)
+                delay(delayMs.milliseconds)
             }
             current = todayAt(zone)
         }

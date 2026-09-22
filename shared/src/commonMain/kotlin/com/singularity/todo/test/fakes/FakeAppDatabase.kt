@@ -622,7 +622,7 @@ private class FakeReminderDao(
     ): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
         store.map { it.values.filter { r -> r.taskId == taskId && r.userId == userId }.sortedBy { it.fireAt } }
 
-    override fun watchDueBefore(
+    override fun getDueBefore(
         now: Long,
         userId: String,
     ): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
@@ -647,6 +647,14 @@ private class FakeReminderDao(
 
     override fun watchByIdForUser(id: String, userId: String): Flow<com.singularity.todo.core.database.TaskReminderEntity?> =
         store.map { it[userId to id] }
+
+    override suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long) {
+        store.update { current ->
+            val key = userId to id
+            val existing = current[key] ?: return@update current
+            current + (key to existing.copy(lastFiredAt = lastFiredAt, updatedAt = updatedAt))
+        }
+    }
 }
 
 // ─── ChecklistDao ───────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.settings
 
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.settings.SettingsIntent
@@ -66,7 +67,7 @@ sealed interface SettingsUiState {
         val greetingMorningEnd: Int = 12,
         val greetingAfternoonEnd: Int = 18,
         // Account
-        val userId: String = "anonymous",
+        val userId: String = UserId.anonymous.value,
         // Agenda
         val defaultSavedAgendaViewId: SavedAgendaViewId? = null,
         val savedAgendaViews: List<SavedAgendaView> = emptyList(),

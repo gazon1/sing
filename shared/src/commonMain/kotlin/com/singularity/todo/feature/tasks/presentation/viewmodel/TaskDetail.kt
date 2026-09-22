@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -290,7 +289,7 @@ class TaskDetailViewModel(
             is TaskDetailIntent.Domain.SetReminder -> {
                 scope.launch {
                     if (intent.offset == com.singularity.todo.core.reminders.ReminderOffset.AT_DUE) {
-                        deps.reminderRepo.deleteByTask(current.id, userId)
+                        deps.reminderRepo.deleteByTask(current.id)
                             .onFailure { emitError("Failed to set reminder") }
                         return@launch
                     }
@@ -312,7 +311,7 @@ class TaskDetailViewModel(
 
             TaskDetailIntent.Domain.DeleteReminder -> {
                 scope.launch {
-                    deps.reminderRepo.deleteByTask(current.id, userId)
+                    deps.reminderRepo.deleteByTask(current.id)
                         .onFailure { emitError("Failed to remove reminder") }
                 }
             }

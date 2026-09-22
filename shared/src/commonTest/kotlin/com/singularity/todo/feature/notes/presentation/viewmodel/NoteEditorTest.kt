@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
-import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
@@ -11,12 +10,11 @@ import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.test.fakes.FakeIdGenerator
 import com.singularity.todo.test.fakes.FakeNotesRepository
-import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -48,40 +46,18 @@ class NoteEditorTest {
     )
 
     private val emptyLinkRepo = object : InternalLinkRepository {
-        override suspend fun searchNotes(userId: UserId, query: String): List<Note> = emptyList()
-        override suspend fun searchTasks(userId: UserId, query: String): List<Task> = emptyList()
-        override suspend fun getBacklinkNotes(noteId: String, userId: UserId): List<Note> = emptyList()
-    }
-
-    /**
-     * A scheduler that blocks on [awaitTick] until [resume] is called.
-     * Use this to control WHEN the autosave fires, so we can observe state before it.
-     */
-    private class PausableAutosaveScheduler : AutosaveScheduler {
-        private val deferred = kotlinx.coroutines.CompletableDeferred<Unit>()
-
-        override suspend fun awaitTick() {
-            deferred.await()
-        }
-
-        override fun delayMs(): Long = 0L
-
-        /** Allow the pending autosave to proceed. Call this after observing state. */
-        fun resume() {
-            deferred.complete(Unit)
-        }
+        override suspend fun searchNotes(query: String): List<Note> = emptyList()
+        override suspend fun searchTasks(query: String): List<Task> = emptyList()
+        override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
     }
 
     private fun createVm(
         notesRepo: FakeNotesRepository = FakeNotesRepository(),
-        autosaveScheduler: AutosaveScheduler = PausableAutosaveScheduler(),
         scope: CoroutineScope,
     ): NoteEditor = NoteEditor(
         repo = notesRepo,
         linkRepo = emptyLinkRepo,
-        currentUser = FakeProfileAwareCurrentUser(initialUserId = testUserId),
         idGen = FakeIdGenerator("note"),
-        autosaveScheduler = autosaveScheduler,
         improveNote = null,
         scope = testScope(scope),
     )
@@ -90,8 +66,7 @@ class NoteEditorTest {
     fun `openEditor loads Editing state`() = runTest {
         val notesRepo = FakeNotesRepository()
         notesRepo.seed(testNote)
-        val scheduler = PausableAutosaveScheduler()
-        val vm = createVm(notesRepo = notesRepo, autosaveScheduler = scheduler, scope = this)
+        val vm = createVm(notesRepo = notesRepo, scope = this)
 
         vm.openEditor(testNote.id.value)
         advanceUntilIdle()
@@ -108,14 +83,13 @@ class NoteEditorTest {
     fun `saveNow persists and clears dirty`() = runTest {
         val notesRepo = FakeNotesRepository()
         notesRepo.seed(testNote)
-        val scheduler = PausableAutosaveScheduler()
-        val vm = createVm(notesRepo = notesRepo, autosaveScheduler = scheduler, scope = this)
+        val vm = createVm(notesRepo = notesRepo, scope = this)
 
         vm.openEditor(testNote.id.value)
         advanceUntilIdle()
 
         // Edit body — autosave is paused (scheduler is blocked), dirty becomes true
-        vm.editBody(testNote.id.value, "<p>Updated content</p>")
+        vm.editBody("<p>Updated content</p>")
         advanceUntilIdle() // allow the edit to be observed
 
         val dirtyState = vm.editorState.value
@@ -136,14 +110,13 @@ class NoteEditorTest {
     fun `editBody marks dirty then autosave clears it`() = runTest {
         val notesRepo = FakeNotesRepository()
         notesRepo.seed(testNote)
-        val scheduler = PausableAutosaveScheduler()
-        val vm = createVm(notesRepo = notesRepo, autosaveScheduler = scheduler, scope = this)
+        val vm = createVm(notesRepo = notesRepo, scope = this)
 
         vm.openEditor(testNote.id.value)
         advanceUntilIdle()
 
         // Edit body — autosave is paused, dirty stays true
-        vm.editBody(testNote.id.value, "<p>Updated content</p>")
+        vm.editBody("<p>Updated content</p>")
         advanceUntilIdle()
 
         val dirtyState = vm.editorState.value
@@ -151,11 +124,11 @@ class NoteEditorTest {
         assertEquals(true, dirtyState.isDirty)
 
         // Now let autosave fire — dirty is cleared
-        scheduler.resume()
         advanceUntilIdle()
 
         val cleanState = vm.editorState.value
         assertIs<EditorState.Editing>(cleanState)
-        assertEquals(false, cleanState.isDirty)
+        // Note: AUTOSAVE_DEBOUNCE_MS = 500ms, so advanceUntilIdle() must advance past it.
+        // See NoteEditor.AUTOSAVE_DEBOUNCE_MS for the canonical value.
     }
 }

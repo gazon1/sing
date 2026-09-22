@@ -19,26 +19,6 @@ import kotlin.time.Instant
  * next to their domain types to avoid core → feature back-references.
  */
 
-/** Hex → Compose [Color]. [0L] means "no color" / unspecified. */
-internal fun hexColor(value: Long): Color = if (value == 0L) Color.Unspecified else Color(value)
-
-/** Priority badge color by ordinal index. `4 == None` returns unspecified. */
-internal fun priorityColorByIndex(index: Int): Color = when (index) {
-    0 -> Color(0xFF4CAF50)
-
-    // Low    - green
-    1 -> Color(0xFFFF9800)
-
-    // Medium - orange
-    2 -> Color(0xFFF44336)
-
-    // High   - red
-    3 -> Color(0xFFE91E63)
-
-    // Urgent - pink
-    else -> Color.Unspecified
-}
-
 /**
  * Visual state for the due-date chip on the task detail screen.
  * Used to determine background / text colour (overdue = error, today = warning, future = neutral).
@@ -107,34 +87,6 @@ internal fun formatDueChip(date: LocalDate?, time: String?, today: LocalDate): D
     }
 
     return DueChipModel(text = fullText, state = state)
-}
-
-/**
- * Formats a reminder's fire-at instant into a human-readable label.
- *
- * - `"At 9:00 AM"` — when [offsetMinutes] is 0 (AT_DUE)
- * - `"15 min before due"` — when [offsetMinutes] is non-zero and no absolute time
- * - `"Tomorrow at 9:00 AM"` / `"Today at 9:00 AM"` / `"Sep 8 at 9:00 AM"` — absolute datetime
- *
- * [fireAt] is epoch millis. [zone] is the user's local timezone.
- */
-internal fun formatReminderTime(fireAt: Long, offsetMinutes: Int, zone: kotlinx.datetime.TimeZone): String {
-    val instant = Instant.fromEpochMilliseconds(fireAt)
-    val local = instant.toLocalDateTime(zone)
-    val timeStr = "${local.hour.toString().padStart(2, '0')}:${local.minute.toString().padStart(2, '0')}"
-
-    return if (offsetMinutes == 0) {
-        // AT_DUE — just show the absolute time
-        "${local.day} ${shortMonth(local.month)} at $timeStr"
-    } else {
-        // Relative offset — show how many minutes/hours/days before due
-        val mins = kotlin.math.abs(offsetMinutes)
-        when {
-            mins < 60 -> "$mins min before due"
-            mins < 1440 -> "${mins / 60} hour${if (mins >= 120) "s" else ""} before due"
-            else -> "${mins / 1440} day${if (mins >= 2880) "s" else ""} before due"
-        }
-    }
 }
 
 private fun shortMonth(month: kotlinx.datetime.Month): String = when (month) {

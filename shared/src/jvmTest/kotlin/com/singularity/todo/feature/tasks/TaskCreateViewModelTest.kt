@@ -1,11 +1,12 @@
 package com.singularity.todo.feature.tasks
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
-import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
@@ -13,9 +14,6 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewM
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import com.singularity.todo.core.draft.FakeDraftStore
-import com.singularity.todo.core.clock.FakeAutosaveScheduler
-import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -25,10 +23,8 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Tests for [TaskCreateViewModel].
@@ -47,7 +43,6 @@ class TaskCreateViewModelTest {
     private val testUserId = UserId("test-user")
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeDraftStore = FakeDraftStore()
-    private val fakeAutosaveScheduler = FakeAutosaveScheduler()
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(
         FakeAuthRepository(
             initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
@@ -60,7 +55,6 @@ class TaskCreateViewModelTest {
             currentUser = fakeCurrentUser,
             logger = Logger.withTag("TaskCreateTest"),
             draftStore = fakeDraftStore,
-            autosaveScheduler = fakeAutosaveScheduler,
         )
         return TaskCreateViewModel(deps = deps, initialDueDate = null, scope = testScope(scope))
     }
@@ -70,7 +64,7 @@ class TaskCreateViewModelTest {
     // ─── Draft restore (seed-if-empty) ────────────────────────────────────────
 
     @Test
-    fun `draft restored from store on init — subsequent save uses restored title`() = runTest {
+    fun `draft restored from store on init subsequent save uses restored title`() = runTest {
         // Pre-seed a draft
         fakeDraftStore.save(draftKey, TaskDraft(title = "Restored task"), TaskDraft.serializer())
         val vm = createVm(backgroundScope)
@@ -78,7 +72,7 @@ class TaskCreateViewModelTest {
         // Draft was restored (seed-if-empty pattern: restore only if current is initial).
         // Verify by saving without typing — should create task with restored title.
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        delay(100)
+        delay(100.milliseconds)
         assertEquals(1, fakeTaskRepo.tasks.value.size)
         assertEquals("Restored task", fakeTaskRepo.tasks.value.values.first().title)
     }
@@ -105,7 +99,7 @@ class TaskCreateViewModelTest {
         advanceUntilIdle()
         vm.onIntent(TaskCreateIntent.SaveClicked)
         // Wait for save coroutine to complete
-        delay(100)
+        delay(100.milliseconds)
         assertEquals(1, fakeTaskRepo.tasks.value.size)
         assertEquals("New task", fakeTaskRepo.tasks.value.values.first().title)
     }
@@ -118,7 +112,7 @@ class TaskCreateViewModelTest {
         vm.onIntent(TaskCreateIntent.DescriptionChanged("Some description"))
         advanceUntilIdle()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        delay(100)
+        delay(100.milliseconds)
         assertEquals(1, fakeTaskRepo.tasks.value.size)
         assertEquals("Some description", fakeTaskRepo.tasks.value.values.first().description)
     }
@@ -131,7 +125,7 @@ class TaskCreateViewModelTest {
         vm.onIntent(TaskCreateIntent.SetPriority(TaskPriority.High))
         advanceUntilIdle()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        delay(100)
+        delay(100.milliseconds)
         assertEquals(TaskPriority.High, fakeTaskRepo.tasks.value.values.first().priority)
     }
 
@@ -144,9 +138,9 @@ class TaskCreateViewModelTest {
         vm.onIntent(TaskCreateIntent.TitleChanged("To be cleared"))
         advanceUntilIdle()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        delay(100)
+        delay(100.milliseconds)
         // Draft should be cleared from store
-        assertNull(fakeDraftStore.load<TaskDraft>(draftKey, TaskDraft.serializer()))
+        assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
     }
 
     // ─── DueDate ────────────────────────────────────────────────────────────
@@ -160,7 +154,7 @@ class TaskCreateViewModelTest {
         vm.onIntent(TaskCreateIntent.SetDueDate(date))
         advanceUntilIdle()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        delay(100)
+        delay(100.milliseconds)
         assertEquals(date, fakeTaskRepo.tasks.value.values.first().dueDate)
     }
 
@@ -175,7 +169,7 @@ class TaskCreateViewModelTest {
         vm.onIntent(TaskCreateIntent.DueDateCleared)
         advanceUntilIdle()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        delay(100)
+        delay(100.milliseconds)
         assertNull(fakeTaskRepo.tasks.value.values.first().dueDate)
     }
 }

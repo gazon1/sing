@@ -1,8 +1,6 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.clock.AutosaveScheduler
-import com.singularity.todo.core.clock.DelayAutosaveScheduler
 import com.singularity.todo.feature.archive.ArchiveViewModel
 import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
 import com.singularity.todo.feature.checklist.ChecklistEditorViewModel
@@ -66,17 +64,13 @@ fun tasksModule(): org.koin.core.module.Module = module {
     // - androidMain: AndroidPomodoroTimer(get(), get(), get())
     // - jvmMain: JvmPomodoroTimer()
 
-    // ─── Autosave ───────────────────────────────────────────────────────
-
-    single<AutosaveScheduler> { DelayAutosaveScheduler() }
-
     // ─── Ports ──────────────────────────────────────────────────────────
 
-    single<AttachmentSaver> { AttachmentSaverImpl(get(), get()) }
+    single<AttachmentSaver> { AttachmentSaverImpl(get()) }
 
     // ─── Reminders ──────────────────────────────────────────────────────
 
-    factory { ReminderScheduler(co.touchlab.kermit.Logger.withTag("ReminderScheduler"), get(), get()) }
+    factory { ReminderScheduler(Logger.withTag("ReminderScheduler"), get(), get(), get()) }
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
@@ -107,7 +101,6 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 currentUser = get(),
                 logger = Logger.withTag("TaskCreate"),
                 draftStore = get(),
-                autosaveScheduler = get(),
             ),
             initialDueDate = initialDueDate,
         )

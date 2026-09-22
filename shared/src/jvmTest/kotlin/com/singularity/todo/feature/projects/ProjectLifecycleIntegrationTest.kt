@@ -5,6 +5,7 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,7 +23,7 @@ import kotlin.test.assertTrue
 class ProjectLifecycleIntegrationTest {
 
     private val testUserId = UserId("test-user")
-    private val fakeProjectRepo = FakeProjectsRepository()
+    private val fakeProjectRepo = FakeProjectsRepository(FakeProfileAwareCurrentUser(initialUserId = testUserId))
     private val fakeTaskRepo = FakeTaskRepository()
 
     private fun createDeleteProjectUseCase(): DeleteProjectUseCase = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo)
@@ -44,9 +45,9 @@ class ProjectLifecycleIntegrationTest {
         useCase(ProjectId.fromString("p1"))
         advanceUntilIdle()
 
-        // Soft-delete sets isDeleted = true; verify via watchProjects flow
-        val projectList = fakeProjectRepo.watchProjects(testUserId).first()
-        assertTrue(projectList.isEmpty(), "Deleted project should be filtered from watchProjects")
+        // Soft-delete sets isDeleted = true; verify via observeAll flow
+        val projectList = fakeProjectRepo.observeAll().first()
+        assertTrue(projectList.isEmpty(), "Deleted project should be filtered from observeAll")
         assertTrue(fakeProjectRepo.observeProject(ProjectId.fromString("p1")).first()?.isDeleted == true)
     }
 

@@ -2,6 +2,7 @@
 title: "Tier 1 interface cleanup — remove single-implementation contracts"
 date: 2026-09-22
 tags: []
+status: accepted
 ---
 
 ## Context

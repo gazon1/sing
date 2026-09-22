@@ -1,6 +1,5 @@
 package com.singularity.todo.core.observability
 
-import kotlinx.coroutines.flow.Flow
 import kotlin.time.Instant
 
 /**

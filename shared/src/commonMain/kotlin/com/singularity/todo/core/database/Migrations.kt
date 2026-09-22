@@ -3,20 +3,6 @@ package com.singularity.todo.core.database
 import androidx.room3.migration.AutoMigrationSpec
 
 /**
- * Migration from v1 to v2 — adds sync columns to all entities.
- */
-object Migration1To2 : AutoMigrationSpec {
-    // Room will auto-detect schema changes for v2
-}
-
-/**
- * Migration from v2 to v3 — adds attachments table.
- */
-object Migration2To3 : AutoMigrationSpec {
-    // Room will auto-detect schema changes for v3
-}
-
-/**
  * Migration from v5 to v6 — adds pinned, color, sort_order, word_count, char_count
  * columns to notes. Registered in [AppDatabase] only when leaving dev mode.
  * During development uses [fallbackToDestructiveMigration] so no migration runs.
@@ -94,3 +80,19 @@ class Migration12To13 : AutoMigrationSpec
  * @see com.singularity.todo.docs.decisions.2026-09-18-task-dependencies
  */
 class Migration13To14 : AutoMigrationSpec
+
+/**
+ * Migration from v14 to v15 — adds nullable `last_fired_at` column to `task_reminders`.
+ *
+ * Records the epoch millis of the last successful fire for recurring reminders,
+ * enabling the [ReminderScheduler][com.singularity.todo.feature.reminders.ReminderScheduler]
+ * to skip a recurring reminder if it fired recently (within [MIN_RECURRING_INTERVAL_MS]).
+ *
+ * Null for:
+ * - one-shot reminders that have never fired
+ * - pre-existing rows (added by this migration)
+ *
+ * Adding a nullable column with no default is a safe auto-migration: existing
+ * rows read back with `lastFiredAt == null`.
+ */
+class Migration14To15 : AutoMigrationSpec

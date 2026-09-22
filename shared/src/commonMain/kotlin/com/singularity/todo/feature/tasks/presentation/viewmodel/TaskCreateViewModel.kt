@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.Either
@@ -32,7 +31,6 @@ data class TaskCreateDeps(
     val currentUser: ProfileAwareCurrentUser,
     val logger: Logger,
     val draftStore: DraftStore,
-    val autosaveScheduler: AutosaveScheduler,
 ) {
     companion object {
         const val DRAFT_KEY = "task_create_draft"
@@ -96,7 +94,7 @@ class TaskCreateViewModel(
         // 2. Debounced silent save loop — combine with source StateFlow
         scope.launch {
             _draft.drop(1)
-                .debounce { deps.autosaveScheduler.delayMs() }
+                .debounce { 500L }
                 .collect { draft ->
                     val key = "${deps.currentUser.current.value}:${TaskCreateDeps.DRAFT_KEY}"
                     runCatching {

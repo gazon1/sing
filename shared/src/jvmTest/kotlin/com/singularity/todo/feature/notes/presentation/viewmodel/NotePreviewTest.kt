@@ -8,7 +8,6 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.test.fakes.FakeNotesRepository
-import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -35,9 +34,9 @@ class NotePreviewTest {
     )
 
     private val emptyLinkRepo = object : InternalLinkRepository {
-        override suspend fun searchNotes(userId: UserId, query: String): List<Note> = emptyList()
-        override suspend fun searchTasks(userId: UserId, query: String): List<Task> = emptyList()
-        override suspend fun getBacklinkNotes(noteId: String, userId: UserId): List<Note> = emptyList()
+        override suspend fun searchNotes(query: String): List<Note> = emptyList()
+        override suspend fun searchTasks(query: String): List<Task> = emptyList()
+        override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
     }
 
     private fun createVm(
@@ -46,7 +45,6 @@ class NotePreviewTest {
     ): NotePreview = NotePreview(
         repo = notesRepo,
         linkRepo = emptyLinkRepo,
-        currentUser = FakeProfileAwareCurrentUser(initialUserId = testUserId),
         scope = testScope(scope),
     )
 

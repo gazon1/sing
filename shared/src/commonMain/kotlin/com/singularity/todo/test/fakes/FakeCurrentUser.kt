@@ -25,8 +25,3 @@ fun FakeCurrentUser(
     authRepository: AuthRepository = FakeAuthRepository(),
     scope: CoroutineScope = createBackgroundScope(),
 ): CurrentUser = CurrentUser(authRepository, scope)
-
-/** Variant that starts the session in [SignedOut][Session.SignedOut] for guard tests. */
-fun FakeCurrentUserSignedOut(
-    scope: CoroutineScope = createBackgroundScope(),
-): CurrentUser = CurrentUser(FakeAuthRepository(initialSession = Session.SignedOut), scope)

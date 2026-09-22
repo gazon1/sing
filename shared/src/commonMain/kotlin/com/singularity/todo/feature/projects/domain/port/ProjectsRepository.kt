@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.projects.domain.port
 
 import com.singularity.todo.core.database.ProjectWithCountRow
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.SoftDeletable
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -15,11 +14,6 @@ interface ProjectsRepository :
     GenericUserScopedRepository<Project, ProjectId>,
     SoftDeletable<Project, ProjectId> {
 
-    // ─── Explicit userId overloads (kept for callers that pass userId explicitly) ──
-
-    /** All projects for a specific [userId]. */
-    fun watchProjects(userId: UserId): Flow<List<Project>>
-
     /** Single project by [id] for the current user. */
     fun observeProject(id: ProjectId): Flow<Project?>
 
@@ -30,9 +24,6 @@ interface ProjectsRepository :
 
     /** Children of a parent project, scoped to current user. */
     fun observeChildrenOf(parentId: ProjectId): Flow<List<Project>>
-
-    /** Projects with task counts (total + completed) for a specific [userId]. */
-    fun watchProjectsWithCounts(userId: UserId): Flow<List<ProjectWithCountRow>>
 
     /** Projects under a specific parent, scoped to current user. */
     fun observeByParent(parentId: ProjectId): Flow<List<Project>>

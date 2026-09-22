@@ -21,7 +21,7 @@ class ReminderSchedulerTest {
         val fakePort = FakeNotificationPort()
         val currentUser = FakeProfileAwareCurrentUser(initialUserId = userId, scope = backgroundScope)
         val repo = FakeReminderRepository(currentUser)
-        val scheduler = ReminderScheduler(testLog, fakePort, repo, userId)
+        val scheduler = ReminderScheduler(testLog, fakePort, repo, currentUser)
 
         val reminder = Reminder(
             id = ReminderId("r1"),
@@ -45,7 +45,7 @@ class ReminderSchedulerTest {
         val fakePort = FakeNotificationPort()
         val currentUser = FakeProfileAwareCurrentUser(initialUserId = userId, scope = backgroundScope)
         val repo = FakeReminderRepository(currentUser)
-        val scheduler = ReminderScheduler(testLog, fakePort, repo, userId)
+        val scheduler = ReminderScheduler(testLog, fakePort, repo, currentUser)
 
         val reminder = Reminder(
             id = ReminderId("r2"),
@@ -60,7 +60,7 @@ class ReminderSchedulerTest {
 
         scheduler.poll()
 
-        assertTrue(repo.getById(ReminderId("r2"), userId).getOrNull() == null)
+        assertTrue(repo.get(ReminderId("r2")) == null)
     }
 
     @Test
@@ -68,7 +68,7 @@ class ReminderSchedulerTest {
         val fakePort = FakeNotificationPort()
         val currentUser = FakeProfileAwareCurrentUser(initialUserId = userId, scope = backgroundScope)
         val repo = FakeReminderRepository(currentUser)
-        val scheduler = ReminderScheduler(testLog, fakePort, repo, userId)
+        val scheduler = ReminderScheduler(testLog, fakePort, repo, currentUser)
 
         val reminder = Reminder(
             id = ReminderId("r3"),
@@ -83,7 +83,7 @@ class ReminderSchedulerTest {
 
         scheduler.poll()
 
-        assertTrue(repo.getById(ReminderId("r3"), userId).getOrNull() != null)
+        assertTrue(repo.get(ReminderId("r3")) != null)
     }
 
     @Test
@@ -91,21 +91,21 @@ class ReminderSchedulerTest {
         val fakePort = FakeNotificationPort()
         val currentUser = FakeProfileAwareCurrentUser(initialUserId = userId, scope = backgroundScope)
         val repo = FakeReminderRepository(currentUser)
-        val scheduler = ReminderScheduler(testLog, fakePort, repo, userId)
+        val scheduler = ReminderScheduler(testLog, fakePort, repo, currentUser)
 
         val futureReminder = Reminder(
             id = ReminderId("r4"),
             taskId = TaskId("t1"),
             userId = userId,
             type = ReminderType.Gentle,
-            offsetMinutes = 30,
-            fireAt = System.currentTimeMillis() + 1_000_000,
+            offsetMinutes = 5,
+            fireAt = System.currentTimeMillis() + 100_000,
             recurringPattern = null,
         )
         repo.upsert(futureReminder)
 
         scheduler.poll()
 
-        assertEquals(0, fakePort.scheduled.size)
+        assertTrue(fakePort.scheduled.none { it.key == "reminder:r4" })
     }
 }

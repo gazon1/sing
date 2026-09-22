@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.llm.SettingsReader
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
@@ -211,7 +212,7 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
 
     // ── Account ───────────────────────────────────────────────────────────────
 
-    override val userId: Flow<String> = dataStore.data.map { it[USER_ID] ?: "anonymous" }
+    override val userId: Flow<String> = dataStore.data.map { it[USER_ID] ?: UserId.anonymous.value }
 
     // ── Agenda ────────────────────────────────────────────────────────────────
 

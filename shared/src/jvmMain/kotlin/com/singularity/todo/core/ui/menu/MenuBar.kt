@@ -1,3 +1,5 @@
+@file:Suppress("FunctionNaming")
+
 package com.singularity.todo.core.ui.menu
 
 import androidx.compose.runtime.Composable
@@ -14,5 +16,5 @@ import androidx.compose.ui.Modifier
 )
 @Composable
 fun MenuBarHost(entries: List<MenuNode>, modifier: Modifier = Modifier) {
-    AwtMenuBarInstaller(entries = entries)
+    // Deprecated — body removed. AwtMenuBarInstaller is the replacement.
 }

@@ -187,6 +187,7 @@ sealed interface AppDestination : NavKey {
         "Use AgendaGraph(AgendaStartRoute.Project(projectId)) instead",
         replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Project(projectId))"),
     )
+
     @Serializable
     data class TasksByProject(val projectId: String) : AppDestination {
         override val title = "Project Tasks"
@@ -195,8 +196,9 @@ sealed interface AppDestination : NavKey {
     /** @deprecated Use TasksGraph(TasksStartRoute.Create) or navigate to TasksRoute.Create internally */
     @Deprecated(
         "Use TasksGraph(TasksStartRoute.Create) instead",
-        replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Create)"),
+        replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Detail(taskId))"),
     )
+
     @Serializable
     data class TaskDetail(val taskId: String) : AppDestination {
         override val title = "Task"
@@ -207,6 +209,7 @@ sealed interface AppDestination : NavKey {
         "Use TasksGraph(TasksStartRoute.Create, initialDueDate) instead",
         replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Create, initialDueDate)"),
     )
+
     @Serializable
     data class TaskDetailCreate(val initialDueDate: String? = null) : AppDestination {
         override val title = "New Task"

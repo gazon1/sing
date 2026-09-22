@@ -3,9 +3,9 @@ package com.singularity.todo.core.sync
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.serialization.StableJson
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,9 +36,8 @@ class SyncEngine(
     private val outboxDao: SyncOutboxDao,
     private val hlcFactory: HlcFactory,
     private val idGenerator: IdGenerator,
-    syncCoroutineScope: CoroutineScope,
-) {
-    private val scope = syncCoroutineScope
+    private val scope: AutoCloseableCoroutineScope,
+) : AutoCloseable by scope {
     private val json = StableJson
 
     private val _status = MutableStateFlow<SyncEngineStatus>(SyncEngineStatus.Idle)

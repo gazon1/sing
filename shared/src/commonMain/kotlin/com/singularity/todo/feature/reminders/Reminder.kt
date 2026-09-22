@@ -27,6 +27,8 @@ data class Reminder(
     val recurringPattern: String?,
     /** SavedAgendaViewId — when set from a saved agenda view, enables deeplink back on notification tap. */
     val viewId: SavedAgendaViewId? = null,
+    /** Epoch millis of the last successful fire; guards against re-firing recurring reminders too soon. */
+    val lastFiredAt: Long? = null,
 )
 
 /** Type-safe ID wrapper. */
@@ -51,6 +53,7 @@ fun TaskReminderEntity.toReminder() = Reminder(
     fireAt = fireAt,
     recurringPattern = recurringPattern,
     viewId = viewId?.let { SavedAgendaViewId.fromString(it) },
+    lastFiredAt = lastFiredAt,
 )
 
 fun Reminder.toEntity(now: Long) = TaskReminderEntity(

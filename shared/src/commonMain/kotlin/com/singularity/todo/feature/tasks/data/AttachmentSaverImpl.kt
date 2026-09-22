@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks.data
 
 import com.singularity.todo.core.attachments.AttachmentRepository
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
@@ -11,13 +10,11 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  */
 class AttachmentSaverImpl(
     private val repository: AttachmentRepository,
-    private val currentUser: ProfileAwareCurrentUser,
 ) : AttachmentSaver {
 
     override suspend fun save(taskId: TaskId, path: String, mimeType: String?): Result<Unit> =
         repository.saveFileAttachment(
             taskId = taskId,
-            userId = currentUser.current,
             sourcePath = path,
             mimeType = mimeType,
         ).map { }

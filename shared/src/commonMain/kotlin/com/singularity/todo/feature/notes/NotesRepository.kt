@@ -42,7 +42,6 @@ interface NotesRepository :
 
     /** Creates a note with content (autosave path). Returns the saved note. */
     suspend fun createWithContent(
-        userId: UserId,
         id: NoteId,
         title: String,
         bodyMarkdown: String,
@@ -50,7 +49,7 @@ interface NotesRepository :
     ): Result<NoteId>
 
     /** Creates a note with an initial title (quick-add path). Returns the new id. */
-    suspend fun createNoteWithTitle(userId: UserId, title: String): Result<NoteId>
+    suspend fun createNoteWithTitle(title: String): Result<NoteId>
 
     /** Updates title and body content (autosave path). */
     suspend fun updateContent(id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<Unit>
@@ -143,17 +142,17 @@ class RoomNotesRepository(
         }
 
     override suspend fun createWithContent(
-        userId: UserId,
         id: NoteId,
         title: String,
         bodyMarkdown: String,
         bodyHtml: String,
     ): Result<NoteId> = runCatching {
+        val uid = currentUser.scopedUserId.value
         val now = clock.now().toEpochMilliseconds()
         noteDao.upsert(
             NoteEntity(
                 id = id.value,
-                userId = userId.value,
+                userId = uid.value,
                 title = title,
                 bodyMarkdown = bodyMarkdown,
                 bodyHtml = bodyHtml,
@@ -173,13 +172,14 @@ class RoomNotesRepository(
         id
     }
 
-    override suspend fun createNoteWithTitle(userId: UserId, title: String): Result<NoteId> = runCatching {
+    override suspend fun createNoteWithTitle(title: String): Result<NoteId> = runCatching {
+        val uid = currentUser.scopedUserId.value
         val id = NoteId(com.singularity.todo.core.ids.nextId())
         val now = clock.now().toEpochMilliseconds()
         noteDao.upsert(
             NoteEntity(
                 id = id.value,
-                userId = userId.value,
+                userId = uid.value,
                 title = title,
                 bodyMarkdown = null,
                 bodyHtml = null,

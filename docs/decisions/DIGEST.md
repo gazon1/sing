@@ -73,6 +73,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 ### `_untagged_`
 
 - **ADR `2026-09-16-agenda-engine.md` mandate completed** — TasksViewModel
+- **Breaking change** for `NoteEditor`, `NotePreview`, and their tests — the `userId` argument is removed from `linkRepo.searchNotes(...)`, `linkRepo.searchTasks(...)`, and `linkRepo.getBacklinkNotes(...)` calls.
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска
 - **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
 - **Five commits land together** because they all touch the same orbit
@@ -136,6 +137,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Locale-aware first day of week.
 - Nested nav3 graph keeps task-click navigation encapsulated.
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
+- No repository contract overloads are needed for this interface (it has no non-Koin callers).
 - None
 - Per-feature events устранили конфликты имён (до: `ShowDialog` everywhere; после: `TasksUiEvent.AiResult`, `NotesUiEvent.SaveFailed`)
 - Performance: one extra `StateFlow.distinctUntilChanged().flatMapLatest()` per
@@ -186,6 +188,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно.
 - `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope`
 - `FakeProfileRepository` implements both new generic methods and deprecated legacy overloads for test compatibility.
+- `InternalLinkRepositoryImpl` now fully owns the user resolution — consistent with `TagsRepository`, `TaskRepository`, etc.
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph
@@ -646,6 +649,23 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `ProjectDetailScreen` is fully functional: quick-add creates tasks, parent picker works, Remind/Attach/DueDate/Children sheets open, task click navigates to `TaskDetailScreen`
 - `ProjectPickerSheet` is reactive — newly created projects appear without reopening the sheet
 
+### `reminders`
+
+- **Neutral:** Pre-existing recurring reminders without `lastFiredAt` will fire immediately on next poll after upgrade (no worse than before).
+- **Neutral:** Requires bump from schema v14 → v15 (`AppDatabase.version = 15`, `Migration14To15` registered).
+- **Neutral:** Requires bump from schema v14 → v15 (`last_fired_at` column).
+- **Neutral:** `NotificationPort.scheduleAt` returns `Unit` — no programmatic success detection; failure is only detectable via thrown exception (caught as of fix #4).
+- **No new test coverage** for the concurrent-mutex, suspend-stop, or loop try/catch paths (documented as coverage gap).
+- **No new test coverage** for the guard logic (Tier 3c is documented as a coverage gap per Round 1).
+- **Positive:** Concurrent polls are serialized — no race conditions between test-triggered and background polls.
+- **Positive:** Correct user scoping — reminders are always attributed to the signed-in user.
+- **Positive:** Duplicate recurring reminder fires are eliminated on app restart or after device wake.
+- **Positive:** Duplicate recurring reminder fires are prevented on device restart (via `lastFiredAt` guard).
+- **Positive:** Graceful shutdown via `stop()` — tests can now stop the scheduler cleanly.
+- **Positive:** No more leaked coroutine scopes — the scheduler now respects lifecycle boundaries.
+- **Positive:** The `last_fired_at` column is available for future analytics (e.g., "last reminded at").
+- **Positive:** `scheduleAt` failures are gracefully handled — a single failed notification does not crash the loop.
+
 ### `repository`
 
 - **When** a second entity acquires free-text search — extract `Searchable<E>` mixin
@@ -949,6 +969,8 @@ _1 entries need attention._
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
 - `2026-09-22-explicit-overload-removal` — _untagged_
 - `2026-09-22-koin-annotations-4x-skill-correction` — _untagged_
+- `2026-09-22-reminder-lastfiredat-schema` — reminders, database, scheduler
+- `2026-09-22-reminder-scheduler-critical-fixes` — reminders, scheduler, concurrency, coroutines, di
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
@@ -956,6 +978,7 @@ _1 entries need attention._
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
+- `2026-09-26-internal-link-repo-currentuser` — _untagged_
 
 ## Active entries
 
@@ -1099,6 +1122,8 @@ _1 entries need attention._
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
 - `2026-09-22-explicit-overload-removal` — _(no title)_
 - `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
+- `2026-09-22-reminder-lastfiredat-schema` — _(no title)_
+- `2026-09-22-reminder-scheduler-critical-fixes` — _(no title)_
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
@@ -1106,4 +1131,5 @@ _1 entries need attention._
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _(no title)_
+- `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
 

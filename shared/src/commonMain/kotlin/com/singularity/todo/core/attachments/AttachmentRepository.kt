@@ -44,11 +44,6 @@ interface AttachmentRepository {
     /** Emits all (non-deleted) attachments for the given task, scoped to the current user. */
     fun watchByTask(taskId: TaskId): Flow<List<Attachment>>
 
-    // ─── Explicit userId overloads (kept for callers that pass userId explicitly) ──
-
-    /** Emits all (non-deleted) attachments for a specific [userId]. */
-    fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Attachment>>
-
     /**
      * Copies a file from `sourcePath` into local attachment storage and creates a DB record.
      * The record is created with `syncStatus = Pending` — a sync job uploads it remotely.
@@ -58,7 +53,6 @@ interface AttachmentRepository {
      */
     suspend fun saveFileAttachment(
         taskId: TaskId,
-        userId: UserId,
         sourcePath: String,
         mimeType: String?,
     ): Result<Attachment>
@@ -67,7 +61,7 @@ interface AttachmentRepository {
      * Creates a URL attachment record — no local file is stored.
      * The URL is validated before insertion. Sync status is `Pending` by default.
      */
-    suspend fun addUrlAttachment(taskId: TaskId, userId: UserId, url: String, title: String?): Result<Attachment>
+    suspend fun addUrlAttachment(taskId: TaskId, url: String, title: String?): Result<Attachment>
 }
 
 class AttachmentRepositoryImpl(
@@ -114,19 +108,12 @@ class AttachmentRepositoryImpl(
             }
         }
 
-    // ─── Explicit userId overloads ──────────────────────────────────────────
-
-    override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Attachment>> =
-        dao.watchByTaskForUser(taskId.value, userId.value).map { entities ->
-            entities.map { it.toAttachment() }
-        }
-
     override suspend fun saveFileAttachment(
         taskId: TaskId,
-        userId: UserId,
         sourcePath: String,
         mimeType: String?,
     ): Result<Attachment> = runCatching {
+        val uid = currentUser.scopedUserId.value
         val id = AttachmentDomain.generateAttachmentId()
         val ext = AttachmentDomain.extractExtension(sourcePath)
         val detectedMime = mimeType ?: MimeTypes.fromExtension(ext)
@@ -139,7 +126,7 @@ class AttachmentRepositoryImpl(
         val attachment = Attachment(
             id = id,
             taskId = taskId,
-            userId = userId,
+            userId = uid,
             type = if (MimeTypes.isImage(detectedMime)) AttachmentType.Image else AttachmentType.File,
             localPath = localPath,
             fileSizeBytes = 0L,
@@ -156,10 +143,10 @@ class AttachmentRepositoryImpl(
 
     override suspend fun addUrlAttachment(
         taskId: TaskId,
-        userId: UserId,
         url: String,
         title: String?,
     ): Result<Attachment> = runCatching {
+        val uid = currentUser.scopedUserId.value
         AttachmentDomain.validateUrl(url).getOrThrow()
 
         val id = AttachmentDomain.generateAttachmentId()
@@ -168,7 +155,7 @@ class AttachmentRepositoryImpl(
         val attachment = Attachment(
             id = id,
             taskId = taskId,
-            userId = userId,
+            userId = uid,
             type = AttachmentType.Url,
             url = url,
             title = title ?: "",

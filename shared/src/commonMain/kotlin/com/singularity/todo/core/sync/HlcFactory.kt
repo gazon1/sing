@@ -1,27 +1,30 @@
 package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.auth.SessionStore
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.Clock
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
  * Factory for creating HLC timestamps with a fixed device node ID.
  *
- * [nodeId] is loaded asynchronously via [Deferred] on the IO dispatcher — no [runBlocking].
- * If accessed before loaded, callers block via [Deferred.getCompleted] which is instantaneous
- * after the first await completes.
+ * [nodeId] is loaded asynchronously via [Deferred] on the injected [scope];
+ * if accessed before loaded, callers block via [Deferred.getCompleted] which
+ * is instantaneous after the first await completes.
+ *
+ * @param scope Injected [AutoCloseableCoroutineScope]. Callers must bind to a
+ *              lifecycle that calls [AutoCloseable.close] when done.
  */
-class HlcFactory(private val sessionStore: SessionStore, private val clock: Clock) {
-    private val nodeIdDeferred: Deferred<String> = CoroutineScope(Dispatchers.IO + SupervisorJob()).let { scope ->
-        kotlinx.coroutines.CompletableDeferred<String>().also { deferred ->
-            scope.launch {
-                deferred.complete(sessionStore.getOrInitDeviceId())
-            }
+class HlcFactory(
+    private val sessionStore: SessionStore,
+    private val clock: Clock,
+    private val scope: AutoCloseableCoroutineScope,
+) {
+    private val nodeIdDeferred: Deferred<String> = kotlinx.coroutines.CompletableDeferred<String>().also { deferred ->
+        scope.launch {
+            deferred.complete(sessionStore.getOrInitDeviceId())
         }
     }
 

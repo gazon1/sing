@@ -71,17 +71,12 @@ class ProjectsRepositoryImpl(
         require(rows > 0) { "Project $id not found or not owned by user" }
     }
 
-    // ── Explicit userId overloads ───────────────────────────────────────────
-
-    override fun watchProjects(userId: UserId): Flow<List<Project>> =
-        projectDao.watchAll(userId.value).map { list -> list.map { it.toProject() } }
+    // ── Domain methods ───────────────────────────────────────────────────────
 
     override fun observeProject(id: ProjectId): Flow<Project?> {
         val uid = currentUser.scopedUserId.value
         return projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
     }
-
-    // ── Domain methods ───────────────────────────────────────────────────────
 
     override fun observeProjectsWithCounts(): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
         currentUser.observeForCurrentUser { uid ->
@@ -94,11 +89,6 @@ class ProjectsRepositoryImpl(
                 list.map { it.toProject() }
             }
         }
-
-    override fun watchProjectsWithCounts(
-        userId: UserId,
-    ): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
-        projectDao.watchAllWithCounts(userId.value)
 
     override fun observeByParent(parentId: ProjectId): Flow<List<Project>> {
         val uid = currentUser.scopedUserId.value

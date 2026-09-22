@@ -1,7 +1,7 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.files.FileSystem
-import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -50,6 +50,7 @@ class BackupRepositoryImpl(
     private val remoteService: StubRemoteBackupService,
     private val fs: FileSystem,
     private val backupDir: String,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : BackupRepository {
 
     override fun observeAll(): Flow<List<BackupMetadata>> = flow {
@@ -95,9 +96,9 @@ class BackupRepositoryImpl(
     override suspend fun push(backupId: BackupId): Result<String> = runCatching {
         val backup = scanBackups().find { it.id == backupId }
             ?: throw BackupError.FileNotFound(backupId.value)
-        remoteService.upload(backup.path, UserId.anonymous).getOrThrow()
+        remoteService.upload(backup.path, currentUser.scopedUserId.value).getOrThrow()
     }
 
     override suspend fun pull(remoteRef: String, destPath: String): Result<Unit> =
-        remoteService.download(remoteRef, destPath, UserId.anonymous)
+        remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value)
 }

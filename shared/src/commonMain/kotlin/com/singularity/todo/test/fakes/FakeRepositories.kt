@@ -66,33 +66,6 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-// ─── SessionStore ─────────────────────────────────────────────────────────────
-
-class FakeSessionStore(initialUserId: String = "test-user") : SessionStore {
-    override val accessToken = MutableStateFlow<String?>(null)
-    override val refreshToken = MutableStateFlow<String?>(null)
-    override val userEmail = MutableStateFlow<String?>(null)
-    override val deviceId = MutableStateFlow(initialUserId)
-
-    override suspend fun getOrInitDeviceId(): String = deviceId.value
-
-    override suspend fun save(session: Session.SignedIn) {
-        accessToken.value = session.accessToken
-        refreshToken.value = session.refreshToken
-        userEmail.value = session.email
-    }
-
-    override suspend fun saveDeviceId(id: String) {
-        deviceId.value = id
-    }
-
-    override suspend fun clear() {
-        accessToken.value = null
-        refreshToken.value = null
-        userEmail.value = null
-    }
-}
-
 // ─── SettingsRepository ────────────────────────────────────────────────────────
 
 class FakeSettingsRepository(initialUserId: String = "test-user") : SettingsRepository {
@@ -627,28 +600,9 @@ class FakeReminderRepository(
         reminders.value = reminders.value.filterValues { it.taskId != taskId }
     }
 
-    // ─── Explicit userId overloads ──────────────────────────────────────────
-
-    override fun watchAll(userId: UserId): Flow<List<Reminder>> =
-        reminders.map { map -> map.values.filter { it.userId == userId }.sortedBy { it.fireAt } }
-
-    override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<Reminder>> =
-        reminders.map { map -> map.values.filter { it.taskId == taskId && it.userId == userId }.sortedBy { it.fireAt } }
-
-    override fun watchDueBefore(nowEpochMs: Long, userId: UserId): Flow<List<Reminder>> = reminders.map { map ->
-        map.values.filter { it.fireAt <= nowEpochMs && it.userId == userId }.sortedBy { it.fireAt }
-    }
-
-    override suspend fun delete(id: ReminderId, userId: UserId): Result<Unit> = runCatching {
-        reminders.value = reminders.value.filterKeys { it != id.value }
-    }
-
-    override suspend fun deleteByTask(taskId: TaskId, userId: UserId): Result<Unit> = runCatching {
-        reminders.value = reminders.value.filterValues { it.taskId != taskId || it.userId != userId }
-    }
-
-    override suspend fun getById(id: ReminderId, userId: UserId): Result<Reminder?> = runCatching {
-        reminders.value[id.value]
+    override suspend fun markFired(reminderId: ReminderId, lastFiredAt: Long): Result<Unit> = runCatching {
+        val existing = reminders.value[reminderId.value] ?: return@runCatching
+        reminders.value += (reminderId.value to existing.copy(lastFiredAt = lastFiredAt))
     }
 }
 
@@ -713,6 +667,9 @@ class FakeProjectsRepository(
         return store[id.value]?.takeIf { it.userId == uid }
     }
 
+    override fun observeProject(id: ProjectId): Flow<Project?> =
+        store.state.map { list -> list.values.firstOrNull { it.id == id } }
+
     override suspend fun create(item: Project): Result<Project> = runCatching {
         store.upsert(item)
         item
@@ -736,14 +693,6 @@ class FakeProjectsRepository(
             store.upsert(existing.copy(isDeleted = false, deletedAt = null))
         }
     }
-
-    // ─── Explicit userId overloads ───────────────────────────────────────────
-
-    override fun watchProjects(userId: UserId): Flow<List<Project>> =
-        store.state.map { list -> list.values.filter { it.userId == userId && !it.isDeleted } }
-
-    override fun observeProject(id: ProjectId): Flow<Project?> =
-        store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
     // ─── Domain methods ─────────────────────────────────────────────────────
 
@@ -776,26 +725,6 @@ class FakeProjectsRepository(
                 list.values.filter { it.parentId == parentId && it.userId == uid && !it.isDeleted }
             }
         }
-
-    override fun watchProjectsWithCounts(userId: UserId): Flow<List<ProjectWithCountRow>> = store.state.map { list ->
-        list.values
-            .filter { it.userId == userId && !it.isDeleted }
-            .map { p ->
-                ProjectWithCountRow(
-                    project = ProjectEntity(
-                        id = p.id.value, userId = p.userId.value, name = p.name, color = p.color,
-                        icon = p.icon, description = p.description, createdAt = p.createdAt.toEpochMilliseconds(),
-                        updatedAt = p.updatedAt.toEpochMilliseconds(), isDefault = p.isDefault,
-                        dueDate = p.dueDate?.toString(), team = p.team, isDeleted = p.isDeleted,
-                        deletedAt = p.deletedAt?.toEpochMilliseconds(), parentId = p.parentId?.value,
-                        sortOrder = p.sortOrder, idempotencyKey = p.idempotencyKey, externalId = p.externalId,
-                        sync = SyncColumns(),
-                    ),
-                    totalCount = 0,
-                    completedCount = 0,
-                )
-            }
-    }
 
     override fun observeByParent(parentId: ProjectId): Flow<List<Project>> =
         store.state.map { list -> list.values.filter { it.parentId == parentId && !it.isDeleted } }
@@ -859,12 +788,6 @@ class FakeTagsRepository(
         tag
     }
 
-    // ─── Explicit userId overload ──────────────────────────────────────────
-
-    override fun watchAll(userId: String): Flow<List<com.singularity.todo.feature.tags.Tag>> = store.state
-        .onStart { emit(store.state.value) }
-        .map { list -> list.values.filter { it.userId == userId } }
-
     override fun observeTag(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
@@ -916,21 +839,18 @@ class FakeAttachmentRepository(
             store.state.map { list -> list.values.filter { it.taskId == taskId && it.userId == uid } }
         }
 
-    // ─── Explicit userId overloads ──────────────────────────────────────────
-
-    override fun watchByTask(taskId: TaskId, userId: UserId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
-        store.state.map { list -> list.values.filter { it.taskId == taskId && it.userId == userId } }
+    // ─── Domain methods (ambient user) ────────────────────────────────────
 
     override suspend fun saveFileAttachment(
         taskId: TaskId,
-        userId: UserId,
         sourcePath: String,
         mimeType: String?,
     ): Result<com.singularity.todo.core.attachments.Attachment> = runCatching {
+        val uid = currentUser.scopedUserId.value
         val att = com.singularity.todo.core.attachments.Attachment(
             id = com.singularity.todo.core.attachments.AttachmentId.generate(),
             taskId = taskId,
-            userId = userId,
+            userId = uid,
             type = com.singularity.todo.core.attachments.AttachmentType.File,
             localPath = sourcePath,
             mimeType = mimeType,
@@ -943,14 +863,14 @@ class FakeAttachmentRepository(
 
     override suspend fun addUrlAttachment(
         taskId: TaskId,
-        userId: UserId,
         url: String,
         title: String?,
     ): Result<com.singularity.todo.core.attachments.Attachment> = runCatching {
+        val uid = currentUser.scopedUserId.value
         val att = com.singularity.todo.core.attachments.Attachment(
             id = com.singularity.todo.core.attachments.AttachmentId.generate(),
             taskId = taskId,
-            userId = userId,
+            userId = uid,
             type = com.singularity.todo.core.attachments.AttachmentType.Url,
             url = url,
             title = title ?: "",
@@ -1052,16 +972,16 @@ class FakeNotesRepository(
         }
 
     override suspend fun createWithContent(
-        userId: UserId,
         id: com.singularity.todo.feature.notes.NoteId,
         title: String,
         bodyMarkdown: String,
         bodyHtml: String,
     ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
+        val uid = currentUser.scopedUserId.value
         val now = Clock.now()
         val note = com.singularity.todo.feature.notes.Note(
             id = id,
-            userId = userId,
+            userId = uid,
             title = title,
             bodyMarkdown = bodyMarkdown,
             bodyHtml = bodyHtml,
@@ -1075,14 +995,14 @@ class FakeNotesRepository(
     }
 
     override suspend fun createNoteWithTitle(
-        userId: UserId,
         title: String,
     ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
+        val uid = currentUser.scopedUserId.value
         val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
         val now = Clock.now()
         val note = com.singularity.todo.feature.notes.Note(
             id = id,
-            userId = userId,
+            userId = uid,
             title = title,
             bodyMarkdown = null,
             bodyHtml = null,
@@ -1322,19 +1242,6 @@ private fun extractUserId(session: Session): UserId = when (session) {
     is Session.SignedIn -> session.userId
     is Session.Anonymous -> session.userId
     else -> UserId.anonymous
-}
-
-// ─── AttachmentSaver ──────────────────────────────────────────────────────────
-
-/**
- * Fake [com.singularity.todo.feature.tasks.domain.model.AttachmentSaver] for tests.
- */
-class FakeAttachmentSaver : com.singularity.todo.feature.tasks.domain.model.AttachmentSaver {
-    val saved = mutableListOf<Triple<String, String, String?>>()
-
-    override suspend fun save(taskId: TaskId, path: String, mimeType: String?): Result<Unit> = runCatching {
-        saved.add(Triple(taskId.value, path, mimeType))
-    }
 }
 
 // ─── SavedAgendaViewsRepository ────────────────────────────────────────────────

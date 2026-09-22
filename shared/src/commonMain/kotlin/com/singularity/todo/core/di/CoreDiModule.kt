@@ -16,6 +16,7 @@ import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.StubRemoteBackupService
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
 import com.singularity.todo.core.draft.DraftStore
@@ -63,7 +64,7 @@ fun coreModule(): org.koin.core.module.Module = module {
     single<SessionStore> { DataStoreSessionStore(get(), get()) }
 
     single<AuthRepository> {
-        SupabaseAuthRepository(Logger.withTag("AuthRepository"), get(), Dispatchers.IO)
+        SupabaseAuthRepository(Logger.withTag("AuthRepository"), get(), AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext))
     }
 
     single { CurrentUser(get(), createBackgroundScope()) }
@@ -86,11 +87,11 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Sync ───────────────────────────────────────────────────────────
 
-    singleOf(::HlcFactory)
+    single { HlcFactory(get(), get(), AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
 
     single<SyncApiClient> { SupabaseSyncApiClient() }
 
-    single { SyncEngine(Logger.withTag("SyncEngine"), get(), get(), get(), get(), get(), get()) }
+    single { SyncEngine(Logger.withTag("SyncEngine"), get(), get(), get(), get(), get(), AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
 
     // ─── IDs / Clock ────────────────────────────────────────────────────
 
@@ -111,6 +112,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             remoteService = get(),
             fs = get(),
             backupDir = get<String>(),
+            currentUser = get(),
         )
     }
     // ─── Settings ───────────────────────────────────────────────────────
@@ -132,5 +134,5 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     viewModel { BackupViewModel(repository = get(), authRepository = get(), backupFileNamer = get(), clock = get()) }
 
-    viewModel { AttachmentsViewModel(repository = get(), currentUser = get()) }
+    viewModel { AttachmentsViewModel(repository = get()) }
 }

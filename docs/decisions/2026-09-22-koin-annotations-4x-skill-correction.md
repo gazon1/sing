@@ -2,6 +2,7 @@
 title: "Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references"
 date: 2026-09-22
 tags: []
+status: accepted
 ---
 
 ## Context
