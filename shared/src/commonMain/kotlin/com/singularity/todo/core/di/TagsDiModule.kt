@@ -5,6 +5,8 @@ import com.singularity.todo.feature.tags.TagsRepositoryImpl
 import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.tags.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tags.usecase.UpdateTagUseCase
+import org.koin.core.module.dsl.factoryOf
+import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -18,8 +20,8 @@ fun tagsModule(): org.koin.core.module.Module = module {
 
     // ─── Use Cases ──────────────────────────────────────────────────────
 
-    factory { CreateTagUseCase(get(), get()) }
-    factory { UpdateTagUseCase(get(), get()) }
+    factoryOf(::CreateTagUseCase)
+    factoryOf(::UpdateTagUseCase)
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 

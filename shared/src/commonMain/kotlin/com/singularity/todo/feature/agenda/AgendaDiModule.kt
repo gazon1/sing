@@ -15,6 +15,7 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaSee
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewModel
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -38,7 +39,7 @@ fun agendaModule(): Module = module {
 
     // ─── Seed store for SavedAgenda Create ────────────────────────────────
 
-    single { SavedAgendaSeedStore() }
+    singleOf(::SavedAgendaSeedStore)
 
     // ─── AgendaViewModel (existing, definition is a runtime param) ───────
 

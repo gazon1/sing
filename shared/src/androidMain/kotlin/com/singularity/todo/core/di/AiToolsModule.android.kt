@@ -1,9 +1,9 @@
 package com.singularity.todo.core.di
 
 import ai.koog.prompt.llm.LLModel
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.llm.KnownModels
 import com.singularity.todo.core.observability.RoomUsageRecorder
-import com.singularity.todo.core.observability.UsageRecorder
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
@@ -65,6 +65,7 @@ import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -96,9 +97,9 @@ actual fun aiToolsModule(): Module = module {
 
     // ─── Token Usage Tracking ───
 
-    single<UsageRecorder> { RoomUsageRecorder(get(), get<Clock>()) }
+    singleOf(::RoomUsageRecorder)
 
-    viewModel { ChatViewModel(get(), get(), get()) }
+    viewModel { ChatViewModel(Logger.withTag("ChatViewModel"), get(), get()) }
     viewModel { AiUsageViewModel(get(), get()) }
     viewModel { ProfileSwitcherViewModel(get()) }
 

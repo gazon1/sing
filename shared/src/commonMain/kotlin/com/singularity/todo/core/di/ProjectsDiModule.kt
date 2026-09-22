@@ -1,5 +1,6 @@
 package com.singularity.todo.core.di
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -8,6 +9,8 @@ import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
+import org.koin.core.module.dsl.factoryOf
+import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -20,10 +23,10 @@ fun projectsModule(): org.koin.core.module.Module = module {
 
     single<ProjectsRepository> { ProjectsRepositoryImpl(get(), get(), get()) }
 
-    // ─── Use Cases ──────────────────────────────────────────────────────
+    // ─── Use Cases ─────────────────────────────────────────────────────
 
-    factory { CreateProjectUseCase(get(), get()) }
-    factory { UpdateProjectUseCase(get(), get()) }
+    factoryOf(::CreateProjectUseCase)
+    factoryOf(::UpdateProjectUseCase)
     factory { DeleteProjectUseCase(get<ProjectsRepository>(), get()) }
 
     // ─── ViewModels ─────────────────────────────────────────────────────
@@ -52,6 +55,7 @@ fun projectsModule(): org.koin.core.module.Module = module {
             createTaskUseCase = get(),
             currentUser = get(),
             clock = get(),
+            log = Logger.withTag("ProjectDetail"),
         )
     }
 

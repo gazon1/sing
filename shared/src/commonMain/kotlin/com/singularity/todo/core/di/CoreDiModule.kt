@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.attachments.AttachmentRepositoryImpl
 import com.singularity.todo.core.attachments.AttachmentStorage
-import com.singularity.todo.core.attachments.AttachmentUploadService
 import com.singularity.todo.core.attachments.StubAttachmentUploadService
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
@@ -12,12 +11,10 @@ import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.backup.BackupExporter
-import com.singularity.todo.core.backup.BackupFileNamer
 import com.singularity.todo.core.backup.BackupImporter
 import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
-import com.singularity.todo.core.backup.RemoteBackupService
 import com.singularity.todo.core.backup.StubRemoteBackupService
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
@@ -42,6 +39,8 @@ import com.singularity.todo.feature.settings.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.core.module.dsl.factoryOf
+import org.koin.core.module.dsl.singleOf
 
 /**
  * Core platform bindings: settings, auth, sync, attachments, backup.
@@ -73,21 +72,21 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     single<AttachmentRepository> { AttachmentRepositoryImpl(get(), get(), get(), get(), get()) }
 
-    factory { AttachmentStorage(get(), "/attachments") }
+    factoryOf(::AttachmentStorage)
 
     single<ReminderRepository> { RoomReminderRepository(get(), get(), get()) }
 
     // ─── Ports ───────────────────────────────────────────────────────────
 
-    single<AttachmentUploadService> { StubAttachmentUploadService() }
+    singleOf(::StubAttachmentUploadService)
 
-    single<RemoteBackupService> { StubRemoteBackupService() }
+    single { DefaultBackupFileNamer() }
 
-    single<BackupFileNamer> { DefaultBackupFileNamer }
+    singleOf(::StubRemoteBackupService)
 
     // ─── Sync ───────────────────────────────────────────────────────────
 
-    single { HlcFactory(get(), get()) }
+    singleOf(::HlcFactory)
 
     single<SyncApiClient> { SupabaseSyncApiClient() }
 
@@ -103,14 +102,8 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Backup ─────────────────────────────────────────────────────────
 
-    single { BackupExporter(get(), get(), get(), get(), get(), get(), get(), get()) }
-    single {
-        BackupImporter(
-            Logger.withTag("BackupImporter"), get(), get(), get(), get(),
-            get(), get(), get(), get(),
-        )
-    }
-    single<RemoteBackupService> { StubRemoteBackupService() }
+    singleOf(::BackupExporter)
+    single { BackupImporter(Logger.withTag("BackupImporter"), get(), get(), get(), get(), get(), get(), get(), get()) }
     single<BackupRepository> {
         BackupRepositoryImpl(
             exporter = get(),

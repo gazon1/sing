@@ -7,6 +7,7 @@ import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.search.InternalLinkRepositoryImpl
+import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 

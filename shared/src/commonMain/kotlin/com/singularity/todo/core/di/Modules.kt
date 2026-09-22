@@ -11,6 +11,7 @@ import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.profile.ProfileRepositoryImpl
 import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 /**
@@ -18,7 +19,7 @@ import org.koin.dsl.module
  */
 fun coreLoggingModule(): Module = module {
     factory { Logger.withTag("App") }
-    single { LoggerHolder(get()) }
+    singleOf(::LoggerHolder)
 }
 
 /**

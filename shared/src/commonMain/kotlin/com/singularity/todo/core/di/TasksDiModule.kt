@@ -6,14 +6,12 @@ import com.singularity.todo.core.clock.DelayAutosaveScheduler
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.feature.archive.ArchiveRepository
 import com.singularity.todo.feature.archive.ArchiveViewModel
 import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
 import com.singularity.todo.feature.checklist.ChecklistEditorViewModel
 import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.checklist.RoomChecklistRepository
-import com.singularity.todo.feature.pomodoro.InMemoryPomodoroRepository
 import com.singularity.todo.feature.pomodoro.PomodoroRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.search.SearchUseCase
@@ -34,6 +32,8 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewM
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.core.module.dsl.factoryOf
+import org.koin.core.module.dsl.singleOf
 
 /**
  * Tasks feature DI: repositories, use cases, ViewModels.
@@ -49,22 +49,22 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     single<TaskRepository> { TaskRepositoryImpl(get(), get(), get()) }
 
-    single<ArchiveRepository> { TaskDaoArchiveRepository(get(), get()) }
+    singleOf(::TaskDaoArchiveRepository)
 
     single<ChecklistRepository> { RoomChecklistRepository(get(), get()) }
 
-    factory<PomodoroRepository> { InMemoryPomodoroRepository() }
+    factoryOf(::PomodoroRepository)
 
     // ─── Use Cases ──────────────────────────────────────────────────────
 
-    factory { CreateTaskUseCase(get(), get()) }
-    factory { CreateTaskFromDraftUseCase(get(), get()) }
-    factory { UpdateTaskUseCase(get(), get()) }
-    factory { TaskMutationsUseCase(get()) }
+    factoryOf(::CreateTaskUseCase)
+    factoryOf(::CreateTaskFromDraftUseCase)
+    factoryOf(::UpdateTaskUseCase)
+    factoryOf(::TaskMutationsUseCase)
 
-    factory { ChecklistUseCase(get()) }
+    factoryOf(::ChecklistUseCase)
 
-    factory { SearchUseCase(get(), get(), get(), get()) }
+    factoryOf(::SearchUseCase)
 
     // PomodoroTimer is registered in platform-specific modules:
     // - androidMain: AndroidPomodoroTimer(get(), get(), get())
