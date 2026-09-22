@@ -17,7 +17,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
@@ -153,7 +152,7 @@ private fun ProjectsScreenContentPreview() = ProjectsPreviewWrapper {
 private fun ProjectsScreenEmptyPreview() = ProjectsPreviewWrapper {
     PreviewThemed(darkTheme = false, useSurface = false) {
         ProjectsContent(
-            state = ProjectsUiState.Empty(userId = UserId("anonymous")),
+            state = ProjectsUiState.Empty,
             onNavigateToProject = {},
             onCreateProject = {},
             onDelete = {},

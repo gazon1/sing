@@ -320,7 +320,6 @@ private fun ProjectEditorCreatePreview() = ProjectsPreviewWrapper {
         createProject = CreateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock, fakeCurrentUser),
         updateProject = UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
         projectsRepo = fakeProjectsRepo,
-        currentUser = fakeCurrentUser,
     )
 
     PreviewThemed {
@@ -344,7 +343,6 @@ private fun ProjectEditorEditPreview() = ProjectsPreviewWrapper {
         createProject = CreateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock, fakeCurrentUser),
         updateProject = UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
         projectsRepo = fakeProjectsRepo,
-        currentUser = fakeCurrentUser,
     )
 
     PreviewThemed {

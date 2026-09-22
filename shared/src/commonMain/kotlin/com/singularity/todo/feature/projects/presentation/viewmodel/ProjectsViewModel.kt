@@ -5,7 +5,6 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.database.toProject
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
@@ -47,7 +46,6 @@ class ProjectsViewModel(
     private val taskRepository: TaskRepository,
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
-    private val currentUser: ProfileAwareCurrentUser,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
@@ -61,9 +59,6 @@ class ProjectsViewModel(
 
     private val _sortOrder = MutableStateFlow(ProjectSortOrder.Name)
     val sortOrder: StateFlow<ProjectSortOrder> = _sortOrder
-
-    /** userId for mutations — read once at call time (caller-trust). */
-    private val userId get() = currentUser.scopedUserId.value
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val state: StateFlow<ProjectsUiState> = combine(
@@ -90,7 +85,7 @@ class ProjectsViewModel(
                 ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
             }
             if (sorted.isEmpty()) {
-                ProjectsUiState.Empty(userId)
+                ProjectsUiState.Empty
             } else {
                 ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
             }

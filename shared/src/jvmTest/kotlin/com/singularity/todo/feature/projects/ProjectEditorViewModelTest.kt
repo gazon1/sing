@@ -37,7 +37,6 @@ class ProjectEditorViewModelTest {
             createProject = CreateProjectUseCase(fakeProjectsRepo, Clock, fakeCurrentUser),
             updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock),
             projectsRepo = fakeProjectsRepo,
-            currentUser = fakeCurrentUser,
             scope = testScope(scope),
         )
 

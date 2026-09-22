@@ -1,13 +1,9 @@
 package com.singularity.todo.feature.notes
 
-import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.SequenceIdGenerator
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
-import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeNotesRepository
-import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -21,14 +17,10 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalCoroutinesApi::class)
 class NotesListViewModelTest {
 
-    private val testUserId = UserId("test-user")
     private val fakeNotesRepo = FakeNotesRepository()
 
     private fun TestScope.createVm() = NotesListViewModel(
         repo = fakeNotesRepo,
-        currentUser = FakeProfileAwareCurrentUser(
-            FakeAuthRepository(initialSession = Session.Anonymous(testUserId)),
-        ),
         idGen = SequenceIdGenerator("test"),
         scope = testScope(backgroundScope),
     )

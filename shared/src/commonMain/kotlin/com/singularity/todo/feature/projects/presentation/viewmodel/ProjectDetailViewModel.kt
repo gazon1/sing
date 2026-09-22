@@ -7,7 +7,6 @@ import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.debounce.Debouncer
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -61,7 +60,6 @@ class ProjectDetailViewModel(
     private val updateProject: UpdateProjectUseCase,
     private val updateTask: UpdateTaskUseCase,
     private val createTaskUseCase: CreateTaskUseCase,
-    private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
     private val log: Logger,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
@@ -71,8 +69,6 @@ class ProjectDetailViewModel(
     init {
         addCloseable(scope)
     }
-
-    private val userId get() = currentUser.scopedUserId.value
 
     // ─── UI State ───────────────────────────────────────────────────────────────
 

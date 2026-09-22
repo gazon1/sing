@@ -208,7 +208,6 @@ actual fun aiToolsModule(): Module = module {
     viewModel {
         ProjectsViewModel(
             projectRepo = get<ProjectsRepository>(),
-            currentUser = get<ProfileAwareCurrentUser>(),
             taskRepository = get<TaskRepository>(),
             projectReview = getOrNull(),
             deleteProject = get<DeleteProjectUseCase>(),

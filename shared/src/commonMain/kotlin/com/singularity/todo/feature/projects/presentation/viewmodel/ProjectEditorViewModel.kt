@@ -3,7 +3,6 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.state.updateState
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -37,7 +36,6 @@ class ProjectEditorViewModel(
     private val createProject: CreateProjectUseCase,
     private val updateProject: UpdateProjectUseCase,
     private val projectsRepo: ProjectsRepository,
-    private val currentUser: ProfileAwareCurrentUser,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
@@ -50,8 +48,6 @@ class ProjectEditorViewModel(
 
     private val _events = Channel<ProjectEditorUiEvent>(Channel.BUFFERED)
     val events: kotlinx.coroutines.flow.Flow<ProjectEditorUiEvent> = _events.receiveAsFlow()
-
-    private val userId get() = currentUser.scopedUserId.value
 
     init {
         if (projectId != null) {

@@ -57,7 +57,6 @@ class ProjectDetailViewModelTest {
             updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock),
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
             createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, Clock, fakeCurrentUser),
-            currentUser = fakeCurrentUser,
             clock = Clock,
             log = Logger,
             scope = testScope(scope),

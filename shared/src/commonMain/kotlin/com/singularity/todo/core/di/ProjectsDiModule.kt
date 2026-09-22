@@ -40,7 +40,6 @@ fun projectsModule(): org.koin.core.module.Module = module {
             createProject = get(),
             updateProject = get(),
             projectsRepo = get(),
-            currentUser = get(),
         )
     }
 
@@ -53,7 +52,6 @@ fun projectsModule(): org.koin.core.module.Module = module {
             updateProject = get(),
             updateTask = get(),
             createTaskUseCase = get(),
-            currentUser = get(),
             clock = get(),
             log = Logger.withTag("ProjectDetail"),
         )

@@ -12,7 +12,6 @@ import com.singularity.todo.feature.notes.NotesListState
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.NotesUiState
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -40,7 +39,6 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalCoroutinesApi::class)
 class NotesListViewModel(
     private val repo: NotesRepository,
-    private val currentUser: ProfileAwareCurrentUser,
     private val idGen: IdGenerator,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
@@ -48,8 +46,6 @@ class NotesListViewModel(
     init {
         addCloseable(scope)
     }
-
-    private val userId get() = currentUser.scopedUserId.value
 
     private val _notes = MutableStateFlow<NotesUiState>(NotesUiState.Loading)
     val state: StateFlow<NotesUiState> = _notes.asStateFlow()
@@ -78,9 +74,8 @@ class NotesListViewModel(
                 flow.map { notes -> f to notes }
             }.catch { emit(NoteFilter.All to emptyList()) }
             .collect { (filter, allNotes) ->
-                val uid = userId
                 if (allNotes.isEmpty() && filter == NoteFilter.All) {
-                    _notes.value = NotesUiState.Empty(uid)
+                    _notes.value = NotesUiState.Empty
                 } else {
                     val sorted = sortNotes(allNotes, _sortOrder.value)
                     val pinned = sorted.filter { it.isPinned }

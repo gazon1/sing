@@ -110,7 +110,7 @@ data class NotesListState(
 /** UI state for the notes list screen. */
 sealed interface NotesUiState {
     data object Loading : NotesUiState
-    data class Empty(val userId: UserId) : NotesUiState
+    data object Empty : NotesUiState
     data class Content(val list: NotesListState) : NotesUiState
     data class Error(val message: String) : NotesUiState
 }

@@ -35,9 +35,8 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
  * domain model to these primitives.
  *
  * Replaces three near-identical inline checkbox rows inside
- * [com.singularity.todo.feature.tasks.TaskEditorScreen],
- * [com.singularity.todo.feature.checklist.ChecklistEditorSheet],
- * and [com.singularity.todo.feature.tasks.TaskDetailScreen].
+ * [com.singularity.todo.feature.tasks.TaskEditorScreen] and
+ * [com.singularity.todo.feature.tasks.TaskDetailScreen].
  *
  * @param text      The checklist item text.
  * @param checked   Whether the item is completed (determines strike-through).

@@ -55,7 +55,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.EmptyState
@@ -522,7 +521,7 @@ private fun NotesScreenContentPreview() = PreviewThemed(darkTheme = false, useSu
 private fun NotesScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     NotesPreviewWrapper {
         NotesScreenContent(
-            state = NotesUiState.Empty(userId = UserId.anonymous),
+            state = NotesUiState.Empty,
             currentFilter = NoteFilter.All,
             currentSortOrder = NoteSortOrder.UpdatedDesc,
             navigator = LocalNotesNavigator.current,

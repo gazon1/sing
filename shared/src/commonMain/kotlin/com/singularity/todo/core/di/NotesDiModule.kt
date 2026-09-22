@@ -27,7 +27,7 @@ fun notesModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModel { NotesListViewModel(repo = get(), currentUser = get(), idGen = get()) }
+    viewModel { NotesListViewModel(repo = get(), idGen = get()) }
 
     // NoteEditor: improveNote is optional — use getOrNull() so Koin can
     // instantiate without it (the AI button will be hidden in UI when null).

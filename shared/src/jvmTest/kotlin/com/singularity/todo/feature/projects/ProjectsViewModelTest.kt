@@ -9,14 +9,11 @@ import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
-import com.singularity.todo.test.fakes.FakeAuthRepository
-import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -30,26 +27,15 @@ import kotlin.test.assertTrue
  *
  * Uses [SharingStarted.Eagerly] so the state flow starts immediately.
  * [advanceUntilIdle] processes all pending coroutine work on the test dispatcher.
- *
- * Note: The VM's state flow depends on [ProfileAwareCurrentUser.scopedUserId],
- * which runs on [kotlinx.coroutines.Dispatchers.Default] inside ProfileAwareCurrentUser.
- * This is why [advanceUntilIdle] may not process all emissions — the scope
- * is outside the test's control. The tests below assert on observable behaviour
- * (search results, sort order, delete events) that can be verified without
- * waiting for the async state transition.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProjectsViewModelTest {
     private val testUserId = UserId("test-user")
     private val fakeProjectRepo = FakeProjectsRepository()
     private val fakeTaskRepo = FakeTaskRepository()
-    private val fakeCurrentUser = FakeProfileAwareCurrentUser(
-        FakeAuthRepository(initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId)),
-    )
 
     private fun TestScope.createVm(): ProjectsViewModel = ProjectsViewModel(
         projectRepo = fakeProjectRepo,
-        currentUser = fakeCurrentUser,
         taskRepository = fakeTaskRepo,
         deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),
         scope = testScope(backgroundScope),
