@@ -26,7 +26,6 @@ import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
-import com.singularity.todo.feature.tasks.presentation.viewmodel.TasksViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import org.koin.core.module.dsl.factoryOf
@@ -80,22 +79,6 @@ fun tasksModule(): org.koin.core.module.Module = module {
     factory { ReminderScheduler(co.touchlab.kermit.Logger.withTag("ReminderScheduler"), get(), get()) }
 
     // ─── ViewModels ─────────────────────────────────────────────────────
-
-    // NOTE: Using explicit viewModel {} block instead of viewModelOf so that
-    // sharingStarted and scopeOverride use their defaults. viewModelOf(::TasksViewModel)
-    // uses reflection to resolve all constructor parameters and can incorrectly match
-    // CoroutineScope beans (CoreDiModule) against the () -> SharingStarted parameter,
-    // causing ClassCastException at runtime.
-    viewModel {
-        TasksViewModel(
-            taskRepo = get(),
-            createTask = get(),
-            updateTask = get(),
-            mutations = get(),
-            projectRepo = get(),
-            clock = get(),
-        )
-    }
 
     viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
         TaskDetailViewModel(

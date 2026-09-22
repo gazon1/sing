@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.Flow
  * + `CollectEvents { ... when (event) { ... } }` + `ResultDialog` boilerplate
  * that was copy-pasted across 8 screens.
  *
- * @param events     The feature-specific event flow (e.g. `Flow<TasksUiEvent>`).
+ * @param events     The feature-specific event flow (e.g. `Flow<TaskDetailUiEvent>`).
  * @param mapper     Pure function that translates a feature event into a [Notification].
  *                   Keeping it as a lambda lets each screen keep its formatting logic
  *                   without leaking domain types into this widget.

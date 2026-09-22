@@ -9,7 +9,7 @@ package com.singularity.todo.core.ui.components
  * ## Migration note
  *
  * Concrete event types (`ShowDialog`, `ShowError`, `NavigateBack`) have been
- * moved to per-feature sealed interfaces (e.g. [com.singularity.todo.feature.tasks.TasksUiEvent]).
+ * moved to per-feature sealed interfaces (e.g. [com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent]).
  * Each feature now declares its own events — search for `sealed interface XxxUiEvent`.
  *
  * This marker allows [NotificationHost] to stay generic: it accepts `Flow<T : UiEvent>`.
