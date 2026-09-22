@@ -72,10 +72,19 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `_untagged_`
 
+- **ADR `2026-09-16-agenda-engine.md` mandate completed** — TasksViewModel
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска
+- **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
+- **Five commits land together** because they all touch the same orbit
 - **No new auth-safety risk**: each tool still stamps the user-provided
+- **Per-screen wiring is more verbose** — `TaskCardActions(onPin = { ... })`
+- **Smaller public surface**: `-880 / +120` lines net; 5 files deleted;
 - **Tool APIs lose their `currentUser: ProfileAwareCurrentUser` parameter** — any
+- **Type-safe UX expectations**: each screen's `TaskCardActions(...)`
+- **UX honesty**: rendered buttons do what they advertise. No more
 - **Unit tests gain an `init { ProfileAwareCurrentUser.setInstance(fake) }` setup
+- **`ProjectDetailActions` still uses the value-class + block pattern** —
+- **`TaskCardActions` API is a breaking change** for any external consumer
 - **`koinInject()` в Screen** требует Koin контекст — widget тесты обходят это через Robolectric + `createComposeRule` без Koin
 - **`performTextClear`** не доступен в Robolectric — используется `performTextInput` напрямую
 - **~14 изменённых файлов**: Screen.kt + testTag, VM constructors, DI module
@@ -946,6 +955,7 @@ _1 entries need attention._
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
+- `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
 
 ## Active entries
 
@@ -1095,4 +1105,5 @@ _1 entries need attention._
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
+- `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _(no title)_
 
