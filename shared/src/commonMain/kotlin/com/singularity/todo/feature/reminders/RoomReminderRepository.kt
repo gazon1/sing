@@ -4,6 +4,7 @@ import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
@@ -37,7 +38,15 @@ class RoomReminderRepository(
     }
 
     override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatching {
-        dao.upsert(reminder.toEntity(clock.now().toEpochMillis()))
+        val uid = currentUser.scopedUserId.value
+        val toInsert = if (reminder.userId == uid || reminder.userId == UserId.anonymous) {
+            reminder.copy(userId = uid)
+        } else {
+            throw IllegalStateException(
+                "Cross-user reminder upsert: reminder.userId=${reminder.userId}, current=$uid",
+            )
+        }
+        dao.upsert(toInsert.toEntity(clock.now().toEpochMillis()))
     }
 
     override suspend fun delete(id: ReminderId): Result<Unit> = runCatching {

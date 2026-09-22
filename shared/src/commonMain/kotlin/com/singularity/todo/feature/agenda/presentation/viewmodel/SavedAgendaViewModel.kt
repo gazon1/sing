@@ -10,14 +10,13 @@ import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.serialization.StableJson
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -26,7 +25,6 @@ import kotlinx.coroutines.launch
  */
 data class SavedAgendaDeps(
     val repo: SavedAgendaViewsRepository,
-    val currentUser: ProfileAwareCurrentUser,
     val clock: Clock = Clock,
     val log: Logger,
 )
@@ -206,7 +204,6 @@ class SavedAgendaViewModel(
         if (current !is SavedAgendaViewState.Editing || current.isSaving || !current.canSave) return
         _state.value = current.copy(isSaving = true)
         scope.launch {
-            val userId = deps.currentUser.scopedUserId.first().value
             val draft = draftState.current
             val nameToSave = draft.name.trim()
             val sectionsJson = StableJson.encodeToString(
@@ -225,8 +222,10 @@ class SavedAgendaViewModel(
                         onFailure = { _events.trySend(SavedAgendaEvent.ShowError(it.message ?: "Save failed")) },
                     )
                 }
+
                 is SavedAgendaScreenMode.Create -> {
-                    val newView = SavedAgendaViewFactory.create(userId, nameToSave, sectionsJson, now)
+                    // "" is the sentinel — repo stamps ambient userId on insert
+                    val newView = SavedAgendaViewFactory.create("", nameToSave, sectionsJson, now)
                     deps.repo.upsert(newView).fold(
                         onSuccess = { _events.trySend(SavedAgendaEvent.SaveSuccess) },
                         onFailure = { _events.trySend(SavedAgendaEvent.ShowError(it.message ?: "Save failed")) },

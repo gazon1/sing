@@ -22,10 +22,10 @@ import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
-import org.koin.core.module.dsl.viewModel
-import org.koin.dsl.module
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
+import org.koin.core.module.dsl.viewModel
+import org.koin.dsl.module
 
 /**
  * Tasks feature DI: repositories, use cases, ViewModels.
@@ -85,7 +85,6 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 clock = get(),
             ),
             taskId = taskId,
-            currentUser = get(),
         )
     }
 

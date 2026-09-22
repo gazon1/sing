@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.domain.port
 
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.SoftDeletable
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -21,6 +22,9 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
     val changes: SharedFlow<Task>
 
     // ── GenericUserScopedRepository contract ─────────────────────────────────────
+
+    /** Returns the ambient userId for this repository's scope. */
+    suspend fun currentUserId(): UserId
 
     fun observeAll(): Flow<List<Task>>
 

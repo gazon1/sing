@@ -40,6 +40,9 @@ class TaskRepositoryImpl(
 
     // ── GenericUserScopedRepository ───────────────────────────────────────────
 
+    override suspend fun currentUserId(): com.singularity.todo.core.ids.UserId =
+        currentUser.scopedUserId.value
+
     override fun observeAll(): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
             taskDao.watchActive(uid.value).map { it.map { e -> e.toTask() } }

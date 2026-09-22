@@ -380,6 +380,8 @@ class FakeTaskRepository(
 
     // ── GenericUserScopedRepository implementation ────────────────────────────────
 
+    override suspend fun currentUserId(): UserId = currentUser.scopedUserId.value
+
     override fun observeAll(): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
         store.state
             .onStart { emit(store.state.value) }
@@ -1280,6 +1282,20 @@ class FakeSavedAgendaViewsRepository(
     private val store = MutableStateFlow<Map<SavedAgendaViewKey, SavedAgendaView>>(emptyMap())
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
+
+    override suspend fun currentUserId(): String = currentUser.scopedUserId.value.value
+
+    override suspend fun duplicateForProfile(view: SavedAgendaView, targetUserId: String): Result<SavedAgendaView> = runCatching {
+        val now = Clock.now()
+        val copy = view.copy(
+            id = SavedAgendaViewId.generate(),
+            userId = targetUserId,
+            createdAt = now,
+            updatedAt = now,
+        )
+        store.update { map -> map + (SavedAgendaViewKey.of(targetUserId, copy.id.raw) to copy) }
+        copy
+    }
 
     override fun observeAll(): Flow<List<SavedAgendaView>> =
         currentUser.observeForCurrentUser { uid ->

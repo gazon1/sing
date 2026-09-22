@@ -66,17 +66,14 @@ class TaskDetailViewModelTest {
     private val fakeProjectRepo = FakeProjectsRepository()
     private val fakeTagsRepo = FakeTagsRepository()
     private val fakeAttachmentsRepo = FakeAttachmentRepository()
-    private val fakeCurrentUser = FakeProfileAwareCurrentUser(
-        FakeAuthRepository(
-            initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
-        ),
-    )
 
     private fun createVm(scope: CoroutineScope, taskId: TaskId): TaskDetailViewModel {
         val deps = TaskDetailDeps(
             taskRepo = fakeTaskRepo,
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
-            createTask = CreateTaskUseCase(fakeTaskRepo, Clock, fakeCurrentUser),
+            createTask = CreateTaskUseCase(fakeTaskRepo, Clock, FakeProfileAwareCurrentUser(FakeAuthRepository(
+                initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
+            ))),
             projectsRepo = fakeProjectRepo,
             tagsRepo = fakeTagsRepo,
             checklistRepository = fakeChecklistRepo,
@@ -87,7 +84,7 @@ class TaskDetailViewModelTest {
             clock = Clock,
             debounceMs = 300L,
         )
-        val vm = TaskDetailViewModel(deps = deps, taskId = taskId, currentUser = fakeCurrentUser, scope = testScope(scope))
+        val vm = TaskDetailViewModel(deps = deps, taskId = taskId, scope = testScope(scope))
         // Activate the stateIn chain (WhileSubscribed requires an initial subscriber).
         // Use launchIn so the upstream starts immediately in tests without waiting
         // for the 5-second WhileSubscribed timeout.

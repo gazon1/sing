@@ -35,7 +35,7 @@ import org.koin.dsl.module
 fun agendaModule(): Module = module {
     // ─── Repository ─────────────────────────────────────────────────────
 
-    single<SavedAgendaViewsRepository> { RoomSavedAgendaViewsRepository(get(), get()) }
+    single<SavedAgendaViewsRepository> { RoomSavedAgendaViewsRepository(get(), get(), get()) }
 
     // ─── Seed store for SavedAgenda Create ────────────────────────────────
 
@@ -71,7 +71,6 @@ fun agendaModule(): Module = module {
         SavedAgendaViewModel(
             deps = SavedAgendaDeps(
                 repo = get(),
-                currentUser = get(),
                 clock = Clock,
                 log = Logger.withTag("SavedAgenda"),
             ),

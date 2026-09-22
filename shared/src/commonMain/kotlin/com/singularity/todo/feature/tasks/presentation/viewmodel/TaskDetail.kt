@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -44,16 +43,12 @@ import kotlin.time.Duration.Companion.milliseconds
 class TaskDetailViewModel(
     private val deps: TaskDetailDeps,
     private val taskId: TaskId,
-    private val currentUser: ProfileAwareCurrentUser,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Used for entity creation in mutation intents (caller-trust userId injection). */
-    private val userId get() = currentUser.scopedUserId.value
 
     private val _events = Channel<TaskDetailUiEvent>(Channel.BUFFERED)
     val events: kotlinx.coroutines.flow.Flow<TaskDetailUiEvent> = _events.receiveAsFlow()
@@ -287,8 +282,9 @@ class TaskDetailViewModel(
 
             is TaskDetailIntent.Domain.SetReminder -> {
                 scope.launch {
+                    val ambientUserId = deps.taskRepo.currentUserId()
                     if (intent.offset == com.singularity.todo.core.reminders.ReminderOffset.AT_DUE) {
-                        deps.reminderScheduler.cancelByTask(current.id, userId)
+                        deps.reminderScheduler.cancelByTask(current.id, ambientUserId)
                         deps.reminderRepo.deleteByTask(current.id)
                             .onFailure { emitError("Failed to set reminder") }
                         return@launch
@@ -298,7 +294,7 @@ class TaskDetailViewModel(
                     val reminder = com.singularity.todo.feature.reminders.Reminder(
                         id = com.singularity.todo.feature.reminders.ReminderId.generate(),
                         taskId = current.id,
-                        userId = userId,
+                        userId = ambientUserId,
                         type = com.singularity.todo.feature.reminders.ReminderType.Gentle,
                         offsetMinutes = -intent.offset.minutes,
                         fireAt = fireAt,
@@ -312,7 +308,8 @@ class TaskDetailViewModel(
 
             TaskDetailIntent.Domain.DeleteReminder -> {
                 scope.launch {
-                    deps.reminderScheduler.cancelByTask(current.id, userId)
+                    val ambientUserId = deps.taskRepo.currentUserId()
+                    deps.reminderScheduler.cancelByTask(current.id, ambientUserId)
                     deps.reminderRepo.deleteByTask(current.id)
                         .onFailure { emitError("Failed to remove reminder") }
                 }
@@ -321,7 +318,8 @@ class TaskDetailViewModel(
             TaskDetailIntent.Domain.Delete -> {
                 scope.launch {
                     _recentlyDeleted.value = current
-                    deps.reminderScheduler.cancelByTask(current.id, userId)
+                    val ambientUserId = deps.taskRepo.currentUserId()
+                    deps.reminderScheduler.cancelByTask(current.id, ambientUserId)
                     deps.taskRepo.softDelete(current.id)
                         .onSuccess { _events.trySend(TaskDetailUiEvent.UndoDelete(current.id)) }
                         .onFailure {

@@ -17,7 +17,6 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScr
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaSeedStore
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewModel
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewState
-import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -47,11 +46,10 @@ import kotlin.time.Instant
 class SavedAgendaViewModelTest {
 
     private val fakeRepo = FakeSavedAgendaViewsRepository()
-    private val fakeCurrentUser = FakeProfileAwareCurrentUser()
     private val seedStore = SavedAgendaSeedStore()
 
     private fun createVm(mode: SavedAgendaScreenMode, scope: CoroutineScope) = SavedAgendaViewModel(
-        deps = SavedAgendaDeps(repo = fakeRepo, currentUser = fakeCurrentUser, clock = Clock, log = Logger),
+        deps = SavedAgendaDeps(repo = fakeRepo, clock = Clock, log = Logger),
         mode = mode,
         seedStore = seedStore,
         scope = testScope(scope),
