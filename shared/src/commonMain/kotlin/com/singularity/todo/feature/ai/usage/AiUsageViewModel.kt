@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.observability.DailyUsage
 import com.singularity.todo.core.observability.ModelUsage
+import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.ToolUsage
-import com.singularity.todo.core.observability.UsageRecorder
 import com.singularity.todo.feature.profile.ProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,21 +34,14 @@ data class AiUsageUiState(
  * @see AiUsageUiState
  */
 class AiUsageViewModel(
-    private val usageRecorder: UsageRecorder,
+    private val usageRecorder: RoomUsageRecorder,
     profileRepository: ProfileRepository,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(usageRecorder: UsageRecorder, profileRepository: ProfileRepository) : this(
-        usageRecorder = usageRecorder,
-        profileRepository = profileRepository,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<AiUsageUiState> = combine(

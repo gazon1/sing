@@ -62,20 +62,12 @@ sealed interface SavedAgendaListEvent {
 @OptIn(ExperimentalCoroutinesApi::class)
 class SavedAgendaListViewModel(
     private val deps: SavedAgendaListDeps,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production/Koin constructor — defaults scope to Main-immediate. */
-    constructor(
-        deps: SavedAgendaListDeps,
-    ) : this(
-        deps = deps,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     /** Delete failure events — routing (ViewSelected, CreateNew) is screen-side. */
     private val _events = Channel<SavedAgendaListEvent>(Channel.BUFFERED)

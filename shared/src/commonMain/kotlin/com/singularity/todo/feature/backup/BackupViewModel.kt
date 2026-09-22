@@ -3,7 +3,7 @@ package com.singularity.todo.feature.backup
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.auth.AuthDomain
 import com.singularity.todo.core.auth.AuthRepository
-import com.singularity.todo.core.backup.BackupFileNamer
+import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.exportOptions
@@ -40,28 +40,14 @@ data class BackupSummary(val destPath: String, val byteSize: Long, val entityCou
 class BackupViewModel(
     private val repository: BackupRepository,
     private val authRepository: AuthRepository,
-    private val backupFileNamer: BackupFileNamer,
+    private val backupFileNamer: DefaultBackupFileNamer,
     private val clock: Clock,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        repository: BackupRepository,
-        authRepository: AuthRepository,
-        backupFileNamer: BackupFileNamer,
-        clock: Clock,
-    ) : this(
-        repository,
-        authRepository,
-        backupFileNamer,
-        clock,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()

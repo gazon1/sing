@@ -49,31 +49,14 @@ class ProjectsViewModel(
     private val taskRepository: TaskRepository,
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
-    private val scope: AutoCloseableCoroutineScope,
     private val currentUser: ProfileAwareCurrentUser,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        projectRepo: ProjectsRepository,
-        taskRepository: TaskRepository,
-        projectReview: ProjectReviewUseCase? = null,
-        deleteProject: DeleteProjectUseCase,
-        currentUser: ProfileAwareCurrentUser,
-    ) : this(
-        projectRepo = projectRepo,
-        taskRepository = taskRepository,
-        projectReview = projectReview,
-        deleteProject = deleteProject,
-        scope = AutoCloseableCoroutineScope(),
-        currentUser = currentUser,
-        sharingStarted = { SharingStarted.WhileSubscribed(5000) },
-    )
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery

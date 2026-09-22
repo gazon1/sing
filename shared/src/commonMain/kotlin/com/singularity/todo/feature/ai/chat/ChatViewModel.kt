@@ -25,20 +25,12 @@ class ChatViewModel(
     private val log: Logger,
     private val agent: TextGenPort,
     private val idGen: IdGenerator,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(log: Logger, agent: TextGenPort, idGen: IdGenerator) : this(
-        log = log,
-        agent = agent,
-        idGen = idGen,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     data class State(
         val messages: List<ChatMessage> = emptyList(),

@@ -29,20 +29,11 @@ sealed interface TagsUiState {
  */
 class TagsViewModel(
     private val tagRepo: TagsRepository,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
-
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        tagRepo: TagsRepository,
-    ) : this(
-        tagRepo = tagRepo,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val state: StateFlow<TagsUiState> = tagRepo.observeAll()

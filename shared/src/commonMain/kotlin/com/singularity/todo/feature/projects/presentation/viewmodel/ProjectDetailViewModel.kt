@@ -64,7 +64,7 @@ class ProjectDetailViewModel(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
     private val log: Logger,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
 
@@ -73,32 +73,6 @@ class ProjectDetailViewModel(
     }
 
     private val userId get() = currentUser.scopedUserId.value
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        projectId: ProjectId,
-        projectRepo: ProjectsRepository,
-        taskRepo: TaskRepository,
-        deleteProject: DeleteProjectUseCase,
-        updateProject: UpdateProjectUseCase,
-        updateTask: UpdateTaskUseCase,
-        createTaskUseCase: CreateTaskUseCase,
-        currentUser: ProfileAwareCurrentUser,
-        clock: Clock,
-    ) : this(
-        projectId = projectId,
-        projectRepo = projectRepo,
-        taskRepo = taskRepo,
-        deleteProject = deleteProject,
-        updateProject = updateProject,
-        updateTask = updateTask,
-        createTaskUseCase = createTaskUseCase,
-        currentUser = currentUser,
-        clock = clock,
-        log = Logger.withTag("ProjectDetail"),
-        scope = AutoCloseableCoroutineScope(),
-        sharingStarted = { SharingStarted.WhileSubscribed(5000) },
-    )
 
     // ─── UI State ───────────────────────────────────────────────────────────────
 

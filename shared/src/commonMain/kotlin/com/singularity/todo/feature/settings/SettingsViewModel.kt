@@ -28,28 +28,13 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val contributors: Set<SettingsContributor<*, *>>,
     private val settings: SettingsRepository,
-    private val scope: AutoCloseableCoroutineScope,
     private val savedAgendaViewsRepo: SavedAgendaViewsRepository,
     private val fileRevealer: FileRevealer,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
-
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        contributors: Set<SettingsContributor<*, *>>,
-        settings: SettingsRepository,
-        savedAgendaViewsRepo: SavedAgendaViewsRepository,
-        fileRevealer: FileRevealer,
-    ) : this(
-        contributors = contributors,
-        settings = settings,
-        scope = AutoCloseableCoroutineScope(),
-        savedAgendaViewsRepo = savedAgendaViewsRepo,
-        fileRevealer = fileRevealer,
-    )
 
     private val aiContributor: AiSettingsContributor?
         @Suppress("DEPRECATION")

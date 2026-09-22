@@ -22,22 +22,11 @@ import kotlinx.coroutines.launch
 class AttachmentsViewModel(
     private val repository: AttachmentRepository,
     private val currentUser: ProfileAwareCurrentUser,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
-
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        repository: AttachmentRepository,
-        currentUser: ProfileAwareCurrentUser,
-    ) : this(
-        repository = repository,
-        currentUser = currentUser,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val _events = MutableSharedFlow<AttachmentsUiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<AttachmentsUiEvent> = _events.asSharedFlow()

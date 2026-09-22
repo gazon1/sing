@@ -46,22 +46,12 @@ class NotesListViewModel(
     private val repo: NotesRepository,
     private val currentUser: ProfileAwareCurrentUser,
     private val idGen: IdGenerator,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    // Secondary — production Koin uses this
-    constructor(
-        repo: NotesRepository,
-        currentUser: ProfileAwareCurrentUser,
-        idGen: IdGenerator,
-    ) : this(
-        repo, currentUser, idGen,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val userId get() = currentUser.scopedUserId.value
 

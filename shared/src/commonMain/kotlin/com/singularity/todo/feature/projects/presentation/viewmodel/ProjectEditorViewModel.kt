@@ -38,28 +38,12 @@ class ProjectEditorViewModel(
     private val updateProject: UpdateProjectUseCase,
     private val projectsRepo: ProjectsRepository,
     private val currentUser: ProfileAwareCurrentUser,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        projectId: ProjectId?,
-        createProject: CreateProjectUseCase,
-        updateProject: UpdateProjectUseCase,
-        projectsRepo: ProjectsRepository,
-        currentUser: ProfileAwareCurrentUser,
-    ) : this(
-        projectId = projectId,
-        createProject = createProject,
-        updateProject = updateProject,
-        projectsRepo = projectsRepo,
-        currentUser = currentUser,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val _state = MutableStateFlow(ProjectEditorUiState(projectId = projectId))
     val state: StateFlow<ProjectEditorUiState> = _state.asStateFlow()

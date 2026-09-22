@@ -27,22 +27,13 @@ data class StatisticsUiState(val snapshot: StatisticsSnapshot? = null, val loadi
 class StatisticsViewModel(
     private val taskRepository: TaskRepository,
     private val clock: Clock,
-    private val scope: AutoCloseableCoroutineScope,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    // Secondary — production Koin uses this
-    constructor(
-        taskRepository: TaskRepository,
-        clock: Clock,
-    ) : this(
-        taskRepository, clock,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     val state: StateFlow<StatisticsUiState> = taskRepository.observeByFilter(TaskFilter.All)
         .map { tasks ->

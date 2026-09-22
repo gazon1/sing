@@ -52,24 +52,12 @@ class CalendarViewModel(
     private val deps: CalendarDeps,
     initialDate: LocalDate,
     initialMode: CalendarViewMode = CalendarViewMode.MONTH,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        deps: CalendarDeps,
-        initialDate: LocalDate,
-        initialMode: CalendarViewMode = CalendarViewMode.MONTH,
-    ) : this(
-        deps = deps,
-        initialDate = initialDate,
-        initialMode = initialMode,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     /** Today's date, stable for the lifetime of this VM (captured at construction). */
     private val today: LocalDate = deps.today

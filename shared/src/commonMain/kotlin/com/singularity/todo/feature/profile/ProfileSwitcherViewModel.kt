@@ -30,18 +30,11 @@ data object DismissError
  */
 class ProfileSwitcherViewModel(
     private val profileRepository: ProfileRepository,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
-
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(profileRepository: ProfileRepository) : this(
-        profileRepository = profileRepository,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val _errorMessage = MutableStateFlow<String?>(null)
 

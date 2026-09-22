@@ -127,24 +127,12 @@ class SavedAgendaViewModel(
     private val deps: SavedAgendaDeps,
     private val mode: SavedAgendaScreenMode,
     private val seedStore: SavedAgendaSeedStore,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        deps: SavedAgendaDeps,
-        mode: SavedAgendaScreenMode,
-        seedStore: SavedAgendaSeedStore,
-    ) : this(
-        deps = deps,
-        mode = mode,
-        seedStore = seedStore,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val _events = Channel<SavedAgendaEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()

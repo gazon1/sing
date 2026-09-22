@@ -41,22 +41,12 @@ import kotlinx.coroutines.launch
 class AgendaViewModel(
     private val deps: AgendaDeps,
     definition: AgendaDefinition,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production/Koin constructor — defaults scope to Main-immediate. */
-    constructor(
-        deps: AgendaDeps,
-        definition: AgendaDefinition,
-    ) : this(
-        deps = deps,
-        definition = definition,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     /** The definition being evaluated — stable reference. */
     val definition: AgendaDefinition = definition

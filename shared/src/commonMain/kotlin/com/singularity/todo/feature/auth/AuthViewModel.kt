@@ -23,18 +23,11 @@ import kotlinx.coroutines.launch
  */
 class AuthViewModel(
     private val authRepository: AuthRepository,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
-
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(authRepository: AuthRepository) : this(
-        authRepository = authRepository,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val _state = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val state: StateFlow<AuthUiState> = _state.asStateFlow()

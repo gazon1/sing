@@ -34,25 +34,14 @@ sealed interface ArchiveUiState {
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ArchiveViewModel(
-    private val archiveRepo: ArchiveRepository,
+    private val archiveRepo: TaskDaoArchiveRepository,
     private val taskRepo: TaskRepository,
-    private val scope: AutoCloseableCoroutineScope,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
-
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        archiveRepo: ArchiveRepository,
-        taskRepo: TaskRepository,
-    ) : this(
-        archiveRepo = archiveRepo,
-        taskRepo = taskRepo,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val _refreshing = MutableStateFlow(false)
     private val _events = MutableSharedFlow<ArchiveUiEvent>(extraBufferCapacity = 4)

@@ -61,22 +61,12 @@ data class TaskCreateDeps(
 class TaskCreateViewModel(
     private val deps: TaskCreateDeps,
     initialDueDate: kotlinx.datetime.LocalDate?,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        deps: TaskCreateDeps,
-        initialDueDate: kotlinx.datetime.LocalDate?,
-    ) : this(
-        deps = deps,
-        initialDueDate = initialDueDate,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val initial: TaskDraft = TaskDraft(
         dueDate = initialDueDate?.let {

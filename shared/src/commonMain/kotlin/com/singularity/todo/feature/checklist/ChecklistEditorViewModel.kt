@@ -40,22 +40,12 @@ sealed interface ChecklistEditorIntent {
 class ChecklistEditorViewModel(
     private val checklistUseCase: ChecklistUseCase,
     private val checklistRepository: ChecklistRepository,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        checklistUseCase: ChecklistUseCase,
-        checklistRepository: ChecklistRepository,
-    ) : this(
-        checklistUseCase = checklistUseCase,
-        checklistRepository = checklistRepository,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val _state = MutableStateFlow(ChecklistEditorState())
     val state: StateFlow<ChecklistEditorState> = _state.asStateFlow()

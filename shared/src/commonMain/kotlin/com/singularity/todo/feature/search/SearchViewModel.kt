@@ -41,20 +41,11 @@ sealed interface SearchUiEvent {
 @OptIn(ExperimentalCoroutinesApi::class)
 class SearchViewModel(
     private val searchUseCase: SearchUseCase,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
-
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        searchUseCase: SearchUseCase,
-    ) : this(
-        searchUseCase = searchUseCase,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()

@@ -72,41 +72,12 @@ class TasksViewModel(
     private val decomposeTask: DecomposeTaskUseCase? = null,
     private val pickTime: PickTimeUseCase? = null,
     sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        taskRepo: TaskRepository,
-        createTask: CreateTaskUseCase,
-        updateTask: UpdateTaskUseCase,
-        mutations: TaskMutationsUseCase,
-        projectRepo: ProjectsRepository,
-        clock: Clock,
-        refineTask: RefineTaskUseCase? = null,
-        generateDescription: GenerateDescriptionUseCase? = null,
-        generateChecklist: GenerateChecklistUseCase? = null,
-        decomposeTask: DecomposeTaskUseCase? = null,
-        pickTime: PickTimeUseCase? = null,
-    ) : this(
-        taskRepo = taskRepo,
-        createTask = createTask,
-        updateTask = updateTask,
-        mutations = mutations,
-        projectRepo = projectRepo,
-        clock = clock,
-        refineTask = refineTask,
-        generateDescription = generateDescription,
-        generateChecklist = generateChecklist,
-        decomposeTask = decomposeTask,
-        pickTime = pickTime,
-        scope = AutoCloseableCoroutineScope(),
-        sharingStarted = { SharingStarted.WhileSubscribed(5000) },
-    )
 
     /** Pre-computed "today" — stable for the lifetime of the ViewModel. */
     private val today: LocalDate = LocalDate.fromEpochDays(
