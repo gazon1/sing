@@ -51,7 +51,7 @@ fun TaskCard(
     task: Task,
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
-    actions: TaskCardActions = TaskCardActions.Empty,
+    actions: TaskCardActions = TaskCardActions(),
     modifier: Modifier = Modifier,
     body: @Composable RowScope.() -> Unit = { DefaultTaskCardBody(task, actions) },
     trailing: @Composable RowScope.() -> Unit = { DefaultTaskCardTrailing(task, actions) },
@@ -87,7 +87,9 @@ fun TaskCard(
  */
 @Composable
 internal fun RowScope.DefaultTaskCardBody(task: Task, actions: TaskCardActions) {
-    ToggleButton(isCompleted = task.isCompleted, onClick = actions.onToggle ?: {}, taskTitle = task.title)
+    actions.onToggle?.let { onToggle ->
+        ToggleButton(isCompleted = task.isCompleted, onClick = onToggle, taskTitle = task.title)
+    }
     TaskText(task = task, modifier = Modifier.weight(1f))
     if (task.parentTaskId != null) {
         SubtaskChip()

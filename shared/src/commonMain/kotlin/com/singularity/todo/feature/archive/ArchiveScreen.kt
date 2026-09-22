@@ -69,7 +69,7 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel()) {
                                             AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(task.id.value)),
                                         )
                                     },
-                                    actions = TaskCardActions.Empty,
+                                    actions = TaskCardActions(),
                                 )
                             }
                         }
@@ -125,7 +125,7 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
                                 TaskCard(
                                     task = task,
                                     onClick = {},
-                                    actions = TaskCardActions.Empty,
+                                    actions = TaskCardActions(),
                                 )
                             }
                         }

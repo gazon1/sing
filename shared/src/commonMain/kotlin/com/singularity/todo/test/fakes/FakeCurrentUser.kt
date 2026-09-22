@@ -13,7 +13,6 @@ import kotlinx.coroutines.CoroutineScope
  * ```kotlin
  * val authRepo = FakeAuthRepository(Session.Anonymous(UserId.fromString("u1")))
  * val currentUser = FakeCurrentUser(authRepo, scope = backgroundScope)
- * val vm = TaskDetailViewModel(deps, taskId, currentUser)
  * ```
  *
  * @param scope CoroutineScope for hosting the userId StateFlow's collector.

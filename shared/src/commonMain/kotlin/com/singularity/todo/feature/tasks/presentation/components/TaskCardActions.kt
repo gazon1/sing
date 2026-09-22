@@ -4,11 +4,14 @@ import androidx.compose.runtime.Stable
 
 /**
  * Action callbacks available on a [TaskCard]. Each callback is nullable so the
- * card conditionally renders only the buttons the caller cares about — the
- * canonical Kotlin/Compose Slot API pattern instead of a sentinel `Empty`.
+ * card conditionally renders only the buttons the caller wires up — the
+ * canonical Kotlin/Compose Slot API pattern.
  *
- * @param onToggle  Called when the user taps the completion checkbox. Always
- *                  rendered — pass `null` when the card is in a read-only state.
+ * Pass `TaskCardActions()` for read-only cards (e.g. archived tasks in
+ * [com.singularity.todo.feature.archive.ArchiveScreen], where restore is a
+ * separate flow rather than a per-card action).
+ *
+ * @param onToggle  Called when the user taps the completion checkbox.
  * @param onPin    Called when the user taps the pin button.
  * @param onAiClick Called when the user taps the AI action button.
  * @param onDelete Called when the user taps the delete button.
@@ -19,9 +22,4 @@ class TaskCardActions(
     val onPin: (() -> Unit)? = null,
     val onAiClick: (() -> Unit)? = null,
     val onDelete: (() -> Unit)? = null,
-) {
-    companion object {
-        /** All callbacks are null — useful for read-only cards such as archived tasks. */
-        val Empty = TaskCardActions()
-    }
-}
+)

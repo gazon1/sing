@@ -188,7 +188,7 @@ class TaskDetailViewModel(
             is TaskDetailIntent.Domain.ToggleComplete -> {
                 val completed = current.completedAt == null
                 val completedAt = if (completed) deps.clock.now() else null
-                mutate(current, silent = true) { copy(completedAt = completedAt) }
+                mutate(current) { copy(completedAt = completedAt) }
             }
 
             is TaskDetailIntent.Domain.TitleChanged -> {
@@ -262,7 +262,7 @@ class TaskDetailViewModel(
             is TaskDetailIntent.Domain.ToggleSubtask -> {
                 val completed = intent.task.completedAt == null
                 val completedAt = if (completed) deps.clock.now() else null
-                mutate(intent.task, silent = true) { copy(completedAt = completedAt) }
+                mutate(intent.task) { copy(completedAt = completedAt) }
             }
 
             is TaskDetailIntent.Domain.DeleteSubtask -> {
@@ -362,11 +362,9 @@ class TaskDetailViewModel(
     private fun mutate(
         current: Task,
         error: String = "Save failed",
-        silent: Boolean = false,
         transform: Task.() -> Task,
     ) = scope.launch {
         deps.updateTask(current.transform())
-            .onSuccess { }
             .onFailure { emitError(error) }
     }
 
