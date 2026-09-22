@@ -171,6 +171,28 @@ This creates a new scope per preview render. In Android Studio, preview lifecycl
 - Writing a new ViewModel constructor — see also `singularity-todo-testable-vm`
 - Migrating an existing repository — see also `singularity-todo-vm-migration-playbook` (specifically the "When this playbook is NOT enough" section)
 
+## Post-Phase-11-12: `ProfileAwareCurrentUser` is pure DI (no static singleton)
+
+The companion `ProfileAwareCurrentUser.scopedUserId` / `.current` / `.instance` / `.setInstance()` were **removed** in PR12b. The class is now purely DI-injected. The detekt rule `NoStaticProfileAwareCurrentUser` enforces this.
+
+```kotlin
+// ✅ Right — receive via constructor
+class CreateTaskTool(
+    private val taskRepository: TaskRepository,
+    private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,  // injected
+)
+
+// ❌ Wrong — static singleton access (detekt blocks this)
+class CreateTaskTool(...) {
+    val userId = ProfileAwareCurrentUser.scopedUserId.value
+}
+```
+
+`ProfileAwareCurrentUser` itself **still owns its own `CoroutineScope`** (created via `createBackgroundScope()` in its constructor) — that is the legitimate owner-of-scope pattern documented above. The change in PR12b was about the **static accessor**, not the scope ownership.
+
+For full invariants see `singularity-todo-repository-architecture`.
+
 ## See also
 
 - `singularity-todo-testable-vm` — VM constructor pattern (similar scope injection)

@@ -696,3 +696,87 @@ fun nameChangedSetsIsDirty() = runTest {
 If your test needs Turbine, `expectMostRecentItem`, `awaitItem`, or `waitForState`, the VM is wrong. Refactor until the test is trivial.
 
 **Full pattern guide:** see `singularity-todo-testable-vm`.
+
+---
+
+## Repository auth-safety — DAO `*ForUser` pattern (Phase 11-12)
+
+Every new repository that owns user-scoped data must follow the audit-fixed pattern. Skipping this leaves the codebase exposed to the same auth-safety gap that PR12a closed.
+
+### Mandatory RepositoryImpl constructor
+
+```kotlin
+class ProjectsRepositoryImpl(
+    private val projectDao: ProjectDao,
+    private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,  // ← mandatory
+) : ProjectsRepository
+```
+
+`currentUser` is **not optional** and is **never** resolved via static singleton. Companion `ProfileAwareCurrentUser.scopedUserId` was removed in PR12b — `NoStaticProfileAwareCurrentUser` detekt rule enforces this.
+
+### DAO mutation template
+
+When adding a new mutation method to a DAO, give it a `*ForUser` suffix and require `userId` in the WHERE clause. The DAO method returns `Int` (rows affected) so the repository impl can enforce ownership:
+
+```kotlin
+@Query("""
+    UPDATE projects
+       SET parent_id = :parentId, updated_at = :ts
+     WHERE id = :id AND user_id = :userId
+""")
+suspend fun setParentForUser(
+    id: String, parentId: String?, ts: Long, userId: String,
+): Int
+```
+
+Repository impl propagates the user id from `currentUser` and `require`s that rows were affected:
+
+```kotlin
+override suspend fun setParent(
+    id: ProjectId, parentId: ProjectId?, updatedAt: Long,
+) {
+    val uid = currentUser.scopedUserId.value.value
+    val rows = projectDao.setParentForUser(id.value, parentId?.value, updatedAt, uid)
+    require(rows > 0) { "Project $id not found or not owned by user" }
+}
+```
+
+### Fake DAO stub
+
+When adding a real `*ForUser` method, also add a stub in `FakeAppDatabase.kt`:
+
+```kotlin
+override suspend fun setParentForUser(
+    id: String, parentId: String?, ts: Long, userId: String,
+): Int = mutateForUser(id, userId) { it.copy(parentId = parentId, updatedAt = ts) }
+```
+
+### No `watchById(id).first()` for one-shot reads
+
+Replace any `dao.watchById(id).first()` (Flow allocation for a single value) with `dao.getById(id)` (direct suspend). The audit found 3 of these in `TaskRepositoryImpl` — all removed.
+
+### Atomic bootstrap pattern
+
+For bootstrap-style methods (seed + lookup + activate), return an immutable result carrier so callers don't re-issue a Flow subscription:
+
+```kotlin
+data class ProfileBootstrapResult(
+    val created: Set<String>,
+    val activated: ProfileId?,
+)
+
+suspend fun run(...): ProfileBootstrapResult { ... }
+```
+
+**Full invariants + audit checks:** see `singularity-todo-repository-architecture`.
+
+---
+
+## Related Skills
+
+- `singularity-todo-repository-architecture` — DAO `*ForUser`, atomic bootstrap, no static `ProfileAwareCurrentUser`
+- `singularity-todo-testable-vm` — Canonical VM test pattern
+- `singularity-todo-clean-architecture-audit` — Layer-boundary grep checks
+- `singularity-todo-coroutine-scopes` — `createBackgroundScope()` placement
+- `singularity-todo-feature-scaffold` (this file)

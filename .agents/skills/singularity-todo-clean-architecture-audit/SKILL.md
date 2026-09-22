@@ -75,6 +75,32 @@ fi
 # 6. ViewModels have scopeOverride for tests
 echo "=== Check: ViewModels have scopeOverride ==="
 grep -rn "scopeOverride" "$FEATURE_DIR/presentation/viewmodel/" || echo "⚠️  WARNING: no scopeOverride found"
+
+# 7. NO static ProfileAwareCurrentUser access (Phase 12b invariant)
+echo "=== Check: no static ProfileAwareCurrentUser access ==="
+if grep -rn "ProfileAwareCurrentUser\.scopedUserId\|ProfileAwareCurrentUser\.current\|ProfileAwareCurrentUser\.instance\|ProfileAwareCurrentUser\.Companion" shared/src/ --include="*.kt" | grep -v Binary; then
+    echo "❌ FAIL: static ProfileAwareCurrentUser access found (use constructor injection)"
+else
+    echo "✅ PASS"
+fi
+
+# 8. NO watchById().first() one-shot reads (Phase 12a anti-pattern)
+echo "=== Check: no watchById().first() anti-pattern ==="
+if grep -rn "watchById.*\.first()\|watchByIdForUser.*\.first()" "$FEATURE_DIR"; then
+    echo "❌ FAIL: watchById().first() found (use getById() instead)"
+else
+    echo "✅ PASS"
+fi
+
+# 9. DAO mutations include userId in WHERE clause (Phase 12a invariant)
+echo "=== Check: DAO mutations include userId ==="
+# Find DAO @Query UPDATE/DELETE statements that lack 'user_id' guard
+# Skip known-safe tables (syncOutbox, settings, etc.) and the new *ForUser variants
+if grep -B1 "UPDATE.*SET\|DELETE FROM" shared/src/commonMain/kotlin/com/singularity/todo/core/database/Daos.kt | grep "suspend fun" | grep -v "ForUser\|syncOutbox\|settings\|app_state\|preferences\|llm_usage" | grep -v "WHERE.*user_id"; then
+    echo "❌ FAIL: DAO mutation without user_id WHERE clause — see singularity-todo-repository-architecture"
+else
+    echo "✅ PASS"
+fi
 ```
 
 ## Manual checklist
@@ -108,6 +134,15 @@ After running automated checks, verify manually:
 - [ ] No `runBlocking` in ViewModel constructors
 - [ ] `Either<AppError, T>` or `Result<T>` used for error returns (not exceptions)
 - [ ] `just lint` reports 0 new violations (run `just detekt-fix` to auto-fix first)
+
+### Repository auth-safety (Phase 12a — added 2026-09-24)
+- [ ] All new DAO mutations include `userId: String` in WHERE clause AND return `Int`
+- [ ] Repository impl propagates `currentUser.scopedUserId.value.value` into every DAO call
+- [ ] `require(rows > 0)` enforces ownership in every DAO mutation
+- [ ] No `dao.watchById(id).first()` for one-shot reads — use `dao.getById(id)`
+- [ ] No static `ProfileAwareCurrentUser.scopedUserId` / `.current` / `.instance` (detekt enforces)
+
+See `singularity-todo-repository-architecture` for full invariants.
 
 ## How to fix common failures
 
@@ -155,3 +190,4 @@ grep -rn "collectAsState()" "shared/src/commonMain/kotlin/com/singularity/todo/f
 - `singularity-todo-quality-tools` — detekt, ktlint, kover run commands and config format
 - `singularity-todo-feature-scaffold` — feature checklist with lint step
 - `singularity-todo-kotlin-idioms` — Kotlin idioms that ktlint enforces
+- `singularity-todo-repository-architecture` — DAO `*ForUser`, atomic bootstrap, no static `ProfileAwareCurrentUser`
