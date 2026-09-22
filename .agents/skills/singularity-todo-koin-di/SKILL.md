@@ -86,18 +86,56 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskEditor
 import com.singularity.todo.core.error.AppError
 ```
 
-## Key Annotations (planned, not yet adopted)
+## Koin Annotations (verified against 4.2.2 jar contents)
+
+The Koin 4.x annotations module (`io.insert-koin:koin-annotations:4.2.2`) exposes
+the following annotations — **only these** exist. The compiler is the
+`io.insert-koin:koin-gradle-plugin` (apply as `alias(libs.plugins.koin)`),
+which runs per-target but processes `commonMain` annotated classes
+without per-target KSP configuration.
 
 ```kotlin
-@Single              // singleton — created once, shared everywhere
+@Singleton           // singleton — created once, shared everywhere
 @Factory             // new instance every time get() is called
+@Module              // marks a class as a Koin module
+@ComponentScan("pkg") // auto-register all @Singleton/@Factory in that package
 @Named("qualifier")  // disambiguate same-type bindings
-@IntoSet             // add this bean to a Set<T> (used for 16 AI tools)
-@Module              // marks a class as a DI module (PLANNED)
-@ComponentScan("pkg") // auto-register all @Single/@Factory in that package (PLANNED)
+@KoinViewModel       // registers a ViewModel (we do NOT use this — see VM skills)
+@InjectedParam       // runtime param for @KoinViewModel
+@Scope(...)          // custom scope grouping
+@Scoped              // alternative to @Scope
+@Provided            // inject an externally-provided instance
+@Property("key")     // config-driven injection
+@Configuration       // conditional module loading
+@KoinApplication     // startup config class (replaces KoinApplication { } DSL)
+@Monitor             // Android lifecycle hook
 ```
 
-**⚠️ `@ComponentScan` + KSP for KMP:** The KSP annotation processor runs per-target (JVM/Android) separately. Before adopting annotations, verify that `@ComponentScan` works correctly with KMP source sets.
+**Common misconceptions:**
+- ❌ **`@Single`** — does NOT exist. Use `@Singleton`. Both are sometimes
+  written interchangeably in old blog posts / Koin 2.x docs.
+- ❌ **`@IntoSet`** — does NOT exist in 4.x annotations. It was a Koin 2.x
+  feature for `Set<T>` aggregation; in 4.x the same result is achieved
+  via `koin.getAll<T>()` at runtime (no annotation needed) or by binding
+  `single<Set<MyType>> { getAll<MyType>() }` explicitly.
+- ❌ **`koin-annotations-compiler`** artifact — does NOT exist for 4.x.
+  Use the `koin-gradle-plugin` (Gradle plugin id `koin`) instead.
+- ❌ **`@ComponentScan` requires per-target KSP config** — false for 4.x.
+  The Gradle plugin processes `commonMain` annotated classes natively.
+  Setup is: apply `alias(libs.plugins.koin)`, declare a `@Module
+  @ComponentScan("pkg") class`, done.
+
+**Use annotations when:**
+- A module declares ≥15 bindings and a `@ComponentScan` over its package
+  removes the manual `singleOf`/`factoryOf` repetition (e.g., `AiToolsModule`).
+- Discoverability matters more than line count (new contributors see
+  annotated classes without reading the DI file).
+
+**Don't use annotations when:**
+- The module has ≤10 bindings — DSL is shorter than declaring a
+  `@Module` wrapper and adding annotations to each class.
+- The constructor has non-Koin-bean params (Logger, function types,
+  object singletons) — see "Gotchas" section for those.
 
 ## DSL Patterns (current)
 
@@ -185,28 +223,43 @@ For the full rationale (why `viewModelOf` is also wrong), see the dedicated sect
 ## Qualifiers (@Named)
 
 ```kotlin
-@Single @Named("device")
+@Singleton @Named("device")
 class DeviceDatabase(...)
 
-@Single @Named("backup")
+@Singleton @Named("backup")
 class BackupDatabase(...)
 
 class Service(@Named("device") val db: Database)
 ```
 
-## @IntoSet for multi-instance bindings (AI tools)
+## Multi-instance bindings (AI tools — current canonical)
+
+The Koin 4.x pattern: each tool is `@Singleton` (or factory-bound), and
+the consuming service receives the full set via `koin.getAll<T>()`:
 
 ```kotlin
-@Single @IntoSet
+// Each tool is registered individually — no @IntoSet in 4.x.
+@Singleton
 class RefineTaskTool(get(), get()) : SimpleTool<...>
 
+@Singleton
+class SmartRewriteTool(get(), get()) : SimpleTool<...>
+// ... 30 more tools
+
 class KoogAgentService(
-    private val tools: Set<Tool<*, *>>,
+    private val tools: Set<Tool<*, *>>,  // resolved via getAll<Tool<*, *>>()
     ...
 )
+
+// In the DI module — explicit aggregation (the only Koin 4.x option):
+single<Set<Tool<*, *>>> { getAll<Tool<*, *>>() }
 ```
 
-No more hand-written `listOf(get<X>(), get<Y>(), ...)` — Koin aggregates `@IntoSet` beans automatically.
+This is **longer than the old `single<List<...>> { listOf(get<X>(), get<Y>(), ...) }`**
+DSL but avoids the manual `listOf` enumeration that previously caused
+silent bugs (4 AI tools were omitted from `JvmAiDiGraphTest` because
+they weren't in the manual list). `getAll<T>()` reflects the actual
+graph state at runtime — no manual maintenance required.
 
 ## Testing: register Fake doubles
 
@@ -362,8 +415,23 @@ private fun ProjectDetailScreen_Preview() {
 ## Gotchas
 
 1. **Last-wins**: if two modules define the same type, the later-loaded one wins. **Deduplicate before refactoring** — Koin silently overrides, but the first binding becomes dead code (latent bug).
-2. **`@ComponentScan` requires KSP** — ensure `koin-annotations-compiler` is in `kspJvm` / `kspAndroid`.
-3. **`@IntoSet` only works with `Set<T>`** — declare the target as `Set<TheInterface>`.
+2. **`koin-annotations-compiler` artifact doesn't exist for 4.x.** Use the `koin-gradle-plugin` (Gradle plugin id `koin`) instead. Setup:
+   ```kotlin
+   // gradle/libs.versions.toml
+   koin = { id = "koin", version.ref = "koin" }
+   // settings.gradle.kts (the plugin id is "koin" but Koin ships it without a
+   // plugin-marker artifact on Maven Central — point eachPlugin to the module)
+   resolutionStrategy {
+       eachPlugin {
+           if (requested.id.id == "koin") {
+               useModule("io.insert-koin:koin-gradle-plugin:${requested.version}")
+           }
+       }
+   }
+   // shared/build.gradle.kts
+   alias(libs.plugins.koin)
+   ```
+3. **`@IntoSet` doesn't exist in Koin 4.x annotations.** Use `koin.getAll<T>()` at runtime instead.
 
 ---
 

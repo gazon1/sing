@@ -1,13 +1,13 @@
 ---
 name: singularity-todo-ai-tool
-description: Koog AI tool creation pattern for the Singularity Todo KMP app. Use when adding a new SimpleTool<T> to the AI agent. Covers @Serializable Input/Output DTOs, SimpleTool<Input> subclass, tool name/description, Koog prompt DSL, ToolRegistry registration via @IntoSet, JSON schema helper, and the use-case layer that decodes the tool output. All 16 existing tools follow this pattern.
+description: Koog AI tool creation pattern for the Singularity Todo KMP app. Use when adding a new SimpleTool<T> to the AI agent. Covers @Serializable Input/Output DTOs, SimpleTool<Input> subclass, tool name/description, Koog prompt DSL, tool registration via `koin.getAll<Tool<*, *>>()` aggregation into `KoogAgentService.tools: Set<Tool<*, *>>`, JSON schema helper, and the use-case layer that decodes the tool output. All 32+ existing tools follow this pattern.
 ---
 
 # Koog AI Tool — Adding a New Tool
 
 ## Overview
 
-Every AI tool is a `SimpleTool<T>` subclass registered via `@IntoSet` into a `Set<Tool<*, *>>` that `KoogAgentService` consumes. The tool's `execute` returns a **JSON string**; the use case decodes it.
+Every AI tool is a `SimpleTool<T>` subclass registered via `factory { Tool(get(), get()) }` in `AiToolsModule.{android,jvm}.kt`, then aggregated into a `Set<Tool<*, *>>` that `KoogAgentService` consumes via `koin.getAll<Tool<*, *>>()`. The tool's `execute` returns a **JSON string**; the use case decodes it.
 
 ```
 User message → KoogAgentService → SimpleTool.execute(input) → JSON string → UseCase.decode → Result
@@ -129,20 +129,46 @@ class <Tool>UseCase(private val tool: <Tool>Tool) {
 }
 ```
 
-## Tool registration via @IntoSet
+## Tool registration — current canonical (Koin 4.x)
 
-In `Modules.kt`, each tool is already annotated and the list is manual. **After migration to Koin Annotations** (see `singularity-todo-koin-di`):
+Each tool is registered individually. **There is no `@IntoSet` in Koin 4.x
+annotations** — it was a Koin 2.x feature. The aggregation that feeds
+`KoogAgentService` is done at runtime via `koin.getAll<Tool<*, *>>()`.
+
+**Current pattern (DSL):**
 
 ```kotlin
-// Currently (manual list — 18 lines):
-single<List<Tool<*, *>>> {
-    listOf(get<RefineTaskTool>(), get<SmartRewriteTool>(), ...)
-}
+// Each tool has a factory { Tool(get(), get()) } binding — straightforward.
+factory { RefineTaskTool(get(), get()) }
+factory { SmartRewriteTool(get(), get()) }
+// ... 32 more
 
-// Target (annotation-based, no manual list):
-@Single @IntoSet
-class <Tool>Tool(get(), get()) : SimpleTool<...>
+// Aggregation — replaces the manual listOf(...) that was easy to forget.
+single<Set<Tool<*, *>>> { getAll<Tool<*, *>>() }
+
+// KoogAgentService consumes Set<Tool<*, *>>:
+class KoogAgentService(
+    private val tools: Set<Tool<*, *>>,
+    ...
+)
 ```
+
+**Why `Set` and not `List`:** `getAll<T>()` returns a `Set` — sets have
+no duplicate semantics so tool ordering is non-deterministic. Tools are
+addressed by name (`Tool.NAME`) inside the agent registry, not by
+position, so order doesn't matter. Using `Set` reflects this and lets
+KSP / runtime catch duplicate tool names automatically.
+
+**Avoid `@IntoSet`** (doesn't exist in 4.x anyway, but a common mistake
+when porting from 2.x docs): the `@IntoSet` pattern was designed for
+the 2.x annotations module and was not carried forward. In 4.x the
+same outcome is `single<Set<...>> { getAll<...>() }` — explicit, no
+annotation magic, one line shorter than the old `listOf(...)` pattern.
+
+**Future-proof alternative** (annotated, after `singularity-todo-koin-di`
+phase 2 migration): `@Singleton class Tool(get(), get())` + `getAll<Tool>()`
+without per-tool factory bindings. Use only if the module declares
+≥15 tools (it does — 32+ — so this win is real here).
 
 ## JSON schema helper
 

@@ -90,6 +90,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All 6 repositories now extend `GenericUserScopedRepository`: Tasks, Notes, Projects, Tags, SavedAgendaViews, Profile.
 - All `FakeRepositories` updated to match
 - All notes screens now navigationally self-contained
+- All skills now reference verified Koin 4.x API surface (jar inspection as the ground truth).
 - Archive доступен с любого TaskDetailScreen через ⋮ menu
 - Autosave вынесен из `delay()` в VM в отдельный port — теперь тестируем без `advanceTimeBy`
 - Backlinks queryable via SQL without HTML parsing
@@ -98,6 +99,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Bulk-операции fail-fast при отсутствующих ID
 - CI may later call `just tests::check` instead of `./check.sh` — the behavior is identical.
 - Cannot filter by `name` in SQL without parsing JSON — acceptable; user-facing
+- Code migration to Koin Annotations is explicitly **deferred** — see ADR `2026-09-22-koin-annotations-4x-skill-correction` for the analysis.
 - DI bindings for canonical types: `singleOf(::Class)` for simple ctors (≤3 args, singleton scope), `factoryOf(::Class)` for per-injection scope. No `bind<Interface>()`.
 - DI-граф упрощён: 5 factory → 1
 - Dead Nav2 code removed from Android
@@ -114,6 +116,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Exposed `events: Flow<UiEvent>` becomes `_events.receiveAsFlow()`.
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes)
 - Full filter panel with Project / Tags / Priority / Status.
+- Future agents reading these skills will not waste time on `koin-annotations-compiler` setup that doesn't exist.
 - Future developers understand which fields are stubbed vs. populated
 - Horizontal swipe between dates.
 - If a Tier 1 interface gains a 2nd implementation, restore the interface — never compromise final-by-default by adding `open` to the existing concrete class.
@@ -146,6 +149,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Test factories for those VMs use `testScope(backgroundScope)` (or `testScope(this)` in `runTest`).
 - The 2 side-effects-in-combine anti-patterns remain in `TaskDetailViewModel`
 - The 4 untested VMs (`TaskCreateViewModel`, `ProjectEditorViewModel`,
+- The `koin-gradle-plugin` is already wired in `shared/build.gradle.kts` (commit `1eb272a`) but no annotations are in use. If a future agent wants to adopt annotations, they can reapply the pattern shown in commit `1eb272a`'s setup; the plugin doesn't break anything.
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
 - The default `viewModelScope` is still created by the ViewModel but is unused in Tier-1 VMs (negligible memory cost: one empty `SupervisorJob`).
 - Theme switching now correctly recomposes the calendar palette
@@ -935,6 +939,7 @@ _1 entries need attention._
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
 - `2026-09-22-explicit-overload-removal` — _untagged_
+- `2026-09-22-koin-annotations-4x-skill-correction` — _untagged_
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
@@ -1083,6 +1088,7 @@ _1 entries need attention._
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
 - `2026-09-22-explicit-overload-removal` — _(no title)_
+- `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads

@@ -168,17 +168,43 @@ prompt(Prompt.Empty, KoogClock.System) {
 - `prompt { system(); user() }` (1-arg) → doesn't exist; must be 2-arg: `prompt(Prompt.Empty, KoogClock.System) { }`
 - `Prompt.EMPTY` (all-caps) and `KoogClock.SYSTEM` (all-caps) → these fields don't exist
 
-## Tool Registration via Koin
+## Tool Registration via Koin (current canonical)
 
-All `SimpleTool<T>` implementations are auto-registered via Koin's `@ComponentScan`:
+**Current state (DSL):** each `SimpleTool<T>` is registered individually via
+`factory { Tool(get(), get()) }` in `AiToolsModule.{android,jvm}.kt`, then
+aggregated into a `Set<Tool<*, *>>` via `getAll<T>()` and injected into
+`KoogAgentService`.
 
 ```kotlin
-@OptIn(KoinApiExtension::class)
-@ComponentScan("com.singularity.todo.feature.ai.tools")
-class AiToolsModule
+// AiToolsModule.android.kt — each tool is one line:
+factory { RefineTaskTool(get(), get()) }
+factory { SmartRewriteTool(get(), get()) }
+// ... 30 more tools (32 on JVM with the two project tools)
+
+// Aggregation — replaces the error-prone manual listOf(...) pattern:
+single<Set<Tool<*, *>>> { getAll<Tool<*, *>>() }
+
+// KoogAgentService consumes the set:
+class KoogAgentService(
+    private val tools: Set<Tool<*, *>>,
+    ...
+) : TextGenPort {
+    private val agentTools: ToolRegistry = ToolRegistry.builder().tools(tools).build()
+    ...
+}
 ```
 
-The tools are retrieved in `KoogAgentService` via `Koin.getAll<Tool>()` and passed to `ToolRegistry { tool(toolInstance) }`.
+**Future state (Koin 4.x annotations, post-PR3 migration):** replace
+the per-tool `factory { Tool(...) }` lines with `@Singleton` annotations
+on each tool class + `@Module @ComponentScan("...feature.ai.tools") class AiToolsModule`.
+The aggregation binding stays the same (`single<Set<...>> { getAll<...>() }`)
+because `@IntoSet` does not exist in Koin 4.x.
+
+⚠️ **Avoid these patterns** (documented in `singularity-todo-koin-di` skill):
+- `@Single` (rename in your head to `@Singleton` — `@Single` doesn't exist in 4.x)
+- `@IntoSet` (doesn't exist in 4.x — was a 2.x feature; use `getAll<T>()` instead)
+- `koin-annotations-compiler` artifact (doesn't exist for 4.x — use `koin-gradle-plugin`)
+- `kspAndroid` / `kspJvm` configuration for Koin (not needed in 4.x — the Gradle plugin handles commonMain natively)
 
 ## Prompts as Kotlin String Templates
 

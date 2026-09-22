@@ -530,7 +530,7 @@ interface NotesRepository {
 | Situation | Pattern |
 |---|---|
 | Many-to-many relationship (notes ↔ tags) | Subinterface (`NoteTagRepository`) |
-| Plugin-like extensibility (AI tools) | `@IntoSet` on individual tool classes |
+| Plugin-like extensibility (AI tools) | `factory { Tool(get(), get()) }` per tool + `single<Set<Tool<*, *>>> { getAll<Tool<*, *>>() }` aggregation (no `@IntoSet` in Koin 4.x) |
 | Read vs write concerns (watchAll vs mutate) | Keep in same repo, different method families |
 | Different storage backends | Subinterface with different implementations |
 
