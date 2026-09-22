@@ -24,7 +24,7 @@ data class Tag(
      * This field is never read, never written, and never cascaded.
      * The entity layer explicitly discards it in both directions.
      *
-     * @see com.singularity.todo.docs.decisions.2026-09-18-tag-groups-inheritance
+     * @see 2026-09-18-tag-groups-inheritance
      */
     @Deprecated(
         message = "Dead schema — replaced by TagGroup in MR-3",

@@ -51,14 +51,14 @@ class TagsRepositoryImpl(
         return tagDao.getByIdForUser(id.value, uid.value)?.toTag()
     }
 
-    override suspend fun create(tag: Tag): Result<Tag> = runCatching {
-        tagDao.upsert(tag.toEntity())
-        tag
+    override suspend fun create(item: Tag): Result<Tag> = runCatching {
+        tagDao.upsert(item.toEntity())
+        item
     }
 
-    override suspend fun update(tag: Tag): Result<Tag> = runCatching {
-        tagDao.upsert(tag.toEntity())
-        tag
+    override suspend fun update(item: Tag): Result<Tag> = runCatching {
+        tagDao.upsert(item.toEntity())
+        item
     }
 
     override suspend fun delete(id: TagId): Result<Unit> = runCatching {

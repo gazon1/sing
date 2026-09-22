@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -134,7 +135,7 @@ private fun SearchResultsListPreviewContent(results: SearchResults, navigator: S
     SearchResultsList(results = results, navigator = navigator)
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun SearchResultsListWithResultsPreview() = PreviewThemed(darkTheme = false) {
     SearchResultsListPreviewContent(
@@ -157,7 +158,7 @@ private fun SearchResultsListWithResultsPreview() = PreviewThemed(darkTheme = fa
     )
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun SearchResultsListEmptyDarkPreview() = PreviewThemed(darkTheme = true) {
     SearchResultsListPreviewContent(
@@ -166,7 +167,7 @@ private fun SearchResultsListEmptyDarkPreview() = PreviewThemed(darkTheme = true
     )
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun SimpleResultCardPreview() = PreviewThemed(darkTheme = false) {
     SimpleResultCard(title = "Sample result item", onClick = {})

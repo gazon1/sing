@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ContentStateMapper
@@ -87,7 +88,7 @@ fun TagCard(tag: Tag, onDelete: () -> Unit) {
 
 // ===== Preview =====
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun TagsScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     TagsContent(
@@ -102,7 +103,7 @@ private fun TagsScreenContentPreview() = PreviewThemed(darkTheme = false, useSur
     )
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun TagsScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     TagsContent(
@@ -111,7 +112,7 @@ private fun TagsScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurfa
     )
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun TagsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
     TagsContent(

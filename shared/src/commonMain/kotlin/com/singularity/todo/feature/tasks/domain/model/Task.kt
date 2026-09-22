@@ -118,7 +118,7 @@ data class Task(
      * Computed via [com.singularity.todo.feature.tasks.domain.logic.TaskComputed.isBlocked]
      * using the full task list in scope (VM `combine`).
      *
-     * @see com.singularity.todo.docs.decisions.2026-09-18-task-dependencies
+     * @see 2026-09-18-task-dependencies
      */
     val dependsOn: Set<TaskId> = emptySet(),
     val createdAt: Instant,

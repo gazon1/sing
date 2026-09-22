@@ -3,18 +3,18 @@ package com.singularity.todo.feature.tasks.domain
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.agenda.domain.logic.toDateRange
+import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
-import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
-import com.singularity.todo.feature.agenda.domain.logic.toDateRange
-import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import kotlin.time.Instant
 
 /**
@@ -144,13 +144,19 @@ object TaskDomain {
         }
 
         is TaskFilter.ByTags -> {
-            if (filter.ids.isEmpty()) {
-                // Empty tag set: matchAll=false → nothing matches; matchAll=true → trivially true
-                filter.matchAll && true
-            } else if (filter.matchAll) {
-                filter.ids.all { id -> task.tags.contains(id) }
-            } else {
-                filter.ids.any { id -> task.tags.contains(id) }
+            when {
+                filter.ids.isEmpty() -> {
+                    // Empty tag set: matchAll=false → nothing matches; matchAll=true → trivially true
+                    filter.matchAll
+                }
+
+                filter.matchAll -> {
+                    filter.ids.all { id -> task.tags.contains(id) }
+                }
+
+                else -> {
+                    filter.ids.any { id -> task.tags.contains(id) }
+                }
             } && !task.isTrashed
         }
 
@@ -161,7 +167,7 @@ object TaskDomain {
         is TaskFilter.ByRegexp -> {
             val pattern = filter.pattern
             if (pattern.isEmpty()) {
-                true && !task.isTrashed
+                !task.isTrashed
             } else {
                 task.title.contains(pattern, ignoreCase = true) && !task.isTrashed
             }
@@ -182,17 +188,4 @@ object TaskDomain {
         }
     }
 
-    /**
-     * Validates that setting [childId] as a child of [parentId] would not violate
-     * the 1-level hierarchy rule: a child task cannot itself have children.
-     */
-    fun assertNoNesting(parentId: TaskId, childId: TaskId, allTasks: List<Task>): Either<AppError.Validation, Unit> {
-        val child = allTasks.find { it.id == childId } ?: return Either.Right(Unit)
-        if (child.parentTaskId != null) {
-            return Either.Left(
-                AppError.Validation("Sub-tasks can only be 1 level deep. \"${child.title}\" is already a sub-task."),
-            )
-        }
-        return Either.Right(Unit)
-    }
 }

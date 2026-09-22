@@ -60,7 +60,7 @@ object TaskComputed {
      * The [allTasks] list must contain every task for the current user — it is
      * supplied by the ViewModel's `combine` so the predicate remains pure.
      *
-     * @see com.singularity.todo.docs.decisions.2026-09-18-task-dependencies
+     * @see 2026-09-18-task-dependencies
      */
     fun isBlocked(task: Task, allTasks: List<Task>): Boolean {
         if (task.dependsOn.isEmpty()) return false
