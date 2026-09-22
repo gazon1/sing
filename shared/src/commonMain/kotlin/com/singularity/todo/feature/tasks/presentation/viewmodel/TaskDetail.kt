@@ -70,13 +70,7 @@ class TaskDetailViewModel(
     /** Draft state — owned by VM, single source of truth for editable title/description. */
     val draftState = TaskDetailDraftState()
 
-    private val _lastEditedAt = MutableStateFlow<kotlin.time.Instant?>(null)
-    val lastEditedAt: StateFlow<kotlin.time.Instant?> = _lastEditedAt
-
     private val _recentlyDeleted = MutableStateFlow<Task?>(null)
-
-    /** Public for TaskDetailViewContent to show undo snackbar after delete. */
-    val recentlyDeleted: StateFlow<Task?> = _recentlyDeleted.asStateFlow()
 
     /** Incremented on each retry() call to restart the watchTask subscription. */
     private val _retryVersion = MutableStateFlow(0)
@@ -91,7 +85,6 @@ class TaskDetailViewModel(
             ) { task, title -> task to title }
                 .collect { (task, title) ->
                     deps.updateTask(task.copy(title = title))
-                        .onSuccess { _lastEditedAt.value = deps.clock.now() }
                         .onFailure { emitError("Save failed") }
                 }
         }
@@ -102,7 +95,6 @@ class TaskDetailViewModel(
             ) { task, desc -> task to desc }
                 .collect { (task, desc) ->
                     deps.updateTask(task.copy(description = desc.ifBlank { null }))
-                        .onSuccess { _lastEditedAt.value = deps.clock.now() }
                         .onFailure { emitError("Save failed") }
                 }
         }
@@ -362,18 +354,6 @@ class TaskDetailViewModel(
         }
     }
 
-    /** Non-blocking title edit — queues for debounced flush. */
-    fun onTitleChange(value: String) {
-        draftState.setTitle(value)
-        titleEdits.tryEmit(value)
-    }
-
-    /** Non-blocking description edit — queues for debounced flush. */
-    fun onDescriptionChange(value: String) {
-        draftState.setDescription(value)
-        descriptionEdits.tryEmit(value)
-    }
-
     /** Re-triggers the watchTask subscription by bumping the retry version. */
     fun retry() {
         _retryVersion.value++
@@ -386,7 +366,7 @@ class TaskDetailViewModel(
         transform: Task.() -> Task,
     ) = scope.launch {
         deps.updateTask(current.transform())
-            .onSuccess { if (!silent) _lastEditedAt.value = deps.clock.now() }
+            .onSuccess { }
             .onFailure { emitError(error) }
     }
 

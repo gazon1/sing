@@ -116,7 +116,7 @@ class TaskDetailViewModelTest {
     // debounce fires. v2 should be the final value, not v1 overwriting remote.
 
     @Test
-    fun `onTitleChange debounce saves after delay`() = runTest {
+    fun `TitleChanged debounce saves after delay`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
         delay(100) // Let initial subscription establish
