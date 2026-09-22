@@ -8,8 +8,6 @@ import kotlinx.serialization.Serializable
  * Replaces [com.singularity.todo.feature.tasks.presentation.model.TaskListFilter].
  * The three-way distinction (All / Active / Completed) is needed both for
  * the agenda DSL selector and for the UI filter chips.
- *
- * @see com.singularity.todo.feature.tasks.presentation.model.TaskListFilter (deleted, replaced by this type)
  */
 @Serializable
 enum class TaskStatus {

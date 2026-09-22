@@ -27,5 +27,5 @@ class DefaultDataContext(
     val surfaces: StateFlow<Map<SurfaceId, Surface>> = controller.surfaces
 }
 
-/** Type alias for the canonical [DefaultDataContext] implementation. */
+/** Type alias for [DefaultDataContext]. */
 typealias DataContext = DefaultDataContext
