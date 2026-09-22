@@ -88,17 +88,17 @@ class NoteEditorTest {
         vm.openEditor(testNote.id.value)
         advanceUntilIdle()
 
-        // Edit body — autosave is paused (scheduler is blocked), dirty becomes true
+        // Edit body — dirty becomes true; the debounce (500ms) hasn't fired yet
+        // because advanceTimeBy(400L) stays below the debounce threshold.
         vm.editBody("<p>Updated content</p>")
-        advanceUntilIdle() // allow the edit to be observed
+        advanceTimeBy(400L) // debounce not reached yet
 
         val dirtyState = vm.editorState.value
         assertIs<EditorState.Editing>(dirtyState)
         assertEquals(true, dirtyState.isDirty)
 
-        // saveNow persists directly — clears dirty regardless of autosave
+        // saveNow persists immediately — clears dirty regardless of autosave
         vm.saveNow()
-        advanceUntilIdle()
 
         val savedState = vm.editorState.value
         assertIs<EditorState.Editing>(savedState)
@@ -115,20 +115,59 @@ class NoteEditorTest {
         vm.openEditor(testNote.id.value)
         advanceUntilIdle()
 
-        // Edit body — autosave is paused, dirty stays true
+        // Edit body — dirty becomes true; debounce (500ms) not yet reached
         vm.editBody("<p>Updated content</p>")
-        advanceUntilIdle()
+        advanceTimeBy(400L) // debounce not reached yet
 
         val dirtyState = vm.editorState.value
         assertIs<EditorState.Editing>(dirtyState)
         assertEquals(true, dirtyState.isDirty)
 
-        // Now let autosave fire — dirty is cleared
-        advanceUntilIdle()
+        // Now let autosave fire — dirty is cleared (need to advance past 500ms debounce)
+        advanceTimeBy(600L)
+        runCurrent()
 
         val cleanState = vm.editorState.value
         assertIs<EditorState.Editing>(cleanState)
-        // Note: AUTOSAVE_DEBOUNCE_MS = 500ms, so advanceUntilIdle() must advance past it.
-        // See NoteEditor.AUTOSAVE_DEBOUNCE_MS for the canonical value.
+        assertEquals(false, cleanState.isDirty)
+    }
+
+    @Test
+    fun `autosave debounce does not fire before 500ms`() = runTest {
+        val notesRepo = FakeNotesRepository()
+        notesRepo.seed(testNote)
+        val vm = createVm(notesRepo = notesRepo, scope = this)
+
+        vm.openEditor(testNote.id.value)
+        advanceUntilIdle()
+
+        // 1. Edit body — autosave scheduled but not yet fired
+        vm.editBody("<p>Preliminary content</p>")
+        advanceTimeBy(499L)
+        runCurrent()
+
+        // Dirty is true, but autosave hasn't fired yet (debounce not elapsed)
+        val dirtyState = vm.editorState.value
+        assertIs<EditorState.Editing>(dirtyState)
+        assertEquals(true, dirtyState.isDirty)
+
+        // 2. Edit again — this restarts the debounce timer
+        vm.editBody("<p>Final content</p>")
+        advanceTimeBy(499L)
+        runCurrent()
+
+        // Still dirty — debounce was reset by the second edit
+        val stillDirtyState = vm.editorState.value
+        assertIs<EditorState.Editing>(stillDirtyState)
+        assertEquals(true, stillDirtyState.isDirty)
+
+        // 3. Now let the debounce window elapse
+        advanceTimeBy(1L)
+        runCurrent()
+
+        // Autosave fired — dirty cleared
+        val cleanState = vm.editorState.value
+        assertIs<EditorState.Editing>(cleanState)
+        assertEquals(false, cleanState.isDirty)
     }
 }

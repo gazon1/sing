@@ -84,7 +84,7 @@ open class NoteEditor(
      * in-memory edits are preserved even if the underlying DB row hasn't saved yet.
      */
     fun openEditor(noteId: String) {
-        scope.launch(Dispatchers.Unconfined) {
+        scope.launch {
             val current = _editorState.value
             if (current is EditorState.Editing && current.id == noteId) return@launch
 
@@ -151,7 +151,7 @@ open class NoteEditor(
 
     private fun scheduleAutosave() {
         autosaveJob?.cancel()
-        autosaveJob = scope.launch(Dispatchers.Unconfined) {
+        autosaveJob = scope.launch {
             delay(AUTOSAVE_DEBOUNCE_MS)
             val current = _editorState.value as? EditorState.Editing ?: return@launch
             persist(html = current.html, title = current.title, id = current.id, navigateBack = false)
