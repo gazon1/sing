@@ -49,7 +49,7 @@ class TaskDetailViewModel(
     private val deps: TaskDetailDeps,
     private val taskId: TaskId,
     private val currentUser: ProfileAwareCurrentUser,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
@@ -58,18 +58,6 @@ class TaskDetailViewModel(
 
     /** Used for entity creation in mutation intents (caller-trust userId injection). */
     private val userId get() = currentUser.scopedUserId.value
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        deps: TaskDetailDeps,
-        taskId: TaskId,
-        currentUser: ProfileAwareCurrentUser,
-    ) : this(
-        deps = deps,
-        taskId = taskId,
-        currentUser = currentUser,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val _events = Channel<TaskDetailUiEvent>(Channel.BUFFERED)
     val events: kotlinx.coroutines.flow.Flow<TaskDetailUiEvent> = _events.receiveAsFlow()

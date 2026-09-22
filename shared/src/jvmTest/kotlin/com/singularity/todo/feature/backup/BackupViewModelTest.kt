@@ -50,7 +50,7 @@ class BackupViewModelTest {
         scope: CoroutineScope,
     ): BackupViewModel {
         val namer = DefaultBackupFileNamer { _ -> "test_backup.zip" }
-        return BackupViewModel(repo, auth, namer, com.singularity.todo.core.platform.Clock, testScope(scope))
+        return BackupViewModel(repo, auth, namer, com.singularity.todo.core.platform.Clock, scope = testScope(scope))
     }
 
     // ─── init subscribes to backups ───────────────────────────────────────────

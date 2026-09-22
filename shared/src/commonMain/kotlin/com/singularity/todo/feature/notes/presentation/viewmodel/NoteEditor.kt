@@ -54,7 +54,7 @@ open class NoteEditor(
     private val autosaveScheduler: AutosaveScheduler,
     private val improveNote: ImproveNoteUseCase? = null,
     logger: Logger? = null,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
@@ -62,26 +62,6 @@ open class NoteEditor(
     }
 
     private val log: Logger = logger ?: Logger.withTag("NoteEditor")
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        repo: NotesRepository,
-        linkRepo: InternalLinkRepository,
-        currentUser: ProfileAwareCurrentUser,
-        idGen: IdGenerator,
-        autosaveScheduler: AutosaveScheduler,
-        improveNote: ImproveNoteUseCase? = null,
-        logger: Logger? = null,
-    ) : this(
-        repo = repo,
-        linkRepo = linkRepo,
-        currentUser = currentUser,
-        idGen = idGen,
-        autosaveScheduler = autosaveScheduler,
-        improveNote = improveNote,
-        logger = logger,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val userId = currentUser.scopedUserId
 

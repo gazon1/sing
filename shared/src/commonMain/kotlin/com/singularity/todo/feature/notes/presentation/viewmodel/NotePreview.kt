@@ -30,24 +30,12 @@ class NotePreview(
     private val repo: NotesRepository,
     private val linkRepo: InternalLinkRepository,
     currentUser: ProfileAwareCurrentUser,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
     }
-
-    /** Production constructor — Koin uses this. */
-    constructor(
-        repo: NotesRepository,
-        linkRepo: InternalLinkRepository,
-        currentUser: ProfileAwareCurrentUser,
-    ) : this(
-        repo = repo,
-        linkRepo = linkRepo,
-        currentUser = currentUser,
-        scope = AutoCloseableCoroutineScope(),
-    )
 
     private val userId = currentUser.scopedUserId
 

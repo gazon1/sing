@@ -3,9 +3,6 @@ package com.singularity.todo.core.di
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.clock.AutosaveScheduler
 import com.singularity.todo.core.clock.DelayAutosaveScheduler
-import com.singularity.todo.core.ids.IdGenerator
-import com.singularity.todo.core.ids.UlidIdGenerator
-import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.archive.ArchiveViewModel
 import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
 import com.singularity.todo.feature.checklist.ChecklistEditorViewModel
@@ -75,10 +72,6 @@ fun tasksModule(): org.koin.core.module.Module = module {
     single<AutosaveScheduler> { DelayAutosaveScheduler() }
 
     // ─── Ports ──────────────────────────────────────────────────────────
-
-    factory<IdGenerator> { UlidIdGenerator }
-
-    single<TimeZoneProvider> { com.singularity.todo.core.platform.systemTimeZone }
 
     single<AttachmentSaver> { AttachmentSaverImpl(get(), get()) }
 
