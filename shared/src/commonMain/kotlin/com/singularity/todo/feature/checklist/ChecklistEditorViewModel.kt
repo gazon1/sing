@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class ChecklistEditorState(
-    val taskId: String = "",
     val items: List<ChecklistItemUi> = emptyList(),
     val newItemText: String = "",
     val adding: Boolean = false,
@@ -19,7 +18,6 @@ data class ChecklistEditorState(
 data class ChecklistItemUi(val id: ChecklistItemId, val title: String, val isCompleted: Boolean)
 
 sealed interface ChecklistEditorIntent {
-    data object Load : ChecklistEditorIntent
     data class NewItemTextChanged(val text: String) : ChecklistEditorIntent
     data object AddItem : ChecklistEditorIntent
     data class ToggleItem(val id: ChecklistItemId) : ChecklistEditorIntent
@@ -30,42 +28,39 @@ sealed interface ChecklistEditorIntent {
 /**
  * Checklist editor sheet ViewModel (inline checklist within a task).
  *
- * Owns: checklist items for a single task.
- * Triggers: add item, toggle item, delete item, load checklist.
+ * Owns: checklist items for a single task (identified by [taskId]).
+ * Triggers: add item, toggle item, delete item.
  * One-shot events: [ChecklistEditorIntent.ErrorShown] (error acknowledged).
+ *
+ * @param taskId       the parent task to load the checklist for.
+ * @param checklistRepository repository for checklist mutations and observation.
+ * @param scope        coroutine scope; mandatory — caller provides it via [AutoCloseableCoroutineScope].
  *
  * @see ChecklistEditorState
  * @see ChecklistEditorIntent
  */
 class ChecklistEditorViewModel(
-    private val checklistUseCase: ChecklistUseCase,
+    private val taskId: String,
     private val checklistRepository: ChecklistRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
     init {
         addCloseable(scope)
-    }
-
-    private val _state = MutableStateFlow(ChecklistEditorState())
-    val state: StateFlow<ChecklistEditorState> = _state.asStateFlow()
-
-    fun bindToTask(taskId: String) {
-        _state.updateState { it.copy(taskId = taskId) }
         scope.launch {
             checklistRepository.watchByTask(taskId).collect { items ->
                 _state.updateState { st ->
-                    st.copy(
-                        items = items.map { ChecklistItemUi(it.id, it.title, it.isCompleted) },
-                    )
+                    st.copy(items = items.map { ChecklistItemUi(it.id, it.title, it.isCompleted) })
                 }
             }
         }
     }
 
+    private val _state = MutableStateFlow(ChecklistEditorState())
+    val state: StateFlow<ChecklistEditorState> = _state.asStateFlow()
+
     fun onIntent(intent: ChecklistEditorIntent) {
         when (intent) {
-            ChecklistEditorIntent.Load -> { /* handled by bindToTask */ }
             is ChecklistEditorIntent.NewItemTextChanged -> _state.updateState { it.copy(newItemText = intent.text) }
             ChecklistEditorIntent.AddItem -> addItem()
             is ChecklistEditorIntent.ToggleItem -> toggleItem(intent.id)
@@ -77,12 +72,10 @@ class ChecklistEditorViewModel(
     private fun addItem() {
         val text = _state.value.newItemText.trim()
         if (text.isBlank()) return
-        val taskId = _state.value.taskId
-        if (taskId.isBlank()) return
 
         scope.launch {
             _state.updateState { it.copy(adding = true) }
-            checklistUseCase.addItem(taskId, text)
+            checklistRepository.addItem(taskId, text)
                 .onSuccess {
                     _state.updateState { st -> st.copy(newItemText = "", adding = false) }
                 }
@@ -93,11 +86,8 @@ class ChecklistEditorViewModel(
     }
 
     private fun toggleItem(id: ChecklistItemId) {
-        val item = _state.value.items.find { it.id == id } ?: return
-        val taskId = _state.value.taskId
-
         scope.launch {
-            checklistUseCase.toggleItem(id, item.title, taskId, item.isCompleted)
+            checklistRepository.toggleItem(taskId, id)
                 .onFailure { err: Throwable ->
                     _state.updateState { st -> st.copy(errorMessage = err.message) }
                 }

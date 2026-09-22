@@ -23,7 +23,6 @@ fun calendarModule(): Module = module {
         CalendarViewModel(
             deps = CalendarDeps(
                 taskRepo = get<TaskRepository>(),
-                currentUser = get(),
                 logger = Logger.withTag("Calendar"),
                 today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date,
             ),

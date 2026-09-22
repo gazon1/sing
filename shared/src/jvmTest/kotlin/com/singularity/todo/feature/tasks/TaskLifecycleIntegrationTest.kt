@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeChecklistRepository
@@ -52,13 +51,12 @@ class TaskLifecycleIntegrationTest {
         )
     }
 
-    // ─── ChecklistUseCase ───────────────────────────────────────────────────
+    // ─── ChecklistRepository ───────────────────────────────────────────────────
 
     @Test
-    fun `ChecklistUseCase addItem → item persisted with isCompleted false`() = runTest {
+    fun `ChecklistRepository addItem → item persisted with isCompleted false`() = runTest {
         val taskRepo = makeTaskRepo()
         val checklistRepo = makeChecklistRepo()
-        val checklistUseCase = ChecklistUseCase(checklistRepo)
         val taskId = TaskId.fromString("t-checklist")
 
         taskRepo.seed(
@@ -71,7 +69,7 @@ class TaskLifecycleIntegrationTest {
             ),
         )
 
-        val itemId = checklistUseCase.addItem(taskId.value, "Milk").getOrThrow()
+        val itemId = checklistRepo.addItem(taskId.value, "Milk").getOrThrow()
         advanceUntilIdle()
 
         val items = checklistRepo.watchByTask(taskId.value).first()
@@ -81,10 +79,9 @@ class TaskLifecycleIntegrationTest {
     }
 
     @Test
-    fun `ChecklistUseCase add two items → both persisted`() = runTest {
+    fun `ChecklistRepository add two items → both persisted`() = runTest {
         val taskRepo = makeTaskRepo()
         val checklistRepo = makeChecklistRepo()
-        val checklistUseCase = ChecklistUseCase(checklistRepo)
         val taskId = TaskId.fromString("t-multi")
 
         taskRepo.seed(
@@ -97,8 +94,8 @@ class TaskLifecycleIntegrationTest {
             ),
         )
 
-        checklistUseCase.addItem(taskId.value, "Milk")
-        checklistUseCase.addItem(taskId.value, "Bread")
+        checklistRepo.addItem(taskId.value, "Milk").getOrThrow()
+        checklistRepo.addItem(taskId.value, "Bread").getOrThrow()
         advanceUntilIdle()
 
         val items = checklistRepo.watchByTask(taskId.value).first()
@@ -106,10 +103,9 @@ class TaskLifecycleIntegrationTest {
     }
 
     @Test
-    fun `ChecklistUseCase toggleItem → flips isCompleted`() = runTest {
+    fun `ChecklistRepository toggleItem → flips isCompleted`() = runTest {
         val taskRepo = makeTaskRepo()
         val checklistRepo = makeChecklistRepo()
-        val checklistUseCase = ChecklistUseCase(checklistRepo)
         val taskId = TaskId.fromString("t-toggle")
 
         taskRepo.seed(
@@ -122,13 +118,13 @@ class TaskLifecycleIntegrationTest {
             ),
         )
 
-        val itemId = checklistUseCase.addItem(taskId.value, "Step 1").getOrThrow()
+        val itemId = checklistRepo.addItem(taskId.value, "Step 1").getOrThrow()
         advanceUntilIdle()
 
         val before = checklistRepo.watchByTask(taskId.value).first().first()
         assertFalse(before.isCompleted)
 
-        checklistUseCase.toggleItem(taskId.value, itemId)
+        checklistRepo.toggleItem(taskId.value, itemId).getOrThrow()
         advanceUntilIdle()
 
         val after = checklistRepo.watchByTask(taskId.value).first().first()
@@ -136,10 +132,9 @@ class TaskLifecycleIntegrationTest {
     }
 
     @Test
-    fun `ChecklistUseCase deleteItem → removes item`() = runTest {
+    fun `ChecklistRepository deleteItem → removes item`() = runTest {
         val taskRepo = makeTaskRepo()
         val checklistRepo = makeChecklistRepo()
-        val checklistUseCase = ChecklistUseCase(checklistRepo)
         val taskId = TaskId.fromString("t-del")
 
         taskRepo.seed(
@@ -152,10 +147,10 @@ class TaskLifecycleIntegrationTest {
             ),
         )
 
-        val itemId = checklistUseCase.addItem(taskId.value, "Temp item").getOrThrow()
+        val itemId = checklistRepo.addItem(taskId.value, "Temp item").getOrThrow()
         advanceUntilIdle()
 
-        checklistRepo.delete(itemId)
+        checklistRepo.delete(itemId).getOrThrow()
         advanceUntilIdle()
 
         val items = checklistRepo.watchByTask(taskId.value).first()

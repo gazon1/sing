@@ -237,7 +237,7 @@ class TaskDetailViewModel(
 
             is TaskDetailIntent.Domain.ToggleChecklistItem -> {
                 scope.launch {
-                    deps.checklistUseCase.toggleItem(current.id.value, intent.item.id)
+                    deps.checklistRepository.toggleItem(current.id.value, intent.item.id)
                         .onFailure { emitError("Toggle failed") }
                 }
             }
@@ -252,7 +252,7 @@ class TaskDetailViewModel(
             is TaskDetailIntent.Domain.AddChecklistItem -> {
                 scope.launch {
                     if (intent.title.isBlank()) return@launch
-                    deps.checklistUseCase.addItem(current.id.value, intent.title.trim())
+                    deps.checklistRepository.addItem(current.id.value, intent.title.trim())
                         .onSuccess { _events.trySend(TaskDetailUiEvent.Saved("Item added")) }
                         .onFailure { emitError("Add failed") }
                 }

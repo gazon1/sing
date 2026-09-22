@@ -5,7 +5,6 @@ import com.singularity.todo.feature.archive.ArchiveViewModel
 import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
 import com.singularity.todo.feature.checklist.ChecklistEditorViewModel
 import com.singularity.todo.feature.checklist.ChecklistRepository
-import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.checklist.RoomChecklistRepository
 import com.singularity.todo.feature.pomodoro.PomodoroRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
@@ -56,8 +55,6 @@ fun tasksModule(): org.koin.core.module.Module = module {
     factoryOf(::UpdateTaskUseCase)
     factoryOf(::TaskMutationsUseCase)
 
-    factoryOf(::ChecklistUseCase)
-
     factoryOf(::SearchUseCase)
 
     // PomodoroTimer is registered in platform-specific modules:
@@ -83,7 +80,6 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 projectsRepo = get(),
                 tagsRepo = get(),
                 checklistRepository = get(),
-                checklistUseCase = get(),
                 reminderRepo = get(),
                 attachmentsRepo = get(),
                 timeZoneProvider = get(),
@@ -106,7 +102,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
         )
     }
 
-    viewModel { ChecklistEditorViewModel(checklistUseCase = get(), checklistRepository = get()) }
+    viewModel { (taskId: String) -> ChecklistEditorViewModel(taskId = taskId, checklistRepository = get()) }
 
     viewModel { ArchiveViewModel(archiveRepo = get(), taskRepo = get()) }
 

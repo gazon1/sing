@@ -126,7 +126,6 @@ fun ProjectDetailScreen(
     val viewModel: ProjectDetailViewModel = koinViewModel { parametersOf(projectId) }
     ProjectDetailContent(
         viewModel = viewModel,
-        projectId = projectId,
         modifier = modifier,
     )
 }
@@ -135,7 +134,7 @@ fun ProjectDetailScreen(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalTime::class)
 @Composable
-fun ProjectDetailContent(viewModel: ProjectDetailViewModel, projectId: ProjectId, modifier: Modifier = Modifier) {
+fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier = Modifier) {
     val nav = LocalProjectsNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
@@ -351,9 +350,6 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, projectId: ProjectId
                 )
 
                 is ActiveSheet.PickReminder -> ReminderPickerSheet(
-                    onPick = {
-                        /* reminder set on project — future enhancement */ sheets.dismiss()
-                    },
                     onDismiss = { sheets.dismiss() },
                 )
 
@@ -905,18 +901,22 @@ private fun ConfirmArchiveSheet(isArchived: Boolean, onConfirm: () -> Unit, onDi
     )
 }
 
+/**
+ * Reminder picker UI placeholder.
+ *
+ * Project-level reminder dispatch is **not** implemented yet — selecting any offset
+ * dismisses the sheet without side-effects. Wiring awaits the project-reminder ADR.
+ * See [ProjectDetailActions.onOpenReminderSheet] and [ActiveSheet.PickReminder]
+ * for the open-but-noop entry points.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReminderPickerSheet(onPick: (kotlinx.datetime.LocalDate?) -> Unit, onDismiss: () -> Unit) {
+private fun ReminderPickerSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(24.dp)) {
             ReminderPicker(
                 selected = com.singularity.todo.core.reminders.ReminderOffset.AT_DUE,
-                onSelect = { offset ->
-                    // Project-level reminder is a future enhancement;
-                    // for now, creating a task with this offset would be the UX path.
-                    onDismiss()
-                },
+                onSelect = { onDismiss() },
             )
             Spacer(Modifier.height(24.dp))
         }

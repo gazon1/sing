@@ -47,7 +47,6 @@ fun agendaModule(): Module = module {
         AgendaViewModel(
             deps = AgendaDeps(
                 taskRepo = get<TaskRepository>(),
-                currentUser = get(),
                 logger = Logger.withTag("Agenda"),
             ),
             definition = definition,

@@ -535,6 +535,24 @@ class FakeChecklistRepository : ChecklistRepository {
     override fun watchByTask(taskId: String): Flow<List<ChecklistItem>> =
         items.map { map -> map.values.filter { it.taskId == taskId }.sortedBy { it.sortOrder } }
 
+    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> = runCatching {
+        val item = ChecklistItem(
+            id = ChecklistItemId.generate(),
+            taskId = taskId,
+            title = title,
+            isCompleted = false,
+            sortOrder = 0,
+        )
+        items.value += (item.id.value to item)
+        item.id
+    }
+
+    override suspend fun toggleItem(taskId: String, itemId: ChecklistItemId): Result<Unit> = runCatching {
+        val current = items.value.values.firstOrNull { it.id == itemId && it.taskId == taskId }
+            ?: throw IllegalArgumentException("Checklist item not found: $itemId")
+        items.value += (itemId.value to current.copy(isCompleted = !current.isCompleted))
+    }
+
     override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatching {
         items.value += (item.id.value to item)
     }

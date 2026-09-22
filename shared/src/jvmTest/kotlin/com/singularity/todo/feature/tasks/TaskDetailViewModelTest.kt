@@ -4,7 +4,6 @@ import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -74,7 +73,6 @@ class TaskDetailViewModelTest {
             projectsRepo = fakeProjectRepo,
             tagsRepo = fakeTagsRepo,
             checklistRepository = fakeChecklistRepo,
-            checklistUseCase = ChecklistUseCase(fakeChecklistRepo),
             reminderRepo = fakeReminderRepo,
             attachmentsRepo = fakeAttachmentsRepo,
             timeZoneProvider = TEST_TZ,

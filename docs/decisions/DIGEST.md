@@ -672,7 +672,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **When** adding a cross-cutting repository helper (batch op, transactional wrap) —
 - Fakes in `test/fakes/FakeRepositories.kt` simplify: one constructor parameter
 - The old `UserScopedRepository<T, ID>` typealias is removed in the cleanup commit
+- `ChecklistEditorViewModel` is constructed with `taskId` via Koin `parametersOf`. Any existing call site that used `bindToTask()` is broken by design — that method no longer exists. Verify no production call site calls `bindToTask()` before merging.
+- `ChecklistRepository` is the single source of truth for checklist mutations. All consumers (VMs, AI tools) must use `addItem` / `toggleItem` / `upsert` / `delete` on the repository.
+- `GenerateChecklistUseCase` (AI feature, `feature/ai/use_cases/`) is a separate class and is not affected by this deletion.
 - `PomodoroRepository` has 0 production call sites. It is a candidate for deletion
+- `ProfileAwareCurrentUser` remains in `feature/profile/` and is still injected into repositories (`TaskRepositoryImpl`, `RoomNotesRepository`, `AttachmentRepository`, `ReminderRepository`, `ProjectsRepositoryImpl`, `InternalLinkRepositoryImpl`, `RoomSavedAgendaViewsRepository`). It is **not** injected into presentation-layer VMs except where actually read.
+- `TaskRepositoryImpl` does **not** yet stamp `userId` on `create` — that is PR 2 (Repository infrastructure). Until that lands, callers must still pass `userId`-stamped entities to `TaskRepository.create`.
 
 ### `security`
 
@@ -965,6 +970,7 @@ _1 entries need attention._
 - `2026-09-21-tier1-interface-cleanup` — _untagged_
 - `2026-09-21-user-scoped-repository` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
+- `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — repository, checklist, currentuser, koin, refactor
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
 - `2026-09-22-explicit-overload-removal` — _untagged_
@@ -1118,6 +1124,7 @@ _1 entries need attention._
 - `2026-09-21-tier1-interface-cleanup` — Tier 1 interface cleanup — remove single-implementation contracts
 - `2026-09-21-user-scoped-repository` — _(no title)_
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
+- `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — Delete ChecklistUseCase; drop unused ProfileAwareCurrentUser from AgendaDeps/CalendarDeps; inject taskId via ChecklistEditorViewModel constructor
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
 - `2026-09-22-explicit-overload-removal` — _(no title)_

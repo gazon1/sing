@@ -4,12 +4,54 @@ import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.ChecklistItemEntity
 import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 class RoomChecklistRepository(private val dao: ChecklistDao, private val clock: Clock) : ChecklistRepository {
 
     override fun watchByTask(taskId: String): Flow<List<ChecklistItem>> =
         dao.watchByTask(taskId).map { list -> list.map { it.toItem() } }
+
+    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> = runCatching {
+        val item = ChecklistItem(
+            id = ChecklistItemId.generate(),
+            taskId = taskId,
+            title = title,
+            isCompleted = false,
+            sortOrder = 0,
+        )
+        val now = clock.now().toEpochMilliseconds()
+        dao.upsert(
+            ChecklistItemEntity(
+                id = item.id.value,
+                taskId = item.taskId,
+                title = item.title,
+                isCompleted = item.isCompleted,
+                sortOrder = item.sortOrder,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        item.id
+    }
+
+    override suspend fun toggleItem(taskId: String, itemId: ChecklistItemId): Result<Unit> = runCatching {
+        val allItems = dao.watchByTask(taskId).first()
+        val existing = allItems.find { it.id == itemId.value }
+            ?: throw IllegalArgumentException("Checklist item not found: $itemId")
+        val now = clock.now().toEpochMilliseconds()
+        dao.upsert(
+            ChecklistItemEntity(
+                id = existing.id,
+                taskId = existing.taskId,
+                title = existing.title,
+                isCompleted = !existing.isCompleted,
+                sortOrder = existing.sortOrder,
+                createdAt = existing.createdAt,
+                updatedAt = now,
+            ),
+        )
+    }
 
     override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatching {
         dao.upsert(item.toEntity())

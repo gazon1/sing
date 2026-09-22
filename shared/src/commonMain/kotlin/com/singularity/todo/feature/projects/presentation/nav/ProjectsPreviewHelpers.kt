@@ -38,7 +38,7 @@ class PreviewProjectsNavigator(
  * @Preview
  * @Composable
  * private fun ProjectDetailScreenPreview() = ProjectsPreviewWrapper {
- *     ProjectDetailContent(viewModel = vm, projectId = ProjectId("p1"), ...)
+ *     ProjectDetailContent(viewModel = vm, ...)
  * }
  * ```
  */

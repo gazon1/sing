@@ -7,7 +7,6 @@ import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.ProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi

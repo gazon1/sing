@@ -4,7 +4,6 @@ import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.checklist.ChecklistRepository
-import com.singularity.todo.feature.checklist.ChecklistUseCase
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -20,14 +19,7 @@ data class TaskDetailDeps(
     val createTask: CreateTaskUseCase,
     val projectsRepo: ProjectsRepository,
     val tagsRepo: com.singularity.todo.feature.tags.TagsRepository,
-    /**
-     * Read/delete operations on checklist items — called directly on the repository
-     * to avoid a pass-through use-case wrapper for flow-watching and trivial deletes.
-     * Mutations that carry domain logic ([addItem], [toggleItem][ChecklistUseCase.toggleItem])
-     * still go through [checklistUseCase].
-     */
     val checklistRepository: ChecklistRepository,
-    val checklistUseCase: ChecklistUseCase,
     val reminderRepo: ReminderRepository,
     val attachmentsRepo: AttachmentRepository,
     val timeZoneProvider: TimeZoneProvider,

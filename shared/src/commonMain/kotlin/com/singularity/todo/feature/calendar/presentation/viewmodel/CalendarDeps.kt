@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.calendar.presentation.viewmodel
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 
 /**
@@ -18,7 +17,6 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
  */
 data class CalendarDeps(
     val taskRepo: TaskRepository,
-    val currentUser: ProfileAwareCurrentUser,
     val clock: kotlin.time.Clock = kotlin.time.Clock.System,
     val today: kotlinx.datetime.LocalDate,
     val logger: Logger,
