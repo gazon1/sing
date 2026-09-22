@@ -3,52 +3,57 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.ids.IdGenerator
-import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.notes.EditorState
 import com.singularity.todo.feature.notes.LinkKind
-import com.singularity.todo.feature.notes.LinkRef
 import com.singularity.todo.feature.notes.LinkResult
 import com.singularity.todo.feature.notes.NoteAiResult
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.NotesUiEvent
-import com.singularity.todo.feature.notes.extractOutgoingLinks
+import com.singularity.todo.feature.notes.domain.NoteContentMapper
+import com.singularity.todo.feature.notes.domain.editor.NoteAiController
+import com.singularity.todo.feature.notes.domain.editor.NoteEditorState
+import com.singularity.todo.feature.notes.domain.editor.NoteSaver
 import com.singularity.todo.feature.notes.formatNoteAiResult
 import com.singularity.todo.feature.search.InternalLinkRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
-// ─── ViewModel ───────────────────────────────────────────────────────────────
-
 /**
- * Manages the note editing session: title, body, autosave, and AI improve.
+ * Manages the note editing session: title, body, autosave, AI improve.
  *
- * Each editing session is independent — [openEditor] or [createNote] replaces
- * any prior session state. The caller is responsible for navigating away or
- * showing a "new note" prompt as appropriate.
+ * Public API is unchanged from the previous version — [NoteEditorScreen]
+ * subscribes to [editorState], [savedPulse], [events] and calls [openEditor] /
+ * [createNote] / [editTitle] / [editBody] / [saveNow] / [improveNote] /
+ * [searchNotesForLink] / [searchTasksForLink] / [closeEditor].
  *
- * @param improveNote optional AI note improvement; when absent the improve
- *                     button is hidden in UI.
+ * Internal helpers:
+ * - [NoteEditorState][com.singularity.todo.feature.notes.domain.editor.NoteEditorState] —
+ *   holds EditorState + dirty/new tracking
+ * - [NoteSaver][com.singularity.todo.feature.notes.domain.editor.NoteSaver] —
+ *   persists content + outgoing links, handles errors and pulse
+ * - [NoteContentMapper][com.singularity.todo.feature.notes.domain.NoteContentMapper] —
+ *   pure HTML↔Markdown and link extraction
+ * - [NoteAiController][com.singularity.todo.feature.notes.domain.editor.NoteAiController] —
+ *   wraps the AI improve use case
  */
-open class NoteEditor(
+class NoteEditor(
     private val repo: NotesRepository,
     private val linkRepo: InternalLinkRepository,
     private val idGen: IdGenerator,
-    private val improveNote: ImproveNoteUseCase? = null,
-    logger: Logger? = null,
+    private val ai: NoteAiController,
+    private val log: Logger,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
@@ -56,190 +61,121 @@ open class NoteEditor(
         addCloseable(scope)
     }
 
-    private val log: Logger = logger ?: Logger.withTag("NoteEditor")
+    // ─── State ─────────────────────────────────────────────────────────────
 
-    // Editor state — only `Empty` and `Editing`. Saves happen in the background
-    // without remounting EditorBody (the previous `Editing ↔ Saving` swap caused
-    // recomposition that wiped in-progress text on every keystroke).
-    private val _editorState = MutableStateFlow<EditorState>(EditorState.Empty)
-    val editorState: StateFlow<EditorState> = _editorState.asStateFlow()
+    private val state = NoteEditorState()
+    val editorState: StateFlow<EditorState> = state.state
 
-    // AI action results
-    private val _aiResult = MutableSharedFlow<NoteAiResult>()
-
-    // One-shot "Saved" pulse — triggers the Saved-pill animation in the UI.
-    // Uses extraBufferCapacity=1 so rapid saves don't drop the signal.
+    /** One-shot "Saved" pulse — triggers the Saved-pill animation in the UI. */
     private val _savedPulse = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val savedPulse: SharedFlow<Unit> = _savedPulse.asSharedFlow()
 
-    // One-shot UI events (errors, navigation)
+    /** One-shot UI events (errors, navigation). */
     private val _events = Channel<NotesUiEvent>(Channel.BUFFERED)
-    val events: kotlinx.coroutines.flow.Flow<NotesUiEvent> = _events.receiveAsFlow()
+    val events: Flow<NotesUiEvent> = _events.receiveAsFlow()
 
+    private val saver = NoteSaver(repo, log, _events, _savedPulse)
     private var autosaveJob: Job? = null
+
+    // ─── Open / create ─────────────────────────────────────────────────────
 
     /**
      * Opens an existing note for editing.
      * If the editor already has the same note id loaded, this is a no-op —
      * in-memory edits are preserved even if the underlying DB row hasn't saved yet.
      */
-    fun openEditor(noteId: String) {
-        scope.launch {
-            val current = _editorState.value
-            if (current is EditorState.Editing && current.id == noteId) return@launch
-
-            val note = repo.get(NoteId.fromString(noteId)) ?: return@launch
-            // Prefer stored HTML (lossless). Fall back to markdown→HTML for legacy notes.
-            val html = note.bodyHtml
-                ?: note.bodyMarkdown?.let {
-                    // Legacy fallback: convert markdown to HTML using RichTextState
-                    com.mohamedrejeb.richeditor.model.RichTextState().apply {
-                        setMarkdown(it)
-                    }.toHtml()
-                }
-                ?: ""
-            _editorState.value = EditorState.Editing(
+    fun openEditor(noteId: String) = scope.launch {
+        if (state.current?.id == noteId) return@launch
+        val note = repo.get(NoteId.fromString(noteId)) ?: return@launch
+        val html = note.bodyHtml
+            ?: note.bodyMarkdown?.let { NoteContentMapper.toHtml(it) }
+            ?: ""
+        state.open(
+            EditorState.Editing(
                 id = note.id.value,
                 title = note.title,
                 html = html,
                 isDirty = false,
-            )
-        }
+            ),
+        )
     }
 
     /**
-     * Creates a new empty note and opens it for editing.
-     * Returns the new note id so the caller can navigate.
+     * create-on-first-save: generates an id and opens the editing state marked `isNew`.
+     * The note is persisted to the DB only on the first successful save.
+     * Returns the new note id so the caller can navigate immediately.
      */
     fun createNote(): String {
         val id = NoteId.fromString(idGen.next())
-        scope.fireAndForget(
-            errorLabel = "Create note failed",
-            onError = { e -> _events.trySend(NotesUiEvent.SaveFailed("Create note failed: ${e.message ?: "unknown"}")) },
-        ) {
-            repo.createWithContent(id, "", "", "")
-        }
-        _editorState.value = EditorState.Editing(
-            id = id.value,
-            title = "",
-            html = "",
-            isDirty = false,
+        state.open(
+            EditorState.Editing(
+                id = id.value,
+                title = "",
+                html = "",
+                isDirty = false,
+                isNew = true,
+            ),
         )
         return id.value
     }
 
+    // ─── Edit + autosave ──────────────────────────────────────────────────
+
     fun editTitle(title: String) {
-        val current = _editorState.value as? EditorState.Editing ?: return
-        _editorState.value = current.copy(title = title, isDirty = true)
+        state.updateTitle(title)
         scheduleAutosave()
     }
 
     fun editBody(html: String) {
-        val current = _editorState.value as? EditorState.Editing ?: return
-        _editorState.value = current.copy(html = html, isDirty = true)
+        state.updateHtml(html)
         scheduleAutosave()
     }
 
-    /** Immediate save — cancels pending autosave and persists immediately. Errors route through events. */
-    fun saveNow() {
-        val current = _editorState.value as? EditorState.Editing ?: return
-        autosaveJob?.cancel()
-        scope.launch(Dispatchers.Unconfined) {
-            persist(html = current.html, title = current.title, id = current.id, navigateBack = true)
-        }
-    }
+    /** Immediate save — cancels the pending autosave and triggers an immediate one. */
+    fun saveNow() = scheduleAutosave(ZERO_DELAY)
 
-    private fun scheduleAutosave() {
+    private fun scheduleAutosave(delay: Duration = AUTOSAVE_DEBOUNCE) {
         autosaveJob?.cancel()
         autosaveJob = scope.launch {
-            delay(AUTOSAVE_DEBOUNCE_MS)
-            val current = _editorState.value as? EditorState.Editing ?: return@launch
-            persist(html = current.html, title = current.title, id = current.id, navigateBack = false)
-        }
-    }
-
-    /**
-     * Persists the current editor state to the repository.
-     * Extracted to a private method so both [saveNow] and [scheduleAutosave]
-     * share the exact same write logic — no duplication, no divergence.
-     */
-    private suspend fun persist(html: String, title: String, id: String, navigateBack: Boolean) {
-        val markdown = com.mohamedrejeb.richeditor.model.RichTextState().apply {
-            setHtml(html)
-        }.toMarkdown()
-
-        // Extract and persist outgoing wikilinks from the HTML
-        val outgoingLinks = extractOutgoingLinks(html).map { link ->
-            when (link) {
-                is LinkRef.Note -> "note://${link.noteId}"
-                is LinkRef.Task -> "task://${link.taskId}"
+            delay(delay)
+            val c = state.current ?: return@launch
+            if (saver.save(NoteId.fromString(c.id), c.title, c.html, c.isNew).isSuccess) {
+                state.markSaved()
             }
         }
-
-        val updateResult = repo.updateContent(NoteId.fromString(id), title, markdown, html)
-        if (updateResult.isFailure) {
-            val e = updateResult.exceptionOrNull() ?: return
-            log.e(e) { "save failed for note $id" }
-            _events.trySend(NotesUiEvent.SaveFailed(e.message ?: "Save failed"))
-            return
-        }
-
-        val linksResult = repo.setOutgoingLinks(NoteId.fromString(id), outgoingLinks)
-        if (linksResult.isFailure) {
-            val e = linksResult.exceptionOrNull() ?: return
-            log.e(e) { "save failed for note $id" }
-            _events.trySend(NotesUiEvent.SaveFailed(e.message ?: "Save failed"))
-            return
-        }
-
-        val current = _editorState.value as? EditorState.Editing ?: return
-        _editorState.value = current.copy(isDirty = false)
-        _savedPulse.emit(Unit)
-        if (navigateBack) {
-            _events.trySend(NotesUiEvent.NavigateBack)
-        }
     }
+
+    // ─── AI ──────────────────────────────────────────────────────────────
 
     fun improveNote() {
-        val tool = improveNote ?: return
-        scope.launch(Dispatchers.IO) {
-            val current = _editorState.value as? EditorState.Editing ?: return@launch
-            tool(current.title, current.html)
-                .onSuccess { result ->
-                    _editorState.value = current.copy(title = result.title, html = result.body, isDirty = true)
-                    val r = NoteAiResult.Improved(result.title, result.body)
-                    _aiResult.emit(r)
-                    _events.trySend(NotesUiEvent.AiResult(formatNoteAiResult(r)))
-                }
-                .onFailure { error ->
-                    val r = NoteAiResult.Error(error.message ?: "Failed")
-                    _aiResult.emit(r)
-                    _events.trySend(NotesUiEvent.AiResult(formatNoteAiResult(r)))
-                }
+        if (!ai.isAvailable) return
+        scope.launch {
+            val c = state.current ?: return@launch
+            val result = ai.improve(c.title, c.html)
+            if (result is NoteAiResult.Improved) {
+                state.applyImprove(result.title, result.body)
+            }
+            _events.trySend(NotesUiEvent.AiResult(formatNoteAiResult(result)))
         }
     }
 
-    /**
-     * Searches notes for the internal link picker.
-     * Called by NoteEditorScreen via a suspend lambda on InternalLinkPickerSheet.
-     */
-    suspend fun searchNotesForLink(query: String): List<LinkResult> = linkRepo.searchNotes(query)
-        .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
+    // ─── Internal-link picker (inline — trivial mapping) ───────────────────
 
-    /**
-     * Searches tasks for the internal link picker.
-     * Called by NoteEditorScreen via a suspend lambda on InternalLinkPickerSheet.
-     */
-    suspend fun searchTasksForLink(query: String): List<LinkResult> = linkRepo.searchTasks(query)
-        .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
+    suspend fun searchNotesForLink(query: String): List<LinkResult> =
+        linkRepo.searchNotes(query).map { LinkResult(it.id.value, it.title, LinkKind.Note) }
+
+    suspend fun searchTasksForLink(query: String): List<LinkResult> =
+        linkRepo.searchTasks(query).map { LinkResult(it.id.value, it.title, LinkKind.Task) }
+
+    // ─── Cleanup ─────────────────────────────────────────────────────────
 
     fun closeEditor() {
         autosaveJob?.cancel()
-        _editorState.value = EditorState.Empty
+        state.clear()
     }
 
-    companion object {
-        /** 500мс — пауза между словами, не внутри слова. */
-         val AUTOSAVE_DEBOUNCE_MS = 500L.milliseconds
+    private companion object {
+        private val AUTOSAVE_DEBOUNCE = 500L.milliseconds
+        private val ZERO_DELAY = 0L.milliseconds
     }
 }

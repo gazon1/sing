@@ -1,13 +1,16 @@
 package com.singularity.todo.core.di
 
+import co.touchlab.kermit.Logger
+import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.RoomNotesRepository
+import com.singularity.todo.feature.notes.domain.editor.NoteAiController
+import com.singularity.todo.feature.notes.domain.editor.improveNoteLambda
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.search.InternalLinkRepositoryImpl
-import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -29,14 +32,18 @@ fun notesModule(): org.koin.core.module.Module = module {
 
     viewModel { NotesListViewModel(repo = get(), idGen = get()) }
 
-    // NoteEditor: improveNote is optional — use getOrNull() so Koin can
-    // instantiate without it (the AI button will be hidden in UI when null).
+    // NoteEditor: ai is optional — improveNote is null when AI is not configured
+    // (the AI button will be hidden in UI when NoteAiController.isAvailable == false).
     viewModel {
         NoteEditor(
             repo = get(),
             linkRepo = get(),
             idGen = get(),
-            improveNote = getOrNull(),
+            ai = NoteAiController(
+                improveNote = getOrNull<ImproveNoteUseCase>()?.let(::improveNoteLambda),
+            ),
+            log = get<Logger>(),
+            // scope omitted — default AutoCloseableCoroutineScope() applies
         )
     }
 

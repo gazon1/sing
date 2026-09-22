@@ -90,7 +90,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`performTextClear`** не доступен в Robolectric — используется `performTextInput` напрямую
 - **~14 изменённых файлов**: Screen.kt + testTag, VM constructors, DI module
 - **~25 новых файлов**: 4 порта, 7 Page Objects, test infrastructure, integration tests
+- 1 orphan VM deleted
+- 2 UI state classes simplified (`data object` instead of `data class` with dead field)
+- 2 screen preview functions updated
 - 23 Tier-1 VMs lose their `onCleared()` override — the scope is now auto-cancelled via `addCloseable(scope)`.
+- 4 VMs no longer inject `ProfileAwareCurrentUser`
+- 4 test files updated (removed `fakeCurrentUser` args where no longer needed)
 - 8 экранов мигрированы: Tasks, Notes, TaskDetail, TaskEditor, Projects, ProjectEditor, Chat, Archive
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches.
 - AI tools (11 Koog `SimpleTool` implementations) drop `currentUser` from
@@ -144,6 +149,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Phase 8 (test rewrites) and Phase 9 (verification) follow from this migration
 - Picker sheets визуально согласованы с остальными sheets (drag-handle, chrome)
 - Pre-existing test failures (`RussianDateFormatterTest`, `TaskCreateViewModelTest`,
+- Profile migration via `duplicateForProfile` is explicit and testable.
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`).
@@ -195,7 +201,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах
 - `ProfileAwareCurrentUser` moves **inside** repositories; the DI graph registers
 - `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`.
+- `RoomReminderRepository.upsert` now stamps ambient on insert — no more stale/missing userId.
+- `RoomSavedAgendaViewsRepository.upsert` now stamps ambient on insert — consistent with other repos.
+- `SavedAgendaViewModel` (via `SavedAgendaDeps`) no longer injects `ProfileAwareCurrentUser`.
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates
+- `TaskDetailViewModel` no longer injects `ProfileAwareCurrentUser`.
 - `TaskEditorDeps.clock` is also dead (the file's own KDoc flags it for deletion alongside `TaskEditorViewModel`)
 - `TaskEditorReducerTest` must add test cases for new intents.
 - `TaskEditorViewModelTest` and `TaskEditorIntegrationTest` must add edit-mode scenarios.
@@ -222,6 +232,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model
 - `startAt`/`endAt`/`allDay`/`recurrence` in `Task` (Room migration).
 - `weight` modifier requires careful structuring inside `Row { Column(weight) }`.
+- detekt: 0 new findings | jvmTest: green
+- detekt: 60 warnings (pre-existing, non-blocking) | jvmTest: green.
 - ~12 MRs total, ~6–9 weeks.
 - Все ViewModel'ы с `scopeOverride` — консистентны в тестах
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear()
@@ -591,10 +603,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `notes`
 
+- All new helpers are `internal` except `NoteAiController` (used in DI) and `NoteContentMapper`
 - Backlinks are now shown and functional
 - Caller must provide `MutableStateFlow<String>` and inject `InternalLinkRepository` and `ProfileAwareCurrentUser` — slightly more boilerplate at call site
 - Clear UX: notes list → tap note → read → optionally edit
 - Cross-screen state (e.g. "did the user just save a note") must flow through navigation callbacks, not shared VM state
+- DI in `NotesDiModule` uses explicit `viewModel { NoteEditor(...) }` lambda — never
 - Delete confirmation is handled in `NotePreview`, not buried in editor overflow menu
 - Each VM is small enough to understand fully (~60-150 lines)
 - Editor session state is released when user navigates away
@@ -616,12 +630,17 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Title pre-saved to DB before navigating to editor (no lost titles on crash)
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading
 - VMs are independently testable with focused test suites
+- `FakeNotesRepository` is `final` — do not inherit from it in tests. Override individual methods
 - `FakeNotesRepository` и `FakeNoteDao` обновлены同步.
 - `NoteDao.updateContent` сигнатура изменилась: добавлен параметр `html: String`.
+- `NoteEditorScreen` (UI) is unaffected — public API (`editorState`, `savedPulse`, `events`,
 - `NotePreview` must observe the note via `repo.watchNote()` — requires a Flow subscription
+- `NoteSaver.fail()` is the only error path — all save failures emit `NotesUiEvent.SaveFailed`
 - `NotesListViewModel` now requires `IdGenerator` as a third constructor parameter
 - `NotesRepository.createWithContent` и `updateContent` сигнатуры изменились: добавлен параметр `bodyHtml: String`.
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables
+- `OutgoingLinksExtractor` regex now uses two separate `Regex` instances (one for `note://`,
+- `SavedPulse` (a `SharedFlow<Unit>`) is the only pulse channel. Phase 1 placeholder;
 - `core/ui/components/` is now free of feature-domain imports
 - `getBacklinkNotes` now returns real results — backlinks in `NotePreview` and `InternalLinkPickerSheet` will work
 - Все существующие тесты проходят — никаких изменений в тестовых вызовах не потребовалось (jvmTest зелёный).
@@ -994,13 +1013,16 @@ _1 entries need attention._
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
 - `2026-09-22-explicit-overload-removal` — _untagged_
 - `2026-09-22-koin-annotations-4x-skill-correction` — _untagged_
+- `2026-09-22-noteeditor-refactor` — notes, architecture, refactor
 - `2026-09-22-pomodoro-hybrid-timer` — _untagged_
 - `2026-09-22-reminder-lastfiredat-schema` — reminders, database, scheduler
 - `2026-09-22-reminder-scheduler-critical-fixes` — reminders, scheduler, concurrency, coroutines, di
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — repository, currentuser, userid, draft-store, use-case, koin
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
+- `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
+- `2026-09-23-reminder-savedagenda-repo-stamping` — _untagged_
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
@@ -1151,13 +1173,16 @@ _1 entries need attention._
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
 - `2026-09-22-explicit-overload-removal` — _(no title)_
 - `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
+- `2026-09-22-noteeditor-refactor` — NoteEditor — extract state holders, save controller, AI controller
 - `2026-09-22-pomodoro-hybrid-timer` — Hybrid Pomodoro Timer — in-app ticker + AlarmManager.setAlarmClock
 - `2026-09-22-reminder-lastfiredat-schema` — _(no title)_
 - `2026-09-22-reminder-scheduler-critical-fixes` — _(no title)_
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — Repository stamps ambient userId on create; drop userId params from input classes and use cases
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
+- `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
+- `2026-09-23-reminder-savedagenda-repo-stamping` — _(no title)_
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods

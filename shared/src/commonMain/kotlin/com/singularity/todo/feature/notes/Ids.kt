@@ -69,7 +69,14 @@ data class CreateNoteInput(
 /** UI state for the note editor screen. */
 sealed interface EditorState {
     data object Empty : EditorState
-    data class Editing(val id: String, val title: String, val html: String, val isDirty: Boolean = false) : EditorState
+    data class Editing(
+        val id: String,
+        val title: String,
+        val html: String,
+        val isDirty: Boolean = false,
+        /** True until the note is persisted for the first time (create-on-first-save). */
+        val isNew: Boolean = false,
+    ) : EditorState
 }
 
 /** Result of an AI note improvement action. */

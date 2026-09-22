@@ -10,13 +10,15 @@ package com.singularity.todo.feature.notes
  */
 fun extractOutgoingLinks(html: String): List<LinkRef> {
     val seen = mutableSetOf<LinkRef>()
-    val regex = Regex("""<a\s[^>]*href="(note://[^"]+)"[^>]*>""")
-    for (match in regex.findAll(html)) {
+    val noteRegex = Regex("""<a\s[^>]*href="(note://[^"]+)"[^>]*>""")
+    val taskRegex = Regex("""<a\s[^>]*href="(task://[^"]+)"[^>]*>""")
+    for (match in noteRegex.findAll(html)) {
         val url = match.groupValues[1]
-        when {
-            url.startsWith("note://") -> seen.add(LinkRef.Note(url.removePrefix("note://")))
-            url.startsWith("task://") -> seen.add(LinkRef.Task(url.removePrefix("task://")))
-        }
+        seen.add(LinkRef.Note(url.removePrefix("note://")))
+    }
+    for (match in taskRegex.findAll(html)) {
+        val url = match.groupValues[1]
+        seen.add(LinkRef.Task(url.removePrefix("task://")))
     }
     return seen.toList()
 }
