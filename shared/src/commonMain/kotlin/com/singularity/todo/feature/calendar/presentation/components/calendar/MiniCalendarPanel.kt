@@ -163,7 +163,7 @@ private fun MiniDateCell(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "${date.dayOfMonth}",
+                text = "${date.day}",
                 color = when {
                     isSelected -> Color.White
                     !isCurrentMonth -> palette.textMuted
@@ -173,7 +173,7 @@ private fun MiniDateCell(
                 fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
             )
             // Show month abbreviation on the 1st of each month
-            if (date.dayOfMonth == 1) {
+            if (date.day == 1) {
                 Text(
                     text = date.month.displayName().take(3),
                     color = palette.textMuted,
