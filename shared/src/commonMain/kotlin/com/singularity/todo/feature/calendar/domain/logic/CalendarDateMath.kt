@@ -117,3 +117,69 @@ fun LocalDate.dayOfWeekShort(): String {
     val names = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
     return names.getOrElse(dayOfWeek.ordinal) { "" }
 }
+
+/**
+ * Represents a year+month pair without a specific day. Used as the page identity
+ * for [androidx.compose.foundation.pager.HorizontalPager] in month-view.
+ */
+data class YearMonth(val year: Int, val month: Month) {
+    init {
+        require(year in YEAR_MIN..YEAR_MAX) { "year=$year out of range [$YEAR_MIN, $YEAR_MAX]" }
+    }
+
+    companion object {
+        const val YEAR_MIN: Int = 1900
+        const val YEAR_MAX: Int = 2200
+        const val MONTHS_PER_YEAR: Int = 12
+    }
+}
+
+/** Converts a [LocalDate] to a [YearMonth] (1st-day-normalised). */
+fun LocalDate.toYearMonth(): YearMonth = YearMonth(year, month)
+
+/** Converts a [YearMonth] to the 1st-day [LocalDate] of that month. */
+fun YearMonth.toLocalDate(): LocalDate = LocalDate(year, month, 1)
+
+/**
+ * Returns the inclusive (min, max) [YearMonth] range supported by the swipeable month
+ * pager. Range is `[anchor - span months, anchor + span months]`.
+ *
+ * Default [span] = 120 ⇒ ±120 months (±10 years) of swipeable history.
+ */
+fun monthPageRange(anchor: YearMonth, span: Int = 120): Pair<YearMonth, YearMonth> {
+    val totalMin = anchor.year * YearMonth.MONTHS_PER_YEAR + (anchor.month.ordinal - span)
+    val totalMax = anchor.year * YearMonth.MONTHS_PER_YEAR + (anchor.month.ordinal + span)
+    return monthIndexToYearMonth(totalMin) to monthIndexToYearMonth(totalMax)
+}
+
+/**
+ * Maps a [page] (0..[pageCount]-1) of the swipeable month pager to its [YearMonth].
+ *
+ * Pager pages are offset from the anchor's middle position ([span]) so that
+ * the initial month lands near index [span] for forward/backward swipe headroom.
+ */
+fun yearMonthForPage(anchor: YearMonth, page: Int, span: Int = 120): YearMonth {
+    val totalMonths = anchor.year * YearMonth.MONTHS_PER_YEAR +
+        anchor.month.ordinal + (page - span)
+    return monthIndexToYearMonth(totalMonths)
+}
+
+/**
+ * Inverse of [yearMonthForPage]: returns the pager page index for a [YearMonth].
+ * Returns null if [target] is outside the [anchor ± span] window — caller must
+ * either expand the range or refuse the jump.
+ */
+fun pageForYearMonth(anchor: YearMonth, target: YearMonth, span: Int = 120): Int? {
+    val anchorTotal = anchor.year * YearMonth.MONTHS_PER_YEAR + anchor.month.ordinal
+    val targetTotal = target.year * YearMonth.MONTHS_PER_YEAR + target.month.ordinal
+    val delta = targetTotal - anchorTotal
+    return if (delta in -span..span) delta + span else null
+}
+
+/** Converts an absolute month index (months since year 0) to a [YearMonth]. */
+private fun monthIndexToYearMonth(totalMonths: Int): YearMonth {
+    val year = totalMonths / YearMonth.MONTHS_PER_YEAR
+    val monthOrdinal = totalMonths - year * YearMonth.MONTHS_PER_YEAR
+    val month = Month.entries[monthOrdinal]
+    return YearMonth(year, month)
+}

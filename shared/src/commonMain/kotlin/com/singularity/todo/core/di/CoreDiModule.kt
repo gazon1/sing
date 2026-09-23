@@ -40,8 +40,6 @@ import com.singularity.todo.core.sync.RemoteConfigRepository
 import com.singularity.todo.core.sync.RemoteConfigRepositoryImpl
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
 import com.singularity.todo.core.sync.SyncApiClient
-import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
-import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.core.sync.SyncBootstrapper
 import com.singularity.todo.core.sync.SyncEngine
 import com.singularity.todo.core.sync.SyncPrefs
@@ -49,6 +47,9 @@ import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.sync.SyncRepositoryImpl
 import com.singularity.todo.core.sync.SyncRunner
 import com.singularity.todo.core.sync.SyncScheduler
+import com.singularity.todo.core.sync.work.SyncWorkScheduler
+import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
+import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.feature.sync.presentation.SyncViewModel
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
@@ -115,7 +116,8 @@ fun coreModule(): org.koin.core.module.Module = module {
     single<SyncPrefs> { DataStoreSyncPrefs(get()) }
 
     // SyncEngine is internal — feature modules must use SyncRepository.
-    single { SyncEngine(Logger.withTag("SyncEngine"), get(), get(), get(), get(), get(), get(), AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
+    // Takes both SyncPrefs (for LSN tracking) and SyncWorkScheduler (for auth-session init).
+    single { SyncEngine(Logger.withTag("SyncEngine"), get(), get(), get(), get(), get(), get(), get(), AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
 
     // SyncRunner is internal.
     single { SyncRunner(engine = get(), scheduler = get(), authRepository = get(), prefs = get(), scope = AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
@@ -160,7 +162,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             currentUser = get(),
         )
     }
-    // ─── Settings ───────────────────────────────────────────────────────
+    // ─── Settings ────────────────────────────────────────────────────────
 
     // SettingsViewModel uses marker interface lookups — each contributor is
     // registered individually in its own feature module and injected here via getOrNull.

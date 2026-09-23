@@ -21,10 +21,19 @@ import com.singularity.todo.core.settings.SettingsDataStoreMigration
 import com.singularity.todo.core.sync.JvmSyncScheduler
 import com.singularity.todo.core.sync.RemoteConfigDao
 import com.singularity.todo.core.sync.SyncScheduler
+import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
+import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.reminders.JvmReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
+import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
+import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
+import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
+import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -113,7 +122,30 @@ actual fun platformModule(): Module = module {
 
     // ─── Sync Scheduler ─────────────────────────────────────────────────
 
+    // Legacy scheduler (used by SyncRunner push loop)
     single<SyncScheduler> { JvmSyncScheduler() }
+
+    // WorkManager scheduler — JVM no-op stub (sync is not supported on desktop).
+    single<SyncWorkScheduler> { NoopSyncWorkScheduler() }
+
+    // ─── Calendar Sync ────────────────────────────────────────────────
+
+    // Calendar sync is Android-only; JVM provides no-op stubs.
+    single<CalendarSyncRepository> {
+        NoopCalendarSyncRepository()
+    }
+
+    single<CalendarProviderPort> {
+        NoopCalendarProvider()
+    }
+
+    single<CalendarSyncWorkScheduler> {
+        NoopCalendarSyncWorkScheduler()
+    }
+
+    single<com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries> {
+        JvmCalendarAppQueries()
+    }
 }
 
 /**

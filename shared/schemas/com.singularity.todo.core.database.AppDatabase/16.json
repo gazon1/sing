@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 16,
-    "identityHash": "8fa2057aa1faf583842791b362827b98",
+    "identityHash": "f05d1865c313cfc97206b174e281224f",
     "entities": [
       {
         "tableName": "tasks",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `description` TEXT, `priority` TEXT NOT NULL, `kind` TEXT NOT NULL, `project_id` TEXT, `parent_task_id` TEXT, `due_date` TEXT, `due_time` TEXT, `completed_at` INTEGER, `someday` INTEGER NOT NULL, `archived_at` INTEGER, `is_pinned` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `user_id` TEXT NOT NULL, `server_version` INTEGER NOT NULL, `sync_status` TEXT NOT NULL, `sync_error` TEXT, `last_synced_at` INTEGER, `device_id` TEXT, `hlc` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `description` TEXT, `priority` TEXT NOT NULL, `kind` TEXT NOT NULL, `project_id` TEXT, `parent_task_id` TEXT, `due_date` TEXT, `due_time` TEXT, `start_date` TEXT, `start_time` TEXT, `end_date` TEXT, `end_time` TEXT, `accent_color` INTEGER, `emoji` TEXT, `completed_at` INTEGER, `someday` INTEGER NOT NULL, `archived_at` INTEGER, `is_pinned` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `user_id` TEXT NOT NULL, `server_version` INTEGER NOT NULL, `sync_status` TEXT NOT NULL, `sync_error` TEXT, `last_synced_at` INTEGER, `device_id` TEXT, `hlc` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -808,42 +808,6 @@
         }
       },
       {
-        "tableName": "remote_configs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `supabase_url` TEXT NOT NULL, `anon_key` TEXT NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
-        "fields": [
-          {
-            "fieldPath": "id",
-            "columnName": "id",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "supabaseUrl",
-            "columnName": "supabase_url",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "anonKey",
-            "columnName": "anon_key",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "updatedAt",
-            "columnName": "updated_at",
-            "affinity": "INTEGER",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "id"
-          ]
-        }
-      },
-      {
         "tableName": "attachments",
         "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `task_id` TEXT NOT NULL, `user_id` TEXT NOT NULL, `type` TEXT NOT NULL, `url` TEXT, `title` TEXT NOT NULL, `local_path` TEXT, `remote_url` TEXT, `file_size_bytes` INTEGER NOT NULL, `mime_type` TEXT, `checksum` TEXT, `sync_status` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `deleted_at` INTEGER, `server_version` INTEGER NOT NULL, `hlc` TEXT, PRIMARY KEY(`id`))",
         "fields": [
@@ -1387,6 +1351,42 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_agenda_views_user_id` ON `${TABLE_NAME}` (`user_id`)"
           }
         ]
+      },
+      {
+        "tableName": "remote_configs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `remote_configs` (`id` TEXT NOT NULL, `supabase_url` TEXT NOT NULL, `anon_key` TEXT NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "supabaseUrl",
+            "columnName": "supabase_url",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "anonKey",
+            "columnName": "anon_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
       }
     ],
     "setupQueries": [

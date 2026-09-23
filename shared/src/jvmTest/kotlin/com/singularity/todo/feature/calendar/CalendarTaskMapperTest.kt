@@ -29,15 +29,33 @@ class CalendarTaskMapperTest {
         dueDate: LocalDate? = LocalDate(2026, Month.SEPTEMBER, 16),
         dueTime: LocalTime? = null,
         completedAt: Instant? = null,
+        emoji: String? = null,
+        accentColor: Long? = null,
     ): Task = Task(
         id = TaskId.fromString(id),
         title = title,
-        userId = testUserId,
+        description = null,
+        priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.None,
+        kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.Task,
+        projectId = null,
+        parentTaskId = null,
+        tags = emptyList(),
         dueDate = dueDate,
         dueTime = dueTime,
+        startDate = null,
+        startTime = null,
+        endDate = null,
+        endTime = null,
+        accentColor = accentColor,
+        emoji = emoji,
         completedAt = completedAt,
+        someday = false,
+        archivedAt = null,
+        isPinned = false,
+        dependsOn = emptySet(),
         createdAt = Instant.fromEpochMilliseconds(0),
         updatedAt = Instant.fromEpochMilliseconds(0),
+        userId = testUserId,
     )
 
     // ─── status mapping ─────────────────────────────────────────────────────
@@ -162,15 +180,29 @@ class CalendarTaskMapperTest {
     // ─── emoji and accentColor ───────────────────────────────────────────────
 
     @Test
-    fun `emoji is always null in current mapping`() {
-        val task = makeTask(title = "🌟 Important meeting")
+    fun `emoji is passed through from task`() {
+        val task = makeTask(emoji = "🌟")
+        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
+        assertEquals("🌟", result.emoji)
+    }
+
+    @Test
+    fun `emoji is null when task has no emoji`() {
+        val task = makeTask(emoji = null)
         val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
         assertNull(result.emoji)
     }
 
     @Test
-    fun `accentColor is always null in current mapping`() {
-        val task = makeTask()
+    fun `accentColor is passed through from task`() {
+        val task = makeTask(accentColor = 0xFF5500)
+        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
+        assertEquals(0xFF5500L, result.accentColor)
+    }
+
+    @Test
+    fun `accentColor is null when task has no accentColor`() {
+        val task = makeTask(accentColor = null)
         val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
         assertNull(result.accentColor)
     }

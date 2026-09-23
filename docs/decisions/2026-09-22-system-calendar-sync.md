@@ -99,17 +99,6 @@ Custom    → pass-through (user's raw recurringPattern string)
 - Button calls `ActivityResultContracts.RequestMultiplePermissions`
 - On deny → snackbar with "Open Settings" to go to app permissions page
 
-### Room schema v17
-
-```sql
-CREATE TABLE calendar_sync_task_map (
-  task_id TEXT PRIMARY KEY,
-  calendar_id TEXT NOT NULL,
-  event_id INTEGER NOT NULL,
-  synced_at INTEGER NOT NULL
-);
-```
-
 ### What is NOT included (deferred)
 
 - Two-way sync (calendar → Task)

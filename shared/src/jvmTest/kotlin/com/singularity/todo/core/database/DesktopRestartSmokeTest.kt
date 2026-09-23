@@ -81,7 +81,10 @@ class DesktopRestartSmokeTest {
             sessionA.taskDao().upsert(
                 TaskEntity(
                     id = "t-1", title = "Walk dog", description = null, projectId = null,
-                    dueDate = null, dueTime = null, completedAt = null, someday = false,
+                    dueDate = null, dueTime = null,
+                    startDate = null, startTime = null, endDate = null, endTime = null,
+                    accentColor = null, emoji = null,
+                    completedAt = null, someday = false,
                     archivedAt = null, isPinned = true, createdAt = now, updatedAt = now,
                     userId = "u-1",
                 ),

@@ -31,6 +31,10 @@ import kotlinx.datetime.LocalDate
 /**
  * Top bar of the Calendar screen: date range label, navigation arrows, "Today",
  * view-mode dropdown, and mini-calendar toggle.
+ *
+ * @param headerLabelOverride Optional override for the displayed label. When
+ *   non-null, replaces [CalendarUiState.Loaded]'s `headerLabel` (used by
+ *   [CalendarContent] to render the live pager header without VM round-trips).
  */
 @Composable
 fun CalendarTopBar(
@@ -38,8 +42,10 @@ fun CalendarTopBar(
     today: LocalDate,
     onIntent: (CalendarIntent) -> Unit,
     modifier: Modifier = Modifier,
+    headerLabelOverride: String? = null,
 ) {
     val palette = LocalCalendarPalette.current
+    val displayedLabel = headerLabelOverride ?: state.headerLabel
 
     Row(
         modifier = modifier
@@ -56,7 +62,7 @@ fun CalendarTopBar(
         )
         Spacer(Modifier.width(10.dp))
         Text(
-            text = state.headerLabel,
+            text = displayedLabel,
             color = palette.textPrimary,
             fontSize = 20.sp,
             fontWeight = FontWeight.SemiBold,

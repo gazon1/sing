@@ -1,17 +1,24 @@
 package com.singularity.todo.feature.calendar
 
+import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.goNext
 import com.singularity.todo.feature.calendar.domain.logic.goPrevious
 import com.singularity.todo.feature.calendar.domain.logic.headerLabel
 import com.singularity.todo.feature.calendar.domain.logic.lastDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.monthGridDates
+import com.singularity.todo.feature.calendar.domain.logic.monthPageRange
+import com.singularity.todo.feature.calendar.domain.logic.pageForYearMonth
+import com.singularity.todo.feature.calendar.domain.logic.toLocalDate
+import com.singularity.todo.feature.calendar.domain.logic.toYearMonth
 import com.singularity.todo.feature.calendar.domain.logic.visibleRange
+import com.singularity.todo.feature.calendar.domain.logic.yearMonthForPage
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 /**
  * Tests for [com.singularity.todo.feature.calendar.domain.logic] date arithmetic.
@@ -232,5 +239,99 @@ class CalendarDateMathTest {
         val jan31 = LocalDate(2026, Month.JANUARY, 31)
         val lastJan = lastDayOfMonth(jan31)
         assertEquals(LocalDate(2026, Month.JANUARY, 31), lastJan)
+    }
+
+    // ─── YearMonth conversion ────────────────────────────────────────────────
+
+    @Test
+    fun `LocalDate toYearMonth preserves year and month`() {
+        val sept16 = LocalDate(2026, Month.SEPTEMBER, 16)
+        assertEquals(YearMonth(2026, Month.SEPTEMBER), sept16.toYearMonth())
+    }
+
+    @Test
+    fun `YearMonth toLocalDate returns first of month`() {
+        assertEquals(LocalDate(2026, Month.SEPTEMBER, 1), YearMonth(2026, Month.SEPTEMBER).toLocalDate())
+    }
+
+    // ─── monthPageRange ──────────────────────────────────────────────────────
+
+    @Test
+    fun `monthPageRange with default span gives 240 months centred on anchor`() {
+        val anchor = YearMonth(2026, Month.SEPTEMBER)
+        val (min, max) = monthPageRange(anchor)
+        assertEquals(YearMonth(2016, Month.SEPTEMBER), min)
+        assertEquals(YearMonth(2036, Month.SEPTEMBER), max)
+    }
+
+    @Test
+    fun `monthPageRange handles December anchor correctly`() {
+        // December (ordinal 11): min = Dec - 120 months = Dec year-10
+        val anchor = YearMonth(2026, Month.DECEMBER)
+        val (min, max) = monthPageRange(anchor)
+        assertEquals(YearMonth(2016, Month.DECEMBER), min)
+        assertEquals(YearMonth(2036, Month.DECEMBER), max)
+    }
+
+    // ─── yearMonthForPage / pageForYearMonth ─────────────────────────────────
+
+    @Test
+    fun `yearMonthForPage middle page equals anchor`() {
+        val anchor = YearMonth(2026, Month.SEPTEMBER)
+        assertEquals(anchor, yearMonthForPage(anchor, page = 120))
+    }
+
+    @Test
+    fun `yearMonthForPage page+1 is next month`() {
+        val anchor = YearMonth(2026, Month.SEPTEMBER)
+        assertEquals(YearMonth(2026, Month.OCTOBER), yearMonthForPage(anchor, page = 121))
+    }
+
+    @Test
+    fun `yearMonthForPage page-1 is previous month`() {
+        val anchor = YearMonth(2026, Month.SEPTEMBER)
+        assertEquals(YearMonth(2026, Month.AUGUST), yearMonthForPage(anchor, page = 119))
+    }
+
+    @Test
+    fun `yearMonthForPage crosses year boundary forward`() {
+        val anchor = YearMonth(2026, Month.DECEMBER)
+        assertEquals(YearMonth(2027, Month.JANUARY), yearMonthForPage(anchor, page = 121))
+    }
+
+    @Test
+    fun `yearMonthForPage crosses year boundary backward`() {
+        val anchor = YearMonth(2026, Month.JANUARY)
+        assertEquals(YearMonth(2025, Month.DECEMBER), yearMonthForPage(anchor, page = 119))
+    }
+
+    @Test
+    fun `pageForYearMonth returns span for anchor itself`() {
+        val anchor = YearMonth(2026, Month.SEPTEMBER)
+        assertEquals(120, pageForYearMonth(anchor, anchor))
+    }
+
+    @Test
+    fun `pageForYearMonth returns null for out-of-range target`() {
+        val anchor = YearMonth(2026, Month.SEPTEMBER)
+        // span=0 means only the anchor itself is in range; one month away is out-of-range
+        assertNull(pageForYearMonth(anchor, YearMonth(2026, Month.OCTOBER), span = 0))
+    }
+
+    @Test
+    fun `pageForYearMonth and yearMonthForPage are inverse`() {
+        val anchor = YearMonth(2026, Month.SEPTEMBER)
+        val targets = listOf(
+            YearMonth(2020, Month.JANUARY),
+            YearMonth(2025, Month.JULY),
+            YearMonth(2026, Month.SEPTEMBER),
+            YearMonth(2027, Month.MARCH),
+            YearMonth(2030, Month.DECEMBER),
+        )
+        targets.forEach { target ->
+            val page = pageForYearMonth(anchor, target)
+                ?: error("target $target out of range")
+            assertEquals(target, yearMonthForPage(anchor, page))
+        }
     }
 }

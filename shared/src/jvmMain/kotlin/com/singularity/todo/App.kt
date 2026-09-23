@@ -22,9 +22,10 @@ import org.koin.compose.koinInject
  * Builds navigation state and provides [LocalAppNavigator] before calling [PlatformShell].
  *
  * @param deeplinkViewId Ignored on JVM — notifications are not supported.
+ * @param deeplinkTaskId Ignored on JVM — calendar deep-links are Android-only.
  */
 @Composable
-actual fun App(deeplinkViewId: String?) {
+actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
     val appearance: AppearanceSettingsRepository = koinInject()
     val darkTheme by appearance.darkTheme.collectAsState(initial = false)
     val accentName by appearance.accentColor.collectAsState(initial = "blue")

@@ -2,6 +2,7 @@
 title: "Repository stamps ambient userId on create; drop userId params from input classes and use cases"
 date: 2026-09-22
 tags: [repository, currentuser, userid, draft-store, use-case, koin]
+status: accepted
 ---
 
 ## Context

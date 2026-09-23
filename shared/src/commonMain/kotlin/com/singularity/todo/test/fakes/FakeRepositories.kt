@@ -29,6 +29,10 @@ import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsRepository
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.feature.calendar_sync.data.CalendarAppInfo
+import com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries
+import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
+import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.ChecklistRepository
@@ -643,6 +647,15 @@ open class FakeReminderRepository(
     }
 
     // ─── Domain methods ─────────────────────────────────────────────────────
+
+    override fun observeRecurringTaskIds(): Flow<Set<TaskId>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { map ->
+                map.values
+                    .filter { it.userId == uid && it.recurringPattern != null }
+                    .mapTo(mutableSetOf()) { it.taskId }
+            }
+        }
 
     override fun watchByTask(taskId: TaskId): Flow<List<Reminder>> =
         currentUser.observeForCurrentUser { uid ->
@@ -1483,4 +1496,54 @@ class FakeFileRevealer : FileRevealer {
     }
 
     override fun attachmentsBasePath(): String = "/fake/attachments"
+}
+
+/**
+ * In-memory fake for [CalendarProviderPort].
+ * Holds inserted / updated events and a counter for generated event IDs.
+ */
+class FakeCalendarProvider : CalendarProviderPort {
+
+    private val events = mutableMapOf<Long, CalendarSyncEvent>()
+    private var nextEventId = 1000L
+
+    /** Inject a pre-existing event (e.g. from a previous sync row). */
+    fun injectEvent(eventId: Long, event: CalendarSyncEvent) {
+        events[eventId] = event
+        if (eventId >= nextEventId) nextEventId = eventId + 1
+    }
+
+    override suspend fun getAvailableCalendars(): Result<Map<String, String>> =
+        Result.success(mapOf("cal1" to "Test Calendar"))
+
+    override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> =
+        Result.success(nextEventId++)
+
+    override suspend fun updateEvent(eventId: Long, event: CalendarSyncEvent): Result<Long> {
+        events[eventId] = event
+        return Result.success(eventId)
+    }
+
+    override suspend fun deleteEvent(eventId: Long): Result<Unit> {
+        events.remove(eventId)
+        return Result.success(Unit)
+    }
+
+    override suspend fun queryEvents(
+        calendarId: String?,
+        fromMs: Long,
+        toMs: Long,
+    ): Result<Map<String, Long>> = Result.success(emptyMap())
+}
+
+/**
+ * In-memory fake for [CalendarAppQueries].
+ *
+ * @param apps The list of apps to return from [listInstalled].
+ */
+class FakeCalendarAppQueries(
+    private val apps: List<CalendarAppInfo>,
+) : CalendarAppQueries {
+
+    override suspend fun listInstalled(): List<CalendarAppInfo> = apps
 }

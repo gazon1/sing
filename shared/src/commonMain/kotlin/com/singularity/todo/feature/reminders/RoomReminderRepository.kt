@@ -60,6 +60,13 @@ class RoomReminderRepository(
 
     // ─── Domain methods ───────────────────────────────────────────────────────
 
+    override fun observeRecurringTaskIds(): Flow<Set<TaskId>> =
+        currentUser.observeForCurrentUser { uid ->
+            dao.watchRecurringTaskIds(uid.value).map { list ->
+                list.mapTo(linkedSetOf()) { TaskId.fromString(it) }
+            }
+        }
+
     override fun watchByTask(taskId: TaskId): Flow<List<Reminder>> =
         currentUser.observeForCurrentUser { uid ->
             dao.watchByTask(taskId.value, uid.value).map { list -> list.map { it.toReminder() } }

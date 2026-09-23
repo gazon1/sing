@@ -7,11 +7,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.feature.calendar.domain.logic.YearMonth
+import com.singularity.todo.feature.calendar.domain.logic.headerLabel
+import com.singularity.todo.feature.calendar.domain.logic.toLocalDate
+import com.singularity.todo.feature.calendar.domain.logic.yearMonthForPage
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.components.calendar.CalendarTopBar
 import com.singularity.todo.feature.calendar.presentation.components.calendar.MiniCalendarPanel
@@ -32,6 +38,8 @@ import kotlinx.datetime.LocalDate
  * @param onTaskClick Called when a task chip is clicked — used by the caller
  *                    to handle navigation (e.g. via [CalendarUiEvent.NavigateToTask]).
  * @param today Today's date (used for highlighting).
+ * @param pagerState Optional [PagerState] — hoist to control from outside (e.g.
+ *   tests, custom navigation). When null, a default state is created internally.
  */
 @Composable
 fun CalendarContent(
@@ -40,6 +48,7 @@ fun CalendarContent(
     onTaskClick: (LocalDate) -> Unit = {},
     today: LocalDate = todayInSystemZone(),
     modifier: Modifier = Modifier,
+    pagerState: PagerState? = null,
 ) {
     val loadedState: CalendarUiState.Loaded? = (state as? CalendarUiState.Loaded)
 
@@ -47,6 +56,19 @@ fun CalendarContent(
         if (loadedState == null) {
             // Loading state — could add a loading indicator here
             return@Surface
+        }
+
+        // Top bar derives its header label live from the current pager page —
+        // this avoids a VM round-trip per swipe frame and ensures the label
+        // updates instantly as the user drags, not just on settle.
+        val liveMonth: YearMonth? = pagerState?.let { ps ->
+            val anchorYm = remember(loadedState.anchor) {
+                YearMonth(loadedState.anchor.year, loadedState.anchor.month)
+            }
+            yearMonthForPage(anchorYm, ps.currentPage)
+        }
+        val liveHeaderLabel = liveMonth?.toLocalDate()?.let { anchorDate ->
+            headerLabel(anchorDate, loadedState.viewMode)
         }
 
         Row(modifier = Modifier.fillMaxSize()) {
@@ -60,17 +82,21 @@ fun CalendarContent(
                     state = loadedState,
                     today = today,
                     onIntent = onIntent,
+                    headerLabelOverride = liveHeaderLabel,
                 )
 
                 when (loadedState.viewMode) {
                     CalendarViewMode.MONTH -> MonthGridView(
                         monthAnchor = loadedState.anchor,
-                        tasksByDate = loadedState.tasksByDate,
                         today = today,
                         selectedDate = loadedState.selectedDate,
+                        tasksByDate = loadedState.tasksByDate,
                         onDayClick = { onIntent(CalendarIntent.DayClicked(it)) },
                         onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
+                        onMonthPageChanged = { month -> onIntent(CalendarIntent.MonthPageChanged(month)) },
+                        onEmptyCellLongPress = { date -> onIntent(CalendarIntent.EmptyCellLongPressed(date)) },
                         modifier = Modifier.fillMaxSize(),
+                        pagerState = pagerState ?: rememberPagerState(initialPage = 120) { 240 },
                     )
 
                     else -> TimeGridView(

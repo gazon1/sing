@@ -105,6 +105,12 @@ data class Task(
     val tags: List<TagId> = emptyList(),
     val dueDate: kotlinx.datetime.LocalDate? = null,
     val dueTime: kotlinx.datetime.LocalTime? = null, // "HH:mm:ss" via LocalTimeConverters / LocalTimeSerializer
+    val startDate: kotlinx.datetime.LocalDate? = null, // when the task becomes active
+    val startTime: kotlinx.datetime.LocalTime? = null,
+    val endDate: kotlinx.datetime.LocalDate? = null, // deadline / end of active window
+    val endTime: kotlinx.datetime.LocalTime? = null,
+    val accentColor: Long? = null, // ARGB color value, null = use default
+    val emoji: String? = null, // task-level emoji, null = none
     val completedAt: Instant? = null,
     val someday: Boolean = false,
     val archivedAt: Instant? = null,
@@ -162,5 +168,11 @@ data class CreateTaskInput(
     val tagIds: List<TagId> = emptyList(),
     val dueDate: kotlinx.datetime.LocalDate? = null,
     val dueTime: kotlinx.datetime.LocalTime? = null,
+    val startDate: kotlinx.datetime.LocalDate? = null,
+    val startTime: kotlinx.datetime.LocalTime? = null,
+    val endDate: kotlinx.datetime.LocalDate? = null,
+    val endTime: kotlinx.datetime.LocalTime? = null,
+    val accentColor: Long? = null,
+    val emoji: String? = null,
     val someday: Boolean = false,
 )

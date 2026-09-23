@@ -33,16 +33,20 @@ class AndroidSyncScheduler(
     override fun schedule(interval: Duration) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        val intent = Intent(context, SyncAlarmReceiver::class.java).apply {
+        val intent = Intent(context, com.singularity.todo.feature.alarms.AlarmReceiver::class.java).apply {
             action = INTENT_ACTION
         }
 
-        pendingIntent = PendingIntent.getBroadcast(
+        // PendingIntent.getBroadcast returns nullable only when the underlying
+        // broadcast receiver isn't registered; AlarmReceiver is in the
+        // AndroidManifest, so it is non-null here. Tell the compiler that.
+        val newPendingIntent = PendingIntent.getBroadcast(
             context,
             REQUEST_CODE,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        ) ?: throw IllegalStateException("PendingIntent.getBroadcast returned null")
+        pendingIntent = newPendingIntent
 
         val intervalMillis = interval.inWholeMilliseconds
         // Use setInexactRepeating for battery optimization — Android batches inexact alarms.
@@ -51,8 +55,9 @@ class AndroidSyncScheduler(
             AlarmManager.RTC_WAKEUP,
             System.currentTimeMillis(), // first fire immediately
             intervalMillis,
-            pendingIntent,
+            newPendingIntent,
         )
+        pendingIntent = newPendingIntent
         log.d { "Scheduled sync (interval=$interval)" }
     }
 

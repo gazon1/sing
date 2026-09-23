@@ -8,9 +8,11 @@ import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -89,6 +91,7 @@ internal class SyncEngine(
     private val hlcFactory: HlcFactory,
     private val idGenerator: IdGenerator,
     private val prefs: SyncPrefs,
+    private val scheduler: SyncWorkScheduler,
     private val scope: AutoCloseableCoroutineScope,
 ) : AutoCloseable by scope {
     private val json = StableJson
@@ -105,6 +108,22 @@ internal class SyncEngine(
     // Per-entity pull handlers (registered by TasksDiModule, NotesDiModule, etc.)
     private val _handlers = MutableStateFlow<Map<DocType, EntityApply>>(emptyMap())
     val handlers: Map<DocType, EntityApply> get() = _handlers.value
+
+    init {
+        // React to session changes: enqueue push when signed in, cancel when signed out.
+        // WorkManager handles back-off and persistence across process death.
+        scope.launch {
+            authRepository.currentSession.collect { session ->
+                when (session) {
+                    is Session.SignedIn -> scheduler.enqueuePush()
+                    is Session.Anonymous,
+                    is Session.SignedOut,
+                    is Session.Loading,
+                    -> scheduler.cancelPush()
+                }
+            }
+        }
+    }
 
     /**
      * Registers a handler for pull events of the given [DocType].
@@ -144,7 +163,7 @@ internal class SyncEngine(
     /**
      * Pushes all pending patches to the server.
      */
-    private suspend fun push(): Result<PushSummary> {
+    internal suspend fun push(): Result<PushSummary> {
         val session = authRepository.currentSession.value
         if (session !is Session.SignedIn) {
             return Result.success(PushSummary(0, 0, 0))

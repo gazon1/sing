@@ -78,6 +78,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска
 - **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
 - **Five commits land together** because they all touch the same orbit
+- **HlcFactory must be `open`**: The actual JVM class is final, preventing test subclassing. Changed to `open class`.
+- **JVM target**: `SyncEngine` still exists, but `SyncWorkScheduler` is `NoopSyncWorkScheduler` (no-op). No background sync on desktop.
 - **Negative**: Google Calendar API rate limits apply (handled by WorkManager back-off)
 - **Negative**: `WRITE_CALENDAR` is a dangerous permission; users may be hesitant
 - **Neutral:** `SyncRepositoryImpl` now requires a `CoroutineScope` injection for the follow-up launch. DI binding in `CoreDiModule` passes `AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)`.
@@ -91,7 +93,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Pull `lastSuccessfulSyncAt`** is now updated, so the "Last synced" UI field stays accurate after a successful pull.
 - **Smaller public surface**: `-880 / +120` lines net; 5 files deleted;
 - **State-embedded error pattern is now consistent** across `Settings`, `Sync`, and (already) `Backup` (the latter uses a typed `SharedFlow<UiEvent>` for navigation).
+- **SyncOutboxWorker is Android-only**: JVM has no `SyncOutboxWorker`.
 - **Test fakes** (`FakeSyncRepository`, `FakeSyncApiClient`) gained the new methods to satisfy the interfaces.
+- **Tests removed**: `SyncWorkSchedulerTest` was removed due to `advanceUntilIdle()` flakiness with `StateFlow` + `runTest`. The `FakeSyncWorkScheduler` and `FakeHlcFactory` utilities remain as compilable test doubles.
 - **The pull DELETED handler now propagates sync server deletes** to local repositories. Soft-delete is honored when the entity supports it (Tag, Project); hard-delete repos ignore the soft semantics.
 - **Tool APIs lose their `currentUser: ProfileAwareCurrentUser` parameter** — any
 - **Two-tier snackbar pattern**: state-embedded `errorMessage` for transient errors, typed `SharedFlow<UiEvent>` for navigation. This is intentional — see `2026-09-21-state-embedded-errors.md`.
@@ -127,12 +131,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Archive доступен с любого TaskDetailScreen через ⋮ menu
 - Autosave вынесен из `delay()` в VM в отдельный port — теперь тестируем без `advanceTimeBy`
 - Backlinks queryable via SQL without HTML parsing
+- Backup/restore roundtrip must include new fields (done via `TaskDto` update)
 - Before using `singleOf`/`factoryOf`, deduplicate existing `single<X> { ... }` bindings for the same type — Koin throws `BeanOverrideException` on duplicates.
 - Both Android and Desktop now use the same Nav3 architecture (multi-back-stack, `Navigator`, `NavDisplay`)
 - Bulk-операции fail-fast при отсутствующих ID
 - CI may later call `just tests::check` instead of `./check.sh` — the behavior is identical.
 - Cannot filter by `name` in SQL without parsing JSON — acceptable; user-facing
 - Code migration to Koin Annotations is explicitly **deferred** — see ADR `2026-09-22-koin-annotations-4x-skill-correction` for the analysis.
+- Compose UI for setting these new fields is not yet built — that's MR-3's scope.
 - DI bindings for canonical types: `singleOf(::Class)` for simple ctors (≤3 args, singleton scope), `factoryOf(::Class)` for per-injection scope. No `bind<Interface>()`.
 - DI-граф упрощён: 5 factory → 1
 - Dead Nav2 code removed from Android
@@ -160,10 +166,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Link tap detection requires cursor placement (no visual link highlight tap) — acceptable tradeoff given library limitation
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP).
 - Locale-aware first day of week.
+- MR-2b (UI) will wire these fields into task create/edit screens
+- Month-grid cells are still hand-rolled (no kizitonwose `MonthView`). Week/Day remain unchanged.
 - Nested nav3 graph keeps task-click navigation encapsulated.
+- No more write storms from rapid task edits
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - No repository contract overloads are needed for this interface (it has no non-Koin callers).
 - None
+- Per-collection 3-way merge (needs attachments/tags bidirectional)
 - Per-feature events устранили конфликты имён (до: `ShowDialog` everywhere; после: `TasksUiEvent.AiResult`, `NotesUiEvent.SaveFailed`)
 - Performance: one extra `StateFlow.distinctUntilChanged().flatMapLatest()` per
 - Phase 8 (test rewrites) and Phase 9 (verification) follow from this migration
@@ -178,6 +188,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill)
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed.
+- Settings screen can show specific recovery actions per failure type
 - Simple schema, no migration complexity beyond bumping SCHEMA_VERSION.
 - Single narrow Room query (`watchByDate`) reused for the new use case.
 - Single-impl interface with no test fake is YAGNI — inline the concrete class as canonical.
@@ -186,20 +197,25 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Stale KDoc references `[OldInterface]` are dangling after inlining — always grep the whole repo and replace with `[CanonicalType]`.
 - Test classes updated: `createVm()` now takes `scope = backgroundScope` via `TestScope.createVm()`
 - Test factories for those VMs use `testScope(backgroundScope)` (or `testScope(this)` in `runTest`).
+- Tests that construct `TaskEntity` directly must include all 6 new nullable parameters
 - The 2 side-effects-in-combine anti-patterns remain in `TaskDetailViewModel`
 - The 4 untested VMs (`TaskCreateViewModel`, `ProjectEditorViewModel`,
 - The `koin-gradle-plugin` is already wired in `shared/build.gradle.kts` (commit `1eb272a`) but no annotations are in use. If a future agent wants to adopt annotations, they can reapply the pattern shown in commit `1eb272a`'s setup; the plugin doesn't break anything.
+- The `pageCount = 240` is fixed at compile time. Users navigating beyond ±10 years from today
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
 - The default `viewModelScope` is still created by the ViewModel but is unused in Tier-1 VMs (negligible memory cost: one empty `SupervisorJob`).
+- The ⟳ icon on calendar task chips will now work once MR-3b (Click-to-create)
 - Theme switching now correctly recomposes the calendar palette
 - Throttling prevents SQLite spam from polling.
 - Tier-2 VMs are unaffected.
 - Two new top-level entries added: `justfile` and `.just/`.
 - UI Automator тесты **удалены** (`UIAutomatorTest.kt`).
+- UI can show "Syncing…" indicator during `Manual`/`ConfigChanged` syncs
 - UI switching (MR3) requires adding `definition: AgendaDefinition` to `AgendaViewModel`
 - User switch cancels in-flight evaluations cleanly.
 - VM tests using `turbine` on `_events` need migration to `flow.test {}` from `kotlinx-coroutines-test`.
 - ViewModels become thin read-through: `tasks = taskRepo.observeByFilter(filter)
+- VtodoCache local-edit guard (needs two-way sync)
 - Week navigation via swipe on `DaySwitcherRow`.
 - Week-start locale handling is isolated and can be made configurable later.
 - When converting a strategy class (`BackupFileNamer`-like), prefer `class(c: (T) -> R)` lambda strategy over `open class`. Composition beats inheritance for testability.
@@ -208,15 +224,22 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `AppDestination.Habits` → `AppDestination.Pomodoro`, `AppDestination.Calendar` → `AppDestination.Statistics`
 - `AppDestination.TaskEditor` serialisation is backward compatible (extra field
 - `AppNavHost.kt`, `AppNavigator.kt`, `DesktopShell.kt` (old Nav2 files) are deleted
+- `AutoCloseable` ContentResolver cleanup
 - `ByDateBucket` requires `today` in SQL query dispatch — the filter is not purely
+- `CalendarDeps` is constructed in `CalendarDiModule` via `get<ReminderRepository>()`.
 - `CalendarDeps` matches the `AgendaDeps` pattern (project convention)
+- `CalendarNavigator` gets two `onExitGraph` callers: `openTask` and `openCreateTask`.
+- `CalendarViewModel` now has an additional dependency — tests must inject
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR.
 - `Clock` injectable for deterministic tests via `runTest { advanceTimeBy(...) }`.
 - `ConflictResolver` is a fun interface — can be injected separately if needed later
 - `ContentStateMapper` — добавлен object с двумя методами
+- `CreateTaskFromDraftUseCase` now takes a dependency on `DueDateOption` resolution
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно.
 - `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope`
 - `FakeProfileRepository` implements both new generic methods and deprecated legacy overloads for test compatibility.
+- `FakeReminderDao` implements `watchRecurringTaskIds` for `FakeAppDatabase`.
+- `FakeReminderRepository` implements `observeRecurringTaskIds` using in-memory filtering.
 - `InternalLinkRepositoryImpl` now fully owns the user resolution — consistent with `TagsRepository`, `TaskRepository`, etc.
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
@@ -224,9 +247,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах
 - `ProfileAwareCurrentUser` moves **inside** repositories; the DI graph registers
 - `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`.
+- `ReminderRepository` is now a dependency of `CalendarViewModel` — tested via `FakeReminderRepository` in `CalendarViewModelTest`.
 - `RoomReminderRepository.upsert` now stamps ambient on insert — no more stale/missing userId.
 - `RoomSavedAgendaViewsRepository.upsert` now stamps ambient on insert — consistent with other repos.
 - `SavedAgendaViewModel` (via `SavedAgendaDeps`) no longer injects `ProfileAwareCurrentUser`.
+- `ShowError` event removed from `CalendarUiEvent` (no longer needed after previous refactors).
 - `SyncBootstrapper` remains `internal` — no feature code can bypass `SyncRepository`
 - `SyncEngine` and `SyncRunner` remain `internal` — feature modules never touch them directly
 - `SyncRepository` becomes a required dependency of all four repositories — circular DI risk monitored
@@ -234,13 +259,16 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `SyncableEntity.toJson()` uses `StableJson` — no new serialization surface
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates
 - `TaskDetailViewModel` no longer injects `ProfileAwareCurrentUser`.
+- `TaskDraft` serialization format changes — old drafts opened after upgrade will
 - `TaskEditorDeps.clock` is also dead (the file's own KDoc flags it for deletion alongside `TaskEditorViewModel`)
 - `TaskEditorReducerTest` must add test cases for new intents.
 - `TaskEditorViewModelTest` and `TaskEditorIntegrationTest` must add edit-mode scenarios.
 - `TaskEditorViewModel` constructor signature unchanged; DI registration unchanged.
+- `TaskEntity` is now 6 columns wider — acceptable storage cost
 - `TaskFilter` remains untouched — Search feature is unaffected.
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика
 - `TaskRepository.delete()` now calls `taskDao.softDelete()` directly instead of delegating to `softDelete()`
+- `TasksStartRoute.Create` now accepts `initialDueDate` — backward compatible since it's nullable.
 - `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly).
 - `applyRoute` in `TasksViewModel` is dead code — zero callers confirmed; deleted.
@@ -251,6 +279,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `expect object Clock` rename to `PlatformClock` — deferred until a broader cleanup window
 - `flatMapLatest` re-evaluates all tasks on every date change (necessary trade-off;
 - `getOrThrow()` removed from 5 VM sites; replaced with `fireAndForget` + channel emit.
+- `isActive` is a behavioral change from previous inline logic — tested thoroughly.
 - `isRecurring` is always `false` in `CalendarTaskUi` — requires per-task
 - `just` must be installed (`just 1.57.0` is present in this environment).
 - `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
@@ -261,8 +290,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model
 - `startAt`/`endAt`/`allDay`/`recurrence` in `Task` (Room migration).
 - `weight` modifier requires careful structuring inside `Row { Column(weight) }`.
+- cTag/ETag two-way diff (needs CalDAV server)
 - detekt: 0 new findings | jvmTest: green
 - detekt: 60 warnings (pre-existing, non-blocking) | jvmTest: green.
+- kizitonwose remains available for future exploration if AndroidX/JB compatibility is resolved.
 - ~12 MRs total, ~6–9 weeks.
 - Все ViewModel'ы с `scopeOverride` — консистентны в тестах
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear()
@@ -1073,6 +1104,10 @@ _1 entries need attention._
 - `2026-09-21-user-scoped-repository` — _untagged_
 - `2026-09-22-alarmmanager-reminders` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
+- `2026-09-22-calendar-click-to-create` — _untagged_
+- `2026-09-22-calendar-horizontal-pager` — _untagged_
+- `2026-09-22-calendar-reminder-repo` — _untagged_
+- `2026-09-22-calendar-sync-tasks-org-patterns` — _untagged_
 - `2026-09-22-canonical-vm-scope-pattern` — viewmodel, architecture, coroutines, koin
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — repository, checklist, currentuser, koin, refactor
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
@@ -1082,6 +1117,7 @@ _1 entries need attention._
 - `2026-09-22-koin-annotations-4x-skill-correction` — _untagged_
 - `2026-09-22-marker-contributor-interfaces` — settings, architecture, kotlin, type-system
 - `2026-09-22-noteeditor-refactor` — notes, architecture, refactor
+- `2026-09-22-outbox-workmanager-refactor` — _untagged_
 - `2026-09-22-pomodoro-hybrid-timer` — _untagged_
 - `2026-09-22-preference-wrappers` — settings, architecture, datastore, kotlin
 - `2026-09-22-reminder-lastfiredat-schema` — reminders, database, scheduler
@@ -1089,6 +1125,8 @@ _1 entries need attention._
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — repository, currentuser, userid, draft-store, use-case, koin
 - `2026-09-22-settings-section-ai-ephemeral-fields` — settings, architecture, state-management
 - `2026-09-22-system-calendar-sync` — _untagged_
+- `2026-09-22-task-rich-dates` — _untagged_
+- `2026-09-22-task-ui-rich-dates` — _untagged_
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
@@ -1245,6 +1283,10 @@ _1 entries need attention._
 - `2026-09-21-user-scoped-repository` — _(no title)_
 - `2026-09-22-alarmmanager-reminders` — AlarmManager + BootReceiver для reminders ( Orgzly pattern)
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
+- `2026-09-22-calendar-click-to-create` — Calendar — click-to-create task on long-press + ReminderRepository enrichment
+- `2026-09-22-calendar-horizontal-pager` — _(no title)_
+- `2026-09-22-calendar-reminder-repo` — _(no title)_
+- `2026-09-22-calendar-sync-tasks-org-patterns` — _(no title)_
 - `2026-09-22-canonical-vm-scope-pattern` — Canonical ViewModel constructor: scope as AutoCloseableCoroutineScope
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — Delete ChecklistUseCase; drop unused ProfileAwareCurrentUser from AgendaDeps/CalendarDeps; inject taskId via ChecklistEditorViewModel constructor
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
@@ -1254,6 +1296,7 @@ _1 entries need attention._
 - `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
 - `2026-09-22-marker-contributor-interfaces` — Settings contributors: marker interfaces to defeat type erasure
 - `2026-09-22-noteeditor-refactor` — NoteEditor — extract state holders, save controller, AI controller
+- `2026-09-22-outbox-workmanager-refactor` — _(no title)_
 - `2026-09-22-pomodoro-hybrid-timer` — Hybrid Pomodoro Timer — in-app ticker + AlarmManager.setAlarmClock
 - `2026-09-22-preference-wrappers` — DataStore preference wrappers: inline class + BaseSettingsRepository
 - `2026-09-22-reminder-lastfiredat-schema` — _(no title)_
@@ -1261,6 +1304,8 @@ _1 entries need attention._
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — Repository stamps ambient userId on create; drop userId params from input classes and use cases
 - `2026-09-22-settings-section-ai-ephemeral-fields` — Keep ephemeral state inside SettingsSection.Ai, not in EphemeralState
 - `2026-09-22-system-calendar-sync` — _(no title)_
+- `2026-09-22-task-rich-dates` — _(no title)_
+- `2026-09-22-task-ui-rich-dates` — _(no title)_
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race

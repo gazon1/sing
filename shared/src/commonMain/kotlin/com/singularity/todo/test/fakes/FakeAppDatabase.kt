@@ -26,6 +26,8 @@ import com.singularity.todo.core.sync.RemoteConfigDao
 import com.singularity.todo.core.sync.RemoteConfigEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
+import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
+import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -59,6 +61,7 @@ class FakeAppDatabase : AppDatabase() {
     private val _profiles = MutableStateFlow<Map<String, ProfileEntity>>(emptyMap())
     private val _agendaViews = MutableStateFlow<Map<String, AgendaViewEntity>>(emptyMap())
     private val _remoteConfigs = MutableStateFlow<Map<String, RemoteConfigEntity>>(emptyMap())
+    private val _calendarSyncTaskMap = MutableStateFlow<Map<String, CalendarSyncTaskMapEntity>>(emptyMap())
 
     override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
@@ -72,6 +75,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun profileDao(): ProfileDao = FakeProfileDao(_profiles)
     override fun agendaViewDao(): AgendaViewDao = FakeAgendaViewDao(_agendaViews)
     override fun remoteConfigDao(): RemoteConfigDao = FakeRemoteConfigDao(_remoteConfigs)
+    override fun calendarSyncTaskMapDao(): CalendarSyncTaskMapDao = FakeCalendarSyncTaskMapDao(_calendarSyncTaskMap)
 
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
@@ -88,6 +92,7 @@ class FakeAppDatabase : AppDatabase() {
         _profiles.value = emptyMap()
         _agendaViews.value = emptyMap()
         _remoteConfigs.value = emptyMap()
+        _calendarSyncTaskMap.value = emptyMap()
     }
 
     // ─── Seed helpers ────────────────────────────────────────────────────────
@@ -653,12 +658,58 @@ private class FakeReminderDao(
     override fun watchByIdForUser(id: String, userId: String): Flow<com.singularity.todo.core.database.TaskReminderEntity?> =
         store.map { it[userId to id] }
 
+    override fun watchRecurringTaskIds(userId: String): Flow<List<String>> =
+        store.map { map -> map.values.filter { r -> r.userId == userId && r.recurringPattern != null }.map { it.taskId }.distinct() }
+
     override suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long) {
         store.update { current ->
             val key = userId to id
             val existing = current[key] ?: return@update current
             current + (key to existing.copy(lastFiredAt = lastFiredAt, updatedAt = updatedAt))
         }
+    }
+}
+
+// ─── CalendarSyncTaskMapDao ───────────────────────────────────────────────────────
+
+private class FakeCalendarSyncTaskMapDao(
+    private val store: MutableStateFlow<Map<String, CalendarSyncTaskMapEntity>>,
+) : CalendarSyncTaskMapDao {
+
+    override fun observeAll(): Flow<List<CalendarSyncTaskMapEntity>> =
+        store.map { it.values.toList() }
+
+    override suspend fun getAll(): List<CalendarSyncTaskMapEntity> =
+        store.value.values.toList()
+
+    override suspend fun getEventId(taskId: String): Long? =
+        store.value[taskId]?.eventId
+
+    override suspend fun getByTaskId(taskId: String): CalendarSyncTaskMapEntity? =
+        store.value[taskId]
+
+    override suspend fun upsert(entity: CalendarSyncTaskMapEntity) {
+        store.update { it + (entity.taskId to entity) }
+    }
+
+    override suspend fun delete(taskId: String) {
+        store.update { it - taskId }
+    }
+
+    override suspend fun deleteByEventId(eventId: Long) {
+        store.update { current ->
+            current.filterValues { it.eventId != eventId }
+        }
+    }
+
+    override suspend fun deleteStale(taskIds: List<String>) {
+        store.update { current ->
+            current.filterKeys { it in taskIds }
+        }
+    }
+
+    override suspend fun clearAll() {
+        store.value = emptyMap()
     }
 }
 

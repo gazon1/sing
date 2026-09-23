@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import com.singularity.todo.core.settings.SettingsIntent
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Notifications
@@ -54,6 +55,7 @@ import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
+import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncSettingsScreen
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -64,6 +66,7 @@ private enum class SettingsTab(val label: String) {
     Notifications("Notifications"),
     AIProvider("AI Provider"),
     WorkSchedule("Work Schedule"),
+    Calendar("Calendar"),
     Files("Files"),
     Backup("Backup"),
     Account("Account"),
@@ -148,6 +151,8 @@ private fun SettingsContent(
                     onIntent = viewModel::processIntent,
                 )
 
+                SettingsTab.Calendar -> CalendarSyncSettingsScreen()
+
                 SettingsTab.Files -> FilesSettingsScreen(
                     attachmentsPath = koinInject<FileRevealer>().attachmentsBasePath(),
                     onOpenAttachmentsFolder = {
@@ -203,6 +208,7 @@ private fun SettingsNavRail(
                 SettingsTab.Notifications -> Icons.Filled.Notifications
                 SettingsTab.AIProvider -> Icons.Filled.SmartToy
                 SettingsTab.WorkSchedule -> Icons.Filled.Schedule
+                SettingsTab.Calendar -> Icons.Filled.CalendarMonth
                 SettingsTab.Files -> Icons.Filled.Folder
                 SettingsTab.Backup -> Icons.Filled.CloudUpload
                 SettingsTab.Account -> Icons.Filled.AccountCircle
@@ -300,6 +306,8 @@ private fun SettingsContentPreview(
                     state = state,
                     onIntent = {},
                 )
+
+                SettingsTab.Calendar -> CalendarSyncSettingsScreen()
 
                 SettingsTab.Files -> FilesSettingsScreen(
                     attachmentsPath = "/data/user/0/com.singularity.todo/files/attachments",

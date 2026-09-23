@@ -169,6 +169,9 @@ kotlin {
             // Security — EncryptedSharedPreferences
             implementation(libs.android.security.crypto)
 
+            // WorkManager — background job scheduling for SyncEngine
+            implementation(libs.androidx.work.runtime)
+
             // Koog OkHttp HTTP backend — needed by Android actual of createKoogPromptExecutor
             implementation(libs.koog.http.client.okhttp)
         }
