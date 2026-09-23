@@ -8,7 +8,15 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.singularity.todo.core.llm.SettingsReader
+import com.singularity.todo.core.notifications.DataStoreNotificationsSettingsRepository
+import com.singularity.todo.core.notifications.NotificationsSettingsRepository
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.schedule.DataStoreGreetingSettingsRepository
+import com.singularity.todo.core.schedule.DataStoreWorkScheduleSettingsRepository
+import com.singularity.todo.core.schedule.GreetingSettingsRepository
+import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
+import com.singularity.todo.feature.agenda.DataStoreDefaultAgendaViewSettingsRepository
+import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsRepository
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -53,6 +61,11 @@ object SettingsNamespace {
 
 /**
  * Contract for user settings.
+ *
+ * Per-section repositories delegate to the same [DataStore] instance but own
+ * their own namespace prefix. The flat getters below are preserved for
+ * backward compatibility during migration; new code should use the
+ * per-section repositories.
  */
 interface SettingsRepository : SettingsReader {
 
@@ -62,28 +75,32 @@ interface SettingsRepository : SettingsReader {
         const val DEFAULT_AI_MODEL = SettingsDefaults.Ai.MODEL
     }
 
-    // ── Appearance ─────────────────────────────────────────────────────────────
+    // ── Per-section repositories ─────────────────────────────────────────────
+
+    val notifications: NotificationsSettingsRepository
+    val workSchedule: WorkScheduleSettingsRepository
+    val greeting: GreetingSettingsRepository
+    val defaultAgendaView: DefaultAgendaViewSettingsRepository
+
+    // ── Appearance (flat — migrate to AppearanceSettingsRepository in Phase 6) ──
 
     val darkTheme: Flow<Boolean>
     val accentColor: Flow<String>
     val fontSizeScale: Flow<Float>
 
-    // ── AI ───────────────────────────────────────────────────────────────────
-    // The API key is intentionally NOT here — it lives in [SecureStoragePort]
-    // (hardware-backed keychain on Android, libsecret on Linux). Only
-    // non-secret AI settings live in this repository.
+    // ── AI (flat — API key is in SecureStoragePort) ───────────────────────────
 
     // aiProvider, aiModel, aiBaseUrl inherited from SettingsReader
     val aiSystemPrompt: Flow<String>
 
-    // ── Notifications ─────────────────────────────────────────────────────────
+    // ── Notifications (flat — migrate in Phase 6) ─────────────────────────────
 
     val notificationsEnabled: Flow<Boolean>
     val notificationSound: Flow<Boolean>
     val notificationVibration: Flow<Boolean>
     val reminderDefault: Flow<ReminderOffset>
 
-    // ── Work Schedule ──────────────────────────────────────────────────────────
+    // ── Work Schedule (flat — migrate in Phase 6) ─────────────────────────────
 
     val workDayStartMinutes: Flow<Int>
     val workDayEndMinutes: Flow<Int>
@@ -92,12 +109,12 @@ interface SettingsRepository : SettingsReader {
     val workWeekendSat: Flow<Boolean>
     val workWeekendSun: Flow<Boolean>
 
-    // ── Greetings ─────────────────────────────────────────────────────────────
+    // ── Greetings (flat — migrate in Phase 6) ─────────────────────────────────
 
     val greetingMorningEnd: Flow<Int>
     val greetingAfternoonEnd: Flow<Int>
 
-    // ── Account ───────────────────────────────────────────────────────────────
+    // ── Account (flat) ───────────────────────────────────────────────────────
 
     val userId: Flow<String>
 
@@ -177,6 +194,17 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
         // ── Agenda ────────────────────────────────────────────────────────────────
         val DEFAULT_SAVED_AGENDA_VIEW_ID = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.AGENDA, "default_view_id"))
     }
+
+    // ── Per-section repositories ───────────────────────────────────────────
+
+    override val notifications: NotificationsSettingsRepository =
+        DataStoreNotificationsSettingsRepository(dataStore)
+    override val workSchedule: WorkScheduleSettingsRepository =
+        DataStoreWorkScheduleSettingsRepository(dataStore)
+    override val greeting: GreetingSettingsRepository =
+        DataStoreGreetingSettingsRepository(dataStore)
+    override val defaultAgendaView: DefaultAgendaViewSettingsRepository =
+        DataStoreDefaultAgendaViewSettingsRepository(dataStore)
 
     // ── Appearance ─────────────────────────────────────────────────────────────
 
