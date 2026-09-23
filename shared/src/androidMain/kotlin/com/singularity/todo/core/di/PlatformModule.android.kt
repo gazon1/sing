@@ -7,6 +7,7 @@ import com.singularity.todo.core.backup.AndroidBackupCodec
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.SavedSearchDao
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.files.AndroidFileRevealer
 import com.singularity.todo.core.files.AndroidFileSystem
@@ -60,6 +61,11 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().llmUsageDao() }
     single { get<AppDatabase>().profileDao() }
     single { get<AppDatabase>().agendaViewDao() }
+    single { get<AppDatabase>().savedSearchDao() }
+
+    // ─── Platform Ports (registered early — needed by koinBridge migrations) ────
+
+    single<SecureStoragePort> { AndroidSecureStorage(get()) }
 
     // ─── DataStore (split: user settings + state) ─────────────────────────
 
@@ -99,8 +105,6 @@ actual fun platformModule(): Module = module {
     single<DataStore<Preferences>> { userSettingsDs }
 
     // ─── Platform Ports ─────────────────────────────────────────────────
-
-    single<SecureStoragePort> { AndroidSecureStorage(get()) }
 
     single<NotificationPort> { AndroidNotificationPort(get()) }
 
