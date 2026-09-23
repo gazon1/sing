@@ -192,7 +192,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `AppDestination.TaskEditor` serialisation is backward compatible (extra field
 - `AppNavHost.kt`, `AppNavigator.kt`, `DesktopShell.kt` (old Nav2 files) are deleted
 - `ByDateBucket` requires `today` in SQL query dispatch — the filter is not purely
+- `CalendarDeps` is constructed in `CalendarDiModule` via `get<ReminderRepository>()`.
 - `CalendarDeps` matches the `AgendaDeps` pattern (project convention)
+- `CalendarNavigator` gets two `onExitGraph` callers: `openTask` and `openCreateTask`.
 - `CalendarViewModel` now has an additional dependency — tests must inject
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR.
 - `Clock` injectable for deterministic tests via `runTest { advanceTimeBy(...) }`.
@@ -210,6 +212,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах
 - `ProfileAwareCurrentUser` moves **inside** repositories; the DI graph registers
 - `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`.
+- `ReminderRepository` is now a dependency of `CalendarViewModel` — tested via `FakeReminderRepository` in `CalendarViewModelTest`.
+- `ShowError` event removed from `CalendarUiEvent` (no longer needed after previous refactors).
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates
 - `TaskDraft` serialization format changes — old drafts opened after upgrade will
 - `TaskEditorDeps.clock` is also dead (the file's own KDoc flags it for deletion alongside `TaskEditorViewModel`)
@@ -220,6 +224,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `TaskFilter` remains untouched — Search feature is unaffected.
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика
 - `TaskRepository.delete()` now calls `taskDao.softDelete()` directly instead of delegating to `softDelete()`
+- `TasksStartRoute.Create` now accepts `initialDueDate` — backward compatible since it's nullable.
 - `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly).
 - `applyRoute` in `TasksViewModel` is dead code — zero callers confirmed; deleted.
@@ -997,6 +1002,7 @@ _1 entries need attention._
 - `2026-09-21-tier1-interface-cleanup` — _untagged_
 - `2026-09-21-user-scoped-repository` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
+- `2026-09-22-calendar-click-to-create` — _untagged_
 - `2026-09-22-calendar-horizontal-pager` — _untagged_
 - `2026-09-22-calendar-reminder-repo` — _untagged_
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — repository, checklist, currentuser, koin, refactor
@@ -1157,6 +1163,7 @@ _1 entries need attention._
 - `2026-09-21-tier1-interface-cleanup` — Tier 1 interface cleanup — remove single-implementation contracts
 - `2026-09-21-user-scoped-repository` — _(no title)_
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
+- `2026-09-22-calendar-click-to-create` — Calendar — click-to-create task on long-press + ReminderRepository enrichment
 - `2026-09-22-calendar-horizontal-pager` — _(no title)_
 - `2026-09-22-calendar-reminder-repo` — _(no title)_
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — Delete ChecklistUseCase; drop unused ProfileAwareCurrentUser from AgendaDeps/CalendarDeps; inject taskId via ChecklistEditorViewModel constructor
