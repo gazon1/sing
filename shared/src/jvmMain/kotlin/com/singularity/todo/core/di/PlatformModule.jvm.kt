@@ -84,4 +84,19 @@ actual fun platformModule(): Module = module {
 
     // JVM: no-op stub — sync is not supported on desktop.
     single<SyncWorkScheduler> { NoopSyncWorkScheduler() }
+
+    // ─── Calendar Sync ────────────────────────────────────────────────
+
+    // Calendar sync is Android-only; JVM provides no-op stubs.
+    single<com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository> {
+        com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepository()
+    }
+
+    single<com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort> {
+        com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider()
+    }
+
+    single<com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler> {
+        com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler()
+    }
 }

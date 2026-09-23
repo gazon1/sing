@@ -22,6 +22,7 @@ import com.singularity.todo.core.sync.work.AndroidSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 /**
@@ -56,6 +57,7 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().llmUsageDao() }
     single { get<AppDatabase>().profileDao() }
     single { get<AppDatabase>().agendaViewDao() }
+    single { get<AppDatabase>().calendarSyncTaskMapDao() }
 
     // ─── DataStore ────────────────────────────────────────────────────────
 
@@ -67,6 +69,11 @@ actual fun platformModule(): Module = module {
                 // DataStore access, no-ops on subsequent launches.
                 koinBridge { AiApiKeyMigration.run(ds, get<SecureStoragePort>()) }
             }
+    }
+
+    // Separate DataStore for calendar sync settings (isolates calendar feature from main settings)
+    single<DataStore<Preferences>>(qualifier = named("calendar_sync")) {
+        PreferenceDataStoreFactory.create { get<android.content.Context>().filesDir.resolve("calendar_sync.preferences_pb") }
     }
 
     // ─── Platform Ports ─────────────────────────────────────────────────
@@ -94,4 +101,21 @@ actual fun platformModule(): Module = module {
     // Android: delegates to WorkManager; survives process death and battery constraints.
     // Registered as a Koin singleton so SyncEngine receives the same instance.
     single<SyncWorkScheduler> { AndroidSyncWorkScheduler(get()) }
+
+    // ─── Calendar Sync ────────────────────────────────────────────────
+
+    // Calendar sync settings repository (separate DataStore for isolation)
+    single<com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository> {
+        com.singularity.todo.feature.calendar_sync.data.CalendarSyncSettingsRepository(get(qualifier = named("calendar_sync")))
+    }
+
+    // Android calendar provider (ContentResolver-backed)
+    single<com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort> {
+        com.singularity.todo.feature.calendar_sync.data.AndroidCalendarProvider(get(), get<com.singularity.todo.feature.profile.ProfileAwareCurrentUser>().scopedUserId.value.value)
+    }
+
+    // WorkManager scheduler for calendar sync
+    single<com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler> {
+        com.singularity.todo.feature.calendar_sync.work.AndroidCalendarSyncWorkScheduler(get())
+    }
 }

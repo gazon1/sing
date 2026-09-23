@@ -110,3 +110,16 @@ class Migration14To15 : AutoMigrationSpec
  * existing rows read back with null for all six columns.
  */
 class Migration15To16 : AutoMigrationSpec
+
+/**
+ * Migration from v16 to v17 — adds `calendar_sync_task_map` table.
+ *
+ * Stores the mapping from local task IDs to system-calendar event IDs,
+ * enabling the sync worker to update/delete existing events rather than
+ * re-inserting on every sync.
+ *
+ * Tables added:
+ * - `calendar_sync_task_map(task_id TEXT PRIMARY KEY, calendar_id TEXT,
+ *                            event_id INTEGER, synced_at INTEGER)`
+ */
+class Migration16To17 : AutoMigrationSpec

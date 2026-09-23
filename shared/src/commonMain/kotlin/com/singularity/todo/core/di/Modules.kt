@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.log.LoggerHolder
 import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
+import com.singularity.todo.feature.calendar_sync.di.calendarSyncModule
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepository
@@ -40,6 +41,7 @@ fun domainModule(): List<Module> = buildList {
     add(tagsModule())
     add(calendarModule())
     add(agendaModule())
+    add(calendarSyncModule())
     // Profile bindings — inlined here (NOT via profileModule()) so they land at root scope.
     // profileModule() wrapped its bindings in module {} which created a child scope.
     add(
