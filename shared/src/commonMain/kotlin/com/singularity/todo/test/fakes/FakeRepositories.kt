@@ -331,7 +331,7 @@ private class InMemoryTaskDao : TaskDao {
     override suspend fun archiveCompleted(ts: Long): Int = error("not implemented")
 }
 
-class FakeTaskRepository(
+open class FakeTaskRepository(
     private val dao: TaskDao = InMemoryTaskDao(),
     private val explicitCurrentUser: ProfileAwareCurrentUser? = null,
 ) : TaskRepository {
@@ -345,6 +345,17 @@ class FakeTaskRepository(
 
     /** Expose store state as [StateFlow] for [watchTasks] and other flows. */
     internal val tasks: StateFlow<Map<String, Task>> = store.state
+
+    // ─── Configurable results (for failure-path tests) ────────────────────
+    var createOverride: Result<Task>? = null
+    var updateOverride: Result<Task>? = null
+    var deleteOverride: Result<Unit>? = null
+    var softDeleteOverride: Result<Unit>? = null
+    var restoreOverride: Result<Unit>? = null
+    var toggleCompleteOverride: Result<Unit>? = null
+    var togglePinnedOverride: Result<Unit>? = null
+    var setTagsOverride: Result<Unit>? = null
+    var setDependenciesOverride: Result<Unit>? = null
 
     /** Seeds tasks by merging into existing state (adds or overwrites by id). */
     fun seed(vararg tasks: Task) = store.seed(tasks.toList())
@@ -366,20 +377,29 @@ class FakeTaskRepository(
     override fun observe(id: TaskId): Flow<Task?> =
         store.state.onStart { emit(store.state.value) }.map { it[id.value] }
 
-    override suspend fun create(item: Task): Result<Task> = runCatching {
-        store.upsert(item)
-        _changes.emit(item)
-        item
+    open override suspend fun create(item: Task): Result<Task> {
+        createOverride?.let { return it }
+        return runCatching {
+            store.upsert(item)
+            _changes.emit(item)
+            item
+        }
     }
 
-    override suspend fun update(item: Task): Result<Task> = runCatching {
-        store.upsert(item)
-        _changes.emit(item)
-        item
+    open override suspend fun update(item: Task): Result<Task> {
+        updateOverride?.let { return it }
+        return runCatching {
+            store.upsert(item)
+            _changes.emit(item)
+            item
+        }
     }
 
-    override suspend fun delete(id: TaskId): Result<Unit> = runCatching {
-        store.remove(id.value)
+    open override suspend fun delete(id: TaskId): Result<Unit> {
+        deleteOverride?.let { return it }
+        return runCatching {
+            store.remove(id.value)
+        }
     }
 
     // ── Domain-specific user-scoped observers ────────────────────────────────────
@@ -431,11 +451,14 @@ class FakeTaskRepository(
 
     // ── Legacy / DAO-backed methods ─────────────────────────────────────────────
 
-    override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
-        store[id.value]?.let { task ->
-            val deleted = task.copy(archivedAt = Clock.now())
-            store.upsert(deleted)
-            _changes.emit(deleted)
+    open override suspend fun softDelete(id: TaskId): Result<Unit> {
+        softDeleteOverride?.let { return it }
+        return runCatching {
+            store[id.value]?.let { task ->
+                val deleted = task.copy(archivedAt = Clock.now())
+                store.upsert(deleted)
+                _changes.emit(deleted)
+            }
         }
     }
 
@@ -443,50 +466,65 @@ class FakeTaskRepository(
 
     // getByIdForCurrentUser intentionally omitted — use getById + caller-side userId check
 
-    override suspend fun restore(id: TaskId): Result<Unit> = runCatching {
-        store[id.value]?.let { task ->
-            val restored = task.copy(archivedAt = null)
-            store.upsert(restored)
-            _changes.emit(restored)
-        }
-    }
-
-    override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatching {
-        store[id.value]?.let { task ->
-            val toggled = if (task.completedAt != null) {
-                task.copy(completedAt = null)
-            } else {
-                task.copy(completedAt = Clock.now())
+    open override suspend fun restore(id: TaskId): Result<Unit> {
+        restoreOverride?.let { return it }
+        return runCatching {
+            store[id.value]?.let { task ->
+                val restored = task.copy(archivedAt = null)
+                store.upsert(restored)
+                _changes.emit(restored)
             }
-            store.upsert(toggled)
-            _changes.emit(toggled)
         }
     }
 
-    override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatching {
-        store[id.value]?.let { task ->
-            val toggled = task.copy(isPinned = !task.isPinned)
-            store.upsert(toggled)
-            _changes.emit(toggled)
+    open override suspend fun toggleComplete(id: TaskId): Result<Unit> {
+        toggleCompleteOverride?.let { return it }
+        return runCatching {
+            store[id.value]?.let { task ->
+                val toggled = if (task.completedAt != null) {
+                    task.copy(completedAt = null)
+                } else {
+                    task.copy(completedAt = Clock.now())
+                }
+                store.upsert(toggled)
+                _changes.emit(toggled)
+            }
+        }
+    }
+
+    open override suspend fun togglePinned(id: TaskId): Result<Unit> {
+        togglePinnedOverride?.let { return it }
+        return runCatching {
+            store[id.value]?.let { task ->
+                val toggled = task.copy(isPinned = !task.isPinned)
+                store.upsert(toggled)
+                _changes.emit(toggled)
+            }
         }
     }
 
     override suspend fun exists(id: TaskId): Boolean = store.contains(id.value)
 
-    override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
-        store[taskId.value]?.let { task ->
-            val updated = task.copy(tags = tagIds)
-            store.upsert(updated)
+    open override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> {
+        setTagsOverride?.let { return it }
+        return runCatching {
+            store[taskId.value]?.let { task ->
+                val updated = task.copy(tags = tagIds)
+                store.upsert(updated)
+            }
         }
     }
 
     override fun getTagIds(taskId: TaskId): Flow<List<TagId>> =
         store.state.map { it[taskId.value]?.tags ?: emptyList() }
 
-    override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> = runCatching {
-        dao.clearDependencies(taskId.value)
-        deps.forEach { dep ->
-            dao.upsertDependency(TaskDependencyCrossRef(taskId = taskId.value, dependsOnTaskId = dep.value))
+    open override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> {
+        setDependenciesOverride?.let { return it }
+        return runCatching {
+            dao.clearDependencies(taskId.value)
+            deps.forEach { dep ->
+                dao.upsertDependency(TaskDependencyCrossRef(taskId = taskId.value, dependsOnTaskId = dep.value))
+            }
         }
     }
 }
@@ -545,7 +583,7 @@ class FakeChecklistRepository : ChecklistRepository {
 
 // ─── ReminderRepository ──────────────────────────────────────────────────────
 
-class FakeReminderRepository(
+open class FakeReminderRepository(
     private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
 ) : ReminderRepository {
     internal val reminders = MutableStateFlow<Map<String, Reminder>>(emptyMap())
@@ -553,6 +591,13 @@ class FakeReminderRepository(
     fun seed(vararg reminders: Reminder) {
         this.reminders.value = reminders.associateBy { it.id.value }
     }
+
+    // ─── Configurable results (for failure-path tests) ────────────────────
+    var upsertOverride: Result<Unit>? = null
+    var deleteOverride: Result<Unit>? = null
+    var deleteWithUserIdOverride: Result<Unit>? = null
+    var deleteByTaskOverride: Result<Unit>? = null
+    var markFiredOverride: Result<Unit>? = null
 
     // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
 
@@ -571,16 +616,25 @@ class FakeReminderRepository(
         return reminders.value.values.firstOrNull { it.id == id && it.userId == uid }
     }
 
-    override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatching {
-        reminders.value += (reminder.id.value to reminder)
+    open override suspend fun upsert(reminder: Reminder): Result<Unit> {
+        upsertOverride?.let { return it }
+        return runCatching {
+            reminders.value += (reminder.id.value to reminder)
+        }
     }
 
-    override suspend fun delete(id: ReminderId): Result<Unit> = runCatching {
-        reminders.value = reminders.value.filterKeys { it != id.value }
+    open override suspend fun delete(id: ReminderId): Result<Unit> {
+        deleteOverride?.let { return it }
+        return runCatching {
+            reminders.value = reminders.value.filterKeys { it != id.value }
+        }
     }
 
-    override suspend fun delete(id: ReminderId, userId: com.singularity.todo.core.ids.UserId): Result<Unit> = runCatching {
-        reminders.value = reminders.value.filterKeys { it != id.value }
+    open override suspend fun delete(id: ReminderId, userId: com.singularity.todo.core.ids.UserId): Result<Unit> {
+        deleteWithUserIdOverride?.let { return it }
+        return runCatching {
+            reminders.value = reminders.value.filterKeys { it != id.value }
+        }
     }
 
     // ─── Domain methods ─────────────────────────────────────────────────────
@@ -595,13 +649,19 @@ class FakeReminderRepository(
             reminders.map { map -> map.values.filter { it.fireAt <= nowEpochMs && it.userId == uid }.sortedBy { it.fireAt } }
         }
 
-    override suspend fun deleteByTask(taskId: TaskId): Result<Unit> = runCatching {
-        reminders.value = reminders.value.filterValues { it.taskId != taskId }
+    open override suspend fun deleteByTask(taskId: TaskId): Result<Unit> {
+        deleteByTaskOverride?.let { return it }
+        return runCatching {
+            reminders.value = reminders.value.filterValues { it.taskId != taskId }
+        }
     }
 
-    override suspend fun markFired(reminderId: ReminderId, lastFiredAt: Long): Result<Unit> = runCatching {
-        val existing = reminders.value[reminderId.value] ?: return@runCatching
-        reminders.value += (reminderId.value to existing.copy(lastFiredAt = lastFiredAt))
+    open override suspend fun markFired(reminderId: ReminderId, lastFiredAt: Long): Result<Unit> {
+        markFiredOverride?.let { return it }
+        return runCatching {
+            val existing = reminders.value[reminderId.value] ?: return@runCatching
+            reminders.value += (reminderId.value to existing.copy(lastFiredAt = lastFiredAt))
+        }
     }
 }
 
@@ -797,12 +857,18 @@ class FakeTagsRepository(
 
 // ─── AttachmentRepository ────────────────────────────────────────────────────
 
-class FakeAttachmentRepository(
+open class FakeAttachmentRepository(
     private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
 ) : com.singularity.todo.core.attachments.AttachmentRepository {
     private val store = InMemoryStore<com.singularity.todo.core.attachments.Attachment>(keyOf = { it.id.value })
 
     fun seed(vararg attachments: com.singularity.todo.core.attachments.Attachment) = store.seed(attachments.toList())
+
+    // ─── Configurable results (for failure-path tests) ────────────────────
+    var createOverride: Result<com.singularity.todo.core.attachments.Attachment>? = null
+    var deleteOverride: Result<Unit>? = null
+    var saveFileAttachmentOverride: Result<com.singularity.todo.core.attachments.Attachment>? = null
+    var addUrlAttachmentOverride: Result<com.singularity.todo.core.attachments.Attachment>? = null
 
     // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
 
@@ -821,14 +887,19 @@ class FakeAttachmentRepository(
         return store.state.value.values.firstOrNull { it.id == id && it.userId == uid }
     }
 
-    override suspend fun create(attachment: com.singularity.todo.core.attachments.Attachment): Result<com.singularity.todo.core.attachments.Attachment> =
-        runCatching {
+    open override suspend fun create(attachment: com.singularity.todo.core.attachments.Attachment): Result<com.singularity.todo.core.attachments.Attachment> {
+        createOverride?.let { return it }
+        return runCatching {
             store.upsert(attachment)
             attachment
         }
+    }
 
-    override suspend fun delete(id: com.singularity.todo.core.attachments.AttachmentId): Result<Unit> = runCatching {
-        store.remove(id.value)
+    open override suspend fun delete(id: com.singularity.todo.core.attachments.AttachmentId): Result<Unit> {
+        deleteOverride?.let { return it }
+        return runCatching {
+            store.remove(id.value)
+        }
     }
 
     // ─── Domain methods ─────────────────────────────────────────────────────
@@ -840,50 +911,56 @@ class FakeAttachmentRepository(
 
     // ─── Domain methods (ambient user) ────────────────────────────────────
 
-    override suspend fun saveFileAttachment(
+    open override suspend fun saveFileAttachment(
         taskId: TaskId,
         sourcePath: String,
         mimeType: String?,
-    ): Result<com.singularity.todo.core.attachments.Attachment> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        val att = com.singularity.todo.core.attachments.Attachment(
-            id = com.singularity.todo.core.attachments.AttachmentId.generate(),
-            taskId = taskId,
-            userId = uid,
-            type = com.singularity.todo.core.attachments.AttachmentType.File,
-            localPath = sourcePath,
-            mimeType = mimeType,
-            createdAt = Clock.now(),
-            updatedAt = Clock.now(),
-        )
-        store.upsert(att)
-        att
+    ): Result<com.singularity.todo.core.attachments.Attachment> {
+        saveFileAttachmentOverride?.let { return it }
+        return runCatching {
+            val uid = currentUser.scopedUserId.value
+            val att = com.singularity.todo.core.attachments.Attachment(
+                id = com.singularity.todo.core.attachments.AttachmentId.generate(),
+                taskId = taskId,
+                userId = uid,
+                type = com.singularity.todo.core.attachments.AttachmentType.File,
+                localPath = sourcePath,
+                mimeType = mimeType,
+                createdAt = Clock.now(),
+                updatedAt = Clock.now(),
+            )
+            store.upsert(att)
+            att
+        }
     }
 
-    override suspend fun addUrlAttachment(
+    open override suspend fun addUrlAttachment(
         taskId: TaskId,
         url: String,
         title: String?,
-    ): Result<com.singularity.todo.core.attachments.Attachment> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        val att = com.singularity.todo.core.attachments.Attachment(
-            id = com.singularity.todo.core.attachments.AttachmentId.generate(),
-            taskId = taskId,
-            userId = uid,
-            type = com.singularity.todo.core.attachments.AttachmentType.Url,
-            url = url,
-            title = title ?: "",
-            createdAt = Clock.now(),
-            updatedAt = Clock.now(),
-        )
-        store.upsert(att)
-        att
+    ): Result<com.singularity.todo.core.attachments.Attachment> {
+        addUrlAttachmentOverride?.let { return it }
+        return runCatching {
+            val uid = currentUser.scopedUserId.value
+            val att = com.singularity.todo.core.attachments.Attachment(
+                id = com.singularity.todo.core.attachments.AttachmentId.generate(),
+                taskId = taskId,
+                userId = uid,
+                type = com.singularity.todo.core.attachments.AttachmentType.Url,
+                url = url,
+                title = title ?: "",
+                createdAt = Clock.now(),
+                updatedAt = Clock.now(),
+            )
+            store.upsert(att)
+            att
+        }
     }
 }
 
 // ─── NotesRepository ─────────────────────────────────────────────────────────
 
-class FakeNotesRepository(
+open class FakeNotesRepository(
     private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
 ) : com.singularity.todo.feature.notes.NotesRepository {
     /** Exposes raw store map for tests that need direct map access. */
@@ -893,6 +970,21 @@ class FakeNotesRepository(
     fun seed(note: com.singularity.todo.feature.notes.Note) = store.upsert(note)
     fun add(note: com.singularity.todo.feature.notes.Note) = store.upsert(note)
     fun clear() = store.clear()
+
+    // ─── Configurable results (for failure-path tests) ────────────────────
+    var createOverride: Result<com.singularity.todo.feature.notes.Note>? = null
+    var updateOverride: Result<com.singularity.todo.feature.notes.Note>? = null
+    var deleteOverride: Result<Unit>? = null
+    var restoreOverride: Result<Unit>? = null
+    var createWithContentOverride: Result<com.singularity.todo.feature.notes.NoteId>? = null
+    var createNoteWithTitleOverride: Result<com.singularity.todo.feature.notes.NoteId>? = null
+    var updateContentOverride: Result<Unit>? = null
+    var archiveOverride: Result<Unit>? = null
+    var unarchiveOverride: Result<Unit>? = null
+    var setPinnedOverride: Result<Unit>? = null
+    var setColorOverride: Result<Unit>? = null
+    var setSortOrderOverride: Result<Unit>? = null
+    var setOutgoingLinksOverride: Result<Unit>? = null
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
@@ -911,29 +1003,39 @@ class FakeNotesRepository(
         return store.state.value.values.firstOrNull { it.id == id && it.userId == uid }
     }
 
-    override suspend fun create(item: com.singularity.todo.feature.notes.Note): Result<com.singularity.todo.feature.notes.Note> =
-        runCatching {
+    open override suspend fun create(item: com.singularity.todo.feature.notes.Note): Result<com.singularity.todo.feature.notes.Note> {
+        createOverride?.let { return it }
+        return runCatching {
             store.upsert(item)
             item
         }
+    }
 
-    override suspend fun update(item: com.singularity.todo.feature.notes.Note): Result<com.singularity.todo.feature.notes.Note> =
-        runCatching {
+    open override suspend fun update(item: com.singularity.todo.feature.notes.Note): Result<com.singularity.todo.feature.notes.Note> {
+        updateOverride?.let { return it }
+        return runCatching {
             store.upsert(item)
             item
         }
+    }
 
-    override suspend fun delete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(deletedAt = Clock.now()))
+    open override suspend fun delete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
+        deleteOverride?.let { return it }
+        return runCatching {
+            store[id.value]?.let { existing ->
+                store.upsert(existing.copy(deletedAt = Clock.now()))
+            }
         }
     }
 
     // ─── SoftDeletable ─────────────────────────────────────────────────────
 
-    override suspend fun restore(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(deletedAt = null))
+    open override suspend fun restore(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
+        restoreOverride?.let { return it }
+        return runCatching {
+            store[id.value]?.let { existing ->
+                store.upsert(existing.copy(deletedAt = null))
+            }
         }
     }
 
@@ -970,111 +1072,136 @@ class FakeNotesRepository(
             }
         }
 
-    override suspend fun createWithContent(
+    open override suspend fun createWithContent(
         id: com.singularity.todo.feature.notes.NoteId,
         title: String,
         bodyMarkdown: String,
         bodyHtml: String,
-    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        val now = Clock.now()
-        val note = com.singularity.todo.feature.notes.Note(
-            id = id,
-            userId = uid,
-            title = title,
-            bodyMarkdown = bodyMarkdown,
-            bodyHtml = bodyHtml,
-            wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
-            charCount = bodyMarkdown.length,
-            createdAt = now,
-            updatedAt = now,
-        )
-        store.upsert(note)
-        id
-    }
-
-    override suspend fun createNoteWithTitle(
-        title: String,
-    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
-        val now = Clock.now()
-        val note = com.singularity.todo.feature.notes.Note(
-            id = id,
-            userId = uid,
-            title = title,
-            bodyMarkdown = null,
-            bodyHtml = null,
-            wordCount = 0,
-            charCount = 0,
-            createdAt = now,
-            updatedAt = now,
-        )
-        store.upsert(note)
-        id
-    }
-
-    override suspend fun updateContent(
-        id: com.singularity.todo.feature.notes.NoteId,
-        title: String,
-        bodyMarkdown: String,
-        bodyHtml: String,
-    ): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(
-                existing.copy(
-                    title = title,
-                    bodyMarkdown = bodyMarkdown,
-                    bodyHtml = bodyHtml,
-                    wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
-                    charCount = bodyMarkdown.length,
-                    updatedAt = Clock.now(),
-                ),
+    ): Result<com.singularity.todo.feature.notes.NoteId> {
+        createWithContentOverride?.let { return it }
+        return runCatching {
+            val uid = currentUser.scopedUserId.value
+            val now = Clock.now()
+            val note = com.singularity.todo.feature.notes.Note(
+                id = id,
+                userId = uid,
+                title = title,
+                bodyMarkdown = bodyMarkdown,
+                bodyHtml = bodyHtml,
+                wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
+                charCount = bodyMarkdown.length,
+                createdAt = now,
+                updatedAt = now,
             )
+            store.upsert(note)
+            id
         }
     }
 
-    override suspend fun archive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(archivedAt = Clock.now()))
+    open override suspend fun createNoteWithTitle(
+        title: String,
+    ): Result<com.singularity.todo.feature.notes.NoteId> {
+        createNoteWithTitleOverride?.let { return it }
+        return runCatching {
+            val uid = currentUser.scopedUserId.value
+            val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
+            val now = Clock.now()
+            val note = com.singularity.todo.feature.notes.Note(
+                id = id,
+                userId = uid,
+                title = title,
+                bodyMarkdown = null,
+                bodyHtml = null,
+                wordCount = 0,
+                charCount = 0,
+                createdAt = now,
+                updatedAt = now,
+            )
+            store.upsert(note)
+            id
         }
     }
 
-    override suspend fun unarchive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(archivedAt = null))
+    open override suspend fun updateContent(
+        id: com.singularity.todo.feature.notes.NoteId,
+        title: String,
+        bodyMarkdown: String,
+        bodyHtml: String,
+    ): Result<Unit> {
+        updateContentOverride?.let { return it }
+        return runCatching {
+            store[id.value]?.let { existing ->
+                store.upsert(
+                    existing.copy(
+                        title = title,
+                        bodyMarkdown = bodyMarkdown,
+                        bodyHtml = bodyHtml,
+                        wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
+                        charCount = bodyMarkdown.length,
+                        updatedAt = Clock.now(),
+                    ),
+                )
+            }
         }
     }
 
-    override suspend fun setPinned(id: com.singularity.todo.feature.notes.NoteId, pinned: Boolean): Result<Unit> =
-        runCatching {
+    open override suspend fun archive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
+        archiveOverride?.let { return it }
+        return runCatching {
+            store[id.value]?.let { existing ->
+                store.upsert(existing.copy(archivedAt = Clock.now()))
+            }
+        }
+    }
+
+    open override suspend fun unarchive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
+        unarchiveOverride?.let { return it }
+        return runCatching {
+            store[id.value]?.let { existing ->
+                store.upsert(existing.copy(archivedAt = null))
+            }
+        }
+    }
+
+    open override suspend fun setPinned(id: com.singularity.todo.feature.notes.NoteId, pinned: Boolean): Result<Unit> {
+        setPinnedOverride?.let { return it }
+        return runCatching {
             store[id.value]?.let { existing ->
                 store.upsert(existing.copy(isPinned = pinned, pinnedAt = if (pinned) Clock.now() else null))
             }
         }
+    }
 
-    override suspend fun setColor(
+    open override suspend fun setColor(
         id: com.singularity.todo.feature.notes.NoteId,
         color: com.singularity.todo.feature.notes.NoteColor?,
-    ): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(color = color))
+    ): Result<Unit> {
+        setColorOverride?.let { return it }
+        return runCatching {
+            store[id.value]?.let { existing ->
+                store.upsert(existing.copy(color = color))
+            }
         }
     }
 
-    override suspend fun setSortOrder(id: com.singularity.todo.feature.notes.NoteId, sortOrder: Int): Result<Unit> =
-        runCatching {
+    open override suspend fun setSortOrder(id: com.singularity.todo.feature.notes.NoteId, sortOrder: Int): Result<Unit> {
+        setSortOrderOverride?.let { return it }
+        return runCatching {
             store[id.value]?.let { existing ->
                 store.upsert(existing.copy(sortOrder = sortOrder))
             }
         }
+    }
 
-    override suspend fun setOutgoingLinks(
+    open override suspend fun setOutgoingLinks(
         id: com.singularity.todo.feature.notes.NoteId,
         links: List<String>,
-    ): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(outgoingLinks = links))
+    ): Result<Unit> {
+        setOutgoingLinksOverride?.let { return it }
+        return runCatching {
+            store[id.value]?.let { existing ->
+                store.upsert(existing.copy(outgoingLinks = links))
+            }
         }
     }
 }

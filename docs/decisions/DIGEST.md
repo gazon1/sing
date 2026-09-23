@@ -77,8 +77,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска
 - **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
 - **Five commits land together** because they all touch the same orbit
+- **Negative**: Google Calendar API rate limits apply (handled by WorkManager back-off)
+- **Negative**: `WRITE_CALENDAR` is a dangerous permission; users may be hesitant
 - **No new auth-safety risk**: each tool still stamps the user-provided
 - **Per-screen wiring is more verbose** — `TaskCardActions(onPin = { ... })`
+- **Positive**: JVM tests cover all domain logic (mappers, diff, generation) via `FakeCalendarProvider`
+- **Positive**: Users get free calendar notifications for tasks; multi-profile isolates calendar accounts
 - **Smaller public surface**: `-880 / +120` lines net; 5 files deleted;
 - **Tool APIs lose their `currentUser: ProfileAwareCurrentUser` parameter** — any
 - **Type-safe UX expectations**: each screen's `TaskCardActions(...)`
@@ -1048,6 +1052,7 @@ _1 entries need attention._
 - `2026-09-22-reminder-scheduler-critical-fixes` — reminders, scheduler, concurrency, coroutines, di
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — repository, currentuser, userid, draft-store, use-case, koin
 - `2026-09-22-settings-section-ai-ephemeral-fields` — settings, architecture, state-management
+- `2026-09-22-system-calendar-sync` — _untagged_
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
@@ -1213,6 +1218,7 @@ _1 entries need attention._
 - `2026-09-22-reminder-scheduler-critical-fixes` — _(no title)_
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — Repository stamps ambient userId on create; drop userId params from input classes and use cases
 - `2026-09-22-settings-section-ai-ephemeral-fields` — Keep ephemeral state inside SettingsSection.Ai, not in EphemeralState
+- `2026-09-22-system-calendar-sync` — _(no title)_
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race

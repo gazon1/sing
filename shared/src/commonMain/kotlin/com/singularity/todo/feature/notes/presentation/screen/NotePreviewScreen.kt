@@ -65,6 +65,9 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.extractPreviewText
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
+import com.singularity.todo.feature.notes.LinkKind
+import com.singularity.todo.feature.notes.LinkSchemes
+import com.singularity.todo.feature.notes.parseLinkUrl
 import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewIntent
@@ -412,9 +415,13 @@ private fun NotePreviewBody(
     val interceptedUriHandler = remember(uriHandler, onNavigateToNote, onNavigateToTask) {
         object : androidx.compose.ui.platform.UriHandler {
             override fun openUri(uri: String) {
-                when {
-                    uri.startsWith("note://") -> onNavigateToNote(uri.removePrefix("note://"))
-                    uri.startsWith("task://") -> onNavigateToTask(uri.removePrefix("task://"))
+                val (prefix, id) = parseLinkUrl(uri) ?: run {
+                    uriHandler.openUri(uri)
+                    return
+                }
+                when (prefix) {
+                    LinkSchemes.NOTE_PREFIX -> onNavigateToNote(id)
+                    LinkSchemes.TASK_PREFIX -> onNavigateToTask(id)
                     else -> uriHandler.openUri(uri)
                 }
             }

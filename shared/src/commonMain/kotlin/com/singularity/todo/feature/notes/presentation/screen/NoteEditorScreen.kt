@@ -50,6 +50,7 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.notes.EditorSession
 import com.singularity.todo.feature.notes.EditorState
 import com.singularity.todo.feature.notes.LinkKind
+import com.singularity.todo.feature.notes.urlFor
 import com.singularity.todo.feature.notes.LinkResult
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesUiEvent
@@ -254,11 +255,8 @@ fun NoteEditorScreenContent(
                 val tasks = searchTasksForLink?.invoke(q) ?: emptyList()
                 notes + tasks
             },
-            onSelected = { result ->
-                val url = when (result.kind) {
-                    LinkKind.Note -> "note://${result.id}"
-                    LinkKind.Task -> "task://${result.id}"
-                }
+                onSelected = { result ->
+                val url = result.kind.urlFor(result.id)
                 session?.richTextState?.addLinkToSelection(url = url)
                 session?.recordLink(url)
                 session?.dispatchHtml()
