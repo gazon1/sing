@@ -988,6 +988,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`toggleArchive`** no longer emits `Saved` — `lastEditedAt` drives "Saved X ago" UI via the `mutate{}` helper
 - 4 PRs instead of 1 (review overhead).
 - All new VMs in this codebase should prefer `with(intent) { ... }` for data class intents with ≥2 properties.
+- Dead code removed — `TaskDetailMode` and the `Attachment` intent branch would have required maintenance with zero benefit.
+- Double-tap on Save creates exactly one entity (compareAndSet enforces single-writer).
 - Internal note/task links now navigate correctly.
 - Pre-work required 3-4 hours before any visible feature change.
 - Recomposition skip — `@Stable` on 11 holders.
@@ -996,7 +998,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - This pattern does NOT require a custom DSL marker or annotation; stdlib `with` is sufficient.
 - Unified mental model for state holders.
 - `Dispatchers.Default` fixes flaky VM tests.
+- `NoteSaver` API contract is precise: it sends, never manages the channel lifecycle.
 - `OverlayState` (Phase 1) is not yet saved across process death — acceptable
+- `TaskDetailViewModel` typed combine is readable without `@Suppress` annotations.
 
 ## Open / Deferred
 
@@ -1186,6 +1190,8 @@ _1 entries need attention._
 - `2026-09-23-sync-scheduling-abstraction` — sync, architecture, core, scheduling, remote-config, persistence
 - `2026-09-23-sync-state-model` — sync, architecture, core, state, ui
 - `2026-09-23-sync-tier3-fixes` — _untagged_
+- `2026-09-23-tech-debt-audit` — tech-debt, audit, vm, database, tests
+- `2026-09-23-vm-event-guard-cleanup` — vm, concurrency, cleanup
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _untagged_
@@ -1371,6 +1377,8 @@ _1 entries need attention._
 - `2026-09-23-sync-scheduling-abstraction` — Sync scheduling abstraction: SyncScheduler + DataStoreSyncPrefs + RemoteConfig + SecureStorage
 - `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
 - `2026-09-23-sync-tier3-fixes` — _(no title)_
+- `2026-09-23-tech-debt-audit` — Tech debt audit — post vm-event-guard-cleanup
+- `2026-09-23-vm-event-guard-cleanup` — VM event/guard cleanup — compareAndSet, typed combine, SendChannel, dead code
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _(no title)_
