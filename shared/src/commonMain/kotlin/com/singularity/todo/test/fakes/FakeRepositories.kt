@@ -74,7 +74,7 @@ import kotlinx.datetime.toLocalDateTime
 // ─── SettingsRepository ────────────────────────────────────────────────────────
 
 class FakeSettingsRepository(initialUserId: String = "test-user") : SettingsRepository {
-    // ── Single source of truth: per-section repositories ──────────────────────
+    // ── Per-section repositories ──────────────────────────────────────────────
 
     override val notifications: NotificationsSettingsRepository =
         object : NotificationsSettingsRepository {
@@ -131,17 +131,7 @@ class FakeSettingsRepository(initialUserId: String = "test-user") : SettingsRepo
             override suspend fun setDefaultViewId(id: SavedAgendaViewId?) { _id.value = id }
         }
 
-    // ── Appearance (flat — no dedicated section) ──────────────────────────────
-
-    private val _darkTheme = MutableStateFlow(false)
-    private val _accentColor = MutableStateFlow("blue")
-    private val _fontSizeScale = MutableStateFlow(1f)
-
-    override val darkTheme: Flow<Boolean> = _darkTheme
-    override val accentColor: Flow<String> = _accentColor
-    override val fontSizeScale: Flow<Float> = _fontSizeScale
-
-    // ── AI (flat — no dedicated section) ──────────────────────────────────────
+    // ── AI (flat — AiSettingsStore reads via SettingsReader) ────────────────
 
     private val _aiProvider = MutableStateFlow("openai")
     private val _aiModel = MutableStateFlow("gpt-4o-mini")
@@ -153,52 +143,18 @@ class FakeSettingsRepository(initialUserId: String = "test-user") : SettingsRepo
     override val aiBaseUrl: Flow<String> = _aiBaseUrl
     override val aiSystemPrompt: Flow<String> = _aiSystemPrompt
 
-    // ── Cross-cutting (flat) ──────────────────────────────────────────────────
+    // ── Account ─────────────────────────────────────────────────────────────
 
-    override val userId: Flow<String> = MutableStateFlow(initialUserId)
+    private val _userId = MutableStateFlow(initialUserId)
+    override val userId: Flow<String> = _userId
 
-    // ── Flat setters (delegated to section objects where possible) ────────────
+    // ── Setters ───────────────────────────────────────────────────────────────
 
-    override suspend fun setDarkTheme(value: Boolean) { _darkTheme.value = value }
-    override suspend fun setAccentColor(value: String) { _accentColor.value = value }
-    override suspend fun setFontSizeScale(value: Float) { _fontSizeScale.value = value }
     override suspend fun setAiProvider(value: String) { _aiProvider.value = value }
     override suspend fun setAiModel(value: String) { _aiModel.value = value }
     override suspend fun setAiBaseUrl(value: String) { _aiBaseUrl.value = value }
     override suspend fun setAiSystemPrompt(value: String) { _aiSystemPrompt.value = value }
-    override suspend fun setUserId(value: String) { (userId as MutableStateFlow).value = value }
-
-    // ── Flat getters delegating to section objects ────────────────────────────
-
-    override val notificationsEnabled: Flow<Boolean> = notifications.enabled
-    override val notificationSound: Flow<Boolean> = notifications.sound
-    override val notificationVibration: Flow<Boolean> = notifications.vibration
-    override val reminderDefault: Flow<ReminderOffset> = notifications.reminderDefault
-    override val workDayStartMinutes: Flow<Int> = workSchedule.dayStartMinutes
-    override val workDayEndMinutes: Flow<Int> = workSchedule.dayEndMinutes
-    override val workLunchStartMinutes: Flow<Int> = workSchedule.lunchStartMinutes
-    override val workLunchEndMinutes: Flow<Int> = workSchedule.lunchEndMinutes
-    override val workWeekendSat: Flow<Boolean> = workSchedule.weekendSat
-    override val workWeekendSun: Flow<Boolean> = workSchedule.weekendSun
-    override val greetingMorningEnd: Flow<Int> = greeting.morningEndHour
-    override val greetingAfternoonEnd: Flow<Int> = greeting.afternoonEndHour
-    override val defaultSavedAgendaViewId: Flow<SavedAgendaViewId?> = defaultAgendaView.defaultViewId
-
-    // ── Flat setters delegating to section objects ────────────────────────────
-
-    override suspend fun setNotificationsEnabled(value: Boolean) { notifications.setEnabled(value) }
-    override suspend fun setNotificationSound(value: Boolean) { notifications.setSound(value) }
-    override suspend fun setNotificationVibration(value: Boolean) { notifications.setVibration(value) }
-    override suspend fun setReminderDefault(value: ReminderOffset) { notifications.setReminderDefault(value) }
-    override suspend fun setWorkDayStartMinutes(value: Int) { workSchedule.setDayStartMinutes(value) }
-    override suspend fun setWorkDayEndMinutes(value: Int) { workSchedule.setDayEndMinutes(value) }
-    override suspend fun setWorkLunchStartMinutes(value: Int) { workSchedule.setLunchStartMinutes(value) }
-    override suspend fun setWorkLunchEndMinutes(value: Int) { workSchedule.setLunchEndMinutes(value) }
-    override suspend fun setWorkWeekendSat(value: Boolean) { workSchedule.setWeekendSat(value) }
-    override suspend fun setWorkWeekendSun(value: Boolean) { workSchedule.setWeekendSun(value) }
-    override suspend fun setGreetingMorningEnd(hour: Int) { greeting.setMorningEndHour(hour) }
-    override suspend fun setGreetingAfternoonEnd(hour: Int) { greeting.setAfternoonEndHour(hour) }
-    override suspend fun setDefaultSavedAgendaViewId(id: SavedAgendaViewId?) { defaultAgendaView.setDefaultViewId(id) }
+    override suspend fun setUserId(value: String) { _userId.value = value }
 }
 
 // ─── BackupRepository ─────────────────────────────────────────────────────────
