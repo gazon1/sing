@@ -720,6 +720,18 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `TaskRepositoryImpl.create` and `ProjectsRepositoryImpl.create` now enforce user scoping. Any caller passing a mismatched `userId` will get a loud `IllegalStateException`.
 - `TaskRepositoryImpl` does **not** yet stamp `userId` on `create` — that is PR 2 (Repository infrastructure). Until that lands, callers must still pass `userId`-stamped entities to `TaskRepository.create`.
 
+### `search`
+
+- Query AST lives in `feature/search/query/` — `Condition.kt`, `Query.kt`, `QueryInterval.kt`, `QueryTokenizer.kt`, `QueryParser.kt`, `SingularityQueryParser.kt`, `ResolvedSearchQuery.kt`, `SearchQueryResolver.kt`, `SimpleFilter.kt`, `SimpleFilterBuilder.kt`, `SimpleFilterMapper.kt`.
+- Room schema version increments by 1 per feature migration; `Migration15To16` is the current head.
+- `Not(Condition)` is the only negation representation — never add a `not: Boolean` flag to any condition data class.
+- `SavedSearch.queryString` is the raw user input — never try to normalize/format it on save.
+- `SearchQueryResolver.addPostFilter` must check `negationDepth > 0` to determine polarity — never call `negationDepth--` without a matching `negationDepth++`.
+- `SearchUseCase` accepts both `Query` (structured) and `String` (raw, parsed internally) — the string overload is for backwards compatibility only; new code should pass `Query`.
+- `SearchViewModel` always uses the 7-arg constructor for production; the 6-arg secondary constructor creates its own `AutoCloseableCoroutineScope`.
+- `SimpleFilter.states` is `null` for "no filter"; never default to `setOf(Active)` in new code.
+- `SimpleFilterMapper.toQuery` produces `condition = null` (not `HasText("")`) for empty filters.
+
 ### `security`
 
 - Adding a new secret (e.g. another provider's API key) **always** follows the same pattern: new `KEY_*` constant, new config object, migration on first DataStore access, no DataStore copy.
@@ -1063,6 +1075,7 @@ _1 entries need attention._
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _untagged_
+- `2026-09-23-search-query-language` — search, query-ast, room, viewmodel, dsl
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
@@ -1230,6 +1243,7 @@ _1 entries need attention._
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _(no title)_
+- `2026-09-23-search-query-language` — Search query language: AST, SimpleFilter, SavedSearch, canonical SearchViewModel
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
