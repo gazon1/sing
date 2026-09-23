@@ -96,3 +96,17 @@ class Migration13To14 : AutoMigrationSpec
  * rows read back with `lastFiredAt == null`.
  */
 class Migration14To15 : AutoMigrationSpec
+
+/**
+ * Migration from v15 to v16 — adds rich-date and styling fields to tasks:
+ * - `start_date TEXT` — ISO LocalDate, when the task becomes active (null = same as dueDate)
+ * - `start_time TEXT` — ISO LocalTime
+ * - `end_date TEXT` — ISO LocalDate, deadline / end of active window (null = same as dueDate)
+ * - `end_time TEXT` — ISO LocalTime
+ * - `accent_color INTEGER` — ARGB color value, null = use default
+ * - `emoji TEXT` — task-level emoji, null = none
+ *
+ * All new columns are nullable with no default — safe auto-migration:
+ * existing rows read back with null for all six columns.
+ */
+class Migration15To16 : AutoMigrationSpec

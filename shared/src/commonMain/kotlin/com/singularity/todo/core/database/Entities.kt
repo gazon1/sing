@@ -37,6 +37,12 @@ data class TaskEntity(
     @ColumnInfo("parent_task_id") val parentTaskId: String? = null,
     @ColumnInfo("due_date") val dueDate: String?, // ISO LocalDate
     @ColumnInfo("due_time") val dueTime: String?, // ISO "HH:mm:ss"; map to kotlinx LocalTime via Mappers
+    @ColumnInfo("start_date") val startDate: String?, // ISO LocalDate — when the task becomes active
+    @ColumnInfo("start_time") val startTime: String?, // ISO "HH:mm:ss"
+    @ColumnInfo("end_date") val endDate: String?, // ISO LocalDate — deadline / end of active window
+    @ColumnInfo("end_time") val endTime: String?, // ISO "HH:mm:ss"
+    @ColumnInfo("accent_color") val accentColor: Long?, // ARGB color value, null = use default
+    @ColumnInfo("emoji") val emoji: String?, // task-level emoji, null = none
     @ColumnInfo("completed_at") val completedAt: Long?, // epoch millis
     val someday: Boolean = false,
     @ColumnInfo("archived_at") val archivedAt: Long?, // epoch millis
