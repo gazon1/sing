@@ -12,6 +12,7 @@ import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
 import com.singularity.todo.feature.nav.LocalAppNavigator
+import com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen
 import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
@@ -52,6 +53,10 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
                 darkTheme = darkTheme,
                 accent = accent,
                 fontSizeScale = fontSizeScale,
+            )
+            WhatsNewScreen(
+                onDismiss = { /* caller is the screen; no extra action needed */ },
+                modifier = Modifier,
             )
         },
     )

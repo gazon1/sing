@@ -22,6 +22,7 @@ data class RemoteConfigSnapshot(
     val fetchedAtEpochMillis: Long,
     val minSupportedVersion: AppVersion?,
     val maintenanceBanner: BannerDto?,
+    val whatsNewPayload: String? = null,
     val modelFlags: Map<String, Boolean> = emptyMap(),
     val mcpToolFlags: Map<String, Boolean> = emptyMap(),
 ) {

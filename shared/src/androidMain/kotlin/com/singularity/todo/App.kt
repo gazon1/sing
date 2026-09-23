@@ -16,6 +16,7 @@ import com.singularity.todo.core.auth.AuthGuard
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
+import com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.LocalAppNavigator
@@ -65,6 +66,12 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
                 darkTheme = darkTheme,
                 accent = accent,
                 fontSizeScale = fontSizeScale,
+            )
+            // WhatsNew is rendered as an overlay — it observes RemoteConfigPort
+            // internally and only appears when the server sets a non-null payload.
+            WhatsNewScreen(
+                onDismiss = { /* caller is the screen; no extra action needed */ },
+                modifier = Modifier,
             )
         },
     )
