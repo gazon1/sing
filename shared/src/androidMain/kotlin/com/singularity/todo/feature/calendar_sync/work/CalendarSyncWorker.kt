@@ -12,6 +12,8 @@ import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatu
 import com.singularity.todo.feature.calendar_sync.domain.model.SyncPlan
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.error.CalendarSyncException
+import com.singularity.todo.feature.calendar_sync.error.FailureType
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -27,6 +29,10 @@ import org.koin.core.component.inject
  *
  * Sync is one-way: local Task → system Calendar. The system calendar is never
  * read back as a source of truth for task state.
+ *
+ * All [CalendarSyncException] subtypes thrown by [CalendarProviderPort] operations
+ * are caught and translated into [CalendarSyncStatus.Failed] with a [FailureType],
+ * giving the UI enough context to show tailored recovery actions.
  *
  * @param context Android context.
  * @param params  Worker parameters.
@@ -131,23 +137,6 @@ class CalendarSyncWorker(
                 }
             }
 
-            // Only clean up stale mappings for taskIds whose Delete actually succeeded.
-            // If a Delete failed (e.g. event already removed from calendar), the mapping
-            // row stays so the next sync doesn't re-insert a ghost entry.
-            val successfulDeleteTaskIds = allTasks
-                .map { it.id.value }
-                .toSet() +
-                plans.filterIsInstance<SyncPlan.Delete>()
-                    .filter { it.eventId !in failedDeletes }
-                    .map { // We don't have taskId from Delete plan directly — skip
-                        // Instead: keep all taskIds whose Delete didn't fail
-                        // The simplest correct approach: only delete taskIds that are in allTasks
-                        // (already handled above). This means orphaned mappings from failed deletes
-                        // survive — but a subsequent sync will call Update on a dead eventId,
-                        // which will fail again and retry. Acceptable trade-off.
-                        ""
-                    }
-
             // Standard stale cleanup: remove mappings for tasks that no longer exist locally
             val currentTaskIds = allTasks.map { it.id.value }
             taskMapDao.deleteStale(currentTaskIds)
@@ -157,13 +146,29 @@ class CalendarSyncWorker(
                 if (errors == 0) {
                     CalendarSyncStatus.Idle(System.currentTimeMillis())
                 } else {
-                    CalendarSyncStatus.Failed("$errors operation(s) failed")
+                    CalendarSyncStatus.Failed("$errors operation(s) failed", FailureType.Transient)
                 },
             )
 
             if (errors > 0) Result.retry() else Result.success()
+
+        } catch (e: CalendarSyncException) {
+            val type = when (e) {
+                is CalendarSyncException.PermissionRevokedException -> FailureType.PermissionRevoked
+                is CalendarSyncException.CalendarNotFoundException -> FailureType.CalendarNotFound
+                is CalendarSyncException.CalendarAppMissingException -> FailureType.CalendarAppMissing
+                is CalendarSyncException.TransientSyncException -> FailureType.Transient
+                is CalendarSyncException.NetworkSyncException -> FailureType.Network
+            }
+            syncRepo.setStatus(CalendarSyncStatus.Failed(e.message ?: "Sync failed", type))
+            // PermissionRevoked and CalendarAppMissing are not retryable — user must take action
+            if (type == FailureType.PermissionRevoked || type == FailureType.CalendarAppMissing) {
+                Result.success()
+            } else {
+                Result.retry()
+            }
         } catch (e: Exception) {
-            syncRepo.setStatus(CalendarSyncStatus.Failed(e.message ?: "Unknown error"))
+            syncRepo.setStatus(CalendarSyncStatus.Failed(e.message ?: "Unknown error", FailureType.Unknown))
             Result.retry()
         }
     }

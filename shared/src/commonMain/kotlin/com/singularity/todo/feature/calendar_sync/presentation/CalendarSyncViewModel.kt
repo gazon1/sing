@@ -5,7 +5,8 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
-import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
+import com.singularity.todo.feature.calendar_sync.sync.SyncSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,19 +47,21 @@ sealed interface CalendarSyncIntent {
 }
 
 /**
- * Canonical 5-arg ViewModel for calendar sync settings.
+ * Canonical 6-arg ViewModel for calendar sync settings.
  *
  * - [syncRepo] — settings repository (DataStore-backed)
  * - [calendarProvider] — system calendar provider (ContentResolver on Android)
- * - [scheduler] — WorkManager scheduler
+ * - [scheduler] — WorkManager scheduler (used for cancel only)
  * - [appQueries] — queries installed calendar apps for the picker
+ * - [orchestrator] — debounced sync orchestrator (hands off to scheduler)
  * - [scope] — CoroutineScope for launching concurrent operations
  */
 class CalendarSyncViewModel(
     private val syncRepo: CalendarSyncRepository,
     private val calendarProvider: CalendarProviderPort,
-    private val scheduler: CalendarSyncWorkScheduler,
+    private val scheduler: com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler,
     private val appQueries: CalendarAppQueries,
+    private val orchestrator: CalendarSyncOrchestrator,
     private val scope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow(CalendarSyncUiState())
@@ -131,7 +134,7 @@ class CalendarSyncViewModel(
         scope.launch {
             syncRepo.setEnabled(enabled)
             if (enabled) {
-                scheduler.enqueueSync()
+                orchestrator.requestSync(SyncSource.ConfigChanged)
             } else {
                 scheduler.cancelSync()
             }
@@ -142,13 +145,13 @@ class CalendarSyncViewModel(
         scope.launch {
             syncRepo.setTargetCalendarId(calendarId)
             if (_state.value.isEnabled) {
-                scheduler.enqueueSync()
+                orchestrator.requestSync(SyncSource.ConfigChanged)
             }
         }
     }
 
     private fun syncNow() {
-        scheduler.enqueueSync()
+        orchestrator.requestSync(SyncSource.Manual)
     }
 
     private fun setPermission(granted: Boolean) {
@@ -162,7 +165,7 @@ class CalendarSyncViewModel(
         scope.launch {
             syncRepo.setTargetAppPackage(packageName)
             if (_state.value.isEnabled) {
-                scheduler.enqueueSync()
+                orchestrator.requestSync(SyncSource.ConfigChanged)
             }
         }
     }

@@ -5,6 +5,8 @@ import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.log.initLogging
+import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
+import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 
@@ -26,5 +28,8 @@ class SingularityApp : Application() {
                 *domainModule().toTypedArray(),
             )
         }
+        // Start the calendar sync orchestrator — launches the debounced collector coroutine.
+        // Safe to call multiple times; subsequent calls are no-ops after the first.
+        getKoin().get<CalendarSyncOrchestrator>().start()
     }
 }

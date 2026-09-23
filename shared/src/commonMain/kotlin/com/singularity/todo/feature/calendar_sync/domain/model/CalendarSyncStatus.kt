@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.calendar_sync.domain.model
 
+import com.singularity.todo.feature.calendar_sync.error.FailureType
+
 /**
  * Current state of the calendar sync subsystem.
  *
@@ -18,7 +20,11 @@ sealed interface CalendarSyncStatus {
 
     /**
      * Sync failed with [reason].
+     * The [type] carries a [FailureType] for UI-tailored error messaging and recovery actions.
      * The system will retry with back-off; this persists until the next success.
      */
-    data class Failed(val reason: String) : CalendarSyncStatus
+    data class Failed(
+        val reason: String,
+        val type: FailureType = FailureType.Unknown,
+    ) : CalendarSyncStatus
 }
