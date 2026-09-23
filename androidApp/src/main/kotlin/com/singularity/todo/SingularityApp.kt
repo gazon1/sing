@@ -5,6 +5,7 @@ import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.log.initLogging
+import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.koin.androidContext
@@ -19,7 +20,7 @@ class SingularityApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        initLogging(BuildConfig.DEBUG, version = "0.1.0")
+        initLogging(BuildConfig.DEBUG, version = appVersion().name)
         startKoin {
             androidContext(this@SingularityApp)
             modules(

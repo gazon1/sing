@@ -28,6 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.version.appVersion
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.menu.ComposeTopMenuBar
 import com.singularity.todo.core.ui.menu.MenuNode
@@ -218,7 +219,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text("Singularity Todo") },
         text = {
-            Text("Version 0.1.0\n\nA KMP task manager for Android and Desktop.\nBuilt with Kotlin Multiplatform.")
+            Text("Version ${appVersion().name}\n\nA KMP task manager for Android and Desktop.\nBuilt with Kotlin Multiplatform.")
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {

@@ -861,7 +861,6 @@ private class FakeAgendaViewDao(private val store: MutableStateFlow<Map<String, 
     }
 }
 
-<<<<<<< HEAD
 // ─── RemoteConfigDao ────────────────────────────────────────────────────────
 
 private class FakeRemoteConfigDao(

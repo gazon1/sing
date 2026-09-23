@@ -6,6 +6,7 @@ import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.log.initLogging
+import com.singularity.todo.core.version.appVersion
 import org.koin.core.context.startKoin
 import java.io.File
 
@@ -18,7 +19,7 @@ fun main() = singleWindowApplication(
     File("$dataDir/attachments").mkdirs()
     File("$dataDir/backups").mkdirs()
 
-    initLogging(System.getProperty("singularity.debug") == "true", version = "0.1.0")
+    initLogging(System.getProperty("singularity.debug") == "true", version = appVersion().name)
     startKoin {
             modules(
                 platformModule(),
