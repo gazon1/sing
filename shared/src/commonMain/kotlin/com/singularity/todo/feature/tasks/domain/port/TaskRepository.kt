@@ -38,6 +38,13 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
 
     suspend fun delete(id: TaskId): Result<Unit>
 
+    /**
+     * Upserts a task from a remote sync event.
+     * Does NOT emit [_changes] — caller is responsible for observability.
+     * Used exclusively by pull handlers in [com.singularity.todo.core.sync.SyncBootstrapper].
+     */
+    suspend fun upsert(task: Task): Task
+
     // ── Domain-specific ─────────────────────────────────────────────────────────
 
     suspend fun softDelete(id: TaskId): Result<Unit>

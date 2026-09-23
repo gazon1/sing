@@ -1,6 +1,12 @@
 package com.singularity.todo.feature.tags
 
+import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.sync.DocType
+import com.singularity.todo.core.sync.Hlc
+import com.singularity.todo.core.sync.SyncableEntity
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.serializer
 import kotlin.time.Instant
 
 @Serializable
@@ -34,6 +40,21 @@ data class Tag(
     val sortOrder: Int = 0,
     val deletedAt: Instant? = null,
     val userId: String,
-)
+    // ─── Sync fields ───────────────────────────────────────────────────────────
+    val serverVersion: Long = 0,
+    val hlc: Hlc? = null,
+) : SyncableEntity {
+    // SyncableEntity implementation
+    override val syncId: String get() = id.value
+    override val docType: DocType get() = DocType.Tag
+    override val syncServerVersion: Long get() = serverVersion
+    override val syncHlc: Hlc? get() = hlc
+
+    override fun toJson(): JsonObject {
+        @Suppress("UNCHECKED_CAST")
+        val ser = serializer<Tag>()
+        return StableJson.encodeToJsonElement(ser, this) as JsonObject
+    }
+}
 
 data class CreateTagInput(val name: String, val color: Int, val userId: String)

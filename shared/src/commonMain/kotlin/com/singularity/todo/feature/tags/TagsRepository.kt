@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tags
 
+import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.toInstant
@@ -7,6 +8,8 @@ import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.core.sync.Hlc
+import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -15,6 +18,13 @@ import kotlinx.coroutines.flow.map
  * Contract for tags persistence.
  */
 interface TagsRepository : GenericUserScopedRepository<Tag, TagId> {
+
+    /**
+     * Upserts a tag from a remote sync event.
+     * Does NOT emit repository-level change events — caller handles observability.
+     * Used by pull handlers in [com.singularity.todo.core.sync.SyncBootstrapper].
+     */
+    suspend fun upsert(tag: Tag): Tag
 
     // ─── Domain methods ─────────────────────────────────────────────────────────
 
@@ -29,6 +39,7 @@ class TagsRepositoryImpl(
     private val tagDao: TagDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
+    private val syncRepository: SyncRepository,
 ) : TagsRepository {
 
     // ── GenericUserScopedRepository ────────────────────────────────────────────
@@ -50,12 +61,19 @@ class TagsRepositoryImpl(
 
     override suspend fun create(item: Tag): Result<Tag> = runCatching {
         tagDao.upsert(item.toEntity())
-        item
+        item.also { syncRepository.enqueue(it) }
     }
 
     override suspend fun update(item: Tag): Result<Tag> = runCatching {
         tagDao.upsert(item.toEntity())
-        item
+        item.also { syncRepository.enqueue(it) }
+    }
+
+    // ── Remote apply (pull handler) ────────────────────────────────────────────
+
+    override suspend fun upsert(tag: Tag): Tag {
+        tagDao.upsert(tag.toEntity())
+        return tag
     }
 
     override suspend fun delete(id: TagId): Result<Unit> = runCatching {
@@ -80,6 +98,8 @@ private fun TagEntity.toTag(): Tag = Tag(
     sortOrder = sortOrder,
     deletedAt = deletedAt.toInstantOrNull(),
     userId = userId,
+    serverVersion = sync.serverVersion,
+    hlc = sync.hlc?.let { Hlc(it) },
 )
 
 fun Tag.toEntity(): TagEntity = TagEntity(
@@ -93,4 +113,5 @@ fun Tag.toEntity(): TagEntity = TagEntity(
     parentId = null,
     sortOrder = sortOrder,
     deletedAt = deletedAt?.toEpochMilliseconds(),
+    sync = SyncColumns(serverVersion = serverVersion, hlc = hlc?.encoded),
 )

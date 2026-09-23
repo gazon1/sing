@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects.data
 
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.ProjectEntity
+import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toEpochMillisOrNull
 import com.singularity.todo.core.database.toInstant
@@ -12,6 +13,8 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.SoftDeletable
 import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.core.sync.Hlc
+import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -26,6 +29,7 @@ class ProjectsRepositoryImpl(
     private val projectDao: ProjectDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
+    private val syncRepository: SyncRepository,
 ) : ProjectsRepository {
 
     // ── GenericUserScopedRepository ────────────────────────────────────────────
@@ -56,12 +60,19 @@ class ProjectsRepositoryImpl(
             )
         }
         projectDao.upsert(toInsert.toEntity())
-        toInsert
+        toInsert.also { syncRepository.enqueue(it) }
     }
 
     override suspend fun update(item: Project): Result<Project> = runCatching {
         projectDao.upsert(item.toEntity())
-        item
+        item.also { syncRepository.enqueue(it) }
+    }
+
+    // ── Remote apply (pull handler) ────────────────────────────────────────────
+
+    override suspend fun upsert(project: Project): Project {
+        projectDao.upsert(project.toEntity())
+        return project
     }
 
     override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
@@ -165,4 +176,5 @@ internal fun Project.toEntity(): ProjectEntity = ProjectEntity(
     sortOrder = sortOrder,
     idempotencyKey = idempotencyKey,
     externalId = externalId,
+    sync = SyncColumns(serverVersion = serverVersion, hlc = hlc?.encoded),
 )

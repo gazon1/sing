@@ -49,6 +49,7 @@ import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.sync.SyncRepositoryImpl
 import com.singularity.todo.core.sync.SyncRunner
 import com.singularity.todo.core.sync.SyncScheduler
+import com.singularity.todo.feature.sync.presentation.SyncViewModel
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
@@ -132,6 +133,10 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // AutoSync is NOT in DI — callers construct it with their own CoroutineScope.
     // Example: val autoSync = AutoSync(get(), get(), viewModelScope)
+
+    // ─── Sync ViewModel ─────────────────────────────────────────────────
+
+    viewModel { SyncViewModel(get(), get(), get()) }
 
     // ─── IDs / Clock ────────────────────────────────────────────────────
 

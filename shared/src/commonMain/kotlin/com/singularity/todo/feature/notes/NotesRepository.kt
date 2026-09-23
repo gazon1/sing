@@ -2,6 +2,7 @@ package com.singularity.todo.feature.notes
 
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.NoteEntity
+import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toEpochMillisOrNull
 import com.singularity.todo.core.database.toInstant
@@ -11,6 +12,8 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.SoftDeletable
 import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.core.sync.Hlc
+import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -25,6 +28,16 @@ import kotlinx.coroutines.flow.map
 interface NotesRepository :
     GenericUserScopedRepository<Note, NoteId>,
     SoftDeletable<Note, NoteId> {
+
+    /**
+     * Upserts a note from a remote sync event.
+     *
+     * Does NOT emit [_changes] — caller is responsible for observability.
+     * Used exclusively by pull handlers in [com.singularity.todo.core.sync.SyncBootstrapper].
+     *
+     * @return the upserted note, or throws on persistence failure
+     */
+    suspend fun upsert(note: Note): Note
 
     // ─── Domain methods ───────────────────────────────────────────────────────
 
@@ -80,6 +93,7 @@ class RoomNotesRepository(
     private val noteDao: NoteDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
+    private val syncRepository: com.singularity.todo.core.sync.SyncRepository,
 ) : NotesRepository {
 
     // ─── GenericUserScopedRepository ───────────────────────────────────────────
@@ -101,12 +115,19 @@ class RoomNotesRepository(
 
     override suspend fun create(item: Note): Result<Note> = runCatching {
         noteDao.upsert(item.toEntity())
-        item
+        item.also { syncRepository.enqueue(it) }
     }
 
     override suspend fun update(item: Note): Result<Note> = runCatching {
         noteDao.upsert(item.toEntity())
-        item
+        item.also { syncRepository.enqueue(it) }
+    }
+
+    // ─── Remote apply (pull handler) ────────────────────────────────────────────
+
+    override suspend fun upsert(note: Note): Note {
+        noteDao.upsert(note.toEntity())
+        return note
     }
 
     override suspend fun delete(id: NoteId): Result<Unit> = runCatching {
@@ -262,6 +283,8 @@ internal fun NoteEntity.toNote(): Note = Note(
     updatedAt = updatedAt.toInstant(),
     deletedAt = deletedAt.toInstantOrNull(),
     archivedAt = archivedAt.toInstantOrNull(),
+    serverVersion = sync.serverVersion,
+    hlc = sync.hlc?.let { Hlc(it) },
 )
 
 fun Note.toEntity(): NoteEntity = NoteEntity(
@@ -283,6 +306,7 @@ fun Note.toEntity(): NoteEntity = NoteEntity(
     updatedAt = updatedAt.toEpochMillis(),
     deletedAt = deletedAt?.toEpochMillisOrNull(),
     archivedAt = archivedAt?.toEpochMillisOrNull(),
+    sync = SyncColumns(serverVersion = serverVersion, hlc = hlc?.encoded),
 )
 
 private fun String.parseLinksJson(): List<String> {

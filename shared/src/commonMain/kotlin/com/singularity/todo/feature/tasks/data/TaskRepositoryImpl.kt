@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.data
 
 import com.singularity.todo.core.database.TaskDao
+import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
@@ -178,6 +179,13 @@ class TaskRepositoryImpl(
 
     override suspend fun delete(id: TaskId): Result<Unit> = softDelete(id)
 
+    // ── Remote apply (pull handler) ────────────────────────────────────────────
+
+    override suspend fun upsert(task: Task): Task {
+        taskDao.upsert(task.toEntity())
+        return task
+    }
+
     override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
         taskDao.softDelete(id.value, ts)
@@ -249,4 +257,5 @@ private fun Task.toEntity(): TaskEntity = TaskEntity(
     createdAt = createdAt.toEpochMillis(),
     updatedAt = updatedAt.toEpochMillis(),
     userId = userId.value,
+    sync = SyncColumns(serverVersion = serverVersion, hlc = hlc?.encoded),
 )

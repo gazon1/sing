@@ -402,6 +402,11 @@ open class FakeTaskRepository(
         }
     }
 
+    override suspend fun upsert(task: Task): Task {
+        store.upsert(task)
+        return task
+    }
+
     // ── Domain-specific user-scoped observers ────────────────────────────────────
 
     override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> =
@@ -745,6 +750,11 @@ class FakeProjectsRepository(
         }
     }
 
+    override suspend fun upsert(project: Project): Project {
+        store.upsert(project)
+        return project
+    }
+
     // ─── SoftDeletable ───────────────────────────────────────────────────────
 
     override suspend fun restore(id: ProjectId): Result<Unit> = runCatching {
@@ -852,6 +862,11 @@ class FakeTagsRepository(
 
     override suspend fun delete(id: TagId): Result<Unit> = runCatching {
         store.remove(id.value)
+    }
+
+    override suspend fun upsert(tag: com.singularity.todo.feature.tags.Tag): com.singularity.todo.feature.tags.Tag {
+        store.upsert(tag)
+        return tag
     }
 }
 
@@ -1019,6 +1034,13 @@ open class FakeNotesRepository(
         }
     }
 
+    open override suspend fun upsert(note: com.singularity.todo.feature.notes.Note): com.singularity.todo.feature.notes.Note {
+        return runCatching {
+            store.upsert(note)
+            note
+        }.getOrThrow()
+    }
+
     open override suspend fun delete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
         deleteOverride?.let { return it }
         return runCatching {
@@ -1027,6 +1049,8 @@ open class FakeNotesRepository(
             }
         }
     }
+
+    // ─── SoftDeletable ─────────────────────────────────────────────────────
 
     // ─── SoftDeletable ─────────────────────────────────────────────────────
 

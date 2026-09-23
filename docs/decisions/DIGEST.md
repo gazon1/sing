@@ -127,7 +127,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed.
 - Detekt `ParameterNaming` rule suppressed in two places (`TagsRepository.kt:54,59`) because `create(item: Tag)` vs `create(item: E)` parameter naming follows the domain convention — not a bug.
 - Developers should prefer `kotlinx.datetime.Instant` in new code.
+- Domain models gain `serverVersion` and `hlc` fields — existing call sites unaffected (defaults)
 - Domain/repo/data layers are fully isolated.
+- Enqueue is best-effort — local changes are never rolled back due to sync failures
 - Every `_events.emit(x)` in VM code becomes `_events.trySend(x).isSuccess` (fire-and-forget) or `_events.send(x)` (back-pressure when needed).
 - Existing `AgendaDeps` binding must add `clock: Clock` parameter (no breaking change
 - Existing `viewModelOf` calls in DI modules updated to `viewModel { Vm(...) }` form
@@ -194,6 +196,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `CalendarDeps` matches the `AgendaDeps` pattern (project convention)
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR.
 - `Clock` injectable for deterministic tests via `runTest { advanceTimeBy(...) }`.
+- `ConflictResolver` is a fun interface — can be injected separately if needed later
 - `ContentStateMapper` — добавлен object с двумя методами
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно.
 - `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope`
@@ -208,6 +211,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `RoomReminderRepository.upsert` now stamps ambient on insert — no more stale/missing userId.
 - `RoomSavedAgendaViewsRepository.upsert` now stamps ambient on insert — consistent with other repos.
 - `SavedAgendaViewModel` (via `SavedAgendaDeps`) no longer injects `ProfileAwareCurrentUser`.
+- `SyncEngine` and `SyncRunner` remain `internal` — feature modules never touch them directly
+- `SyncableEntity.toJson()` uses `StableJson` — no new serialization surface
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates
 - `TaskDetailViewModel` no longer injects `ProfileAwareCurrentUser`.
 - `TaskEditorDeps.clock` is also dead (the file's own KDoc flags it for deletion alongside `TaskEditorViewModel`)
@@ -770,10 +775,16 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Deferred**: Whether to add `AppError.Auth(code: Int, body: String?)` — use string interpolation for now.
 - **Negative**: New `SyncRepository` interface adds an indirection. Mitigated by `FakeSyncRepository` for VM tests.
 - **Negative**: No server-side push; conflict resolution is last-write-wins with checksum fast-reject (not full CRDT)
+- **Negative**: Schema migration 15→16 required. AutoMigration handles it automatically.
+- **Negative**: `SyncEngine` constructor grows from 7 to 8 parameters. Mitigated by Koin named parameters at call site.
 - **Negative**: `SyncEngine` now has two responsibilities (push/pull logic + `syncOnce()` composition) — mitigated by `SyncRunner` extracting the orchestration.
 - **Negative**: `pull()` is not yet implemented — remote changes do not appear on the device
+- **Positive**: Persistent `lastLsn` enables incremental pull — server sends only new events.
 - **Positive**: Simple, predictable push model; HLC provides causal ordering; outbox is durable (Room)
+- **Positive**: Supabase credentials never touch Room — `SecureStoragePort` is hardware-backed on both platforms.
 - **Positive**: UI can now observe sync state; `SyncRepository` gives a clean module boundary; `Result<T>` matches project conventions; Orgzly UX patterns adopted.
+- **Positive**: `DataStoreSyncPrefs` follows the exact same pattern as `DataStoreSessionStore` — consistent with project.
+- **Positive**: `autoSyncEnabled` and `scheduledInterval` survive app restarts.
 - **Positive**: `enqueue()` wiring in repositories becomes testable via `FakeSyncRepository`.
 
 ### `task-detail`
@@ -1063,6 +1074,8 @@ _1 entries need attention._
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _untagged_
+- `2026-09-23-sync-pull-application` — _untagged_
+- `2026-09-23-sync-scheduling-abstraction` — sync, architecture, core, scheduling, remote-config, persistence
 - `2026-09-23-sync-state-model` — sync, architecture, core, state, ui
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
@@ -1230,6 +1243,8 @@ _1 entries need attention._
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _(no title)_
+- `2026-09-23-sync-pull-application` — _(no title)_
+- `2026-09-23-sync-scheduling-abstraction` — Sync scheduling abstraction: SyncScheduler + DataStoreSyncPrefs + RemoteConfig + SecureStorage
 - `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton

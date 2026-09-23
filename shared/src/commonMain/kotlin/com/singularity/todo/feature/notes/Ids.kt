@@ -1,7 +1,13 @@
 package com.singularity.todo.feature.notes
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.sync.DocType
+import com.singularity.todo.core.sync.Hlc
+import com.singularity.todo.core.sync.SyncableEntity
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.serializer
 import kotlin.time.Instant
 
 @Serializable
@@ -50,10 +56,25 @@ data class Note(
     val updatedAt: Instant,
     val deletedAt: Instant? = null,
     val archivedAt: Instant? = null,
-) {
+    // ─── Sync fields ───────────────────────────────────────────────────────────
+    val serverVersion: Long = 0,
+    val hlc: Hlc? = null,
+) : SyncableEntity {
     val isLeaf: Boolean get() = !isFolder
     val isDeleted: Boolean get() = deletedAt != null
     val isArchived: Boolean get() = archivedAt != null
+
+    // SyncableEntity implementation
+    override val syncId: String get() = id.value
+    override val docType: DocType get() = DocType.Note
+    override val syncServerVersion: Long get() = serverVersion
+    override val syncHlc: Hlc? get() = hlc
+
+    override fun toJson(): JsonObject {
+        @Suppress("UNCHECKED_CAST")
+        val ser = serializer<Note>()
+        return StableJson.encodeToJsonElement(ser, this) as JsonObject
+    }
 }
 
 data class CreateNoteInput(

@@ -8,7 +8,6 @@ import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.serializer
@@ -147,10 +146,9 @@ data class Task(
     override val syncHlc: Hlc? get() = hlc
 
     override fun toJson(): JsonObject {
+        @Suppress("UNCHECKED_CAST")
         val ser = serializer<Task>()
-        return StableJson
-            .encodeToString(ser, this)
-            .let { StableJson.decodeFromString<JsonObject>(it) }
+        return StableJson.encodeToJsonElement(ser, this) as JsonObject
     }
 }
 

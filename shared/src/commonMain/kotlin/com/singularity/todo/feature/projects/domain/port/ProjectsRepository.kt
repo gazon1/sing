@@ -14,6 +14,13 @@ interface ProjectsRepository :
     GenericUserScopedRepository<Project, ProjectId>,
     SoftDeletable<Project, ProjectId> {
 
+    /**
+     * Upserts a project from a remote sync event.
+     * Does NOT emit repository-level change events — caller handles observability.
+     * Used by pull handlers in [com.singularity.todo.core.sync.SyncBootstrapper].
+     */
+    suspend fun upsert(project: Project): Project
+
     /** Single project by [id] for the current user. */
     fun observeProject(id: ProjectId): Flow<Project?>
 

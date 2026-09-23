@@ -1,6 +1,7 @@
 package com.singularity.todo.core.database
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -76,6 +77,8 @@ internal fun TaskEntity.toTask(): Task = Task(
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),
     userId = userId.toId(),
+    serverVersion = sync.serverVersion,
+    hlc = sync.hlc?.let { Hlc(it) },
 )
 
 /**
@@ -99,4 +102,6 @@ internal fun ProjectEntity.toProject(): Project = Project(
     idempotencyKey = idempotencyKey,
     externalId = externalId,
     userId = UserId(userId),
+    serverVersion = sync.serverVersion,
+    hlc = sync.hlc?.let { Hlc(it) },
 )
