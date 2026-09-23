@@ -14,9 +14,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,32 +29,51 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.monthGridDates
+import com.singularity.todo.feature.calendar.domain.logic.pageForYearMonth
+import com.singularity.todo.feature.calendar.domain.logic.toLocalDate
+import com.singularity.todo.feature.calendar.domain.logic.toYearMonth
+import com.singularity.todo.feature.calendar.domain.logic.yearMonthForPage
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
+import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 import kotlinx.datetime.LocalDate
 
 /**
- * Month grid view (6 weeks × 7 days).
- * Mirrors the mock's [MonthGridView] — colour tokens from [LocalCalendarPalette].
+ * Swipeable month grid. Hosts a [HorizontalPager] of [MonthGridPage]s, one per
+ * (YearMonth) page, indexed via [PagerState]. The initial page corresponds to
+ * the anchor month; user swipes shift the page index and the committed month
+ * is reported up to the caller via [onMonthPageChanged] (fired only when
+ * [PagerState.settledPage] differs from the current anchor).
+ *
+ * Page count is fixed at [pageCount]; long-range jumps are handled by the
+ * mini-calendar panel which dispatches [CalendarIntent.MonthPageChanged]
+ * directly (the caller is responsible for re-anchoring [pagerState] then).
+ *
+ * @param monthAnchor Reference month — pager starts here. Recomputing this
+ *   triggers [LaunchedEffect] to animate the pager to the matching page.
+ * @param pageCount Total pages in the pager (default 240 ⇒ ±120 months).
  */
 @Composable
 fun MonthGridView(
     monthAnchor: LocalDate,
-    tasksByDate: Map<LocalDate, List<CalendarTaskUi>>,
     today: LocalDate,
     selectedDate: LocalDate,
+    tasksByDate: Map<LocalDate, List<CalendarTaskUi>>,
     onDayClick: (LocalDate) -> Unit,
-    onTaskClick: (CalendarTaskUi) -> Unit = {},
+    onTaskClick: (CalendarTaskUi) -> Unit,
+    onMonthPageChanged: (YearMonth) -> Unit,
     modifier: Modifier = Modifier,
+    pageCount: Int = 240,
+    pagerState: PagerState = rememberPagerState(initialPage = pageCount / 2) { pageCount },
 ) {
     val palette = LocalCalendarPalette.current
-    val gridDates = remember(monthAnchor) { monthGridDates(monthAnchor) }
-    val weeks = gridDates.chunked(7)
+    val anchorYearMonth = remember(monthAnchor) { monthAnchor.toYearMonth() }
     val weekdayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
     Column(modifier = modifier.fillMaxSize().background(palette.background)) {
-        // Weekday header row
+        // Fixed weekday header — does not scroll with pages.
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
             weekdayLabels.forEach { label ->
                 Text(
@@ -62,26 +85,75 @@ fun MonthGridView(
             }
         }
 
-        // Day cells
-        Column(modifier = Modifier.fillMaxSize()) {
-            weeks.forEach { week ->
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                ) {
-                    week.forEach { date ->
-                        MonthDayCell(
-                            date = date,
-                            isCurrentMonth = date.month == monthAnchor.month,
-                            isToday = date == today,
-                            isSelected = date == selectedDate,
-                            tasks = tasksByDate[date].orEmpty(),
-                            onClick = { onDayClick(date) },
-                            onTaskClick = onTaskClick,
-                            modifier = Modifier.weight(1f).fillMaxHeight(),
-                        )
-                    }
+        HorizontalPager(
+            state = pagerState,
+            beyondViewportPageCount = 1,
+            modifier = Modifier.fillMaxSize(),
+        ) { page ->
+            val pageYearMonth = yearMonthForPage(anchorYearMonth, page)
+            MonthGridPage(
+                pageAnchor = pageYearMonth.toLocalDate(),
+                today = today,
+                selectedDate = selectedDate,
+                tasksByDate = tasksByDate,
+                onDayClick = onDayClick,
+                onTaskClick = onTaskClick,
+            )
+        }
+    }
+
+    // Settled-page → commit. Dedupes against the current anchor to avoid
+    // spurious Room re-subscribes when the fling settles on the same page.
+    LaunchedEffect(pagerState.settledPage, anchorYearMonth) {
+        val settledMonth = yearMonthForPage(anchorYearMonth, pagerState.settledPage)
+        if (settledMonth != anchorYearMonth) {
+            onMonthPageChanged(settledMonth)
+        }
+    }
+
+    // External jump: if a different intent (e.g. mini-calendar pick) sets
+    // [monthAnchor] to a month not equal to the current page, animate to it.
+    LaunchedEffect(monthAnchor) {
+        val targetMonth = monthAnchor.toYearMonth()
+        val targetPage = pageForYearMonth(anchorYearMonth, targetMonth)
+        if (targetPage != null && targetPage != pagerState.currentPage) {
+            pagerState.animateScrollToPage(targetPage)
+        }
+    }
+}
+
+/**
+ * Single 6×7 month grid (Mon-anchored). Pure content — no pager state.
+ * Extracted so [HorizontalPager] can host it as one page.
+ */
+@Composable
+private fun MonthGridPage(
+    pageAnchor: LocalDate,
+    today: LocalDate,
+    selectedDate: LocalDate,
+    tasksByDate: Map<LocalDate, List<CalendarTaskUi>>,
+    onDayClick: (LocalDate) -> Unit,
+    onTaskClick: (CalendarTaskUi) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalCalendarPalette.current
+    val gridDates = remember(pageAnchor) { monthGridDates(pageAnchor) }
+    val weeks = gridDates.chunked(7)
+
+    Column(modifier = modifier.fillMaxSize()) {
+        weeks.forEach { week ->
+            Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                week.forEach { date ->
+                    MonthDayCell(
+                        date = date,
+                        isCurrentMonth = date.month == pageAnchor.month,
+                        isToday = date == today,
+                        isSelected = date == selectedDate,
+                        tasks = tasksByDate[date].orEmpty(),
+                        onClick = { onDayClick(date) },
+                        onTaskClick = onTaskClick,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                    )
                 }
             }
         }

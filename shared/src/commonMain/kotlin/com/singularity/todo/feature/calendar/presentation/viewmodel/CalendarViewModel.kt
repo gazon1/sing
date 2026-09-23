@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
+import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.goNext
 import com.singularity.todo.feature.calendar.domain.logic.goPrevious
@@ -151,6 +152,15 @@ class CalendarViewModel(
             is CalendarIntent.TaskClicked -> {
                 scope.launch {
                     _events.trySend(CalendarUiEvent.NavigateToTask(intent.taskId))
+                }
+            }
+
+            is CalendarIntent.MonthPageChanged -> {
+                // Dedupe against current anchor: a swipe that settles on the same
+                // month it started on must not cancel and re-subscribe the Room flow.
+                val newAnchor = LocalDate(intent.month.year, intent.month.month, 1)
+                if (newAnchor != _calendarState.value.anchor) {
+                    _calendarState.updateState { it.copy(anchor = newAnchor) }
                 }
             }
         }

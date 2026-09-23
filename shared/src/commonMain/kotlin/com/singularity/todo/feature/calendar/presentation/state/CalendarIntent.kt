@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.calendar.presentation.state
 
+import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
@@ -17,4 +18,13 @@ sealed interface CalendarIntent {
     data object ToggleMiniCalendar : CalendarIntent
     data class TaskClicked(val taskId: TaskId) : CalendarIntent
     data object DismissMiniCalendar : CalendarIntent
+
+    /**
+     * Emitted by [com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridView]
+     * when the [androidx.compose.foundation.pager.HorizontalPager] settles on a new month.
+     *
+     * Distinct from [GoNext]/[GoPrevious] (which step by one view-mode unit) — page
+     * commits are reported in absolute [YearMonth] units regardless of view mode.
+     */
+    data class MonthPageChanged(val month: YearMonth) : CalendarIntent
 }

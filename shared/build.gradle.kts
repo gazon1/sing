@@ -138,9 +138,6 @@ kotlin {
             implementation(libs.compose.ui.tooling)
             implementation(libs.compose.ui.tooling.preview)
 
-            // Calendar — Android-only (no JVM/desktop variants)
-            implementation("com.kizitonwose.calendar:compose:2.6.0")
-
             // Room Android
             implementation(libs.androidx.room3.runtime)
             implementation(libs.androidx.sqlite.bundled)
