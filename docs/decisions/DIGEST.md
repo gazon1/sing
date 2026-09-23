@@ -173,6 +173,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - The `pageCount = 240` is fixed at compile time. Users navigating beyond ±10 years from today
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
 - The default `viewModelScope` is still created by the ViewModel but is unused in Tier-1 VMs (negligible memory cost: one empty `SupervisorJob`).
+- The ⟳ icon on calendar task chips will now work once MR-3b (Click-to-create)
 - Theme switching now correctly recomposes the calendar palette
 - Throttling prevents SQLite spam from polling.
 - Tier-2 VMs are unaffected.
@@ -192,6 +193,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `AppNavHost.kt`, `AppNavigator.kt`, `DesktopShell.kt` (old Nav2 files) are deleted
 - `ByDateBucket` requires `today` in SQL query dispatch — the filter is not purely
 - `CalendarDeps` matches the `AgendaDeps` pattern (project convention)
+- `CalendarViewModel` now has an additional dependency — tests must inject
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR.
 - `Clock` injectable for deterministic tests via `runTest { advanceTimeBy(...) }`.
 - `ContentStateMapper` — добавлен object с двумя методами
@@ -199,6 +201,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно.
 - `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope`
 - `FakeProfileRepository` implements both new generic methods and deprecated legacy overloads for test compatibility.
+- `FakeReminderDao` implements `watchRecurringTaskIds` for `FakeAppDatabase`.
+- `FakeReminderRepository` implements `observeRecurringTaskIds` using in-memory filtering.
 - `InternalLinkRepositoryImpl` now fully owns the user resolution — consistent with `TagsRepository`, `TaskRepository`, etc.
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
@@ -994,6 +998,7 @@ _1 entries need attention._
 - `2026-09-21-user-scoped-repository` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
 - `2026-09-22-calendar-horizontal-pager` — _untagged_
+- `2026-09-22-calendar-reminder-repo` — _untagged_
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — repository, checklist, currentuser, koin, refactor
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
@@ -1153,6 +1158,7 @@ _1 entries need attention._
 - `2026-09-21-user-scoped-repository` — _(no title)_
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
 - `2026-09-22-calendar-horizontal-pager` — _(no title)_
+- `2026-09-22-calendar-reminder-repo` — _(no title)_
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — Delete ChecklistUseCase; drop unused ProfileAwareCurrentUser from AgendaDeps/CalendarDeps; inject taskId via ChecklistEditorViewModel constructor
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
