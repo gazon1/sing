@@ -18,4 +18,6 @@ class NoopCalendarSyncRepository : CalendarSyncRepository {
     override suspend fun setLastSyncedAt(ts: Long) {}
     override fun observeStatus(): Flow<CalendarSyncStatus> = flowOf(CalendarSyncStatus.Disabled)
     override suspend fun setStatus(status: CalendarSyncStatus) {}
+    override fun observeTargetAppPackage(): Flow<String?> = flowOf(null)
+    override suspend fun setTargetAppPackage(packageName: String?) {}
 }

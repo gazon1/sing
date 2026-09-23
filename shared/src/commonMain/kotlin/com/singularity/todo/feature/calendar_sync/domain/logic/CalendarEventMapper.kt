@@ -67,15 +67,20 @@ object CalendarEventMapper {
             }
         }
 
+        // Strip any existing deep-link to avoid doubling on re-sync
+        val rawDescription = task.description ?: ""
+        val strippedDescription = rawDescription
+            .substringBefore(CalendarSyncEvent.deepLink(task.id))
+            .trimEnd()
         val description = buildString {
-            if (!task.description.isNullOrBlank()) {
-                append(task.description)
+            if (strippedDescription.isNotBlank()) {
+                append(strippedDescription)
                 append("\n\n")
             }
             append(CalendarSyncEvent.deepLink(task.id))
         }
 
-        return CalendarSyncEvent(
+        val event = CalendarSyncEvent(
             taskId = task.id,
             calendarId = targetCalendarId,
             eventId = existingEventId,
@@ -87,6 +92,7 @@ object CalendarEventMapper {
             rrule = rrule,
             color = task.accentColor,
         )
+        return event.copy(checksum = event.checksum())
     }
 
     private fun todayInSystemZone(tz: TimeZone): LocalDate {

@@ -44,4 +44,13 @@ interface CalendarSyncRepository {
 
     /** Updates the current status. */
     suspend fun setStatus(status: CalendarSyncStatus)
+
+    /**
+     * The package name of the target calendar app (e.g. "com.google.android.calendar").
+     * Null means use the system default calendar provider.
+     */
+    fun observeTargetAppPackage(): Flow<String?>
+
+    /** Sets the target calendar app package. */
+    suspend fun setTargetAppPackage(packageName: String?)
 }

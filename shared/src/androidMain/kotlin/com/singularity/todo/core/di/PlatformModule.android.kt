@@ -109,9 +109,20 @@ actual fun platformModule(): Module = module {
         com.singularity.todo.feature.calendar_sync.data.CalendarSyncSettingsRepository(get(qualifier = named("calendar_sync")))
     }
 
-    // Android calendar provider (ContentResolver-backed)
+    // Calendar app picker — queries PackageManager for installed calendar apps
+    single<com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries> {
+        com.singularity.todo.feature.calendar_sync.data.AndroidCalendarAppQueries(get())
+    }
+
+    // Android calendar provider (ContentResolver-backed).
+    // accountNameProvider is a lambda so it re-samples scopedUserId on every call (profile-switch safe).
+    // syncRepo is read at each operation to get the current target app package.
     single<com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort> {
-        com.singularity.todo.feature.calendar_sync.data.AndroidCalendarProvider(get(), get<com.singularity.todo.feature.profile.ProfileAwareCurrentUser>().scopedUserId.value.value)
+        com.singularity.todo.feature.calendar_sync.data.AndroidCalendarProvider(
+            context = get(),
+            accountNameProvider = { get<com.singularity.todo.feature.profile.ProfileAwareCurrentUser>().scopedUserId.value.value },
+            syncRepo = get(),
+        )
     }
 
     // WorkManager scheduler for calendar sync

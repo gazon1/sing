@@ -1,5 +1,6 @@
 package com.singularity.todo.core.database
 
+import androidx.room3.RoomDatabase
 import androidx.room3.migration.AutoMigrationSpec
 
 /**
@@ -112,7 +113,7 @@ class Migration14To15 : AutoMigrationSpec
 class Migration15To16 : AutoMigrationSpec
 
 /**
- * Migration from v16 to v17 — adds `calendar_sync_task_map` table.
+ * Migration from v16 to v17 — adds `calendar_sync_task_map` table with `checksum` column.
  *
  * Stores the mapping from local task IDs to system-calendar event IDs,
  * enabling the sync worker to update/delete existing events rather than
@@ -120,6 +121,10 @@ class Migration15To16 : AutoMigrationSpec
  *
  * Tables added:
  * - `calendar_sync_task_map(task_id TEXT PRIMARY KEY, calendar_id TEXT,
- *                            event_id INTEGER, synced_at INTEGER)`
+ *                            event_id INTEGER, synced_at INTEGER, checksum INTEGER)`
+ *
+ * Room 3.0 auto-migration detects the new `checksum` field in the entity and
+ * generates `ALTER TABLE calendar_sync_task_map ADD COLUMN checksum INTEGER NOT NULL DEFAULT 0`
+ * automatically. No custom SQL is needed.
  */
 class Migration16To17 : AutoMigrationSpec

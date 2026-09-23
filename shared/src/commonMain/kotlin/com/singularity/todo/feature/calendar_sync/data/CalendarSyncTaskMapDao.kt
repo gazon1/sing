@@ -22,6 +22,8 @@ data class CalendarSyncTaskMapEntity(
     @ColumnInfo("calendar_id") val calendarId: String,
     @ColumnInfo("event_id") val eventId: Long,
     @ColumnInfo("synced_at") val syncedAt: Long,
+    /** Stable hash of the event fields at sync time. Used by [SyncDiffMerge] to skip re-writes. */
+    @ColumnInfo("checksum") val checksum: Int = 0,
 )
 
 /**
@@ -41,6 +43,10 @@ interface CalendarSyncTaskMapDao {
     /** Get the event ID for a specific task, if any. */
     @Query("SELECT event_id FROM calendar_sync_task_map WHERE task_id = :taskId")
     suspend fun getEventId(taskId: String): Long?
+
+    /** Get the full mapping entity for a specific task, if any. */
+    @Query("SELECT * FROM calendar_sync_task_map WHERE task_id = :taskId")
+    suspend fun getByTaskId(taskId: String): CalendarSyncTaskMapEntity?
 
     /** Insert or replace a mapping. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)

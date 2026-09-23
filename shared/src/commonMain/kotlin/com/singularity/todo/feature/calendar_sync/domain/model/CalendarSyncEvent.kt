@@ -30,6 +30,12 @@ data class CalendarSyncEvent(
     val allDay: Boolean,
     val rrule: String?,
     val color: Long?,
+    /**
+     * Stable hash of the event fields used by [SyncDiffMerge] to detect unchanged events.
+     * Computed by [com.singularity.todo.feature.calendar_sync.domain.logic.CalendarEventMapper]
+     * when the event is first mapped.
+     */
+    val checksum: Int = 0,
 ) {
     companion object {
         const val DEEP_LINK_SCHEME = "singularity"

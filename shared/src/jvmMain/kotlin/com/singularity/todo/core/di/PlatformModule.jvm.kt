@@ -99,4 +99,8 @@ actual fun platformModule(): Module = module {
     single<com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler> {
         com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler()
     }
+
+    single<com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries> {
+        com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries()
+    }
 }

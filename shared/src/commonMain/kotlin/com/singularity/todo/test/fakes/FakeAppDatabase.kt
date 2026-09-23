@@ -680,6 +680,9 @@ private class FakeCalendarSyncTaskMapDao(
     override suspend fun getEventId(taskId: String): Long? =
         store.value[taskId]?.eventId
 
+    override suspend fun getByTaskId(taskId: String): CalendarSyncTaskMapEntity? =
+        store.value[taskId]
+
     override suspend fun upsert(entity: CalendarSyncTaskMapEntity) {
         store.update { it + (entity.taskId to entity) }
     }

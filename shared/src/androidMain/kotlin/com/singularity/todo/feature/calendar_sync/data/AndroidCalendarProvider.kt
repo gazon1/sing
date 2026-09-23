@@ -7,7 +7,9 @@ import android.content.Context
 import android.provider.CalendarContract
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
+import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 
 /**
@@ -17,17 +19,25 @@ import kotlinx.coroutines.withContext
  * Uses CalendarContract.Events as the URI target.
  *
  * @param context Android context (typically ApplicationContext).
- * @param accountName The account name to scope events to (userId from ProfileAwareCurrentUser).
- *                    Passed separately because CalendarContract doesn't expose the account
- *                    in the query results without a specific projection.
+ * @param accountNameProvider A provider that returns the current account name (userId from
+ *                    ProfileAwareCurrentUser). Called on every operation so that profile
+ *                    switches are reflected without recreating the provider.
+ * @param syncRepo Repository used to resolve the current target app package on each operation.
+ *                    Passed directly so this class doesn't need to depend on a platform-specific
+ *                    provider type; it reads the Flow at call time.
  */
 class AndroidCalendarProvider(
     private val context: Context,
-    private val accountName: String,
+    private val accountNameProvider: () -> String,
+    private val syncRepo: CalendarSyncRepository,
 ) : CalendarProviderPort {
 
     private val contentResolver: ContentResolver
         get() = context.contentResolver
+
+    /** Lazily resolves the target app package from settings. null = use system default. */
+    private suspend fun resolveAppPackage(): String? =
+        syncRepo.observeTargetAppPackage().firstOrNull()
 
     override suspend fun getAvailableCalendars(): Result<Map<String, String>> =
         withContext(Dispatchers.IO) {
@@ -56,7 +66,8 @@ class AndroidCalendarProvider(
     override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val values = toContentValues(event, accountName)
+                val appPkg = resolveAppPackage()
+                val values = toContentValues(event, accountNameProvider(), appPkg)
                 val uri = contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
                     ?: throw IllegalStateException("Insert returned null URI")
                 val eventId = ContentUris.parseId(uri)
@@ -67,7 +78,8 @@ class AndroidCalendarProvider(
     override suspend fun updateEvent(eventId: Long, event: CalendarSyncEvent): Result<Long> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val values = toContentValues(event, accountName)
+                val appPkg = resolveAppPackage()
+                val values = toContentValues(event, accountNameProvider(), appPkg)
                 val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
                 val rows = contentResolver.update(uri, values, null, null)
                 if (rows == 0) {
@@ -105,13 +117,12 @@ class AndroidCalendarProvider(
                 if (calendarId != null) {
                     append(" AND ${CalendarContract.Events.CALENDAR_ID} = ?")
                 }
-                // Only our own events (tagged with our account)
                 append(" AND ${CalendarContract.Events.ACCOUNT_NAME} = ?")
             }
             val args = if (calendarId != null) {
-                arrayOf(fromMs.toString(), toMs.toString(), calendarId, accountName)
+                arrayOf(fromMs.toString(), toMs.toString(), calendarId, accountNameProvider())
             } else {
-                arrayOf(fromMs.toString(), toMs.toString(), accountName)
+                arrayOf(fromMs.toString(), toMs.toString(), accountNameProvider())
             }
 
             val result = mutableMapOf<String, Long>()
@@ -127,7 +138,6 @@ class AndroidCalendarProvider(
                 while (cursor.moveToNext()) {
                     val eventId = cursor.getLong(idIdx)
                     val desc = cursor.getString(descIdx) ?: ""
-                    // Extract taskId from deep-link in description
                     val taskId = extractTaskId(desc)
                     if (taskId != null) {
                         result[taskId] = eventId
@@ -145,7 +155,11 @@ class AndroidCalendarProvider(
         return description.substring(idx + marker.length).takeWhile { it.isLetterOrDigit() || it == '-' }
     }
 
-    private fun toContentValues(syncEvent: CalendarSyncEvent, accountName: String): ContentValues {
+    private fun toContentValues(
+        syncEvent: CalendarSyncEvent,
+        accountName: String,
+        appPackage: String?,
+    ): ContentValues {
         val tz = java.util.TimeZone.getDefault().id
         val cv = ContentValues()
         cv.put(CalendarContract.Events.CALENDAR_ID, syncEvent.calendarId.toLongOrNull() ?: 1L)
@@ -163,6 +177,10 @@ class AndroidCalendarProvider(
         }
         cv.put(CalendarContract.Events.ACCOUNT_NAME, accountName)
         cv.put(CalendarContract.Events.ACCOUNT_TYPE, "com.singularity.todo")
+        // When appPackage is set, tag the event so it can be scoped to that app on queries
+        if (appPackage != null) {
+            cv.put(CalendarContract.Events.CALENDAR_DISPLAY_NAME, appPackage)
+        }
         return cv
     }
 }

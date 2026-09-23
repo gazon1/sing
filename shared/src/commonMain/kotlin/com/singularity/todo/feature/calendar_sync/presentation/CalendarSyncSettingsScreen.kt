@@ -22,10 +22,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
-import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SetEnabled
-import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SetPermission
+import com.singularity.todo.feature.calendar_sync.permission.rememberCalendarPermissionRequester
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.LoadCalendars
+import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SelectAppPackage
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SelectCalendar
+import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SetEnabled
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SyncNow
 import org.koin.compose.koinInject
 import java.text.SimpleDateFormat
@@ -36,10 +37,11 @@ import java.util.Locale
  * Calendar sync settings screen.
  *
  * Allows the user to:
- * 1. Enable/disable calendar sync
- * 2. Grant READ/WRITE_CALENDAR permissions (on first enable)
- * 3. Select which Android calendar to sync into
- * 4. Trigger a manual sync
+ * 1. Grant READ/WRITE_CALENDAR permissions (on first visit)
+ * 2. Enable/disable calendar sync
+ * 3. Select which calendar app to sync into (Google Calendar, Samsung Calendar, etc.)
+ * 4. Select which calendar within that app
+ * 5. Trigger a manual sync
  *
  * Integrated into the Settings tab via [com.singularity.todo.feature.settings.SettingsScreen].
  */
@@ -49,6 +51,8 @@ fun CalendarSyncSettingsScreen(
 ) {
     val viewModel: CalendarSyncViewModel = koinInject()
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    val permissionRequester = rememberCalendarPermissionRequester()
 
     LaunchedEffect(Unit) {
         viewModel.processIntent(LoadCalendars)
@@ -61,9 +65,9 @@ fun CalendarSyncSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // ─── Permission gate ─────────────────────────────────────────────
-        if (!state.hasPermission) {
+        if (!permissionRequester.hasPermissions) {
             PermissionGate(
-                onPermissionGranted = { viewModel.processIntent(SetPermission(true)) },
+                onRequestPermission = { permissionRequester.requestPermissions() },
             )
             return@Column
         }
@@ -78,6 +82,15 @@ fun CalendarSyncSettingsScreen(
             )
         }
 
+        // ─── Calendar app picker ───────────────────────────────────────────
+        if (state.isEnabled) {
+            CalendarAppPicker(
+                selectedAppPackage = state.selectedAppPackage,
+                availableApps = state.availableApps,
+                onSelectApp = { pkg -> viewModel.processIntent(SelectAppPackage(pkg)) },
+            )
+        }
+
         // ─── Calendar selection ──────────────────────────────────────────
         if (state.isEnabled) {
             SettingsSection(title = "Target Calendar") {
@@ -85,6 +98,13 @@ fun CalendarSyncSettingsScreen(
                     Text(
                         text = "Loading calendars...",
                         style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                } else if (state.availableCalendars.isEmpty()) {
+                    Text(
+                        text = "No calendars available",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(vertical = 8.dp),
                     )
                 } else {
@@ -97,8 +117,10 @@ fun CalendarSyncSettingsScreen(
                     }
                 }
             }
+        }
 
-            // ─── Status ───────────────────────────────────────────────────
+        // ─── Status ───────────────────────────────────────────────────
+        if (state.isEnabled) {
             SettingsSection(title = "Status") {
                 val statusText = when (val s = state.status) {
                     is CalendarSyncStatus.Disabled -> "Disabled"
@@ -140,7 +162,7 @@ fun CalendarSyncSettingsScreen(
 
 @Composable
 private fun PermissionGate(
-    onPermissionGranted: () -> Unit,
+    onRequestPermission: () -> Unit,
 ) {
     SettingsSection(title = "Permissions Required") {
         Text(
@@ -148,7 +170,7 @@ private fun PermissionGate(
             style = MaterialTheme.typography.bodyMedium,
         )
         Button(
-            onClick = onPermissionGranted,
+            onClick = onRequestPermission,
             modifier = Modifier.padding(top = 8.dp),
         ) {
             Text("Grant Permission")

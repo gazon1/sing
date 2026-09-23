@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.map
  * Stores:
  * - `calendar_sync_enabled` (bool) — whether sync is turned on
  * - `calendar_sync_target_id` (string) — Android calendar ID to sync into
+ * - `calendar_sync_app_pkg` (string) — target calendar app package (nullable; null = default)
  * - `calendar_sync_last_at` (long) — epoch millis of last successful sync
  * - `calendar_sync_status` (string) — serialized [CalendarSyncStatus]
  */
@@ -27,6 +28,7 @@ class CalendarSyncSettingsRepository(
     companion object {
         val CALENDAR_SYNC_ENABLED = booleanPreferencesKey("calendar_sync_enabled")
         val CALENDAR_SYNC_TARGET_ID = stringPreferencesKey("calendar_sync_target_id")
+        val CALENDAR_SYNC_APP_PKG = stringPreferencesKey("calendar_sync_app_pkg")
         val CALENDAR_SYNC_LAST_AT = longPreferencesKey("calendar_sync_last_at")
         val CALENDAR_SYNC_STATUS = stringPreferencesKey("calendar_sync_status")
     }
@@ -43,6 +45,19 @@ class CalendarSyncSettingsRepository(
 
     override suspend fun setTargetCalendarId(calendarId: String) {
         dataStore.edit { it[CALENDAR_SYNC_TARGET_ID] = calendarId }
+    }
+
+    override fun observeTargetAppPackage(): Flow<String?> =
+        dataStore.data.map { it[CALENDAR_SYNC_APP_PKG] }
+
+    override suspend fun setTargetAppPackage(packageName: String?) {
+        dataStore.edit { prefs ->
+            if (packageName != null) {
+                prefs[CALENDAR_SYNC_APP_PKG] = packageName
+            } else {
+                prefs.remove(CALENDAR_SYNC_APP_PKG)
+            }
+        }
     }
 
     override fun observeLastSyncedAt(): Flow<Long?> =
