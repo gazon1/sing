@@ -100,11 +100,6 @@ internal class SyncEngine(
         _handlers.value = _handlers.value + (docType to apply)
     }
 
-    private fun Throwable.toAppError(): AppError = when {
-        this is AppError -> this
-        else -> AppError.Unknown(this)
-    }
-
     /**
      * Enqueues an entity change for sync.
      */
