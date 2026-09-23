@@ -648,6 +648,9 @@ private class FakeReminderDao(
     override fun watchByIdForUser(id: String, userId: String): Flow<com.singularity.todo.core.database.TaskReminderEntity?> =
         store.map { it[userId to id] }
 
+    override fun watchRecurringTaskIds(userId: String): Flow<List<String>> =
+        store.map { map -> map.values.filter { r -> r.userId == userId && r.recurringPattern != null }.map { it.taskId }.distinct() }
+
     override suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long) {
         store.update { current ->
             val key = userId to id

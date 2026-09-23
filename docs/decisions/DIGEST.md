@@ -115,6 +115,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - CI may later call `just tests::check` instead of `./check.sh` — the behavior is identical.
 - Cannot filter by `name` in SQL without parsing JSON — acceptable; user-facing
 - Code migration to Koin Annotations is explicitly **deferred** — see ADR `2026-09-22-koin-annotations-4x-skill-correction` for the analysis.
+- Compose UI for setting these new fields is not yet built — that's MR-3's scope.
 - DI bindings for canonical types: `singleOf(::Class)` for simple ctors (≤3 args, singleton scope), `factoryOf(::Class)` for per-injection scope. No `bind<Interface>()`.
 - DI-граф упрощён: 5 factory → 1
 - Dead Nav2 code removed from Android
@@ -194,6 +195,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR.
 - `Clock` injectable for deterministic tests via `runTest { advanceTimeBy(...) }`.
 - `ContentStateMapper` — добавлен object с двумя методами
+- `CreateTaskFromDraftUseCase` now takes a dependency on `DueDateOption` resolution
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно.
 - `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope`
 - `FakeProfileRepository` implements both new generic methods and deprecated legacy overloads for test compatibility.
@@ -205,6 +207,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `ProfileAwareCurrentUser` moves **inside** repositories; the DI graph registers
 - `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`.
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates
+- `TaskDraft` serialization format changes — old drafts opened after upgrade will
 - `TaskEditorDeps.clock` is also dead (the file's own KDoc flags it for deletion alongside `TaskEditorViewModel`)
 - `TaskEditorReducerTest` must add test cases for new intents.
 - `TaskEditorViewModelTest` and `TaskEditorIntegrationTest` must add edit-mode scenarios.
@@ -223,6 +226,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `expect object Clock` rename to `PlatformClock` — deferred until a broader cleanup window
 - `flatMapLatest` re-evaluates all tasks on every date change (necessary trade-off;
 - `getOrThrow()` removed from 5 VM sites; replaced with `fireAndForget` + channel emit.
+- `isActive` is a behavioral change from previous inline logic — tested thoroughly.
 - `isRecurring` is always `false` in `CalendarTaskUi` — requires per-task
 - `just` must be installed (`just 1.57.0` is present in this environment).
 - `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
@@ -1000,6 +1004,7 @@ _1 entries need attention._
 - `2026-09-22-reminder-scheduler-critical-fixes` — reminders, scheduler, concurrency, coroutines, di
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — repository, currentuser, userid, draft-store, use-case, koin
 - `2026-09-22-task-rich-dates` — _untagged_
+- `2026-09-22-task-ui-rich-dates` — _untagged_
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
@@ -1158,6 +1163,7 @@ _1 entries need attention._
 - `2026-09-22-reminder-scheduler-critical-fixes` — _(no title)_
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — Repository stamps ambient userId on create; drop userId params from input classes and use cases
 - `2026-09-22-task-rich-dates` — _(no title)_
+- `2026-09-22-task-ui-rich-dates` — _(no title)_
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads

@@ -28,6 +28,9 @@ interface ReminderRepository {
 
     // ─── Domain methods ───────────────────────────────────────────────────────
 
+    /** IDs of tasks that have at least one recurring reminder. */
+    fun observeRecurringTaskIds(): Flow<Set<TaskId>>
+
     /** Reminders for a specific task. */
     fun watchByTask(taskId: TaskId): Flow<List<Reminder>>
 

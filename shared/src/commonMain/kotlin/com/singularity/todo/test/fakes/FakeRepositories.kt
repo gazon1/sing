@@ -604,6 +604,15 @@ class FakeReminderRepository(
 
     // ─── Domain methods ─────────────────────────────────────────────────────
 
+    override fun observeRecurringTaskIds(): Flow<Set<TaskId>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { map ->
+                map.values
+                    .filter { it.userId == uid && it.recurringPattern != null }
+                    .mapTo(mutableSetOf()) { it.taskId }
+            }
+        }
+
     override fun watchByTask(taskId: TaskId): Flow<List<Reminder>> =
         currentUser.observeForCurrentUser { uid ->
             reminders.map { map -> map.values.filter { it.taskId == taskId && it.userId == uid }.sortedBy { it.fireAt } }
