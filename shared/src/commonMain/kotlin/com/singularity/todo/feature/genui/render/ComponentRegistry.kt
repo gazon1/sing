@@ -2,7 +2,10 @@ package com.singularity.todo.feature.genui.render
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.genui.catalog.UiNode
+
+private val logger = Logger.withTag("ComponentRegistry")
 
 /**
  * A registry mapping [UiNode] `kind` strings to their Compose render functions.
@@ -29,7 +32,7 @@ class ComponentRegistry {
 
     /**
      * Renders [node] using the registered builder for its kind.
-     * Falls back to a simple error text if the kind is unknown.
+     * Silently skips unknown kinds (forward compat — server may emit new node types).
      *
      * [modifier] is forwarded to every registered builder so the caller can
      * position the rendered subtree without each builder having to thread it
@@ -42,11 +45,9 @@ class ComponentRegistry {
         if (builder != null) {
             builder(node, ctx, modifier)
         } else {
-            androidx.compose.material3.Text(
-                text = "[Unknown: $kind]",
-                color = androidx.compose.ui.graphics.Color.Red,
-                modifier = modifier,
-            )
+            // Silent skip — forward compat: unknown node kinds are skipped.
+            // The parser already skips unknown top-level operations (A2uiParser.parseLine).
+            logger.w { "Unknown node kind '$kind' — skipping render" }
         }
     }
 
