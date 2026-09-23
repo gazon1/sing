@@ -93,9 +93,9 @@ When `appVersion() < minSupportedVersion` received from `RemoteConfigPort.observ
 | Backup manifest | `BackupFormat.SCHEMA_VERSION = 1` | `BackupDomain.validateManifest()` | reject older, accept newer (forward-compat via `ignoreUnknownKeys`) |
 | Remote config | `RemoteConfigSnapshot.CURRENT_SCHEMA_VERSION = 1` | `RemoteConfigSnapshot.validate()` | `Result.failure` |
 
-### Rename Supabase credentials store
+### Rename Supabase credentials store (deferred to a cleanup MR)
 
-`core/sync/RemoteConfig.kt` → `core/sync/SupabaseEndpointConfig.kt`. Entity, DAO, repository, and DI binding are renamed accordingly. This does not change behaviour.
+The existing `core/sync/RemoteConfigRepository` / `RemoteConfigEntity` / `RemoteConfigDao` names are a misnomer — they store Supabase endpoint credentials, not remote config. This rename (to `SupabaseEndpointRepository` / `SupabaseEndpointEntity` / `SupabaseEndpointDao`) is a pure rename with no behaviour change and is deferred to a low-priority cleanup MR.
 
 ### Maintenance banner
 
@@ -115,6 +115,7 @@ Silent drop + warn log (not crash, not silent accept) for old protocol versions 
 
 - `appVersion()` is the **only** place that reads the running app's version. All other code — logging, backup manifest, About dialog — uses it. Version literals `"0.1.0"` must not be added anywhere else.
 - `RemoteConfigPort.snapshot()` is the **only** write path to the local Room cache. No other code writes `remote_config_cache` directly.
+- `RemoteConfigPort` is a stub in MR-2: `SyncApiClient.getRemoteConfig()` returns null, so `RemoteConfigRepositoryImpl` always falls back to defaults. Full backend implementation is deferred.
 - `RemoteConfigSnapshot.validate()` is called **every time** a snapshot is deserialized from cache or network. Never skip validation.
 - `SyncBootstrapper`, `A2uiParser`, and `BackupDomain` use **consistent** error-severity: `warn` for version mismatch, `error` for schema parse failure. This is reflected in log output and sync status.
 - `core/sync/RemoteConfig` (Supabase credentials) is never to be confused with `RemoteConfigPort` (runtime policy). The former is a repository; the latter is a remote-gateway port.

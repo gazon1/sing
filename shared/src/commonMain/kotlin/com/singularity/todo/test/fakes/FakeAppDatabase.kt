@@ -24,6 +24,8 @@ import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskTagCrossRef
+import com.singularity.todo.core.config.RemoteConfigCacheDao
+import com.singularity.todo.core.config.RemoteConfigCacheEntity
 import com.singularity.todo.core.sync.RemoteConfigDao
 import com.singularity.todo.core.sync.RemoteConfigEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
@@ -63,6 +65,7 @@ class FakeAppDatabase : AppDatabase() {
     private val _profiles = MutableStateFlow<Map<String, ProfileEntity>>(emptyMap())
     private val _agendaViews = MutableStateFlow<Map<String, AgendaViewEntity>>(emptyMap())
     private val _remoteConfigs = MutableStateFlow<Map<String, RemoteConfigEntity>>(emptyMap())
+    private val _remoteConfigCache = MutableStateFlow<RemoteConfigCacheEntity?>(null)
     private val _calendarSyncTaskMap = MutableStateFlow<Map<String, CalendarSyncTaskMapEntity>>(emptyMap())
     private val _savedSearches = MutableStateFlow<Map<String, SavedSearchEntity>>(emptyMap())
 
@@ -78,6 +81,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun profileDao(): ProfileDao = FakeProfileDao(_profiles)
     override fun agendaViewDao(): AgendaViewDao = FakeAgendaViewDao(_agendaViews)
     override fun remoteConfigDao(): RemoteConfigDao = FakeRemoteConfigDao(_remoteConfigs)
+    override fun remoteConfigCacheDao(): RemoteConfigCacheDao = FakeRemoteConfigCacheDao(_remoteConfigCache)
     override fun calendarSyncTaskMapDao(): CalendarSyncTaskMapDao = FakeCalendarSyncTaskMapDao(_calendarSyncTaskMap)
     override fun savedSearchDao(): SavedSearchDao = FakeSavedSearchDao(_savedSearches)
 
@@ -96,6 +100,7 @@ class FakeAppDatabase : AppDatabase() {
         _profiles.value = emptyMap()
         _agendaViews.value = emptyMap()
         _remoteConfigs.value = emptyMap()
+        _remoteConfigCache.value = null
         _calendarSyncTaskMap.value = emptyMap()
         _savedSearches.value = emptyMap()
     }
@@ -879,6 +884,25 @@ private class FakeRemoteConfigDao(
 
     override suspend fun deleteDefault() {
         store.update { it - "default" }
+    }
+}
+
+// ─── RemoteConfigCacheDao ─────────────────────────────────────────────────────
+
+private class FakeRemoteConfigCacheDao(
+    private val store: MutableStateFlow<RemoteConfigCacheEntity?>,
+) : RemoteConfigCacheDao {
+
+    override fun watchDefault(): Flow<RemoteConfigCacheEntity?> = store
+
+    override suspend fun getDefault(): RemoteConfigCacheEntity? = store.value
+
+    override suspend fun upsert(entity: RemoteConfigCacheEntity) {
+        store.value = entity
+    }
+
+    override suspend fun deleteDefault() {
+        store.value = null
     }
 }
 

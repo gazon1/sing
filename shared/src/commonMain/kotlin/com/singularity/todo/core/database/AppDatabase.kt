@@ -7,6 +7,8 @@ import androidx.room3.RoomDatabase
 import com.singularity.todo.core.attachments.AttachmentConverters
 import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentEntity
+import com.singularity.todo.core.config.RemoteConfigCacheDao
+import com.singularity.todo.core.config.RemoteConfigCacheEntity
 import com.singularity.todo.core.sync.RemoteConfigDao
 import com.singularity.todo.core.sync.RemoteConfigEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
@@ -36,8 +38,9 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         AgendaViewEntity::class,
         CalendarSyncTaskMapEntity::class,
         SavedSearchEntity::class,
+        RemoteConfigCacheEntity::class,
     ],
-    version = 18,
+    version = 19,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -52,6 +55,7 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         AutoMigration(from = 15, to = 16, spec = Migration15To16::class),
         AutoMigration(from = 16, to = 17, spec = Migration16To17::class),
         AutoMigration(from = 17, to = 18, spec = Migration17To18::class),
+        AutoMigration(from = 18, to = 19, spec = Migration18To19::class),
     ],
     exportSchema = true,
 )
@@ -63,6 +67,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun syncOutboxDao(): SyncOutboxDao
     abstract fun remoteConfigDao(): RemoteConfigDao
+    abstract fun remoteConfigCacheDao(): RemoteConfigCacheDao
     abstract fun attachmentDao(): AttachmentDao
     abstract fun reminderDao(): ReminderDao
     abstract fun checklistDao(): ChecklistDao

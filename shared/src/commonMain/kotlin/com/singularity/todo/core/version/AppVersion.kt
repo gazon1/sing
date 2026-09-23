@@ -1,5 +1,7 @@
 package com.singularity.todo.core.version
 
+import kotlinx.serialization.Serializable
+
 /**
  * Canonical app version for the running process.
  *
@@ -9,6 +11,7 @@ package com.singularity.todo.core.version
  * Android: reads BuildConfig.VERSION_NAME / VERSION_CODE from androidApp.
  * JVM/Desktop: reads -Dsingularity.version system property; falls back to "0.0.0".
  */
+@Serializable
 data class AppVersion(
     val name: String,
     val code: Int,
