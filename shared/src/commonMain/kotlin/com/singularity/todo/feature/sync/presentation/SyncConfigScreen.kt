@@ -17,6 +17,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,10 +33,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.sync.ConnectionTestResult
 import com.singularity.todo.core.sync.SyncEngineStatus
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private val SNAP_VALUES = listOf(15, 30, 60, 120)
 
 /**
  * Sync configuration screen.
@@ -43,18 +49,38 @@ import java.util.Locale
  * - Auto-sync toggle
  * - Sync interval slider (15 / 30 / 60 / 120 minutes)
  * - Last successful sync timestamp
- * - Manual "Sync now" button
+ * - Manual "Sync now" button + "Test connection" button
  *
- * Error messages are shown inline as a dismissible banner.
- * Callers should also collect [SyncViewModel.effects] for snackbar delivery.
+ * Error messages from [SyncState.errorMessage] are surfaced via snackbar.
+ * Callers host the [SnackbarHost] — this composable does not manage its own scaffold.
  */
 @Composable
 fun SyncConfigScreen(
     viewModel: SyncViewModel,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val state by viewModel.state.collectAsState()
     val isIdle = state.status is SyncEngineStatus.Idle || state.status is SyncEngineStatus.NoConnection
+
+    // Collect errorMessage as a one-shot snackbar.
+    LaunchedEffect(state.errorMessage) {
+        state.errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.process(SyncIntent.AcknowledgeError)
+        }
+    }
+
+    // Collect connection test result as a one-shot snackbar.
+    LaunchedEffect(state.connectionTestResult) {
+        val result = state.connectionTestResult ?: return@LaunchedEffect
+        val message = when (result) {
+            is ConnectionTestResult.Success -> "Connection OK"
+            is ConnectionTestResult.Failure -> "Connection failed: ${result.error.message ?: "Unknown error"}"
+        }
+        snackbarHostState.showSnackbar(message)
+        viewModel.process(SyncIntent.AcknowledgeError)
+    }
 
     Column(
         modifier = modifier
@@ -128,27 +154,27 @@ fun SyncConfigScreen(
                     value = sliderValue,
                     onValueChange = { sliderValue = it },
                     onValueChangeFinished = {
-                        viewModel.process(SyncIntent.SetInterval(sliderValue.toInt()))
+                        // Explicit snap to nearest discrete value.
+                        val snapped = SNAP_VALUES.minByOrNull { kotlin.math.abs(it - sliderValue.toInt()) } ?: 30
+                        viewModel.process(SyncIntent.SetInterval(snapped))
                     },
                     valueRange = 15f..120f,
-                    steps = 3, // 15, 30, 60, 120
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("15 min", style = MaterialTheme.typography.labelSmall)
-                    Text("30 min", style = MaterialTheme.typography.labelSmall)
-                    Text("60 min", style = MaterialTheme.typography.labelSmall)
-                    Text("120 min", style = MaterialTheme.typography.labelSmall)
+                    SNAP_VALUES.forEach { label ->
+                        Text("$label min", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ─── Manual sync button ────────────────────────────────────────────
+        // ─── Manual sync + Test connection buttons ─────────────────────────
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -170,14 +196,22 @@ fun SyncConfigScreen(
             }
 
             OutlinedButton(
-                onClick = { /* TODO: test connection */ },
+                onClick = { viewModel.process(SyncIntent.TestConnection) },
+                enabled = !state.isTestingConnection,
                 modifier = Modifier.weight(1f),
             ) {
+                if (state.isTestingConnection) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(16.dp).width(16.dp),
+                        strokeWidth = 2.dp,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
                 Text("Test connection")
             }
         }
 
-        // ─── Error banner ──────────────────────────────────────────────────
+        // ─── Error banner (backup for callers not using snackbar) ──────────
 
         if (state.errorMessage != null) {
             Text(
@@ -187,7 +221,7 @@ fun SyncConfigScreen(
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
             )
-            OutlinedButton(onClick = { viewModel.process(SyncIntent.AcknowledgeError(state.errorMessage!!.let { com.singularity.todo.core.error.AppError.Unknown(IllegalStateException(it)) })) }) {
+            OutlinedButton(onClick = { viewModel.process(SyncIntent.AcknowledgeError) }) {
                 Text("Dismiss")
             }
         }

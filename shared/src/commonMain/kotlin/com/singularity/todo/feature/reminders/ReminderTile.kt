@@ -13,6 +13,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -27,7 +28,7 @@ import java.util.Locale
  */
 @Composable
 fun ReminderTile(reminder: Reminder, onDelete: () -> Unit, modifier: Modifier = Modifier) {
-    val dateFormat = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
+    val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
     val fireTime = dateFormat.format(Date(reminder.fireAt))
     val offsetLabel = when {
         reminder.offsetMinutes == 0 -> "At due time"

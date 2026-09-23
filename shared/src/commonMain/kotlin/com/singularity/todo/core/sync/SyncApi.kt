@@ -6,6 +6,8 @@ package com.singularity.todo.core.sync
 interface SyncApiClient {
     suspend fun batchPush(request: BatchPushRequest): BatchPushResponse
     suspend fun getEventsSince(userId: String, sinceLsn: Long, limit: Int = 50): List<SyncEvent>
+    /** Verifies connectivity to the sync endpoint. Returns success if reachable. */
+    suspend fun testConnection(userId: String): Result<Unit>
 }
 
 /**
@@ -21,5 +23,10 @@ class SupabaseSyncApiClient : SyncApiClient {
     override suspend fun getEventsSince(userId: String, sinceLsn: Long, limit: Int): List<SyncEvent> {
         // TODO: Implement with Supabase Edge Functions
         return emptyList()
+    }
+
+    override suspend fun testConnection(userId: String): Result<Unit> {
+        // TODO: Implement with Supabase Edge Functions
+        return Result.success(Unit)
     }
 }

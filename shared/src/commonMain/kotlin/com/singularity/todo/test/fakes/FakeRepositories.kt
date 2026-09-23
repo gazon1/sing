@@ -861,7 +861,8 @@ class FakeTagsRepository(
         store.state.map { list -> list.values.firstOrNull { it.id == id } }
 
     override suspend fun delete(id: TagId): Result<Unit> = runCatching {
-        store.remove(id.value)
+        val existing = store[id.value] ?: return@runCatching
+        store.upsert(existing.copy(deletedAt = kotlin.time.Instant.fromEpochMilliseconds(0)))
     }
 
     override suspend fun upsert(tag: com.singularity.todo.feature.tags.Tag): com.singularity.todo.feature.tags.Tag {

@@ -17,7 +17,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -94,8 +93,6 @@ class ProjectsViewModel(
         emit(ProjectsUiState.Error(cause.message ?: "Error"))
     }.stateIn(scope, sharingStarted(), ProjectsUiState.Loading)
 
-    private val _aiResult = MutableSharedFlow<String>()
-
     private val _events = Channel<ProjectsUiEvent>(Channel.BUFFERED)
     val events: kotlinx.coroutines.flow.Flow<ProjectsUiEvent> = _events.receiveAsFlow()
 
@@ -124,7 +121,6 @@ class ProjectsViewModel(
                 onFailure = { "Error: ${it.message ?: "Failed"}" },
             )
             ?: "AI not available on Android"
-        _aiResult.emit(result)
         _events.trySend(ProjectsUiEvent.ProjectReviewResult(result))
     }
 }

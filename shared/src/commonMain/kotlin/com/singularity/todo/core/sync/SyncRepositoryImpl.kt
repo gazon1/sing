@@ -1,6 +1,9 @@
 package com.singularity.todo.core.sync
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.auth.AuthRepository
+import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.error.AppError
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.time.Duration
 
@@ -16,12 +19,23 @@ internal class SyncRepositoryImpl(
     private val engine: SyncEngine,
     private val runner: SyncRunner,
     private val prefs: SyncPrefs,
+    private val api: SyncApiClient,
+    private val authRepository: AuthRepository,
     private val log: Logger = Logger.withTag("SyncRepository"),
 ) : SyncRepository {
 
     override val status: StateFlow<SyncEngineStatus> = runner.status
     override val lastPush: StateFlow<Result<PushSummary>?> = runner.lastPush
     override val lastPull: StateFlow<Result<PullSummary>?> = runner.lastPull
+
+    override suspend fun testConnection(): ConnectionTestResult {
+        val session = authRepository.currentSession.value as? Session.SignedIn
+            ?: return ConnectionTestResult.Failure(AppError.Validation("Not signed in"))
+        return api.testConnection(session.userId.value).fold(
+            onSuccess = { ConnectionTestResult.Success },
+            onFailure = { ConnectionTestResult.Failure(it as? AppError ?: AppError.Unknown(it)) },
+        )
+    }
 
     override suspend fun enqueue(entity: SyncableEntity): Result<Unit> {
         return engine.enqueue(entity)

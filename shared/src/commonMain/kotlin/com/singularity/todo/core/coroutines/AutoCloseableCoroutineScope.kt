@@ -1,7 +1,9 @@
 package com.singularity.todo.core.coroutines
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -34,6 +36,12 @@ import kotlin.coroutines.CoroutineContext
 class AutoCloseableCoroutineScope(
     override val coroutineContext: CoroutineContext,
 ) : AutoCloseable, CoroutineScope {
+
+    /**
+     * The [Job] of this scope. Exposed so tests can cancel only this scope's child jobs
+     * without cancelling the root [Job] of the surrounding [CoroutineScope].
+     */
+    val job: Job? = coroutineContext[Job]
 
     override fun close() {
         cancel()

@@ -41,6 +41,7 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel()) {
             val refreshing = state.let { it is ArchiveUiState.Content && it.refreshing }
             Button(
                 onClick = { viewModel.refresh() },
+                enabled = !refreshing,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 if (refreshing) {

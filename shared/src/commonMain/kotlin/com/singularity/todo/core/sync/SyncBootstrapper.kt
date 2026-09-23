@@ -2,6 +2,7 @@ package com.singularity.todo.core.sync
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.serialization.StableJson
+import kotlinx.serialization.serializer
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
@@ -37,28 +38,28 @@ internal class SyncBootstrapper(
     private fun registerHandlers() {
         engine.registerHandler(DocType.Task) { event ->
             handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
-                val task = StableJson.decodeFromString<Task>(data.toString())
+                val task = StableJson.decodeFromString(serializer<Task>(), data.toString())
                 taskRepo.upsert(task)
             }
         }
 
         engine.registerHandler(DocType.Note) { event ->
             handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
-                val note = StableJson.decodeFromString<Note>(data.toString())
+                val note = StableJson.decodeFromString(serializer<Note>(), data.toString())
                 noteRepo.upsert(note)
             }
         }
 
         engine.registerHandler(DocType.Project) { event ->
             handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
-                val project = StableJson.decodeFromString<Project>(data.toString())
+                val project = StableJson.decodeFromString(serializer<Project>(), data.toString())
                 projectRepo.upsert(project)
             }
         }
 
         engine.registerHandler(DocType.Tag) { event ->
             handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
-                val tag = StableJson.decodeFromString<Tag>(data.toString())
+                val tag = StableJson.decodeFromString(serializer<Tag>(), data.toString())
                 tagRepo.upsert(tag)
             }
         }
@@ -100,8 +101,22 @@ internal class SyncBootstrapper(
                 }
 
                 SyncEventType.DELETED -> {
-                    // Soft-delete is not yet wired for remote delete — Tier 4.
-                    log.d { "Pull event [${event.entityId}][DELETED][lsn=${event.serverLsn}]: soft-delete not implemented, skipping" }
+                    // Convert entityId String → typed ID at the boundary, then call repo.delete().
+                    // Soft-delete is applied when the entity supports it; hard-delete repos ignore it.
+                    val outcome: Result<Unit> = when (event.entityType) {
+                        DocType.Task -> taskRepo.delete(TaskId.fromString(event.entityId))
+                        DocType.Note -> noteRepo.delete(NoteId.fromString(event.entityId))
+                        DocType.Project -> projectRepo.delete(ProjectId.fromString(event.entityId))
+                        DocType.Tag -> tagRepo.delete(TagId.fromString(event.entityId))
+                    }
+                    outcome.fold(
+                        onSuccess = {
+                            log.d { "Pull event [${event.entityId}][DELETED][lsn=${event.serverLsn}]: deleted" }
+                        },
+                        onFailure = {
+                            log.e { "Pull event [${event.entityId}][DELETED][lsn=${event.serverLsn}]: delete failed — ${it.message}" }
+                        },
+                    )
                     ApplyOutcome.Applied
                 }
             }

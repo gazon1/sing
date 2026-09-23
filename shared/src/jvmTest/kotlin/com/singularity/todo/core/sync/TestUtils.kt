@@ -103,4 +103,6 @@ class FakeSyncApiClient(
         pullCalls.add(userId to sinceLsn)
         return pullEvents
     }
+
+    override suspend fun testConnection(userId: String): Result<Unit> = Result.success(Unit)
 }

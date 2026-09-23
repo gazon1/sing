@@ -1,6 +1,15 @@
 package com.singularity.todo.core.sync
 
+import com.singularity.todo.core.error.AppError
 import kotlinx.coroutines.flow.StateFlow
+
+/**
+ * Result of a connectivity test.
+ */
+sealed interface ConnectionTestResult {
+    data object Success : ConnectionTestResult
+    data class Failure(val error: AppError) : ConnectionTestResult
+}
 
 /**
  * Public facade for sync operations.
@@ -17,6 +26,11 @@ interface SyncRepository : AutoCloseable {
 
     /** Last pull result, or null before first pull. */
     val lastPull: StateFlow<Result<PullSummary>?>
+
+    /**
+     * Tests connectivity to the sync server.
+     */
+    suspend fun testConnection(): ConnectionTestResult
 
     /**
      * Enqueues [entity] for sync (writes to local outbox).

@@ -3,15 +3,13 @@ package com.singularity.todo.feature.sync.presentation
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.sync.ConnectionTestResult
 import com.singularity.todo.core.sync.SyncEngineStatus
 import com.singularity.todo.core.sync.SyncPrefs
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.sync.SyncTrigger
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -24,7 +22,8 @@ sealed interface SyncIntent {
     data object SyncNow : SyncIntent
     data class SetAutoSync(val enabled: Boolean) : SyncIntent
     data class SetInterval(val minutes: Int) : SyncIntent
-    data class AcknowledgeError(val error: AppError) : SyncIntent
+    data object AcknowledgeError : SyncIntent
+    data object TestConnection : SyncIntent
 }
 
 /**
@@ -37,22 +36,16 @@ data class SyncState(
     val lastSyncedAt: Long? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    val isTestingConnection: Boolean = false,
+    val connectionTestResult: ConnectionTestResult? = null,
 )
-
-/**
- * One-shot MVI Effect for sync screen.
- */
-sealed interface SyncEffect {
-    data class ShowError(val message: String) : SyncEffect
-    data object SyncCompleted : SyncEffect
-}
 
 /**
  * ViewModel for the sync settings / status screen.
  *
  * Architecture:
  * - [SyncState] exposes current status + settings snapshot
- * - [SyncEffect] is a one-shot event channel for snackbar/toast
+ * - Error messages are embedded in state ([SyncState.errorMessage]) — callers handle snackbar display
  * - [SyncIntent.process] handles all user actions
  *
  * @param scope CoroutineScope — injected by Koin (viewModel scope), NOT viewModelScope.
@@ -63,6 +56,8 @@ class SyncViewModel(
     private val prefs: SyncPrefs,
     private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
+    /** Exposed for tests — cancel to terminate infinite collectors before test scope cleanup. */
+    val vmScope: AutoCloseableCoroutineScope = scope
 
     init {
         addCloseable(scope)
@@ -70,9 +65,6 @@ class SyncViewModel(
 
     private val _state = MutableStateFlow(buildState())
     val state: StateFlow<SyncState> = _state.asStateFlow()
-
-    private val _effects = MutableSharedFlow<SyncEffect>(extraBufferCapacity = 4)
-    val effects: SharedFlow<SyncEffect> = _effects.asSharedFlow()
 
     /**
      * Debounce flag: suppress snackbar while a sync is in progress
@@ -99,11 +91,12 @@ class SyncViewModel(
                 if (!status.isRunning() && allowSnackbarOnFailure) {
                     val err = (status as? SyncEngineStatus.Failure)?.error
                     if (err != null) {
-                        _effects.emit(SyncEffect.ShowError(err.message ?: "Sync failed"))
-                    } else if (status is SyncEngineStatus.Idle && previous.isRunning()) {
-                        // Successful completion
-                        _effects.emit(SyncEffect.SyncCompleted)
+                        // Only set errorMessage if not already showing a connection-test result
+                        if (_state.value.connectionTestResult == null) {
+                            _state.update { it.copy(errorMessage = err.message ?: "Sync failed") }
+                        }
                     }
+                    // else: successful completion — no error to show
                 }
             }
         }
@@ -124,14 +117,23 @@ class SyncViewModel(
             is SyncIntent.SetAutoSync -> setAutoSync(intent.enabled)
             is SyncIntent.SetInterval -> setInterval(intent.minutes)
             is SyncIntent.AcknowledgeError -> acknowledgeError()
+            is SyncIntent.TestConnection -> testConnection()
         }
     }
 
     private fun syncNow() {
         scope.launch {
-            _state.update { it.copy(isLoading = true, errorMessage = null) }
+            // Debounce: ignore if already syncing
+            if (_state.value.isLoading || _state.value.status.isRunning()) return@launch
+            _state.update { it.copy(isLoading = true, errorMessage = null, connectionTestResult = null) }
             try {
                 repository.syncOnce()
+            } catch (e: Throwable) {
+                // Exception from syncOnce() (e.g. getOrThrow() on a Failure Result).
+                // Ensure the snackbar shows after this sync completes.
+                allowSnackbarOnFailure = true
+                _state.update { it.copy(isLoading = false, status = SyncEngineStatus.Failure(e as? AppError ?: AppError.Unknown(e))) }
+                return@launch
             } finally {
                 _state.update { it.copy(isLoading = false) }
             }
@@ -157,7 +159,15 @@ class SyncViewModel(
     }
 
     private fun acknowledgeError() {
-        _state.update { it.copy(errorMessage = null) }
+        _state.update { it.copy(errorMessage = null, connectionTestResult = null) }
+    }
+
+    private fun testConnection() {
+        scope.launch {
+            _state.update { it.copy(isTestingConnection = true, connectionTestResult = null, errorMessage = null) }
+            val result = repository.testConnection()
+            _state.update { it.copy(isTestingConnection = false, connectionTestResult = result) }
+        }
     }
 
     private fun buildState(): SyncState = SyncState(

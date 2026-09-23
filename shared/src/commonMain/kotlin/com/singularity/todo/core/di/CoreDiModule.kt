@@ -121,7 +121,7 @@ fun coreModule(): org.koin.core.module.Module = module {
     single { SyncRunner(engine = get(), scheduler = get(), authRepository = get(), prefs = get(), scope = AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
 
     // Public facade.
-    single<SyncRepository> { SyncRepositoryImpl(engine = get(), runner = get(), prefs = get()) }
+    single<SyncRepository> { SyncRepositoryImpl(engine = get(), runner = get(), prefs = get(), api = get(), authRepository = get()) }
 
     // RemoteConfigRepository: DataStore + Room-backed.
     single<RemoteConfigRepository> { RemoteConfigRepositoryImpl(get(), get()) }

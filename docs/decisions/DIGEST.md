@@ -73,25 +73,30 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 ### `_untagged_`
 
 - **ADR `2026-09-16-agenda-engine.md` mandate completed** — TasksViewModel
+- **All 5 `SyncViewModelTest` cases pass** under `:shared:jvmTest`. The pre-existing `DiGraphTest` failure (DataStore multi-instance on the same file) is unrelated to this PR.
 - **Breaking change** for `NoteEditor`, `NotePreview`, and their tests — the `userId` argument is removed from `linkRepo.searchNotes(...)`, `linkRepo.searchTasks(...)`, and `linkRepo.getBacklinkNotes(...)` calls.
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска
 - **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
 - **Five commits land together** because they all touch the same orbit
-- **Negative**: Google Calendar API rate limits apply (handled by WorkManager back-off)
-- **Negative**: `WRITE_CALENDAR` is a dangerous permission; users may be hesitant
 - **No new auth-safety risk**: each tool still stamps the user-provided
 - **Per-screen wiring is more verbose** — `TaskCardActions(onPin = { ... })`
-- **Positive**: JVM tests cover all domain logic (mappers, diff, generation) via `FakeCalendarProvider`
-- **Positive**: Users get free calendar notifications for tasks; multi-profile isolates calendar accounts
+- **Pull `lastSuccessfulSyncAt`** is now updated, so the "Last synced" UI field stays accurate after a successful pull.
 - **Smaller public surface**: `-880 / +120` lines net; 5 files deleted;
+- **State-embedded error pattern is now consistent** across `Settings`, `Sync`, and (already) `Backup` (the latter uses a typed `SharedFlow<UiEvent>` for navigation).
+- **Test fakes** (`FakeSyncRepository`, `FakeSyncApiClient`) gained the new methods to satisfy the interfaces.
+- **The pull DELETED handler now propagates sync server deletes** to local repositories. Soft-delete is honored when the entity supports it (Tag, Project); hard-delete repos ignore the soft semantics.
 - **Tool APIs lose their `currentUser: ProfileAwareCurrentUser` parameter** — any
+- **Two-tier snackbar pattern**: state-embedded `errorMessage` for transient errors, typed `SharedFlow<UiEvent>` for navigation. This is intentional — see `2026-09-21-state-embedded-errors.md`.
 - **Type-safe UX expectations**: each screen's `TaskCardActions(...)`
 - **UX honesty**: rendered buttons do what they advertise. No more
 - **Unit tests gain an `init { ProfileAwareCurrentUser.setInstance(fake) }` setup
+- **`AutoCloseableCoroutineScope.job` property** is now exposed; `testScope()` creates a child Job so test cleanup does not cancel the parent TestScope root.
 - **`ProjectDetailActions` still uses the value-class + block pattern** —
+- **`SyncViewModel` constructor exposes `vmScope`** for tests; cancelling `vmScope.job` is the documented way to stop infinite collectors in test scope cleanup (child Job, does not cancel test body).
 - **`TaskCardActions` API is a breaking change** for any external consumer
 - **`koinInject()` в Screen** требует Koin контекст — widget тесты обходят это через Robolectric + `createComposeRule` без Koin
 - **`performTextClear`** не доступен в Robolectric — используется `performTextInput` напрямую
+- **`testConnection()` requires `authRepository` + `api`** in `SyncRepositoryImpl`. `CoreDiModule` updated to pass both.
 - **~14 изменённых файлов**: Screen.kt + testTag, VM constructors, DI module
 - **~25 новых файлов**: 4 порта, 7 Page Objects, test infrastructure, integration tests
 - 1 orphan VM deleted
@@ -748,34 +753,22 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `settings`
 
-- 5 repositories (`Notifications`, `WorkSchedule`, `Greeting`, `DefaultAgendaView`, appearance) shrank by ~35% each (~90 → ~55 lines).
-- 6 marker interfaces added: `AppearanceContributor`, `AiContributor`,
 - All changes are additive; no existing behavior is removed.
 - Backup confirm dialogs prevent accidental data loss.
-- Compile-time safety: renaming `AiSettingsContributor` to `AiSettingsContributorImpl` now
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input.
-- No `simpleName` strings anywhere in the ViewModel — eliminated ~30 lines of accessor code
-- No changes to the public repository interface — `Flow<T>` and `suspend fun set` signatures are identical.
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode.
 - The `aiEphemeral` field in `SettingsUiState.Content` is kept for future migrations; do not rely on it as the primary read path for AI ephemeral state today.
 - When adding new AI-related state, add it to `SettingsSection.Ai` directly; do not introduce a parallel `EphemeralState.Ai` field.
 - `AiSettingsContributor` stays as a 1-argument class — `observe()` returns `Flow<SettingsSection.Ai>` (no `stateIn` wrapper) to avoid `CoroutineScope` requirements that break `DiGraphTest`.
 - `AiSettingsStore.observe()` is an 8-flow `combine`: 4 persisted flows + 4 ephemeral `MutableStateFlow`s.
-- `AiSettingsStore` не нуждается в рефакторинге — AI setters на месте.
 - `App.kt` инжектит `SettingsRepository` через Koin — это нормально, Koin доступен в Common startup.
-- `IntPref` range support (e.g., `intPref(..., range = 0..23)`) enforces min/max at write time, consistent with `coerceIn` in `Flow.map`.
-- `PrefSpec` as internal holder avoids Kotlin inline class boxing — the inline class wrapper is zero-cost at call sites.
-- `ProfileAwareCurrentUser` не нуждается в рефакторинге — `userId` на месте.
-- `SettingsDataStoreMigration` продолжает работать — companion object не тронут.
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor.
 - `SettingsSection.Ai` always contains all AI state (persisted + ephemeral) — never split.
 - `SettingsViewModel.reloadAiSection()` always updates **both** the `ai.*` fields on the `SettingsSection.Ai` object **and** the top-level flat fields (`aiTestResult`, `aiModels`, `isFetchingAiModels`, `fetchAiModelsError`) in `SettingsUiState.Content`.
 - `SurfaceController.apply(event)` is **not** changed — separate scope, separate task.
 - `TextGenPort.listModels` — добавлен в интерфейс, реализация в `KoogAgentService` и `FakeTextGen`.
-- `filterIsInstance<XxxContributor>()` on a `Set<SettingsContributor<*, *>>` works because the
 - `process(intent)` is the canonical name for contributor intent dispatch.
 - Все 6 sub-screens имеют `verticalScroll` — контент больше не обрезается.
-- Мёртвый код убран: ни один внешний звонок не сломался.
 
 ### `sync`
 
@@ -883,13 +876,6 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`TaskDetailDeps`** gains `checklistRepository: ChecklistRepository` field
 - **`factory { ChecklistUseCase(get()) }`** in `TasksDiModule.kt` — Clock removed
 - **`just lint`** now includes `PassThroughUseCase` checks for `:shared` and `:desktopApp`
-
-### `viewmodel`
-
-- No cast needed — `scope` is `AutoCloseableCoroutineScope` at both call site and definition
-- Tests use `testScope(backgroundScope)` to wrap the test dispatcher
-- `AutoCloseableCoroutineScope` companion factory creates a scope backed by `createBackgroundScope()`
-- `appearanceContributor = null` is explicit — the default is intentional, not accidental
 
 ### `vm`
 
@@ -1060,22 +1046,17 @@ _1 entries need attention._
 - `2026-09-21-user-scoped-repository` — _untagged_
 - `2026-09-22-alarmmanager-reminders` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
-- `2026-09-22-canonical-vm-scope-pattern` — viewmodel, architecture, coroutines, koin
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — repository, checklist, currentuser, koin, refactor
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
 - `2026-09-22-explicit-overload-removal` — _untagged_
-- `2026-09-22-flat-settings-api-removal` — settings, architecture, cleanup
 - `2026-09-22-koin-annotations-4x-skill-correction` — _untagged_
-- `2026-09-22-marker-contributor-interfaces` — settings, architecture, kotlin, type-system
 - `2026-09-22-noteeditor-refactor` — notes, architecture, refactor
 - `2026-09-22-pomodoro-hybrid-timer` — _untagged_
-- `2026-09-22-preference-wrappers` — settings, architecture, datastore, kotlin
 - `2026-09-22-reminder-lastfiredat-schema` — reminders, database, scheduler
 - `2026-09-22-reminder-scheduler-critical-fixes` — reminders, scheduler, concurrency, coroutines, di
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — repository, currentuser, userid, draft-store, use-case, koin
 - `2026-09-22-settings-section-ai-ephemeral-fields` — settings, architecture, state-management
-- `2026-09-22-system-calendar-sync` — _untagged_
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
@@ -1085,6 +1066,7 @@ _1 entries need attention._
 - `2026-09-23-sync-pull-handlers-and-ui` — _untagged_
 - `2026-09-23-sync-scheduling-abstraction` — sync, architecture, core, scheduling, remote-config, persistence
 - `2026-09-23-sync-state-model` — sync, architecture, core, state, ui
+- `2026-09-23-sync-tier3-fixes` — _untagged_
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
@@ -1230,22 +1212,17 @@ _1 entries need attention._
 - `2026-09-21-user-scoped-repository` — _(no title)_
 - `2026-09-22-alarmmanager-reminders` — AlarmManager + BootReceiver для reminders ( Orgzly pattern)
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
-- `2026-09-22-canonical-vm-scope-pattern` — Canonical ViewModel constructor: scope as AutoCloseableCoroutineScope
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — Delete ChecklistUseCase; drop unused ProfileAwareCurrentUser from AgendaDeps/CalendarDeps; inject taskId via ChecklistEditorViewModel constructor
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
 - `2026-09-22-explicit-overload-removal` — _(no title)_
-- `2026-09-22-flat-settings-api-removal` — SettingsRepository: remove dead flat API, keep AI and account
 - `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
-- `2026-09-22-marker-contributor-interfaces` — Settings contributors: marker interfaces to defeat type erasure
 - `2026-09-22-noteeditor-refactor` — NoteEditor — extract state holders, save controller, AI controller
 - `2026-09-22-pomodoro-hybrid-timer` — Hybrid Pomodoro Timer — in-app ticker + AlarmManager.setAlarmClock
-- `2026-09-22-preference-wrappers` — DataStore preference wrappers: inline class + BaseSettingsRepository
 - `2026-09-22-reminder-lastfiredat-schema` — _(no title)_
 - `2026-09-22-reminder-scheduler-critical-fixes` — _(no title)_
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — Repository stamps ambient userId on create; drop userId params from input classes and use cases
 - `2026-09-22-settings-section-ai-ephemeral-fields` — Keep ephemeral state inside SettingsSection.Ai, not in EphemeralState
-- `2026-09-22-system-calendar-sync` — _(no title)_
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
@@ -1255,6 +1232,7 @@ _1 entries need attention._
 - `2026-09-23-sync-pull-handlers-and-ui` — _(no title)_
 - `2026-09-23-sync-scheduling-abstraction` — Sync scheduling abstraction: SyncScheduler + DataStoreSyncPrefs + RemoteConfig + SecureStorage
 - `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
+- `2026-09-23-sync-tier3-fixes` — _(no title)_
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods

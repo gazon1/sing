@@ -214,6 +214,8 @@ internal class SyncEngine(
 
             // Persist the server LSN so the next pull resumes from this point.
             prefs.setLastLsn(maxLsn)
+            // Stamp lastSuccessfulSyncAt so the UI "Last synced" field stays current.
+            prefs.recordSuccessfulSync()
 
             val summary = PullSummary(events.size, applied, conflicts)
             _lastPull.value = Result.success(summary)
