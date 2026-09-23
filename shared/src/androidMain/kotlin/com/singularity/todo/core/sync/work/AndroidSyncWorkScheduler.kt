@@ -29,9 +29,9 @@ class AndroidSyncWorkScheduler(
         val request = OneTimeWorkRequestBuilder<SyncOutboxWorker>()
             .setConstraints(constraints)
             .setBackoffCriteria(
-                backoffPolicy = BackoffPolicy.EXPONENTIAL,
-                minimumInterval = 30,
-                timeUnit = TimeUnit.SECONDS,
+                BackoffPolicy.EXPONENTIAL,
+                30,
+                TimeUnit.SECONDS,
             )
             .build()
 
