@@ -1,19 +1,15 @@
 package com.singularity.todo.feature.pomodoro
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.pomodoro.recomputeRemaining
-import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskFilter
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -32,38 +28,48 @@ import kotlin.time.Duration.Companion.milliseconds
  * alarm fire simultaneously (both call [onPhaseComplete]).
  *
  * ## Pause/resume
- * [phaseStartedAtEpochMs] stores the wall-clock time when the phase started,
+ * [PomodoroState.phaseStartedAtEpochMs] stores the wall-clock time when the phase started,
  * enabling accurate remaining time recomputation after resume.
+ *
+ * ## Canonical VM pattern
+ * Does NOT extend [ViewModel]. Uses injected [CoroutineScope] for testability.
+ * Consumers (e.g. [PomodoroScreen]) obtain an instance via Koin.
  */
 class AndroidPomodoroTimer(
     private val clock: Clock,
-    private val taskRepository: TaskRepository,
-    private val alarmScheduler: PomodoroAlarmScheduler,
-    override val config: PomodoroConfig = PomodoroConfig(),
-) : ViewModel(),
-    PomodoroTimer {
+    private val taskListProvider: PomodoroTaskListProvider,
+    private val alarmScheduler: PomodoroScheduler,
+    override val config: PomodoroConfig,
+    private val scope: CoroutineScope,
+) : PomodoroTimer {
 
     private val _state = MutableStateFlow(initialState())
     override val state: StateFlow<PomodoroState> = _state.asStateFlow()
 
-    private val _tasks = MutableStateFlow<List<Task>>(emptyList())
-    override val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
-
     private var tickerJob: Job? = null
-    // Race guard: both in-app ticker and OS alarm can call onPhaseComplete simultaneously
-    private val phaseEnded = AtomicBoolean(false)
+
+    /**
+     * Race guard: prevents double-trigger when OS alarm fires simultaneously with in-app ticker.
+     * Replaces [java.util.concurrent.atomic.AtomicBoolean] — safe for single-threaded coroutine access.
+     */
+    @Volatile private var phaseEnded = false
 
     init {
         // Defensive cancel: a stale alarm from a previous process instance must not fire
         alarmScheduler.cancelPhaseEndAlarm()
-        viewModelScope.launch {
-            taskRepository.observeByFilter(TaskFilter.Inbox).collect { _tasks.value = it }
-        }
     }
+
+    /** Secondary constructor for Koin injection — uses [MainScope] as the execution context. */
+    constructor(
+        clock: Clock,
+        taskListProvider: PomodoroTaskListProvider,
+        alarmScheduler: PomodoroAlarmScheduler,
+        config: PomodoroConfig,
+    ) : this(clock, taskListProvider, alarmScheduler, config, MainScope())
 
     override fun start(taskId: String?) {
         if (_state.value.isRunning) return
-        phaseEnded.set(false)
+        phaseEnded = false
         val now = clock.now().toEpochMilliseconds()
         val dur = config.phaseSecondsOf(_state.value.phase)
         _state.value = _state.value.copy(
@@ -73,7 +79,7 @@ class AndroidPomodoroTimer(
             phaseDurationSeconds = dur,
             phaseStartedAtEpochMs = now,
         )
-        alarmScheduler.schedulePhaseEnd(now + dur * 1000L, taskId, _state.value.phase.name)
+        alarmScheduler.schedulePhaseEnd(now + dur * 1000L, taskId, _state.value.phase)
         startTicker()
     }
 
@@ -96,7 +102,7 @@ class AndroidPomodoroTimer(
         val now = clock.now().toEpochMilliseconds()
         val startedAt = now - (s.phaseDurationSeconds - s.remainingSeconds) * 1000L
         _state.value = s.copy(isRunning = true, phaseStartedAtEpochMs = startedAt)
-        alarmScheduler.schedulePhaseEnd(startedAt + s.phaseDurationSeconds * 1000L, s.taskId, s.phase.name)
+        alarmScheduler.schedulePhaseEnd(startedAt + s.phaseDurationSeconds * 1000L, s.taskId, s.phase)
         startTicker()
     }
 
@@ -114,7 +120,7 @@ class AndroidPomodoroTimer(
 
     private fun startTicker() {
         tickerJob?.cancel()
-        tickerJob = viewModelScope.launch {
+        tickerJob = scope.launch {
             while (_state.value.isRunning) {
                 delay(1000.milliseconds)
                 val now = clock.now().toEpochMilliseconds()
@@ -131,7 +137,8 @@ class AndroidPomodoroTimer(
 
     private fun onPhaseComplete() {
         // Race guard: prevents double-trigger when OS alarm fires simultaneously with in-app ticker
-        if (!phaseEnded.compareAndSet(false, true)) return
+        if (phaseEnded) return
+        phaseEnded = true
         _state.value = _state.value.copy(isRunning = false, phaseStartedAtEpochMs = null)
         _state.value = nextPhase(_state.value, config)
     }

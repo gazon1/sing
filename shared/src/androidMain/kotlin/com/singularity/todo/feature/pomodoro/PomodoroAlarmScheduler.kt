@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import com.singularity.todo.feature.alarms.AlarmContract
 import com.singularity.todo.feature.alarms.AlarmReceiver
 
 /**
@@ -15,7 +16,7 @@ import com.singularity.todo.feature.alarms.AlarmReceiver
  *
  * Single shared alarm (requestCode = 1) — only one phase-end alarm can be active at a time.
  */
-class PomodoroAlarmScheduler(private val context: Context) {
+open class PomodoroAlarmScheduler(private val context: Context) : PomodoroScheduler {
 
     private val alarmManager: AlarmManager =
         context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -25,12 +26,12 @@ class PomodoroAlarmScheduler(private val context: Context) {
      *
      * @param fireAtEpochMs Wall-clock time when the phase should end.
      * @param taskId Optional task ID for display purposes (passed via PendingIntent extra).
-     * @param phaseName Phase name passed to [AlarmReceiver.handlePomodoroPhaseEnd].
+     * @param phase Phase passed to [AlarmReceiver.handlePomodoroPhaseEnd].
      */
-    fun schedulePhaseEnd(fireAtEpochMs: Long, taskId: String?, phaseName: String) {
+    override fun schedulePhaseEnd(fireAtEpochMs: Long, taskId: String?, phase: PomodoroPhase) {
         alarmManager.setAlarmClock(
             AlarmManager.AlarmClockInfo(fireAtEpochMs, null),
-            buildPending(taskId, phaseName),
+            buildPending(taskId, phase),
         )
     }
 
@@ -38,15 +39,15 @@ class PomodoroAlarmScheduler(private val context: Context) {
      * Cancels any scheduled phase-end alarm.
      * Safe to call even if no alarm is currently scheduled.
      */
-    fun cancelPhaseEndAlarm() {
+    override fun cancelPhaseEndAlarm() {
         alarmManager.cancel(buildPending(null, null))
     }
 
-    private fun buildPending(taskId: String?, phaseName: String?): PendingIntent {
+    private fun buildPending(taskId: String?, phase: PomodoroPhase?): PendingIntent {
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             action = AlarmReceiver.ACTION_POMODORO_PHASE_END
-            putExtra(AlarmReceiver.EXTRA_PHASE, phaseName)
-            putExtra(AlarmReceiver.EXTRA_TASK_ID, taskId)
+            putExtra(AlarmContract.EXTRA_PHASE, phase?.name)
+            putExtra(AlarmContract.EXTRA_TASK_ID, taskId)
         }
         return PendingIntent.getBroadcast(
             context,

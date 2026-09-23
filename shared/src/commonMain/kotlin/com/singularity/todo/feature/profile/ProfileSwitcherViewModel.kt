@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.profile
 
 import androidx.lifecycle.ViewModel
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +33,8 @@ class ProfileSwitcherViewModel(
     private val profileRepository: ProfileRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
+    private val log = Logger.withTag("ProfileSwitcherViewModel")
+
     init {
         addCloseable(scope)
     }
@@ -92,7 +95,7 @@ class ProfileSwitcherViewModel(
             errorLabel = "Delete profile failed",
             onError = { e -> _errorMessage.value = e.message ?: "Failed to delete profile" },
         ) {
-            profileRepository.delete(id)
+            profileRepository.delete(id).onFailure { log.w { "Failed to delete profile ${id.value}: ${it.message}" } }
         }
     }
 
@@ -101,7 +104,7 @@ class ProfileSwitcherViewModel(
             errorLabel = "Switch profile failed",
             onError = { e -> _errorMessage.value = e.message ?: "Failed to switch profile" },
         ) {
-            runCatching { profileRepository.switchTo(id) }
+            profileRepository.switchTo(id).onFailure { log.w { "Failed to switch to profile ${id.value}: ${it.message}" } }
         }
     }
 

@@ -667,6 +667,16 @@ open class FakeReminderRepository(
             reminders.map { map -> map.values.filter { it.fireAt <= nowEpochMs && it.userId == uid }.sortedBy { it.fireAt } }
         }
 
+    override fun watchRecentDueBefore(nowEpochMs: Long, limit: Int): Flow<List<Reminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { map ->
+                map.values
+                    .filter { it.fireAt <= nowEpochMs && it.userId == uid }
+                    .sortedBy { r -> -r.fireAt }
+                    .take(limit)
+            }
+        }
+
     open override suspend fun deleteByTask(taskId: TaskId): Result<Unit> {
         deleteByTaskOverride?.let { return it }
         return runCatching {

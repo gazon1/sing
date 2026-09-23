@@ -32,15 +32,11 @@ class AndroidNotifier(private val context: Context) {
      * @param body Notification body text.
      * @param viewId Optional SavedAgendaViewId deeplink target — carried as an extra in the
      *               launch PendingIntent and read by [MainActivity] to navigate to the correct view.
-     * @param payload Optional string carried back when the notification is tapped.
      */
-    fun post(tag: String, title: String, body: String, viewId: String?, payload: String?) {
+    fun post(tag: String, title: String, body: String, viewId: String?) {
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             if (viewId != null) {
                 putExtra(EXTRA_DEEPLINK_VIEW_ID, viewId)
-            }
-            if (payload != null) {
-                putExtra(EXTRA_NOTIFICATION_PAYLOAD, payload)
             }
         }
 
@@ -77,6 +73,5 @@ class AndroidNotifier(private val context: Context) {
     companion object {
         const val CHANNEL_ID = "singularity_reminders"
         const val EXTRA_DEEPLINK_VIEW_ID = "reminder_deeplink_view_id"
-        const val EXTRA_NOTIFICATION_PAYLOAD = "reminder_payload"
     }
 }

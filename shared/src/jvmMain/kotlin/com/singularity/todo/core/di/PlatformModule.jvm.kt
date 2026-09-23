@@ -24,7 +24,9 @@ import com.singularity.todo.core.sync.SyncScheduler
 import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
+import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
+import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.reminders.JvmReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
@@ -116,6 +118,7 @@ actual fun platformModule(): Module = module {
 
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 
+    single<PomodoroTaskListProvider> { JvmPomodoroTaskListProvider() }
     factory<PomodoroTimer> { JvmPomodoroTimer() }
 
     // ─── Reminder Scheduler ────────────────────────────────────────────

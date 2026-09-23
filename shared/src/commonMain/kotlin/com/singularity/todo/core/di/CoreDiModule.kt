@@ -146,7 +146,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     single<TimeZoneProvider> { com.singularity.todo.core.platform.systemTimeZone }
 
-    single { Clock }
+    single<kotlinx.datetime.Clock> { kotlin.time.Clock.System }
 
     // ─── Observability ─────────────────────────────────────────────────
 
