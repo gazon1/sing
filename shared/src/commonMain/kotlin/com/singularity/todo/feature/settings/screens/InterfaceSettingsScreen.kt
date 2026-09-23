@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.settings.SettingsIntent
+import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -51,18 +52,18 @@ fun InterfaceSettingsScreen(
             SettingsSwitchRow(
                 title = "Dark Theme",
                 subtitle = "Use dark color scheme",
-                checked = state.darkTheme,
+                checked = state.appearance.darkTheme,
                 onCheckedChange = { onIntent(SettingsIntent.Appearance.UpdateDarkTheme(it)) },
             )
         }
 
         AccentColorPicker(
-            selected = SingularityAccents.fromString(state.accentColor),
+            selected = SingularityAccents.fromString(state.appearance.accentColor),
             onSelect = { onIntent(SettingsIntent.Appearance.UpdateAccentColor(it.name.lowercase())) },
         )
 
         FontSizeSlider(
-            value = state.fontSizeScale,
+            value = state.appearance.fontSizeScale,
             onValueChange = { onIntent(SettingsIntent.Appearance.UpdateFontSizeScale(it)) },
         )
     }
@@ -175,9 +176,11 @@ private fun FontSizeSlider(value: Float, onValueChange: (Float) -> Unit) {
 private fun InterfaceSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     InterfaceSettingsScreen(
         state = SettingsUiState.Content(
-            darkTheme = false,
-            accentColor = SingularityAccents.Blue.name.lowercase(),
-            fontSizeScale = 1.0f,
+            appearance = SettingsSection.Appearance(
+                darkTheme = false,
+                accentColor = SingularityAccents.Blue.name.lowercase(),
+                fontSizeScale = 1.0f,
+            ),
         ),
         onIntent = {},
     )
@@ -188,9 +191,11 @@ private fun InterfaceSettingsScreenLightPreview() = PreviewThemed(darkTheme = fa
 private fun InterfaceSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
     InterfaceSettingsScreen(
         state = SettingsUiState.Content(
-            darkTheme = true,
-            accentColor = SingularityAccents.Purple.name.lowercase(),
-            fontSizeScale = 1.25f,
+            appearance = SettingsSection.Appearance(
+                darkTheme = true,
+                accentColor = SingularityAccents.Purple.name.lowercase(),
+                fontSizeScale = 1.25f,
+            ),
         ),
         onIntent = {},
     )

@@ -13,6 +13,8 @@ import com.singularity.todo.core.backup.ImportOptions
 import com.singularity.todo.core.backup.RestoreResult
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.settings.SettingsExporter
+import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeBackupRepository
 import kotlinx.coroutines.CoroutineScope
@@ -44,13 +46,29 @@ class BackupViewModelTest {
 
     private val testEntityCounts = EntityCounts(tasks = 5, notes = 2, projects = 1)
 
+    // Stub settings exporter / importer — tests here are about backup, not settings snapshot.
+    private val stubSettingsExporter = object : SettingsExporter(emptySet()) {
+        override suspend fun exportAsJson(): String = """{"schemaVersion":1}"""
+    }
+    private val stubSettingsImporter = object : SettingsImporter(emptySet()) {
+        override suspend fun importFromJson(json: String): SettingsImporter.ImportResult = SettingsImporter.ImportResult.Success
+    }
+
     private fun createVm(
         repo: FakeBackupRepository,
         auth: FakeAuthRepository,
         scope: CoroutineScope,
     ): BackupViewModel {
         val namer = DefaultBackupFileNamer { _ -> "test_backup.zip" }
-        return BackupViewModel(repo, auth, namer, com.singularity.todo.core.platform.Clock, scope = testScope(scope))
+        return BackupViewModel(
+            repository = repo,
+            authRepository = auth,
+            backupFileNamer = namer,
+            clock = com.singularity.todo.core.platform.Clock,
+            settingsExporter = stubSettingsExporter,
+            settingsImporter = stubSettingsImporter,
+            scope = testScope(scope),
+        )
     }
 
     // ─── init subscribes to backups ───────────────────────────────────────────

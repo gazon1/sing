@@ -1,5 +1,8 @@
 package com.singularity.todo.core.di
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.database.AppDatabase
@@ -22,6 +25,7 @@ import com.singularity.todo.feature.reminders.ReminderScheduler
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+import java.io.File
 
 /**
  * JVM/desktop platform bindings — Room 3 (same stack as Android, no extra native deps).
@@ -55,35 +59,21 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().agendaViewDao() }
 
     // ─── DataStore (split: user settings + state) ─────────────────────────
-
-    // user_settings.preferences_pb — all mutable user-facing settings
-    val userSettingsDs: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> =
-        androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
-            java.io.File(System.getProperty("user.home") + "/.singularity-todo/user_settings.preferences_pb").also {
-                it.parentFile?.mkdirs()
-            }
-        }
-
-    // state.preferences_pb — read-only flags (schema version, migration timestamps)
-    val stateDs: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> =
-        androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
-            java.io.File(System.getProperty("user.home") + "/.singularity-todo/state.preferences_pb").also {
-                it.parentFile?.mkdirs()
-            }
-        }
-
-    // Legacy migration source — points to the old flat-key file.
-    // Will be empty after migration; DataStore itself never writes back to it.
-    val settingsLegacyDs: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> =
-        androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
-            java.io.File(System.getProperty("user.home") + "/.singularity-todo/settings.preferences_pb").also {
-                it.parentFile?.mkdirs()
-            }
-        }
+    // File-level caching: the SAME DataStore instance is returned for the same
+    // file path regardless of how many times PreferenceDataStoreFactory.create {}
+    // is called. This prevents "multiple DataStores active for the same file"
+    // errors in tests where platformModule() may be called more than once.
+    val userHome = System.getProperty("user.home")
+    val userSettingsDs: DataStore<Preferences> =
+        cachedJvmDataStore(File(userHome, ".singularity-todo/user_settings.preferences_pb"))
+    val stateDs: DataStore<Preferences> =
+        cachedJvmDataStore(File(userHome, ".singularity-todo/state.preferences_pb"))
+    val settingsLegacyDs: DataStore<Preferences> =
+        cachedJvmDataStore(File(userHome, ".singularity-todo/settings.preferences_pb"))
 
     // One-shot migration: v0 flat-key settings → v1 split + namespaced.
     // Idempotent: skips if state.preferences_pb already has settings_schema_version.
-    koinBridge {
+    kotlinx.coroutines.runBlocking {
         SettingsDataStoreMigration(settingsLegacyDs, userSettingsDs, stateDs).run()
     }
 
@@ -93,7 +83,7 @@ actual fun platformModule(): Module = module {
     single(qualifier = named("settings")) { settingsLegacyDs }
 
     // Primary DataStore<Preferences> binding — what SettingsRepository consumes.
-    single<androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>> { userSettingsDs }
+    single<DataStore<Preferences>> { userSettingsDs }
 
     // ─── Platform Ports ────────────────────────────────────────────────
 
@@ -107,7 +97,7 @@ actual fun platformModule(): Module = module {
 
     single<BackupCodec> { JvmBackupCodec() }
 
-    single<String> { System.getProperty("user.home") + "/.singularity-todo/backups" }
+    single<String> { userHome + "/.singularity-todo/backups" }
 
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 
@@ -116,4 +106,18 @@ actual fun platformModule(): Module = module {
     // ─── Reminder Scheduler ────────────────────────────────────────────
 
     single<ReminderScheduler> { JvmReminderScheduler() }
+}
+
+/**
+ * Process-wide cache: ensures the same [DataStore] instance is returned for the
+ * same file path. [PreferenceDataStoreFactory.create] uses FileLock so only one
+ * DataStore can be open per file — caching prevents the "multiple DataStores active"
+ * error when [platformModule] is called multiple times (e.g. in tests).
+ */
+private val dataStoreCache = mutableMapOf<String, DataStore<Preferences>>()
+
+private fun cachedJvmDataStore(file: File): DataStore<Preferences> {
+    return dataStoreCache.getOrPut(file.absolutePath) {
+        PreferenceDataStoreFactory.create { file }
+    }
 }

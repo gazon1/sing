@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.settings.SettingsIntent
+import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -39,28 +40,28 @@ fun NotificationSettingsScreen(
         SettingsSection(title = "Notifications") {
             SettingsSwitchRow(
                 title = "Enable Notifications",
-                checked = state.notificationsEnabled,
+                checked = state.notifications.enabled,
                 onCheckedChange = { onIntent(SettingsIntent.Notifications.UpdateEnabled(it)) },
             )
         }
 
-        if (state.notificationsEnabled) {
+        if (state.notifications.enabled) {
             SettingsSection(title = "Alerts") {
                 SettingsSwitchRow(
                     title = "Notification Sound",
-                    checked = state.notificationSound,
+                    checked = state.notifications.sound,
                     onCheckedChange = { onIntent(SettingsIntent.Notifications.UpdateSound(it)) },
                 )
                 SettingsSwitchRow(
                     title = "Vibration",
-                    checked = state.notificationVibration,
+                    checked = state.notifications.vibration,
                     onCheckedChange = { onIntent(SettingsIntent.Notifications.UpdateVibration(it)) },
                 )
             }
         }
 
         ReminderDefaultsSection(
-            selected = state.reminderDefault,
+            selected = state.notifications.reminderDefault,
             onSelect = { onIntent(SettingsIntent.Notifications.UpdateReminderDefault(it)) },
         )
     }
@@ -109,10 +110,12 @@ private fun ReminderRadioRow(label: String, selected: Boolean, onClick: () -> Un
 private fun NotificationSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     NotificationSettingsScreen(
         state = SettingsUiState.Content(
-            notificationsEnabled = true,
-            notificationSound = true,
-            notificationVibration = true,
-            reminderDefault = ReminderOffset.AT_DUE,
+            notifications = SettingsSection.Notifications(
+                enabled = true,
+                sound = true,
+                vibration = true,
+                reminderDefault = ReminderOffset.AT_DUE,
+            ),
         ),
         onIntent = {},
     )
@@ -123,7 +126,9 @@ private fun NotificationSettingsScreenLightPreview() = PreviewThemed(darkTheme =
 private fun NotificationSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
     NotificationSettingsScreen(
         state = SettingsUiState.Content(
-            notificationsEnabled = false,
+            notifications = SettingsSection.Notifications(
+                enabled = false,
+            ),
         ),
         onIntent = {},
     )

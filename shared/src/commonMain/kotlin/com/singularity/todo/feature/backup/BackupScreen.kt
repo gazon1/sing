@@ -24,9 +24,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -48,7 +50,9 @@ import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.datetime.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,15 +68,53 @@ fun BackupScreen(
     onRestore: (sourcePath: String) -> Unit,
     onDelete: (BackupId) -> Unit,
     onPush: (BackupId) -> Unit,
+    /** Called when user wants to export settings as a JSON snapshot for sharing. */
+    onExportSettings: () -> Unit,
+    /**
+     * Called when user wants to import settings from a JSON file.
+     * Platform shell should open a file picker and call this with the file content.
+     */
+    onSelectSettingsFile: () -> Unit,
+    /**
+     * Called after [onExportSettings] with the settings JSON.
+     * Platform shell should present the JSON to the user via system share sheet.
+     * (Also called automatically when user taps the "Share settings" snackbar action.)
+     */
+    onShareSettingsJson: (json: String) -> Unit,
+    /**
+     * Called when user has selected a settings JSON file from [onSelectSettingsFile].
+     * [jsonContent] is the raw content of the selected JSON file.
+     */
+    onImportSettings: (jsonContent: String) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    var pendingSettingsJson by remember { mutableStateOf<String?>(null) }
+
+    // Collect SettingsSnapshotExported events and show a snackbar with share action.
+    LaunchedEffect(events) {
+        events.collect { event ->
+            when (event) {
+                is BackupUiEvent.SettingsSnapshotExported -> {
+                    pendingSettingsJson = event.json
+                    val launched = snackbarHostState.showSnackbar(
+                        message = "Settings snapshot ready",
+                        actionLabel = "Share",
+                    )
+                    // If user tapped "Share", trigger share.
+                    if (launched == SnackbarResult.ActionPerformed) {
+                        onShareSettingsJson(event.json)
+                        pendingSettingsJson = null
+                    }
+                }
+                is BackupUiEvent.Error -> { /* handled by NotificationHost */ }
+            }
+        }
+    }
 
     NotificationHost(
-        events = events,
+        events = events.filterIsInstance<BackupUiEvent.Error>(),
         mapper = { event ->
-            when (event) {
-                is BackupUiEvent.Error -> Notification.Error(event.message)
-            }
+            Notification.Error(event.message)
         },
     )
 
@@ -119,6 +161,29 @@ fun BackupScreen(
                     enabled = !state.isWorking,
                 ) {
                     Text("Restore…")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Settings snapshot buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onExportSettings,
+                    modifier = Modifier.weight(1f),
+                    enabled = !state.isWorking,
+                ) {
+                    Text("Export settings")
+                }
+                OutlinedButton(
+                    onClick = onSelectSettingsFile,
+                    modifier = Modifier.weight(1f),
+                    enabled = !state.isWorking,
+                ) {
+                    Text("Import settings")
                 }
             }
 

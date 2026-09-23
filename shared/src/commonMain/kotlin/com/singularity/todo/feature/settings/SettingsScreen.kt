@@ -115,7 +115,7 @@ private fun SettingsContent(
         // Navigation rail on wide screens (disabled until WindowSizeClass is wired)
         SettingsNavRail(
             selectedTab = selectedTab,
-            aiTestResult = state.aiTestResult,
+            aiTestResult = state.aiEphemeral.testResult,
             modifier = Modifier.fillMaxHeight(),
             onSelect = onSelectTab,
         )
@@ -180,6 +180,11 @@ private fun BackupScreenWrapper(onBack: () -> Unit, onSelectRestoreFile: () -> U
         onRestore = { path -> backupVm.import(path) },
         onDelete = backupVm::delete,
         onPush = backupVm::push,
+        // Settings snapshot — platform shell handles file picking / sharing
+        onExportSettings = backupVm::exportSettingsSnapshot,
+        onSelectSettingsFile = { /* shell opens file picker → calls importSettingsSnapshot */ },
+        onShareSettingsJson = { /* shell shows share sheet with JSON */ },
+        onImportSettings = { json -> backupVm.importSettingsSnapshot(json) },
     )
 }
 
@@ -263,7 +268,7 @@ private fun SettingsContentPreview(
     Row(modifier = Modifier.fillMaxSize()) {
         SettingsNavRail(
             selectedTab = selectedTab,
-            aiTestResult = state.aiTestResult,
+            aiTestResult = state.aiEphemeral.testResult,
             modifier = Modifier.fillMaxHeight(),
             onSelect = onSelectTab,
         )

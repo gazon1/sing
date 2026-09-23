@@ -26,6 +26,8 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.settings.DataStoreSettingsRepository
 import com.singularity.todo.core.settings.SettingsContributor
+import com.singularity.todo.core.settings.SettingsExporter
+import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
@@ -122,9 +124,9 @@ fun coreModule(): org.koin.core.module.Module = module {
     viewModel {
         SettingsViewModel(
             contributors = getAll<SettingsContributor<*, *>>().toSet(),
-            settings = get(),
             savedAgendaViewsRepo = get(),
             fileRevealer = get(),
+            scope = com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope(com.singularity.todo.core.coroutines.createBackgroundScope().coroutineContext),
         )
     }
 
@@ -132,7 +134,11 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     viewModel { AuthViewModel(authRepository = get()) }
 
-    viewModel { BackupViewModel(repository = get(), authRepository = get(), backupFileNamer = get(), clock = get()) }
+    // Settings snapshot exporter / importer (registered as single — stateless, no per-injection state)
+    single { SettingsExporter(getAll<SettingsContributor<*, *>>().toSet()) }
+    single { SettingsImporter(getAll<SettingsContributor<*, *>>().toSet()) }
+
+    viewModel { BackupViewModel(repository = get(), authRepository = get(), backupFileNamer = get(), clock = get(), settingsExporter = get(), settingsImporter = get()) }
 
     viewModel { AttachmentsViewModel(repository = get()) }
 }

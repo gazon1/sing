@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.settings.SettingsIntent
+import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsRadioRow
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -36,8 +37,8 @@ fun AgendaSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SettingsSection(title = "Default View") {
-            val views = state.savedAgendaViews
-            val selectedId = state.defaultSavedAgendaViewId
+            val views = state.agendaEphemeral.savedViews
+            val selectedId = state.defaultAgendaView.viewId
 
             // "None" option — clears the default
             SettingsRadioRow(
