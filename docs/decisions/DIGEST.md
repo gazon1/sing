@@ -159,6 +159,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Full filter panel with Project / Tags / Priority / Status.
 - Future agents reading these skills will not waste time on `koin-annotations-compiler` setup that doesn't exist.
 - Future developers understand which fields are stubbed vs. populated
+- GenUI is purely client-side rendering; the LLM controls content. No server-side validation of the payload happens — trust comes from the authenticated Supabase session.
 - Horizontal swipe between dates.
 - If a Tier 1 interface gains a 2nd implementation, restore the interface — never compromise final-by-default by adding `open` to the existing concrete class.
 - Internal links survive HTML round-trip (stored as `note://` / `task://` href)
@@ -167,17 +168,21 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP).
 - Locale-aware first day of week.
 - MR-2b (UI) will wire these fields into task create/edit screens
+- Minor UX polish (loading placeholder, TTL) can be added opportunistically when the screen is touched.
 - Month-grid cells are still hand-rolled (no kizitonwose `MonthView`). Week/Day remain unchanged.
 - Nested nav3 graph keeps task-click navigation encapsulated.
+- New component kinds require a new `UiNode` subtype + new renderer + `@SerialName` annotation + update to `BasicCatalog.systemPromptAppendix`. No schema migration needed.
 - No more write storms from rapid task edits
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - No repository contract overloads are needed for this interface (it has no non-Koin callers).
+- No server-driven static content (Layer 4 from the article) — deferred until a concrete surface exists (e.g., in-app FAQ)
 - None
 - Per-collection 3-way merge (needs attachments/tags bidirectional)
 - Per-feature events устранили конфликты имён (до: `ShowDialog` everywhere; после: `TasksUiEvent.AiResult`, `NotesUiEvent.SaveFailed`)
 - Performance: one extra `StateFlow.distinctUntilChanged().flatMapLatest()` per
 - Phase 8 (test rewrites) and Phase 9 (verification) follow from this migration
 - Picker sheets визуально согласованы с остальными sheets (drag-handle, chrome)
+- Play In-App Updates are Android-only; Desktop uses the `AppVersionGate` hard block plus manual download links
 - Pre-existing test failures (`RussianDateFormatterTest`, `TaskCreateViewModelTest`,
 - Profile migration via `duplicateForProfile` is explicit and testable.
 - Pull events are now actually applied to the local database (not stub)
@@ -186,6 +191,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`).
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов
+- RuStore / Galaxy Store support requires ~1 day of work when distribution to those stores is planned.
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill)
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed.
 - Settings screen can show specific recovery actions per failure type
@@ -200,10 +206,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Tests that construct `TaskEntity` directly must include all 6 new nullable parameters
 - The 2 side-effects-in-combine anti-patterns remain in `TaskDetailViewModel`
 - The 4 untested VMs (`TaskCreateViewModel`, `ProjectEditorViewModel`,
+- The GenUI `whatsNewPayload` is entirely server-controlled content rendered via LLM; it is **not** validated against a schema beyond `A2uiParser` parsing. Trust comes from the authenticated Supabase session.
+- The `WhatsNew` screen is the first production surface using GenUI, rendered at startup when a new `RemoteConfigSnapshot.whatsNewPayload` is present.
 - The `koin-gradle-plugin` is already wired in `shared/build.gradle.kts` (commit `1eb272a`) but no annotations are in use. If a future agent wants to adopt annotations, they can reapply the pattern shown in commit `1eb272a`'s setup; the plugin doesn't break anything.
 - The `pageCount = 240` is fixed at compile time. Users navigating beyond ±10 years from today
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
 - The default `viewModelScope` is still created by the ViewModel but is unused in Tier-1 VMs (negligible memory cost: one empty `SupervisorJob`).
+- The four layers of the OTA strategy (gate, in-app update, flags, GenUI) are production-ready for Google Play distribution.
 - The ⟳ icon on calendar task chips will now work once MR-3b (Click-to-create)
 - Theme switching now correctly recomposes the calendar palette
 - Throttling prevents SQLite spam from polling.
@@ -248,6 +257,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `ProfileAwareCurrentUser` moves **inside** repositories; the DI graph registers
 - `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`.
 - `ReminderRepository` is now a dependency of `CalendarViewModel` — tested via `FakeReminderRepository` in `CalendarViewModelTest`.
+- `RemoteConfigPort` schema version must increment if `updatePriority` or any new field is added — existing clients silently fall back to defaults
 - `RoomReminderRepository.upsert` now stamps ambient on insert — no more stale/missing userId.
 - `RoomSavedAgendaViewsRepository.upsert` now stamps ambient on insert — consistent with other repos.
 - `SavedAgendaViewModel` (via `SavedAgendaDeps`) no longer injects `ProfileAwareCurrentUser`.
@@ -971,6 +981,17 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`factory { ChecklistUseCase(get()) }`** in `TasksDiModule.kt` — Clock removed
 - **`just lint`** now includes `PassThroughUseCase` checks for `:shared` and `:desktopApp`
 
+### `versioning`
+
+- Kill switches (`modelFlags`, `mcpToolFlags`) are **compile-time safe**: `KnownModels` and `McpToolRegistry` accept `RemoteConfigSnapshot` as a parameter, never `RemoteConfigPort` directly. This enables testing with `FakeRemoteConfigSnapshot`.
+- Schema versions (`protocolVersion`, `schemaVersion`) are **int**, not string. `"v0.9"` in GenUI prompts is descriptive only; it is never parsed or compared.
+- `RemoteConfigPort.snapshot()` is the **only** write path to the local Room cache. No other code writes `remote_config_cache` directly.
+- `RemoteConfigPort` is a stub in MR-2: `SyncApiClient.getRemoteConfig()` returns null, so `RemoteConfigRepositoryImpl` always falls back to defaults. Full backend implementation is deferred.
+- `RemoteConfigSnapshot.validate()` is called **every time** a snapshot is deserialized from cache or network. Never skip validation.
+- `SyncBootstrapper`, `A2uiParser`, and `BackupDomain` use **consistent** error-severity: `warn` for version mismatch, `error` for schema parse failure. This is reflected in log output and sync status.
+- `appVersion()` is the **only** place that reads the running app's version. All other code — logging, backup manifest, About dialog — uses it. Version literals `"0.1.0"` must not be added anywhere else.
+- `core/sync/RemoteConfig` (Supabase credentials) is never to be confused with `RemoteConfigPort` (runtime policy). The former is a repository; the latter is a remote-gateway port.
+
 ### `viewmodel`
 
 - No cast needed — `scope` is `AutoCloseableCoroutineScope` at both call site and definition
@@ -1180,9 +1201,12 @@ _1 entries need attention._
 - `2026-09-23-billing-abstractions` — billing, subscriptions, monetization
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-23-file-logging-and-exporter` — logging, observability, android, jvm
+- `2026-09-23-genui-server-driven-ui` — _untagged_
 - `2026-09-23-ksp-missing-type-main-branch` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
 - `2026-09-23-oauth-pkce-refresh-helpers` — auth, oauth, security, pkce
+- `2026-09-23-ota-deferred-items` — _untagged_
+- `2026-09-23-ota-update-strategy` — _untagged_
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _untagged_
 - `2026-09-23-search-query-language` — search, query-ast, room, viewmodel, dsl
@@ -1192,6 +1216,7 @@ _1 entries need attention._
 - `2026-09-23-sync-state-model` — sync, architecture, core, state, ui
 - `2026-09-23-sync-tier3-fixes` — _untagged_
 - `2026-09-23-tech-debt-audit` — tech-debt, audit, vm, database, tests
+- `2026-09-23-versioning-and-runtime-gates` — versioning, schema, sync, genui, backup, security, kmp
 - `2026-09-23-vm-event-guard-cleanup` — vm, concurrency, cleanup
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
@@ -1368,9 +1393,12 @@ _1 entries need attention._
 - `2026-09-23-billing-abstractions` — Billing abstractions: SubscriptionProvider port + Noop implementation
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _(no title)_
 - `2026-09-23-file-logging-and-exporter` — FileLogWriter + LogExporter: persistent rolling logs and user-facing export
+- `2026-09-23-genui-server-driven-ui` — _(no title)_
 - `2026-09-23-ksp-missing-type-main-branch` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
 - `2026-09-23-oauth-pkce-refresh-helpers` — OAuth building blocks: PKCE, OAuthTokenRefresh, IdToken (no-op SupabaseAuthRepository)
+- `2026-09-23-ota-deferred-items` — _(no title)_
+- `2026-09-23-ota-update-strategy` — _(no title)_
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _(no title)_
 - `2026-09-23-search-query-language` — Search query language: AST, SimpleFilter, SavedSearch, canonical SearchViewModel
@@ -1380,6 +1408,7 @@ _1 entries need attention._
 - `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
 - `2026-09-23-sync-tier3-fixes` — _(no title)_
 - `2026-09-23-tech-debt-audit` — Tech debt audit — post vm-event-guard-cleanup
+- `2026-09-23-versioning-and-runtime-gates` — Single source of truth for app version, typed schema versioning, and runtime version gates
 - `2026-09-23-vm-event-guard-cleanup` — VM event/guard cleanup — compareAndSet, typed combine, SendChannel, dead code
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton

@@ -16,6 +16,7 @@ import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.StubRemoteBackupService
+import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
@@ -125,8 +126,12 @@ fun coreModule(): org.koin.core.module.Module = module {
     // Public facade.
     single<SyncRepository> { SyncRepositoryImpl(engine = get(), runner = get(), prefs = get(), api = get(), authRepository = get(), scope = AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
 
-    // RemoteConfigRepository: DataStore + Room-backed.
+    // RemoteConfigRepository (Supabase endpoint credentials — kept in core/sync, not renamed).
     single<RemoteConfigRepository> { RemoteConfigRepositoryImpl(get(), get()) }
+
+    // RemoteConfigPort: Room + network-backed runtime config snapshot.
+    // Consumes SyncApiClient (stub in MR-2) and Clock.
+    single<RemoteConfigPort> { com.singularity.todo.core.config.RemoteConfigRepositoryImpl(get(), get(), get()) }
 
     // SyncBootstrapper: registers pull handlers for all DocTypes.
     // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag).

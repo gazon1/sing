@@ -72,6 +72,9 @@ internal class SyncBootstrapper(
      * - CREATED / UPDATED: deserialize data and call [applyRemote]
      * - DELETED / RESTORED: call [deleteRemote] / [restoreRemote] with the entity ID
      *
+     * Events with protocolVersion > [SyncProtocol.CURRENT_PROTOCOL_VERSION] are silently skipped.
+     * This provides forward compatibility: a newer server never breaks an older client.
+     *
      * Conflict detection is deferred to Tier 4 (HLC comparison).
      * Currently uses last-write-wins: remote always overwrites local.
      */
@@ -79,6 +82,10 @@ internal class SyncBootstrapper(
         event: SyncEvent,
         applyRemote: suspend (kotlinx.serialization.json.JsonObject) -> Unit,
     ): ApplyOutcome {
+        if (event.protocolVersion > SyncProtocol.CURRENT_PROTOCOL_VERSION) {
+            log.w { "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: protocol version ${event.protocolVersion} > ${SyncProtocol.CURRENT_PROTOCOL_VERSION}, skipping" }
+            return ApplyOutcome.Applied
+        }
         return try {
             when (event.eventType) {
                 SyncEventType.CREATED,

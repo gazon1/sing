@@ -1,6 +1,7 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.version.appVersion
 
 @DslMarker
 annotation class BackupDsl
@@ -10,7 +11,7 @@ class ExportOptionsBuilder {
     var userId: UserId? = null
     var destPath: String? = null
     var includeAttachments: Boolean = true
-    var appVersion: String = "0.0.11"
+    var appVersion: String = appVersion().name
     fun build(): ExportOptions {
         val u = userId ?: error("userId required")
         val d = destPath ?: error("destPath required")
@@ -34,7 +35,7 @@ data class ExportOptions(
     val userId: UserId,
     val destPath: String,
     val includeAttachments: Boolean = true,
-    val appVersion: String = "0.0.11",
+    val appVersion: String = appVersion().name,
 )
 
 data class ImportOptions(val sourcePath: String, val targetUserId: UserId, val overwriteExisting: Boolean = true)

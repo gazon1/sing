@@ -6,8 +6,12 @@ import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.log.initLogging
+import com.singularity.todo.core.version.appVersion
+import com.singularity.todo.feature.gate.gateModule
 import org.koin.core.context.startKoin
 import java.io.File
+
+private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
 
 fun main() = singleWindowApplication(
     title = "Singularity Todo"
@@ -18,12 +22,13 @@ fun main() = singleWindowApplication(
     File("$dataDir/attachments").mkdirs()
     File("$dataDir/backups").mkdirs()
 
-    initLogging(System.getProperty("singularity.debug") == "true", version = "0.1.0")
+    initLogging(System.getProperty("singularity.debug") == "true", version = appVersion().name)
     startKoin {
             modules(
                 platformModule(),
                 coreLoggingModule(),
                 *domainModule().toTypedArray(),
+                gateModule(RELEASES_URL),
             )
     }
 

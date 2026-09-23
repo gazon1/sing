@@ -2,6 +2,7 @@ package com.singularity.todo.core.di
 
 import ai.koog.prompt.llm.LLModel
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.llm.KnownModels
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.platform.Clock
@@ -93,7 +94,8 @@ actual fun aiToolsModule(): Module = module {
             settings = get(),
             promptExecutor = get<PromptExecutorPort>().executor,
             streamingExecutor = get(),
-            tools = get(),
+            allTools = get(),
+            remoteConfigPort = get(),
         )
     }
 

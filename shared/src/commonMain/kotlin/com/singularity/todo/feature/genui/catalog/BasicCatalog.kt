@@ -1,22 +1,27 @@
 package com.singularity.todo.feature.genui.catalog
 
+import kotlinx.serialization.SerialName
+
 /**
  * The basic component catalog for GenUI surfaces.
  *
  * These are the only component kinds the LLM is allowed to emit.
  * Each name corresponds to a `@SerialName` value on [UiNode] subtypes.
  *
- * To regenerate after adding a new node type:
- * ```
- * UiNode::class.sealedSubclasses
- *     .mapNotNull { it.annotations.filterIsInstance<kotlin.serialization.SerialName>().firstOrNull()?.serialName }
- * ```
+ * [componentNames] is auto-generated from [UiNode] sealed subclass annotations —
+ * no manual maintenance needed when new node types are added.
  */
 object BasicCatalog {
-    val componentNames: List<String> = listOf(
-        "text", "heading", "button", "column", "row", "card",
-        "list", "divider", "badge", "text_field", "checkbox", "tabs", "icon", "modal",
-    )
+    /**
+     * Auto-generated from `@SerialName` annotations on [UiNode] subclasses.
+     * Regenerated on each class load; no manual list needed.
+     */
+    val componentNames: List<String> by lazy {
+        UiNode::class.sealedSubclasses
+            .mapNotNull { subclass ->
+                subclass.annotations.filterIsInstance<SerialName>().firstOrNull()?.value
+            }
+    }
 
     /** System-prompt appendix instructing the LLM to use only catalog components. */
     val systemPromptAppendix: String = buildString {

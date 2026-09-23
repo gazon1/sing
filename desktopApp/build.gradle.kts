@@ -8,6 +8,9 @@ plugins {
     alias(libs.plugins.kover)
 }
 
+val desktopAppVersion = "0.1.0"
+val desktopAppVersionCode = 0
+
 sourceSets {
     test {
         java.srcDirs("src/jvmTest")
@@ -61,6 +64,8 @@ compose.desktop {
             "-Dsun.awt.disableMixing=true",
             "-XX:SoftRefLRUPolicyMSPerMB=1",
             "-Dfile.encoding=UTF-8",
+            "-Dsingularity.version=$desktopAppVersion",
+            "-Dsingularity.version.code=$desktopAppVersionCode",
         )
 
         nativeDistributions {

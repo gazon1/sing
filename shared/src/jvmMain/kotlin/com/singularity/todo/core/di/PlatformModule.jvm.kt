@@ -37,7 +37,6 @@ import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSync
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler
 import com.singularity.todo.core.log.LogExporter
-import com.singularity.todo.core.log.SaveToFileLogExporter
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -68,6 +67,7 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().tagDao() }
     single { get<AppDatabase>().syncOutboxDao() }
     single { get<AppDatabase>().remoteConfigDao() }
+    single { get<AppDatabase>().remoteConfigCacheDao() }
     single { get<AppDatabase>().attachmentDao() }
     single { get<AppDatabase>().reminderDao() }
     single { get<AppDatabase>().checklistDao() }
@@ -152,9 +152,6 @@ actual fun platformModule(): Module = module {
         JvmCalendarAppQueries()
     }
 
-    // ─── Logging ──────────────────────────────────────────────────────────
-
-    single<LogExporter> { SaveToFileLogExporter() }
 }
 
 /**

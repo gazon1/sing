@@ -23,6 +23,10 @@ dependencies {
     // Koin
     implementation(libs.koin.android)
 
+    // Play In-App Updates
+    implementation(libs.play.app.update)
+    implementation(libs.play.app.update.ktx)
+
     // Compose
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)

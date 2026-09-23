@@ -87,7 +87,14 @@ data class SyncEvent(
     val eventType: SyncEventType,
     val data: JsonElement? = null,
     val createdAt: Long,
+    /** Protocol version of this event. Events from a newer protocol are skipped. */
+    val protocolVersion: Int = 1,
 )
+
+object SyncProtocol {
+    /** Current protocol version. Events with protocolVersion > CURRENT are dropped. */
+    const val CURRENT_PROTOCOL_VERSION = 1
+}
 
 /**
  * Type of sync event.

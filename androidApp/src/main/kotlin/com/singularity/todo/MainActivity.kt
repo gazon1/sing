@@ -6,6 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.singularity.todo.core.notifications.AndroidNotifier
+import com.singularity.todo.update.AppUpdateGate
+import org.koin.android.ext.android.inject
 
 /**
  * Main (and only) Activity.
@@ -14,6 +16,8 @@ import com.singularity.todo.core.notifications.AndroidNotifier
  * guaranteed single initialization before any Activity or Service.
  */
 class MainActivity : ComponentActivity() {
+
+    private val appUpdateGate: AppUpdateGate by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,5 +60,10 @@ class MainActivity : ComponentActivity() {
         val deeplinkViewId: String? = intent.getStringExtra(AndroidNotifier.EXTRA_DEEPLINK_VIEW_ID)
 
         return deeplinkTaskId to deeplinkViewId
+    }
+
+    override fun onResume() {
+        super.onResume()
+        appUpdateGate.tryOfferUpdate(this)
     }
 }

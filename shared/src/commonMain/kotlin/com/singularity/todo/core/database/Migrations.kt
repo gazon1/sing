@@ -54,7 +54,7 @@ class Migration10To11 : AutoMigrationSpec
  * All-in-blob storage: id, user_id, name, sections_json (whole AgendaDefinition as JSON),
  * created_at, updated_at. Composite PK (id, user_id) for per-profile isolation.
  */
-	class Migration11To12 : AutoMigrationSpec
+class Migration11To12 : AutoMigrationSpec
 
 /**
  * Migration from v15 to v16 — adds `remote_configs` table.
@@ -124,15 +124,5 @@ class Migration14To15 : AutoMigrationSpec
  */
 class Migration16To17 : AutoMigrationSpec
 
-/**
- * Migration from v17 to v18 — adds `saved_searches` table for persisted user searches.
- *
- * Tables added:
- * - `saved_searches(id TEXT, user_id TEXT, name TEXT, query_string TEXT,
- *                    created_at INTEGER, updated_at INTEGER, PRIMARY KEY(id, user_id))`
- * - Index on `(user_id, name)` for fast name lookup.
- *
- * Composite primary key (id, user_id) ensures profile isolation. Auto-migration
- * infers the table from [SavedSearchEntity] and creates both the table and index
- * without a custom `migrate()` override.
- */
+// Migration17To18 is defined in Migration17To18.kt
+// Migration18To19 is defined in Migration18To19.kt

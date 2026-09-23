@@ -32,7 +32,6 @@ import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSync
 import com.singularity.todo.feature.calendar_sync.work.AndroidCalendarSyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
 import com.singularity.todo.core.log.LogExporter
-import com.singularity.todo.core.log.IntentLogExporter
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroAlarmScheduler
@@ -90,6 +89,7 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().tagDao() }
     single { get<AppDatabase>().syncOutboxDao() }
     single { get<AppDatabase>().remoteConfigDao() }
+    single { get<AppDatabase>().remoteConfigCacheDao() }
     single { get<AppDatabase>().attachmentDao() }
     single { get<AppDatabase>().reminderDao() }
     single { get<AppDatabase>().checklistDao() }
@@ -230,7 +230,4 @@ actual fun platformModule(): Module = module {
         AndroidCalendarSyncWorkScheduler(get())
     }
 
-    // ─── Logging ──────────────────────────────────────────────────────────
-
-    single<LogExporter> { IntentLogExporter(get()) }
 }

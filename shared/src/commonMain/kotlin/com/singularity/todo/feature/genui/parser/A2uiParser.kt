@@ -11,10 +11,11 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Parses A2UI v0.9 JSON-Lines into [UiEvent].
+ * Parses A2UI JSON-Lines into [UiEvent].
  *
  * Each line of the input stream is one JSON object with a single top-level key
  * naming the operation. Example:
@@ -24,6 +25,9 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * This parser is **pure** — it has no side effects and no dependencies.
  * Pass a line of JSON, get a [UiEvent] (or `null` for blank lines).
+ *
+ * Forward compatibility: events with a schema version newer than
+ * [A2UI_CURRENT_SCHEMA_VERSION] are skipped (return `null`).
  */
 class A2uiParser(private val json: Json = defaultJson) {
 
@@ -31,6 +35,12 @@ class A2uiParser(private val json: Json = defaultJson) {
         if (line.isBlank()) return null
         val element = runCatching { json.parseToJsonElement(line) }.getOrNull() ?: return null
         val obj = element.jsonObject
+
+        // Schema version gate: skip events from a future schema.
+        // Forward compatibility is handled by StableJson.ignoreUnknownKeys on the server side.
+        val schemaVersion = obj["schemaVersion"]?.jsonPrimitive?.intOrNull ?: A2UI_CURRENT_SCHEMA_VERSION
+        if (schemaVersion > A2UI_CURRENT_SCHEMA_VERSION) return null
+
         val op = obj.keys.firstOrNull() ?: return null
         val data = obj[op]?.jsonObject ?: return null
 
@@ -196,6 +206,9 @@ class A2uiParser(private val json: Json = defaultJson) {
     } ?: UiNode.Direction.Vertical
 
     companion object {
+        /** Current A2UI schema version. Events with schemaVersion > this are skipped. */
+        const val A2UI_CURRENT_SCHEMA_VERSION = 1
+
         @OptIn(ExperimentalSerializationApi::class)
         val defaultJson = Json {
             ignoreUnknownKeys = true

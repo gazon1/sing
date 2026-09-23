@@ -43,7 +43,6 @@ internal fun ComponentRegistry.registerIcon(): Unit = register("icon") { node, _
             contentDescription = i.name,
             modifier = modifier.genuiTag("icon_${i.name}", "Icon: ${i.name}"),
         )
-    } else {
-        Text("[icon: ${i.name}]", color = Color.Gray, modifier = modifier)
     }
+    // Silent skip — unknown icon name is skipped, no placeholder text.
 }
