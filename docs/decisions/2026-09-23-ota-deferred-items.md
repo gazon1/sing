@@ -10,25 +10,26 @@ After completing MR-1 through MR-8 (Play In-App Updates, Remote Config flags, Ge
 
 ## Deferred items
 
-### 1. Multi-store support (RuStore, Samsung Galaxy Store)
+### 1. Multi-store support (RuStore, Samsung Galaxy Store) ✅ DONE
 
-The current `AppUpdateGate` uses Play Core's `AppUpdateManager` exclusively. It only works for apps distributed via Google Play.
+Implemented as `UpdateStorePort` interface with three concrete implementations:
 
-**Why deferred**: no current RuStore distribution. Adding support now would introduce unused complexity.
-
-**When to revisit**: when the app is published to RuStore (estimated Q1 2027 per roadmap).
-
-**Proposed approach**: introduce an `UpdateStorePort` interface with three implementations:
-
-```kotlin
-interface UpdateStorePort {
-    fun tryOfferUpdate(activity: Activity): Boolean
-}
-
-class GooglePlayUpdateStore(...) : UpdateStorePort
-class RuStoreUpdateStore(...) : UpdateStorePort     // rustore SDK
-class DirectUrlUpdateStore(url: String) : UpdateStorePort  // opens browser
 ```
+update/
+  UpdateStorePort.kt           — interface: isUpdateAvailable(), offerUpdate()
+  GooglePlayUpdateStore.kt     — Play Core flexible flow
+  RuStoreUpdateStore.kt       — stub: opens browser; SDK hook documented
+  DirectUrlUpdateStore.kt     — Intent.ACTION_VIEW with custom URL
+  AppUpdateGate.kt            — selects store by RemoteConfigSnapshot.updateStoreType
+```
+
+`RemoteConfigSnapshot.updateStoreType: UpdateStoreType` selects:
+- `GOOGLE_PLAY` → `GooglePlayUpdateStore`
+- `RUSTORE` → `RuStoreUpdateStore` (browser fallback; SDK hook documented in class KDoc)
+- `SAMSUNG` → `DirectUrlUpdateStore` (browser fallback until Samsung SDK added)
+- `DIRECT_URL` → `DirectUrlUpdateStore(snapshot.updateStoreUrl)`
+
+`RuStoreUpdateStore` has a `TODO` in `isUpdateAvailable` with pseudo-code for the real SDK call. To enable: add `com.rustore.rustoreappupdate:rustoreappupdate:1.0.0` dependency and replace the stub.
 
 The active implementation is selected via `RemoteConfigSnapshot.updateStoreType`. `RemoteConfigSnapshot.updateStoreUrl` overrides the destination URL for non-Play stores.
 

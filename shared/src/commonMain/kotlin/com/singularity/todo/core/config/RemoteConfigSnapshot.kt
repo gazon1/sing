@@ -25,6 +25,20 @@ data class RemoteConfigSnapshot(
     val whatsNewPayload: String? = null,
     /** Play In-App Update priority 0–10. Values ≥ 4 trigger immediate flexible update flow. */
     val updatePriority: Int? = null,
+    /**
+     * Which app store to use for in-app updates.
+     * Defaults to [UpdateStoreType.GOOGLE_PLAY].
+     *
+     * When set to [UpdateStoreType.DIRECT_URL], [updateStoreUrl] is used instead.
+     */
+    val updateStoreType: UpdateStoreType = UpdateStoreType.GOOGLE_PLAY,
+    /**
+     * Override URL opened when [updateStoreType] is [UpdateStoreType.DIRECT_URL].
+     * For Google Play use: `https://play.google.com/store/apps/details?id=...`.
+     * For RuStore use: `https://rustore.ru/app/...`.
+     * For Samsung Galaxy Store: `https://galaxystore.samsung.com/...`.
+     */
+    val updateStoreUrl: String? = null,
     val modelFlags: Map<String, Boolean> = emptyMap(),
     val mcpToolFlags: Map<String, Boolean> = emptyMap(),
 ) {
@@ -96,4 +110,29 @@ enum class BannerSeverity {
     Info,
     Warning,
     Critical,
+}
+
+/**
+ * Supported app stores for in-app update flows.
+ *
+ * Used by [RemoteConfigSnapshot.updateStoreType] to select the active
+ * [com.singularity.todo.update.UpdateStorePort] implementation.
+ */
+@Serializable
+enum class UpdateStoreType {
+    /** Google Play — flexible in-app update via Play Core library. */
+    GOOGLE_PLAY,
+
+    /** RuStore — in-app update via RuStore SDK. */
+    RUSTORE,
+
+    /** Samsung Galaxy Store — in-app update via Samsung Apps SDK. */
+    SAMSUNG,
+
+    /**
+     * No in-app update SDK available.
+     * Falls back to opening [RemoteConfigSnapshot.updateStoreUrl] in a browser
+     * via [android.content.Intent.ACTION_VIEW].
+     */
+    DIRECT_URL,
 }
