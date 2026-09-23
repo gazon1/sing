@@ -34,7 +34,6 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewM
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
@@ -123,8 +122,6 @@ fun tasksModule(): org.koin.core.module.Module = module {
         SearchViewModel(
             searchUseCase = get(),
             savedSearchRepo = get(),
-            tagLookup = get(),
-            projectLookup = get(),
             clock = get(),
         )
     }

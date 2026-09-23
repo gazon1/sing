@@ -5,24 +5,18 @@ import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import com.singularity.todo.feature.search.query.Query
-import com.singularity.todo.feature.search.query.ProjectLookup
-import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SimpleFilterMapper
-import com.singularity.todo.feature.search.query.TagLookup
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,9 +26,6 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -92,13 +83,11 @@ sealed interface SearchIntent {
 // ─── ViewModel ─────────────────────────────────────────────────────────────────
 
 /**
- * Canonical 7-argument constructor for [SearchViewModel].
+ * Canonical 5-argument constructor for [SearchViewModel].
  *
  * @param searchUseCase Executes a parsed [Query] against the data layer.
  * @param savedSearchRepo Persists and observes saved searches.
  * @param parseQuery Parses a raw query string into a [Query] AST.
- * @param tagLookup Resolves tag names to IDs (for [SearchQueryResolver]).
- * @param projectLookup Resolves project names to IDs (for [SearchQueryResolver]).
  * @param clock Used to stamp createdAt/updatedAt on saved searches.
  * @param scope Coroutine scope for all ViewModel coroutine work.
  */
@@ -107,8 +96,6 @@ class SearchViewModel(
     private val searchUseCase: SearchUseCase,
     private val savedSearchRepo: SavedSearchRepository,
     private val parseQuery: (String) -> Query,
-    private val tagLookup: TagLookup,
-    private val projectLookup: ProjectLookup,
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
@@ -121,15 +108,11 @@ class SearchViewModel(
     constructor(
         searchUseCase: SearchUseCase,
         savedSearchRepo: SavedSearchRepository,
-        tagLookup: TagLookup,
-        projectLookup: ProjectLookup,
         clock: Clock,
     ) : this(
         searchUseCase = searchUseCase,
         savedSearchRepo = savedSearchRepo,
         parseQuery = { input -> com.singularity.todo.feature.search.query.SingularityQueryParser(input).parse() },
-        tagLookup = tagLookup,
-        projectLookup = projectLookup,
         clock = clock,
         scope = AutoCloseableCoroutineScope(),
     )
@@ -254,7 +237,7 @@ class SearchViewModel(
         val queryResult = SimpleFilterMapper().toQuery(filter)
         queryResult.fold(
             onSuccess = { query ->
-                _queryString.value = "" // filter is derived; don't overwrite query string with ""
+                // Keep _queryString as-is; raw text + filter coexist in state
                 _parsedQuery.value = query
                 _state.value = _state.value.copy(isSearching = true)
             },
@@ -289,16 +272,19 @@ class SearchViewModel(
 
     private fun onSaveCurrentSearch(name: String) {
         scope.launch {
-            val queryString = _queryString.value.ifBlank { _activeFilter.value?.let { SimpleFilterMapper().toQuery(it).getOrNull()?.toString() } ?: "" }
-            val existing = _activeSavedSearchId.value
+            val queryString = _queryString.value.ifBlank { "" }
+            val existingId = _activeSavedSearchId.value
             val now = clock.now()
 
+            // Fetch once — avoid duplicate get() calls
+            val existingEntity = existingId?.let { savedSearchRepo.get(it) }
+
             val savedSearch = SavedSearch(
-                id = existing?.let { savedSearchRepo.get(it) }?.id ?: SavedSearchId.generate(),
+                id = existingEntity?.id ?: SavedSearchId.generate(),
                 userId = "",
                 name = name,
                 queryString = queryString,
-                createdAt = existing?.let { savedSearchRepo.get(it) }?.createdAt ?: now,
+                createdAt = existingEntity?.createdAt ?: now,
                 updatedAt = now,
             )
 
