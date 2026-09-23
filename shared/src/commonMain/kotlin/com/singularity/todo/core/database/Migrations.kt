@@ -56,7 +56,6 @@ class Migration10To11 : AutoMigrationSpec
  *
  * No destructive changes: all existing rows continue to work.
  */
-class Migration15To16 : AutoMigrationSpec
 
 /**
  * Migration from v11 to v12 — adds agenda_views table for saved agenda view persistence.
@@ -137,4 +136,3 @@ class Migration16To17 : AutoMigrationSpec
  * infers the table from [SavedSearchEntity] and creates both the table and index
  * without a custom `migrate()` override.
  */
-class Migration17To18 : AutoMigrationSpec

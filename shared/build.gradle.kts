@@ -101,6 +101,9 @@ kotlin {
             // Kermit
             implementation(libs.kermit)
 
+            // Okio — file I/O for FileLogWriter
+            implementation(libs.okio)
+
             // Markdown
             implementation(libs.markdown.renderer)
             implementation(libs.markdown.renderer.m3)

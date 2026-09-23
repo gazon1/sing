@@ -1,12 +1,21 @@
 package com.singularity.todo.core.log
 
 import co.touchlab.kermit.Logger
+import co.touchlab.kermit.platformLogWriter
 
 /**
- * Android entry point — Logcat handles colors and formatting natively via
- * [co.touchlab.kermit.platformLogWriter], so no writer replacement is needed.
+ * Android init: adds [FileLogWriter] (persistent rolling logs) alongside the default
+ * [platformLogWriter] (Logcat).
+ *
+ * @param isDebug `true` enables [co.touchlab.kermit.Severity.Verbose] logging.
+ * @param version Human-readable version shown in [logStartup].
  */
 actual fun initLogging(isDebug: Boolean, version: String) {
     applyGlobalSeverity(isDebug)
-    Logger.i { "Singularity Todo $version started, isDebug=$isDebug" }
+
+    // FileLogWriter writes to files in filesDir/logs.
+    // platformLogWriter writes to Logcat. Both are active simultaneously.
+    Logger.setLogWriters(FileLogWriter(logDirectory()), platformLogWriter())
+
+    logStartup(version, isDebug)
 }
