@@ -327,6 +327,10 @@ private class FakeTaskDao(
             store.value[ref.taskId]?.userId == userId
         }
 
+    override fun observeTagCrossRefs(userId: String): Flow<List<TaskTagCrossRef>> = crossRefs
+
+    override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> = depRefs
+
     override suspend fun searchTitles(userId: String, q: String): List<TaskEntity> =
         store.value.values.filter {
             it.userId == userId && it.archivedAt == null && it.title.contains(q, ignoreCase = true)

@@ -54,9 +54,13 @@ internal fun String?.toProjectIdOrNull(): ProjectId? =
 
 /**
  * Converts a [TaskEntity] to a domain [Task].
- * Tags are not populated — callers must fill them separately if needed.
+ * Tags and dependsOn are populated from the bundled [TaskExtras] when loading lists.
+ * For single-task observes use [TaskRepository.observeDependencies] separately.
  */
-internal fun TaskEntity.toTask(): Task = Task(
+internal fun TaskEntity.toTask(
+    tags: List<com.singularity.todo.feature.tags.TagId> = emptyList(),
+    dependsOn: Set<com.singularity.todo.feature.tasks.domain.model.TaskId> = emptySet(),
+): Task = Task(
     id = id.toId(),
     title = title,
     description = description,
@@ -64,7 +68,7 @@ internal fun TaskEntity.toTask(): Task = Task(
     kind = kind,
     projectId = projectId.toProjectIdOrNull(),
     parentTaskId = parentTaskId?.toId(),
-    tags = emptyList(),
+    tags = tags,
     dueDate = dueDate.toLocalDateOrNull(),
     dueTime = dueTime.toLocalTimeOrNull(),
     startDate = startDate.toLocalDateOrNull(),
@@ -77,9 +81,7 @@ internal fun TaskEntity.toTask(): Task = Task(
     someday = someday,
     archivedAt = archivedAt.toInstantOrNull(),
     isPinned = isPinned,
-    // dependsOn is loaded separately via TaskRepository.watchDependencies —
-    // it is never stored on TaskEntity itself (join table only).
-    dependsOn = emptySet(),
+    dependsOn = dependsOn,
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),
     userId = userId.toId(),

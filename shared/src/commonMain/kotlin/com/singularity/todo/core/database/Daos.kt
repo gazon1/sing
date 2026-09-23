@@ -159,6 +159,20 @@ interface TaskDao {
         "UPDATE tasks SET archived_at = :ts, updated_at = :ts WHERE completed_at IS NOT NULL AND archived_at IS NULL",
     )
     suspend fun archiveCompleted(ts: Long): Int
+
+    /**
+     * Non-suspend Flow of all tag cross-references for the given [userId].
+     * Room emits a new collection whenever any row changes.
+     */
+    @Query("SELECT * FROM task_tags WHERE task_id IN (SELECT id FROM tasks WHERE user_id = :userId)")
+    fun observeTagCrossRefs(userId: String): Flow<List<TaskTagCrossRef>>
+
+    /**
+     * Non-suspend Flow of all dependency cross-references for the given [userId].
+     * Room emits a new collection whenever any row changes.
+     */
+    @Query("SELECT * FROM task_dependencies WHERE task_id IN (SELECT id FROM tasks WHERE user_id = :userId)")
+    fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>>
 }
 
 @Dao
