@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -62,6 +64,8 @@ class SyncViewModel(
     init {
         addCloseable(scope)
     }
+
+    private val syncMutex = Mutex()
 
     private val _state = MutableStateFlow(buildState())
     val state: StateFlow<SyncState> = _state.asStateFlow()
@@ -123,19 +127,21 @@ class SyncViewModel(
 
     private fun syncNow() {
         scope.launch {
-            // Debounce: ignore if already syncing
-            if (_state.value.isLoading || _state.value.status.isRunning()) return@launch
-            _state.update { it.copy(isLoading = true, errorMessage = null, connectionTestResult = null) }
-            try {
-                repository.syncOnce()
-            } catch (e: Throwable) {
-                // Exception from syncOnce() (e.g. getOrThrow() on a Failure Result).
-                // Ensure the snackbar shows after this sync completes.
-                allowSnackbarOnFailure = true
-                _state.update { it.copy(isLoading = false, status = SyncEngineStatus.Failure(e as? AppError ?: AppError.Unknown(e))) }
-                return@launch
-            } finally {
-                _state.update { it.copy(isLoading = false) }
+            syncMutex.withLock {
+                // Debounce: ignore if already syncing
+                if (_state.value.isLoading || _state.value.status.isRunning()) return@launch
+                _state.update { it.copy(isLoading = true, errorMessage = null, connectionTestResult = null) }
+                try {
+                    repository.syncOnce()
+                } catch (e: Throwable) {
+                    // Exception from syncOnce() (e.g. getOrThrow() on a Failure Result).
+                    // Ensure the snackbar shows after this sync completes.
+                    allowSnackbarOnFailure = true
+                    _state.update { it.copy(isLoading = false, status = SyncEngineStatus.Failure(e as? AppError ?: AppError.Unknown(e))) }
+                    return@launch
+                } finally {
+                    _state.update { it.copy(isLoading = false) }
+                }
             }
         }
     }
