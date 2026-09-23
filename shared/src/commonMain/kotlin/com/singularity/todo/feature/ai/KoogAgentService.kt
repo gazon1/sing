@@ -8,9 +8,12 @@ import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.utils.time.KoogClock
+import com.singularity.todo.core.ai.filterTools
+import com.singularity.todo.core.ai.resolveModelWithFlags
+import com.singularity.todo.core.ai.toolId
+import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.di.PromptExecutorPort
 import com.singularity.todo.core.llm.OpenAiConfig
-import com.singularity.todo.core.llm.resolveModel
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.prompts.Prompts
@@ -34,23 +37,43 @@ import java.net.URI
  *
  * Returns `(AI unavailable: ...)` when the API key is not configured — never
  * throws, since failures inside the AI loop are surfaced through [Result].
+ *
+ * Kill switches: tools are filtered through [RemoteConfigPort.mcpToolFlags] at construction time.
+ * Models are resolved through [RemoteConfigPort.modelFlags] — disabled models fall back to GPT-4o Mini.
  */
 class KoogAgentService(
     private val secureStorage: ProfileAwareSecureStorage,
     private val settings: SettingsRepository,
     private val promptExecutor: ai.koog.prompt.executor.model.PromptExecutor,
     private val streamingExecutor: PromptExecutorPort,
-    private val tools: List<Tool<*, *>>,
+    allTools: List<Tool<*, *>>,
+    private val remoteConfigPort: RemoteConfigPort,
 ) : TextGenPort {
+
+    // Filter tools based on current RemoteConfig flags. Read at construction so this
+    // is fixed for the lifetime of the service instance (flags refresh is infrequent).
+    private val tools: List<Tool<*, *>> = run {
+        val flags = remoteConfigPort.observe().value.mcpToolFlags
+        filterTools(allTools, flags).also {
+            val disabled = allTools.mapNotNull { it.toolId() } - it.mapNotNull { it.toolId() }.toSet()
+            if (disabled.isNotEmpty()) {
+                co.touchlab.kermit.Logger.withTag("KoogAgentService")
+                    .i { "Kill switch: disabled tools: $disabled" }
+            }
+        }
+    }
 
     private val agentTools: ToolRegistry = ToolRegistry.builder().tools(tools).build()
 
-    private fun createAgent(systemPrompt: String, modelId: String): AIAgent<String, String> = AIAgent.builder()
-        .promptExecutor(promptExecutor)
-        .systemPrompt(systemPrompt)
-        .toolRegistry(agentTools)
-        .llmModel(resolveModel(modelId))
-        .build()
+    private fun createAgent(systemPrompt: String, modelId: String): AIAgent<String, String> {
+        val flags = remoteConfigPort.observe().value.modelFlags
+        return AIAgent.builder()
+            .promptExecutor(promptExecutor)
+            .systemPrompt(systemPrompt)
+            .toolRegistry(agentTools)
+            .llmModel(resolveModelWithFlags(modelId, flags))
+            .build()
+    }
 
     private suspend fun requireApiKey(): String? =
         secureStorage.read(OpenAiConfig.KEY_OPENAI)?.takeIf { it.isNotBlank() }
@@ -83,9 +106,10 @@ class KoogAgentService(
             return@flow
         }
 
+        val flags = remoteConfigPort.observe().value.modelFlags
         val systemPrompt = settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
         val modelId = settings.aiModel.first().ifBlank { OpenAiConfig.DEFAULT_MODEL }
-        val model = resolveModel(modelId)
+        val model = resolveModelWithFlags(modelId, flags)
 
         val p = prompt(Prompt.Empty, KoogClock.System) {
             system(systemPrompt)
