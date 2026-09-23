@@ -15,6 +15,7 @@ import com.singularity.todo.core.settings.settingsContributorsModule
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
@@ -52,7 +53,7 @@ fun domainModule(): List<Module> = buildList {
         single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get(), createBackgroundScope()) }
         single { ProfileAwareCurrentUser(get(), get(), createBackgroundScope()) }
         factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
-        factory { AccountSettingsViewModel(profileRepository = get()) }
+        viewModel { AccountSettingsViewModel(profileRepository = get()) }
     }
     )
     add(coreModule())

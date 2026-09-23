@@ -14,6 +14,7 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.presentation.nav.NotesNavGraph
 import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.pomodoro.PomodoroScreen
+import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.profile.ProfileSwitcherScreen
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -82,6 +83,7 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     entry<AppDestination.Pomodoro> {
         PomodoroScreen(
             timer = koinInject<PomodoroTimer>(),
+            taskListProvider = koinInject<PomodoroTaskListProvider>(),
         )
     }
 

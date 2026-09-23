@@ -64,6 +64,29 @@ class TaskDetailViewModel(
     /** Draft state — owned by VM, single source of truth for editable title/description. */
     val draftState = TaskDetailDraftState()
 
+    /**
+     * Type-safe intermediate containers for the nested combine chain.
+     * Eliminates the original 8x @Suppress("UNCHECKED_CAST") in the 8-flow combine.
+     */
+    private data class Meta(
+        val project: com.singularity.todo.feature.projects.domain.model.Project?,
+        val allTags: List<com.singularity.todo.feature.tags.Tag>,
+    )
+
+    private data class Content(
+        val checklist: List<com.singularity.todo.feature.checklist.ChecklistItem>,
+        val reminders: List<com.singularity.todo.feature.reminders.Reminder>,
+        val attachments: List<com.singularity.todo.core.attachments.Attachment>,
+        val subtasks: List<Task>,
+        val available: List<Task>,
+    )
+
+    private data class AllData(
+        val meta: Meta,
+        val content: Content,
+        val draft: TaskDetailDraft,
+    )
+
     private val _recentlyDeleted = MutableStateFlow<Task?>(null)
 
     /** Incremented on each retry() call to restart the watchTask subscription. */
@@ -117,56 +140,44 @@ class TaskDetailViewModel(
                 val availableTasksFlow = deps.taskRepo.observeByFilter(com.singularity.todo.feature.tasks.domain.model.TaskFilter.All)
                     .map { all -> all.filter { !it.isTrashed && it.id != taskId } }
 
-                combine(
-                    projectFlow,
-                    tagsFlow,
+                // Level 1: Meta (project + tags)
+                val metaFlow = combine(projectFlow, tagsFlow) { project, allTags ->
+                    Meta(project, allTags)
+                }
+
+                // Level 2: Content (checklist + reminders + attachments + subtasks + available)
+                val contentFlow = combine(
                     checklistFlow,
                     reminderFlow,
                     attachmentsFlow,
                     subtasksFlow,
                     availableTasksFlow,
-                    draftState.state,
-                ) { values ->
-                    @Suppress("UNCHECKED_CAST")
-                    val project = values[0] as com.singularity.todo.feature.projects.domain.model.Project?
+                ) { checklist, reminders, attachments, subtasks, available ->
+                    Content(checklist, reminders, attachments, subtasks, available)
+                }
 
-                    @Suppress("UNCHECKED_CAST")
-                    val allTags = values[1] as List<com.singularity.todo.feature.tags.Tag>
+                // Level 3: All combined (Meta + Content + Draft)
+                val allFlow = combine(metaFlow, contentFlow, draftState.state) { meta, content, draft ->
+                    AllData(meta, content, draft)
+                }
 
-                    @Suppress("UNCHECKED_CAST")
-                    val checklist = values[2] as List<com.singularity.todo.feature.checklist.ChecklistItem>
-
-                    @Suppress("UNCHECKED_CAST")
-                    val reminders = values[3] as List<com.singularity.todo.feature.reminders.Reminder>
-
-                    @Suppress("UNCHECKED_CAST")
-                    val attachments = values[4] as List<com.singularity.todo.core.attachments.Attachment>
-
-                    @Suppress("UNCHECKED_CAST")
-                    val subtasks = values[5] as List<Task>
-
-                    @Suppress("UNCHECKED_CAST")
-                    val availableTasks = values[6] as List<Task>
-
-                    @Suppress("UNCHECKED_CAST")
-                    val draft = values[7] as TaskDetailDraft
-
+                allFlow.combine(flowOf(task)) { all, t ->
                     // Seed from loaded task — idempotent, won't overwrite user's active edits.
-                    draftState.seed(task.title, task.description ?: "")
+                    draftState.seed(t.title, t.description ?: "")
 
                     TaskDetailUiState.Loaded(
                         TaskDetailUi(
-                            task = task,
-                            titleDraft = draft.title,
-                            descriptionDraft = draft.description,
-                            project = project,
-                            tags = allTags.filter { it.id in task.tags },
-                            checklist = checklist,
-                            reminders = reminders,
-                            attachments = attachments,
-                            subtasks = subtasks,
-                            dependsOn = task.dependsOn,
-                            availableTasks = availableTasks,
+                            task = t,
+                            titleDraft = all.draft.title,
+                            descriptionDraft = all.draft.description,
+                            project = all.meta.project,
+                            tags = all.meta.allTags.filter { it.id in t.tags },
+                            checklist = all.content.checklist,
+                            reminders = all.content.reminders,
+                            attachments = all.content.attachments,
+                            subtasks = all.content.subtasks,
+                            dependsOn = t.dependsOn,
+                            availableTasks = all.content.available,
                         ),
                     )
                 }

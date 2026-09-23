@@ -42,7 +42,7 @@ object CalendarEventMapper {
             val ldt = LocalDateTime(
                 year = effectiveDate.year,
                 month = effectiveDate.month,
-                dayOfMonth = effectiveDate.dayOfMonth,
+                dayOfMonth = effectiveDate.day,
                 hour = task.dueTime.hour,
                 minute = task.dueTime.minute,
                 second = 0,
@@ -102,7 +102,7 @@ object CalendarEventMapper {
 
     private fun LocalDate.nextDay(): LocalDate {
         val dim = daysInMonth(year, monthNumber)
-        val nextD = dayOfMonth + 1
+        val nextD = day + 1
         return when {
             nextD <= dim -> LocalDate(year, monthNumber, nextD)
             monthNumber == 12 -> LocalDate(year + 1, 1, 1)

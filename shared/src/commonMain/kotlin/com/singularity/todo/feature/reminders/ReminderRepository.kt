@@ -41,6 +41,12 @@ interface ReminderRepository {
     /** Reminders due before [nowEpochMs] for the current user. */
     fun watchDueBefore(nowEpochMs: Long): Flow<List<Reminder>>
 
+    /**
+     * Most-recent [limit] reminders due before [nowEpochMs] for the current user.
+     * Used by [AlarmReceiver] to catch up past-due reminders on boot without loading all rows.
+     */
+    fun watchRecentDueBefore(nowEpochMs: Long, limit: Int): Flow<List<Reminder>>
+
     /** Deletes all reminders for a task. */
     suspend fun deleteByTask(taskId: TaskId): Result<Unit>
 

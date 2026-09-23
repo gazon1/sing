@@ -118,7 +118,7 @@ private fun DayHeaderCell(date: LocalDate, isToday: Boolean, palette: CalendarPa
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "${date.dayOfMonth}",
+                        text = "${date.day}",
                         color = Color.White,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
@@ -126,7 +126,7 @@ private fun DayHeaderCell(date: LocalDate, isToday: Boolean, palette: CalendarPa
                 }
             } else {
                 Text(
-                    text = "${date.dayOfMonth}",
+                    text = "${date.day}",
                     color = palette.textPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,

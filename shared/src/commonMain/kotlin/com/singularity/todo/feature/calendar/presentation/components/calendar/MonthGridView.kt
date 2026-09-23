@@ -213,7 +213,7 @@ private fun MonthDayCell(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "${date.dayOfMonth}",
+                            text = "${date.day}",
                             color = Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -221,7 +221,7 @@ private fun MonthDayCell(
                     }
                 } else {
                     Text(
-                        text = "${date.dayOfMonth}",
+                        text = "${date.day}",
                         color = dayNumberColor,
                         fontSize = 13.sp,
                         fontWeight = if (isCurrentMonth) FontWeight.Medium else FontWeight.Normal,

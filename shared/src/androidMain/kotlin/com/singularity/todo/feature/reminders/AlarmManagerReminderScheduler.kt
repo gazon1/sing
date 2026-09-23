@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.feature.alarms.AlarmContract
 import com.singularity.todo.feature.alarms.AlarmReceiver
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.first
@@ -71,20 +72,15 @@ class AlarmManagerReminderScheduler(
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             action = AlarmReceiver.ACTION_REMINDER_FIRE
             if (includeExtras) {
-                putExtra(AlarmReceiver.EXTRA_REMINDER_ID, id.value)
-                putExtra(AlarmReceiver.EXTRA_USER_ID, userId.value)
+                putExtra(AlarmContract.EXTRA_REMINDER_ID, id.value)
+                putExtra(AlarmContract.EXTRA_USER_ID, userId.value)
             }
         }
         return PendingIntent.getBroadcast(
             context,
-            tagFor(userId, id).hashCode(),
+            AlarmContract.tagFor(userId, id).hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-    }
-
-    companion object {
-        fun tagFor(userId: com.singularity.todo.core.ids.UserId, id: ReminderId) =
-            "reminder:${userId.value}:${id.value}"
     }
 }

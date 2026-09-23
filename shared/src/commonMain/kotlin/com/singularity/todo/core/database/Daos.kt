@@ -358,6 +358,9 @@ interface ReminderDao {
     @Query("SELECT * FROM task_reminders WHERE fire_at <= :now AND user_id = :userId ORDER BY fire_at ASC")
     fun getDueBefore(now: Long, userId: String): Flow<List<TaskReminderEntity>>
 
+    @Query("SELECT * FROM task_reminders WHERE fire_at <= :now AND user_id = :userId ORDER BY fire_at DESC LIMIT :limit")
+    fun getRecentDueBefore(now: Long, userId: String, limit: Int): Flow<List<TaskReminderEntity>>
+
     @Upsert
     suspend fun upsert(reminder: TaskReminderEntity)
 

@@ -31,12 +31,18 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPo
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.work.AndroidCalendarSyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.core.log.LogExporter
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
+import com.singularity.todo.feature.pomodoro.AndroidPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroAlarmScheduler
+import com.singularity.todo.feature.pomodoro.PomodoroConfig
+import com.singularity.todo.feature.pomodoro.PomodoroScheduler
+import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.AlarmManagerReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.settings.AiApiKeyMigration
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.runBlocking
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
@@ -189,12 +195,12 @@ actual fun platformModule(): Module = module {
 
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 
-    single { PomodoroAlarmScheduler(get()) }
-
-    // Use viewModel so AndroidPomodoroTimer (a ViewModel) is scoped correctly.
-    // koinInject<PomodoroTimer>() in entry composables gets the scoped instance.
-    // Constructor: (clock, taskRepository, alarmScheduler, config)
-    viewModel { AndroidPomodoroTimer(get(), get(), get(), get()) }
+    single { PomodoroConfig() }
+    single<PomodoroScheduler> { PomodoroAlarmScheduler(get()) }
+    single { AndroidPomodoroTaskListProvider(get()) }
+    // AndroidPomodoroTimer no longer extends ViewModel — use factory so each injection
+    // point gets its own instance with the shared MainScope.
+    factory<PomodoroTimer> { AndroidPomodoroTimer(get(), get(), get(), get(), MainScope()) }
 
     // ─── Calendar Sync ────────────────────────────────────────────────
 
@@ -223,4 +229,5 @@ actual fun platformModule(): Module = module {
     single<CalendarSyncWorkScheduler> {
         AndroidCalendarSyncWorkScheduler(get())
     }
+
 }

@@ -66,6 +66,9 @@ nav3-lifecycle-vm = "2.11.0"
 # Supabase
 supabase = "3.8.0"
 
+# Okio — for FileLogWriter rolling file logs (Square, KMP-native)
+okio = "3.10.0"
+
 # Utils
 ulid = "5.2.4"
 turbine = "1.2.0"
@@ -214,6 +217,9 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-testExt" }
+
+# Okio — file I/O for FileLogWriter
+okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 
 # FileKit
 filekit-core = { module = "io.github.vinceglb:filekit-core", version.ref = "filekit" }

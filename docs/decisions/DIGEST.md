@@ -371,6 +371,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `SettingsViewModel.testConnection()` **always** short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`.
 - `llm_usage` table tracks input/output tokens and cost per call
 
+### `analytics`
+
+- Crash reporting (`CrashReporting` interface from Tasks.org) is intentionally separate — will be addressed in a dedicated ADR when Sentry/Crashlytics is evaluated.
+- No real analytics SDK is connected. `logEvent` calls in the codebase are safe no-ops.
+- When a real SDK is added: create `RealAnalytics : Analytics` (wrapping Amplitude/Mixpanel/PostHog), change Koin binding from `NoopAnalytics` to `RealAnalytics`, remove this ADR's "no-op" status.
+- `ProfileAwareAnalytics` decorator (adding `profile_id` to every event) will be added when the real SDK is connected — at that point we know whether the SDK handles profile identity natively.
+
 ### `architecture`
 
 - **+100% testability** — all business logic is in pure Kotlin, testable without Compose.
@@ -445,6 +452,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Существующие unit-тесты для VM не затрагиваются (тестируют VM
 - Чинится латентный bug для всех `koinViewModel { parametersOf(...) }`
 
+### `auth`
+
+- `IdToken` parses but does **not** validate signatures. Signature verification requires the JWKS endpoint and is provider-specific — out of scope for this ADR.
+- `RedirectState.encode` is useful for OAuth2 authorization code flow with state parameter — the nonce prevents CSRF. The redirect state encoding (Base64URL of JSON) matches the OIDC `state` parameter convention.
+- `SecureStoragePort` (already in the codebase) is the right place to store `OAuthTokenData.serialize()` — `SecureStoragePort.write(KEY_OAUTH_TOKEN, tokenData.serialize())`. This is noted for the follow-up ADR.
+- `core/auth/SupabaseAuthRepository` remains a stub. A follow-up ADR will define the connection contract.
+
 ### `backup`
 
 - **Negative**: Attachments are not deduplicated across backups — two backups with the same file will contain two copies
@@ -452,6 +466,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive**: Single portable file with integrity check (SHA-256)
 - **Positive**: Version fields allow future migrations (FORMAT_VERSION / SCHEMA_VERSION)
 - **Positive**: `ignoreUnknownKeys` provides graceful forward compatibility
+
+### `billing`
+
+- Real Google Play Billing integration will require: `GooglePlaySubscriptionProvider : SubscriptionProvider`, adding `com.android.billingclient:billing` dependency, and wiring `BillingClient` in `androidMain`. This is the next ADR in this area.
+- `NoopSubscriptionProvider` is bound as `single<SubscriptionProvider>`. All purchase-related UI shows "Pro: false".
+- `awaitVerification()` returning `true` by default (Noop) means the app assumes the user is verified when no payment provider is connected. When Google Play is connected, it will query Google Play's licensing API.
+- `purchaseStateFor` is a factory function (not a class) — it recomputes on each call from the live `subscription` flow. If performance becomes an issue (excessive recomputation), it can be replaced with a `DerivedPurchaseState : PurchaseState` class that caches the result.
 
 ### `cleanup`
 
@@ -573,9 +594,15 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All new `catch` blocks in ViewModels, repositories, and use cases should inject `Logger` and call `log.e(e) { "..." }` or use `runCatchingLogged`.
 - Existing silent `catch (_: Exception)` (e.g., in `ToolFactories.kt` lines 58, 126, 181) remain unfixed — these require separate investigation (some appear to be copy-paste bugs, not intentional suppression).
 - Koin logs (`NoDefinitionFoundException`, etc.) now appear in Kermit's output via `KermitKoinLogger`.
+- No redaction layer added. Access tokens and profile IDs are not written to logs today. When they are, a `RedactingLogWriter` decorator must be added before this layer.
+- On Android, `logDirectory()` lazily resolves `Context` from Koin. The `Context` is available by the time the first log entry is written (after Koin starts), so this is safe.
 - On JVM, `ColorizedWriter` uses `\u001B` ANSI escapes. Older Windows terminals (pre-10) will print escape sequences literally. `NO_COLOR` env var is respected.
+- The `FileLogWriter` instance is **not** exposed via Koin — it is created inside `initLogging` and lives as a global. This is intentional: Kermit's `Logger` holds it, and we don't want DI to manage it.
 - `BuildConfig.DEBUG` requires `buildConfig = true` in `androidApp/build.gradle.kts`. No BuildConfig is available in `shared` jvm target.
+- `DebugInfo` uses `version: String` and `isDebug: Boolean` passed from the app entry point (Android: `BuildConfig`, JVM: Gradle property). No global `BuildConfig` in shared.
+- `LogExporter` **is** a Koin singleton (`single<LogExporter>`) so screens can `koinInject<LogExporter>()` for a "Send logs" button.
 - `RefineTaskTool.kt:34-38` has identical try and catch branches (copy-paste bug) — not fixed in this PR.
+- `initLogging` must be called **before** `startKoin` (unchanged from previous behavior).
 
 ### `mcp`
 
@@ -982,6 +1009,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`toggleArchive`** no longer emits `Saved` — `lastEditedAt` drives "Saved X ago" UI via the `mutate{}` helper
 - 4 PRs instead of 1 (review overhead).
 - All new VMs in this codebase should prefer `with(intent) { ... }` for data class intents with ≥2 properties.
+- Dead code removed — `TaskDetailMode` and the `Attachment` intent branch would have required maintenance with zero benefit.
+- Double-tap on Save creates exactly one entity (compareAndSet enforces single-writer).
 - Internal note/task links now navigate correctly.
 - Pre-work required 3-4 hours before any visible feature change.
 - Recomposition skip — `@Stable` on 11 holders.
@@ -990,7 +1019,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - This pattern does NOT require a custom DSL marker or annotation; stdlib `with` is sufficient.
 - Unified mental model for state holders.
 - `Dispatchers.Default` fixes flaky VM tests.
+- `NoteSaver` API contract is precise: it sends, never manages the channel lifecycle.
 - `OverlayState` (Phase 1) is not yet saved across process death — acceptable
+- `TaskDetailViewModel` typed combine is readable without `@Suppress` annotations.
 
 ## Open / Deferred
 
@@ -1166,9 +1197,14 @@ _1 entries need attention._
 - `2026-09-22-task-rich-dates` — _untagged_
 - `2026-09-22-task-ui-rich-dates` — _untagged_
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
+- `2026-09-23-analytics-port` — analytics, observability, gdpr
+- `2026-09-23-billing-abstractions` — billing, subscriptions, monetization
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
+- `2026-09-23-file-logging-and-exporter` — logging, observability, android, jvm
 - `2026-09-23-genui-server-driven-ui` — _untagged_
+- `2026-09-23-ksp-missing-type-main-branch` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
+- `2026-09-23-oauth-pkce-refresh-helpers` — auth, oauth, security, pkce
 - `2026-09-23-ota-deferred-items` — _untagged_
 - `2026-09-23-ota-update-strategy` — _untagged_
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
@@ -1179,7 +1215,9 @@ _1 entries need attention._
 - `2026-09-23-sync-scheduling-abstraction` — sync, architecture, core, scheduling, remote-config, persistence
 - `2026-09-23-sync-state-model` — sync, architecture, core, state, ui
 - `2026-09-23-sync-tier3-fixes` — _untagged_
+- `2026-09-23-tech-debt-audit` — tech-debt, audit, vm, database, tests
 - `2026-09-23-versioning-and-runtime-gates` — versioning, schema, sync, genui, backup, security, kmp
+- `2026-09-23-vm-event-guard-cleanup` — vm, concurrency, cleanup
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _untagged_
@@ -1351,9 +1389,14 @@ _1 entries need attention._
 - `2026-09-22-task-rich-dates` — _(no title)_
 - `2026-09-22-task-ui-rich-dates` — _(no title)_
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
+- `2026-09-23-analytics-port` — Analytics port: interface + Noop + GDPR-compliant opt-in default
+- `2026-09-23-billing-abstractions` — Billing abstractions: SubscriptionProvider port + Noop implementation
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _(no title)_
+- `2026-09-23-file-logging-and-exporter` — FileLogWriter + LogExporter: persistent rolling logs and user-facing export
 - `2026-09-23-genui-server-driven-ui` — _(no title)_
+- `2026-09-23-ksp-missing-type-main-branch` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
+- `2026-09-23-oauth-pkce-refresh-helpers` — OAuth building blocks: PKCE, OAuthTokenRefresh, IdToken (no-op SupabaseAuthRepository)
 - `2026-09-23-ota-deferred-items` — _(no title)_
 - `2026-09-23-ota-update-strategy` — _(no title)_
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
@@ -1364,7 +1407,9 @@ _1 entries need attention._
 - `2026-09-23-sync-scheduling-abstraction` — Sync scheduling abstraction: SyncScheduler + DataStoreSyncPrefs + RemoteConfig + SecureStorage
 - `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
 - `2026-09-23-sync-tier3-fixes` — _(no title)_
+- `2026-09-23-tech-debt-audit` — Tech debt audit — post vm-event-guard-cleanup
 - `2026-09-23-versioning-and-runtime-gates` — Single source of truth for app version, typed schema versioning, and runtime version gates
+- `2026-09-23-vm-event-guard-cleanup` — VM event/guard cleanup — compareAndSet, typed combine, SendChannel, dead code
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _(no title)_

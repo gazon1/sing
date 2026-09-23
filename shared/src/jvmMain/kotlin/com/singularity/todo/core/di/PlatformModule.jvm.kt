@@ -24,7 +24,9 @@ import com.singularity.todo.core.sync.SyncScheduler
 import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
+import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
+import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.reminders.JvmReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
@@ -34,6 +36,7 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPo
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler
+import com.singularity.todo.core.log.LogExporter
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -115,6 +118,7 @@ actual fun platformModule(): Module = module {
 
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 
+    single<PomodoroTaskListProvider> { JvmPomodoroTaskListProvider() }
     factory<PomodoroTimer> { JvmPomodoroTimer() }
 
     // ─── Reminder Scheduler ────────────────────────────────────────────
@@ -147,6 +151,7 @@ actual fun platformModule(): Module = module {
     single<com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries> {
         JvmCalendarAppQueries()
     }
+
 }
 
 /**

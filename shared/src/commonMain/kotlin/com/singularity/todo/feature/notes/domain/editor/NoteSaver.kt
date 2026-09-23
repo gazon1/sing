@@ -5,7 +5,7 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 /**
@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 internal class NoteSaver(
     private val repo: NotesRepository,
     private val log: Logger,
-    private val events: Channel<NotesUiEvent>,
+    private val events: SendChannel<NotesUiEvent>,
     private val savedPulse: MutableSharedFlow<Unit>,
 ) {
     /**

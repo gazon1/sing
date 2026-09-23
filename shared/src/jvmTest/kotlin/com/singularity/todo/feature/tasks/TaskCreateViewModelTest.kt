@@ -172,4 +172,22 @@ class TaskCreateViewModelTest {
         delay(100.milliseconds)
         assertNull(fakeTaskRepo.tasks.value.values.first().dueDate)
     }
+
+    // ─── Race guard (compareAndSet) ─────────────────────────────────────────
+
+    @Test
+    fun `parallel SaveClicked calls are guarded by compareAndSet — only one save`() = runTest {
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        vm.onIntent(TaskCreateIntent.TitleChanged("Raced task"))
+
+        // Fire two saves synchronously — second is blocked by compareAndSet guard
+        vm.onIntent(TaskCreateIntent.SaveClicked)
+        vm.onIntent(TaskCreateIntent.SaveClicked)
+
+        delay(200.milliseconds)
+        // Exactly one task created — the guard prevented double-save
+        assertEquals(1, fakeTaskRepo.tasks.value.size)
+        assertEquals("Raced task", fakeTaskRepo.tasks.value.values.first().title)
+    }
 }
