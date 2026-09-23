@@ -302,6 +302,10 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE idempotency_key = :key AND user_id = :userId LIMIT 1")
     suspend fun findByIdempotencyKeyForUser(key: String, userId: String): ProjectEntity?
 
+    /** Case-insensitive lookup by name, used to resolve project names in query conditions. */
+    @Query("SELECT * FROM projects WHERE user_id = :userId AND is_deleted = 0 AND lower(name) = lower(:name) LIMIT 1")
+    suspend fun findByNameForUser(userId: String, name: String): ProjectEntity?
+
     @Upsert
     suspend fun upsert(project: ProjectEntity)
 
@@ -325,6 +329,10 @@ interface TagDao {
 
     @Query("SELECT * FROM tags WHERE id = :id AND user_id = :userId AND deleted_at IS NULL")
     suspend fun getByIdForUser(id: String, userId: String): TagEntity?
+
+    /** Case-insensitive lookup by name, used to resolve tag names in query conditions. */
+    @Query("SELECT * FROM tags WHERE user_id = :userId AND deleted_at IS NULL AND lower(name) = lower(:name) LIMIT 1")
+    suspend fun findByNameForUser(userId: String, name: String): TagEntity?
 
     @Upsert
     suspend fun upsert(tag: TagEntity)

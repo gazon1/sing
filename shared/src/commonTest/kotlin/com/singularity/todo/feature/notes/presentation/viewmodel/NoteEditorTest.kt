@@ -14,6 +14,8 @@ import com.singularity.todo.test.fakes.FakeIdGenerator
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -227,5 +229,25 @@ class NoteEditorTest {
         assertIs<EditorState.Empty>(emptyState)
         // Original content unchanged
         assertEquals("<p>Hello world</p>", notesRepo.notes[testNote.id.value]?.bodyHtml)
+    }
+
+    @Test
+    fun `saveNow emits savedPulse to UI`() = runTest {
+        val notesRepo = FakeNotesRepository()
+        notesRepo.seed(testNote)
+        val vm = createVm(notesRepo = notesRepo, scope = this)
+
+        vm.openEditor(testNote.id.value)
+        advanceUntilIdle()
+
+        val received = mutableListOf<Unit>()
+        val job = launch { vm.savedPulse.take(1).collect { received += it } }
+        runCurrent() // ensure collector is subscribed before emit
+
+        vm.editBody("<p>Updated content</p>")
+        vm.saveNow()
+        advanceUntilIdle()
+
+        assertEquals(listOf(Unit), received)
     }
 }

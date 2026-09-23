@@ -35,8 +35,9 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         ProfileEntity::class,
         AgendaViewEntity::class,
         CalendarSyncTaskMapEntity::class,
+        SavedSearchEntity::class,
     ],
-    version = 17,
+    version = 18,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -50,6 +51,7 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         AutoMigration(from = 14, to = 15, spec = Migration14To15::class),
         AutoMigration(from = 15, to = 16, spec = Migration15To16::class),
         AutoMigration(from = 16, to = 17, spec = Migration16To17::class),
+        AutoMigration(from = 17, to = 18, spec = Migration17To18::class),
     ],
     exportSchema = true,
 )
@@ -68,4 +70,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun profileDao(): ProfileDao
     abstract fun agendaViewDao(): AgendaViewDao
     abstract fun calendarSyncTaskMapDao(): CalendarSyncTaskMapDao
+    abstract fun savedSearchDao(): SavedSearchDao
 }

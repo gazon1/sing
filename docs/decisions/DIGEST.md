@@ -776,6 +776,18 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `TaskRepositoryImpl.create` and `ProjectsRepositoryImpl.create` now enforce user scoping. Any caller passing a mismatched `userId` will get a loud `IllegalStateException`.
 - `TaskRepositoryImpl` does **not** yet stamp `userId` on `create` — that is PR 2 (Repository infrastructure). Until that lands, callers must still pass `userId`-stamped entities to `TaskRepository.create`.
 
+### `search`
+
+- Query AST lives in `feature/search/query/` — `Condition.kt`, `Query.kt`, `QueryInterval.kt`, `QueryTokenizer.kt`, `QueryParser.kt`, `SingularityQueryParser.kt`, `ResolvedSearchQuery.kt`, `SearchQueryResolver.kt`, `SimpleFilter.kt`, `SimpleFilterBuilder.kt`, `SimpleFilterMapper.kt`.
+- Room schema version increments by 1 per feature migration; `Migration15To16` is the current head.
+- `Not(Condition)` is the only negation representation — never add a `not: Boolean` flag to any condition data class.
+- `SavedSearch.queryString` is the raw user input — never try to normalize/format it on save.
+- `SearchQueryResolver.addPostFilter` must check `negationDepth > 0` to determine polarity — never call `negationDepth--` without a matching `negationDepth++`.
+- `SearchUseCase` accepts both `Query` (structured) and `String` (raw, parsed internally) — the string overload is for backwards compatibility only; new code should pass `Query`.
+- `SearchViewModel` always uses the 7-arg constructor for production; the 6-arg secondary constructor creates its own `AutoCloseableCoroutineScope`.
+- `SimpleFilter.states` is `null` for "no filter"; never default to `setOf(Active)` in new code.
+- `SimpleFilterMapper.toQuery` produces `condition = null` (not `HasText("")`) for empty filters.
+
 ### `security`
 
 - Adding a new secret (e.g. another provider's API key) **always** follows the same pattern: new `KEY_*` constant, new config object, migration on first DataStore access, no DataStore copy.
@@ -874,11 +886,15 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`.
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly.
 - 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill.
+- All link-related string literals in the notes feature must use `LinkSchemes.NOTE_PREFIX` / `LinkSchemes.TASK_PREFIX`. No raw `"note://"` in `feature/notes/`.
+- All new tests that need to verify failure paths use `XxxOverride = Result.failure(...)` on the appropriate fake.
 - Baseline images stored in `shared/src/commonTest/resources/roborazzi/`.
 - Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional.
 - No breaking change — these methods were never called externally.
+- SharedFlow emission tests in this project always use `launch { flow.take(1).collect { ... } }` on `this@runTest`, not `backgroundScope`, with `runCurrent()` before the suspending call that emits.
 - `Clock` import may become unused in `FakeRepositories.kt` if not used elsewhere.
 - `FakeTaskRepository` is now ~30 lines shorter.
+- `SCHEME_FACTORIES` is the extension point for new link kinds in `OutgoingLinksExtractor` — add one entry, not one regex + one branch.
 
 ### `ui`
 
@@ -1113,6 +1129,7 @@ _1 entries need attention._
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
 - `2026-09-22-explicit-overload-removal` — _untagged_
+- `2026-09-22-fake-overrides-link-schemes-savedpulse-tests` — testing, architecture, notes
 - `2026-09-22-flat-settings-api-removal` — settings, architecture, cleanup
 - `2026-09-22-koin-annotations-4x-skill-correction` — _untagged_
 - `2026-09-22-marker-contributor-interfaces` — settings, architecture, kotlin, type-system
@@ -1132,6 +1149,7 @@ _1 entries need attention._
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _untagged_
+- `2026-09-23-search-query-language` — search, query-ast, room, viewmodel, dsl
 - `2026-09-23-sync-pull-application` — _untagged_
 - `2026-09-23-sync-pull-handlers-and-ui` — _untagged_
 - `2026-09-23-sync-scheduling-abstraction` — sync, architecture, core, scheduling, remote-config, persistence
@@ -1292,6 +1310,7 @@ _1 entries need attention._
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
 - `2026-09-22-explicit-overload-removal` — _(no title)_
+- `2026-09-22-fake-overrides-link-schemes-savedpulse-tests` — Fake repository override pattern, LinkSchemes helper, and SavedPulse emission tests
 - `2026-09-22-flat-settings-api-removal` — SettingsRepository: remove dead flat API, keep AI and account
 - `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
 - `2026-09-22-marker-contributor-interfaces` — Settings contributors: marker interfaces to defeat type erasure
@@ -1311,6 +1330,7 @@ _1 entries need attention._
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _(no title)_
+- `2026-09-23-search-query-language` — Search query language: AST, SimpleFilter, SavedSearch, canonical SearchViewModel
 - `2026-09-23-sync-pull-application` — _(no title)_
 - `2026-09-23-sync-pull-handlers-and-ui` — _(no title)_
 - `2026-09-23-sync-scheduling-abstraction` — Sync scheduling abstraction: SyncScheduler + DataStoreSyncPrefs + RemoteConfig + SecureStorage

@@ -4,6 +4,8 @@ import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentEntity
 import com.singularity.todo.core.database.AgendaViewDao
 import com.singularity.todo.core.database.AgendaViewEntity
+import com.singularity.todo.core.database.SavedSearchDao
+import com.singularity.todo.core.database.SavedSearchEntity
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.ChecklistItemEntity
@@ -62,6 +64,7 @@ class FakeAppDatabase : AppDatabase() {
     private val _agendaViews = MutableStateFlow<Map<String, AgendaViewEntity>>(emptyMap())
     private val _remoteConfigs = MutableStateFlow<Map<String, RemoteConfigEntity>>(emptyMap())
     private val _calendarSyncTaskMap = MutableStateFlow<Map<String, CalendarSyncTaskMapEntity>>(emptyMap())
+    private val _savedSearches = MutableStateFlow<Map<String, SavedSearchEntity>>(emptyMap())
 
     override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
@@ -76,6 +79,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun agendaViewDao(): AgendaViewDao = FakeAgendaViewDao(_agendaViews)
     override fun remoteConfigDao(): RemoteConfigDao = FakeRemoteConfigDao(_remoteConfigs)
     override fun calendarSyncTaskMapDao(): CalendarSyncTaskMapDao = FakeCalendarSyncTaskMapDao(_calendarSyncTaskMap)
+    override fun savedSearchDao(): SavedSearchDao = FakeSavedSearchDao(_savedSearches)
 
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
@@ -93,6 +97,7 @@ class FakeAppDatabase : AppDatabase() {
         _agendaViews.value = emptyMap()
         _remoteConfigs.value = emptyMap()
         _calendarSyncTaskMap.value = emptyMap()
+        _savedSearches.value = emptyMap()
     }
 
     // ─── Seed helpers ────────────────────────────────────────────────────────
@@ -130,6 +135,9 @@ class FakeAppDatabase : AppDatabase() {
     }
     fun seedAgendaViews(items: List<AgendaViewEntity>) {
         _agendaViews.value = items.associateBy { it.id }
+    }
+    fun seedSavedSearches(items: List<SavedSearchEntity>) {
+        _savedSearches.value = items.associateBy { it.id }
     }
 }
 
@@ -469,6 +477,8 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
         mutateForUser(id, userId) { it.copy(isDeleted = false, deletedAt = null, updatedAt = ts) }
     override suspend fun findByIdempotencyKeyForUser(key: String, userId: String): ProjectEntity? =
         store.value.values.firstOrNull { it.idempotencyKey == key && it.userId == userId }
+    override suspend fun findByNameForUser(userId: String, name: String): ProjectEntity? =
+        store.value.values.firstOrNull { it.userId == userId && !it.isDeleted && it.name.equals(name, ignoreCase = true) }
     override suspend fun upsert(project: ProjectEntity) {
         store.update { it + (project.id to project) }
     }
@@ -511,6 +521,9 @@ private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEnti
 
     override suspend fun getByIdForUser(id: String, userId: String): TagEntity? =
         store.value[id]?.takeIf { it.userId == userId && it.deletedAt == null }
+
+    override suspend fun findByNameForUser(userId: String, name: String): TagEntity? =
+        store.value.values.firstOrNull { it.userId == userId && it.deletedAt == null && it.name.equals(name, ignoreCase = true) }
 
     override suspend fun upsert(tag: TagEntity) {
         store.update { it + (tag.id to tag) }
@@ -848,6 +861,7 @@ private class FakeAgendaViewDao(private val store: MutableStateFlow<Map<String, 
     }
 }
 
+<<<<<<< HEAD
 // ─── RemoteConfigDao ────────────────────────────────────────────────────────
 
 private class FakeRemoteConfigDao(
@@ -866,5 +880,34 @@ private class FakeRemoteConfigDao(
 
     override suspend fun deleteDefault() {
         store.update { it - "default" }
+    }
+}
+
+// ─── SavedSearchDao ────────────────────────────────────────────────────────────
+
+private class FakeSavedSearchDao(private val store: MutableStateFlow<Map<String, SavedSearchEntity>>) : SavedSearchDao {
+
+    override fun watchAll(userId: String): Flow<List<SavedSearchEntity>> = store.map {
+        it.values.filter { v -> v.userId == userId }.sortedBy { v -> v.name }
+    }
+
+    override fun watchById(userId: String, id: String): Flow<SavedSearchEntity?> = store.map {
+        it.values.find { v -> v.userId == userId && v.id == id }
+    }
+
+    override suspend fun getById(userId: String, id: String): SavedSearchEntity? =
+        store.value.values.find { v -> v.userId == userId && v.id == id }
+
+    override suspend fun findByName(userId: String, name: String): SavedSearchEntity? =
+        store.value.values.find { v -> v.userId == userId && v.name.equals(name, ignoreCase = true) }
+
+    override suspend fun upsert(entity: SavedSearchEntity) {
+        store.update { it + (entity.id to entity) }
+    }
+
+    override suspend fun delete(userId: String, id: String) {
+        store.update { current ->
+            current.filterValues { v -> !(v.userId == userId && v.id == id) }
+        }
     }
 }

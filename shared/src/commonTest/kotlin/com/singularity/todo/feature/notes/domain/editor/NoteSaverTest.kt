@@ -9,6 +9,10 @@ import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -64,20 +68,36 @@ class NoteSaverTest {
 
     @Test
     fun `save emits SavedPulse on success`() = runTest {
-        // Pulse emission is the last step of save() before returning Result.success.
-        // We verify it indirectly: if save() returned success and the note was updated,
-        // then savedPulse.emit(Unit) must have been called (it is the final line of save()).
         val repo = FakeNotesRepository()
         repo.seed(testNote)
         val savedPulse = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
         val events = Channel<NotesUiEvent>(Channel.BUFFERED)
         val saver = NoteSaver(repo, log, events, savedPulse)
 
+        val received = mutableListOf<Unit>()
+        val job = launch { savedPulse.take(1).collect { received += it } }
+        runCurrent() // ensure collector is subscribed before emit
+
         val result = saver.save(noteId, "Title", "<p>Body</p>", isNew = false)
+        advanceUntilIdle()
 
         assertTrue(result.isSuccess)
-        // If save succeeded, content must be updated AND pulse must have been emitted
-        assertEquals("Title", repo.notes[noteId.value]?.title)
+        assertEquals(listOf(Unit), received)
+    }
+
+    @Test
+    fun `save returns failure when updateContent fails`() = runTest {
+        val repo = FakeNotesRepository()
+        repo.seed(testNote)
+        repo.updateContentOverride = Result.failure(RuntimeException("DB write failed"))
+        val savedPulse = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val events = Channel<NotesUiEvent>(Channel.BUFFERED)
+        val saver = NoteSaver(repo, log, events, savedPulse)
+
+        val result = saver.save(noteId, "Title", "<p>Body</p>", isNew = false)
+
+        assertTrue(result.isFailure)
+        assertEquals("DB write failed", result.exceptionOrNull()?.message)
     }
 
     @Test

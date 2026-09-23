@@ -52,4 +52,14 @@ class NoteContentMapperTest {
         assertTrue(reconstructed.contains("Hello"))
         assertTrue(reconstructed.contains("world"))
     }
+
+    @Test
+    fun `outgoingLinkUrls extracts mixed note and task links`() {
+        val html = """<p><a href="note://n1">Note 1</a> and <a href="task://t1">Task 1</a> and <a href="note://n2">Note 2</a>.</p>"""
+        val links = NoteContentMapper.outgoingLinkUrls(html)
+        assertEquals(3, links.size)
+        assertEquals("note://n1", links[0])
+        assertEquals("task://t1", links[1])
+        assertEquals("note://n2", links[2])
+    }
 }
