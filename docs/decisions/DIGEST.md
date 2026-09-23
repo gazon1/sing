@@ -1180,6 +1180,7 @@ _1 entries need attention._
 - `2026-09-23-billing-abstractions` — billing, subscriptions, monetization
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-23-file-logging-and-exporter` — logging, observability, android, jvm
+- `2026-09-23-ksp-missing-type-main-branch` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
 - `2026-09-23-oauth-pkce-refresh-helpers` — auth, oauth, security, pkce
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
@@ -1367,6 +1368,7 @@ _1 entries need attention._
 - `2026-09-23-billing-abstractions` — Billing abstractions: SubscriptionProvider port + Noop implementation
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _(no title)_
 - `2026-09-23-file-logging-and-exporter` — FileLogWriter + LogExporter: persistent rolling logs and user-facing export
+- `2026-09-23-ksp-missing-type-main-branch` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
 - `2026-09-23-oauth-pkce-refresh-helpers` — OAuth building blocks: PKCE, OAuthTokenRefresh, IdToken (no-op SupabaseAuthRepository)
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
