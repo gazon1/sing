@@ -2,6 +2,7 @@ package com.singularity.todo.core.auth
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -87,6 +88,6 @@ class SupabaseAuthRepository(
     }
 
     override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> = runCatchingResult {
-        TODO("Implement migration of anonymous data to cloud user")
+        throw AppError.Unauthorized("Anonymous-to-user migration not yet implemented")
     }
 }

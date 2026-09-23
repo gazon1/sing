@@ -14,15 +14,15 @@ object AuthDomain {
      * @throws AppError.Validation if email is invalid
      */
     fun validateEmail(email: String) {
-        require(email.isNotBlank()) { throw AppError.Validation("Email cannot be blank") }
-        require(EMAIL_REGEX.matches(email)) { throw AppError.Validation("Invalid email format") }
+        if (email.isBlank()) throw AppError.Validation("Email cannot be blank")
+        if (!EMAIL_REGEX.matches(email)) throw AppError.Validation("Invalid email format")
     }
 
     /**
      * @throws AppError.Validation if password is too short
      */
     fun validatePassword(password: String) {
-        require(password.length >= 8) { throw AppError.Validation("Password must be at least 8 characters") }
+        if (password.length < 8) throw AppError.Validation("Password must be at least 8 characters")
     }
 
     /**

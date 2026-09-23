@@ -25,8 +25,7 @@ import org.koin.dsl.module
  * Add to [domainModule]: `add(settingsContributorsModule())`.
  */
 fun settingsContributorsModule(): Module = module {
-    // Appearance
-    single { AppearanceSettingsStore(get()) }
+    // Appearance — AppearanceSettingsRepository is provided by appearanceSettingsModule()
     single<AppearanceContributor> { AppearanceSettingsContributor(get()) }
 
     // Notifications
