@@ -807,11 +807,15 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`.
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly.
 - 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill.
+- All link-related string literals in the notes feature must use `LinkSchemes.NOTE_PREFIX` / `LinkSchemes.TASK_PREFIX`. No raw `"note://"` in `feature/notes/`.
+- All new tests that need to verify failure paths use `XxxOverride = Result.failure(...)` on the appropriate fake.
 - Baseline images stored in `shared/src/commonTest/resources/roborazzi/`.
 - Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional.
 - No breaking change — these methods were never called externally.
+- SharedFlow emission tests in this project always use `launch { flow.take(1).collect { ... } }` on `this@runTest`, not `backgroundScope`, with `runCurrent()` before the suspending call that emits.
 - `Clock` import may become unused in `FakeRepositories.kt` if not used elsewhere.
 - `FakeTaskRepository` is now ~30 lines shorter.
+- `SCHEME_FACTORIES` is the extension point for new link kinds in `OutgoingLinksExtractor` — add one entry, not one regex + one branch.
 
 ### `ui`
 
@@ -1042,6 +1046,7 @@ _1 entries need attention._
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
 - `2026-09-22-explicit-overload-removal` — _untagged_
+- `2026-09-22-fake-overrides-link-schemes-savedpulse-tests` — testing, architecture, notes
 - `2026-09-22-flat-settings-api-removal` — settings, architecture, cleanup
 - `2026-09-22-koin-annotations-4x-skill-correction` — _untagged_
 - `2026-09-22-marker-contributor-interfaces` — settings, architecture, kotlin, type-system
@@ -1208,6 +1213,7 @@ _1 entries need attention._
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
 - `2026-09-22-explicit-overload-removal` — _(no title)_
+- `2026-09-22-fake-overrides-link-schemes-savedpulse-tests` — Fake repository override pattern, LinkSchemes helper, and SavedPulse emission tests
 - `2026-09-22-flat-settings-api-removal` — SettingsRepository: remove dead flat API, keep AI and account
 - `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
 - `2026-09-22-marker-contributor-interfaces` — Settings contributors: marker interfaces to defeat type erasure
