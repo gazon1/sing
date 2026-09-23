@@ -34,6 +34,8 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPo
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler
+import com.singularity.todo.core.log.LogExporter
+import com.singularity.todo.core.log.SaveToFileLogExporter
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -146,6 +148,10 @@ actual fun platformModule(): Module = module {
     single<com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries> {
         JvmCalendarAppQueries()
     }
+
+    // ─── Logging ──────────────────────────────────────────────────────────
+
+    single<LogExporter> { SaveToFileLogExporter() }
 }
 
 /**

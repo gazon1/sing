@@ -148,6 +148,22 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     single { Clock }
 
+    // ─── Observability ─────────────────────────────────────────────────
+
+    // Analytics — off by default (GDPR). NoopAnalytics is a safe all-no-op.
+    // TODO: when a real SDK is connected, replace with RealAnalytics(binding).
+    single<com.singularity.todo.core.analytics.Analytics> {
+        com.singularity.todo.core.analytics.NoopAnalytics()
+    }
+
+    // ─── Billing ──────────────────────────────────────────────────────
+
+    // No-op billing provider. Real implementation (Google Play, RevenueCat, Supabase)
+    // will replace this in a follow-up ADR.
+    single<com.singularity.todo.core.billing.SubscriptionProvider> {
+        com.singularity.todo.core.billing.NoopSubscriptionProvider()
+    }
+
     // ─── Backup ─────────────────────────────────────────────────────────
 
     singleOf(::BackupExporter)
