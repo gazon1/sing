@@ -37,8 +37,8 @@ object CalendarTaskMapper {
             status = status,
             isRecurring = isRecurring,
             isLink = task.kind == TaskKind.Note,
-            emoji = null, // enriched separately by CalendarViewModel if needed
-            accentColor = null,
+            emoji = task.emoji,
+            accentColor = task.accentColor,
         )
     }
 }

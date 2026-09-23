@@ -19,23 +19,19 @@ data class CalendarTaskUi(
     val title: String,
     val date: LocalDate,
     val isAllDay: Boolean = true,
-    /** Start time from [com.singularity.todo.feature.tasks.domain.model.Task.dueTime]. */
+    /** Start time from Task.dueTime. */
     val startTime: LocalTime? = null,
-    /**
-     * End time. Always null — [com.singularity.todo.feature.tasks.domain.model.Task]
-     * only has [dueTime] (single time). endTime requires a Room migration to add
-     * startAt/endAt fields to the Task entity.
-     */
+    /** End time from Task.endTime (active window end). Null if no end time set. */
     val endTime: LocalTime? = null,
     val status: CalendarTaskStatus = CalendarTaskStatus.PENDING,
     val isRecurring: Boolean = false,
     /** Notes (TaskKind.Note) are rendered as underlined links in the calendar. */
     val isLink: Boolean = false,
-    /** Optional emoji shown as leading text in month-grid cells. */
+    /** Optional emoji shown as leading text in month-grid cells. From Task.emoji. */
     val emoji: String? = null,
     /**
-     * Optional accent color (ARGB Long). Always null — Task domain model has no
-     * accentColor field. Requires a Room migration to add it.
+     * Optional accent color (ARGB Long). From Task.accentColor.
+     * Null means use the default calendar palette color.
      */
     val accentColor: Long? = null,
 )

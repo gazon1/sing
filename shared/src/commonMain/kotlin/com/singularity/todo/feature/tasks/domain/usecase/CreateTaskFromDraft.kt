@@ -52,6 +52,13 @@ class CreateTaskFromDraftUseCase(
             DueDateOption.None -> null
         }
 
+        fun resolveDate(option: DueDateOption): LocalDate? = when (option) {
+            is DueDateOption.Custom -> option.date
+            DueDateOption.Today -> todayInSystemZone()
+            DueDateOption.Tomorrow -> todayInSystemZone().plus(1, DateTimeUnit.DAY)
+            DueDateOption.None -> null
+        }
+
         val validated: Either<AppError.Validation, CreateTaskInput> = TaskDomain.createInput(
             title = draft.title,
             description = draft.description.ifBlank { null },
@@ -62,6 +69,12 @@ class CreateTaskFromDraftUseCase(
             tagIds = draft.tagIds.map { TagId.fromString(it) },
             dueDate = dueDate,
             dueTime = draft.dueTime,
+            startDate = resolveDate(draft.startDate),
+            startTime = draft.startTime,
+            endDate = resolveDate(draft.endDate),
+            endTime = draft.endTime,
+            accentColor = draft.accentColor,
+            emoji = draft.emoji,
             someday = false,
         )
         return when (validated) {

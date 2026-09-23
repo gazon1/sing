@@ -108,6 +108,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Archive доступен с любого TaskDetailScreen через ⋮ menu
 - Autosave вынесен из `delay()` в VM в отдельный port — теперь тестируем без `advanceTimeBy`
 - Backlinks queryable via SQL without HTML parsing
+- Backup/restore roundtrip must include new fields (done via `TaskDto` update)
 - Before using `singleOf`/`factoryOf`, deduplicate existing `single<X> { ... }` bindings for the same type — Koin throws `BeanOverrideException` on duplicates.
 - Both Android and Desktop now use the same Nav3 architecture (multi-back-stack, `Navigator`, `NavDisplay`)
 - Bulk-операции fail-fast при отсутствующих ID
@@ -139,6 +140,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Link tap detection requires cursor placement (no visual link highlight tap) — acceptable tradeoff given library limitation
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP).
 - Locale-aware first day of week.
+- MR-2b (UI) will wire these fields into task create/edit screens
 - Month-grid cells are still hand-rolled (no kizitonwose `MonthView`). Week/Day remain unchanged.
 - Nested nav3 graph keeps task-click navigation encapsulated.
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
@@ -163,6 +165,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Stale KDoc references `[OldInterface]` are dangling after inlining — always grep the whole repo and replace with `[CanonicalType]`.
 - Test classes updated: `createVm()` now takes `scope = backgroundScope` via `TestScope.createVm()`
 - Test factories for those VMs use `testScope(backgroundScope)` (or `testScope(this)` in `runTest`).
+- Tests that construct `TaskEntity` directly must include all 6 new nullable parameters
 - The 2 side-effects-in-combine anti-patterns remain in `TaskDetailViewModel`
 - The 4 untested VMs (`TaskCreateViewModel`, `ProjectEditorViewModel`,
 - The `koin-gradle-plugin` is already wired in `shared/build.gradle.kts` (commit `1eb272a`) but no annotations are in use. If a future agent wants to adopt annotations, they can reapply the pattern shown in commit `1eb272a`'s setup; the plugin doesn't break anything.
@@ -206,6 +209,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `TaskEditorReducerTest` must add test cases for new intents.
 - `TaskEditorViewModelTest` and `TaskEditorIntegrationTest` must add edit-mode scenarios.
 - `TaskEditorViewModel` constructor signature unchanged; DI registration unchanged.
+- `TaskEntity` is now 6 columns wider — acceptable storage cost
 - `TaskFilter` remains untouched — Search feature is unaffected.
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика
 - `TaskRepository.delete()` now calls `taskDao.softDelete()` directly instead of delegating to `softDelete()`
@@ -995,6 +999,7 @@ _1 entries need attention._
 - `2026-09-22-reminder-lastfiredat-schema` — reminders, database, scheduler
 - `2026-09-22-reminder-scheduler-critical-fixes` — reminders, scheduler, concurrency, coroutines, di
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — repository, currentuser, userid, draft-store, use-case, koin
+- `2026-09-22-task-rich-dates` — _untagged_
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
@@ -1152,6 +1157,7 @@ _1 entries need attention._
 - `2026-09-22-reminder-lastfiredat-schema` — _(no title)_
 - `2026-09-22-reminder-scheduler-critical-fixes` — _(no title)_
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — Repository stamps ambient userId on create; drop userId params from input classes and use cases
+- `2026-09-22-task-rich-dates` — _(no title)_
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads

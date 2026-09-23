@@ -153,8 +153,38 @@ class TaskCreateViewModel(
                 _draft.updateState { it.copy(dueTime = intent.time) }
             }
 
-            is TaskCreateIntent.DueDateCleared -> _draft.updateState {
+            TaskCreateIntent.DueDateCleared -> _draft.updateState {
                 it.copy(dueDate = DueDateOption.None, dueTime = null)
+            }
+
+            is TaskCreateIntent.SetStartDate -> with(intent) {
+                val option = intent.date?.let {
+                    DueDateOption.Custom(it, it.toString())
+                } ?: DueDateOption.None
+                _draft.updateState { it.copy(startDate = option) }
+            }
+
+            is TaskCreateIntent.SetStartTime -> with(intent) {
+                _draft.updateState { it.copy(startTime = intent.time) }
+            }
+
+            is TaskCreateIntent.SetEndDate -> with(intent) {
+                val option = intent.date?.let {
+                    DueDateOption.Custom(it, it.toString())
+                } ?: DueDateOption.None
+                _draft.updateState { it.copy(endDate = option) }
+            }
+
+            is TaskCreateIntent.SetEndTime -> with(intent) {
+                _draft.updateState { it.copy(endTime = intent.time) }
+            }
+
+            is TaskCreateIntent.SetAccentColor -> with(intent) {
+                _draft.updateState { it.copy(accentColor = intent.color) }
+            }
+
+            is TaskCreateIntent.SetEmoji -> with(intent) {
+                _draft.updateState { it.copy(emoji = intent.emoji) }
             }
 
             TaskCreateIntent.SaveClicked -> {
