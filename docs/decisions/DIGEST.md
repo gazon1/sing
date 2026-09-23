@@ -745,9 +745,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - When adding new AI-related state, add it to `SettingsSection.Ai` directly; do not introduce a parallel `EphemeralState.Ai` field.
 - `AiSettingsContributor` stays as a 1-argument class — `observe()` returns `Flow<SettingsSection.Ai>` (no `stateIn` wrapper) to avoid `CoroutineScope` requirements that break `DiGraphTest`.
 - `AiSettingsStore.observe()` is an 8-flow `combine`: 4 persisted flows + 4 ephemeral `MutableStateFlow`s.
+- `AiSettingsStore` не нуждается в рефакторинге — AI setters на месте.
 - `App.kt` инжектит `SettingsRepository` через Koin — это нормально, Koin доступен в Common startup.
 - `IntPref` range support (e.g., `intPref(..., range = 0..23)`) enforces min/max at write time, consistent with `coerceIn` in `Flow.map`.
 - `PrefSpec` as internal holder avoids Kotlin inline class boxing — the inline class wrapper is zero-cost at call sites.
+- `ProfileAwareCurrentUser` не нуждается в рефакторинге — `userId` на месте.
+- `SettingsDataStoreMigration` продолжает работать — companion object не тронут.
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor.
 - `SettingsSection.Ai` always contains all AI state (persisted + ephemeral) — never split.
 - `SettingsViewModel.reloadAiSection()` always updates **both** the `ai.*` fields on the `SettingsSection.Ai` object **and** the top-level flat fields (`aiTestResult`, `aiModels`, `isFetchingAiModels`, `fetchAiModelsError`) in `SettingsUiState.Content`.
@@ -756,6 +759,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `filterIsInstance<XxxContributor>()` on a `Set<SettingsContributor<*, *>>` works because the
 - `process(intent)` is the canonical name for contributor intent dispatch.
 - Все 6 sub-screens имеют `verticalScroll` — контент больше не обрезается.
+- Мёртвый код убран: ни один внешний звонок не сломался.
 
 ### `sync`
 
@@ -1034,6 +1038,7 @@ _1 entries need attention._
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
 - `2026-09-22-explicit-overload-removal` — _untagged_
+- `2026-09-22-flat-settings-api-removal` — settings, architecture, cleanup
 - `2026-09-22-koin-annotations-4x-skill-correction` — _untagged_
 - `2026-09-22-marker-contributor-interfaces` — settings, architecture, kotlin, type-system
 - `2026-09-22-noteeditor-refactor` — notes, architecture, refactor
@@ -1198,6 +1203,7 @@ _1 entries need attention._
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
 - `2026-09-22-explicit-overload-removal` — _(no title)_
+- `2026-09-22-flat-settings-api-removal` — SettingsRepository: remove dead flat API, keep AI and account
 - `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
 - `2026-09-22-marker-contributor-interfaces` — Settings contributors: marker interfaces to defeat type erasure
 - `2026-09-22-noteeditor-refactor` — NoteEditor — extract state holders, save controller, AI controller
