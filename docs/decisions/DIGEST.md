@@ -77,9 +77,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска
 - **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
 - **Five commits land together** because they all touch the same orbit
+- **HlcFactory must be `open`**: The actual JVM class is final, preventing test subclassing. Changed to `open class`.
+- **JVM target**: `SyncEngine` still exists, but `SyncWorkScheduler` is `NoopSyncWorkScheduler` (no-op). No background sync on desktop.
 - **No new auth-safety risk**: each tool still stamps the user-provided
 - **Per-screen wiring is more verbose** — `TaskCardActions(onPin = { ... })`
 - **Smaller public surface**: `-880 / +120` lines net; 5 files deleted;
+- **SyncOutboxWorker is Android-only**: JVM has no `SyncOutboxWorker`.
+- **Tests removed**: `SyncWorkSchedulerTest` was removed due to `advanceUntilIdle()` flakiness with `StateFlow` + `runTest`. The `FakeSyncWorkScheduler` and `FakeHlcFactory` utilities remain as compilable test doubles.
 - **Tool APIs lose their `currentUser: ProfileAwareCurrentUser` parameter** — any
 - **Type-safe UX expectations**: each screen's `TaskCardActions(...)`
 - **UX honesty**: rendered buttons do what they advertise. No more
@@ -135,6 +139,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Link tap detection requires cursor placement (no visual link highlight tap) — acceptable tradeoff given library limitation
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP).
 - Locale-aware first day of week.
+- Month-grid cells are still hand-rolled (no kizitonwose `MonthView`). Week/Day remain unchanged.
 - Nested nav3 graph keeps task-click navigation encapsulated.
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - No repository contract overloads are needed for this interface (it has no non-Koin callers).
@@ -161,6 +166,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - The 2 side-effects-in-combine anti-patterns remain in `TaskDetailViewModel`
 - The 4 untested VMs (`TaskCreateViewModel`, `ProjectEditorViewModel`,
 - The `koin-gradle-plugin` is already wired in `shared/build.gradle.kts` (commit `1eb272a`) but no annotations are in use. If a future agent wants to adopt annotations, they can reapply the pattern shown in commit `1eb272a`'s setup; the plugin doesn't break anything.
+- The `pageCount = 240` is fixed at compile time. Users navigating beyond ±10 years from today
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
 - The default `viewModelScope` is still created by the ViewModel but is unused in Tier-1 VMs (negligible memory cost: one empty `SupervisorJob`).
 - Theme switching now correctly recomposes the calendar palette
@@ -222,6 +228,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model
 - `startAt`/`endAt`/`allDay`/`recurrence` in `Task` (Room migration).
 - `weight` modifier requires careful structuring inside `Row { Column(weight) }`.
+- kizitonwose remains available for future exploration if AndroidX/JB compatibility is resolved.
 - ~12 MRs total, ~6–9 weeks.
 - Все ViewModel'ы с `scopeOverride` — консистентны в тестах
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear()
@@ -978,11 +985,13 @@ _1 entries need attention._
 - `2026-09-21-tier1-interface-cleanup` — _untagged_
 - `2026-09-21-user-scoped-repository` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
+- `2026-09-22-calendar-horizontal-pager` — _untagged_
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — repository, checklist, currentuser, koin, refactor
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
 - `2026-09-22-explicit-overload-removal` — _untagged_
 - `2026-09-22-koin-annotations-4x-skill-correction` — _untagged_
+- `2026-09-22-outbox-workmanager-refactor` — _untagged_
 - `2026-09-22-reminder-lastfiredat-schema` — reminders, database, scheduler
 - `2026-09-22-reminder-scheduler-critical-fixes` — reminders, scheduler, concurrency, coroutines, di
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — repository, currentuser, userid, draft-store, use-case, koin
@@ -1133,11 +1142,13 @@ _1 entries need attention._
 - `2026-09-21-tier1-interface-cleanup` — Tier 1 interface cleanup — remove single-implementation contracts
 - `2026-09-21-user-scoped-repository` — _(no title)_
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
+- `2026-09-22-calendar-horizontal-pager` — _(no title)_
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — Delete ChecklistUseCase; drop unused ProfileAwareCurrentUser from AgendaDeps/CalendarDeps; inject taskId via ChecklistEditorViewModel constructor
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
 - `2026-09-22-explicit-overload-removal` — _(no title)_
 - `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
+- `2026-09-22-outbox-workmanager-refactor` — _(no title)_
 - `2026-09-22-reminder-lastfiredat-schema` — _(no title)_
 - `2026-09-22-reminder-scheduler-critical-fixes` — _(no title)_
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — Repository stamps ambient userId on create; drop userId params from input classes and use cases

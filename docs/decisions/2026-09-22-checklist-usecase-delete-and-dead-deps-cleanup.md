@@ -2,6 +2,7 @@
 title: "Delete ChecklistUseCase; drop unused ProfileAwareCurrentUser from AgendaDeps/CalendarDeps; inject taskId via ChecklistEditorViewModel constructor"
 date: 2026-09-22
 tags: [repository, checklist, currentuser, koin, refactor]
+status: accepted
 ---
 
 ## Context
