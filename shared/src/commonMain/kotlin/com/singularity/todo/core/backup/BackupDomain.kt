@@ -32,6 +32,9 @@ object BackupDomain {
         if (manifest.schemaVersion > BackupFormat.SCHEMA_VERSION) {
             throw BackupError.UnsupportedSchemaVersion(manifest.schemaVersion)
         }
+        if (manifest.schemaVersion < BackupFormat.MIN_SUPPORTED_SCHEMA_VERSION) {
+            throw BackupError.SchemaTooOld(manifest.schemaVersion)
+        }
         val actualChecksum = sha256Hex(payloadBytes)
         if (manifest.payloadChecksum != actualChecksum) {
             throw BackupError.ChecksumMismatch(manifest.payloadChecksum, actualChecksum)
