@@ -44,35 +44,24 @@ data class PomodoroSession(
     val completedCycles: Int,
 )
 
-internal fun nextPhase(current: PomodoroState, config: PomodoroConfig): PomodoroState = when (current.phase) {
-    PomodoroPhase.Work -> {
-        val newCycles = current.completedCycles + 1
-        if (newCycles >= config.cyclesBeforeLongBreak) {
-            PomodoroState(
-                phase = PomodoroPhase.LongBreak,
-                remainingSeconds = config.longBreakMinutes * 60,
-                phaseDurationSeconds = config.longBreakMinutes * 60,
-                completedCycles = newCycles,
-                isRunning = false,
-                taskId = current.taskId,
-            )
-        } else {
-            PomodoroState(
-                phase = PomodoroPhase.ShortBreak,
-                remainingSeconds = config.shortBreakMinutes * 60,
-                phaseDurationSeconds = config.shortBreakMinutes * 60,
-                completedCycles = newCycles,
-                isRunning = false,
-                taskId = current.taskId,
-            )
+internal fun nextPhase(current: PomodoroState, config: PomodoroConfig): PomodoroState {
+    val (nextPhase, nextCycles) = when (current.phase) {
+        PomodoroPhase.Work -> {
+            val newCycles = current.completedCycles + 1
+            val phase = if (newCycles >= config.cyclesBeforeLongBreak) PomodoroPhase.LongBreak else PomodoroPhase.ShortBreak
+            phase to newCycles
+        }
+        PomodoroPhase.ShortBreak, PomodoroPhase.LongBreak -> {
+            val resetCycles = if (current.phase == PomodoroPhase.LongBreak) 0 else current.completedCycles
+            PomodoroPhase.Work to resetCycles
         }
     }
-
-    PomodoroPhase.ShortBreak, PomodoroPhase.LongBreak -> PomodoroState(
-        phase = PomodoroPhase.Work,
-        remainingSeconds = config.workMinutes * 60,
-        phaseDurationSeconds = config.workMinutes * 60,
-        completedCycles = if (current.phase == PomodoroPhase.LongBreak) 0 else current.completedCycles,
+    val secs = config.phaseSecondsOf(nextPhase)
+    return PomodoroState(
+        phase = nextPhase,
+        remainingSeconds = secs,
+        phaseDurationSeconds = secs,
+        completedCycles = nextCycles,
         isRunning = false,
         taskId = current.taskId,
     )

@@ -77,6 +77,11 @@ class RoomReminderRepository(
             dao.getDueBefore(nowEpochMs, uid.value).map { list -> list.map { it.toReminder() } }
         }
 
+    override fun watchRecentDueBefore(nowEpochMs: Long, limit: Int): Flow<List<Reminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            dao.getRecentDueBefore(nowEpochMs, uid.value, limit).map { list -> list.map { it.toReminder() } }
+        }
+
     override suspend fun deleteByTask(taskId: TaskId): Result<Unit> = runCatching {
         val uid = currentUser.scopedUserId.value
         dao.deleteByTask(taskId.value, uid.value)

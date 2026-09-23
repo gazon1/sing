@@ -7,6 +7,11 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.sync.SyncRepository
+import com.singularity.todo.feature.alarms.AlarmContract
+import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_PHASE
+import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_REMINDER_ID
+import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_USER_ID
+import com.singularity.todo.feature.alarms.AlarmContract.tagFor
 import com.singularity.todo.feature.pomodoro.PomodoroPhase
 import com.singularity.todo.feature.reminders.ReminderFireLogic
 import com.singularity.todo.feature.reminders.ReminderId
@@ -22,6 +27,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import org.koin.core.context.GlobalContext
 
 /**
  * Multi-action [BroadcastReceiver] that handles all alarm-driven events:
@@ -54,6 +60,13 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
     private val syncRepository: SyncRepository by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
+        // Defensive: ensure Koin is initialized before injecting dependencies.
+        // On some Android versions the BroadcastReceiver can fire before Application.onCreate.
+        if (GlobalContext.getOrNull() == null) {
+            log.e { "Koin not initialized — skipping alarm handling" }
+            goAsync().finish()
+            return
+        }
         val pendingResult = goAsync()
         val scope = CoroutineScope(
             Dispatchers.Default
@@ -89,28 +102,26 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
         // Fetch fresh task title from DB to avoid showing stale text in notifications.
         val taskTitle = taskRepo.get(reminder.taskId)?.title
         val outcome = ReminderFireLogic.execute(reminder, taskTitle)
-        notifier.post(tagFor(userId, reminderId), outcome.title, outcome.body, reminder.viewId?.raw, reminderId.value)
+        notifier.post(AlarmContract.tagFor(userId, reminderId), outcome.title, outcome.body, reminder.viewId?.raw)
 
         if (outcome.shouldDelete) {
-            reminderRepo.delete(reminderId, userId)
+            reminderRepo.delete(reminderId, userId).onFailure { log.w { "Failed to delete reminder ${reminderId.value}: ${it.message}" } }
         }
     }
 
     private suspend fun handlePomodoroPhaseEnd(intent: Intent) {
         val phase = intent.phaseOrNull ?: return
         val phaseName = when (phase) {
-            PHASE_WORK -> "Work session"
-            PHASE_SHORT_BREAK -> "Short break"
-            PHASE_LONG_BREAK -> "Long break"
-            else -> "Phase"
+            PomodoroPhase.Work -> "Work session"
+            PomodoroPhase.ShortBreak -> "Short break"
+            PomodoroPhase.LongBreak -> "Long break"
         }
-        val body = if (phase == PHASE_WORK) "Time for a break ☕" else "Back to work!"
+        val body = if (phase == PomodoroPhase.Work) "Time for a break ☕" else "Back to work!"
         notifier.post(
             tag = "pomodoro:$phase:${clock.now().toEpochMilliseconds()}",
             title = "$phaseName ended",
             body = body,
             viewId = null,
-            payload = null,
         )
     }
 
@@ -132,14 +143,13 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
         val now = clock.now().toEpochMilliseconds()
 
         // Catch-up: fire past-due reminders (cap 20 to avoid notification storm on boot)
-        reminderRepo.watchDueBefore(now).first()
-            .takeLast(20)
+        reminderRepo.watchRecentDueBefore(now, 20).first()
             .forEach { reminder ->
                 val taskTitle = taskRepo.get(reminder.taskId)?.title
                 val outcome = ReminderFireLogic.execute(reminder, taskTitle)
-                notifier.post(tagFor(reminder.userId, reminder.id), outcome.title, outcome.body, reminder.viewId?.raw, reminder.id.value)
+                notifier.post(AlarmContract.tagFor(reminder.userId, reminder.id), outcome.title, outcome.body, reminder.viewId?.raw)
                 if (outcome.shouldDelete) {
-                    reminderRepo.delete(reminder.id, reminder.userId)
+                    reminderRepo.delete(reminder.id, reminder.userId).onFailure { log.w { "Failed to delete reminder ${reminder.id.value}: ${it.message}" } }
                 }
             }
 
@@ -157,28 +167,19 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
     private val Intent.userIdOrNull: com.singularity.todo.core.ids.UserId?
         get() = getStringExtra(EXTRA_USER_ID)?.let { com.singularity.todo.core.ids.UserId(it) }
 
-    private val Intent.phaseOrNull: String?
-        get() = getStringExtra(EXTRA_PHASE)
+    private val Intent.phaseOrNull: PomodoroPhase?
+        get() = getStringExtra(EXTRA_PHASE)?.let { phaseName ->
+            runCatching { PomodoroPhase.valueOf(phaseName) }.getOrNull()
+        }
 
     // ─── Companion ──────────────────────────────────────────────────────────────
 
     companion object {
+        // Android-specific action names — not shared with commonMain
         const val ACTION_REMINDER_FIRE = "com.singularity.todo.feature.alarms.ACTION_REMINDER_FIRE"
         const val ACTION_POMODORO_PHASE_END = "com.singularity.todo.feature.alarms.ACTION_POMODORO_PHASE_END"
         const val ACTION_REMINDER_DATA_CHANGED = "com.singularity.todo.feature.alarms.ACTION_REMINDER_DATA_CHANGED"
         const val ACTION_SYNC_ALARM = "com.singularity.todo.SYNC_ALARM"
         const val ACTION_BOOT_COMPLETED = "android.intent.action.BOOT_COMPLETED"
-
-        const val EXTRA_REMINDER_ID = "reminder_id"
-        const val EXTRA_USER_ID = "user_id"
-        const val EXTRA_PHASE = "phase"
-        const val EXTRA_TASK_ID = "pomodoro_task_id"
-
-        const val PHASE_WORK = "Work"
-        const val PHASE_SHORT_BREAK = "ShortBreak"
-        const val PHASE_LONG_BREAK = "LongBreak"
-
-        fun tagFor(userId: com.singularity.todo.core.ids.UserId, id: ReminderId) =
-            "reminder:${userId.value}:${id.value}"
     }
 }

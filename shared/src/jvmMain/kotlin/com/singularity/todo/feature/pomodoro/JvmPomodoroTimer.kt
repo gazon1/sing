@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.pomodoro
 
-import com.singularity.todo.feature.tasks.domain.model.Task
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,9 +16,6 @@ class JvmPomodoroTimer : PomodoroTimer {
 
     private val _state = MutableStateFlow(PomodoroState())
     override val state: StateFlow<PomodoroState> = _state.asStateFlow()
-
-    private val _tasks = MutableStateFlow<List<Task>>(emptyList())
-    override val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
 
     override fun start(taskId: String?) {
         // No-op on JVM
@@ -41,3 +37,4 @@ class JvmPomodoroTimer : PomodoroTimer {
         // No-op on JVM
     }
 }
+

@@ -48,15 +48,6 @@ class Migration9To10 : AutoMigrationSpec
 @androidx.room3.DeleteColumn(tableName = "projects", columnName = "is_notebook")
 class Migration10To11 : AutoMigrationSpec
 
-/**
- * Migration from v15 to v16 — adds `remote_configs` table.
- *
- * Stores the single Supabase remote configuration (URL + anon key).
- * This is the single-remote design from the sync-orgzly-adoption ADR.
- *
- * No destructive changes: all existing rows continue to work.
- */
-class Migration15To16 : AutoMigrationSpec
 
 /**
  * Migration from v11 to v12 — adds agenda_views table for saved agenda view persistence.
@@ -125,16 +116,3 @@ class Migration14To15 : AutoMigrationSpec
  */
 class Migration16To17 : AutoMigrationSpec
 
-/**
- * Migration from v17 to v18 — adds `saved_searches` table for persisted user searches.
- *
- * Tables added:
- * - `saved_searches(id TEXT, user_id TEXT, name TEXT, query_string TEXT,
- *                    created_at INTEGER, updated_at INTEGER, PRIMARY KEY(id, user_id))`
- * - Index on `(user_id, name)` for fast name lookup.
- *
- * Composite primary key (id, user_id) ensures profile isolation. Auto-migration
- * infers the table from [SavedSearchEntity] and creates both the table and index
- * without a custom `migrate()` override.
- */
-class Migration17To18 : AutoMigrationSpec

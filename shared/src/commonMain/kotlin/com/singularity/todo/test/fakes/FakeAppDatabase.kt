@@ -655,6 +655,13 @@ private class FakeReminderDao(
         store.update { it + ((reminder.userId to reminder.id) to reminder) }
     }
 
+    override fun getRecentDueBefore(
+        now: Long,
+        userId: String,
+        limit: Int,
+    ): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
+        store.map { it.values.filter { r -> r.fireAt <= now && r.userId == userId }.sortedBy { r -> -r.fireAt }.take(limit) }
+
     override suspend fun delete(id: String, userId: String) {
         store.update { it - (userId to id) }
     }
@@ -861,7 +868,6 @@ private class FakeAgendaViewDao(private val store: MutableStateFlow<Map<String, 
     }
 }
 
-<<<<<<< HEAD
 // ─── RemoteConfigDao ────────────────────────────────────────────────────────
 
 private class FakeRemoteConfigDao(
