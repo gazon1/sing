@@ -105,4 +105,6 @@ class FakeSyncApiClient(
     }
 
     override suspend fun testConnection(userId: String): Result<Unit> = Result.success(Unit)
+
+    override suspend fun getRemoteConfig(): kotlinx.serialization.json.JsonObject? = null
 }

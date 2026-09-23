@@ -1,15 +1,21 @@
 package com.singularity.todo
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import com.singularity.todo.core.appearance.AppearanceSettingsRepository
 import com.singularity.todo.core.auth.AuthGuard
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
+import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.LocalAppNavigator
@@ -19,17 +25,19 @@ import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.rememberNav3State
 import org.koin.compose.koinInject
 
+private const val PLAY_STORE_URI = "market://details?id=com.singularity.todo"
+
 /**
  * Android actual implementation of [App].
- * Builds navigation state and provides [LocalAppNavigator] before calling [PlatformShell].
+ *
+ * Renders [AppVersionGateScreen] first — the gate checks [RemoteConfigPort]
+ * and shows a blocked UI if the running version is too old. The gate handles
+ * its own "Check Again" retry. When the gate passes, it renders [AppContent].
  *
  * @param deeplinkViewId When non-null, the app navigates directly to
- *   [AppDestination.AgendaGraph] with [AgendaStartRoute.SavedAgendaEdit] on first composition.
- *   This handles notification taps that should open a specific saved agenda view.
+ *   [AppDestination.AgendaGraph] with [AgendaStartRoute.SavedAgendaEdit].
  * @param deeplinkTaskId When non-null, the app navigates directly to
- *   [AppDestination.TasksGraph] with [TasksStartRoute.Detail] on first composition.
- *   This handles calendar event deep-links (singularity://task/{id}).
- *   Null on JVM.
+ *   [AppDestination.TasksGraph] with [TasksStartRoute.Detail].
  */
 @Composable
 actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
@@ -39,21 +47,49 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
     val accent = SingularityAccents.fromString(accentName)
     val fontSizeScale by appearance.fontSizeScale.collectAsState(initial = 1f)
 
+    // Capture context and build intent at composition time — LocalContext.current is @Composable.
+    val context = LocalContext.current
+    val storeIntent = Intent(Intent.ACTION_VIEW, Uri.parse(PLAY_STORE_URI))
+
+    AppVersionGateScreen(
+        playStoreUrl = PLAY_STORE_URI,
+        onOpenStore = {
+            @Suppress("BatteryLife")
+            context.startActivity(storeIntent)
+        },
+        modifier = Modifier.fillMaxSize(),
+        content = {
+            AppContent(
+                deeplinkViewId = deeplinkViewId,
+                deeplinkTaskId = deeplinkTaskId,
+                darkTheme = darkTheme,
+                accent = accent,
+                fontSizeScale = fontSizeScale,
+            )
+        },
+    )
+}
+
+@Composable
+private fun AppContent(
+    deeplinkViewId: String?,
+    deeplinkTaskId: String?,
+    darkTheme: Boolean,
+    accent: SingularityAccents,
+    fontSizeScale: Float,
+) {
     val state = rememberNav3State()
     val navigator = remember(state) { Navigator(state) }
     val navCallbacks = remember(navigator) {
         NavCallbacks(navigate = navigator::navigate, goBack = navigator::goBack)
     }
 
-    // Handle deep-links: navigate to the appropriate destination on first composition
     LaunchedEffect(deeplinkViewId, deeplinkTaskId, navigator) {
         when {
             deeplinkTaskId != null -> {
-                // Calendar deep-link: singularity://task/{id} → open task detail
                 navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(deeplinkTaskId)))
             }
             deeplinkViewId != null -> {
-                // Notification tap: open saved agenda edit
                 navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(deeplinkViewId)))
             }
         }
@@ -72,7 +108,6 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
 
 /**
  * Android actual implementation of [PlatformShell].
- * Delegates to the renamed [androidShellNav3Root] which owns the UI chrome.
  */
 @Composable
 actual fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks) {

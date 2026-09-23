@@ -944,6 +944,16 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`factory { ChecklistUseCase(get()) }`** in `TasksDiModule.kt` — Clock removed
 - **`just lint`** now includes `PassThroughUseCase` checks for `:shared` and `:desktopApp`
 
+### `versioning`
+
+- Kill switches (`modelFlags`, `mcpToolFlags`) are **compile-time safe**: `KnownModels` and `McpToolRegistry` accept `RemoteConfigSnapshot` as a parameter, never `RemoteConfigPort` directly. This enables testing with `FakeRemoteConfigSnapshot`.
+- Schema versions (`protocolVersion`, `schemaVersion`) are **int**, not string. `"v0.9"` in GenUI prompts is descriptive only; it is never parsed or compared.
+- `RemoteConfigPort.snapshot()` is the **only** write path to the local Room cache. No other code writes `remote_config_cache` directly.
+- `RemoteConfigSnapshot.validate()` is called **every time** a snapshot is deserialized from cache or network. Never skip validation.
+- `SyncBootstrapper`, `A2uiParser`, and `BackupDomain` use **consistent** error-severity: `warn` for version mismatch, `error` for schema parse failure. This is reflected in log output and sync status.
+- `appVersion()` is the **only** place that reads the running app's version. All other code — logging, backup manifest, About dialog — uses it. Version literals `"0.1.0"` must not be added anywhere else.
+- `core/sync/RemoteConfig` (Supabase credentials) is never to be confused with `RemoteConfigPort` (runtime policy). The former is a repository; the latter is a remote-gateway port.
+
 ### `viewmodel`
 
 - No cast needed — `scope` is `AutoCloseableCoroutineScope` at both call site and definition
@@ -1155,6 +1165,7 @@ _1 entries need attention._
 - `2026-09-23-sync-scheduling-abstraction` — sync, architecture, core, scheduling, remote-config, persistence
 - `2026-09-23-sync-state-model` — sync, architecture, core, state, ui
 - `2026-09-23-sync-tier3-fixes` — _untagged_
+- `2026-09-23-versioning-and-runtime-gates` — versioning, schema, sync, genui, backup, security, kmp
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _untagged_
@@ -1336,6 +1347,7 @@ _1 entries need attention._
 - `2026-09-23-sync-scheduling-abstraction` — Sync scheduling abstraction: SyncScheduler + DataStoreSyncPrefs + RemoteConfig + SecureStorage
 - `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
 - `2026-09-23-sync-tier3-fixes` — _(no title)_
+- `2026-09-23-versioning-and-runtime-gates` — Single source of truth for app version, typed schema versioning, and runtime version gates
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _(no title)_

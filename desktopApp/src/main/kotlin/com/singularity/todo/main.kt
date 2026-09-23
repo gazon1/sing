@@ -7,8 +7,11 @@ import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.log.initLogging
 import com.singularity.todo.core.version.appVersion
+import com.singularity.todo.feature.gate.gateModule
 import org.koin.core.context.startKoin
 import java.io.File
+
+private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
 
 fun main() = singleWindowApplication(
     title = "Singularity Todo"
@@ -25,6 +28,7 @@ fun main() = singleWindowApplication(
                 platformModule(),
                 coreLoggingModule(),
                 *domainModule().toTypedArray(),
+                gateModule(RELEASES_URL),
             )
     }
 
