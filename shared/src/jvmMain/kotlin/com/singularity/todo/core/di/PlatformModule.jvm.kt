@@ -14,11 +14,13 @@ import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.settings.SettingsDataStoreMigration
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.reminders.JvmReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import org.koin.core.module.Module
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 /**
@@ -52,15 +54,46 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().profileDao() }
     single { get<AppDatabase>().agendaViewDao() }
 
-    // ─── DataStore ──────────────────────────────────────────────────────
+    // ─── DataStore (split: user settings + state) ─────────────────────────
 
-    single<androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>> {
+    // user_settings.preferences_pb — all mutable user-facing settings
+    val userSettingsDs: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> =
+        androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
+            java.io.File(System.getProperty("user.home") + "/.singularity-todo/user_settings.preferences_pb").also {
+                it.parentFile?.mkdirs()
+            }
+        }
+
+    // state.preferences_pb — read-only flags (schema version, migration timestamps)
+    val stateDs: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> =
+        androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
+            java.io.File(System.getProperty("user.home") + "/.singularity-todo/state.preferences_pb").also {
+                it.parentFile?.mkdirs()
+            }
+        }
+
+    // Legacy migration source — points to the old flat-key file.
+    // Will be empty after migration; DataStore itself never writes back to it.
+    val settingsLegacyDs: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> =
         androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
             java.io.File(System.getProperty("user.home") + "/.singularity-todo/settings.preferences_pb").also {
                 it.parentFile?.mkdirs()
             }
         }
+
+    // One-shot migration: v0 flat-key settings → v1 split + namespaced.
+    // Idempotent: skips if state.preferences_pb already has settings_schema_version.
+    koinBridge {
+        SettingsDataStoreMigration(settingsLegacyDs, userSettingsDs, stateDs).run()
     }
+
+    // Named DataStore bindings — used by SettingsRepository and migration.
+    single(qualifier = named("user_settings")) { userSettingsDs }
+    single(qualifier = named("state")) { stateDs }
+    single(qualifier = named("settings")) { settingsLegacyDs }
+
+    // Primary DataStore<Preferences> binding — what SettingsRepository consumes.
+    single<androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>> { userSettingsDs }
 
     // ─── Platform Ports ────────────────────────────────────────────────
 

@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.llm.SettingsReader
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
@@ -32,6 +31,24 @@ inline fun <reified T> DataStore<Preferences>.keyOf(
     else -> throw IllegalArgumentException("Unsupported type: ${T::class}")
 }
 
+// ─── Namespace ────────────────────────────────────────────────────────────────
+
+/**
+ * Logical namespace prefix for each settings section.
+ * Keys in DataStore are prefixed so a section can be cleared/exported as a unit.
+ */
+object SettingsNamespace {
+    const val APPEARANCE = "appearance"
+    const val AI = "ai"
+    const val NOTIFICATIONS = "notifications"
+    const val WORK_SCHEDULE = "schedule"
+    const val GREETING = "greeting"
+    const val ACCOUNT = "account"
+    const val AGENDA = "agenda"
+
+    fun key(ns: String, name: String): String = "$ns.$name"
+}
+
 // ─── SettingsRepository ───────────────────────────────────────────────────────
 
 /**
@@ -40,9 +57,9 @@ inline fun <reified T> DataStore<Preferences>.keyOf(
 interface SettingsRepository : SettingsReader {
 
     companion object {
-        const val DEFAULT_SYSTEM_PROMPT =
-            "You are a helpful productivity assistant. Be concise and actionable."
-        const val DEFAULT_AI_MODEL = "gpt-4o-mini"
+        // Re-export AI defaults for callers that need the raw string constants.
+        const val DEFAULT_SYSTEM_PROMPT = SettingsDefaults.Ai.SYSTEM_PROMPT
+        const val DEFAULT_AI_MODEL = SettingsDefaults.Ai.MODEL
     }
 
     // ── Appearance ─────────────────────────────────────────────────────────────
@@ -126,93 +143,93 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
 
     companion object {
         // ── Appearance ────────────────────────────────────────────────────────────
-        val DARK_THEME = booleanPreferencesKey("dark_theme")
-        val ACCENT_COLOR = stringPreferencesKey("accent_color")
-        val FONT_SIZE_SCALE = floatPreferencesKey("font_size_scale")
+        val DARK_THEME = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.APPEARANCE, "dark_theme"))
+        val ACCENT_COLOR = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.APPEARANCE, "accent_color"))
+        val FONT_SIZE_SCALE = floatPreferencesKey(SettingsNamespace.key(SettingsNamespace.APPEARANCE, "font_size_scale"))
 
-        // ── AI ────────────────────────────────────────────────────────────────
-        val AI_PROVIDER = stringPreferencesKey("ai_provider")
-        val AI_MODEL = stringPreferencesKey("ai_model")
-        val AI_BASE_URL = stringPreferencesKey("ai_base_url")
-        val AI_SYSTEM_PROMPT = stringPreferencesKey("ai_system_prompt")
+        // ── AI ─────────────────────────────────────────────────────────────────────
+        val AI_PROVIDER = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.AI, "provider"))
+        val AI_MODEL = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.AI, "model"))
+        val AI_BASE_URL = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.AI, "base_url"))
+        val AI_SYSTEM_PROMPT = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.AI, "system_prompt"))
 
-        // ── Notifications ─────────────────────────────────────────────────────
-        val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
-        val NOTIFICATION_SOUND = booleanPreferencesKey("notification_sound")
-        val NOTIFICATION_VIBRATION = booleanPreferencesKey("notification_vibration")
-        val REMINDER_DEFAULT = stringPreferencesKey("reminder_default")
+        // ── Notifications ─────────────────────────────────────────────────────────
+        val NOTIFICATIONS_ENABLED = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "enabled"))
+        val NOTIFICATION_SOUND = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "sound"))
+        val NOTIFICATION_VIBRATION = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "vibration"))
+        val REMINDER_DEFAULT = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "reminder_default"))
 
-        // ── Work Schedule ──────────────────────────────────────────────────────
-        val WORK_DAY_START_MINUTES = intPreferencesKey("work_day_start_minutes")
-        val WORK_DAY_END_MINUTES = intPreferencesKey("work_day_end_minutes")
-        val WORK_LUNCH_START_MINUTES = intPreferencesKey("work_lunch_start_minutes")
-        val WORK_LUNCH_END_MINUTES = intPreferencesKey("work_lunch_end_minutes")
-        val WORK_WEEKEND_SAT = booleanPreferencesKey("work_weekend_sat")
-        val WORK_WEEKEND_SUN = booleanPreferencesKey("work_weekend_sun")
+        // ── Work Schedule ────────────────────────────────────────────────────────
+        val WORK_DAY_START_MINUTES = intPreferencesKey(SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_day_start_minutes"))
+        val WORK_DAY_END_MINUTES = intPreferencesKey(SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_day_end_minutes"))
+        val WORK_LUNCH_START_MINUTES = intPreferencesKey(SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_lunch_start_minutes"))
+        val WORK_LUNCH_END_MINUTES = intPreferencesKey(SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_lunch_end_minutes"))
+        val WORK_WEEKEND_SAT = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "weekend_sat"))
+        val WORK_WEEKEND_SUN = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "weekend_sun"))
 
-        // ── Greetings ─────────────────────────────────────────────────────────
-        val GREETING_MORNING_END = intPreferencesKey("greeting_morning_end")
-        val GREETING_AFTERNOON_END = intPreferencesKey("greeting_afternoon_end")
+        // ── Greeting ─────────────────────────────────────────────────────────────
+        val GREETING_MORNING_END = intPreferencesKey(SettingsNamespace.key(SettingsNamespace.GREETING, "morning_end_hour"))
+        val GREETING_AFTERNOON_END = intPreferencesKey(SettingsNamespace.key(SettingsNamespace.GREETING, "afternoon_end_hour"))
 
-        // ── Account ───────────────────────────────────────────────────────────
-        val USER_ID = stringPreferencesKey("user_id")
+        // ── Account ─────────────────────────────────────────────────────────────
+        val USER_ID = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.ACCOUNT, "user_id"))
 
-        // ── Agenda ────────────────────────────────────────────────────────────
-        val DEFAULT_SAVED_AGENDA_VIEW_ID = stringPreferencesKey("default_saved_agenda_view_id")
+        // ── Agenda ────────────────────────────────────────────────────────────────
+        val DEFAULT_SAVED_AGENDA_VIEW_ID = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.AGENDA, "default_view_id"))
     }
 
     // ── Appearance ─────────────────────────────────────────────────────────────
 
-    override val darkTheme: Flow<Boolean> = dataStore.data.map { it[DARK_THEME] ?: false }
-    override val accentColor: Flow<String> = dataStore.data.map { it[ACCENT_COLOR] ?: "blue" }
-    override val fontSizeScale: Flow<Float> = dataStore.data.map { it[FONT_SIZE_SCALE] ?: 1f }
+    override val darkTheme: Flow<Boolean> = dataStore.data.map { it[DARK_THEME] ?: SettingsDefaults.Appearance.DARK_THEME }
+    override val accentColor: Flow<String> = dataStore.data.map { it[ACCENT_COLOR] ?: SettingsDefaults.Appearance.ACCENT_COLOR }
+    override val fontSizeScale: Flow<Float> = dataStore.data.map { it[FONT_SIZE_SCALE] ?: SettingsDefaults.Appearance.FONT_SIZE_SCALE }
 
     // ── AI ───────────────────────────────────────────────────────────────────
 
-    override val aiProvider: Flow<String> = dataStore.data.map { it[AI_PROVIDER] ?: "openai" }
-    override val aiModel: Flow<String> = dataStore.data.map { it[AI_MODEL] ?: SettingsRepository.DEFAULT_AI_MODEL }
-    override val aiBaseUrl: Flow<String> = dataStore.data.map { it[AI_BASE_URL] ?: "https://api.openai.com/v1" }
+    override val aiProvider: Flow<String> = dataStore.data.map { it[AI_PROVIDER] ?: SettingsDefaults.Ai.PROVIDER }
+    override val aiModel: Flow<String> = dataStore.data.map { it[AI_MODEL] ?: SettingsDefaults.Ai.MODEL }
+    override val aiBaseUrl: Flow<String> = dataStore.data.map { it[AI_BASE_URL] ?: SettingsDefaults.Ai.BASE_URL }
     override val aiSystemPrompt: Flow<String> =
-        dataStore.data.map { it[AI_SYSTEM_PROMPT] ?: SettingsRepository.DEFAULT_SYSTEM_PROMPT }
+        dataStore.data.map { it[AI_SYSTEM_PROMPT] ?: SettingsDefaults.Ai.SYSTEM_PROMPT }
 
     // ── Notifications ─────────────────────────────────────────────────────────
 
     override val notificationsEnabled: Flow<Boolean> =
-        dataStore.data.map { it[NOTIFICATIONS_ENABLED] ?: true }
+        dataStore.data.map { it[NOTIFICATIONS_ENABLED] ?: SettingsDefaults.Notifications.ENABLED }
     override val notificationSound: Flow<Boolean> =
-        dataStore.data.map { it[NOTIFICATION_SOUND] ?: true }
+        dataStore.data.map { it[NOTIFICATION_SOUND] ?: SettingsDefaults.Notifications.SOUND }
     override val notificationVibration: Flow<Boolean> =
-        dataStore.data.map { it[NOTIFICATION_VIBRATION] ?: true }
+        dataStore.data.map { it[NOTIFICATION_VIBRATION] ?: SettingsDefaults.Notifications.VIBRATION }
     override val reminderDefault: Flow<ReminderOffset> = dataStore.data.map {
-        val name = it[REMINDER_DEFAULT] ?: "AT_DUE"
-        runCatching { ReminderOffset.valueOf(name) }.getOrDefault(ReminderOffset.AT_DUE)
+        val name = it[REMINDER_DEFAULT] ?: SettingsDefaults.Notifications.REMINDER_DEFAULT.name
+        runCatching { ReminderOffset.valueOf(name) }.getOrDefault(SettingsDefaults.Notifications.REMINDER_DEFAULT)
     }
 
     // ── Work Schedule ──────────────────────────────────────────────────────────
 
     override val workDayStartMinutes: Flow<Int> =
-        dataStore.data.map { it[WORK_DAY_START_MINUTES] ?: 540 }
+        dataStore.data.map { it[WORK_DAY_START_MINUTES] ?: SettingsDefaults.WorkSchedule.WORK_DAY_START_MINUTES }
     override val workDayEndMinutes: Flow<Int> =
-        dataStore.data.map { it[WORK_DAY_END_MINUTES] ?: 1080 }
+        dataStore.data.map { it[WORK_DAY_END_MINUTES] ?: SettingsDefaults.WorkSchedule.WORK_DAY_END_MINUTES }
     override val workLunchStartMinutes: Flow<Int> =
-        dataStore.data.map { it[WORK_LUNCH_START_MINUTES] ?: 720 }
+        dataStore.data.map { it[WORK_LUNCH_START_MINUTES] ?: SettingsDefaults.WorkSchedule.WORK_LUNCH_START_MINUTES }
     override val workLunchEndMinutes: Flow<Int> =
-        dataStore.data.map { it[WORK_LUNCH_END_MINUTES] ?: 780 }
+        dataStore.data.map { it[WORK_LUNCH_END_MINUTES] ?: SettingsDefaults.WorkSchedule.WORK_LUNCH_END_MINUTES }
     override val workWeekendSat: Flow<Boolean> =
-        dataStore.data.map { it[WORK_WEEKEND_SAT] ?: false }
+        dataStore.data.map { it[WORK_WEEKEND_SAT] ?: SettingsDefaults.WorkSchedule.WEEKEND_SAT }
     override val workWeekendSun: Flow<Boolean> =
-        dataStore.data.map { it[WORK_WEEKEND_SUN] ?: false }
+        dataStore.data.map { it[WORK_WEEKEND_SUN] ?: SettingsDefaults.WorkSchedule.WEEKEND_SUN }
 
     // ── Greetings ─────────────────────────────────────────────────────────────
 
     override val greetingMorningEnd: Flow<Int> =
-        dataStore.data.map { it[GREETING_MORNING_END] ?: 12 }
+        dataStore.data.map { it[GREETING_MORNING_END] ?: SettingsDefaults.Greeting.MORNING_END_HOUR }
     override val greetingAfternoonEnd: Flow<Int> =
-        dataStore.data.map { it[GREETING_AFTERNOON_END] ?: 18 }
+        dataStore.data.map { it[GREETING_AFTERNOON_END] ?: SettingsDefaults.Greeting.AFTERNOON_END_HOUR }
 
     // ── Account ───────────────────────────────────────────────────────────────
 
-    override val userId: Flow<String> = dataStore.data.map { it[USER_ID] ?: UserId.anonymous.value }
+    override val userId: Flow<String> = dataStore.data.map { it[USER_ID] ?: SettingsDefaults.USER_ID }
 
     // ── Agenda ────────────────────────────────────────────────────────────────
 

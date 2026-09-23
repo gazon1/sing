@@ -26,5 +26,7 @@ import org.koin.dsl.module
  */
 fun aiSettingsModule() = module {
     single { AiSettingsStore(get<SecureStoragePort>(), get<SettingsRepository>(), get<TextGenPort>()) }
-    single<SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>> { AiSettingsContributor(get()) }
+    single<SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>> {
+        AiSettingsContributor(get())
+    }
 }

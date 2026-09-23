@@ -17,6 +17,7 @@ import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.AndroidSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.settings.SettingsDataStoreMigration
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroAlarmScheduler
 import com.singularity.todo.feature.reminders.AlarmManagerReminderScheduler
@@ -24,6 +25,7 @@ import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.settings.AiApiKeyMigration
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 /**
@@ -59,17 +61,42 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().profileDao() }
     single { get<AppDatabase>().agendaViewDao() }
 
-    // ─── DataStore ────────────────────────────────────────────────────────
+    // ─── DataStore (split: user settings + state) ─────────────────────────
 
-    single<DataStore<Preferences>> {
-        PreferenceDataStoreFactory.create { get<android.content.Context>().filesDir.resolve("settings.preferences_pb") }
-            .also { ds ->
-                // One-shot migration: legacy versions stored the OpenAI key in
-                // DataStore; newer versions only in SecureStorage. Runs at first
-                // DataStore access, no-ops on subsequent launches.
-                koinBridge { AiApiKeyMigration.run(ds, get<SecureStoragePort>()) }
-            }
+    // user_settings.preferences_pb — all mutable user-facing settings
+    val userSettingsDs: DataStore<Preferences> =
+        PreferenceDataStoreFactory.create {
+            get<android.content.Context>().filesDir.resolve("user_settings.preferences_pb")
+        }
+
+    // state.preferences_pb — read-only flags (schema version, migration timestamps)
+    val stateDs: DataStore<Preferences> =
+        PreferenceDataStoreFactory.create {
+            get<android.content.Context>().filesDir.resolve("state.preferences_pb")
+        }
+
+    // Legacy migration source — points to the old flat-key file.
+    // Will be empty after migration; DataStore itself never writes back to it.
+    val settingsLegacyDs: DataStore<Preferences> =
+        PreferenceDataStoreFactory.create {
+            get<android.content.Context>().filesDir.resolve("settings.preferences_pb")
+        }
+
+    // One-shot migration: v0 flat-key settings → v1 split + namespaced.
+    // Also migrates the legacy AI API key from DataStore → SecureStorage.
+    // Idempotent: skips if state.preferences_pb already has settings_schema_version.
+    koinBridge {
+        SettingsDataStoreMigration(settingsLegacyDs, userSettingsDs, stateDs).run()
+        AiApiKeyMigration.run(settingsLegacyDs, get<SecureStoragePort>())
     }
+
+    // Named DataStore bindings — used by SettingsRepository and migration.
+    single(qualifier = named("user_settings")) { userSettingsDs }
+    single(qualifier = named("state")) { stateDs }
+    single(qualifier = named("settings")) { settingsLegacyDs }
+
+    // Primary DataStore<Preferences> binding — what SettingsRepository consumes.
+    single<DataStore<Preferences>> { userSettingsDs }
 
     // ─── Platform Ports ─────────────────────────────────────────────────
 

@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.ai.AiSettingsContributor
@@ -19,10 +21,10 @@ import kotlinx.coroutines.launch
 /**
  * Settings screen ViewModel.
  *
- * Простой подход:
- * - UI state = combine всех contributors + settings flows
- * - Нет reactive snapshot — просто читаем .value синхронно
- * - processIntent обновляет state напрямую после записи в repository
+ * Architecture:
+ * - UI state = combine of all contributors' observe() flows + ephemeral holders
+ * - processIntent dispatches to the matching contributor, then refreshes state
+ * - No reactive snapshot — state is rebuilt after each write via reloadSection()
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SettingsViewModel(
@@ -43,8 +45,6 @@ class SettingsViewModel(
 
     // ─── State ─────────────────────────────────────────────────────────────
 
-    // Initialized before _state so that buildState() can reference it.
-    // Starts empty; init block replaces it once the flow starts emitting.
     private val savedAgendaViews = MutableStateFlow<List<SavedAgendaView>>(emptyList())
 
     private val _state = MutableStateFlow(buildState())
@@ -63,7 +63,7 @@ class SettingsViewModel(
         }
     }
 
-    // ─── Build state (read .value of MutableStateFlows) ─────────────────
+    // ─── Build initial state (sync snapshot) ───────────────────────────
 
     private fun buildState(): SettingsUiState {
         val appearance = contributors
@@ -81,38 +81,91 @@ class SettingsViewModel(
             aiContributor?.observe()?.let { (it as? MutableStateFlow<*>)?.value as? SettingsSection.Ai }
                 ?: SettingsSection.Ai()
 
+        val notifications = contributors
+            .filterIsInstance<SettingsContributor<SettingsSection.Notifications, *>>()
+            .firstOrNull()
+            ?.observe()
+            ?.let { (it as? MutableStateFlow<*>)?.value as? SettingsSection.Notifications }
+            ?: SettingsSection.Notifications(
+                enabled = settings.notificationsEnabled.let { (it as? MutableStateFlow)?.value ?: true },
+                sound = settings.notificationSound.let { (it as? MutableStateFlow)?.value ?: true },
+                vibration = settings.notificationVibration.let { (it as? MutableStateFlow)?.value ?: true },
+                reminderDefault = settings.reminderDefault.let {
+                    (it as? MutableStateFlow)?.value
+                        ?: com.singularity.todo.core.reminders.ReminderOffset.AT_DUE
+                },
+            )
+
+        val workSchedule = contributors
+            .filterIsInstance<SettingsContributor<SettingsSection.WorkSchedule, *>>()
+            .firstOrNull()
+            ?.observe()
+            ?.let { (it as? MutableStateFlow<*>)?.value as? SettingsSection.WorkSchedule }
+            ?: SettingsSection.WorkSchedule(
+                dayStartMinutes = settings.workDayStartMinutes.let { (it as? MutableStateFlow)?.value ?: 540 },
+                dayEndMinutes = settings.workDayEndMinutes.let { (it as? MutableStateFlow)?.value ?: 1080 },
+                lunchStartMinutes = settings.workLunchStartMinutes.let { (it as? MutableStateFlow)?.value ?: 720 },
+                lunchEndMinutes = settings.workLunchEndMinutes.let { (it as? MutableStateFlow)?.value ?: 780 },
+                weekendSat = settings.workWeekendSat.let { (it as? MutableStateFlow)?.value ?: false },
+                weekendSun = settings.workWeekendSun.let { (it as? MutableStateFlow)?.value ?: false },
+            )
+
+        val greeting = contributors
+            .filterIsInstance<SettingsContributor<SettingsSection.Greeting, *>>()
+            .firstOrNull()
+            ?.observe()
+            ?.let { (it as? MutableStateFlow<*>)?.value as? SettingsSection.Greeting }
+            ?: SettingsSection.Greeting(
+                morningEndHour = settings.greetingMorningEnd.let { (it as? MutableStateFlow)?.value ?: 12 },
+                afternoonEndHour = settings.greetingAfternoonEnd.let { (it as? MutableStateFlow)?.value ?: 18 },
+            )
+
+        val defaultAgendaView = contributors
+            .filterIsInstance<SettingsContributor<SettingsSection.DefaultAgendaView, *>>()
+            .firstOrNull()
+            ?.observe()
+            ?.let { (it as? MutableStateFlow<*>)?.value as? SettingsSection.DefaultAgendaView }
+            ?: SettingsSection.DefaultAgendaView(
+                viewId = settings.defaultSavedAgendaViewId.let { (it as? MutableStateFlow)?.value },
+            )
+
         return SettingsUiState.Content(
             appearance = appearance,
+            notifications = notifications,
+            workSchedule = workSchedule,
+            greeting = greeting,
             ai = ai,
+            defaultAgendaView = defaultAgendaView,
             darkTheme = appearance.darkTheme,
             accentColor = appearance.accentColor,
             fontSizeScale = appearance.fontSizeScale,
-            notificationsEnabled = settings.notificationsEnabled.let { (it as? MutableStateFlow)?.value ?: true },
-            notificationSound = settings.notificationSound.let { (it as? MutableStateFlow)?.value ?: true },
-            notificationVibration = settings.notificationVibration.let { (it as? MutableStateFlow)?.value ?: true },
-            reminderDefault = settings.reminderDefault.let {
-                (it as? MutableStateFlow)?.value
-                    ?: com.singularity.todo.core.reminders.ReminderOffset.AT_DUE
-            },
-            workDayStartMinutes = settings.workDayStartMinutes.let { (it as? MutableStateFlow)?.value ?: 540 },
-            workDayEndMinutes = settings.workDayEndMinutes.let { (it as? MutableStateFlow)?.value ?: 1080 },
-            workLunchStartMinutes = settings.workLunchStartMinutes.let { (it as? MutableStateFlow)?.value ?: 720 },
-            workLunchEndMinutes = settings.workLunchEndMinutes.let { (it as? MutableStateFlow)?.value ?: 780 },
-            workWeekendSat = settings.workWeekendSat.let { (it as? MutableStateFlow)?.value ?: false },
-            workWeekendSun = settings.workWeekendSun.let { (it as? MutableStateFlow)?.value ?: false },
-            greetingMorningEnd = settings.greetingMorningEnd.let { (it as? MutableStateFlow)?.value ?: 12 },
-            greetingAfternoonEnd = settings.greetingAfternoonEnd.let { (it as? MutableStateFlow)?.value ?: 18 },
+            notificationsEnabled = notifications.enabled,
+            notificationSound = notifications.sound,
+            notificationVibration = notifications.vibration,
+            reminderDefault = notifications.reminderDefault,
+            workDayStartMinutes = workSchedule.dayStartMinutes,
+            workDayEndMinutes = workSchedule.dayEndMinutes,
+            workLunchStartMinutes = workSchedule.lunchStartMinutes,
+            workLunchEndMinutes = workSchedule.lunchEndMinutes,
+            workWeekendSat = workSchedule.weekendSat,
+            workWeekendSun = workSchedule.weekendSun,
+            greetingMorningEnd = greeting.morningEndHour,
+            greetingAfternoonEnd = greeting.afternoonEndHour,
             userId = settings.userId.let { (it as? MutableStateFlow)?.value ?: "anonymous" },
-            defaultSavedAgendaViewId = settings.defaultSavedAgendaViewId.let { (it as? MutableStateFlow)?.value },
+            defaultSavedAgendaViewId = defaultAgendaView.viewId,
             savedAgendaViews = savedAgendaViews.value,
             aiProvider = ai.provider.id,
             aiBaseUrl = ai.baseUrl,
             aiModel = ai.model,
             aiSystemPrompt = ai.systemPrompt,
-            aiTestResult = ai.testResult,
-            aiModels = ai.models,
-            isFetchingAiModels = ai.isFetchingModels,
-            fetchAiModelsError = ai.fetchModelsError,
+            aiEphemeral = EphemeralState.Ai(
+                testResult = aiContributor?.testResultStateFlow?.value
+                    ?: com.singularity.todo.core.llm.AiTestResult.Idle,
+                models = aiContributor?.modelsStateFlow?.value ?: emptyList(),
+                isFetchingModels = aiContributor?.isFetchingModelsStateFlow?.value ?: false,
+                fetchModelsError = aiContributor?.fetchModelsErrorStateFlow?.value,
+            ),
+            agendaEphemeral = EphemeralState.Agenda(savedViews = savedAgendaViews.value),
         )
     }
 
@@ -163,7 +216,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.Notifications.UpdateEnabled -> {
-                updateState { it.copy(notificationsEnabled = intent.value, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        notifications = it.notifications.copy(enabled = intent.value),
+                        notificationsEnabled = intent.value,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update notifications failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update notifications") } },
@@ -171,7 +230,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.Notifications.UpdateSound -> {
-                updateState { it.copy(notificationSound = intent.value, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        notifications = it.notifications.copy(sound = intent.value),
+                        notificationSound = intent.value,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update notification sound failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update notification sound") } },
@@ -179,7 +244,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.Notifications.UpdateVibration -> {
-                updateState { it.copy(notificationVibration = intent.value, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        notifications = it.notifications.copy(vibration = intent.value),
+                        notificationVibration = intent.value,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update vibration failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update vibration") } },
@@ -187,7 +258,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.Notifications.UpdateReminderDefault -> {
-                updateState { it.copy(reminderDefault = intent.value, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        notifications = it.notifications.copy(reminderDefault = intent.value),
+                        reminderDefault = intent.value,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update reminder default failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update reminder default") } },
@@ -195,7 +272,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.WorkSchedule.UpdateWorkDayStart -> {
-                updateState { it.copy(workDayStartMinutes = intent.minutes, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        workSchedule = it.workSchedule.copy(dayStartMinutes = intent.minutes),
+                        workDayStartMinutes = intent.minutes,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update work day start failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update work day start") } },
@@ -203,7 +286,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.WorkSchedule.UpdateWorkDayEnd -> {
-                updateState { it.copy(workDayEndMinutes = intent.minutes, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        workSchedule = it.workSchedule.copy(dayEndMinutes = intent.minutes),
+                        workDayEndMinutes = intent.minutes,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update work day end failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update work day end") } },
@@ -211,7 +300,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.WorkSchedule.UpdateWorkLunchStart -> {
-                updateState { it.copy(workLunchStartMinutes = intent.minutes, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        workSchedule = it.workSchedule.copy(lunchStartMinutes = intent.minutes),
+                        workLunchStartMinutes = intent.minutes,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update lunch start failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update lunch start") } },
@@ -219,7 +314,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.WorkSchedule.UpdateWorkLunchEnd -> {
-                updateState { it.copy(workLunchEndMinutes = intent.minutes, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        workSchedule = it.workSchedule.copy(lunchEndMinutes = intent.minutes),
+                        workLunchEndMinutes = intent.minutes,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update lunch end failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update lunch end") } },
@@ -227,7 +328,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.WorkSchedule.UpdateWeekendSat -> {
-                updateState { it.copy(workWeekendSat = intent.value, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        workSchedule = it.workSchedule.copy(weekendSat = intent.value),
+                        workWeekendSat = intent.value,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update Saturday setting failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update Saturday setting") } },
@@ -235,7 +342,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.WorkSchedule.UpdateWeekendSun -> {
-                updateState { it.copy(workWeekendSun = intent.value, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        workSchedule = it.workSchedule.copy(weekendSun = intent.value),
+                        workWeekendSun = intent.value,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update Sunday setting failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update Sunday setting") } },
@@ -243,7 +356,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.Greeting.UpdateMorningEnd -> {
-                updateState { it.copy(greetingMorningEnd = intent.hour, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        greeting = it.greeting.copy(morningEndHour = intent.hour),
+                        greetingMorningEnd = intent.hour,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update morning greeting end failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update morning greeting end") } },
@@ -251,7 +370,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.Greeting.UpdateAfternoonEnd -> {
-                updateState { it.copy(greetingAfternoonEnd = intent.hour, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        greeting = it.greeting.copy(afternoonEndHour = intent.hour),
+                        greetingAfternoonEnd = intent.hour,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update afternoon greeting end failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update afternoon greeting end") } },
@@ -290,7 +415,13 @@ class SettingsViewModel(
             }
 
             is SettingsIntent.DefaultAgendaView.Update -> {
-                updateState { it.copy(defaultSavedAgendaViewId = intent.viewId, errorMessage = null) }
+                updateState {
+                    it.copy(
+                        defaultAgendaView = it.defaultAgendaView.copy(viewId = intent.viewId),
+                        defaultSavedAgendaViewId = intent.viewId,
+                        errorMessage = null,
+                    )
+                }
                 scope.fireAndForget(
                     errorLabel = "Update default agenda view failed",
                     onError = { e -> updateState { it.copy(errorMessage = e.message ?: "Failed to update default agenda view") } },
@@ -322,6 +453,16 @@ class SettingsViewModel(
         val systemPrompt = settings.aiSystemPrompt.first()
         updateState {
             it.copy(
+                ai = it.ai.copy(
+                    provider = com.singularity.todo.core.llm.LlmProvider.fromId(provider),
+                    baseUrl = baseUrl,
+                    model = model,
+                    systemPrompt = systemPrompt,
+                    testResult = contributor.testResultStateFlow.value,
+                    models = contributor.modelsStateFlow.value,
+                    isFetchingModels = contributor.isFetchingModelsStateFlow.value,
+                    fetchModelsError = contributor.fetchModelsErrorStateFlow.value,
+                ),
                 aiProvider = provider,
                 aiBaseUrl = baseUrl,
                 aiModel = model,

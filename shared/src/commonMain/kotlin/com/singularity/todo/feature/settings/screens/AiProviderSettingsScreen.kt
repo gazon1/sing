@@ -68,7 +68,7 @@ fun AiProviderSettingsScreen(
             )
 
             var expanded by remember { mutableStateOf(false) }
-            val currentProvider = state.ai.provider
+            val currentProvider = state.ai.provider.id
 
             ExposedDropdownMenuBox(
                 expanded = expanded,
@@ -76,7 +76,7 @@ fun AiProviderSettingsScreen(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
                 OutlinedTextField(
-                    value = currentProvider.id,
+                    value = currentProvider,
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Provider") },
@@ -165,7 +165,7 @@ fun AiProviderSettingsScreen(
 
         // ─── Model ──────────────────────────────────────────────────────────────
         SettingsSection(title = "Model") {
-            if (state.ai.models.isNotEmpty()) {
+            if (state.aiEphemeral.models.isNotEmpty()) {
                 var modelExpanded by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(
                     expanded = modelExpanded,
@@ -186,7 +186,7 @@ fun AiProviderSettingsScreen(
                         expanded = modelExpanded,
                         onDismissRequest = { modelExpanded = false },
                     ) {
-                        state.ai.models.forEach { model ->
+                        state.aiEphemeral.models.forEach { model ->
                             DropdownMenuItem(
                                 text = { Text(model) },
                                 onClick = {
@@ -206,9 +206,9 @@ fun AiProviderSettingsScreen(
                     singleLine = true,
                 )
             }
-            if (state.ai.fetchModelsError != null) {
+            if (state.aiEphemeral.fetchModelsError != null) {
                 Text(
-                    text = "Fetch error: ${state.ai.fetchModelsError}",
+                    text = "Fetch error: ${state.aiEphemeral.fetchModelsError}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 4.dp),
@@ -216,10 +216,10 @@ fun AiProviderSettingsScreen(
             }
             Button(
                 onClick = { onIntent(SettingsIntent.Ai.FetchModels) },
-                enabled = !state.ai.isFetchingModels,
+                enabled = !state.aiEphemeral.isFetchingModels,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
-                Text(if (state.ai.isFetchingModels) "Fetching…" else "Fetch models")
+                Text(if (state.aiEphemeral.isFetchingModels) "Fetching…" else "Fetch models")
             }
         }
 
@@ -245,12 +245,12 @@ fun AiProviderSettingsScreen(
         SettingsSection(title = "Test Connection") {
             Button(
                 onClick = { onIntent(SettingsIntent.Ai.TestConnection) },
-                enabled = state.ai.testResult !is AiTestResult.Testing,
+                enabled = state.aiEphemeral.testResult !is AiTestResult.Testing,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
-                Text(if (state.ai.testResult is AiTestResult.Testing) "Testing…" else "Send ping")
+                Text(if (state.aiEphemeral.testResult is AiTestResult.Testing) "Testing…" else "Send ping")
             }
-            AiTestResultBanner(state.ai.testResult, Modifier.padding(top = 8.dp))
+            AiTestResultBanner(state.aiEphemeral.testResult, Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -304,7 +304,6 @@ private fun AiProviderSettingsScreenLightPreview() = PreviewThemed(darkTheme = f
                 baseUrl = "https://api.openai.com/v1",
                 model = "gpt-4o-mini",
                 systemPrompt = "You are a helpful assistant.",
-                testResult = AiTestResult.Idle,
             ),
         ),
         onIntent = {},
@@ -322,6 +321,8 @@ private fun AiProviderSettingsScreenConnectedPreview() = PreviewThemed(darkTheme
                 baseUrl = "https://api.openai.com/v1",
                 model = "gpt-4o-mini",
                 systemPrompt = "You are a helpful assistant.",
+            ),
+            aiEphemeral = com.singularity.todo.core.settings.EphemeralState.Ai(
                 testResult = AiTestResult.Ok(latencyMs = 234),
             ),
         ),
@@ -340,6 +341,8 @@ private fun AiProviderSettingsScreenDarkPreview() = PreviewThemed(darkTheme = tr
                 baseUrl = "https://api.anthropic.com/v1",
                 model = "claude-sonnet-4-20250514",
                 systemPrompt = "You are Claude.",
+            ),
+            aiEphemeral = com.singularity.todo.core.settings.EphemeralState.Ai(
                 testResult = AiTestResult.Error(message = "Connection timeout"),
             ),
         ),

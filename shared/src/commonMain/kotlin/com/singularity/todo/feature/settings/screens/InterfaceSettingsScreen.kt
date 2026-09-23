@@ -57,8 +57,8 @@ fun InterfaceSettingsScreen(
         }
 
         AccentColorPicker(
-            selected = state.accentColor,
-            onSelect = { onIntent(SettingsIntent.Appearance.UpdateAccentColor(it)) },
+            selected = SingularityAccents.fromString(state.accentColor),
+            onSelect = { onIntent(SettingsIntent.Appearance.UpdateAccentColor(it.name.lowercase())) },
         )
 
         FontSizeSlider(
@@ -69,10 +69,10 @@ fun InterfaceSettingsScreen(
 }
 
 @Composable
-private fun AccentColorPicker(selected: String, onSelect: (String) -> Unit) {
+private fun AccentColorPicker(selected: SingularityAccents, onSelect: (SingularityAccents) -> Unit) {
     SettingsSection(title = "Accent Color") {
         // Live preview — mini task card showing the selected accent
-        val currentAccent = SingularityAccents.fromString(selected)
+        val currentAccent = selected
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -104,8 +104,8 @@ private fun AccentColorPicker(selected: String, onSelect: (String) -> Unit) {
             SingularityAccents.entries.forEach { accent ->
                 AccentSwatch(
                     accent = accent,
-                    selected = accent.name.equals(selected, ignoreCase = true),
-                    onClick = { onSelect(accent.name.lowercase()) },
+                    selected = accent == selected,
+                    onClick = { onSelect(accent) },
                 )
             }
         }
@@ -176,7 +176,7 @@ private fun InterfaceSettingsScreenLightPreview() = PreviewThemed(darkTheme = fa
     InterfaceSettingsScreen(
         state = SettingsUiState.Content(
             darkTheme = false,
-            accentColor = "blue",
+            accentColor = SingularityAccents.Blue.name.lowercase(),
             fontSizeScale = 1.0f,
         ),
         onIntent = {},
@@ -189,7 +189,7 @@ private fun InterfaceSettingsScreenDarkPreview() = PreviewThemed(darkTheme = tru
     InterfaceSettingsScreen(
         state = SettingsUiState.Content(
             darkTheme = true,
-            accentColor = "purple",
+            accentColor = SingularityAccents.Purple.name.lowercase(),
             fontSizeScale = 1.25f,
         ),
         onIntent = {},

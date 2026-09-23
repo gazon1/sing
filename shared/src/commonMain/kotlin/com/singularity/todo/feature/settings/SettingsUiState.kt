@@ -3,8 +3,10 @@ package com.singularity.todo.feature.settings
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 
@@ -19,25 +21,32 @@ typealias SettingsIntent = SettingsIntent
  * [Loading] while DataStore loads; [Content] once ready; [Error] on failure.
  *
  * ## Architecture note
- * [Content] combines:
- * - Typed contributor sections ([appearance], [ai]) — the new contributor pattern
- * - Flat fields for legacy sub-screens that still read directly from [Content]
- *   (notifications, work schedule, greeting, account) — these will be migrated to
- *   their own contributors in a future iteration.
+ * [Content] combines typed contributor sections ([appearance], [ai], etc.) with
+ * flat legacy fields for sub-screens that are not yet migrated (see Phase 6).
+ * Ephemeral state ([aiEphemeral], [agendaEphemeral]) is kept separate from
+ * persisted [SettingsSection] data.
  *
- * Sub-screens (Interface, AI Provider, Notifications, etc.) are gradually being
- * converted to use typed sections from `core.settings` directly instead of the
- * flat legacy fields.
+ * Sub-screens will migrate from flat fields to typed section fields in Phase 6.
  */
 sealed interface SettingsUiState {
     data object Loading : SettingsUiState
     data class Error(val cause: Throwable) : SettingsUiState
     data class Content(
-        // ── Typed contributor sections (new pattern) ────────────────────────────
+        // ── Typed contributor sections ─────────────────────────────────────────
         val appearance: SettingsSection.Appearance = SettingsSection.Appearance(),
+        val notifications: SettingsSection.Notifications = SettingsSection.Notifications(),
+        val workSchedule: SettingsSection.WorkSchedule = SettingsSection.WorkSchedule(),
+        val greeting: SettingsSection.Greeting = SettingsSection.Greeting(),
         val ai: SettingsSection.Ai = SettingsSection.Ai(),
+        val defaultAgendaView: SettingsSection.DefaultAgendaView = SettingsSection.DefaultAgendaView(),
 
-        // ── Legacy flat fields (backward compatibility with existing sub-screens) ──
+        // ── Ephemeral state (not persisted) ────────────────────────────────────
+        /** AI test result, fetched model list, fetch errors — UI-only state. */
+        val aiEphemeral: EphemeralState.Ai = EphemeralState.Ai(),
+        /** Saved agenda views list — refreshed from DB on each observation. */
+        val agendaEphemeral: EphemeralState.Agenda = EphemeralState.Agenda(),
+
+        // ── Legacy flat fields (backward compatibility — migrated in Phase 6) ────
         // Appearance (mirrors appearance.*)
         val darkTheme: Boolean = false,
         val accentColor: String = "blue",

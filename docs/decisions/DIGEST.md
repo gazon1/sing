@@ -736,8 +736,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Backup confirm dialogs prevent accidental data loss.
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input.
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode.
+- The `aiEphemeral` field in `SettingsUiState.Content` is kept for future migrations; do not rely on it as the primary read path for AI ephemeral state today.
+- When adding new AI-related state, add it to `SettingsSection.Ai` directly; do not introduce a parallel `EphemeralState.Ai` field.
+- `AiSettingsContributor` stays as a 1-argument class — `observe()` returns `Flow<SettingsSection.Ai>` (no `stateIn` wrapper) to avoid `CoroutineScope` requirements that break `DiGraphTest`.
+- `AiSettingsStore.observe()` is an 8-flow `combine`: 4 persisted flows + 4 ephemeral `MutableStateFlow`s.
 - `App.kt` инжектит `SettingsRepository` через Koin — это нормально, Koin доступен в Common startup.
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor.
+- `SettingsSection.Ai` always contains all AI state (persisted + ephemeral) — never split.
+- `SettingsViewModel.reloadAiSection()` always updates **both** the `ai.*` fields on the `SettingsSection.Ai` object **and** the top-level flat fields (`aiTestResult`, `aiModels`, `isFetchingAiModels`, `fetchAiModelsError`) in `SettingsUiState.Content`.
 - `SurfaceController.apply(event)` is **not** changed — separate scope, separate task.
 - `TextGenPort.listModels` — добавлен в интерфейс, реализация в `KoogAgentService` и `FakeTextGen`.
 - `process(intent)` is the canonical name for contributor intent dispatch.
@@ -1018,6 +1024,7 @@ _1 entries need attention._
 - `2026-09-22-reminder-lastfiredat-schema` — reminders, database, scheduler
 - `2026-09-22-reminder-scheduler-critical-fixes` — reminders, scheduler, concurrency, coroutines, di
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — repository, currentuser, userid, draft-store, use-case, koin
+- `2026-09-22-settings-section-ai-ephemeral-fields` — settings, architecture, state-management
 - `2026-09-23-ai-tools-currentuser-singleton` — _untagged_
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
@@ -1178,6 +1185,7 @@ _1 entries need attention._
 - `2026-09-22-reminder-lastfiredat-schema` — _(no title)_
 - `2026-09-22-reminder-scheduler-critical-fixes` — _(no title)_
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — Repository stamps ambient userId on create; drop userId params from input classes and use cases
+- `2026-09-22-settings-section-ai-ephemeral-fields` — Keep ephemeral state inside SettingsSection.Ai, not in EphemeralState
 - `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race

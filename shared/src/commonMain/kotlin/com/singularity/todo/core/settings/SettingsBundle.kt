@@ -3,31 +3,100 @@ package com.singularity.todo.core.settings
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
+import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 
 /**
  * Sealed hierarchy of all settings sections.
  * Each subtype is contributed by a corresponding [SettingsContributor].
+ *
+ * ## Design principles
+ * - Only **persisted** values belong here — no ephemeral UI state (test results,
+ *   model lists, fetch errors). Those live in [EphemeralState] holders on each
+ *   contributor and are combined at the ViewModel layer.
+ * - Domain types (enums, value objects) are used directly rather than raw strings.
  */
 sealed interface SettingsSection {
+
+    // ── Appearance ────────────────────────────────────────────────────────────
+
     /** Appearance: dark theme, accent color, font scale. */
     data class Appearance(
-        val darkTheme: Boolean = false,
-        val accentColor: String = "blue",
-        val fontSizeScale: Float = 1f,
+        val darkTheme: Boolean = SettingsDefaults.Appearance.DARK_THEME,
+        val accentColor: String = SettingsDefaults.Appearance.ACCENT_COLOR,
+        val fontSizeScale: Float = SettingsDefaults.Appearance.FONT_SIZE_SCALE,
     ) : SettingsSection
 
-    /** AI provider: backend, model, system prompt, plus UI-only test/fetch state. */
+    // ── AI Provider ───────────────────────────────────────────────────────────
+
+    /** AI provider: backend, model, system prompt. */
     data class Ai(
-        val provider: LlmProvider = LlmProvider.OPENAI,
-        val baseUrl: String = "https://api.openai.com/v1",
-        val model: String = "gpt-4o-mini",
-        val systemPrompt: String = "You are a helpful productivity assistant. Be concise and actionable.",
+        val provider: LlmProvider = LlmProvider.fromId(SettingsDefaults.Ai.PROVIDER),
+        val baseUrl: String = SettingsDefaults.Ai.BASE_URL,
+        val model: String = SettingsDefaults.Ai.MODEL,
+        val systemPrompt: String = SettingsDefaults.Ai.SYSTEM_PROMPT,
         val testResult: AiTestResult = AiTestResult.Idle,
         val models: List<String> = emptyList(),
         val isFetchingModels: Boolean = false,
         val fetchModelsError: String? = null,
     ) : SettingsSection
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+
+    data class Notifications(
+        val enabled: Boolean = SettingsDefaults.Notifications.ENABLED,
+        val sound: Boolean = SettingsDefaults.Notifications.SOUND,
+        val vibration: Boolean = SettingsDefaults.Notifications.VIBRATION,
+        val reminderDefault: ReminderOffset = SettingsDefaults.Notifications.REMINDER_DEFAULT,
+    ) : SettingsSection
+
+    // ── Work Schedule ─────────────────────────────────────────────────────────
+
+    data class WorkSchedule(
+        val dayStartMinutes: Int = SettingsDefaults.WorkSchedule.WORK_DAY_START_MINUTES,
+        val dayEndMinutes: Int = SettingsDefaults.WorkSchedule.WORK_DAY_END_MINUTES,
+        val lunchStartMinutes: Int = SettingsDefaults.WorkSchedule.WORK_LUNCH_START_MINUTES,
+        val lunchEndMinutes: Int = SettingsDefaults.WorkSchedule.WORK_LUNCH_END_MINUTES,
+        val weekendSat: Boolean = SettingsDefaults.WorkSchedule.WEEKEND_SAT,
+        val weekendSun: Boolean = SettingsDefaults.WorkSchedule.WEEKEND_SUN,
+    ) : SettingsSection
+
+    // ── Greeting ─────────────────────────────────────────────────────────────
+
+    data class Greeting(
+        val morningEndHour: Int = SettingsDefaults.Greeting.MORNING_END_HOUR,
+        val afternoonEndHour: Int = SettingsDefaults.Greeting.AFTERNOON_END_HOUR,
+    ) : SettingsSection
+
+    // ── Default Agenda View ──────────────────────────────────────────────────
+
+    data class DefaultAgendaView(
+        val viewId: SavedAgendaViewId? = null,
+    ) : SettingsSection
+}
+
+/**
+ * Ephemeral (UI-only) state that is not persisted but needs to be streamed to
+ * the UI alongside the persisted [SettingsSection].
+ *
+ * Lives on the contributor as `StateFlow<EphemeralState.X>` and is combined
+ * with persisted sections at the ViewModel layer. This mirrors Orgzly's split
+ * between "default" SharedPreferences (user settings) and "state" SharedPreferences
+ * (transient flags).
+ */
+sealed interface EphemeralState {
+
+    data class Ai(
+        val testResult: AiTestResult = AiTestResult.Idle,
+        val models: List<String> = emptyList(),
+        val isFetchingModels: Boolean = false,
+        val fetchModelsError: String? = null,
+    ) : EphemeralState
+
+    data class Agenda(
+        val savedViews: List<SavedAgendaView> = emptyList(),
+    ) : EphemeralState
 }
 
 /**
@@ -35,11 +104,16 @@ sealed interface SettingsSection {
  * Each subtype is handled by the corresponding [SettingsContributor].
  */
 sealed interface SettingsIntent {
+
+    // ── Appearance ────────────────────────────────────────────────────────────
+
     sealed interface Appearance : SettingsIntent {
         data class UpdateDarkTheme(val value: Boolean) : Appearance
         data class UpdateAccentColor(val value: String) : Appearance
         data class UpdateFontSizeScale(val value: Float) : Appearance
     }
+
+    // ── AI Provider ───────────────────────────────────────────────────────────
 
     sealed interface Ai : SettingsIntent {
         data class UpdateProvider(val value: LlmProvider) : Ai
@@ -53,15 +127,16 @@ sealed interface SettingsIntent {
         data object FetchModels : Ai
     }
 
-    // Dead-weight intents — notifications, work schedule, greeting.
-    // These will be migrated to their own contributors in a future iteration.
-    // For now, SettingsViewModel routes them directly to SettingsRepository.
+    // ── Notifications ─────────────────────────────────────────────────────────
+
     sealed interface Notifications : SettingsIntent {
         data class UpdateEnabled(val value: Boolean) : Notifications
         data class UpdateSound(val value: Boolean) : Notifications
         data class UpdateVibration(val value: Boolean) : Notifications
         data class UpdateReminderDefault(val value: ReminderOffset) : Notifications
     }
+
+    // ── Work Schedule ─────────────────────────────────────────────────────────
 
     sealed interface WorkSchedule : SettingsIntent {
         data class UpdateWorkDayStart(val minutes: Int) : WorkSchedule
@@ -72,10 +147,14 @@ sealed interface SettingsIntent {
         data class UpdateWeekendSun(val value: Boolean) : WorkSchedule
     }
 
+    // ── Greeting ─────────────────────────────────────────────────────────────
+
     sealed interface Greeting : SettingsIntent {
         data class UpdateMorningEnd(val hour: Int) : Greeting
         data class UpdateAfternoonEnd(val hour: Int) : Greeting
     }
+
+    // ── Default Agenda View ──────────────────────────────────────────────────
 
     sealed interface DefaultAgendaView : SettingsIntent {
         data class Update(val viewId: SavedAgendaViewId?) : DefaultAgendaView
