@@ -188,7 +188,7 @@ class TaskCreateViewModel(
             }
 
             TaskCreateIntent.SaveClicked -> {
-                if (_isSaving.value) return
+                if (!_isSaving.compareAndSet(expect = false, update = true)) return
                 scope.launch { save() }
             }
 
@@ -218,7 +218,6 @@ class TaskCreateViewModel(
             return
         }
 
-        _isSaving.value = true
         try {
             when (val result = deps.createFromDraft(draftSnapshot)) {
                 is Either.Left -> {

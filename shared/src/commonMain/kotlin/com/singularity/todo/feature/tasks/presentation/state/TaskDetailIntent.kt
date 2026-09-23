@@ -15,23 +15,9 @@ import kotlinx.datetime.LocalTime
 /**
  * Единая точка входа для [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel].
  *
- * Routing-варианты (OpenSheet, Attachment.Pick) обрабатываются экраном,
- * доменные — [Domain].
- *
- * Разделение типизировано на уровне sealed-иерархии: попытка передать
- * routing-интент в VM — ошибка компиляции.
+ * Все варианты обрабатываются VM через [Domain].
  */
 sealed interface TaskDetailIntent {
-
-    // ── Attachment: owned by screen (delegates to AttachmentsViewModel) ──
-
-    sealed interface Attachment : TaskDetailIntent {
-        data class Delete(val attachmentId: com.singularity.todo.core.attachments.AttachmentId) : Attachment
-        data class Click(val attachmentId: com.singularity.todo.core.attachments.AttachmentId) : Attachment
-
-        /** Pick a file from the system file picker. */
-        data object PickFile : Attachment
-    }
 
     // ── Domain: owned by ViewModel ─────────────────────────────────────────
 
