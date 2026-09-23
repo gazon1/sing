@@ -1,8 +1,10 @@
 package com.singularity.todo.feature.calendar.presentation.components.calendar
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,6 +56,7 @@ import kotlinx.datetime.LocalDate
  * @param monthAnchor Reference month — pager starts here. Recomputing this
  *   triggers [LaunchedEffect] to animate the pager to the matching page.
  * @param pageCount Total pages in the pager (default 240 ⇒ ±120 months).
+ * @param onEmptyCellLongPress Called when user long-presses an empty current-month cell.
  */
 @Composable
 fun MonthGridView(
@@ -64,6 +67,7 @@ fun MonthGridView(
     onDayClick: (LocalDate) -> Unit,
     onTaskClick: (CalendarTaskUi) -> Unit,
     onMonthPageChanged: (YearMonth) -> Unit,
+    onEmptyCellLongPress: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
     pageCount: Int = 240,
     pagerState: PagerState = rememberPagerState(initialPage = pageCount / 2) { pageCount },
@@ -98,6 +102,7 @@ fun MonthGridView(
                 tasksByDate = tasksByDate,
                 onDayClick = onDayClick,
                 onTaskClick = onTaskClick,
+                onEmptyCellLongPress = onEmptyCellLongPress,
             )
         }
     }
@@ -134,6 +139,7 @@ private fun MonthGridPage(
     tasksByDate: Map<LocalDate, List<CalendarTaskUi>>,
     onDayClick: (LocalDate) -> Unit,
     onTaskClick: (CalendarTaskUi) -> Unit,
+    onEmptyCellLongPress: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalCalendarPalette.current
@@ -152,6 +158,7 @@ private fun MonthGridPage(
                         tasks = tasksByDate[date].orEmpty(),
                         onClick = { onDayClick(date) },
                         onTaskClick = onTaskClick,
+                        onEmptyCellLongPress = onEmptyCellLongPress,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
@@ -160,6 +167,7 @@ private fun MonthGridPage(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MonthDayCell(
     date: LocalDate,
@@ -169,12 +177,14 @@ private fun MonthDayCell(
     tasks: List<CalendarTaskUi>,
     onClick: () -> Unit,
     onTaskClick: (CalendarTaskUi) -> Unit,
+    onEmptyCellLongPress: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalCalendarPalette.current
     val visibleTasks = remember(tasks) { tasks.take(3) }
     val overflow = tasks.size - visibleTasks.size
     val dayNumberColor = if (isCurrentMonth) palette.textPrimary else palette.textMuted
+    val hasNoTasks = tasks.isEmpty() && isCurrentMonth
 
     Box(
         modifier = modifier
@@ -182,7 +192,14 @@ private fun MonthDayCell(
             .let { box ->
                 if (isSelected) box.background(palette.surface) else box
             }
-            .clickable { onClick() }
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = if (hasNoTasks) {
+                    { onEmptyCellLongPress(date) }
+                } else {
+                    {}
+                },
+            )
             .padding(6.dp),
     ) {
         Column {

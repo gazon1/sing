@@ -27,4 +27,10 @@ sealed interface CalendarIntent {
      * commits are reported in absolute [YearMonth] units regardless of view mode.
      */
     data class MonthPageChanged(val month: YearMonth) : CalendarIntent
+
+    /**
+     * Emitted when the user long-presses an empty cell in the month grid
+     * (a day with no tasks) to create a new task for that date.
+     */
+    data class EmptyCellLongPressed(val date: LocalDate) : CalendarIntent
 }

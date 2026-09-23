@@ -94,6 +94,7 @@ fun CalendarContent(
                         onDayClick = { onIntent(CalendarIntent.DayClicked(it)) },
                         onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
                         onMonthPageChanged = { month -> onIntent(CalendarIntent.MonthPageChanged(month)) },
+                        onEmptyCellLongPress = { date -> onIntent(CalendarIntent.EmptyCellLongPressed(date)) },
                         modifier = Modifier.fillMaxSize(),
                         pagerState = pagerState ?: rememberPagerState(initialPage = 120) { 240 },
                     )

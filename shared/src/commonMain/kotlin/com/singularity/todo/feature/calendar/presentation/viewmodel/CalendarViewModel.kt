@@ -166,6 +166,12 @@ class CalendarViewModel(
                     _calendarState.updateState { it.copy(anchor = newAnchor) }
                 }
             }
+
+            is CalendarIntent.EmptyCellLongPressed -> {
+                scope.launch {
+                    _events.trySend(CalendarUiEvent.ShowCreateTaskSheet(intent.date))
+                }
+            }
         }
     }
 
