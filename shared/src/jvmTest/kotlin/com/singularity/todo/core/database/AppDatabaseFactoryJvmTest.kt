@@ -125,7 +125,10 @@ class AppDatabaseFactoryJvmTest {
         db.taskDao().upsert(
             TaskEntity(
                 id = "t1", title = "Task", description = null, projectId = null,
-                dueDate = null, dueTime = null, completedAt = null, someday = false,
+                dueDate = null, dueTime = null,
+                startDate = null, startTime = null, endDate = null, endTime = null,
+                accentColor = null, emoji = null,
+                completedAt = null, someday = false,
                 archivedAt = null, isPinned = false, createdAt = now, updatedAt = now,
                 userId = "u1",
             ),

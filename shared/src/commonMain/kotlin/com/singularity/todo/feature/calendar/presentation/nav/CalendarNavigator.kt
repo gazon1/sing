@@ -37,6 +37,18 @@ open class CalendarNavigator(
     }
 
     /**
+     * Open the task create screen in the tasks graph with a pre-filled due date.
+     */
+    open fun openCreateTask(initialDueDate: LocalDate) {
+        onExitGraph(
+            AppDestination.TasksGraph(
+                start = AppDestination.TasksStartRoute.Create,
+                initialDueDate = initialDueDate,
+            ),
+        )
+    }
+
+    /**
      * Go back one entry in the Calendar graph.
      * - If stack size > 1: pop last entry.
      * - If stack size == 1 (at start route): exit the nested graph.

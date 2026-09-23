@@ -30,6 +30,12 @@ data class TaskDraft(
     val priority: TaskPriority = TaskPriority.None,
     val dueDate: DueDateOption = DueDateOption.None,
     val dueTime: LocalTime? = null,
+    val startDate: DueDateOption = DueDateOption.None,
+    val startTime: LocalTime? = null,
+    val endDate: DueDateOption = DueDateOption.None,
+    val endTime: LocalTime? = null,
+    val accentColor: Long? = null,
+    val emoji: String? = null,
     val projectId: String? = null,
     val tagIds: List<String> = emptyList(),
 )

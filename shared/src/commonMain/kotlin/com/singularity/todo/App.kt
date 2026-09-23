@@ -17,10 +17,12 @@ import com.singularity.todo.feature.nav.Navigator
  * before [AuthGuard] — enabling [LoginScreen] (signed-out state) to read it.
  *
  * @param deeplinkViewId When non-null (Android only), navigates directly to the
- *   specified saved agenda view on first composition. Null on JVM.
+ *   saved agenda edit screen on first composition. Null on JVM.
+ * @param deeplinkTaskId When non-null (Android only), navigates directly to the
+ *   task detail screen on first composition. Null on JVM.
  */
 @Composable expect
-fun App(deeplinkViewId: String?)
+fun App(deeplinkViewId: String?, deeplinkTaskId: String?)
 
 /**
  * Shell entry point that receives the navigation state built by [App].

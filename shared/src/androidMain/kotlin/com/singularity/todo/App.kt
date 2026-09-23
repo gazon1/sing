@@ -26,9 +26,13 @@ import org.koin.compose.koinInject
  * @param deeplinkViewId When non-null, the app navigates directly to
  *   [AppDestination.AgendaGraph] with [AgendaStartRoute.SavedAgendaEdit] on first composition.
  *   This handles notification taps that should open a specific saved agenda view.
+ * @param deeplinkTaskId When non-null, the app navigates directly to
+ *   [AppDestination.TasksGraph] with [TasksStartRoute.Detail] on first composition.
+ *   This handles calendar event deep-links (singularity://task/{id}).
+ *   Null on JVM.
  */
 @Composable
-actual fun App(deeplinkViewId: String?) {
+actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
     val settings: SettingsRepository = koinInject()
     val darkTheme by settings.darkTheme.collectAsState(initial = false)
     val accentName by settings.accentColor.collectAsState(initial = "blue")
@@ -40,10 +44,17 @@ actual fun App(deeplinkViewId: String?) {
         NavCallbacks(navigate = navigator::navigate, goBack = navigator::goBack)
     }
 
-    // Handle notification deeplink: navigate to the saved agenda view on first composition
-    LaunchedEffect(deeplinkViewId, navigator) {
-        if (deeplinkViewId != null) {
-            navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(deeplinkViewId)))
+    // Handle deep-links: navigate to the appropriate destination on first composition
+    LaunchedEffect(deeplinkViewId, deeplinkTaskId, navigator) {
+        when {
+            deeplinkTaskId != null -> {
+                // Calendar deep-link: singularity://task/{id} → open task detail
+                navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(deeplinkTaskId)))
+            }
+            deeplinkViewId != null -> {
+                // Notification tap: open saved agenda edit
+                navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(deeplinkViewId)))
+            }
         }
     }
 

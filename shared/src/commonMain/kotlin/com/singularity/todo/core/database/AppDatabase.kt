@@ -9,6 +9,8 @@ import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
+import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
+import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
 
 /**
  * Room database for Android.
@@ -29,8 +31,9 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         LlmUsageEntity::class,
         ProfileEntity::class,
         AgendaViewEntity::class,
+        CalendarSyncTaskMapEntity::class,
     ],
-    version = 15,
+    version = 17,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -42,6 +45,8 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         AutoMigration(from = 12, to = 13, spec = Migration12To13::class),
         AutoMigration(from = 13, to = 14, spec = Migration13To14::class),
         AutoMigration(from = 14, to = 15, spec = Migration14To15::class),
+        AutoMigration(from = 15, to = 16, spec = Migration15To16::class),
+        AutoMigration(from = 16, to = 17, spec = Migration16To17::class),
     ],
     exportSchema = true,
 )
@@ -58,4 +63,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun llmUsageDao(): LlmUsageDao
     abstract fun profileDao(): ProfileDao
     abstract fun agendaViewDao(): AgendaViewDao
+    abstract fun calendarSyncTaskMapDao(): CalendarSyncTaskMapDao
 }

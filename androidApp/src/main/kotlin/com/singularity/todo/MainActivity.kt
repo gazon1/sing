@@ -1,5 +1,6 @@
 package com.singularity.todo
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,7 +11,7 @@ import com.singularity.todo.core.notifications.ReminderBroadcastReceiver
  * Main (and only) Activity.
  *
  * Koin is started once in [SingularityApp.onCreate] — process-scoped,
- * guaranteed single initialization before any Activity runs.
+ * guaranteed single initialization before any Activity or Service.
  */
 class MainActivity : ComponentActivity() {
 
@@ -18,12 +19,42 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Read the deeplink viewId from notification tap.
-        // Null when launching normally or from an intent without this extra.
-        val deeplinkViewId: String? = intent.getStringExtra(ReminderBroadcastReceiver.EXTRA_DEEPLINK_VIEW_ID)
+        val (deeplinkTaskId, deeplinkViewId) = resolveDeepLinkIntents(intent)
 
         setContent {
-            App(deeplinkViewId = deeplinkViewId)
+            App(deeplinkViewId = deeplinkViewId, deeplinkTaskId = deeplinkTaskId)
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val (deeplinkTaskId, deeplinkViewId) = resolveDeepLinkIntents(intent)
+        if (deeplinkTaskId != null || deeplinkViewId != null) {
+            setContent {
+                App(deeplinkViewId = deeplinkViewId, deeplinkTaskId = deeplinkTaskId)
+            }
+        }
+    }
+
+    /**
+     * Extracts navigation targets from two independent sources:
+     * 1. `intent.data` — `singularity://task/{taskId}` from calendar event taps → deeplinkTaskId
+     * 2. `ReminderBroadcastReceiver.EXTRA_DEEPLINK_VIEW_ID` — from notification taps → deeplinkViewId
+     *
+     * These are independent, so both can be non-null if both intent extras are somehow set.
+     */
+    private fun resolveDeepLinkIntents(intent: Intent?): Pair<String?, String?> {
+        if (intent == null) return null to null
+
+        // Calendar deep-link: singularity://task/{id}
+        val data: android.net.Uri? = intent.data
+        val deeplinkTaskId: String? = if (data?.scheme == "singularity" && data.host == "task") {
+            data.pathSegments.firstOrNull()?.takeIf { it.isNotBlank() }
+        } else null
+
+        // Notification tap extra
+        val deeplinkViewId: String? = intent.getStringExtra(ReminderBroadcastReceiver.EXTRA_DEEPLINK_VIEW_ID)
+
+        return deeplinkTaskId to deeplinkViewId
     }
 }

@@ -6,11 +6,9 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.serialization.StableJson
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Result of a push operation.
@@ -36,6 +34,7 @@ class SyncEngine(
     private val outboxDao: SyncOutboxDao,
     private val hlcFactory: HlcFactory,
     private val idGenerator: IdGenerator,
+    private val scheduler: SyncWorkScheduler,
     private val scope: AutoCloseableCoroutineScope,
 ) : AutoCloseable by scope {
     private val json = StableJson
@@ -46,37 +45,17 @@ class SyncEngine(
 
     private val _lastPullResult = MutableStateFlow<PullResult?>(null)
 
-    // Tracks the current push-loop job — canceled on SignedOut, restarted on SignedIn
-    private var pushJob: Job? = null
-
     init {
-        // React to session changes: start/stop the push loop
+        // React to session changes: enqueue push when signed in, cancel when signed out.
+        // WorkManager handles back-off and persistence across process death.
         scope.launch {
             authRepository.currentSession.collect { session ->
                 when (session) {
-                    is Session.SignedIn -> {
-                        if (pushJob?.isActive != true) {
-                            pushJob = scope.launch {
-                                while (true) {
-                                    try {
-                                        push()
-                                    } catch (e: Exception) {
-                                        log.e(e) { "Push loop failed" }
-                                        _status.value = SyncEngineStatus.Error(e.message ?: "Push failed")
-                                    }
-                                    delay(30_000.milliseconds)
-                                }
-                            }
-                        }
-                    }
-
+                    is Session.SignedIn -> scheduler.enqueuePush()
                     is Session.Anonymous,
                     is Session.SignedOut,
                     is Session.Loading,
-                    -> {
-                        pushJob?.cancel()
-                        pushJob = null
-                    }
+                    -> scheduler.cancelPush()
                 }
             }
         }

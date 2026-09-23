@@ -365,6 +365,9 @@ interface ReminderDao {
     @Query("SELECT * FROM task_reminders WHERE id = :id AND user_id = :userId")
     fun watchByIdForUser(id: String, userId: String): Flow<TaskReminderEntity?>
 
+    @Query("SELECT DISTINCT task_id FROM task_reminders WHERE recurring_pattern IS NOT NULL AND user_id = :userId")
+    fun watchRecurringTaskIds(userId: String): Flow<List<String>>
+
     @Query("UPDATE task_reminders SET last_fired_at = :lastFiredAt, updated_at = :updatedAt WHERE id = :id AND user_id = :userId")
     suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long)
 }

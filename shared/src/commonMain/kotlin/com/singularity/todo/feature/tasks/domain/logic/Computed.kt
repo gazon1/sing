@@ -50,6 +50,25 @@ object TaskComputed {
         !task.isCompleted && !task.isTrashed
 
     /**
+     * A task is active on [today] when:
+     * - it is not completed and not trashed
+     * - it has a `startDate` that is on or before [today] (or has no startDate)
+     * - it has an `endDate` that is on or after [today] (or has no endDate)
+     *
+     * If neither `startDate` nor `endDate` is set, the task is considered always active
+     * (subject only to completion/trashed checks).
+     *
+     * Used by calendar and agenda views to determine whether a task is currently
+     * within its active window.
+     */
+    fun isActive(task: Task, today: LocalDate): Boolean {
+        if (task.isCompleted || task.isTrashed) return false
+        val afterStart = task.startDate?.let { today >= it } ?: true
+        val beforeEnd = task.endDate?.let { today <= it } ?: true
+        return afterStart && beforeEnd
+    }
+
+    /**
      * A task is blocked when it has unsatisfied dependencies.
      *
      * ## Implementation (MR-1)

@@ -16,6 +16,8 @@ import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
+import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
+import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -77,4 +79,28 @@ actual fun platformModule(): Module = module {
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 
     factory<PomodoroTimer> { JvmPomodoroTimer() }
+
+    // ─── Sync WorkManager scheduler ────────────────────────────────────
+
+    // JVM: no-op stub — sync is not supported on desktop.
+    single<SyncWorkScheduler> { NoopSyncWorkScheduler() }
+
+    // ─── Calendar Sync ────────────────────────────────────────────────
+
+    // Calendar sync is Android-only; JVM provides no-op stubs.
+    single<com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository> {
+        com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepository()
+    }
+
+    single<com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort> {
+        com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider()
+    }
+
+    single<com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler> {
+        com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler()
+    }
+
+    single<com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries> {
+        com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries()
+    }
 }

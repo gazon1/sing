@@ -13,6 +13,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeReminderRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -45,6 +46,7 @@ class CalendarViewModelTest {
     private val anchor = LocalDate(2026, Month.SEPTEMBER, 1)
 
     private val fakeTaskRepo = FakeTaskRepository()
+    private val fakeReminderRepo = FakeReminderRepository()
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(
         FakeAuthRepository(
             initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
@@ -58,6 +60,7 @@ class CalendarViewModelTest {
     ) = CalendarViewModel(
         deps = CalendarDeps(
             taskRepo = fakeTaskRepo,
+            reminderRepo = fakeReminderRepo,
             logger = Logger.withTag("CalendarTest"),
             today = anchor, // deterministic — same as anchor so date math is predictable
         ),

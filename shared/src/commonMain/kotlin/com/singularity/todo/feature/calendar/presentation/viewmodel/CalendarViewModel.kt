@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
+import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.goNext
 import com.singularity.todo.feature.calendar.domain.logic.goPrevious
@@ -21,6 +22,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -37,15 +39,14 @@ import kotlinx.datetime.plus
  * ViewModel for the Calendar screen.
  *
  * Data flow:
- * 1. [currentUser.scopedUserId] + [_calendarState] → [flatMapLatest] → [watchTasks] with ByDateRange
- * 2. Tasks are mapped to [CalendarTaskUi] via [CalendarTaskMapper]
- * 3. Combined into [CalendarUiState.Loaded] → [state]
+ * 1. [_calendarState] + [ReminderRepository.observeRecurringTaskIds] → [combine] → [flatMapLatest]
+ * 2. [taskRepo.observeByFilter] with ByDateRange → [CalendarTaskMapper] (enriched with recurring IDs)
+ * 3. Mapped into [CalendarUiState.Loaded] → [state]
  * 4. One-shot events (task click → navigate) → [_events]
  *
- * [isRecurring] on [CalendarTaskUi] is always `false` for now — checking
- * [com.singularity.todo.feature.reminders.ReminderRepository] per-task would require
- * N additional queries. A future MR can add [watchRecurringTaskIds] to load all
- * recurring reminder IDs upfront.
+ * [CalendarTaskUi.isRecurring] is set by looking up the task ID in the
+ * [ReminderRepository.observeRecurringTaskIds] set — loaded once per user switch
+ * rather than per-task.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class CalendarViewModel(
@@ -81,24 +82,27 @@ class CalendarViewModel(
      * once the first batch of tasks arrives.
      * User switch is handled automatically by [TaskRepository.observeByFilter].
      */
-    val state: StateFlow<CalendarUiState> = _calendarState
-        .flatMapLatest { cal ->
-            // Extend query window by ±7 days so neighbouring months are preloaded
-            val from = firstDayOfMonth(cal.anchor).minus(7, DateTimeUnit.DAY)
-            val to = lastDayOfMonth(cal.anchor).plus(7, DateTimeUnit.DAY)
-            deps.taskRepo.observeByFilter(TaskFilter.ByDateRange(from, to))
-                .map { tasks ->
-                    val tasksByDate = tasks
-                        .map { CalendarTaskMapper.toCalendarTaskUi(it, today) }
-                        .groupBy { it.date }
-                    cal.toLoadedState(tasksByDate, today)
-                }
-        }
-        .stateIn(
-            scope,
-            SharingStarted.WhileSubscribed(5_000),
-            CalendarUiState.Loading,
-        )
+    val state: StateFlow<CalendarUiState> = combine(
+        _calendarState,
+        deps.reminderRepo.observeRecurringTaskIds(),
+    ) { cal, recurringIds ->
+        cal to recurringIds
+    }.flatMapLatest { (cal, recurringIds) ->
+        // Extend query window by ±7 days so neighbouring months are preloaded
+        val from = firstDayOfMonth(cal.anchor).minus(7, DateTimeUnit.DAY)
+        val to = lastDayOfMonth(cal.anchor).plus(7, DateTimeUnit.DAY)
+        deps.taskRepo.observeByFilter(TaskFilter.ByDateRange(from, to))
+            .map { tasks ->
+                val tasksByDate = tasks
+                    .map { task -> CalendarTaskMapper.toCalendarTaskUi(task, today, recurringIds.contains(task.id)) }
+                    .groupBy { it.date }
+                cal.toLoadedState(tasksByDate, today)
+            }
+    }.stateIn(
+        scope,
+        SharingStarted.WhileSubscribed(5_000),
+        CalendarUiState.Loading,
+    )
 
     /**
      * Processes a user intent.
@@ -151,6 +155,21 @@ class CalendarViewModel(
             is CalendarIntent.TaskClicked -> {
                 scope.launch {
                     _events.trySend(CalendarUiEvent.NavigateToTask(intent.taskId))
+                }
+            }
+
+            is CalendarIntent.MonthPageChanged -> {
+                // Dedupe against current anchor: a swipe that settles on the same
+                // month it started on must not cancel and re-subscribe the Room flow.
+                val newAnchor = LocalDate(intent.month.year, intent.month.month, 1)
+                if (newAnchor != _calendarState.value.anchor) {
+                    _calendarState.updateState { it.copy(anchor = newAnchor) }
+                }
+            }
+
+            is CalendarIntent.EmptyCellLongPressed -> {
+                scope.launch {
+                    _events.trySend(CalendarUiEvent.ShowCreateTaskSheet(intent.date))
                 }
             }
         }
