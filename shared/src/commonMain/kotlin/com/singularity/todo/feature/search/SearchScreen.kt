@@ -10,9 +10,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -23,13 +25,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.search.presentation.SimpleFilterSheet
 import com.singularity.todo.feature.search.presentation.nav.LocalSearchNavigator
 import com.singularity.todo.feature.search.presentation.nav.PreviewSearchNavigator
 import com.singularity.todo.feature.search.presentation.nav.SearchNavigator
@@ -42,40 +47,62 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsState()
-    val query by viewModel.query.collectAsState()
     val navigator = LocalSearchNavigator.current
     val snackbarHostState = remember { SnackbarHostState() }
+    var showFilterSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             val message = when (event) {
                 is SearchUiEvent.Error -> event.message
+                is SearchUiEvent.QueryParseError -> "Parse error: ${event.message}"
+                is SearchUiEvent.SavedSuccessfully -> "Search saved"
             }
             snackbarHostState.showSnackbar(message)
         }
     }
 
+    if (showFilterSheet) {
+        SimpleFilterSheet(
+            initialFilter = state.activeFilter,
+            onApply = { filter ->
+                viewModel.processIntent(SearchIntent.OnApplyFilter(filter))
+                showFilterSheet = false
+            },
+            onDismiss = { showFilterSheet = false },
+        )
+    }
+
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Search") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Search") },
+                actions = {
+                    IconButton(onClick = { showFilterSheet = true }) {
+                        Icon(Icons.Filled.Tune, contentDescription = "Filter")
+                    }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::onQueryChange,
+                value = state.query,
+                onValueChange = { viewModel.processIntent(SearchIntent.OnQueryChange(it)) },
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 placeholder = { Text("Search tasks, notes, projects...") },
                 leadingIcon = { Icon(Icons.Filled.Search, null) },
                 singleLine = true,
             )
-            if (query.isBlank()) {
+            if (state.query.isBlank()) {
                 EmptyState(title = "Enter a search query")
             } else {
                 SearchResultsList(
-                results = state.results,
-                navigator = navigator,
-                onPin = viewModel::togglePin,
-            )
+                    results = state.results,
+                    navigator = navigator,
+                    onPin = { viewModel.processIntent(SearchIntent.OnTogglePin(it)) },
+                )
             }
         }
     }

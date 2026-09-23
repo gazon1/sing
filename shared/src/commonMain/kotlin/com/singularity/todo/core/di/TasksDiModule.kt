@@ -10,6 +10,8 @@ import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.checklist.RoomChecklistRepository
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
+import com.singularity.todo.feature.search.data.RoomSavedSearchRepository
+import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import com.singularity.todo.feature.search.query.DaoProjectLookup
 import com.singularity.todo.feature.search.query.DaoTagLookup
 import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
@@ -32,6 +34,7 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewM
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
@@ -51,6 +54,8 @@ fun tasksModule(): org.koin.core.module.Module = module {
     singleOf(::TaskDaoArchiveRepository)
 
     single<ChecklistRepository> { RoomChecklistRepository(get(), get()) }
+
+    single<SavedSearchRepository> { RoomSavedSearchRepository(get(), get(), get()) }
 
     // ─── Use Cases ──────────────────────────────────────────────────────
 
@@ -114,5 +119,13 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     viewModel { StatisticsViewModel(taskRepository = get(), clock = get()) }
 
-    viewModel { SearchViewModel(searchUseCase = get(), taskRepo = get(), currentUser = get()) }
+    viewModel<SearchViewModel> {
+        SearchViewModel(
+            searchUseCase = get(),
+            savedSearchRepo = get(),
+            tagLookup = get(),
+            projectLookup = get(),
+            clock = get(),
+        )
+    }
 }

@@ -29,8 +29,9 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         LlmUsageEntity::class,
         ProfileEntity::class,
         AgendaViewEntity::class,
+        SavedSearchEntity::class,
     ],
-    version = 15,
+    version = 16,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -42,6 +43,7 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
         AutoMigration(from = 12, to = 13, spec = Migration12To13::class),
         AutoMigration(from = 13, to = 14, spec = Migration13To14::class),
         AutoMigration(from = 14, to = 15, spec = Migration14To15::class),
+        AutoMigration(from = 15, to = 16, spec = Migration15To16::class),
     ],
     exportSchema = true,
 )
@@ -58,4 +60,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun llmUsageDao(): LlmUsageDao
     abstract fun profileDao(): ProfileDao
     abstract fun agendaViewDao(): AgendaViewDao
+    abstract fun savedSearchDao(): SavedSearchDao
 }
