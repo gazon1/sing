@@ -108,6 +108,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All 593 existing tests continue to pass.
 - All 6 repositories now extend `GenericUserScopedRepository`: Tasks, Notes, Projects, Tags, SavedAgendaViews, Profile.
 - All `FakeRepositories` updated to match
+- All four entity types can be synced (previously only `Task` had `SyncableEntity`)
 - All notes screens now navigationally self-contained
 - All skills now reference verified Koin 4.x API surface (jar inspection as the ground truth).
 - Archive доступен с любого TaskDetailScreen через ⋮ menu
@@ -156,6 +157,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Picker sheets визуально согласованы с остальными sheets (drag-handle, chrome)
 - Pre-existing test failures (`RussianDateFormatterTest`, `TaskCreateViewModelTest`,
 - Profile migration via `duplicateForProfile` is explicit and testable.
+- Pull events are now actually applied to the local database (not stub)
+- Pull handler for `DELETED` events is a stub — entities are not soft-deleted from remote events yet
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`).
@@ -211,7 +214,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `RoomReminderRepository.upsert` now stamps ambient on insert — no more stale/missing userId.
 - `RoomSavedAgendaViewsRepository.upsert` now stamps ambient on insert — consistent with other repos.
 - `SavedAgendaViewModel` (via `SavedAgendaDeps`) no longer injects `ProfileAwareCurrentUser`.
+- `SyncBootstrapper` remains `internal` — no feature code can bypass `SyncRepository`
 - `SyncEngine` and `SyncRunner` remain `internal` — feature modules never touch them directly
+- `SyncRepository` becomes a required dependency of all four repositories — circular DI risk monitored
+- `SyncViewModel` is `ViewModel` (extends AndroidX `ViewModel`) — standard Koin `viewModel {}` DSL applies
 - `SyncableEntity.toJson()` uses `StableJson` — no new serialization surface
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates
 - `TaskDetailViewModel` no longer injects `ProfileAwareCurrentUser`.
@@ -236,6 +242,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `just` must be installed (`just 1.57.0` is present in this environment).
 - `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
 - `scopeOverride` добавлен в `ProjectsViewModel`
+- `serverVersion`/`hlc` survive the full round-trip: domain → entity → DAO → DB → entity → domain
 - `single<Interface>(::Impl)` does NOT work — Koin can't resolve `Impl`'s constructor params from DI when called through `single<T>(::Impl)`. Use `single { Impl(get(), ...) }` for interface bindings.
 - `singleOf` fails for classes with function-type constructor parameters (Koin tries to resolve `Function1` from DI) — use explicit lambda in those cases.
 - `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model
@@ -1075,6 +1082,7 @@ _1 entries need attention._
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _untagged_
 - `2026-09-23-sync-pull-application` — _untagged_
+- `2026-09-23-sync-pull-handlers-and-ui` — _untagged_
 - `2026-09-23-sync-scheduling-abstraction` — sync, architecture, core, scheduling, remote-config, persistence
 - `2026-09-23-sync-state-model` — sync, architecture, core, state, ui
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
@@ -1244,6 +1252,7 @@ _1 entries need attention._
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _(no title)_
 - `2026-09-23-sync-pull-application` — _(no title)_
+- `2026-09-23-sync-pull-handlers-and-ui` — _(no title)_
 - `2026-09-23-sync-scheduling-abstraction` — Sync scheduling abstraction: SyncScheduler + DataStoreSyncPrefs + RemoteConfig + SecureStorage
 - `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
