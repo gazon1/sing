@@ -11,6 +11,7 @@ import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import com.singularity.todo.feature.search.query.Query
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SimpleFilterMapper
+import com.singularity.todo.feature.search.query.UnsupportedSimpleFilterException
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -215,9 +216,14 @@ class SearchViewModel(
             _parsedQuery.value = null
             _activeFilter.value = null
             _events.tryEmit(SearchUiEvent.QueryParseError(e.message ?: "Parse error", e.position))
+        } catch (e: com.singularity.todo.feature.search.query.UnsupportedSimpleFilterException) {
+            // Expected: query cannot be expressed as SimpleFilter — activeFilter = null signals this
+            _parsedQuery.value = null
+            _activeFilter.value = null
         } catch (e: Exception) {
             _parsedQuery.value = null
             _activeFilter.value = null
+            _events.tryEmit(SearchUiEvent.Error("Search error: ${e.message ?: "unknown"}"))
         }
         _state.value = _state.value.copy(isSearching = true)
     }
@@ -227,9 +233,9 @@ class SearchViewModel(
         _activeFilter.value = filter
 
         if (filter == null) {
-            _queryString.value = ""
-            _parsedQuery.value = null
-            _state.value = _state.value.copy(query = "", parsedQuery = null, isSearching = false, results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
+            // Keep _queryString — it may hold a loaded saved search's raw query.
+            // Keep _parsedQuery — it remains valid for the raw query.
+            _state.value = _state.value.copy(isSearching = false, results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
             return
         }
 
