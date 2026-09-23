@@ -18,6 +18,8 @@ import com.singularity.todo.core.security.AndroidSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
 import com.singularity.todo.feature.settings.AiApiKeyMigration
+import com.singularity.todo.core.sync.work.AndroidSyncWorkScheduler
+import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -86,4 +88,10 @@ actual fun platformModule(): Module = module {
     // Use viewModel so AndroidPomodoroTimer (a ViewModel) is scoped correctly.
     // koinInject<PomodoroTimer>() in entry composables gets the scoped instance.
     viewModel { AndroidPomodoroTimer(get(), get(), get()) }
+
+    // ─── Sync WorkManager scheduler ────────────────────────────────────
+
+    // Android: delegates to WorkManager; survives process death and battery constraints.
+    // Registered as a Koin singleton so SyncEngine receives the same instance.
+    single<SyncWorkScheduler> { AndroidSyncWorkScheduler(get()) }
 }

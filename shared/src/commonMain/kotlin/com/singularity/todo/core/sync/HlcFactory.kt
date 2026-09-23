@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
  * @param scope Injected [AutoCloseableCoroutineScope]. Callers must bind to a
  *              lifecycle that calls [AutoCloseable.close] when done.
  */
-class HlcFactory(
+open class HlcFactory(
     private val sessionStore: SessionStore,
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope,

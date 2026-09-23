@@ -44,6 +44,9 @@ koin-annotations = "4.2.2"
 # Persistence / DataStore
 datastore = "1.2.1"
 
+# WorkManager (Android background jobs)
+androidx-work = "2.10.0"
+
 # Logging / Kermit
 kermit = "2.1.0"
 
@@ -211,6 +214,9 @@ androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-te
 # FileKit
 filekit-core = { module = "io.github.vinceglb:filekit-core", version.ref = "filekit" }
 filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
+
+# WorkManager (Android background jobs — replaces SyncEngine polling loop)
+androidx-work-runtime = { module = "androidx.work:work-runtime", version.ref = "androidx-work" }
 
 # Coil
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }

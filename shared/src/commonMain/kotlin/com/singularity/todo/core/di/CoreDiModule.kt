@@ -31,6 +31,7 @@ import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
 import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.core.sync.SyncEngine
+import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
@@ -91,7 +92,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     single<SyncApiClient> { SupabaseSyncApiClient() }
 
-    single { SyncEngine(Logger.withTag("SyncEngine"), get(), get(), get(), get(), get(), AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
+    single { SyncEngine(Logger.withTag("SyncEngine"), get(), get(), get(), get(), get(), get(), AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
 
     // ─── IDs / Clock ────────────────────────────────────────────────────
 
