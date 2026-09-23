@@ -7,10 +7,13 @@ import kotlinx.serialization.json.JsonObject
  * All syncable entities must implement this.
  */
 interface SyncableEntity {
-    val id: String
+    /** String ID used by the sync protocol (e.g. TaskId.value). */
+    val syncId: String
     val docType: DocType
-    val serverVersion: Long
-    val hlc: Hlc?
+    /** Server version from the last sync; 0 = not yet synced. */
+    val syncServerVersion: Long
+    /** Hybrid Logical Clock for causal ordering. Null for local-only entities. */
+    val syncHlc: Hlc?
 
     /** Returns the JSON representation of this entity for sync. */
     fun toJson(): JsonObject

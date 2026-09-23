@@ -22,6 +22,8 @@ import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskTagCrossRef
+import com.singularity.todo.core.sync.RemoteConfigDao
+import com.singularity.todo.core.sync.RemoteConfigEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import kotlinx.coroutines.flow.Flow
@@ -56,6 +58,7 @@ class FakeAppDatabase : AppDatabase() {
     private val _llmUsage = MutableStateFlow<Map<String, LlmUsageEntity>>(emptyMap())
     private val _profiles = MutableStateFlow<Map<String, ProfileEntity>>(emptyMap())
     private val _agendaViews = MutableStateFlow<Map<String, AgendaViewEntity>>(emptyMap())
+    private val _remoteConfigs = MutableStateFlow<Map<String, RemoteConfigEntity>>(emptyMap())
 
     override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
@@ -68,6 +71,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun llmUsageDao(): LlmUsageDao = FakeLlmUsageDao(_llmUsage)
     override fun profileDao(): ProfileDao = FakeProfileDao(_profiles)
     override fun agendaViewDao(): AgendaViewDao = FakeAgendaViewDao(_agendaViews)
+    override fun remoteConfigDao(): RemoteConfigDao = FakeRemoteConfigDao(_remoteConfigs)
 
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
@@ -83,6 +87,7 @@ class FakeAppDatabase : AppDatabase() {
         _llmUsage.value = emptyMap()
         _profiles.value = emptyMap()
         _agendaViews.value = emptyMap()
+        _remoteConfigs.value = emptyMap()
     }
 
     // ─── Seed helpers ────────────────────────────────────────────────────────
@@ -789,5 +794,26 @@ private class FakeAgendaViewDao(private val store: MutableStateFlow<Map<String, 
         store.update { current ->
             current.filterValues { v -> !(v.userId == userId && v.id == id) }
         }
+    }
+}
+
+// ─── RemoteConfigDao ────────────────────────────────────────────────────────
+
+private class FakeRemoteConfigDao(
+    private val store: MutableStateFlow<Map<String, RemoteConfigEntity>>,
+) : RemoteConfigDao {
+
+    override fun watchDefault(): Flow<RemoteConfigEntity?> =
+        store.map { it["default"] }
+
+    override suspend fun getDefault(): RemoteConfigEntity? =
+        store.value["default"]
+
+    override suspend fun upsert(entity: RemoteConfigEntity) {
+        store.update { it + (entity.id to entity) }
+    }
+
+    override suspend fun deleteDefault() {
+        store.update { it - "default" }
     }
 }

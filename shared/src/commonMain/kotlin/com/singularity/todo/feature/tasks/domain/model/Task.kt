@@ -1,10 +1,17 @@
 package com.singularity.todo.feature.tasks.domain.model
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.sync.DocType
+import com.singularity.todo.core.sync.Hlc
+import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.serializer
 import kotlin.time.Instant
 
 @Serializable
@@ -124,9 +131,27 @@ data class Task(
     val createdAt: Instant,
     val updatedAt: Instant,
     val userId: UserId,
-) {
+    // ─── Sync fields ───────────────────────────────────────────────────────────
+    /** Server version from last sync; 0 = not yet synced. Stored in DB but not part of the constructor — loaded via mapper. */
+    val serverVersion: Long = 0,
+    /** Hybrid Logical Clock timestamp; null for local-only tasks. */
+    val hlc: Hlc? = null,
+) : SyncableEntity {
     val isCompleted: Boolean get() = completedAt != null
     val isTrashed: Boolean get() = archivedAt != null
+
+    // SyncableEntity implementation
+    override val syncId: String get() = id.value
+    override val docType: DocType get() = DocType.Task
+    override val syncServerVersion: Long get() = serverVersion
+    override val syncHlc: Hlc? get() = hlc
+
+    override fun toJson(): JsonObject {
+        val ser = serializer<Task>()
+        return StableJson
+            .encodeToString(ser, this)
+            .let { StableJson.decodeFromString<JsonObject>(it) }
+    }
 }
 
 data class CreateTaskInput(

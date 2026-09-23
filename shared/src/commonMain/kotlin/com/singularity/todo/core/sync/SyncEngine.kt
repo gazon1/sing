@@ -76,6 +76,7 @@ internal class SyncEngine(
     private val outboxDao: SyncOutboxDao,
     private val hlcFactory: HlcFactory,
     private val idGenerator: IdGenerator,
+    private val prefs: SyncPrefs,
     private val scope: AutoCloseableCoroutineScope,
 ) : AutoCloseable by scope {
     private val json = StableJson
@@ -111,7 +112,7 @@ internal class SyncEngine(
         outboxDao.insert(
             SyncOutboxEntity(
                 patchId = patch.patchId,
-                entityId = entity.id,
+                entityId = entity.syncId,
                 entityType = entity.docType.key,
                 payload = payload,
                 createdAt = System.currentTimeMillis(),
@@ -124,7 +125,7 @@ internal class SyncEngine(
      */
     internal suspend fun syncOnce(): SyncOutcome {
         val push = push()
-        val pull = pull()
+        val pull = pull(sinceLsn = prefs.lastLsn)
         return SyncOutcome(push, pull)
     }
 
@@ -186,9 +187,9 @@ internal class SyncEngine(
     }
 
     /**
-     * Pulls events from the server since the given LSN.
+     * Pulls events from the server since [SyncPrefs.lastLsn].
      */
-    private suspend fun pull(sinceLsn: Long = 0): Result<PullSummary> {
+    private suspend fun pull(sinceLsn: Long): Result<PullSummary> {
         val session = authRepository.currentSession.value
         if (session !is Session.SignedIn) {
             return Result.success(PullSummary(0, 0, 0))
@@ -200,14 +201,19 @@ internal class SyncEngine(
             val events = api.getEventsSince(session.userId.value, sinceLsn)
             var applied = 0
             var conflicts = 0
+            var maxLsn = sinceLsn
 
             events.forEach { event ->
+                maxLsn = maxOf(maxLsn, event.serverLsn)
                 val handler = handlers[event.entityType] ?: return@forEach
                 when (handler.apply(event)) {
                     is ApplyOutcome.Applied -> applied++
                     is ApplyOutcome.Conflict -> conflicts++
                 }
             }
+
+            // Persist the server LSN so the next pull resumes from this point.
+            prefs.setLastLsn(maxLsn)
 
             val summary = PullSummary(events.size, applied, conflicts)
             _lastPull.value = Result.success(summary)
@@ -231,9 +237,9 @@ internal class SyncEngine(
 
         return DeltaPatch(
             patchId = idGenerator.next(),
-            entityId = entity.id,
+            entityId = entity.syncId,
             entityType = entity.docType,
-            baseVersion = entity.serverVersion,
+            baseVersion = entity.syncServerVersion,
             isDelete = false,
             shadowChecksum = checksum,
             ops = emptyList(),

@@ -11,6 +11,7 @@ import com.singularity.todo.core.database.toLocalTimeIsoOrNull
 import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.TagId
@@ -33,6 +34,7 @@ class TaskRepositoryImpl(
     private val taskDao: TaskDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
+    private val syncRepository: SyncRepository,
 ) : TaskRepository {
 
     private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
@@ -161,12 +163,16 @@ class TaskRepositoryImpl(
             taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = toInsert.id.value, tagId = tagId.value))
         }
         _changes.tryEmit(toInsert)
+        // Enqueue AFTER the local write succeeds. Best-effort — failure does not roll back the Result.
+        syncRepository.enqueue(toInsert)
         toInsert
     }
 
     override suspend fun update(item: Task): Result<Task> = runCatching {
         taskDao.upsert(item.toEntity())
         _changes.tryEmit(item)
+        // Enqueue AFTER the local write succeeds. Best-effort — failure does not roll back the Result.
+        syncRepository.enqueue(item)
         item
     }
 

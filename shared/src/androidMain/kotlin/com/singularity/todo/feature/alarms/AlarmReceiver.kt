@@ -6,6 +6,7 @@ import android.content.Intent
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.pomodoro.PomodoroPhase
 import com.singularity.todo.feature.reminders.ReminderFireLogic
 import com.singularity.todo.feature.reminders.ReminderId
@@ -50,6 +51,7 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
     private val notifier: AndroidNotifier by inject()
     private val reminderScheduler: ReminderScheduler by inject()
     private val clock: Clock by inject()
+    private val syncRepository: SyncRepository by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
         val pendingResult = goAsync()
@@ -63,6 +65,7 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
                 when (intent.action) {
                     ACTION_REMINDER_FIRE -> handleReminderFire(intent)
                     ACTION_POMODORO_PHASE_END -> handlePomodoroPhaseEnd(intent)
+                    ACTION_SYNC_ALARM -> handleSyncAlarm()
                     ACTION_BOOT_COMPLETED, ACTION_REMINDER_DATA_CHANGED -> rescheduleAll()
                 }
             } finally {
@@ -109,6 +112,11 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
             viewId = null,
             payload = null,
         )
+    }
+
+    private suspend fun handleSyncAlarm() {
+        log.d { "Sync alarm fired" }
+        syncRepository.syncOnce()
     }
 
     /**
@@ -158,6 +166,7 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
         const val ACTION_REMINDER_FIRE = "com.singularity.todo.feature.alarms.ACTION_REMINDER_FIRE"
         const val ACTION_POMODORO_PHASE_END = "com.singularity.todo.feature.alarms.ACTION_POMODORO_PHASE_END"
         const val ACTION_REMINDER_DATA_CHANGED = "com.singularity.todo.feature.alarms.ACTION_REMINDER_DATA_CHANGED"
+        const val ACTION_SYNC_ALARM = "com.singularity.todo.SYNC_ALARM"
         const val ACTION_BOOT_COMPLETED = "android.intent.action.BOOT_COMPLETED"
 
         const val EXTRA_REMINDER_ID = "reminder_id"

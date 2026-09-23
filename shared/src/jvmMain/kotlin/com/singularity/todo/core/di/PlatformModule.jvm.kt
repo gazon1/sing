@@ -18,6 +18,9 @@ import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsDataStoreMigration
+import com.singularity.todo.core.sync.JvmSyncScheduler
+import com.singularity.todo.core.sync.RemoteConfigDao
+import com.singularity.todo.core.sync.SyncScheduler
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.reminders.JvmReminderScheduler
@@ -51,6 +54,7 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().projectDao() }
     single { get<AppDatabase>().tagDao() }
     single { get<AppDatabase>().syncOutboxDao() }
+    single { get<AppDatabase>().remoteConfigDao() }
     single { get<AppDatabase>().attachmentDao() }
     single { get<AppDatabase>().reminderDao() }
     single { get<AppDatabase>().checklistDao() }
@@ -106,6 +110,10 @@ actual fun platformModule(): Module = module {
     // ─── Reminder Scheduler ────────────────────────────────────────────
 
     single<ReminderScheduler> { JvmReminderScheduler() }
+
+    // ─── Sync Scheduler ─────────────────────────────────────────────────
+
+    single<SyncScheduler> { JvmSyncScheduler() }
 }
 
 /**

@@ -24,7 +24,7 @@
             </intent-filter>
         </activity>
 
-        <!-- AlarmReceiver handles: REMINDER_FIRE, POMODORO_PHASE_END, BOOT_COMPLETED, REMINDER_DATA_CHANGED -->
+        <!-- AlarmReceiver handles: REMINDER_FIRE, POMODORO_PHASE_END, SYNC_ALARM, BOOT_COMPLETED, REMINDER_DATA_CHANGED -->
         <receiver
             android:name="com.singularity.todo.feature.alarms.AlarmReceiver"
             android:exported="false">
@@ -33,6 +33,7 @@
                 <action android:name="com.singularity.todo.feature.alarms.ACTION_REMINDER_FIRE" />
                 <action android:name="com.singularity.todo.feature.alarms.ACTION_POMODORO_PHASE_END" />
                 <action android:name="com.singularity.todo.feature.alarms.ACTION_REMINDER_DATA_CHANGED" />
+                <action android:name="com.singularity.todo.SYNC_ALARM" />
             </intent-filter>
         </receiver>
 

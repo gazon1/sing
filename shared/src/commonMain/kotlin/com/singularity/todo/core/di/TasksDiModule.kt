@@ -39,7 +39,7 @@ import org.koin.dsl.module
 fun tasksModule(): org.koin.core.module.Module = module {
     // ─── Repositories ─────────────────────────────────────────────────────
 
-    single<TaskRepository> { TaskRepositoryImpl(get(), get(), get()) }
+    single<TaskRepository> { TaskRepositoryImpl(get(), get(), get(), get()) }
 
     singleOf(::TaskDaoArchiveRepository)
 

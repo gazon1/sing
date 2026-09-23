@@ -1,5 +1,6 @@
 package com.singularity.todo.core.sync
 
+import kotlinx.serialization.Serializable
 import kotlin.math.max
 
 /**
@@ -10,7 +11,10 @@ import kotlin.math.max
  *
  * Algorithm: Hybrid Logical Clock (HLC) as described in
  * "Logical Physical Clocks and Consistent Snapshots in Distributed Systems"
+ *
+ * Serializable so that [SyncableEntity.toJson] can use it inside serializable domain models.
  */
+@Serializable
 @JvmInline
 value class Hlc(val encoded: String) : Comparable<Hlc> {
 

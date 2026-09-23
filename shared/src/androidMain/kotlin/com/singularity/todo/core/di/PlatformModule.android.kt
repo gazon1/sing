@@ -6,6 +6,9 @@ import androidx.datastore.preferences.core.Preferences
 import com.singularity.todo.core.backup.AndroidBackupCodec
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.database.AppDatabase
+import com.singularity.todo.core.sync.AndroidSyncScheduler
+import com.singularity.todo.core.sync.RemoteConfigDao
+import com.singularity.todo.core.sync.SyncScheduler
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.files.AndroidFileRevealer
@@ -54,6 +57,7 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().projectDao() }
     single { get<AppDatabase>().tagDao() }
     single { get<AppDatabase>().syncOutboxDao() }
+    single { get<AppDatabase>().remoteConfigDao() }
     single { get<AppDatabase>().attachmentDao() }
     single { get<AppDatabase>().reminderDao() }
     single { get<AppDatabase>().checklistDao() }
@@ -123,6 +127,10 @@ actual fun platformModule(): Module = module {
     single<ReminderScheduler> {
         AlarmManagerReminderScheduler(get(), get(), get())
     }
+
+    // ─── Sync Scheduler ─────────────────────────────────────────────────
+
+    single<SyncScheduler> { AndroidSyncScheduler(get()) }
 
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 

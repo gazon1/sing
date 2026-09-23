@@ -19,6 +19,13 @@ import kotlin.time.Duration
  *
  * This class is [internal] — constructed in the sync Koin module and hidden
  * from feature modules behind [SyncRepository].
+ *
+ * Scheduling strategy:
+ * - **Android**: [SyncScheduler.schedule] calls [AlarmManager][android.app.AlarmManager]
+ *   `setInexactRepeating` → [SyncAlarmReceiver] → [SyncRepository.syncOnce].
+ *   The [SyncRunner] loop is NOT started on Android.
+ * - **JVM**:   No [AlarmManager] equivalent. [SyncRunner] owns a [delay] loop instead,
+ *   and [SyncScheduler] is a [NoOpSyncScheduler].
  */
 internal class SyncRunner(
     private val engine: SyncEngine,
@@ -58,13 +65,25 @@ internal class SyncRunner(
 
     /**
      * Starts periodic [syncOnce] at the given [interval].
+     *
+     * On Android: delegates to [SyncScheduler] which arms [AlarmManager].
+     * On JVM:   launches a daemon [delay] loop in [SyncRunner].
      */
     fun startScheduledSync(interval: Duration) {
         scheduledJob?.cancel()
+
+        // On Android, AlarmManager drives the sync — SyncScheduler.schedule() is non-blocking.
+        // On JVM, we run our own delay loop since there's no AlarmManager.
         scheduledJob = scopeRef.launch {
-            while (scopeRef.isActive) {
-                syncOnce()
-                delay(interval)
+            if (scheduler is NoOpSyncScheduler) {
+                // JVM path: own the delay loop
+                while (scopeRef.isActive) {
+                    syncOnce()
+                    delay(interval)
+                }
+            } else {
+                // Android path: AlarmManager drives sync via broadcast
+                scheduler.schedule(interval)
             }
         }
         log.d { "Scheduled sync started (interval=$interval)" }
@@ -76,6 +95,7 @@ internal class SyncRunner(
     fun stopScheduledSync() {
         scheduledJob?.cancel()
         scheduledJob = null
+        scheduler.cancel()
         log.d { "Scheduled sync stopped" }
     }
 
