@@ -33,12 +33,20 @@ import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsExporter
 import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.sync.AutoSync
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.core.sync.HlcFactory
+import com.singularity.todo.core.sync.InMemorySyncPrefs
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
 import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.core.sync.SyncEngine
+import com.singularity.todo.core.sync.SyncPrefs
+import com.singularity.todo.core.sync.SyncRepository
+import com.singularity.todo.core.sync.SyncRepositoryImpl
+import com.singularity.todo.core.sync.SyncRunner
+import com.singularity.todo.core.sync.SyncScheduler
+import com.singularity.todo.core.sync.NoOpSyncScheduler
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
@@ -95,11 +103,28 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Sync ───────────────────────────────────────────────────────────
 
+    // HlcFactory is internal; SyncEngine depends on it.
     single { HlcFactory(get(), get(), AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
 
     single<SyncApiClient> { SupabaseSyncApiClient() }
 
+    // SyncScheduler: NoOp in Tier 1; replaced by WorkManager (Android) / delay-loop (JVM) in Tier 2.
+    single<SyncScheduler> { NoOpSyncScheduler() }
+
+    // SyncPrefs: in-memory for Tier 1; replaced by DataStore in Tier 2.
+    single<SyncPrefs> { InMemorySyncPrefs() }
+
+    // SyncEngine is internal — feature modules must use SyncRepository.
     single { SyncEngine(Logger.withTag("SyncEngine"), get(), get(), get(), get(), get(), AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
+
+    // SyncRunner is internal.
+    single { SyncRunner(engine = get(), scheduler = get(), authRepository = get(), prefs = get(), scope = AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
+
+    // Public facade.
+    single<SyncRepository> { SyncRepositoryImpl(engine = get(), runner = get(), prefs = get()) }
+
+    // AutoSync is NOT in DI — callers construct it with their own CoroutineScope.
+    // Example: val autoSync = AutoSync(get(), get(), viewModelScope)
 
     // ─── IDs / Clock ────────────────────────────────────────────────────
 

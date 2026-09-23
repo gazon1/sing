@@ -4,32 +4,72 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.serialization.StableJson
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Result of a push operation.
+ * Summary of a push operation.
  */
-data class PushResult(val pushed: Int, val failed: Int, val errors: List<String> = emptyList())
+data class PushSummary(val processed: Int, val succeeded: Int, val failed: Int)
 
 /**
- * Result of a pull operation.
+ * Summary of a pull operation.
  */
-data class PullResult(val received: Int, val errors: List<String> = emptyList())
+data class PullSummary(val received: Int, val applied: Int, val conflicts: Int)
+
+/**
+ * Outcome of a single sync run (push + pull).
+ */
+data class SyncOutcome(
+    val push: Result<PushSummary>,
+    val pull: Result<PullSummary>,
+)
+
+/**
+ * Status of the sync engine.
+ *
+ * [NoConnection] is an operational state — the device is offline, not failed.
+ * All other errors are wrapped in [Failure].
+ */
+sealed interface SyncEngineStatus {
+    data object Idle : SyncEngineStatus
+    data object Pushing : SyncEngineStatus
+    data object Pulling : SyncEngineStatus
+    data object NoConnection : SyncEngineStatus
+    data class Failure(val error: AppError) : SyncEngineStatus
+
+    fun isRunning(): Boolean = this is Pushing || this is Pulling
+    fun isSuccess(): Boolean = this is Idle || this is NoConnection
+}
+
+/**
+ * Outcome of applying a [SyncEvent] during pull.
+ */
+sealed interface ApplyOutcome {
+    data object Applied : ApplyOutcome
+    data class Conflict(val reason: String) : ApplyOutcome
+}
+
+/**
+ * Fun interface for applying a pull event to a local entity.
+ */
+fun interface EntityApply {
+    suspend fun apply(event: SyncEvent): ApplyOutcome
+}
 
 /**
  * Sync engine — orchestrates push and pull operations.
  *
- * When the user is signed in, it polls push every 30 seconds.
- * The polling job is canceled automatically when session becomes SignedOut,
- * and a new job is started when session becomes SignedIn again.
+ * Polling is the caller's responsibility (see [SyncRunner]). This class only
+ * provides [enqueue], [syncOnce], and [registerHandler].
  */
-class SyncEngine(
+internal class SyncEngine(
     private val log: Logger,
     private val api: SyncApiClient,
     private val authRepository: AuthRepository,
@@ -41,51 +81,34 @@ class SyncEngine(
     private val json = StableJson
 
     private val _status = MutableStateFlow<SyncEngineStatus>(SyncEngineStatus.Idle)
+    val status: StateFlow<SyncEngineStatus> = _status.asStateFlow()
 
-    private val _lastPushResult = MutableStateFlow<PushResult?>(null)
+    private val _lastPush = MutableStateFlow<Result<PushSummary>?>(null)
+    val lastPush: StateFlow<Result<PushSummary>?> = _lastPush.asStateFlow()
 
-    private val _lastPullResult = MutableStateFlow<PullResult?>(null)
+    private val _lastPull = MutableStateFlow<Result<PullSummary>?>(null)
+    val lastPull: StateFlow<Result<PullSummary>?> = _lastPull.asStateFlow()
 
-    // Tracks the current push-loop job — canceled on SignedOut, restarted on SignedIn
-    private var pushJob: Job? = null
+    // Per-entity pull handlers (registered by TasksDiModule, NotesDiModule, etc.)
+    private val _handlers = MutableStateFlow<Map<DocType, EntityApply>>(emptyMap())
+    val handlers: Map<DocType, EntityApply> get() = _handlers.value
 
-    init {
-        // React to session changes: start/stop the push loop
-        scope.launch {
-            authRepository.currentSession.collect { session ->
-                when (session) {
-                    is Session.SignedIn -> {
-                        if (pushJob?.isActive != true) {
-                            pushJob = scope.launch {
-                                while (true) {
-                                    try {
-                                        push()
-                                    } catch (e: Exception) {
-                                        log.e(e) { "Push loop failed" }
-                                        _status.value = SyncEngineStatus.Error(e.message ?: "Push failed")
-                                    }
-                                    delay(30_000.milliseconds)
-                                }
-                            }
-                        }
-                    }
+    /**
+     * Registers a handler for pull events of the given [DocType].
+     */
+    fun registerHandler(docType: DocType, apply: EntityApply) {
+        _handlers.value = _handlers.value + (docType to apply)
+    }
 
-                    is Session.Anonymous,
-                    is Session.SignedOut,
-                    is Session.Loading,
-                    -> {
-                        pushJob?.cancel()
-                        pushJob = null
-                    }
-                }
-            }
-        }
+    private fun Throwable.toAppError(): AppError = when {
+        this is AppError -> this
+        else -> AppError.Unknown(this)
     }
 
     /**
      * Enqueues an entity change for sync.
      */
-    suspend fun enqueue(entity: SyncableEntity) {
+    suspend fun enqueue(entity: SyncableEntity): Result<Unit> = runCatchingResult {
         val hlc = hlcFactory.tick()
         val patch = buildPatch(entity, hlc)
         val payload = json.encodeToString(patch)
@@ -102,19 +125,28 @@ class SyncEngine(
     }
 
     /**
+     * Runs one push + pull cycle.
+     */
+    internal suspend fun syncOnce(): SyncOutcome {
+        val push = push()
+        val pull = pull()
+        return SyncOutcome(push, pull)
+    }
+
+    /**
      * Pushes all pending patches to the server.
      */
-    suspend fun push(): PushResult {
+    private suspend fun push(): Result<PushSummary> {
         val session = authRepository.currentSession.value
         if (session !is Session.SignedIn) {
-            return PushResult(0, 0)
+            return Result.success(PushSummary(0, 0, 0))
         }
 
         _status.value = SyncEngineStatus.Pushing
         val pending = outboxDao.getPending()
         if (pending.isEmpty()) {
             _status.value = SyncEngineStatus.Idle
-            return PushResult(0, 0)
+            return Result.success(PushSummary(0, 0, 0))
         }
 
         val patches = pending.map { entity ->
@@ -128,14 +160,13 @@ class SyncEngine(
 
         return try {
             val response = api.batchPush(request)
-            var pushed = 0
+            var succeeded = 0
             var failed = 0
-            val errors = mutableListOf<String>()
 
             response.results.forEach { result ->
                 if (result.ok) {
                     outboxDao.delete(result.patchId)
-                    pushed++
+                    succeeded++
                 } else {
                     if (result.isRetriable) {
                         outboxDao.markFailed(result.patchId, result.error ?: "Unknown error")
@@ -143,59 +174,63 @@ class SyncEngine(
                         outboxDao.delete(result.patchId)
                     }
                     failed++
-                    result.error?.let { errors.add(it) }
                 }
             }
 
-            val pushResult = PushResult(pushed, failed, errors)
-            _lastPushResult.value = pushResult
+            val summary = PushSummary(response.results.size, succeeded, failed)
+            _lastPush.value = Result.success(summary)
             _status.value = SyncEngineStatus.Idle
-            pushResult
-        } catch (e: Exception) {
-            val result = PushResult(0, pending.size, listOf(e.message ?: "Push failed"))
-            _lastPushResult.value = result
+            Result.success(summary)
+        } catch (e: Throwable) {
+            val err: AppError = if (e is AppError) e else AppError.Unknown(e)
+            _lastPush.value = Result.failure(err)
             log.e(e) { "Batch push failed [count=${pending.size}]" }
-            _status.value = SyncEngineStatus.Error(e.message ?: "Push failed")
-            result
+            _status.value = SyncEngineStatus.Failure(err)
+            Result.failure(err)
         }
     }
 
     /**
      * Pulls events from the server since the given LSN.
      */
-    suspend fun pull(sinceLsn: Long = 0): PullResult {
+    private suspend fun pull(sinceLsn: Long = 0): Result<PullSummary> {
         val session = authRepository.currentSession.value
         if (session !is Session.SignedIn) {
-            return PullResult(0)
+            return Result.success(PullSummary(0, 0, 0))
         }
 
         _status.value = SyncEngineStatus.Pulling
 
         return try {
             val events = api.getEventsSince(session.userId.value, sinceLsn)
-            var received = 0
+            var applied = 0
+            var conflicts = 0
 
-            events.forEach { _ ->
-                received++
+            events.forEach { event ->
+                val handler = handlers[event.entityType] ?: return@forEach
+                when (handler.apply(event)) {
+                    is ApplyOutcome.Applied -> applied++
+                    is ApplyOutcome.Conflict -> conflicts++
+                }
             }
 
-            val pullResult = PullResult(received)
-            _lastPullResult.value = pullResult
+            val summary = PullSummary(events.size, applied, conflicts)
+            _lastPull.value = Result.success(summary)
             _status.value = SyncEngineStatus.Idle
-            pullResult
-        } catch (e: Exception) {
-            val result = PullResult(0, listOf(e.message ?: "Pull failed"))
-            _lastPullResult.value = result
+            Result.success(summary)
+        } catch (e: Throwable) {
+            val err: AppError = if (e is AppError) e else AppError.Unknown(e)
+            _lastPull.value = Result.failure(err)
             log.e(e) { "Pull failed [sinceLsn=$sinceLsn]" }
-            _status.value = SyncEngineStatus.Error(e.message ?: "Pull failed")
-            result
+            _status.value = SyncEngineStatus.Failure(err)
+            Result.failure(err)
         }
     }
 
     /**
      * Builds a DeltaPatch from a SyncableEntity.
      */
-    internal fun buildPatch(entity: SyncableEntity, hlc: Hlc): DeltaPatch {
+    private fun buildPatch(entity: SyncableEntity, hlc: Hlc): DeltaPatch {
         val state = entity.toJson()
         val checksum = ConflictResolver.checksum(state)
 
@@ -210,14 +245,4 @@ class SyncEngine(
             timestampMs = System.currentTimeMillis(),
         )
     }
-}
-
-/**
- * Status of the sync engine.
- */
-sealed interface SyncEngineStatus {
-    data object Idle : SyncEngineStatus
-    data object Pushing : SyncEngineStatus
-    data object Pulling : SyncEngineStatus
-    data class Error(val message: String) : SyncEngineStatus
 }

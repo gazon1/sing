@@ -767,9 +767,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `sync`
 
+- **Deferred**: Whether to add `AppError.Auth(code: Int, body: String?)` — use string interpolation for now.
+- **Negative**: New `SyncRepository` interface adds an indirection. Mitigated by `FakeSyncRepository` for VM tests.
 - **Negative**: No server-side push; conflict resolution is last-write-wins with checksum fast-reject (not full CRDT)
+- **Negative**: `SyncEngine` now has two responsibilities (push/pull logic + `syncOnce()` composition) — mitigated by `SyncRunner` extracting the orchestration.
 - **Negative**: `pull()` is not yet implemented — remote changes do not appear on the device
 - **Positive**: Simple, predictable push model; HLC provides causal ordering; outbox is durable (Room)
+- **Positive**: UI can now observe sync state; `SyncRepository` gives a clean module boundary; `Result<T>` matches project conventions; Orgzly UX patterns adopted.
+- **Positive**: `enqueue()` wiring in repositories becomes testable via `FakeSyncRepository`.
 
 ### `task-detail`
 
@@ -1058,6 +1063,7 @@ _1 entries need attention._
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _untagged_
+- `2026-09-23-sync-state-model` — sync, architecture, core, state, ui
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
@@ -1224,6 +1230,7 @@ _1 entries need attention._
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _(no title)_
+- `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
