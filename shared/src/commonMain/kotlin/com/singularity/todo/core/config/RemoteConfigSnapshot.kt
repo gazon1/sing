@@ -23,6 +23,8 @@ data class RemoteConfigSnapshot(
     val minSupportedVersion: AppVersion?,
     val maintenanceBanner: BannerDto?,
     val whatsNewPayload: String? = null,
+    /** Play In-App Update priority 0–10. Values ≥ 4 trigger immediate flexible update flow. */
+    val updatePriority: Int? = null,
     val modelFlags: Map<String, Boolean> = emptyMap(),
     val mcpToolFlags: Map<String, Boolean> = emptyMap(),
 ) {

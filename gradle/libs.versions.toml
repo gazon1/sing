@@ -83,6 +83,10 @@ rich-editor = "1.2.0"
 # Security
 security-crypto = "1.1.0-alpha06"
 
+# Play In-App Updates
+play-app-update = "2.1.0"
+kotlinx-coroutines-play-services = "1.11.0"
+
 # AI Agent Framework (JetBrains Koog)
 koog = "1.1.1"
 
@@ -228,6 +232,11 @@ rich-editor-compose = { module = "com.mohamedrejeb.richeditor:richeditor-compose
 
 # Security
 android-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
+
+# Play In-App Updates
+play-app-update = { module = "com.google.android.play:app-update", version.ref = "play-app-update" }
+play-app-update-ktx = { module = "com.google.android.play:app-update-ktx", version.ref = "play-app-update" }
+kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "kotlinx-coroutines-play-services" }
 
 # Koog AI Agent
 koog-agents = { module = "ai.koog:koog-agents", version.ref = "koog" }
