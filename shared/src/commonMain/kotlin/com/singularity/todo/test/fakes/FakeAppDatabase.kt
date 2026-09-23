@@ -459,6 +459,8 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
         mutateForUser(id, userId) { it.copy(isDeleted = false, deletedAt = null, updatedAt = ts) }
     override suspend fun findByIdempotencyKeyForUser(key: String, userId: String): ProjectEntity? =
         store.value.values.firstOrNull { it.idempotencyKey == key && it.userId == userId }
+    override suspend fun findByNameForUser(userId: String, name: String): ProjectEntity? =
+        store.value.values.firstOrNull { it.userId == userId && !it.isDeleted && it.name.equals(name, ignoreCase = true) }
     override suspend fun upsert(project: ProjectEntity) {
         store.update { it + (project.id to project) }
     }
@@ -501,6 +503,9 @@ private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEnti
 
     override suspend fun getByIdForUser(id: String, userId: String): TagEntity? =
         store.value[id]?.takeIf { it.userId == userId && it.deletedAt == null }
+
+    override suspend fun findByNameForUser(userId: String, name: String): TagEntity? =
+        store.value.values.firstOrNull { it.userId == userId && it.deletedAt == null && it.name.equals(name, ignoreCase = true) }
 
     override suspend fun upsert(tag: TagEntity) {
         store.update { it + (tag.id to tag) }

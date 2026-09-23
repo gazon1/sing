@@ -4,11 +4,18 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.draft.UserScopedDraftStore
 import com.singularity.todo.feature.archive.ArchiveViewModel
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
 import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.checklist.RoomChecklistRepository
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
+import com.singularity.todo.feature.search.query.DaoProjectLookup
+import com.singularity.todo.feature.search.query.DaoTagLookup
+import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
+import com.singularity.todo.feature.search.query.ProjectLookup
+import com.singularity.todo.feature.search.query.SearchQueryResolver
+import com.singularity.todo.feature.search.query.TagLookup
 import com.singularity.todo.feature.statistics.StatisticsViewModel
 import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
@@ -52,7 +59,11 @@ fun tasksModule(): org.koin.core.module.Module = module {
     factory { UpdateTaskUseCase(get(), get()) }
     factoryOf(::TaskMutationsUseCase)
 
-    factory { SearchUseCase(get(), get(), get(), get()) }
+    factory { SearchUseCase(get(), get(), get(), get(), get()) }
+
+    single<TagLookup> { DaoTagLookup(get()) }
+    single<ProjectLookup> { DaoProjectLookup(get()) }
+    single<SearchQueryResolver> { DefaultSearchQueryResolver(get(), get()) }
 
     // PomodoroTimer is registered in platform-specific modules:
     // - androidMain: AndroidPomodoroTimer(get(), get(), get())
@@ -103,5 +114,5 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     viewModel { StatisticsViewModel(taskRepository = get(), clock = get()) }
 
-    viewModel { SearchViewModel(searchUseCase = get(), taskRepo = get()) }
+    viewModel { SearchViewModel(searchUseCase = get(), taskRepo = get(), currentUser = get()) }
 }

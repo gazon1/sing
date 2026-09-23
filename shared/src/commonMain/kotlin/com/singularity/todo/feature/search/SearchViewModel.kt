@@ -3,6 +3,7 @@ package com.singularity.todo.feature.search
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
@@ -45,6 +47,7 @@ sealed interface SearchUiEvent {
 class SearchViewModel(
     private val searchUseCase: SearchUseCase,
     private val taskRepo: TaskRepository,
+    private val currentUser: ProfileAwareCurrentUser,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
     init {
@@ -63,13 +66,17 @@ class SearchViewModel(
     /**
      * Pure results flow — no side effects on [_state].
      * [flatMapLatest] cancels in-flight search when query changes.
+     * Uses [channelFlow] because [SearchUseCase.invoke] is suspend.
      */
     private val results: StateFlow<SearchResults> = _query
         .flatMapLatest { q ->
             if (q.isBlank()) {
                 flowOf(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
             } else {
-                searchUseCase(q)
+                channelFlow {
+                    val userId = currentUser.scopedUserId.value.value
+                    searchUseCase(q, userId).collect { send(it) }
+                }
             }
         }
         .stateIn(
