@@ -168,6 +168,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP).
 - Locale-aware first day of week.
 - MR-2b (UI) will wire these fields into task create/edit screens
+- Minor UX polish (loading placeholder, TTL) can be added opportunistically when the screen is touched.
 - Month-grid cells are still hand-rolled (no kizitonwose `MonthView`). Week/Day remain unchanged.
 - Nested nav3 graph keeps task-click navigation encapsulated.
 - New component kinds require a new `UiNode` subtype + new renderer + `@SerialName` annotation + update to `BasicCatalog.systemPromptAppendix`. No schema migration needed.
@@ -190,6 +191,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`).
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов
+- RuStore / Galaxy Store support requires ~1 day of work when distribution to those stores is planned.
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill)
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed.
 - Settings screen can show specific recovery actions per failure type
@@ -210,6 +212,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - The `pageCount = 240` is fixed at compile time. Users navigating beyond ±10 years from today
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
 - The default `viewModelScope` is still created by the ViewModel but is unused in Tier-1 VMs (negligible memory cost: one empty `SupervisorJob`).
+- The four layers of the OTA strategy (gate, in-app update, flags, GenUI) are production-ready for Google Play distribution.
 - The ⟳ icon on calendar task chips will now work once MR-3b (Click-to-create)
 - Theme switching now correctly recomposes the calendar palette
 - Throttling prevents SQLite spam from polling.
@@ -1166,6 +1169,7 @@ _1 entries need attention._
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-23-genui-server-driven-ui` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
+- `2026-09-23-ota-deferred-items` — _untagged_
 - `2026-09-23-ota-update-strategy` — _untagged_
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _untagged_
@@ -1350,6 +1354,7 @@ _1 entries need attention._
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _(no title)_
 - `2026-09-23-genui-server-driven-ui` — _(no title)_
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
+- `2026-09-23-ota-deferred-items` — _(no title)_
 - `2026-09-23-ota-update-strategy` — _(no title)_
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _(no title)_

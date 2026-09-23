@@ -10,8 +10,6 @@ import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.install.model.AppUpdateType
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.config.RemoteConfigSnapshot
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 /**
  * Play In-App Update gate.
@@ -36,13 +34,19 @@ class AppUpdateGate(
 
         /** Days between re-offering the same update to the user. */
         const val COOLDOWN_DAYS = 7L
+
+        /** `UpdateAvailability.UPDATE_AVAILABLE` — see Play Core's `UpdateAvailability`. */
+        private const val UPDATE_AVAILABLE = 1
+
+        /** `AppUpdateManager.START_UPDATE_RESULT_AVAILABLE` — see Play Core. */
+        private const val START_UPDATE_RESULT_AVAILABLE = 1
     }
 
     private val handler = Handler(Looper.getMainLooper())
 
     /**
      * Checks the Play Core API and offers a flexible update if appropriate.
-     * Call from [Activity.onResume][android.app.Activity.onResume].
+     * Must be called on the main thread; [Handler.post] is used internally.
      */
     fun tryOfferUpdate(activity: Activity) {
         handler.post {
@@ -55,19 +59,13 @@ class AppUpdateGate(
         val snapshot = remoteConfigPort.observe().value
         val priority = snapshot.updatePriority ?: return false
 
-        val appUpdateInfoTask = appUpdateManager.appUpdateInfo
-        val updateInfo = appUpdateInfoTask.result ?: return false
+        val updateInfo = runCatching { appUpdateManager.appUpdateInfo.result }.getOrNull() ?: return false
 
-        // UpdateAvailability: 0 = NOT_AVAILABLE, 1 = AVAILABLE, 2 = DEVELOPER_TRIGGERED
-        val availability = updateInfo.updateAvailability()
-        if (availability != 1) return false
+        if (updateInfo.updateAvailability() != UPDATE_AVAILABLE) return false
 
-        // Check flexible update is allowed (isUpdateTypeAllowed takes AppUpdateType int value)
-        val flexibleAllowed = try {
+        val flexibleAllowed = runCatching {
             updateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
-        } catch (e: Throwable) {
-            false
-        }
+        }.getOrDefault(false)
         if (!flexibleAllowed) return false
 
         val daysSinceLastOffer = prefs.daysSinceLastOffer()
@@ -79,14 +77,8 @@ class AppUpdateGate(
         val options = AppUpdateOptions.newBuilder(AppUpdateType.FLEXIBLE).build()
 
         @Suppress("MissingPermission")
-        val resultTask = appUpdateManager.startUpdateFlow(updateInfo, activity, options)
-
-        // Result: 1 = START_UPDATE_RESULT_AVAILABLE, 2 = IN_COMPATIBILITY_CHECK_MODE
-        return try {
-            resultTask.result == 1
-        } catch (e: Throwable) {
-            false
-        }
+        return runCatching { appUpdateManager.startUpdateFlow(updateInfo, activity, options).result }
+            .getOrNull() == START_UPDATE_RESULT_AVAILABLE
     }
 }
 

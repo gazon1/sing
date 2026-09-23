@@ -1,10 +1,13 @@
 package com.singularity.todo.feature.whatsnew.di
 
+import com.singularity.todo.feature.whatsnew.presentation.WhatsNewPrefs
+import org.koin.dsl.module
+
 /**
  * DI module for the WhatsNew feature.
  *
- * No bindings needed — [com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen]
- * is a pure Composable that injects [com.singularity.todo.core.config.RemoteConfigPort]
- * directly via `koinInject()`.
+ * Registers [WhatsNewPrefs] backed by the per-platform DataStore<Preferences>.
  */
-fun whatsNewModule() = org.koin.dsl.module {}
+fun whatsNewModule() = module {
+    single { WhatsNewPrefs.create(get()) }
+}

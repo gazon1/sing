@@ -1,7 +1,8 @@
 package com.singularity.todo.feature.whatsnew.presentation.screen
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -14,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,7 +29,8 @@ import com.singularity.todo.feature.genui.render.material3.Material3Catalog
 import com.singularity.todo.feature.genui.render.rememberDataContext
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
-import kotlinx.coroutines.flow.Flow
+import com.singularity.todo.feature.whatsnew.presentation.WhatsNewPrefs
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 /**
@@ -35,14 +38,15 @@ import org.koin.compose.koinInject
  *
  * Observes [RemoteConfigPort.observe]. When
  * [com.singularity.todo.core.config.RemoteConfigSnapshot.whatsNewPayload]
- * is non-null, parses it and renders the GenUI surface.
+ * is non-null and differs from the last payload the user dismissed
+ * (tracked by [WhatsNewPrefs]), parses it and renders the GenUI surface.
  *
- * The sheet is shown only when a payload is available.
- * Dismissing the sheet re-evaluates on the next config change.
+ * Dismissing calls [onDismiss] and persists the payload hash so the same
+ * payload does not re-appear on the next startup.
  *
  * @param onDismiss Called when the user dismisses the sheet.
- *   The caller should store a "whatsnew shown" flag in DataStore so it
- *   doesn't re-appear on every startup (caller's responsibility).
+ *   The caller typically does not need to do anything extra — persistence
+ *   is handled internally via [WhatsNewPrefs].
  * @param modifier forwarded to the sheet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,8 +56,11 @@ fun WhatsNewScreen(
     modifier: Modifier = Modifier,
 ) {
     val remoteConfig: RemoteConfigPort = koinInject()
+    val prefs: WhatsNewPrefs = koinInject()
+    val scope = rememberCoroutineScope()
 
     var surfaceId by remember { mutableStateOf<SurfaceId?>(null) }
+    var droppedLines by remember { mutableStateOf(0) }
     val controller = remember { SurfaceController() }
     val parser = remember { A2uiParser() }
     val registry = remember { ComponentRegistry().also { Material3Catalog.install(it) } }
@@ -64,28 +71,43 @@ fun WhatsNewScreen(
         val payload = snapshot.whatsNewPayload
         if (payload.isNullOrBlank()) {
             surfaceId = null
+            droppedLines = 0
             controller.reset()
             return@LaunchedEffect
         }
 
+        if (!prefs.shouldShow(payload)) {
+            surfaceId = null
+            droppedLines = 0
+            controller.reset()
+            return@LaunchedEffect
+        }
+
+        val lines = payload.lineSequence().filter { it.isNotBlank() }.toList()
+        val parsed = lines.mapNotNull { parser.parseLine(it) }
+        droppedLines = lines.size - parsed.size
+
         val id = SurfaceId("whatsnew")
         controller.reset()
-        payload.lineSequence()
-            .mapNotNull { parser.parseLine(it) }
-            .forEach { controller.apply(it) }
+        parsed.forEach { controller.apply(it) }
         surfaceId = id
     }
 
     val currentSurfaceId = surfaceId ?: return
+
+    val handleDismiss: () -> Unit = {
+        scope.launch {
+            snapshot.whatsNewPayload?.let { prefs.markShown(it) }
+        }
+        onDismiss()
+    }
 
     val ctx = rememberDataContext(
         surfaceId = currentSurfaceId,
         controller = controller,
         registry = registry,
         onAction = { _, action, _ ->
-            if (action == "dismiss" || action == "close") {
-                onDismiss()
-            }
+            if (action == "dismiss" || action == "close") handleDismiss()
         },
         onDataChange = { _, _, _ ->
             // WhatsNew surfaces are read-only.
@@ -95,19 +117,26 @@ fun WhatsNewScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = handleDismiss,
         sheetState = sheetState,
         modifier = modifier,
     ) {
-        Box(
+        Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             GenuiRenderer(
                 surfaceId = currentSurfaceId,
                 ctx = ctx,
             )
+            if (droppedLines > 0) {
+                Text(
+                    text = "$droppedLines release note line(s) couldn't be rendered.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         }
     }
 }
