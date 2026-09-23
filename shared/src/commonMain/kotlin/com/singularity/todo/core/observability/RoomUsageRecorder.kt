@@ -34,9 +34,7 @@ class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock:
     }
 
     fun observeRecent(profileId: String, limit: Int = 100): Flow<List<ToolUsageEvent>> =
-        llmUsageDao.observeRecent(profileId, limit).map {
-            rows,
-            ->
+        llmUsageDao.observeRecent(profileId, limit).map { rows ->
             rows.map { it.toEvent() }
         }
 
@@ -47,15 +45,11 @@ class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock:
         }
     }
 
-    fun observeByTool(profileId: String): Flow<List<ToolUsage>> = llmUsageDao.observeByTool(profileId).map {
-        rows,
-        ->
+    fun observeByTool(profileId: String): Flow<List<ToolUsage>> = llmUsageDao.observeByTool(profileId).map { rows ->
         rows.map { it.toToolUsage() }
     }
 
-    fun observeByModel(profileId: String): Flow<List<ModelUsage>> = llmUsageDao.observeByModel(profileId).map {
-        rows,
-        ->
+    fun observeByModel(profileId: String): Flow<List<ModelUsage>> = llmUsageDao.observeByModel(profileId).map { rows ->
         rows.map { it.toModelUsage() }
     }
 

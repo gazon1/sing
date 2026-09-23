@@ -12,7 +12,6 @@ import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.settings.SettingsSection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 
 /**

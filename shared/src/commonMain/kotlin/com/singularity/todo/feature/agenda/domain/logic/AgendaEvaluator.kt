@@ -71,8 +71,7 @@ object AgendaEvaluator {
         message = "Use selector.matches(task, today) directly",
         replaceWith = ReplaceWith("selector.matches(task, today)"),
     )
-    fun matches(task: Task, selector: Selector, today: LocalDate): Boolean =
-        selector.matches(task, today)
+    fun matches(task: Task, selector: Selector, today: LocalDate): Boolean = selector.matches(task, today)
 
     private fun computeBadge(task: Task, selector: Selector, today: LocalDate, allTasks: List<Task>): AgendaBadge? {
         if (TaskComputed.isBlocked(task, allTasks)) return AgendaBadge.Blocked

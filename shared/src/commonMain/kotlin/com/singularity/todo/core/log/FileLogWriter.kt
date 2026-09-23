@@ -10,8 +10,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.format.char
+import kotlinx.datetime.toLocalDateTime
 import okio.BufferedSink
 import okio.FileSystem
 import okio.Path
@@ -100,9 +100,20 @@ class FileLogWriter(
         private const val MAX_TAG_LENGTH = 23
 
         private val TIMESTAMP_FORMAT = kotlinx.datetime.LocalDateTime.Format {
-            year(); char('-'); monthNumber(); char('-'); day()
-            char('T'); hour(); char(':'); minute(); char(':'); second(); char('.')
-            secondFraction(3); char('Z')
+            year();
+            char('-');
+            monthNumber();
+            char('-');
+            day()
+            char('T');
+            hour();
+            char(':');
+            minute();
+            char(':');
+            second();
+            char('.')
+            secondFraction(3);
+            char('Z')
         }
 
         private fun formatEntry(

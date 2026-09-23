@@ -1,7 +1,5 @@
 package com.singularity.todo.test.fakes
 
-import com.singularity.todo.core.ids.IdGenerator
-
 /**
  * Alias for [com.singularity.todo.core.ids.SequenceIdGenerator].
  * Use this in tests for predictable, sequential IDs.

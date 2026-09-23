@@ -1,6 +1,5 @@
 package com.singularity.todo.core.auth.oauth
 
-import com.singularity.todo.core.auth.oauth.OAuthTokenRefresh.EXPIRY_MARGIN_MS
 import com.singularity.todo.core.auth.oauth.OAuthTokenRefresh.withRefreshResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -60,15 +59,12 @@ class OAuthTokenRefreshTest {
 
     private fun now(): Long = System.currentTimeMillis()
 
-    private fun tokenData(
-        accessToken: String = "access",
-        refreshToken: String = "refresh",
-        expiresAt: Long = 0L,
-    ) = OAuthTokenData(
-        accessToken = accessToken,
-        refreshToken = refreshToken,
-        tokenEndpoint = "https://example.com/oauth",
-        clientId = "client",
-        expiresAt = expiresAt,
-    )
+    private fun tokenData(accessToken: String = "access", refreshToken: String = "refresh", expiresAt: Long = 0L) =
+        OAuthTokenData(
+            accessToken = accessToken,
+            refreshToken = refreshToken,
+            tokenEndpoint = "https://example.com/oauth",
+            clientId = "client",
+            expiresAt = expiresAt,
+        )
 }

@@ -11,10 +11,11 @@ import com.singularity.todo.feature.nav.AgendaStartRoute
  * An [AgendaNavigator] subclass with all navigation methods as no-ops.
  * Used in @Preview composables to avoid needing a real [NavBackStack].
  */
-class PreviewAgendaNavigator : AgendaNavigator(
-    backStack = NavBackStack(AgendaStartRoute.SavedAgendaList, AgendaStartRoute.SavedAgendaList),
-    onExitGraph = {},
-) {
+class PreviewAgendaNavigator :
+    AgendaNavigator(
+        backStack = NavBackStack(AgendaStartRoute.SavedAgendaList, AgendaStartRoute.SavedAgendaList),
+        onExitGraph = {},
+    ) {
     override fun openSavedAgendaList() { /* no-op for preview */ }
     override fun openSavedAgendaEdit(viewId: SavedAgendaViewId) { /* no-op for preview */ }
     override fun openSavedAgendaCreate(seed: AgendaDefinition) { /* no-op for preview */ }

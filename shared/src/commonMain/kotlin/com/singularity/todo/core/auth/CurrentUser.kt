@@ -1,6 +1,5 @@
 package com.singularity.todo.core.auth
 
-import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,10 +23,7 @@ import kotlinx.coroutines.flow.stateIn
  *   this comes from Koin's `single { ... createBackgroundScope() }`. In tests,
  *   inject a `TestScope` or `backgroundScope`.
  */
-class CurrentUser(
-    authRepository: AuthRepository,
-    private val scope: CoroutineScope,
-) {
+class CurrentUser(authRepository: AuthRepository, private val scope: CoroutineScope) {
     val userId: StateFlow<UserId> = authRepository.currentSession
         .map { AuthDomain.effectiveUserId(it) }
         .stateIn(scope, SharingStarted.Eagerly, UserId.anonymous)

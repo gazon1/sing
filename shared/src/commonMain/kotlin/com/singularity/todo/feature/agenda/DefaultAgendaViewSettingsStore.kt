@@ -11,16 +11,13 @@ import kotlinx.coroutines.flow.map
  * Contributes [SettingsSection.DefaultAgendaView] to the unified settings UI.
  * Registration: `single<SettingsContributor> { DefaultAgendaViewSettingsContributor(get()) }`.
  */
-class DefaultAgendaViewSettingsStore(
-    private val defaultAgendaView: DefaultAgendaViewSettingsRepository,
-) {
+class DefaultAgendaViewSettingsStore(private val defaultAgendaView: DefaultAgendaViewSettingsRepository) {
     /**
      * Default agenda view — a single nullable ID.
      */
-    fun observe(): Flow<SettingsSection.DefaultAgendaView> =
-        defaultAgendaView.defaultViewId.map { viewId ->
-            SettingsSection.DefaultAgendaView(viewId = viewId)
-        }
+    fun observe(): Flow<SettingsSection.DefaultAgendaView> = defaultAgendaView.defaultViewId.map { viewId ->
+        SettingsSection.DefaultAgendaView(viewId = viewId)
+    }
 
     suspend fun process(intent: SettingsIntent.DefaultAgendaView) {
         when (intent) {

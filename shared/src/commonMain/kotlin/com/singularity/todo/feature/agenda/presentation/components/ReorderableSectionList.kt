@@ -167,7 +167,10 @@ fun ReorderableSectionList(
                 Box(
                     modifier = Modifier
                         .offset { IntOffset(0, dragOffsetY.roundToInt()) }
-                        .graphicsLayer { scaleX = scale; scaleY = scale },
+                        .graphicsLayer {
+                            scaleX = scale;
+                            scaleY = scale
+                        },
                 ) {
                     SectionRow(
                         section = section,

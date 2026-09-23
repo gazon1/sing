@@ -38,11 +38,7 @@ import com.singularity.todo.core.sync.SyncEngineStatus
  * Tapping triggers [SyncIntent.SyncNow].
  */
 @Composable
-fun SyncButton(
-    status: SyncEngineStatus,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun SyncButton(status: SyncEngineStatus, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val isRunning = status.isRunning()
 
     // Wrapping in key(status) means: when status changes, the entire block is
@@ -62,11 +58,13 @@ fun SyncButton(
 
         val icon = when (status) {
             is SyncEngineStatus.Idle -> Icons.Default.CloudDone
+
             is SyncEngineStatus.Pushing,
             is SyncEngineStatus.Pulling,
             -> Icons.Default.Refresh
 
             is SyncEngineStatus.NoConnection -> Icons.Default.CloudOff
+
             is SyncEngineStatus.Failure -> Icons.Default.SyncProblem
         }
 

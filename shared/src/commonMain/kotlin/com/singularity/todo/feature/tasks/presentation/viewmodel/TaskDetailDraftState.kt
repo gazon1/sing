@@ -14,9 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * from a prior editing session after screen rotation).
  */
 @Stable
-class TaskDetailDraftState(
-    initial: TaskDetailDraft = TaskDetailDraft.empty(),
-) {
+class TaskDetailDraftState(initial: TaskDetailDraft = TaskDetailDraft.empty()) {
     private val _state = MutableStateFlow(initial)
     val state: StateFlow<TaskDetailDraft> = _state.asStateFlow()
     val current: TaskDetailDraft get() = _state.value
@@ -33,8 +31,12 @@ class TaskDetailDraftState(
         )
     }
 
-    fun setTitle(title: String) { _state.value = _state.value.copy(title = title) }
-    fun setDescription(description: String) { _state.value = _state.value.copy(description = description) }
+    fun setTitle(title: String) {
+        _state.value = _state.value.copy(title = title)
+    }
+    fun setDescription(description: String) {
+        _state.value = _state.value.copy(description = description)
+    }
 }
 
 data class TaskDetailDraft(
@@ -44,6 +46,8 @@ data class TaskDetailDraft(
     val originalDescription: String,
     val initialized: Boolean = false,
 ) {
-    companion object { fun empty() = TaskDetailDraft("", "", "", "") }
+    companion object {
+        fun empty() = TaskDetailDraft("", "", "", "")
+    }
     val isDirty: Boolean get() = title != originalTitle || description != originalDescription
 }

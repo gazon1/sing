@@ -10,8 +10,10 @@ interface SyncableEntity {
     /** String ID used by the sync protocol (e.g. TaskId.value). */
     val syncId: String
     val docType: DocType
+
     /** Server version from the last sync; 0 = not yet synced. */
     val syncServerVersion: Long
+
     /** Hybrid Logical Clock for causal ordering. Null for local-only entities. */
     val syncHlc: Hlc?
 

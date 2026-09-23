@@ -95,7 +95,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getById(id: String): TaskEntity?
 
-    @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND (title LIKE '%' || :q || '%' OR description LIKE '%' || :q || '%') ORDER BY due_date ASC, is_pinned DESC")
+    @Query(
+        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND (title LIKE '%' || :q || '%' OR description LIKE '%' || :q || '%') ORDER BY due_date ASC, is_pinned DESC",
+    )
     fun watchSearchResults(userId: String, q: String): Flow<List<TaskEntity>>
 
     @Query(
@@ -256,7 +258,7 @@ interface NoteDao {
         AND deleted_at IS NULL
         AND outgoing_links LIKE '%note://' || :noteId || '%'
         LIMIT 20
-    """
+    """,
     )
     suspend fun getBacklinkNotes(noteId: String, userId: String): List<NoteEntity>
 }
@@ -273,7 +275,9 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE id = :id AND user_id = :userId")
     suspend fun getByIdForUser(id: String, userId: String): ProjectEntity?
 
-    @Query("SELECT * FROM projects WHERE parent_id = :parentId AND user_id = :userId AND is_deleted = 0 ORDER BY sort_order ASC, name ASC")
+    @Query(
+        "SELECT * FROM projects WHERE parent_id = :parentId AND user_id = :userId AND is_deleted = 0 ORDER BY sort_order ASC, name ASC",
+    )
     fun watchByParentForUser(parentId: String, userId: String): Flow<List<ProjectEntity>>
 
     @Query(
@@ -286,7 +290,7 @@ interface ProjectDao {
         WHERE p.user_id = :userId AND p.is_deleted = 0
         GROUP BY p.id
         ORDER BY p.sort_order ASC, p.name ASC
-    """
+    """,
     )
     fun watchAllWithCounts(userId: String): Flow<List<ProjectWithCountRow>>
 
@@ -296,7 +300,9 @@ interface ProjectDao {
     @Query("UPDATE projects SET sort_order = :sortOrder, updated_at = :ts WHERE id = :id AND user_id = :userId")
     suspend fun setSortOrderForUser(id: String, sortOrder: Int, ts: Long, userId: String): Int
 
-    @Query("UPDATE projects SET is_deleted = 0, deleted_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    @Query(
+        "UPDATE projects SET is_deleted = 0, deleted_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId",
+    )
     suspend fun restoreForUser(id: String, ts: Long, userId: String): Int
 
     @Query("SELECT * FROM projects WHERE idempotency_key = :key AND user_id = :userId LIMIT 1")
@@ -309,7 +315,9 @@ interface ProjectDao {
     @Upsert
     suspend fun upsert(project: ProjectEntity)
 
-    @Query("UPDATE projects SET is_deleted = 1, deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    @Query(
+        "UPDATE projects SET is_deleted = 1, deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId",
+    )
     suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
 
     @Query("SELECT * FROM projects WHERE user_id = :userId")
@@ -358,7 +366,9 @@ interface ReminderDao {
     @Query("SELECT * FROM task_reminders WHERE fire_at <= :now AND user_id = :userId ORDER BY fire_at ASC")
     fun getDueBefore(now: Long, userId: String): Flow<List<TaskReminderEntity>>
 
-    @Query("SELECT * FROM task_reminders WHERE fire_at <= :now AND user_id = :userId ORDER BY fire_at DESC LIMIT :limit")
+    @Query(
+        "SELECT * FROM task_reminders WHERE fire_at <= :now AND user_id = :userId ORDER BY fire_at DESC LIMIT :limit",
+    )
     fun getRecentDueBefore(now: Long, userId: String, limit: Int): Flow<List<TaskReminderEntity>>
 
     @Upsert
@@ -379,7 +389,9 @@ interface ReminderDao {
     @Query("SELECT DISTINCT task_id FROM task_reminders WHERE recurring_pattern IS NOT NULL AND user_id = :userId")
     fun watchRecurringTaskIds(userId: String): Flow<List<String>>
 
-    @Query("UPDATE task_reminders SET last_fired_at = :lastFiredAt, updated_at = :updatedAt WHERE id = :id AND user_id = :userId")
+    @Query(
+        "UPDATE task_reminders SET last_fired_at = :lastFiredAt, updated_at = :updatedAt WHERE id = :id AND user_id = :userId",
+    )
     suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long)
 }
 
@@ -417,7 +429,7 @@ interface LlmUsageDao {
           AND created_at >= :sinceEpochMs
         GROUP BY date(created_at / 1000, 'unixepoch')
         ORDER BY date DESC
-    """
+    """,
     )
     fun observeByDay(profileId: String, sinceEpochMs: Long): Flow<List<DailyUsageRow>>
 
@@ -431,7 +443,7 @@ interface LlmUsageDao {
         WHERE profile_id = :profileId
         GROUP BY tool_name
         ORDER BY SUM(total_tokens) DESC
-    """
+    """,
     )
     fun observeByTool(profileId: String): Flow<List<ToolUsageRow>>
 
@@ -445,7 +457,7 @@ interface LlmUsageDao {
         WHERE profile_id = :profileId
         GROUP BY model_id
         ORDER BY SUM(total_tokens) DESC
-    """
+    """,
     )
     fun observeByModel(profileId: String): Flow<List<ModelUsageRow>>
 

@@ -45,5 +45,4 @@ object PKCE {
 internal expect fun secureRandomBytes(count: Int): ByteArray
 
 @PublishedApi
-internal fun ByteArray.toByteString(): okio.ByteString =
-    okio.ByteString.of(*this)
+internal fun ByteArray.toByteString(): okio.ByteString = okio.ByteString.of(*this)

@@ -1,6 +1,7 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.appearance.AppearanceContributor
 import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.attachments.AttachmentRepositoryImpl
 import com.singularity.todo.core.attachments.AttachmentStorage
@@ -23,10 +24,9 @@ import com.singularity.todo.core.draft.DataStoreDraftStore
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
+import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.core.appearance.AppearanceContributor
-import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.settings.DataStoreSettingsRepository
@@ -34,7 +34,6 @@ import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsExporter
 import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.core.settings.SettingsRepository
-import com.singularity.todo.core.sync.AutoSync
 import com.singularity.todo.core.sync.DataStoreSyncPrefs
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.RemoteConfigRepository
@@ -47,22 +46,19 @@ import com.singularity.todo.core.sync.SyncPrefs
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.sync.SyncRepositoryImpl
 import com.singularity.todo.core.sync.SyncRunner
-import com.singularity.todo.core.sync.SyncScheduler
-import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.ai.AiContributor
-import com.singularity.todo.feature.sync.presentation.SyncViewModel
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.RoomReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
-import kotlinx.coroutines.Dispatchers
-import org.koin.core.module.dsl.viewModel
-import org.koin.dsl.module
+import com.singularity.todo.feature.sync.presentation.SyncViewModel
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
+import org.koin.core.module.dsl.viewModel
+import org.koin.dsl.module
 
 /**
  * Core platform bindings: settings, auth, sync, attachments, backup.
@@ -85,7 +81,11 @@ fun coreModule(): org.koin.core.module.Module = module {
     single<SessionStore> { DataStoreSessionStore(get(), get()) }
 
     single<AuthRepository> {
-        SupabaseAuthRepository(Logger.withTag("AuthRepository"), get(), AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext))
+        SupabaseAuthRepository(
+            Logger.withTag("AuthRepository"),
+            get(),
+            AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext),
+        )
     }
 
     single { CurrentUser(get(), createBackgroundScope()) }
@@ -118,13 +118,40 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // SyncEngine is internal — feature modules must use SyncRepository.
     // Takes both SyncPrefs (for LSN tracking) and SyncWorkScheduler (for auth-session init).
-    single { SyncEngine(Logger.withTag("SyncEngine"), get(), get(), get(), get(), get(), get(), get(), AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
+    single {
+        SyncEngine(
+            Logger.withTag(
+            "SyncEngine",
+        ),
+            get(), get(), get(), get(), get(), get(), get(),
+                AutoCloseableCoroutineScope(
+            createBackgroundScope().coroutineContext,
+        )
+        )
+    }
 
     // SyncRunner is internal.
-    single { SyncRunner(engine = get(), scheduler = get(), authRepository = get(), prefs = get(), scope = AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
+    single {
+        SyncRunner(
+            engine = get(),
+            scheduler = get(),
+            authRepository = get(),
+            prefs = get(),
+            scope = AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext),
+        )
+    }
 
     // Public facade.
-    single<SyncRepository> { SyncRepositoryImpl(engine = get(), runner = get(), prefs = get(), api = get(), authRepository = get(), scope = AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)) }
+    single<SyncRepository> {
+        SyncRepositoryImpl(
+            engine = get(),
+            runner = get(),
+            prefs = get(),
+            api = get(),
+            authRepository = get(),
+            scope = AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext),
+        )
+    }
 
     // RemoteConfigRepository (Supabase endpoint credentials — kept in core/sync, not renamed).
     single<RemoteConfigRepository> { RemoteConfigRepositoryImpl(get(), get()) }
@@ -136,7 +163,15 @@ fun coreModule(): org.koin.core.module.Module = module {
     // SyncBootstrapper: registers pull handlers for all DocTypes.
     // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag).
     // The init {} block performs the registration.
-    single { SyncBootstrapper(engine = get(), taskRepo = get(), noteRepo = get(), projectRepo = get(), tagRepo = get()) }
+    single {
+        SyncBootstrapper(
+            engine = get(),
+            taskRepo = get(),
+            noteRepo = get(),
+            projectRepo = get(),
+            tagRepo = get(),
+        )
+    }
 
     // AutoSync is NOT in DI — callers construct it with their own CoroutineScope.
     // Example: val autoSync = AutoSync(get(), get(), viewModelScope)
@@ -209,7 +244,16 @@ fun coreModule(): org.koin.core.module.Module = module {
     single { SettingsExporter(getAll<SettingsContributor<*, *>>().toSet()) }
     single { SettingsImporter(getAll<SettingsContributor<*, *>>().toSet()) }
 
-    viewModel { BackupViewModel(repository = get(), authRepository = get(), backupFileNamer = get(), clock = get(), settingsExporter = get(), settingsImporter = get()) }
+    viewModel {
+        BackupViewModel(
+            repository = get(),
+            authRepository = get(),
+            backupFileNamer = get(),
+            clock = get(),
+            settingsExporter = get(),
+            settingsImporter = get(),
+        )
+    }
 
     viewModel { AttachmentsViewModel(repository = get()) }
 }

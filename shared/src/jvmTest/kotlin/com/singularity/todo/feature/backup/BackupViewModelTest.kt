@@ -1,20 +1,18 @@
 package com.singularity.todo.feature.backup
 
 import com.singularity.todo.core.auth.Session
-import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.BackupId
-import com.singularity.todo.feature.backup.BackupUiEvent
 import com.singularity.todo.core.backup.BackupManifest
 import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.backup.BackupResult
+import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.EntityCounts
-import com.singularity.todo.core.backup.ExportOptions
-import com.singularity.todo.core.backup.ImportOptions
 import com.singularity.todo.core.backup.RestoreResult
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.settings.SettingsExporter
 import com.singularity.todo.core.settings.SettingsImporter
+import com.singularity.todo.feature.backup.BackupUiEvent
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeBackupRepository
 import kotlinx.coroutines.CoroutineScope
@@ -51,7 +49,8 @@ class BackupViewModelTest {
         override suspend fun exportAsJson(): String = """{"schemaVersion":1}"""
     }
     private val stubSettingsImporter = object : SettingsImporter(emptySet()) {
-        override suspend fun importFromJson(json: String): SettingsImporter.ImportResult = SettingsImporter.ImportResult.Success
+        override suspend fun importFromJson(json: String): SettingsImporter.ImportResult =
+            SettingsImporter.ImportResult.Success
     }
 
     private fun createVm(
@@ -78,7 +77,9 @@ class BackupViewModelTest {
         val repo = FakeBackupRepository()
         repo.addBackup(BackupMetadata(BackupId("b1"), "path/b1.zip", 0L, 1024L, null))
         val vm = createVm(repo, fakeAuth(), backgroundScope)
-        advanceUntilIdle(); testScheduler.runCurrent(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent();
+        testScheduler.runCurrent()
         assertEquals(1, vm.state.value.backups.size)
     }
 
@@ -89,10 +90,14 @@ class BackupViewModelTest {
         val repo = FakeBackupRepository()
         repo.exportResult = Result.success(BackupResult(testManifest, "test.zip", 1024L))
         val vm = createVm(repo, fakeAuth(), backgroundScope)
-        advanceUntilIdle(); testScheduler.runCurrent(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent();
+        testScheduler.runCurrent()
 
         vm.createBackup()
-        advanceUntilIdle(); testScheduler.runCurrent(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent();
+        testScheduler.runCurrent()
 
         assertNotNull(repo.lastExportOptions)
         assertEquals(testUserId, repo.lastExportOptions?.userId)
@@ -105,10 +110,12 @@ class BackupViewModelTest {
             BackupResult(testManifest.copy(entityCounts = testEntityCounts), "test.zip", 2048L),
         )
         val vm = createVm(repo, fakeAuth(), backgroundScope)
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         vm.createBackup()
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         assertNotNull(vm.state.value.lastBackup)
         assertEquals(2048L, vm.state.value.lastBackup?.byteSize)
@@ -120,15 +127,18 @@ class BackupViewModelTest {
         val repo = FakeBackupRepository()
         repo.exportResult = Result.success(BackupResult(testManifest, "test.zip", 1024L))
         val vm = createVm(repo, fakeAuth(), backgroundScope)
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         // Collect snackbar in background so emit() has an active collector
         var capturedSnackbar: String? = null
         backgroundScope.launch { vm.snackbar.collect { capturedSnackbar = it } }
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         vm.createBackup()
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         assertEquals("Backup created", capturedSnackbar)
     }
@@ -138,15 +148,19 @@ class BackupViewModelTest {
         val repo = FakeBackupRepository()
         repo.exportResult = Result.failure(RuntimeException("disk full"))
         val vm = createVm(repo, fakeAuth(), backgroundScope)
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         // Collect events in background so emit() has an active collector
         var errorMessage: String? = null
         backgroundScope.launch { vm.events.collect { e -> if (e is BackupUiEvent.Error) errorMessage = e.message } }
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         vm.createBackup()
-        advanceUntilIdle(); testScheduler.runCurrent(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent();
+        testScheduler.runCurrent()
 
         assertEquals("disk full", errorMessage)
     }
@@ -158,10 +172,12 @@ class BackupViewModelTest {
         val repo = FakeBackupRepository()
         repo.importResult = Result.success(RestoreResult(testManifest, testEntityCounts, 0, emptyList()))
         val vm = createVm(repo, fakeAuth(), backgroundScope)
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         vm.import("/path/to/backup.zip")
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         assertNotNull(repo.lastImportOptions)
         assertEquals("/path/to/backup.zip", repo.lastImportOptions?.sourcePath)
@@ -174,10 +190,12 @@ class BackupViewModelTest {
         val repo = FakeBackupRepository()
         repo.addBackup(BackupMetadata(BackupId("b1"), "path/b1.zip", 0L, 512L, null))
         val vm = createVm(repo, fakeAuth(), backgroundScope)
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         vm.delete(BackupId("b1"))
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         assertEquals(BackupId("b1"), repo.lastDeletedId)
         assertEquals(0, vm.state.value.backups.size)
@@ -190,10 +208,12 @@ class BackupViewModelTest {
         val repo = FakeBackupRepository()
         repo.addBackup(BackupMetadata(BackupId("b1"), "path/b1.zip", 0L, 512L, null))
         val vm = createVm(repo, fakeAuth(), backgroundScope)
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         vm.push(BackupId("b1"))
-        advanceUntilIdle(); testScheduler.runCurrent()
+        advanceUntilIdle();
+        testScheduler.runCurrent()
 
         assertEquals(BackupId("b1"), repo.lastPushedId)
     }

@@ -89,7 +89,9 @@ class ReadToolsProfileAwareTest {
         repo.add(task)
     }
 
-    private fun buildProfileAware(authUserId: String): Triple<ProfileAwareCurrentUser, FakeAuthRepository, FakeProfileRepository> {
+    private fun buildProfileAware(
+        authUserId: String,
+    ): Triple<ProfileAwareCurrentUser, FakeAuthRepository, FakeProfileRepository> {
         val auth = FakeAuthRepository(initialSession = Session.Anonymous(UserId.fromString(authUserId)))
         val profiles = FakeProfileRepository()
         // commonTest doesn't have access to a TestScope, so we use createBackgroundScope().

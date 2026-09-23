@@ -16,7 +16,7 @@ private val SCHEME_FACTORIES: Map<String, (String) -> LinkRef> = mapOf(
 )
 
 private val LINK_REGEX = Regex(
-    """<a\s[^>]*href="(${LinkSchemes.NOTE_PREFIX}[^"]+|${LinkSchemes.TASK_PREFIX}[^"]+)"[^>]*>"""
+    """<a\s[^>]*href="(${LinkSchemes.NOTE_PREFIX}[^"]+|${LinkSchemes.TASK_PREFIX}[^"]+)"[^>]*>""",
 )
 
 fun extractOutgoingLinks(html: String): List<LinkRef> {

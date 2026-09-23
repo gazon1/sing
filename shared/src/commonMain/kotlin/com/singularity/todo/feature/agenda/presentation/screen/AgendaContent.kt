@@ -76,7 +76,18 @@ fun AgendaContent(
     onIntent: (AgendaIntent) -> Unit,
     onSavedViewsClick: (() -> Unit)? = null,
     onSaveCurrentClick: (() -> Unit)? = null,
-    desktopContextMenuHost: @Composable (taskUi: TaskUi, offset: DpOffset, onDismiss: () -> Unit, onIntent: (AgendaIntent) -> Unit) -> Unit = { _, _, _, _ -> },
+    desktopContextMenuHost: @Composable (
+        taskUi: TaskUi,
+        offset: DpOffset,
+        onDismiss: () -> Unit,
+        onIntent: (AgendaIntent) -> Unit,
+    ) -> Unit = {
+        _,
+        _,
+        _,
+        _,
+        ->
+    },
     modifier: Modifier = Modifier,
 ) {
     // Routing state: which task is right-clicked and where.
@@ -359,7 +370,9 @@ private fun AgendaContentLoadedPreview() = PreviewThemed(darkTheme = false, useS
                 ),
                 RenderedSection(
                     name = "Completed",
-                    tasks = listOf(AgendaRowItem(task = completedTask, badge = AgendaBadge.Completed, isBlocked = false)),
+                    tasks = listOf(
+                        AgendaRowItem(task = completedTask, badge = AgendaBadge.Completed, isBlocked = false),
+                    ),
                     badge = null,
                 ),
                 RenderedSection(

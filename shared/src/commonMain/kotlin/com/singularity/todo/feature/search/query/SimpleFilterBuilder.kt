@@ -134,5 +134,4 @@ class SimpleFilterBuilder {
  * }
  * ```
  */
-fun simpleFilter(block: SimpleFilterBuilder.() -> Unit): SimpleFilter =
-    SimpleFilterBuilder().apply(block).build()
+fun simpleFilter(block: SimpleFilterBuilder.() -> Unit): SimpleFilter = SimpleFilterBuilder().apply(block).build()

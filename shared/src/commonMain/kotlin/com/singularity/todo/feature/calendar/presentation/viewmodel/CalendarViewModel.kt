@@ -1,11 +1,9 @@
 package com.singularity.todo.feature.calendar.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
-import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.goNext
 import com.singularity.todo.feature.calendar.domain.logic.goPrevious
@@ -22,12 +20,12 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit

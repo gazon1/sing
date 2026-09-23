@@ -12,8 +12,7 @@ class IdTokenTest {
 
     private val validPayload = "eyJzdWIiOiJ1aWQxMjMiLCJlbWFpbCI6ImFAYi5jb20iLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJhbGljZSIsImxvZ2luIjoiYWxpY2UifQ"
 
-    private fun jwt(payload: String = validPayload) =
-        "eyJhbGciOiJIUzI1NiJ9.$payload.ignored_signature"
+    private fun jwt(payload: String = validPayload) = "eyJhbGciOiJIUzI1NiJ9.$payload.ignored_signature"
 
     @Test
     fun `parses email from JWT payload`() {

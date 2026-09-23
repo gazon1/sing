@@ -97,5 +97,4 @@ class MenuNodesBuilder {
  * @param block the DSL lambda — calls [MenuNodesBuilder.item],
  *              [MenuNodesBuilder.divider], and [MenuNodesBuilder.subMenu]
  */
-fun buildMenuNodes(block: MenuNodesBuilder.() -> Unit): List<MenuNode> =
-    MenuNodesBuilder().apply(block).build()
+fun buildMenuNodes(block: MenuNodesBuilder.() -> Unit): List<MenuNode> = MenuNodesBuilder().apply(block).build()

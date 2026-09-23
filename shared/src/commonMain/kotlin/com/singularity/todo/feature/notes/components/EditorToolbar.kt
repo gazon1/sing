@@ -120,7 +120,7 @@ internal fun RichTextState.isActive(action: EditorAction): Boolean = when (actio
 
     EditorAction.AlignLeft ->
         currentParagraphStyle.textAlign == TextAlign.Start ||
-        currentParagraphStyle.textAlign == TextAlign.Left
+            currentParagraphStyle.textAlign == TextAlign.Left
 
     EditorAction.AlignCenter -> currentParagraphStyle.textAlign == TextAlign.Center
 

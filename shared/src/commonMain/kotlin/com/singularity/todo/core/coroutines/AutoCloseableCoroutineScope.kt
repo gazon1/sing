@@ -3,7 +3,6 @@ package com.singularity.todo.core.coroutines
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -33,9 +32,9 @@ import kotlin.coroutines.CoroutineContext
  * Tier-1 ViewModels (those whose only cleanup is `scope.cancel()`) use this pattern.
  * Tier-2 ViewModels retain their manual `onCleared()` override.
  */
-class AutoCloseableCoroutineScope(
-    override val coroutineContext: CoroutineContext,
-) : AutoCloseable, CoroutineScope {
+class AutoCloseableCoroutineScope(override val coroutineContext: CoroutineContext) :
+    AutoCloseable,
+    CoroutineScope {
 
     /**
      * The [Job] of this scope. Exposed so tests can cancel only this scope's child jobs

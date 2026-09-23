@@ -10,16 +10,16 @@ import kotlinx.coroutines.flow.Flow
  * Used by [com.singularity.todo.feature.settings.SettingsViewModel] to resolve the
  * contributor without type erasure.
  */
-interface DefaultAgendaViewContributor : SettingsContributor<SettingsSection.DefaultAgendaView, SettingsIntent.DefaultAgendaView>
+interface DefaultAgendaViewContributor :
+    SettingsContributor<SettingsSection.DefaultAgendaView, SettingsIntent.DefaultAgendaView>
 
 /**
  * Contributes the Default Agenda View settings section to the unified settings UI.
  *
  * Registration: `single<SettingsContributor> { DefaultAgendaViewSettingsContributor(get()) }`.
  */
-class DefaultAgendaViewSettingsContributor(
-    private val store: DefaultAgendaViewSettingsStore,
-) : DefaultAgendaViewContributor {
+class DefaultAgendaViewSettingsContributor(private val store: DefaultAgendaViewSettingsStore) :
+    DefaultAgendaViewContributor {
 
     override val section: SettingsSection.DefaultAgendaView = SettingsSection.DefaultAgendaView()
 

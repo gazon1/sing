@@ -5,7 +5,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -135,10 +134,14 @@ class SimpleFilterMapperTest {
 
     @Test
     fun `Or throws UnsupportedSimpleFilterException`() {
-        val query = Query(condition = Condition.Or(listOf(
+        val query = Query(
+            condition = Condition.Or(
+                listOf(
             Condition.HasTag("work"),
             Condition.HasTag("home"),
-        )))
+        )
+            )
+        )
         val result = mapper.fromQuery(query)
         assertTrue(result.isFailure)
     }
@@ -173,10 +176,12 @@ class SimpleFilterMapperTest {
     @Test
     fun `complex query with unsupported condition throws`() {
         val query = Query(
-            condition = Condition.And(listOf(
+            condition = Condition.And(
+                listOf(
                 Condition.HasTag("work"),
                 Condition.IsArchived,
-            )),
+            )
+            ),
         )
         val result = mapper.fromQuery(query)
         assertTrue(result.isFailure)

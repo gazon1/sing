@@ -14,9 +14,8 @@ data class ListLinkedTasksInput(val projectId: String)
 @Serializable
 data class ListLinkedTasksOutput(val tasks: List<TaskSummary>)
 
-class ListLinkedTasksTool(
-    private val taskRepository: TaskRepository,
-) : SimpleTool<ListLinkedTasksInput>(TypeToken.of(ListLinkedTasksInput::class.java), NAME, DESCRIPTION) {
+class ListLinkedTasksTool(private val taskRepository: TaskRepository) :
+    SimpleTool<ListLinkedTasksInput>(TypeToken.of(ListLinkedTasksInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: ListLinkedTasksInput): String {
         val tasks = taskRepository.observeByFilter(TaskFilter.ByProject(ProjectId(args.projectId))).first()

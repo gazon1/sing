@@ -31,14 +31,13 @@ class ProjectEditorViewModelTest {
         FakeAuthRepository(initialSession = Session.Anonymous(testUserId)),
     )
 
-    private fun createVm(scope: CoroutineScope, projectId: ProjectId? = null) =
-        ProjectEditorViewModel(
-            projectId = projectId,
-            createProject = CreateProjectUseCase(fakeProjectsRepo, Clock, fakeCurrentUser),
-            updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock),
-            projectsRepo = fakeProjectsRepo,
-            scope = testScope(scope),
-        )
+    private fun createVm(scope: CoroutineScope, projectId: ProjectId? = null) = ProjectEditorViewModel(
+        projectId = projectId,
+        createProject = CreateProjectUseCase(fakeProjectsRepo, Clock, fakeCurrentUser),
+        updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock),
+        projectsRepo = fakeProjectsRepo,
+        scope = testScope(scope),
+    )
 
     @Test
     fun `initial state has empty name for new project`() = runTest {

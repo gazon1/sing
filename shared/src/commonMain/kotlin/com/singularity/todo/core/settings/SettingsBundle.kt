@@ -3,7 +3,6 @@ package com.singularity.todo.core.settings
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.reminders.ReminderOffset
-import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 
@@ -71,9 +70,7 @@ sealed interface SettingsSection {
 
     // ── Default Agenda View ──────────────────────────────────────────────────
 
-    data class DefaultAgendaView(
-        val viewId: SavedAgendaViewId? = null,
-    ) : SettingsSection
+    data class DefaultAgendaView(val viewId: SavedAgendaViewId? = null) : SettingsSection
 }
 
 /**
@@ -94,9 +91,7 @@ sealed interface EphemeralState {
         val fetchModelsError: String? = null,
     ) : EphemeralState
 
-    data class Agenda(
-        val savedViews: List<SavedAgendaView> = emptyList(),
-    ) : EphemeralState
+    data class Agenda(val savedViews: List<SavedAgendaView> = emptyList()) : EphemeralState
 }
 
 /**

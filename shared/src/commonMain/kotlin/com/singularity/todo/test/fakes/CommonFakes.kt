@@ -4,7 +4,6 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteColor
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -113,4 +112,3 @@ fun testNote(
     deletedAt = deletedAt,
     archivedAt = archivedAt,
 ).apply { overrides() }
-

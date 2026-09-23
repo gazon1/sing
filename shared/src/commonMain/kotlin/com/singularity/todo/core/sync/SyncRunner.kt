@@ -55,6 +55,7 @@ internal class SyncRunner(
                             startScheduledSync(prefs.scheduledInterval)
                         }
                     }
+
                     is Session.Anonymous, is Session.SignedOut, is Session.Loading -> {
                         stopScheduledSync()
                     }

@@ -37,10 +37,8 @@ interface SessionStore {
  * No [runBlocking] at construction — the ID is loaded asynchronously on first access.
  * [deviceId] returns an empty string until initialized.
  */
-class DataStoreSessionStore(
-    private val dataStore: DataStore<Preferences>,
-    private val idGenerator: IdGenerator,
-) : SessionStore {
+class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, private val idGenerator: IdGenerator) :
+    SessionStore {
 
     companion object {
         val ACCESS_TOKEN = stringPreferencesKey("auth_access_token")

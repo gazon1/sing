@@ -2,7 +2,6 @@ package com.singularity.todo.core.sync
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.serialization.StableJson
-import kotlinx.serialization.serializer
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
@@ -15,6 +14,7 @@ import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.serialization.serializer
 
 /**
  * Bootstraps the sync engine: registers pull handlers for all syncable entity types.
@@ -83,7 +83,9 @@ internal class SyncBootstrapper(
         applyRemote: suspend (kotlinx.serialization.json.JsonObject) -> Unit,
     ): ApplyOutcome {
         if (event.protocolVersion > SyncProtocol.CURRENT_PROTOCOL_VERSION) {
-            log.w { "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: protocol version ${event.protocolVersion} > ${SyncProtocol.CURRENT_PROTOCOL_VERSION}, skipping" }
+            log.w {
+                "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: protocol version ${event.protocolVersion} > ${SyncProtocol.CURRENT_PROTOCOL_VERSION}, skipping"
+            }
             return ApplyOutcome.Applied
         }
         return try {
@@ -94,12 +96,16 @@ internal class SyncBootstrapper(
                 -> {
                     val data = event.data
                     if (data == null || data == kotlinx.serialization.json.JsonNull) {
-                        log.w { "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: no data, skipping" }
+                        log.w {
+                            "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: no data, skipping"
+                        }
                         return ApplyOutcome.Applied
                     }
                     val obj = data as? kotlinx.serialization.json.JsonObject
                         ?: run {
-                            log.w { "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: data is not JsonObject, skipping" }
+                            log.w {
+                                "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: data is not JsonObject, skipping"
+                            }
                             return ApplyOutcome.Applied
                         }
                     applyRemote(obj)
@@ -121,7 +127,9 @@ internal class SyncBootstrapper(
                             log.d { "Pull event [${event.entityId}][DELETED][lsn=${event.serverLsn}]: deleted" }
                         },
                         onFailure = {
-                            log.e { "Pull event [${event.entityId}][DELETED][lsn=${event.serverLsn}]: delete failed — ${it.message}" }
+                            log.e {
+                                "Pull event [${event.entityId}][DELETED][lsn=${event.serverLsn}]: delete failed — ${it.message}"
+                            }
                         },
                     )
                     ApplyOutcome.Applied

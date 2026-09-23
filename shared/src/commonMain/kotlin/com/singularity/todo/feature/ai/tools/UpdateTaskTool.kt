@@ -61,8 +61,8 @@ class UpdateTaskTool(private val taskRepository: TaskRepository, private val clo
                         null
                     } else {
                         com.singularity.todo.core.database.LocalTimeFormats.parse(
-                        it,
-                    )
+                            it,
+                        )
                     }
                 } ?: existing.dueTime,
             someday = args.someday ?: existing.someday,

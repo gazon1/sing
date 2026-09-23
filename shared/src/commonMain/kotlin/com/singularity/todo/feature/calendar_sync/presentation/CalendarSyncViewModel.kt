@@ -39,9 +39,11 @@ sealed interface CalendarSyncIntent {
     data class SetEnabled(val enabled: Boolean) : CalendarSyncIntent
     data class SelectCalendar(val calendarId: String) : CalendarSyncIntent
     data object SyncNow : CalendarSyncIntent
+
     /** Handled by the UI layer (rememberLauncherForActivityResult). */
     data object RequestPermission : CalendarSyncIntent
     data class SetPermission(val granted: Boolean) : CalendarSyncIntent
+
     /** Select which calendar app to sync to (null = system default). */
     data class SelectAppPackage(val packageName: String?) : CalendarSyncIntent
 }

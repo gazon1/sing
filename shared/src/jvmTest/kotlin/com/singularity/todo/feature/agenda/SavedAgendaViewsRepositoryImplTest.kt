@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.agenda
 
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.data.RoomSavedAgendaViewsRepository
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
@@ -10,13 +10,12 @@ import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
 
 /**
  * Tests for [RoomSavedAgendaViewsRepository] via [FakeAppDatabase].
@@ -27,7 +26,9 @@ class SavedAgendaViewsRepositoryImplTest {
 
     private fun repo(): SavedAgendaViewsRepository {
         val db = FakeAppDatabase()
-        val auth = FakeAuthRepository(initialSession = Session.SignedIn(UserId("u1"), "test@test.com", "token", "refresh"))
+        val auth = FakeAuthRepository(
+            initialSession = Session.SignedIn(UserId("u1"), "test@test.com", "token", "refresh"),
+        )
         val currentUser = FakeProfileAwareCurrentUser(authRepository = auth)
         return RoomSavedAgendaViewsRepository(db.agendaViewDao(), currentUser)
     }

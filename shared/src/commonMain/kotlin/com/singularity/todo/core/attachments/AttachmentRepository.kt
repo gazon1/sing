@@ -51,11 +51,7 @@ interface AttachmentRepository {
      * @param sourcePath Absolute path to the file to attach.
      * @param mimeType Detected or provided MIME type; auto-detected from extension if null.
      */
-    suspend fun saveFileAttachment(
-        taskId: TaskId,
-        sourcePath: String,
-        mimeType: String?,
-    ): Result<Attachment>
+    suspend fun saveFileAttachment(taskId: TaskId, sourcePath: String, mimeType: String?): Result<Attachment>
 
     /**
      * Creates a URL attachment record — no local file is stored.
@@ -74,15 +70,13 @@ class AttachmentRepositoryImpl(
 
     // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<Attachment>> =
-        currentUser.observeForCurrentUser { uid ->
-            dao.watchAll(uid.value).map { entities -> entities.map { it.toAttachment() } }
-        }
+    override fun observeAll(): Flow<List<Attachment>> = currentUser.observeForCurrentUser { uid ->
+        dao.watchAll(uid.value).map { entities -> entities.map { it.toAttachment() } }
+    }
 
-    override fun observe(id: AttachmentId): Flow<Attachment?> =
-        currentUser.observeForCurrentUser { uid ->
-            dao.watchByIdForUser(id.value, uid.value).map { it?.toAttachment() }
-        }
+    override fun observe(id: AttachmentId): Flow<Attachment?> = currentUser.observeForCurrentUser { uid ->
+        dao.watchByIdForUser(id.value, uid.value).map { it?.toAttachment() }
+    }
 
     override suspend fun get(id: AttachmentId): Attachment? {
         val uid = currentUser.scopedUserId.value
@@ -101,12 +95,11 @@ class AttachmentRepositoryImpl(
 
     // ─── Domain methods ─────────────────────────────────────────────────────
 
-    override fun watchByTask(taskId: TaskId): Flow<List<Attachment>> =
-        currentUser.observeForCurrentUser { uid ->
-            dao.watchByTaskForUser(taskId.value, uid.value).map { entities ->
-                entities.map { it.toAttachment() }
-            }
+    override fun watchByTask(taskId: TaskId): Flow<List<Attachment>> = currentUser.observeForCurrentUser { uid ->
+        dao.watchByTaskForUser(taskId.value, uid.value).map { entities ->
+            entities.map { it.toAttachment() }
         }
+    }
 
     override suspend fun saveFileAttachment(
         taskId: TaskId,
@@ -141,32 +134,29 @@ class AttachmentRepositoryImpl(
         attachment
     }
 
-    override suspend fun addUrlAttachment(
-        taskId: TaskId,
-        url: String,
-        title: String?,
-    ): Result<Attachment> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        AttachmentDomain.validateUrl(url).getOrThrow()
+    override suspend fun addUrlAttachment(taskId: TaskId, url: String, title: String?): Result<Attachment> =
+        runCatching {
+            val uid = currentUser.scopedUserId.value
+            AttachmentDomain.validateUrl(url).getOrThrow()
 
-        val id = AttachmentDomain.generateAttachmentId()
-        val now = clock.now()
+            val id = AttachmentDomain.generateAttachmentId()
+            val now = clock.now()
 
-        val attachment = Attachment(
-            id = id,
-            taskId = taskId,
-            userId = uid,
-            type = AttachmentType.Url,
-            url = url,
-            title = title ?: "",
-            syncStatus = AttachmentSyncStatus.Pending,
-            createdAt = now,
-            updatedAt = now,
-        )
+            val attachment = Attachment(
+                id = id,
+                taskId = taskId,
+                userId = uid,
+                type = AttachmentType.Url,
+                url = url,
+                title = title ?: "",
+                syncStatus = AttachmentSyncStatus.Pending,
+                createdAt = now,
+                updatedAt = now,
+            )
 
-        dao.upsert(attachment.toEntity())
-        attachment
-    }
+            dao.upsert(attachment.toEntity())
+            attachment
+        }
 }
 
 // --- Mappers ---

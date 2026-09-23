@@ -20,9 +20,7 @@ import kotlin.time.Instant
  * assertEquals(LocalDate(1970, 1, 8), clock.now().toLocalDateTime(UTC).date)
  * ```
  */
-class FakeClock(
-    private var currentInstant: Instant = Instant.fromEpochMilliseconds(0),
-) : Clock {
+class FakeClock(private var currentInstant: Instant = Instant.fromEpochMilliseconds(0)) : Clock {
 
     override fun now(): Instant = currentInstant
 
@@ -37,6 +35,5 @@ class FakeClock(
     }
 
     /** Returns the current date in the given [zone]. */
-    fun today(zone: TimeZone = TimeZone.currentSystemDefault()): LocalDate =
-        currentInstant.toLocalDateTime(zone).date
+    fun today(zone: TimeZone = TimeZone.currentSystemDefault()): LocalDate = currentInstant.toLocalDateTime(zone).date
 }

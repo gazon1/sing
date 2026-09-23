@@ -19,9 +19,7 @@ import kotlinx.serialization.json.Json
  * Partial import: if any section fails to apply, the error is collected and
  * a [SettingsImportError.partialFailure] is returned listing the failed sections.
  */
-open class SettingsImporter(
-    private val contributors: Set<SettingsContributor<*, *>>,
-) {
+open class SettingsImporter(private val contributors: Set<SettingsContributor<*, *>>) {
     private val json = Json { ignoreUnknownKeys = true }
 
     sealed interface ImportResult {
@@ -102,7 +100,9 @@ open class SettingsImporter(
                 .firstOrNull()
             contributor?.process(SettingsIntent.WorkSchedule.UpdateWorkDayStart(snapshot.workSchedule.dayStartMinutes))
             contributor?.process(SettingsIntent.WorkSchedule.UpdateWorkDayEnd(snapshot.workSchedule.dayEndMinutes))
-            contributor?.process(SettingsIntent.WorkSchedule.UpdateWorkLunchStart(snapshot.workSchedule.lunchStartMinutes))
+            contributor?.process(
+                SettingsIntent.WorkSchedule.UpdateWorkLunchStart(snapshot.workSchedule.lunchStartMinutes),
+            )
             contributor?.process(SettingsIntent.WorkSchedule.UpdateWorkLunchEnd(snapshot.workSchedule.lunchEndMinutes))
             contributor?.process(SettingsIntent.WorkSchedule.UpdateWeekendSat(snapshot.workSchedule.weekendSat))
             contributor?.process(SettingsIntent.WorkSchedule.UpdateWeekendSun(snapshot.workSchedule.weekendSun))

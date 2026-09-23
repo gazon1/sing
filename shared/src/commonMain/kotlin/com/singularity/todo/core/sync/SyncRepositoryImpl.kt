@@ -51,9 +51,7 @@ internal class SyncRepositoryImpl(
         )
     }
 
-    override suspend fun enqueue(entity: SyncableEntity): Result<Unit> {
-        return engine.enqueue(entity)
-    }
+    override suspend fun enqueue(entity: SyncableEntity): Result<Unit> = engine.enqueue(entity)
 
     override suspend fun syncOnce(): SyncOutcome {
         // If a sync is already running, coalesce: mark that we want a follow-up

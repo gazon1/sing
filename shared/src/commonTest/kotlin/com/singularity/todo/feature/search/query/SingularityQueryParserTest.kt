@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search.query
 
+import com.singularity.todo.feature.search.query.Condition.And
 import com.singularity.todo.feature.search.query.Condition.Due
 import com.singularity.todo.feature.search.query.Condition.HasAllTags
 import com.singularity.todo.feature.search.query.Condition.HasPriority
@@ -11,10 +12,7 @@ import com.singularity.todo.feature.search.query.Condition.IsArchived
 import com.singularity.todo.feature.search.query.Condition.IsPinned
 import com.singularity.todo.feature.search.query.Condition.Not
 import com.singularity.todo.feature.search.query.Condition.Or
-import com.singularity.todo.feature.search.query.Condition.And
 import com.singularity.todo.feature.search.query.QueryInterval
-import com.singularity.todo.feature.search.query.QueryInterval.Companion.NONE
-import com.singularity.todo.feature.search.query.Relation.EQ
 import com.singularity.todo.feature.search.query.Relation.GT
 import com.singularity.todo.feature.search.query.Relation.LE
 import com.singularity.todo.feature.search.query.SortOrder

@@ -2,8 +2,8 @@ package com.singularity.todo.feature.pomodoro
 
 import com.singularity.todo.feature.pomodoro.recomputeRemaining
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

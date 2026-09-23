@@ -2,8 +2,8 @@ package com.singularity.todo.core.appearance.di
 
 import com.singularity.todo.core.appearance.AppearanceContributor
 import com.singularity.todo.core.appearance.AppearanceSettingsContributor
-import com.singularity.todo.core.appearance.AppearanceSettingsStore
 import com.singularity.todo.core.appearance.AppearanceSettingsRepository
+import com.singularity.todo.core.appearance.AppearanceSettingsStore
 import com.singularity.todo.core.appearance.DataStoreAppearanceSettingsRepository
 import org.koin.dsl.module
 

@@ -73,25 +73,25 @@ class NotesListViewModel(
                 }
                 flow.map { notes -> f to notes }
             }.catch { emit(NoteFilter.All to emptyList()) }
-            .collect { (filter, allNotes) ->
-                if (allNotes.isEmpty() && filter == NoteFilter.All) {
-                    _notes.value = NotesUiState.Empty
-                } else {
-                    val sorted = sortNotes(allNotes, _sortOrder.value)
-                    val pinned = sorted.filter { it.isPinned }
-                    val unpinned = sorted.filter { !it.isPinned }
-                    _notes.value = NotesUiState.Content(
-                        NotesListState(
-                            pinned = pinned,
-                            unpinned = unpinned,
-                            filter = filter,
-                            sortOrder = _sortOrder.value,
-                            selectedIds = _selectedIds.value,
-                            isSelectionMode = _isSelectionMode.value,
-                        ),
-                    )
+                .collect { (filter, allNotes) ->
+                    if (allNotes.isEmpty() && filter == NoteFilter.All) {
+                        _notes.value = NotesUiState.Empty
+                    } else {
+                        val sorted = sortNotes(allNotes, _sortOrder.value)
+                        val pinned = sorted.filter { it.isPinned }
+                        val unpinned = sorted.filter { !it.isPinned }
+                        _notes.value = NotesUiState.Content(
+                            NotesListState(
+                                pinned = pinned,
+                                unpinned = unpinned,
+                                filter = filter,
+                                sortOrder = _sortOrder.value,
+                                selectedIds = _selectedIds.value,
+                                isSelectionMode = _isSelectionMode.value,
+                            ),
+                        )
+                    }
                 }
-            }
         }
     }
 

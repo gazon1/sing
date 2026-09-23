@@ -7,9 +7,7 @@ package com.singularity.todo.core.backup
  * @param timestampToName transforms a timestamp (epoch ms) into a relative file name.
  *   Default implementation uses `"singularity_backup_$timestamp.zip"`.
  */
-class DefaultBackupFileNamer(
-    private val timestampToName: (Long) -> String = { ts -> "singularity_backup_$ts.zip" },
-) {
+class DefaultBackupFileNamer(private val timestampToName: (Long) -> String = { ts -> "singularity_backup_$ts.zip" }) {
     /** Returns a relative backup file name (no path separator prefix). */
     fun nextBackupName(timestampMs: Long): String = timestampToName(timestampMs)
 }

@@ -16,9 +16,7 @@ import kotlinx.coroutines.flow.first
  *
  * Use [WhatsNewPrefs.create] in Koin modules to construct from a `DataStore<Preferences>`.
  */
-class WhatsNewPrefs private constructor(
-    private val dataStore: DataStore<Preferences>,
-) {
+class WhatsNewPrefs private constructor(private val dataStore: DataStore<Preferences>) {
 
     /**
      * Returns true if the WhatsNew sheet should be shown for [payload].
@@ -38,13 +36,11 @@ class WhatsNewPrefs private constructor(
         dataStore.edit { it[KEY_LAST_HASH] = currentHash }
     }
 
-    private suspend fun lastShownHash(): String =
-        dataStore.data.first()[KEY_LAST_HASH] ?: ""
+    private suspend fun lastShownHash(): String = dataStore.data.first()[KEY_LAST_HASH] ?: ""
 
     companion object {
         private val KEY_LAST_HASH = stringPreferencesKey("whatsnew.last_shown_hash")
 
-        fun create(dataStore: DataStore<Preferences>): WhatsNewPrefs =
-            WhatsNewPrefs(dataStore)
+        fun create(dataStore: DataStore<Preferences>): WhatsNewPrefs = WhatsNewPrefs(dataStore)
     }
 }

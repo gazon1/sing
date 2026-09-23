@@ -9,8 +9,7 @@ package com.singularity.todo.feature.agenda.domain.model
 @JvmInline
 value class SavedAgendaViewKey(private val raw: String) {
     companion object {
-        fun of(userId: String, viewId: String): SavedAgendaViewKey =
-            SavedAgendaViewKey("$userId:$viewId")
+        fun of(userId: String, viewId: String): SavedAgendaViewKey = SavedAgendaViewKey("$userId:$viewId")
     }
 
     override fun toString(): String = raw

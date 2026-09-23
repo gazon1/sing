@@ -29,22 +29,31 @@ class SingularityQueryParser(input: String) : QueryParser(QueryTokenizer(input).
         // ── Status ──────────────────────────────────────────────────────────
         ConditionMatch(Regex("""^-?state:(\w+)$""", RegexOption.IGNORE_CASE)) { m ->
             val status = parseStatus(m.groupValues[1])
-            if (m.groupValues[0].startsWith("-")) Condition.Not(Condition.HasStatus(status))
-            else Condition.HasStatus(status)
+            if (m.groupValues[0].startsWith("-")) {
+                Condition.Not(Condition.HasStatus(status))
+            } else {
+                Condition.HasStatus(status)
+            }
         },
 
         // ── Priority ─────────────────────────────────────────────────────────
         ConditionMatch(Regex("""^-?priority:(\w+)$""", RegexOption.IGNORE_CASE)) { m ->
             val priority = parsePriority(m.groupValues[1])
-            if (m.groupValues[0].startsWith("-")) Condition.Not(Condition.HasPriority(priority))
-            else Condition.HasPriority(priority)
+            if (m.groupValues[0].startsWith("-")) {
+                Condition.Not(Condition.HasPriority(priority))
+            } else {
+                Condition.HasPriority(priority)
+            }
         },
 
         // ── Single tag ────────────────────────────────────────────────────────
         ConditionMatch(Regex("""^-?tag:(\S+)$""")) { m ->
             val tagName = m.groupValues[1]
-            if (m.groupValues[0].startsWith("-")) Condition.Not(Condition.HasTag(tagName))
-            else Condition.HasTag(tagName)
+            if (m.groupValues[0].startsWith("-")) {
+                Condition.Not(Condition.HasTag(tagName))
+            } else {
+                Condition.HasTag(tagName)
+            }
         },
 
         // ── Multi-tag (AND) ────────────────────────────────────────────────────

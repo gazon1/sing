@@ -81,11 +81,7 @@ class TaskDetailViewModel(
         val available: List<Task>,
     )
 
-    private data class AllData(
-        val meta: Meta,
-        val content: Content,
-        val draft: TaskDetailDraft,
-    )
+    private data class AllData(val meta: Meta, val content: Content, val draft: TaskDetailDraft)
 
     private val _recentlyDeleted = MutableStateFlow<Task?>(null)
 
@@ -137,7 +133,9 @@ class TaskDetailViewModel(
                 val reminderFlow = deps.reminderRepo.watchByTask(taskId)
                 val attachmentsFlow = deps.attachmentsRepo.watchByTask(taskId)
                 val subtasksFlow = deps.taskRepo.observeSubtasks(taskId)
-                val availableTasksFlow = deps.taskRepo.observeByFilter(com.singularity.todo.feature.tasks.domain.model.TaskFilter.All)
+                val availableTasksFlow = deps.taskRepo.observeByFilter(
+                    com.singularity.todo.feature.tasks.domain.model.TaskFilter.All,
+                )
                     .map { all -> all.filter { !it.isTrashed && it.id != taskId } }
 
                 // Level 1: Meta (project + tags)
@@ -370,11 +368,7 @@ class TaskDetailViewModel(
         _retryVersion.value++
     }
 
-    private fun mutate(
-        current: Task,
-        error: String = "Save failed",
-        transform: Task.() -> Task,
-    ) = scope.launch {
+    private fun mutate(current: Task, error: String = "Save failed", transform: Task.() -> Task) = scope.launch {
         deps.updateTask(current.transform())
             .onFailure { emitError(error) }
     }

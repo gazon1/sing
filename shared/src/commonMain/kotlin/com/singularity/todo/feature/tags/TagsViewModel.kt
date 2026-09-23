@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tags
 
 import androidx.lifecycle.ViewModel
-
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted

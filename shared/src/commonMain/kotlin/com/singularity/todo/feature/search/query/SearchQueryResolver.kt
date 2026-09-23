@@ -1,11 +1,10 @@
 package com.singularity.todo.feature.search.query
 
 import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
-import com.singularity.todo.feature.tags.TagId
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
@@ -49,10 +48,8 @@ data class ProjectLookupResult(val id: String, val userId: String, val name: Str
  * Default implementation that looks up names via [TagLookup]/[ProjectLookup]
  * and builds [TaskFilter] variants for the task repository.
  */
-class DefaultSearchQueryResolver(
-    private val tagLookup: TagLookup,
-    private val projectLookup: ProjectLookup,
-) : SearchQueryResolver {
+class DefaultSearchQueryResolver(private val tagLookup: TagLookup, private val projectLookup: ProjectLookup) :
+    SearchQueryResolver {
 
     override suspend fun resolve(query: Query, userId: String): ResolvedSearchQuery {
         val condition = query.condition ?: return ResolvedSearchQuery(
@@ -99,8 +96,10 @@ class DefaultSearchQueryResolver(
 
         var needsPostFilter: Boolean = false
         val postFilterParts: MutableList<(Task) -> Boolean> = mutableListOf()
+
         /** Set to true when the top-level condition is an OR. */
         var isOrPostFilter: Boolean = false
+
         /** Nesting depth of Not conditions — used to negate post-filters correctly. */
         var negationDepth: Int = 0
 
@@ -281,11 +280,8 @@ class DefaultSearchQueryResolver(
 
     // ─── Date range helpers ──────────────────────────────────────────────────
 
-    private fun computeDateRange(
-        relation: Relation,
-        targetDate: LocalDate,
-    ): ResolvedSearchQuery.DateRange? {
-        return when (relation) {
+    private fun computeDateRange(relation: Relation, targetDate: LocalDate): ResolvedSearchQuery.DateRange? =
+        when (relation) {
             Relation.LE -> {
                 // dueDate <= targetDate → range from 1970-01-01 to targetDate
                 ResolvedSearchQuery.DateRange(
@@ -315,7 +311,6 @@ class DefaultSearchQueryResolver(
                 null
             }
         }
-    }
 
     // ─── TaskFilter builder ──────────────────────────────────────────────────
 
@@ -330,7 +325,7 @@ class DefaultSearchQueryResolver(
                 TaskFilter.ByDateRange(dateRange.from, dateRange.to)
 
             projectId != null -> TaskFilter.ByProject(
-                com.singularity.todo.feature.projects.domain.model.ProjectId.fromString(projectId)
+                com.singularity.todo.feature.projects.domain.model.ProjectId.fromString(projectId),
             )
 
             tagIds.isNotEmpty() -> {

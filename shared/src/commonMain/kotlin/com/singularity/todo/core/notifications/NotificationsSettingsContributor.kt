@@ -19,9 +19,7 @@ interface NotificationsContributor : SettingsContributor<SettingsSection.Notific
  *
  * Registration: `single<SettingsContributor> { NotificationsSettingsContributor(get()) }`.
  */
-class NotificationsSettingsContributor(
-    private val store: NotificationsSettingsStore,
-) : NotificationsContributor {
+class NotificationsSettingsContributor(private val store: NotificationsSettingsStore) : NotificationsContributor {
 
     override val section: SettingsSection.Notifications = SettingsSection.Notifications()
 

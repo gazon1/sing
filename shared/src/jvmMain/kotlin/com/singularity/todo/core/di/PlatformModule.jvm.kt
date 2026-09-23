@@ -19,16 +19,9 @@ import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsDataStoreMigration
 import com.singularity.todo.core.sync.JvmSyncScheduler
-import com.singularity.todo.core.sync.RemoteConfigDao
 import com.singularity.todo.core.sync.SyncScheduler
 import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
-import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider
-import com.singularity.todo.feature.pomodoro.PomodoroTimer
-import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
-import com.singularity.todo.feature.reminders.JvmReminderScheduler
-import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepository
@@ -36,7 +29,12 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPo
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler
-import com.singularity.todo.core.log.LogExporter
+import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider
+import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
+import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
+import com.singularity.todo.feature.pomodoro.PomodoroTimer
+import com.singularity.todo.feature.reminders.JvmReminderScheduler
+import com.singularity.todo.feature.reminders.ReminderScheduler
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -151,7 +149,6 @@ actual fun platformModule(): Module = module {
     single<com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries> {
         JvmCalendarAppQueries()
     }
-
 }
 
 /**
@@ -162,8 +159,6 @@ actual fun platformModule(): Module = module {
  */
 private val dataStoreCache = mutableMapOf<String, DataStore<Preferences>>()
 
-private fun cachedJvmDataStore(file: File): DataStore<Preferences> {
-    return dataStoreCache.getOrPut(file.absolutePath) {
-        PreferenceDataStoreFactory.create { file }
-    }
+private fun cachedJvmDataStore(file: File): DataStore<Preferences> = dataStoreCache.getOrPut(file.absolutePath) {
+    PreferenceDataStoreFactory.create { file }
 }

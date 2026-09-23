@@ -317,7 +317,11 @@ private fun ProjectEditorCreatePreview() = ProjectsPreviewWrapper {
 
     val vm = ProjectEditorViewModel(
         projectId = null,
-        createProject = CreateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock, fakeCurrentUser),
+        createProject = CreateProjectUseCase(
+            fakeProjectsRepo,
+            com.singularity.todo.core.platform.Clock,
+            fakeCurrentUser,
+        ),
         updateProject = UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
         projectsRepo = fakeProjectsRepo,
     )
@@ -340,7 +344,11 @@ private fun ProjectEditorEditPreview() = ProjectsPreviewWrapper {
 
     val vm = ProjectEditorViewModel(
         projectId = ProjectId.fromString("p1"),
-        createProject = CreateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock, fakeCurrentUser),
+        createProject = CreateProjectUseCase(
+            fakeProjectsRepo,
+            com.singularity.todo.core.platform.Clock,
+            fakeCurrentUser,
+        ),
         updateProject = UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
         projectsRepo = fakeProjectsRepo,
     )

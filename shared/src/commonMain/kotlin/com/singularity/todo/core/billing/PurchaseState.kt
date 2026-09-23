@@ -7,11 +7,7 @@ package com.singularity.todo.core.billing
  * @property hasAccount       `true` if the user has a linked account (even free tier).
  * @property hasSubscription  `true` if the user has an active Tasks subscription.
  */
-data class PurchaseState(
-    val hasPro: Boolean,
-    val hasAccount: Boolean,
-    val hasSubscription: Boolean,
-) {
+data class PurchaseState(val hasPro: Boolean, val hasAccount: Boolean, val hasSubscription: Boolean) {
     companion object {
         /** Empty state — used before [SubscriptionProvider] is queried. */
         val EMPTY = PurchaseState(hasPro = false, hasAccount = false, hasSubscription = false)

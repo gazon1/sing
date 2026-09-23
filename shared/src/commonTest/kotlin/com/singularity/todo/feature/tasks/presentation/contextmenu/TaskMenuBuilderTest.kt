@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.contextmenu
 
 import com.singularity.todo.core.ui.menu.MenuNode
-import com.singularity.todo.core.ui.menu.buildMenuNodes
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -12,7 +11,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
@@ -30,20 +28,17 @@ class TaskMenuBuilderTest {
         isPinned = isPinned,
     )
 
-    private fun makeTaskUi(
-        task: Task? = makeTask(),
-        completed: Boolean = false,
-        isRecurring: Boolean = false,
-    ) = TaskUi(
-        id = task?.id ?: TaskId("t1"),
-        title = task?.title ?: "Test",
-        project = null,
-        dueLabel = null,
-        isCompleted = completed,
-        isRecurring = isRecurring,
-        isPinned = task?.isPinned ?: false,
-        priority = TaskPriority.None,
-    )
+    private fun makeTaskUi(task: Task? = makeTask(), completed: Boolean = false, isRecurring: Boolean = false) =
+        TaskUi(
+            id = task?.id ?: TaskId("t1"),
+            title = task?.title ?: "Test",
+            project = null,
+            dueLabel = null,
+            isCompleted = completed,
+            isRecurring = isRecurring,
+            isPinned = task?.isPinned ?: false,
+            priority = TaskPriority.None,
+        )
 
     private fun flatten(nodes: List<MenuNode>): List<MenuNode> = buildList {
         for (node in nodes) {

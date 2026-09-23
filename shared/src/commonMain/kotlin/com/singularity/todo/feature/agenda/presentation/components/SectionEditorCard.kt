@@ -32,12 +32,7 @@ import com.singularity.todo.feature.agenda.domain.selector.typeDescription
  * @param modifier Compose modifier.
  */
 @Composable
-fun SectionEditorCard(
-    section: Section,
-    index: Int,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun SectionEditorCard(section: Section, index: Int, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),

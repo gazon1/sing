@@ -12,8 +12,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.render.ComponentRegistry

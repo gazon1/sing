@@ -46,9 +46,7 @@ import java.util.Locale
  * Integrated into the Settings tab via [com.singularity.todo.feature.settings.SettingsScreen].
  */
 @Composable
-fun CalendarSyncSettingsScreen(
-    modifier: Modifier = Modifier,
-) {
+fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
     val viewModel: CalendarSyncViewModel = koinInject()
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -124,13 +122,16 @@ fun CalendarSyncSettingsScreen(
             SettingsSection(title = "Status") {
                 val statusText = when (val s = state.status) {
                     is CalendarSyncStatus.Disabled -> "Disabled"
+
                     is CalendarSyncStatus.Idle -> {
                         val date = s.lastSyncedAt?.let {
                             SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault()).format(Date(it))
                         } ?: "Never"
                         "Last synced: $date"
                     }
+
                     is CalendarSyncStatus.Syncing -> "Syncing..."
+
                     is CalendarSyncStatus.Failed -> "Failed: ${s.reason}"
                 }
                 Text(
@@ -161,9 +162,7 @@ fun CalendarSyncSettingsScreen(
 }
 
 @Composable
-private fun PermissionGate(
-    onRequestPermission: () -> Unit,
-) {
+private fun PermissionGate(onRequestPermission: () -> Unit) {
     SettingsSection(title = "Permissions Required") {
         Text(
             text = "Calendar sync requires READ_CALENDAR and WRITE_CALENDAR permissions.",
@@ -179,11 +178,7 @@ private fun PermissionGate(
 }
 
 @Composable
-private fun RadioRow(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun RadioRow(label: String, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

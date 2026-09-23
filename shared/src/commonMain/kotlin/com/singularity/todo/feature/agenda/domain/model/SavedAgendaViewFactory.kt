@@ -32,12 +32,7 @@ object SavedAgendaViewFactory {
      * Creates a new [SavedAgendaView] for first-time save (Create mode).
      * Generates a fresh [SavedAgendaViewId] and sets [createdAt] = [updatedAt].
      */
-    fun create(
-        userId: String,
-        name: String,
-        sectionsJson: String,
-        now: Instant,
-    ): SavedAgendaView = SavedAgendaView(
+    fun create(userId: String, name: String, sectionsJson: String, now: Instant): SavedAgendaView = SavedAgendaView(
         id = SavedAgendaViewId.generate(),
         userId = userId,
         name = name,
@@ -50,29 +45,22 @@ object SavedAgendaViewFactory {
      * Updates an existing [SavedAgendaView] with new name and sections.
      * Preserves [id], [userId], and [createdAt].
      */
-    fun update(
-        source: SavedAgendaView,
-        name: String,
-        sectionsJson: String,
-        now: Instant,
-    ): SavedAgendaView = source.copy(
-        name = name,
-        sectionsJson = sectionsJson,
-        updatedAt = now,
-    )
+    fun update(source: SavedAgendaView, name: String, sectionsJson: String, now: Instant): SavedAgendaView =
+        source.copy(
+            name = name,
+            sectionsJson = sectionsJson,
+            updatedAt = now,
+        )
 
     /**
      * Duplicates a [SavedAgendaView] into a different user profile.
      * Generates a fresh [id], sets [userId] to [targetUserId], resets timestamps.
      */
-    fun duplicateForProfile(
-        source: SavedAgendaView,
-        targetUserId: String,
-        now: Instant,
-    ): SavedAgendaView = source.copy(
-        id = SavedAgendaViewId.generate(),
-        userId = targetUserId,
-        createdAt = now,
-        updatedAt = now,
-    )
+    fun duplicateForProfile(source: SavedAgendaView, targetUserId: String, now: Instant): SavedAgendaView =
+        source.copy(
+            id = SavedAgendaViewId.generate(),
+            userId = targetUserId,
+            createdAt = now,
+            updatedAt = now,
+        )
 }

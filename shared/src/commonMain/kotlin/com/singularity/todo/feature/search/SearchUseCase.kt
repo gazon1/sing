@@ -115,11 +115,7 @@ class SearchUseCase(
         }
     }
 
-    private fun sortTasks(
-        tasks: List<Task>,
-        sortOrder: SortOrder,
-        descending: Boolean,
-    ): List<Task> {
+    private fun sortTasks(tasks: List<Task>, sortOrder: SortOrder, descending: Boolean): List<Task> {
         val sorted = when (sortOrder) {
             SortOrder.DUE -> tasks.sortedBy { it.dueDate }
             SortOrder.TITLE -> tasks.sortedBy { it.title.lowercase() }

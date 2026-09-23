@@ -11,9 +11,7 @@ import kotlinx.coroutines.flow.combine
  * Contributes [SettingsSection.Greeting] to the unified settings UI.
  * Registration: `single<SettingsContributor> { GreetingSettingsContributor(get()) }`.
  */
-class GreetingSettingsStore(
-    private val greeting: GreetingSettingsRepository,
-) {
+class GreetingSettingsStore(private val greeting: GreetingSettingsRepository) {
     /**
      * Greeting settings section — morning and afternoon hour boundaries.
      */

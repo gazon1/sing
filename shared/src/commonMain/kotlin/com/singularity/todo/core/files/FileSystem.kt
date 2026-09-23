@@ -41,7 +41,6 @@ interface FileSystem {
     suspend fun stat(path: String): FileStat?
 }
 
-
 /**
  * In-memory fake for tests. Thread-safe via synchronized.
  */

@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.calendar_sync.domain.logic
 
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderType
@@ -19,8 +18,6 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 
 class CalendarEventMapperTest {
 
@@ -33,8 +30,7 @@ class CalendarEventMapperTest {
     private fun localDate(year: Int, month: Int, day: Int) = LocalDate(year, month, day)
     private fun localTime(hour: Int, minute: Int) = LocalTime(hour, minute)
 
-    private fun midnightMs(date: LocalDate) =
-        date.atStartOfDayIn(tz).toEpochMilliseconds()
+    private fun midnightMs(date: LocalDate) = date.atStartOfDayIn(tz).toEpochMilliseconds()
 
     private fun nextDayMidnightMs(date: LocalDate): Long {
         // Mirror the logic from CalendarEventMapper.LocalDate.nextDay()
@@ -48,17 +44,14 @@ class CalendarEventMapperTest {
         return tomorrow.atStartOfDayIn(tz).toEpochMilliseconds()
     }
 
-    private fun daysInMonth(year: Int, month: Int): Int {
-        return when (month) {
-            1, 3, 5, 7, 8, 10, 12 -> 31
-            4, 6, 9, 11 -> 30
-            2 -> if (isLeapYear(year)) 29 else 28
-            else -> 30
-        }
+    private fun daysInMonth(year: Int, month: Int): Int = when (month) {
+        1, 3, 5, 7, 8, 10, 12 -> 31
+        4, 6, 9, 11 -> 30
+        2 -> if (isLeapYear(year)) 29 else 28
+        else -> 30
     }
 
-    private fun isLeapYear(year: Int): Boolean =
-        year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+    private fun isLeapYear(year: Int): Boolean = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 
     private fun instantOfEpochMs(ms: Long): Instant = Instant.fromEpochMilliseconds(ms)
 

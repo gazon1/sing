@@ -67,7 +67,8 @@ class ConditionExprParser(
             }
             // Implicit AND: adjacent atom tokens
             if (tok is QueryTokenizer.Token.Word || tok is QueryTokenizer.Token.Quoted ||
-                tok is QueryTokenizer.Token.LParen || tok is QueryTokenizer.Token.Not) {
+                tok is QueryTokenizer.Token.LParen || tok is QueryTokenizer.Token.Not
+            ) {
                 val (atom, np) = parseAtom(pos)
                 parts.add(atom)
                 pos = np

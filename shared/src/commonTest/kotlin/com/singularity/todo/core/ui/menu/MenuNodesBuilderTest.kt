@@ -66,9 +66,12 @@ class MenuNodesBuilderTest {
     @Test
     fun `subMenu can nest buildMenuNodes as children`() {
         val list = buildMenuNodes {
-            subMenu("s", "Sub", children = buildMenuNodes {
+            subMenu(
+                "s", "Sub",
+                children = buildMenuNodes {
                 item("nested", "Nested") {}
-            })
+            }
+            )
         }
         val sub = list[0] as MenuNode.SubMenu
         assertEquals(1, sub.children.size)

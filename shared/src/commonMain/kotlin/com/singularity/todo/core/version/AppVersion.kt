@@ -12,10 +12,7 @@ import kotlinx.serialization.Serializable
  * JVM/Desktop: reads -Dsingularity.version system property; falls back to "0.0.0".
  */
 @Serializable
-data class AppVersion(
-    val name: String,
-    val code: Int,
-) {
+data class AppVersion(val name: String, val code: Int) {
     /**
      * Compares by [code] (semver-like: higher code = newer version).
      * Lexicographic name comparison is intentionally not used.

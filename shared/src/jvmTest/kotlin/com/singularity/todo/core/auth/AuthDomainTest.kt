@@ -4,9 +4,9 @@ import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ids.UserId
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlin.test.assertFailsWith
 
 class AuthDomainTest {
 

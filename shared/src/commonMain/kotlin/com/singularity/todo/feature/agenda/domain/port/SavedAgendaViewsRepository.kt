@@ -3,7 +3,6 @@ package com.singularity.todo.feature.agenda.domain.port
 import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
-import kotlinx.coroutines.flow.Flow
 
 interface SavedAgendaViewsRepository : GenericUserScopedRepository<SavedAgendaView, SavedAgendaViewId> {
 

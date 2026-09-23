@@ -154,18 +154,22 @@ sealed interface AppDestination : NavKey {
     @Serializable
     sealed interface TasksStartRoute : NavKey {
         @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
-        @Serializable data object Inbox : TasksStartRoute
+        @Serializable
+        data object Inbox : TasksStartRoute
 
         @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
-        @Serializable data object Today : TasksStartRoute
+        @Serializable
+        data object Today : TasksStartRoute
 
         @Serializable data object Create : TasksStartRoute
 
         @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
-        @Serializable data object Upcoming : TasksStartRoute
+        @Serializable
+        data object Upcoming : TasksStartRoute
 
         @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
-        @Serializable data class ByProject(val projectId: String) : TasksStartRoute
+        @Serializable
+        data class ByProject(val projectId: String) : TasksStartRoute
 
         @Serializable data class Detail(val taskId: String) : TasksStartRoute
     }
@@ -187,7 +191,6 @@ sealed interface AppDestination : NavKey {
         "Use AgendaGraph(AgendaStartRoute.Project(projectId)) instead",
         replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Project(projectId))"),
     )
-
     @Serializable
     data class TasksByProject(val projectId: String) : AppDestination {
         override val title = "Project Tasks"
@@ -198,7 +201,6 @@ sealed interface AppDestination : NavKey {
         "Use TasksGraph(TasksStartRoute.Create) instead",
         replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Detail(taskId))"),
     )
-
     @Serializable
     data class TaskDetail(val taskId: String) : AppDestination {
         override val title = "Task"
@@ -209,7 +211,6 @@ sealed interface AppDestination : NavKey {
         "Use TasksGraph(TasksStartRoute.Create, initialDueDate) instead",
         replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Create, initialDueDate)"),
     )
-
     @Serializable
     data class TaskDetailCreate(val initialDueDate: String? = null) : AppDestination {
         override val title = "New Task"

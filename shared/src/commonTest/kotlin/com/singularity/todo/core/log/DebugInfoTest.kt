@@ -3,7 +3,6 @@ package com.singularity.todo.core.log
 import kotlinx.datetime.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertContains
-import kotlin.test.assertFalse
 
 class DebugInfoTest {
 

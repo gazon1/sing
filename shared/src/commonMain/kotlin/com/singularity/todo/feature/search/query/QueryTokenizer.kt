@@ -29,10 +29,20 @@ class QueryTokenizer(private val input: String) {
             }
 
             when (input[pos]) {
-                '(' -> { result.add(Token.LParen); pos++ }
-                ')' -> { result.add(Token.RParen); pos++ }
-                '"' -> { pos = scanQuoted(pos, result) }
-                else -> { pos = scanWord(pos, result) }
+                '(' -> {
+                    result.add(Token.LParen);
+                    pos++
+                }
+                ')' -> {
+                    result.add(Token.RParen);
+                    pos++
+                }
+                '"' -> {
+                    pos = scanQuoted(pos, result)
+                }
+                else -> {
+                    pos = scanWord(pos, result)
+                }
             }
         }
         return result
@@ -65,12 +75,14 @@ class QueryTokenizer(private val input: String) {
             pos++
         }
         val word = sb.toString()
-        out.add(when (word.uppercase()) {
-            "AND" -> Token.And
-            "OR" -> Token.Or
-            "NOT" -> Token.Not
-            else -> Token.Word(word)
-        })
+        out.add(
+            when (word.uppercase()) {
+                "AND" -> Token.And
+                "OR" -> Token.Or
+                "NOT" -> Token.Not
+                else -> Token.Word(word)
+            },
+        )
         return pos
     }
 
@@ -87,19 +99,29 @@ class QueryTokenizer(private val input: String) {
         data class Quoted(override val text: String) : Token
 
         /** Left parenthesis `(`. */
-        data object LParen : Token { override val text: String = "(" }
+        data object LParen : Token {
+            override val text: String = "("
+        }
 
         /** Right parenthesis `)`. */
-        data object RParen : Token { override val text: String = ")" }
+        data object RParen : Token {
+            override val text: String = ")"
+        }
 
         /** Logical AND operator. */
-        data object And : Token { override val text: String = "AND" }
+        data object And : Token {
+            override val text: String = "AND"
+        }
 
         /** Logical OR operator. */
-        data object Or : Token { override val text: String = "OR" }
+        data object Or : Token {
+            override val text: String = "OR"
+        }
 
         /** Logical NOT operator (prefix). */
-        data object Not : Token { override val text: String = "NOT" }
+        data object Not : Token {
+            override val text: String = "NOT"
+        }
 
         // CharSequence impl
         override val length: Int get() = text.length

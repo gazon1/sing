@@ -24,13 +24,22 @@ interface AppearanceSettingsRepository {
 /**
  * Production [AppearanceSettingsRepository] backed by DataStore.
  */
-class DataStoreAppearanceSettingsRepository(
-    dataStore: DataStore<Preferences>,
-) : BaseSettingsRepository(dataStore), AppearanceSettingsRepository {
+class DataStoreAppearanceSettingsRepository(dataStore: DataStore<Preferences>) :
+    BaseSettingsRepository(dataStore),
+    AppearanceSettingsRepository {
 
-    private val darkThemePref = boolPref(nsKey(SettingsNamespace.APPEARANCE, "dark_theme"), SettingsDefaults.Appearance.DARK_THEME)
-    private val accentColorPref = stringPref(nsKey(SettingsNamespace.APPEARANCE, "accent_color"), SettingsDefaults.Appearance.ACCENT_COLOR)
-    private val fontSizeScalePref = floatPref(nsKey(SettingsNamespace.APPEARANCE, "font_size_scale"), SettingsDefaults.Appearance.FONT_SIZE_SCALE)
+    private val darkThemePref = boolPref(
+        nsKey(SettingsNamespace.APPEARANCE, "dark_theme"),
+        SettingsDefaults.Appearance.DARK_THEME,
+    )
+    private val accentColorPref = stringPref(
+        nsKey(SettingsNamespace.APPEARANCE, "accent_color"),
+        SettingsDefaults.Appearance.ACCENT_COLOR,
+    )
+    private val fontSizeScalePref = floatPref(
+        nsKey(SettingsNamespace.APPEARANCE, "font_size_scale"),
+        SettingsDefaults.Appearance.FONT_SIZE_SCALE,
+    )
 
     override val darkTheme: Flow<Boolean> get() = darkThemePref.flow
     override val accentColor: Flow<String> get() = accentColorPref.flow

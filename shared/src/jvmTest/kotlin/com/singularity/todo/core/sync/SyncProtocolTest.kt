@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 class SyncProtocolTest {
 
     private val json = Json {
-        ignoreUnknownKeys = true;
+        ignoreUnknownKeys = true
         encodeDefaults = true
     }
 

@@ -83,7 +83,7 @@ class OverlayStateTest {
     fun `dismissOverflow clears overflow only`() {
         val s = fresh()
         s.show(Sheet.PickColor)
-        s.toggleOverflow()  // opens overflow, clears sheet
+        s.toggleOverflow() // opens overflow, clears sheet
 
         s.dismissOverflow()
 

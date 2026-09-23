@@ -9,14 +9,19 @@ package com.singularity.todo.feature.search.query
 enum class Relation {
     /** Equal to */
     EQ,
+
     /** Not equal to */
     NE,
+
     /** Less than */
     LT,
+
     /** Less than or equal */
     LE,
+
     /** Greater than */
     GT,
+
     /** Greater than or equal */
     GE,
 }

@@ -33,7 +33,18 @@ import org.koin.core.parameter.parametersOf
 fun AgendaScreen(
     definition: AgendaDefinition,
     modifier: Modifier = Modifier,
-    desktopContextMenuHost: @Composable (taskUi: TaskUi, offset: androidx.compose.ui.unit.DpOffset, onDismiss: () -> Unit, onIntent: (AgendaIntent) -> Unit) -> Unit = { _, _, _, _ -> },
+    desktopContextMenuHost: @Composable (
+        taskUi: TaskUi,
+        offset: androidx.compose.ui.unit.DpOffset,
+        onDismiss: () -> Unit,
+        onIntent: (AgendaIntent) -> Unit,
+    ) -> Unit = {
+        _,
+        _,
+        _,
+        _,
+        ->
+    },
 ) {
     val vm: AgendaViewModel = koinViewModel {
         parametersOf(definition)

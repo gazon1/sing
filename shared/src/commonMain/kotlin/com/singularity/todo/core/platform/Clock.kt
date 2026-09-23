@@ -29,22 +29,20 @@ expect val isDesktop: Boolean
  *
  * @param zone The time zone used to compute midnight. Defaults to system default.
  */
-fun todayFlow(zone: TimeZone = TimeZone.currentSystemDefault()): Flow<LocalDate> =
-    flow {
-        var current = todayAt(zone)
-        while (true) {
-            emit(current)
-            val delayMs = delayUntilNextMidnight(current, zone)
-            if (delayMs > 0) {
-                delay(delayMs.milliseconds)
-            }
-            current = todayAt(zone)
+fun todayFlow(zone: TimeZone = TimeZone.currentSystemDefault()): Flow<LocalDate> = flow {
+    var current = todayAt(zone)
+    while (true) {
+        emit(current)
+        val delayMs = delayUntilNextMidnight(current, zone)
+        if (delayMs > 0) {
+            delay(delayMs.milliseconds)
         }
-    }.distinctUntilChanged()
+        current = todayAt(zone)
+    }
+}.distinctUntilChanged()
 
 /** Returns today's [LocalDate] in [zone] using the standard library [Clock.System]. */
-private fun todayAt(zone: TimeZone): LocalDate =
-    Clock.System.now().toLocalDateTime(zone).date
+private fun todayAt(zone: TimeZone): LocalDate = Clock.System.now().toLocalDateTime(zone).date
 
 /**
  * Computes milliseconds until the next local midnight after [today].

@@ -123,10 +123,10 @@ class JvmSecureStorage : SecureStoragePort {
                 repeat(count) {
                     val k = dis.readUTF()
                     val ivLen = dis.readInt()
-                    val iv = ByteArray(ivLen);
+                    val iv = ByteArray(ivLen)
                     dis.readFully(iv)
                     val ctLen = dis.readInt()
-                    val ct = ByteArray(ctLen);
+                    val ct = ByteArray(ctLen)
                     dis.readFully(ct)
                     if (k == key) {
                         val cipher = Cipher.getInstance(AES_TRANSFORM)
@@ -148,17 +148,17 @@ class JvmSecureStorage : SecureStoragePort {
                     repeat(count) {
                         val k = dis.readUTF()
                         val ivLen = dis.readInt()
-                        val iv = ByteArray(ivLen);
+                        val iv = ByteArray(ivLen)
                         dis.readFully(iv)
                         val ctLen = dis.readInt()
-                        val ct = ByteArray(ctLen);
+                        val ct = ByteArray(ctLen)
                         dis.readFully(ct)
                         if (k != key) entries[k] = iv to ct
                     }
                 }
             }
         }
-        val iv = ByteArray(12);
+        val iv = ByteArray(12)
         rng.nextBytes(iv)
         val cipher = Cipher.getInstance(AES_TRANSFORM)
         cipher.init(Cipher.ENCRYPT_MODE, deriveKey(), GCMParameterSpec(TAG_BITS, iv))
@@ -170,9 +170,9 @@ class JvmSecureStorage : SecureStoragePort {
             for ((k, pair) in entries) {
                 val (iv2, ct2) = pair
                 dos.writeUTF(k)
-                dos.writeInt(iv2.size);
+                dos.writeInt(iv2.size)
                 dos.write(iv2)
-                dos.writeInt(ct2.size);
+                dos.writeInt(ct2.size)
                 dos.write(ct2)
             }
         }
@@ -187,10 +187,10 @@ class JvmSecureStorage : SecureStoragePort {
                     repeat(count) {
                         val k = dis.readUTF()
                         val ivLen = dis.readInt()
-                        val iv = ByteArray(ivLen);
+                        val iv = ByteArray(ivLen)
                         dis.readFully(iv)
                         val ctLen = dis.readInt()
-                        val ct = ByteArray(ctLen);
+                        val ct = ByteArray(ctLen)
                         dis.readFully(ct)
                         if (k != key) entries[k] = iv to ct
                     }
@@ -202,9 +202,9 @@ class JvmSecureStorage : SecureStoragePort {
             for ((k, pair) in entries) {
                 val (iv2, ct2) = pair
                 dos.writeUTF(k)
-                dos.writeInt(iv2.size);
+                dos.writeInt(iv2.size)
                 dos.write(iv2)
-                dos.writeInt(ct2.size);
+                dos.writeInt(ct2.size)
                 dos.write(ct2)
             }
         }

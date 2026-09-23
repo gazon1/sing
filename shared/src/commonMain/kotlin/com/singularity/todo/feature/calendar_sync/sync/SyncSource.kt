@@ -12,10 +12,7 @@ package com.singularity.todo.feature.calendar_sync.sync
  * @param showIndicator Whether to show a sync indicator in the UI while this sync runs.
  * @param immediate Whether this sync should bypass debounce and run immediately.
  */
-enum class SyncSource(
-    val showIndicator: Boolean,
-    val immediate: Boolean,
-) {
+enum class SyncSource(val showIndicator: Boolean, val immediate: Boolean) {
     /** Periodic background trigger from the refresh worker. May be skipped when nothing changed. */
     Periodic(showIndicator = false, immediate = false),
 

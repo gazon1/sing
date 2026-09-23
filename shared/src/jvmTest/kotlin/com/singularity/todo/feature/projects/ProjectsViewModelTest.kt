@@ -11,8 +11,8 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -20,7 +20,6 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 /**
  * Tests for [ProjectsViewModel].

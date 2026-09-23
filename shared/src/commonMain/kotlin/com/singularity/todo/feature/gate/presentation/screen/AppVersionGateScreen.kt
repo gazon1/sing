@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.feature.gate.presentation.state.AppVersionGateState
 import com.singularity.todo.feature.gate.presentation.viewmodel.AppVersionGateViewModel
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 /**

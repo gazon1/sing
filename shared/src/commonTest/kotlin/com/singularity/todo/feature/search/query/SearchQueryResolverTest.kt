@@ -17,10 +17,9 @@ class SearchQueryResolverTest {
     private val projectStore = mutableMapOf<String, FakeProjectEntity>()
 
     private val fakeTagLookup = object : TagLookup {
-        override suspend fun findByName(userId: String, name: String): TagLookupResult? =
-            tagStore.values.firstOrNull {
-                it.userId == userId && it.name.equals(name, ignoreCase = true)
-            }?.let { TagLookupResult(it.id, it.userId, it.name) }
+        override suspend fun findByName(userId: String, name: String): TagLookupResult? = tagStore.values.firstOrNull {
+            it.userId == userId && it.name.equals(name, ignoreCase = true)
+        }?.let { TagLookupResult(it.id, it.userId, it.name) }
     }
 
     private val fakeProjectLookup = object : ProjectLookup {

@@ -28,10 +28,14 @@ class DialogState<T : Any> {
     val active: T? get() = current
 
     /** Shows the given dialog. */
-    fun show(dialog: T) { current = dialog }
+    fun show(dialog: T) {
+        current = dialog
+    }
 
     /** Dismisses any active dialog. */
-    fun dismiss() { current = null }
+    fun dismiss() {
+        current = null
+    }
 }
 
 /**

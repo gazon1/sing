@@ -10,7 +10,6 @@ import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
 import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -58,5 +57,4 @@ fun projectsModule(): org.koin.core.module.Module = module {
     }
 
     // ─── Shared component ViewModels ─────────────────────────────────────────
-
 }

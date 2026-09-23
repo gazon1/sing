@@ -48,9 +48,16 @@ internal fun nextPhase(current: PomodoroState, config: PomodoroConfig): Pomodoro
     val (nextPhase, nextCycles) = when (current.phase) {
         PomodoroPhase.Work -> {
             val newCycles = current.completedCycles + 1
-            val phase = if (newCycles >= config.cyclesBeforeLongBreak) PomodoroPhase.LongBreak else PomodoroPhase.ShortBreak
+            val phase = if (newCycles >=
+                config.cyclesBeforeLongBreak
+            ) {
+                    PomodoroPhase.LongBreak
+                } else {
+                    PomodoroPhase.ShortBreak
+                }
             phase to newCycles
         }
+
         PomodoroPhase.ShortBreak, PomodoroPhase.LongBreak -> {
             val resetCycles = if (current.phase == PomodoroPhase.LongBreak) 0 else current.completedCycles
             PomodoroPhase.Work to resetCycles

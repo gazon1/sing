@@ -18,7 +18,9 @@ class NoteAiControllerTest {
 
     @Test
     fun `isAvailable returns true when improveNote is provided`() {
-        val controller = NoteAiController(improveNote = { _, _ -> Result.success(NoteAiResult.Improved("t", "<p>b</p>")) })
+        val controller = NoteAiController(
+            improveNote = { _, _ -> Result.success(NoteAiResult.Improved("t", "<p>b</p>")) },
+        )
         assertTrue(controller.isAvailable)
     }
 

@@ -11,9 +11,7 @@ internal class RemoteConfigRepositoryImpl(
 
     override val defaultConfig: Flow<RemoteConfigEntity?> = dao.watchDefault()
 
-    override suspend fun getConfig(): RemoteConfigEntity? {
-        return dao.getDefault()
-    }
+    override suspend fun getConfig(): RemoteConfigEntity? = dao.getDefault()
 
     override suspend fun saveConfig(supabaseUrl: String, anonKey: String) {
         val entity = RemoteConfigEntity(

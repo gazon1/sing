@@ -16,7 +16,6 @@ import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.feature.agenda.DataStoreDefaultAgendaViewSettingsRepository
 import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsRepository
-import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -93,7 +92,9 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
         // ── Appearance ────────────────────────────────────────────────────────────
         val DARK_THEME = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.APPEARANCE, "dark_theme"))
         val ACCENT_COLOR = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.APPEARANCE, "accent_color"))
-        val FONT_SIZE_SCALE = floatPreferencesKey(SettingsNamespace.key(SettingsNamespace.APPEARANCE, "font_size_scale"))
+        val FONT_SIZE_SCALE = floatPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.APPEARANCE, "font_size_scale"),
+        )
 
         // ── AI ─────────────────────────────────────────────────────────────────────
         val AI_PROVIDER = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.AI, "provider"))
@@ -102,28 +103,52 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
         val AI_SYSTEM_PROMPT = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.AI, "system_prompt"))
 
         // ── Notifications ─────────────────────────────────────────────────────────
-        val NOTIFICATIONS_ENABLED = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "enabled"))
+        val NOTIFICATIONS_ENABLED = booleanPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "enabled"),
+        )
         val NOTIFICATION_SOUND = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "sound"))
-        val NOTIFICATION_VIBRATION = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "vibration"))
-        val REMINDER_DEFAULT = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "reminder_default"))
+        val NOTIFICATION_VIBRATION = booleanPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "vibration"),
+        )
+        val REMINDER_DEFAULT = stringPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "reminder_default"),
+        )
 
         // ── Work Schedule ────────────────────────────────────────────────────────
-        val WORK_DAY_START_MINUTES = intPreferencesKey(SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_day_start_minutes"))
-        val WORK_DAY_END_MINUTES = intPreferencesKey(SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_day_end_minutes"))
-        val WORK_LUNCH_START_MINUTES = intPreferencesKey(SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_lunch_start_minutes"))
-        val WORK_LUNCH_END_MINUTES = intPreferencesKey(SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_lunch_end_minutes"))
-        val WORK_WEEKEND_SAT = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "weekend_sat"))
-        val WORK_WEEKEND_SUN = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "weekend_sun"))
+        val WORK_DAY_START_MINUTES = intPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_day_start_minutes"),
+        )
+        val WORK_DAY_END_MINUTES = intPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_day_end_minutes"),
+        )
+        val WORK_LUNCH_START_MINUTES = intPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_lunch_start_minutes"),
+        )
+        val WORK_LUNCH_END_MINUTES = intPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_lunch_end_minutes"),
+        )
+        val WORK_WEEKEND_SAT = booleanPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "weekend_sat"),
+        )
+        val WORK_WEEKEND_SUN = booleanPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "weekend_sun"),
+        )
 
         // ── Greeting ─────────────────────────────────────────────────────────────
-        val GREETING_MORNING_END = intPreferencesKey(SettingsNamespace.key(SettingsNamespace.GREETING, "morning_end_hour"))
-        val GREETING_AFTERNOON_END = intPreferencesKey(SettingsNamespace.key(SettingsNamespace.GREETING, "afternoon_end_hour"))
+        val GREETING_MORNING_END = intPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.GREETING, "morning_end_hour"),
+        )
+        val GREETING_AFTERNOON_END = intPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.GREETING, "afternoon_end_hour"),
+        )
 
         // ── Account ─────────────────────────────────────────────────────────────
         val USER_ID = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.ACCOUNT, "user_id"))
 
         // ── Agenda ────────────────────────────────────────────────────────────────
-        val DEFAULT_SAVED_AGENDA_VIEW_ID = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.AGENDA, "default_view_id"))
+        val DEFAULT_SAVED_AGENDA_VIEW_ID = stringPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.AGENDA, "default_view_id"),
+        )
     }
 
     // ── Per-section repositories ───────────────────────────────────────────

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import com.singularity.todo.core.settings.SettingsIntent
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CloudUpload
@@ -42,11 +41,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.llm.AiTestResult
+import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.backup.BackupScreen
 import com.singularity.todo.feature.backup.BackupViewModel
+import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncSettingsScreen
 import com.singularity.todo.feature.profile.presentation.AccountSettingsScreen
 import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
 import com.singularity.todo.feature.settings.screens.AgendaSettingsScreen
@@ -55,7 +56,6 @@ import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
-import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncSettingsScreen
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -93,7 +93,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         when (val state = uiState) {
             is SettingsUiState.Loading -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
 
-            is SettingsUiState.Error -> EmptyState(title = "Error", subtitle = state.cause.toString(), modifier = Modifier.padding(paddingValues))
+            is SettingsUiState.Error -> EmptyState(
+                title = "Error",
+                subtitle = state.cause.toString(),
+                modifier = Modifier.padding(paddingValues),
+            )
 
             is SettingsUiState.Content -> SettingsContent(
                 state = state,

@@ -54,17 +54,15 @@ class NoteEditorTest {
         override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
     }
 
-    private fun createVm(
-        notesRepo: FakeNotesRepository = FakeNotesRepository(),
-        scope: CoroutineScope,
-    ): NoteEditor = NoteEditor(
-        repo = notesRepo,
-        linkRepo = emptyLinkRepo,
-        idGen = FakeIdGenerator("note"),
-        ai = NoteAiController(improveNote = null),
-        log = Logger.withTag("NoteEditor"),
-        scope = testScope(scope),
-    )
+    private fun createVm(notesRepo: FakeNotesRepository = FakeNotesRepository(), scope: CoroutineScope): NoteEditor =
+        NoteEditor(
+            repo = notesRepo,
+            linkRepo = emptyLinkRepo,
+            idGen = FakeIdGenerator("note"),
+            ai = NoteAiController(improveNote = null),
+            log = Logger.withTag("NoteEditor"),
+            scope = testScope(scope),
+        )
 
     @Test
     fun `openEditor loads Editing state`() = runTest {

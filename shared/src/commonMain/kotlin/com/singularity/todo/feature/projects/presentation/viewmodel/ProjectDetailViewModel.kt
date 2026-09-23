@@ -30,7 +30,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -93,8 +92,8 @@ class ProjectDetailViewModel(
             emptyList()
         } else {
             allProjects
-            .filter { it.id != project.id && it.parentId == null && !it.isDeleted }
-            .map { ParentOption(it.id, it.name, it.id == project.parentId) }
+                .filter { it.id != project.id && it.parentId == null && !it.isDeleted }
+                .map { ParentOption(it.id, it.name, it.id == project.parentId) }
         }
     }.stateIn(scope, sharingStarted(), emptyList())
 
@@ -135,7 +134,7 @@ class ProjectDetailViewModel(
             if (p == null || p.parentId == null) {
                 flowOf(null)
             } else {
-                    projectRepo.observe(p.parentId)
+                projectRepo.observe(p.parentId)
             }
         },
         _hideCompleted,
@@ -252,8 +251,8 @@ class ProjectDetailViewModel(
                         .onFailure { e ->
                             _events.trySend(
                                 ProjectDetailUiEvent.ShowError(
-                                (e as? AppError)?.message ?: e.message ?: "Delete failed",
-                            )
+                                    (e as? AppError)?.message ?: e.message ?: "Delete failed",
+                                ),
                             )
                         }
                 }
@@ -272,8 +271,8 @@ class ProjectDetailViewModel(
                     ).onFailure { e ->
                         _events.trySend(
                             ProjectDetailUiEvent.ShowError(
-                            (e as? AppError)?.message ?: e.message ?: "Create task failed",
-                        )
+                                (e as? AppError)?.message ?: e.message ?: "Create task failed",
+                            ),
                         )
                     }
                 }
@@ -285,8 +284,8 @@ class ProjectDetailViewModel(
                         .onFailure { e ->
                             _events.trySend(
                                 ProjectDetailUiEvent.ShowError(
-                                (e as? AppError)?.message ?: e.message ?: "Move task failed",
-                            )
+                                    (e as? AppError)?.message ?: e.message ?: "Move task failed",
+                                ),
                             )
                         }
                 }
@@ -311,8 +310,8 @@ class ProjectDetailViewModel(
                         .onFailure { e ->
                             _events.trySend(
                                 ProjectDetailUiEvent.ShowError(
-                                (e as? AppError)?.message ?: e.message ?: "Delete task failed",
-                            )
+                                    (e as? AppError)?.message ?: e.message ?: "Delete task failed",
+                                ),
                             )
                         }
                 }

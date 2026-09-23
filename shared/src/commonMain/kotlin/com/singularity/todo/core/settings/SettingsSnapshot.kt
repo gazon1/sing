@@ -1,8 +1,5 @@
 package com.singularity.todo.core.settings
 
-import com.singularity.todo.core.llm.LlmProvider
-import com.singularity.todo.core.reminders.ReminderOffset
-import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlinx.serialization.Serializable
 
 /**
@@ -67,10 +64,7 @@ data class WorkScheduleSnapshot(
 )
 
 @Serializable
-data class GreetingSnapshot(
-    val morningEndHour: Int = 12,
-    val afternoonEndHour: Int = 18,
-)
+data class GreetingSnapshot(val morningEndHour: Int = 12, val afternoonEndHour: Int = 18)
 
 @Serializable
 data class DefaultAgendaViewSnapshot(

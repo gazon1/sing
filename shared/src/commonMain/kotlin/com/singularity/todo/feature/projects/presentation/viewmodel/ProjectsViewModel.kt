@@ -107,7 +107,13 @@ class ProjectsViewModel(
     fun delete(id: ProjectId) {
         scope.fireAndForget(
             errorLabel = "Delete project failed",
-            onError = { e -> scope.launch { _events.trySend(ProjectsUiEvent.Error("Delete project failed: ${e.message ?: "unknown"}")) } },
+            onError = { e ->
+                scope.launch {
+                    _events.trySend(
+                        ProjectsUiEvent.Error("Delete project failed: ${e.message ?: "unknown"}"),
+                    )
+                }
+            },
         ) {
             deleteProject(id)
         }

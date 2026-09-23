@@ -46,14 +46,12 @@ class ProfileRepositoryImpl(
 
     // ── GenericUserScopedRepository ────────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<Profile>> =
-        profileDao.all().map { entities -> entities.map { it.toDomain() } }
+    override fun observeAll(): Flow<List<Profile>> = profileDao.all().map { entities -> entities.map { it.toDomain() } }
 
     override fun observe(id: ProfileId): Flow<Profile?> =
         profileDao.all().map { entities -> entities.find { it.id == id.value }?.toDomain() }
 
-    override suspend fun get(id: ProfileId): Profile? =
-        profileDao.getById(id.value)?.toDomain()
+    override suspend fun get(id: ProfileId): Profile? = profileDao.getById(id.value)?.toDomain()
 
     override suspend fun create(item: Profile): Result<Profile> = runCatching {
         val entity = item.toEntity()

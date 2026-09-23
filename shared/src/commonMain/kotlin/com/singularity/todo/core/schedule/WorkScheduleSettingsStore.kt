@@ -11,16 +11,17 @@ import kotlinx.coroutines.flow.combine
  * Contributes [SettingsSection.WorkSchedule] to the unified settings UI.
  * Registration: `single<SettingsContributor> { WorkScheduleSettingsContributor(get()) }`.
  */
-class WorkScheduleSettingsStore(
-    private val workSchedule: WorkScheduleSettingsRepository,
-) {
+class WorkScheduleSettingsStore(private val workSchedule: WorkScheduleSettingsRepository) {
     /**
      * Work schedule section — all 6 fields from [WorkScheduleSettingsRepository].
      * Chained combine() calls avoid type-inference issues with 6-flow overloads.
      */
     fun observe(): Flow<SettingsSection.WorkSchedule> = combine(
         combine(workSchedule.dayStartMinutes, workSchedule.dayEndMinutes) { dayStart, dayEnd -> dayStart to dayEnd },
-        combine(workSchedule.lunchStartMinutes, workSchedule.lunchEndMinutes) { lunchStart, lunchEnd -> lunchStart to lunchEnd },
+        combine(
+            workSchedule.lunchStartMinutes,
+            workSchedule.lunchEndMinutes,
+        ) { lunchStart, lunchEnd -> lunchStart to lunchEnd },
         combine(workSchedule.weekendSat, workSchedule.weekendSun) { sat, sun -> sat to sun },
     ) { (dayStart, dayEnd), (lunchStart, lunchEnd), (weekendSat, weekendSun) ->
         SettingsSection.WorkSchedule(

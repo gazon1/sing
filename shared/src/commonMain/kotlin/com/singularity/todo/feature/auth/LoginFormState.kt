@@ -13,11 +13,7 @@ import com.singularity.todo.core.ui.components.FormState
  * @param password  User's password.
  * @param isSignUp  `true` for sign-up mode, `false` for sign-in mode.
  */
-data class LoginForm(
-    val email: String = "",
-    val password: String = "",
-    val isSignUp: Boolean = false,
-)
+data class LoginForm(val email: String = "", val password: String = "", val isSignUp: Boolean = false)
 
 /**
  * Form state for the login / sign-up screen.

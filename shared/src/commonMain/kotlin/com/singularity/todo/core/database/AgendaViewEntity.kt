@@ -2,7 +2,6 @@ package com.singularity.todo.core.database
 
 import androidx.room3.ColumnInfo
 import androidx.room3.Entity
-import androidx.room3.Index
 
 /**
  * Persisted saved agenda view.

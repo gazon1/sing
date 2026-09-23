@@ -3,27 +3,27 @@ package com.singularity.todo
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import com.singularity.todo.core.appearance.AppearanceSettingsRepository
 import com.singularity.todo.core.auth.AuthGuard
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
-import com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen
-import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AgendaStartRoute
+import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
 import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.rememberNav3State
+import com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen
 import org.koin.compose.koinInject
 
 private const val PLAY_STORE_URI = "market://details?id=com.singularity.todo"
@@ -96,6 +96,7 @@ private fun AppContent(
             deeplinkTaskId != null -> {
                 navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(deeplinkTaskId)))
             }
+
             deeplinkViewId != null -> {
                 navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(deeplinkViewId)))
             }

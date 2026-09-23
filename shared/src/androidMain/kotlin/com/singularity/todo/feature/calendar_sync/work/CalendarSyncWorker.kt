@@ -15,7 +15,6 @@ import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSync
 import com.singularity.todo.feature.calendar_sync.error.CalendarSyncException
 import com.singularity.todo.feature.calendar_sync.error.FailureType
 import com.singularity.todo.feature.reminders.ReminderRepository
-import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
 import org.koin.core.component.KoinComponent
@@ -37,10 +36,9 @@ import org.koin.core.component.inject
  * @param context Android context.
  * @param params  Worker parameters.
  */
-class CalendarSyncWorker(
-    context: Context,
-    params: WorkerParameters,
-) : CoroutineWorker(context, params), KoinComponent {
+class CalendarSyncWorker(context: Context, params: WorkerParameters) :
+    CoroutineWorker(context, params),
+    KoinComponent {
 
     private val taskRepo: TaskRepository by inject()
     private val reminderRepo: ReminderRepository by inject()
@@ -151,7 +149,6 @@ class CalendarSyncWorker(
             )
 
             if (errors > 0) Result.retry() else Result.success()
-
         } catch (e: CalendarSyncException) {
             val type = when (e) {
                 is CalendarSyncException.PermissionRevokedException -> FailureType.PermissionRevoked

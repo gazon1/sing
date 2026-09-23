@@ -25,46 +25,52 @@ class JvmNotificationPort : NotificationPort {
                 .waitFor() == 0
         }.getOrDefault(false)
 
-    override suspend fun scheduleAt(key: String, title: String, body: String, fireAtEpochMs: Long, payload: String?, viewId: String?) =
-        withContext(Dispatchers.IO) {
-            if (!isAvailable) return@withContext
+    override suspend fun scheduleAt(
+        key: String,
+        title: String,
+        body: String,
+        fireAtEpochMs: Long,
+        payload: String?,
+        viewId: String?,
+    ) = withContext(Dispatchers.IO) {
+        if (!isAvailable) return@withContext
 
-            val instant = Instant.ofEpochMilli(fireAtEpochMs)
-            val local = LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
-            val atTime = "%02d:%02d %02d/%02d/%04d".format(
-                local.hour,
-                local.minute,
-                local.dayOfMonth,
-                local.monthValue,
-                local.year,
-            )
+        val instant = Instant.ofEpochMilli(fireAtEpochMs)
+        val local = LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
+        val atTime = "%02d:%02d %02d/%02d/%04d".format(
+            local.hour,
+            local.minute,
+            local.dayOfMonth,
+            local.monthValue,
+            local.year,
+        )
 
-            // Build the notify-send command that at(1) will invoke
-            val notifyCmd = listOf(
-                "notify-send",
-                "--urgency=normal",
-                "--app-name=Singularity",
-                "--icon=dialog-information",
-                title,
-                body,
-            )
+        // Build the notify-send command that at(1) will invoke
+        val notifyCmd = listOf(
+            "notify-send",
+            "--urgency=normal",
+            "--app-name=Singularity",
+            "--icon=dialog-information",
+            title,
+            body,
+        )
 
-            // at(1) reads the command from stdin; schedule it
-            val atJob = ProcessBuilder("at", atTime)
-                .redirectErrorStream(true)
-                .start()
+        // at(1) reads the command from stdin; schedule it
+        val atJob = ProcessBuilder("at", atTime)
+            .redirectErrorStream(true)
+            .start()
 
-            atJob.outputStream.bufferedWriter().use { w ->
-                w.write(notifyCmd.joinToString(" ") { shquote(it) })
-                w.newLine()
-            }
-
-            val exit = atJob.waitFor()
-            if (exit != 0) {
-                // Fallback: fire immediately if at daemon isn't running
-                fireNow(title, body)
-            }
+        atJob.outputStream.bufferedWriter().use { w ->
+            w.write(notifyCmd.joinToString(" ") { shquote(it) })
+            w.newLine()
         }
+
+        val exit = atJob.waitFor()
+        if (exit != 0) {
+            // Fallback: fire immediately if at daemon isn't running
+            fireNow(title, body)
+        }
+    }
 
     override suspend fun cancel(key: String) {
         withContext(Dispatchers.IO) {

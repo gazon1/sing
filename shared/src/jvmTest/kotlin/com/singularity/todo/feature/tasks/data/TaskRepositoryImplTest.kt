@@ -92,11 +92,7 @@ class TaskRepositoryImplTest {
         assertEquals("New Task", observed.title)
     }
 
-    private fun makeTask(
-        id: TaskId = TaskId.generate(),
-        title: String,
-        userId: UserId,
-    ): Task = Task(
+    private fun makeTask(id: TaskId = TaskId.generate(), title: String, userId: UserId): Task = Task(
         id = id,
         title = title,
         description = null,

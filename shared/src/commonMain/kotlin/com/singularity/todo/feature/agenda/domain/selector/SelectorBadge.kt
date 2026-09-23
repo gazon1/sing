@@ -60,9 +60,7 @@ interface SelectorTransformer {
         fun all(vararg transformers: SelectorTransformer): SelectorTransformer =
             CompositeTransformer(transformers.toList())
 
-        private class CompositeTransformer(
-            private val transformers: List<SelectorTransformer>,
-        ) : SelectorTransformer {
+        private class CompositeTransformer(private val transformers: List<SelectorTransformer>) : SelectorTransformer {
             override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
 
             override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? {
@@ -117,7 +115,9 @@ object DefaultBadgeRules {
         override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? =
             if (task.dueDate != null && task.dueDate < today && !task.isCompleted) {
                 AgendaBadge.Overdue
-            } else null
+            } else {
+                null
+            }
     }
 
     /**

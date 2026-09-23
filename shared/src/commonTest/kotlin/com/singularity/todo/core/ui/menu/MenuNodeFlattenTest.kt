@@ -11,15 +11,14 @@ import kotlin.test.assertEquals
  */
 class MenuNodeFlattenTest {
 
-    private fun flatten(nodes: List<MenuNode>): List<MenuNode> =
-        buildList {
-            for (node in nodes) {
-                add(node)
-                if (node is MenuNode.SubMenu) {
-                    addAll(flatten(node.children))
-                }
+    private fun flatten(nodes: List<MenuNode>): List<MenuNode> = buildList {
+        for (node in nodes) {
+            add(node)
+            if (node is MenuNode.SubMenu) {
+                addAll(flatten(node.children))
             }
         }
+    }
 
     @Test
     fun `flatten empty list`() {
@@ -59,13 +58,22 @@ class MenuNodeFlattenTest {
     @Test
     fun `flatten deep nesting`() {
         val nodes = buildMenuNodes {
-            subMenu("l1", "Level 1", children = buildMenuNodes {
-                subMenu("l2", "Level 2", children = buildMenuNodes {
-                    subMenu("l3", "Level 3", children = buildMenuNodes {
+            subMenu(
+                "l1", "Level 1",
+                children = buildMenuNodes {
+                subMenu(
+                    "l2", "Level 2",
+                    children = buildMenuNodes {
+                    subMenu(
+                        "l3", "Level 3",
+                        children = buildMenuNodes {
                         item("deep", "Deepest") {}
-                    })
-                })
-            })
+                    }
+                    )
+                }
+                )
+            }
+            )
         }
         // 1 (l1) + 1 (l2) + 1 (l3) + 1 (deepest) = 4
         assertEquals(4, flatten(nodes).size)
@@ -74,13 +82,19 @@ class MenuNodeFlattenTest {
     @Test
     fun `flatten with multiple submenus`() {
         val nodes = buildMenuNodes {
-            subMenu("a", "A", children = buildMenuNodes {
+            subMenu(
+                "a", "A",
+                children = buildMenuNodes {
                 item("a1", "A1") {}
                 item("a2", "A2") {}
-            })
-            subMenu("b", "B", children = buildMenuNodes {
+            }
+            )
+            subMenu(
+                "b", "B",
+                children = buildMenuNodes {
                 item("b1", "B1") {}
-            })
+            }
+            )
         }
         // a + a1 + a2 + b + b1 = 5
         assertEquals(5, flatten(nodes).size)

@@ -20,14 +20,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -35,9 +35,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import kotlinx.coroutines.delay
 
 /** State that opens a context menu at a given screen offset. */
-data class ContextMenuOpenState(
-    val offset: DpOffset,
-)
+data class ContextMenuOpenState(val offset: DpOffset)
 
 /**
  * Generic context menu renderer.
@@ -48,11 +46,7 @@ data class ContextMenuOpenState(
  */
 @Suppress("DEPRECATION")
 @Composable
-fun ContextMenuHost(
-    openState: ContextMenuOpenState?,
-    onDismiss: () -> Unit,
-    entries: List<MenuNode>,
-) {
+fun ContextMenuHost(openState: ContextMenuOpenState?, onDismiss: () -> Unit, entries: List<MenuNode>) {
     if (openState == null) return
 
     val density = LocalDensity.current
@@ -75,11 +69,7 @@ fun ContextMenuHost(
 }
 
 @Composable
-private fun MenuPanel(
-    entries: List<MenuNode>,
-    onDismissAll: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun MenuPanel(entries: List<MenuNode>, onDismissAll: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .width(220.dp)
@@ -96,10 +86,7 @@ private fun MenuPanel(
 }
 
 @Composable
-private fun MenuPanelItem(
-    node: MenuNode,
-    onDismissAll: () -> Unit,
-) {
+private fun MenuPanelItem(node: MenuNode, onDismissAll: () -> Unit) {
     var isHovered by remember { mutableStateOf(false) }
     var openSubMenu by remember { mutableStateOf(false) }
 
@@ -135,10 +122,7 @@ private fun MenuPanelItem(
 }
 
 @Composable
-private fun ActionMenuRow(
-    node: MenuNode.Action,
-    onClick: () -> Unit,
-) {
+private fun ActionMenuRow(node: MenuNode.Action, onClick: () -> Unit) {
     val textColor = if (node.enabled) {
         if (node.danger) TaskListColors.Danger else TaskListColors.TextPrimary
     } else {

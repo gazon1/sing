@@ -37,4 +37,3 @@ class JvmPomodoroTimer : PomodoroTimer {
         // No-op on JVM
     }
 }
-

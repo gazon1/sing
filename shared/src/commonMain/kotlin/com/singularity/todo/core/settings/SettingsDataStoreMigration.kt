@@ -129,18 +129,32 @@ class SettingsDataStoreMigration(
             legacy[AI_SYSTEM_PROMPT_LEGACY]?.let { target[DataStoreSettingsRepository.AI_SYSTEM_PROMPT] = it as String }
             legacy[NOTIFICATIONS_ENABLED_LEGACY]?.let { target[DataStoreSettingsRepository.NOTIFICATIONS_ENABLED] = it }
             legacy[NOTIFICATION_SOUND_LEGACY]?.let { target[DataStoreSettingsRepository.NOTIFICATION_SOUND] = it }
-            legacy[NOTIFICATION_VIBRATION_LEGACY]?.let { target[DataStoreSettingsRepository.NOTIFICATION_VIBRATION] = it }
+            legacy[NOTIFICATION_VIBRATION_LEGACY]?.let {
+                target[DataStoreSettingsRepository.NOTIFICATION_VIBRATION] = it
+            }
             legacy[REMINDER_DEFAULT_LEGACY]?.let { target[DataStoreSettingsRepository.REMINDER_DEFAULT] = it as String }
-            legacy[WORK_DAY_START_MINUTES_LEGACY]?.let { target[DataStoreSettingsRepository.WORK_DAY_START_MINUTES] = it }
+            legacy[WORK_DAY_START_MINUTES_LEGACY]?.let {
+                target[DataStoreSettingsRepository.WORK_DAY_START_MINUTES] = it
+            }
             legacy[WORK_DAY_END_MINUTES_LEGACY]?.let { target[DataStoreSettingsRepository.WORK_DAY_END_MINUTES] = it }
-            legacy[WORK_LUNCH_START_MINUTES_LEGACY]?.let { target[DataStoreSettingsRepository.WORK_LUNCH_START_MINUTES] = it }
-            legacy[WORK_LUNCH_END_MINUTES_LEGACY]?.let { target[DataStoreSettingsRepository.WORK_LUNCH_END_MINUTES] = it }
+            legacy[WORK_LUNCH_START_MINUTES_LEGACY]?.let {
+                target[DataStoreSettingsRepository.WORK_LUNCH_START_MINUTES] =
+                    it
+            }
+            legacy[WORK_LUNCH_END_MINUTES_LEGACY]?.let {
+                target[DataStoreSettingsRepository.WORK_LUNCH_END_MINUTES] = it
+            }
             legacy[WORK_WEEKEND_SAT_LEGACY]?.let { target[DataStoreSettingsRepository.WORK_WEEKEND_SAT] = it }
             legacy[WORK_WEEKEND_SUN_LEGACY]?.let { target[DataStoreSettingsRepository.WORK_WEEKEND_SUN] = it }
             legacy[GREETING_MORNING_END_LEGACY]?.let { target[DataStoreSettingsRepository.GREETING_MORNING_END] = it }
-            legacy[GREETING_AFTERNOON_END_LEGACY]?.let { target[DataStoreSettingsRepository.GREETING_AFTERNOON_END] = it }
+            legacy[GREETING_AFTERNOON_END_LEGACY]?.let {
+                target[DataStoreSettingsRepository.GREETING_AFTERNOON_END] = it
+            }
             legacy[USER_ID_LEGACY]?.let { target[DataStoreSettingsRepository.USER_ID] = it as String }
-            legacy[DEFAULT_SAVED_AGENDA_VIEW_ID_LEGACY]?.let { target[DataStoreSettingsRepository.DEFAULT_SAVED_AGENDA_VIEW_ID] = it as String }
+            legacy[DEFAULT_SAVED_AGENDA_VIEW_ID_LEGACY]?.let {
+                target[DataStoreSettingsRepository.DEFAULT_SAVED_AGENDA_VIEW_ID] =
+                    it as String
+            }
         }
 
         // Mark migration done

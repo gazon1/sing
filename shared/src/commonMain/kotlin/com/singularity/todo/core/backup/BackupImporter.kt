@@ -57,33 +57,33 @@ class BackupImporter(
         for (task in migratedPayload.tasks) {
             taskDao.upsert(
                 task.toEntity(options.targetUserId.value).copy(
-                updatedAt = now,
-                createdAt = task.createdAt,
-            )
+                    updatedAt = now,
+                    createdAt = task.createdAt,
+                ),
             )
         }
         for (note in migratedPayload.notes) {
             noteDao.upsert(
                 note.toEntity(options.targetUserId.value).copy(
-                updatedAt = now,
-                createdAt = note.createdAt,
-            )
+                    updatedAt = now,
+                    createdAt = note.createdAt,
+                ),
             )
         }
         for (project in migratedPayload.projects) {
             projectDao.upsert(
                 project.toEntity(options.targetUserId.value).copy(
-                updatedAt = now,
-                createdAt = project.createdAt,
-            )
+                    updatedAt = now,
+                    createdAt = project.createdAt,
+                ),
             )
         }
         for (tag in migratedPayload.tags) {
             tagDao.upsert(
                 tag.toEntity(options.targetUserId.value).copy(
-                updatedAt = now,
-                createdAt = tag.createdAt,
-            )
+                    updatedAt = now,
+                    createdAt = tag.createdAt,
+                ),
             )
         }
         for (taskTag in migratedPayload.taskTags) {

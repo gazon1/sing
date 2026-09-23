@@ -24,11 +24,7 @@ internal object ReminderFireLogic {
      *                     When `false`, the reminder is kept (recurring reminders are
      *                     re-scheduled by callers after each fire).
      */
-    data class Outcome(
-        val title: String,
-        val body: String,
-        val shouldDelete: Boolean,
-    )
+    data class Outcome(val title: String, val body: String, val shouldDelete: Boolean)
 
     /**
      * Computes the notification content and post-fire disposition for [reminder].

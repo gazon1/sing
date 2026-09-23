@@ -14,9 +14,7 @@ import java.util.concurrent.TimeUnit
  * Uses `ExistingWorkPolicy.KEEP` so concurrent `enqueueSync()` calls while a
  * job is running are idempotent.
  */
-class AndroidCalendarSyncWorkScheduler(
-    private val context: Context,
-) : CalendarSyncWorkScheduler {
+class AndroidCalendarSyncWorkScheduler(private val context: Context) : CalendarSyncWorkScheduler {
 
     private val workManager: WorkManager
         get() = WorkManager.getInstance(context)

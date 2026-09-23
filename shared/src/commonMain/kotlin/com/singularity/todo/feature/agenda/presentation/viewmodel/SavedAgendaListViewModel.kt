@@ -11,21 +11,18 @@ import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.ProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
  * Dependencies for [SavedAgendaListViewModel].
  */
-data class SavedAgendaListDeps(
-    val repo: SavedAgendaViewsRepository,
-    val profileRepo: ProfileRepository,
-)
+data class SavedAgendaListDeps(val repo: SavedAgendaViewsRepository, val profileRepo: ProfileRepository)
 
 /**
  * UI state for the saved agenda views list screen.
@@ -109,7 +106,12 @@ class SavedAgendaListViewModel(
                     )
                     deps.repo.upsert(copy)
                         .onSuccess {
-                            _events.trySend(SavedAgendaListEvent.CopySuccess(sourceView.name.ifBlank { "Untitled" }, targetProfile.name))
+                            _events.trySend(
+                                SavedAgendaListEvent.CopySuccess(
+                                    sourceView.name.ifBlank { "Untitled" },
+                                    targetProfile.name,
+                                ),
+                            )
                         }
                         .onFailure {
                             _events.trySend(SavedAgendaListEvent.ShowError(it.message ?: "Copy failed"))

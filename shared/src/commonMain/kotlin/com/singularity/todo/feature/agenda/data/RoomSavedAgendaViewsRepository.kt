@@ -23,15 +23,13 @@ class RoomSavedAgendaViewsRepository(
 
     override suspend fun currentUserId(): String = currentUser.scopedUserId.value.value
 
-    override fun observeAll(): Flow<List<SavedAgendaView>> =
-        currentUser.observeForCurrentUser { uid ->
-            agendaViewDao.watchAll(uid.value).map { entities -> entities.map { it.toDomain() } }
-        }
+    override fun observeAll(): Flow<List<SavedAgendaView>> = currentUser.observeForCurrentUser { uid ->
+        agendaViewDao.watchAll(uid.value).map { entities -> entities.map { it.toDomain() } }
+    }
 
-    override fun observe(id: SavedAgendaViewId): Flow<SavedAgendaView?> =
-        currentUser.observeForCurrentUser { uid ->
-            agendaViewDao.watchById(uid.value, id.raw).map { it?.toDomain() }
-        }
+    override fun observe(id: SavedAgendaViewId): Flow<SavedAgendaView?> = currentUser.observeForCurrentUser { uid ->
+        agendaViewDao.watchById(uid.value, id.raw).map { it?.toDomain() }
+    }
 
     override suspend fun get(id: SavedAgendaViewId): SavedAgendaView? {
         val uid = currentUser.scopedUserId.value
@@ -42,19 +40,17 @@ class RoomSavedAgendaViewsRepository(
 
     override suspend fun update(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
 
-    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> {
-        return runCatching {
-            val uid = currentUser.scopedUserId.value
-            val toInsert = if (view.userId == uid.value || view.userId == "") {
-                view.copy(userId = uid.value)
-            } else {
-                throw IllegalStateException(
-                    "Cross-user SavedAgendaView upsert: view.userId=${view.userId}, current=${uid.value}",
-                )
-            }
-            agendaViewDao.upsert(toInsert.toEntity())
-            toInsert
+    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        val toInsert = if (view.userId == uid.value || view.userId == "") {
+            view.copy(userId = uid.value)
+        } else {
+            throw IllegalStateException(
+                "Cross-user SavedAgendaView upsert: view.userId=${view.userId}, current=${uid.value}",
+            )
         }
+        agendaViewDao.upsert(toInsert.toEntity())
+        toInsert
     }
 
     override suspend fun duplicateForProfile(view: SavedAgendaView, targetUserId: String): Result<SavedAgendaView> {
@@ -68,11 +64,9 @@ class RoomSavedAgendaViewsRepository(
         return upsert(copy)
     }
 
-    override suspend fun delete(id: SavedAgendaViewId): Result<Unit> {
-        return runCatching {
-            val uid = currentUser.scopedUserId.value
-            agendaViewDao.delete(uid.value, id.raw)
-        }
+    override suspend fun delete(id: SavedAgendaViewId): Result<Unit> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        agendaViewDao.delete(uid.value, id.raw)
     }
 
     // ─── Mapping ───────────────────────────────────────────────────────────────

@@ -8,7 +8,6 @@ import com.singularity.todo.core.backup.AndroidBackupCodec
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.SavedSearchDao
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.files.AndroidFileRevealer
 import com.singularity.todo.core.files.AndroidFileSystem
@@ -31,9 +30,8 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPo
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.work.AndroidCalendarSyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
-import com.singularity.todo.core.log.LogExporter
-import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTaskListProvider
+import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroAlarmScheduler
 import com.singularity.todo.feature.pomodoro.PomodoroConfig
 import com.singularity.todo.feature.pomodoro.PomodoroScheduler
@@ -45,7 +43,6 @@ import com.singularity.todo.feature.settings.AiApiKeyMigration
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.runBlocking
 import org.koin.core.module.Module
-import org.koin.core.module.dsl.viewModel
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -229,5 +226,4 @@ actual fun platformModule(): Module = module {
     single<CalendarSyncWorkScheduler> {
         AndroidCalendarSyncWorkScheduler(get())
     }
-
 }

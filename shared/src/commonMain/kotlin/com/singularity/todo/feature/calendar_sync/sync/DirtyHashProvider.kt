@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.calendar_sync.sync
 
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
-import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
 
@@ -22,10 +21,7 @@ import kotlinx.coroutines.flow.first
  * @param taskRepo Source of all active tasks.
  * @param syncRepo Source of sync settings (enabled, calendarId, appPackage).
  */
-class DirtyHashProvider(
-    private val taskRepo: TaskRepository,
-    private val syncRepo: CalendarSyncRepository,
-) {
+class DirtyHashProvider(private val taskRepo: TaskRepository, private val syncRepo: CalendarSyncRepository) {
 
     /**
      * Returns a stable integer hash for the current sync-relevant state.

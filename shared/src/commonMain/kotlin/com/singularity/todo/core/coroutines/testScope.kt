@@ -2,7 +2,6 @@ package com.singularity.todo.core.coroutines
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -41,5 +40,4 @@ fun testScope(scope: CoroutineScope): AutoCloseableCoroutineScope {
 /**
  * Shorthand for creating an [AutoCloseableCoroutineScope] from a bare [CoroutineContext].
  */
-fun testScope(context: CoroutineContext): AutoCloseableCoroutineScope =
-    AutoCloseableCoroutineScope(context)
+fun testScope(context: CoroutineContext): AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(context)

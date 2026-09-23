@@ -14,11 +14,8 @@ import kotlinx.coroutines.flow.stateIn
  * Converts the [TaskRepository] flow to a [StateFlow] via [stateIn] so callers
  * always have synchronous read access to the current task list.
  */
-class AndroidPomodoroTaskListProvider(
-    private val taskRepository: TaskRepository,
-) : PomodoroTaskListProvider {
+class AndroidPomodoroTaskListProvider(private val taskRepository: TaskRepository) : PomodoroTaskListProvider {
 
-    override fun tasks(): StateFlow<List<Task>> =
-        taskRepository.observeByFilter(TaskFilter.Inbox)
-            .stateIn(MainScope(), SharingStarted.Eagerly, emptyList())
+    override fun tasks(): StateFlow<List<Task>> = taskRepository.observeByFilter(TaskFilter.Inbox)
+        .stateIn(MainScope(), SharingStarted.Eagerly, emptyList())
 }

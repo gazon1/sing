@@ -25,7 +25,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,15 +43,11 @@ import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
-import com.singularity.todo.core.ui.components.OverlayState
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.notes.EditorSession
 import com.singularity.todo.feature.notes.EditorState
-import com.singularity.todo.feature.notes.LinkKind
-import com.singularity.todo.feature.notes.urlFor
 import com.singularity.todo.feature.notes.LinkResult
-import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.components.EditorToolbar
 import com.singularity.todo.feature.notes.components.InternalLinkPickerSheet
@@ -61,7 +56,7 @@ import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.rememberEditorSession
-import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.notes.urlFor
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration.Companion.milliseconds
@@ -255,7 +250,7 @@ fun NoteEditorScreenContent(
                 val tasks = searchTasksForLink?.invoke(q) ?: emptyList()
                 notes + tasks
             },
-                onSelected = { result ->
+            onSelected = { result ->
                 val url = result.kind.urlFor(result.id)
                 session?.richTextState?.addLinkToSelection(url = url)
                 session?.recordLink(url)
@@ -274,10 +269,7 @@ fun NoteEditorScreenContent(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditorTitleAndBody(
-    session: EditorSession,
-    onTitleChange: (String) -> Unit,
-) {
+private fun EditorTitleAndBody(session: EditorSession, onTitleChange: (String) -> Unit) {
     val richTextState = session.richTextState
 
     Column(modifier = Modifier.fillMaxWidth()) {

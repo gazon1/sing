@@ -7,11 +7,9 @@ import androidx.compose.runtime.Composable
  * Calendar sync is Android-only — JVM always reports permissions as granted.
  */
 @Composable
-actual fun rememberCalendarPermissionRequester(): CalendarPermissionRequester {
-    return object : CalendarPermissionRequester {
-        override val hasPermissions: Boolean get() = true
-        override fun requestPermissions() {
-            // No-op on JVM
-        }
+actual fun rememberCalendarPermissionRequester(): CalendarPermissionRequester = object : CalendarPermissionRequester {
+    override val hasPermissions: Boolean get() = true
+    override fun requestPermissions() {
+        // No-op on JVM
     }
 }

@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.tasks.data
 
-import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.SyncColumns
+import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
@@ -43,104 +43,99 @@ class TaskRepositoryImpl(
 
     // ── GenericUserScopedRepository ───────────────────────────────────────────
 
-    override suspend fun currentUserId(): com.singularity.todo.core.ids.UserId =
-        currentUser.scopedUserId.value
+    override suspend fun currentUserId(): com.singularity.todo.core.ids.UserId = currentUser.scopedUserId.value
 
-    override fun observeAll(): Flow<List<Task>> =
-        currentUser.observeForCurrentUser { uid ->
-            taskDao.watchActive(uid.value).map { it.map { e -> e.toTask() } }
+    override fun observeAll(): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
+        taskDao.watchActive(uid.value).map { it.map { e -> e.toTask() } }
+    }
+
+    override fun observe(id: TaskId): Flow<Task?> = currentUser.observeForCurrentUser { uid ->
+        taskDao.watchById(id.value).map { entity ->
+            if (entity?.userId == uid.value) entity.toTask() else null
         }
+    }
 
-    override fun observe(id: TaskId): Flow<Task?> =
-        currentUser.observeForCurrentUser { uid ->
-            taskDao.watchById(id.value).map { entity ->
-                if (entity?.userId == uid.value) entity.toTask() else null
+    override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
+        val today = LocalDate.fromEpochDays(
+            clock.now().toEpochMilliseconds() / (24 * 60 * 60 * 1000),
+        ).toString()
+
+        when (filter) {
+            is TaskFilter.Today -> taskDao.watchByDate(uid.value, today).map { it.map { e -> e.toTask() } }
+
+            is TaskFilter.Upcoming -> {
+                taskDao.watchUpcoming(uid.value, today, today).map { it.map { e -> e.toTask() } }
             }
-        }
 
-    override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> =
-        currentUser.observeForCurrentUser { uid ->
-            val today = LocalDate.fromEpochDays(
-                clock.now().toEpochMilliseconds() / (24 * 60 * 60 * 1000),
-            ).toString()
+            is TaskFilter.Someday -> taskDao.watchSomeday(uid.value).map { it.map { e -> e.toTask() } }
 
-            when (filter) {
-                is TaskFilter.Today -> taskDao.watchByDate(uid.value, today).map { it.map { e -> e.toTask() } }
+            is TaskFilter.Inbox -> taskDao.watchActive(uid.value).map { it.map { e -> e.toTask() } }
 
-                is TaskFilter.Upcoming -> {
-                    taskDao.watchUpcoming(uid.value, today, today).map { it.map { e -> e.toTask() } }
+            is TaskFilter.Trash -> taskDao.watchTrash(uid.value).map { it.map { e -> e.toTask() } }
+
+            is TaskFilter.All -> taskDao.watchActive(uid.value).map { it.map { e -> e.toTask() } }
+
+            is TaskFilter.ByProject -> taskDao.watchByProject(
+                uid.value,
+                filter.id.value,
+            ).map { it.map { e -> e.toTask() } }
+
+            is TaskFilter.Pinned -> taskDao.watchPinned(uid.value).map { it.map { e -> e.toTask() } }
+
+            is TaskFilter.ByTag -> taskDao.watchByTag(uid.value, filter.id.value).map { it.map { e -> e.toTask() } }
+
+            is TaskFilter.Search -> taskDao.watchSearchResults(uid.value, filter.query)
+                .map { list -> list.map { e -> e.toTask() } }
+
+            is TaskFilter.ByDateRange -> taskDao.watchByDateRange(
+                uid.value,
+                filter.from.toString(),
+                filter.to.toString(),
+            ).map { list -> list.map { e -> e.toTask() } }
+
+            is TaskFilter.ByStatuses -> flowOf(emptyList())
+
+            // implemented in AgendaEngine; here as stub
+
+            is TaskFilter.ByTags -> {
+                val tagIds = filter.ids.map { it.value }
+                if (filter.matchAll) {
+                    taskDao.watchByAllTags(uid.value, tagIds, tagIds.size)
+                        .map { list -> list.map { e -> e.toTask() } }
+                } else {
+                    taskDao.watchByAnyTag(uid.value, tagIds)
+                        .map { list -> list.map { e -> e.toTask() } }
                 }
+            }
 
-                is TaskFilter.Someday -> taskDao.watchSomeday(uid.value).map { it.map { e -> e.toTask() } }
+            is TaskFilter.ByPriorities -> taskDao.watchByPriorities(
+                uid.value,
+                filter.priorities.map { it.name },
+            ).map { list -> list.map { e -> e.toTask() } }
 
-                is TaskFilter.Inbox -> taskDao.watchActive(uid.value).map { it.map { e -> e.toTask() } }
+            is TaskFilter.ByRegexp -> taskDao.watchByRegexp(uid.value, filter.pattern)
+                .map { list -> list.map { e -> e.toTask() } }
 
-                is TaskFilter.Trash -> taskDao.watchTrash(uid.value).map { it.map { e -> e.toTask() } }
-
-                is TaskFilter.All -> taskDao.watchActive(uid.value).map { it.map { e -> e.toTask() } }
-
-                is TaskFilter.ByProject -> taskDao.watchByProject(
+            is TaskFilter.ByDateBucket -> {
+                val range = filter.bucket.toDateRange(filter.today)
+                taskDao.watchByDateRange(
                     uid.value,
-                    filter.id.value,
-                ).map { it.map { e -> e.toTask() } }
-
-                is TaskFilter.Pinned -> taskDao.watchPinned(uid.value).map { it.map { e -> e.toTask() } }
-
-                is TaskFilter.ByTag -> taskDao.watchByTag(uid.value, filter.id.value).map { it.map { e -> e.toTask() } }
-
-                is TaskFilter.Search -> taskDao.watchSearchResults(uid.value, filter.query)
-                    .map { list -> list.map { e -> e.toTask() } }
-
-                is TaskFilter.ByDateRange -> taskDao.watchByDateRange(
-                    uid.value,
-                    filter.from.toString(),
-                    filter.to.toString(),
+                    range.from.toString(),
+                    range.to.toString(),
                 ).map { list -> list.map { e -> e.toTask() } }
-
-                is TaskFilter.ByStatuses -> flowOf(emptyList()) // implemented in AgendaEngine; here as stub
-
-
-                is TaskFilter.ByTags -> {
-                    val tagIds = filter.ids.map { it.value }
-                    if (filter.matchAll) {
-                        taskDao.watchByAllTags(uid.value, tagIds, tagIds.size)
-                            .map { list -> list.map { e -> e.toTask() } }
-                    } else {
-                        taskDao.watchByAnyTag(uid.value, tagIds)
-                            .map { list -> list.map { e -> e.toTask() } }
-                    }
-                }
-
-                is TaskFilter.ByPriorities -> taskDao.watchByPriorities(
-                    uid.value,
-                    filter.priorities.map { it.name },
-                ).map { list -> list.map { e -> e.toTask() } }
-
-                is TaskFilter.ByRegexp -> taskDao.watchByRegexp(uid.value, filter.pattern)
-                    .map { list -> list.map { e -> e.toTask() } }
-
-                is TaskFilter.ByDateBucket -> {
-                    val range = filter.bucket.toDateRange(filter.today)
-                    taskDao.watchByDateRange(
-                        uid.value,
-                        range.from.toString(),
-                        range.to.toString(),
-                    ).map { list -> list.map { e -> e.toTask() } }
-                }
             }
         }
+    }
 
-    override fun observeByDate(date: LocalDate): Flow<List<Task>> =
-        currentUser.observeForCurrentUser { uid ->
-            taskDao.watchByDate(uid.value, date.toString()).map { it.map { e -> e.toTask() } }
-        }
+    override fun observeByDate(date: LocalDate): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
+        taskDao.watchByDate(uid.value, date.toString()).map { it.map { e -> e.toTask() } }
+    }
 
-    override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> =
-        currentUser.observeForCurrentUser { uid ->
-            taskDao.watchActive(uid.value).map { list ->
-                list.filter { it.parentTaskId == parentId.value }.map { it.toTask() }
-            }
+    override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
+        taskDao.watchActive(uid.value).map { list ->
+            list.filter { it.parentTaskId == parentId.value }.map { it.toTask() }
         }
+    }
 
     override fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>> =
         taskDao.getDependencyIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }

@@ -2,10 +2,8 @@ package com.singularity.todo.core.di
 
 import ai.koog.prompt.llm.LLModel
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.llm.KnownModels
 import com.singularity.todo.core.observability.RoomUsageRecorder
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsRepository
@@ -59,7 +57,6 @@ import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.transport.GenuiTransport
 import com.singularity.todo.feature.genui.transport.KoogGenuiTransport
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileSwitcherViewModel
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase

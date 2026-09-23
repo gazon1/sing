@@ -13,9 +13,7 @@ import kotlinx.coroutines.withContext
  * Finds apps that can handle `ACTION_INSERT` on `CalendarContract.Events.CONTENT_URI`,
  * which is the canonical intent for creating calendar events.
  */
-class AndroidCalendarAppQueries(
-    private val context: Context,
-) : CalendarAppQueries {
+class AndroidCalendarAppQueries(private val context: Context) : CalendarAppQueries {
 
     override suspend fun listInstalled(): List<CalendarAppInfo> = withContext(Dispatchers.IO) {
         val pm = context.packageManager

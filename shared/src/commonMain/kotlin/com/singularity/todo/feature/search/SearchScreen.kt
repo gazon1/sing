@@ -21,7 +21,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,7 +42,6 @@ import com.singularity.todo.feature.search.presentation.SaveSearchDialog
 import com.singularity.todo.feature.search.presentation.SavedSearchesRow
 import com.singularity.todo.feature.search.presentation.SimpleFilterSheet
 import com.singularity.todo.feature.search.presentation.nav.LocalSearchNavigator
-import com.singularity.todo.feature.search.presentation.nav.PreviewSearchNavigator
 import com.singularity.todo.feature.search.presentation.nav.SearchNavigator
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions

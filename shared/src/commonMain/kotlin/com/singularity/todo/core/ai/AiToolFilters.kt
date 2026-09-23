@@ -11,17 +11,15 @@ import com.singularity.todo.core.llm.resolveModel
  * Each tool class defines `NAME` as a `const val` in its companion object.
  * This function uses reflection to read it — a single place to centralise the mapping.
  */
-fun Any.toolId(): String? {
-    return try {
-        val clazz = this::class.java
-        // Try companion object first (Kotlin)
-        val companion = clazz.declaredClasses.find { it.simpleName == "Companion" }
-        companion?.getDeclaredField("NAME")?.apply { isAccessible = true }?.get(null) as? String
-            // Fall back to static field (Java/Kotlin interop)
-            ?: clazz.getDeclaredField("NAME").apply { isAccessible = true }.get(null) as? String
-    } catch (e: Throwable) {
-        null
-    }
+fun Any.toolId(): String? = try {
+    val clazz = this::class.java
+    // Try companion object first (Kotlin)
+    val companion = clazz.declaredClasses.find { it.simpleName == "Companion" }
+    companion?.getDeclaredField("NAME")?.apply { isAccessible = true }?.get(null) as? String
+        // Fall back to static field (Java/Kotlin interop)
+        ?: clazz.getDeclaredField("NAME").apply { isAccessible = true }.get(null) as? String
+} catch (e: Throwable) {
+    null
 }
 
 /**
@@ -34,16 +32,11 @@ fun Any.toolId(): String? {
  * The LLM model is resolved through [RemoteConfigSnapshot.modelFlags]:
  * if `flags["model.gpt-4o"] == false`, [resolveModel] falls back to [KnownModels.GPT4oMini].
  */
-fun filterTools(
-    tools: List<Tool<*, *>>,
-    flags: Map<String, Boolean>,
-): List<Tool<*, *>> {
-    return tools.filter { tool ->
-        val id = tool.toolId()
-        // If a flag explicitly says false, disable the tool.
-        // Missing flag = not disabled (default true).
-        id == null || flags[id] != false
-    }
+fun filterTools(tools: List<Tool<*, *>>, flags: Map<String, Boolean>): List<Tool<*, *>> = tools.filter { tool ->
+    val id = tool.toolId()
+    // If a flag explicitly says false, disable the tool.
+    // Missing flag = not disabled (default true).
+    id == null || flags[id] != false
 }
 
 /**

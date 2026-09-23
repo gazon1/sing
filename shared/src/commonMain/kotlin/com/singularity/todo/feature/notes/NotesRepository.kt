@@ -54,12 +54,7 @@ interface NotesRepository :
     fun search(query: String): Flow<List<Note>>
 
     /** Creates a note with content (autosave path). Returns the saved note. */
-    suspend fun createWithContent(
-        id: NoteId,
-        title: String,
-        bodyMarkdown: String,
-        bodyHtml: String,
-    ): Result<NoteId>
+    suspend fun createWithContent(id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<NoteId>
 
     /** Creates a note with an initial title (quick-add path). Returns the new id. */
     suspend fun createNoteWithTitle(title: String): Result<NoteId>
@@ -98,15 +93,13 @@ class RoomNotesRepository(
 
     // ─── GenericUserScopedRepository ───────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            noteDao.watchAll(uid.value).map { list -> list.map { it.toNote() } }
-        }
+    override fun observeAll(): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
+        noteDao.watchAll(uid.value).map { list -> list.map { it.toNote() } }
+    }
 
-    override fun observe(id: NoteId): Flow<Note?> =
-        currentUser.observeForCurrentUser { uid ->
-            noteDao.watchByIdForUser(id.value, uid.value).map { it?.toNote() }
-        }
+    override fun observe(id: NoteId): Flow<Note?> = currentUser.observeForCurrentUser { uid ->
+        noteDao.watchByIdForUser(id.value, uid.value).map { it?.toNote() }
+    }
 
     override suspend fun get(id: NoteId): Note? {
         val uid = currentUser.scopedUserId.value
@@ -142,25 +135,21 @@ class RoomNotesRepository(
 
     // ─── Domain methods ───────────────────────────────────────────────────────
 
-    override fun watchPinned(): Flow<List<Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            noteDao.watchPinned(uid.value).map { list -> list.map { it.toNote() } }
-        }
+    override fun watchPinned(): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
+        noteDao.watchPinned(uid.value).map { list -> list.map { it.toNote() } }
+    }
 
-    override fun watchArchived(): Flow<List<Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            noteDao.watchArchived(uid.value).map { list -> list.map { it.toNote() } }
-        }
+    override fun watchArchived(): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
+        noteDao.watchArchived(uid.value).map { list -> list.map { it.toNote() } }
+    }
 
-    override fun watchRootNotes(): Flow<List<Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            noteDao.watchRootNotes(uid.value).map { list -> list.map { it.toNote() } }
-        }
+    override fun watchRootNotes(): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
+        noteDao.watchRootNotes(uid.value).map { list -> list.map { it.toNote() } }
+    }
 
-    override fun search(query: String): Flow<List<Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            noteDao.watchSearchByTitle(uid.value, query).map { list -> list.map { it.toNote() } }
-        }
+    override fun search(query: String): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
+        noteDao.watchSearchByTitle(uid.value, query).map { list -> list.map { it.toNote() } }
+    }
 
     override suspend fun createWithContent(
         id: NoteId,
