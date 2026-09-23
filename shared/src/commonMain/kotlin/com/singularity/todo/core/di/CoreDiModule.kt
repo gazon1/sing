@@ -24,11 +24,17 @@ import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.core.appearance.AppearanceContributor
+import com.singularity.todo.core.notifications.NotificationsContributor
+import com.singularity.todo.core.schedule.GreetingContributor
+import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.settings.DataStoreSettingsRepository
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsExporter
 import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
+import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
 import com.singularity.todo.core.sync.SyncApiClient
@@ -119,14 +125,19 @@ fun coreModule(): org.koin.core.module.Module = module {
     }
     // ─── Settings ───────────────────────────────────────────────────────
 
-    // SettingsViewModel collects all SettingsContributor implementations via getAll<>.
-    // Each contributor (Appearance, AI, …) is registered in its own feature module.
+    // SettingsViewModel uses marker interface lookups — each contributor is
+    // registered individually in its own feature module and injected here via getOrNull.
     viewModel {
         SettingsViewModel(
-            contributors = getAll<SettingsContributor<*, *>>().toSet(),
+            scope = AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext),
+            appearanceContributor = getOrNull<AppearanceContributor>(),
+            notificationsContributor = getOrNull<NotificationsContributor>(),
+            workScheduleContributor = getOrNull<WorkScheduleContributor>(),
+            greetingContributor = getOrNull<GreetingContributor>(),
+            aiContributor = getOrNull<AiContributor>(),
+            defaultAgendaViewContributor = getOrNull<DefaultAgendaViewContributor>(),
             savedAgendaViewsRepo = get(),
             fileRevealer = get(),
-            scope = com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope(com.singularity.todo.core.coroutines.createBackgroundScope().coroutineContext),
         )
     }
 

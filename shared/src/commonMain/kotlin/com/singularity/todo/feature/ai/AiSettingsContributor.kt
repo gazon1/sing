@@ -1,10 +1,24 @@
 package com.singularity.todo.feature.ai
 
+import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.feature.ai.data.AiSettingsStore
 import kotlinx.coroutines.flow.Flow
+
+/**
+ * Marker interface for the AI settings contributor.
+ * Used by [com.singularity.todo.feature.settings.SettingsViewModel] to resolve the
+ * contributor without type erasure.
+ */
+interface AiContributor : SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai> {
+    /** Ephemeral (non-persisted) AI state: test result, model list, fetch status. */
+    val ephemeralStateFlow: kotlinx.coroutines.flow.Flow<EphemeralState.Ai>
+
+    /** Writes the API key to SecureStorage. */
+    suspend fun updateApiKey(value: String)
+}
 
 /**
  * Contributes the AI Provider settings section to the unified settings UI.
@@ -17,11 +31,9 @@ import kotlinx.coroutines.flow.Flow
  * - Test connection / fetch models (executed by [AiSettingsStore])
  * - API key writes go directly to [com.singularity.todo.core.security.SecureStoragePort]
  *
- * [SettingsViewModel] discovers this contributor via `getAll<SettingsContributor>()`
- * and merges its [observe] stream into the unified settings state.
+ * [SettingsViewModel] discovers this contributor via `filterIsInstance<AiContributor>()`.
  */
-class AiSettingsContributor(private val store: AiSettingsStore) :
-    SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai> {
+class AiSettingsContributor(private val store: AiSettingsStore) : AiContributor {
 
     override val section: SettingsSection.Ai = SettingsSection.Ai()
 
@@ -31,18 +43,15 @@ class AiSettingsContributor(private val store: AiSettingsStore) :
         store.process(intent)
     }
 
-    /** Exposes the ephemeral test/fetch state as a StateFlow for synchronous reads. */
-    val testResultStateFlow = store.testResultStateFlow
-    val modelsStateFlow = store.modelsStateFlow
-    val isFetchingModelsStateFlow = store.isFetchingModelsStateFlow
-    val fetchModelsErrorStateFlow = store.fetchModelsErrorStateFlow
+    /** Ephemeral (non-persisted) AI state: test result, model list, fetch status. */
+    override val ephemeralStateFlow: Flow<EphemeralState.Ai> = store.ephemeralStateFlow
 
     /**
      * Writes the API key to SecureStorage without going through [process].
      * Called directly by [com.singularity.todo.feature.settings.SettingsViewModel]
      * when the user finishes editing the key field (debounced in the ViewModel layer).
      */
-    suspend fun updateApiKey(value: String) {
+    override suspend fun updateApiKey(value: String) {
         store.updateApiKey(value)
     }
 }

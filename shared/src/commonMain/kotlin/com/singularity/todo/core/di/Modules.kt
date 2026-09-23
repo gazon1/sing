@@ -9,6 +9,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.profile.ProfileRepositoryImpl
 import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
+import com.singularity.todo.core.appearance.di.appearanceSettingsModule
 import com.singularity.todo.core.settings.settingsContributorsModule
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
@@ -55,6 +56,7 @@ fun domainModule(): List<Module> = buildList {
     add(aiToolsModule())
     add(aiSettingsModule())
     add(settingsContributorsModule())
+    add(appearanceSettingsModule())
 }
 
 /**

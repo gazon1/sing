@@ -2,15 +2,21 @@ package com.singularity.todo.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.singularity.todo.core.appearance.AppearanceContributor
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.notifications.NotificationsContributor
+import com.singularity.todo.core.schedule.GreetingContributor
+import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
-import com.singularity.todo.feature.ai.AiSettingsContributor
+import com.singularity.todo.feature.ai.AiContributor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,82 +27,30 @@ import kotlinx.coroutines.launch
 /**
  * Settings screen ViewModel.
  *
- * Architecture (Phase 5, cleaned up in Phase 8):
- * - Primary constructor takes 4 args: [scope] + contributors + repositories.
- * - Each contributor's observe() feeds a dedicated [MutableStateFlow] via [launch].
- *   This decouples emission timing — each section updates independently, with no
- *   "all must emit before transform" gate.
- * - [combine] merges the 2 ephemeral flows + saved views into final [Content].
- * - [processIntent] dispatches via a sealed helper — one typed branch per section.
- * - Flat legacy fields are gone: state uses typed contributor sections directly.
- * - Ephemeral AI state lives in [aiEphemeral].
+ * Architecture:
+ * - Primary constructor takes [AutoCloseableCoroutineScope] + individual contributor
+ *   instances (injected via `filterIsInstance<Contributor>()` in Koin DI).
+ * - Marker interfaces ([AppearanceContributor], [AiContributor], etc.) enable
+ *   compile-safe lookup without Kotlin type erasure.
+ * - Each contributor's [observe] feeds a dedicated [MutableStateFlow] independently.
+ * - [combine] merges per-section flows + ephemeral state into [Content].
+ * - [processIntent] dispatches via typed helpers with [fireAndForget] error handling.
  */
 class SettingsViewModel(
-    private val scope: CoroutineScope,
-    private val contributors: Set<SettingsContributor<*, *>>,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val appearanceContributor: AppearanceContributor?,
+    private val notificationsContributor: NotificationsContributor?,
+    private val workScheduleContributor: WorkScheduleContributor?,
+    private val greetingContributor: GreetingContributor?,
+    private val aiContributor: AiContributor?,
+    private val defaultAgendaViewContributor: DefaultAgendaViewContributor?,
     private val savedAgendaViewsRepo: SavedAgendaViewsRepository,
     private val fileRevealer: FileRevealer,
 ) : ViewModel() {
 
-    /**
-     * Secondary constructor — accepts the old 5-arg signature for existing
-     * call sites (tests, Koin DI).
-     */
-    @Suppress("UNUSED_PARAMETER")
-    constructor(
-        contributors: Set<SettingsContributor<*, *>>,
-        settings: Any,
-        savedAgendaViewsRepo: SavedAgendaViewsRepository,
-        fileRevealer: FileRevealer,
-        scope: com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope,
-    ) : this(
-        scope = scope as CoroutineScope,
-        contributors = contributors,
-        savedAgendaViewsRepo = savedAgendaViewsRepo,
-        fileRevealer = fileRevealer,
-    )
-
     init {
-        val closeable = scope as? java.io.Closeable
-        if (closeable != null) {
-            @Suppress("DEPRECATION")
-            addCloseable(closeable)
-        }
+        addCloseable(scope)
     }
-
-    // ─── Typed contributor accessors ─────────────────────────────────────────
-    // Use simple class-name matching to avoid Kotlin generics type-erasure.
-    // Kotlin doesn't preserve generic type parameters of implemented interfaces
-    // at runtime (genericSuperclass is Object for all contributors), so we use
-    // the stable class name of each concrete contributor subclass.
-
-    private val appearanceContributor: SettingsContributor<SettingsSection.Appearance, SettingsIntent.Appearance>?
-        get() = @Suppress("UNCHECKED_CAST") (contributors.find {
-            it::class.java.simpleName == "AppearanceSettingsContributor"
-        } as SettingsContributor<SettingsSection.Appearance, SettingsIntent.Appearance>?)
-
-    private val notificationsContributor: SettingsContributor<SettingsSection.Notifications, SettingsIntent.Notifications>?
-        get() = @Suppress("UNCHECKED_CAST") (contributors.find {
-            it::class.java.simpleName == "NotificationsSettingsContributor"
-        } as SettingsContributor<SettingsSection.Notifications, SettingsIntent.Notifications>?)
-
-    private val workScheduleContributor: SettingsContributor<SettingsSection.WorkSchedule, SettingsIntent.WorkSchedule>?
-        get() = @Suppress("UNCHECKED_CAST") (contributors.find {
-            it::class.java.simpleName == "WorkScheduleSettingsContributor"
-        } as SettingsContributor<SettingsSection.WorkSchedule, SettingsIntent.WorkSchedule>?)
-
-    private val greetingContributor: SettingsContributor<SettingsSection.Greeting, SettingsIntent.Greeting>?
-        get() = @Suppress("UNCHECKED_CAST") (contributors.find {
-            it::class.java.simpleName == "GreetingSettingsContributor"
-        } as SettingsContributor<SettingsSection.Greeting, SettingsIntent.Greeting>?)
-
-    private val defaultAgendaViewContributor: SettingsContributor<SettingsSection.DefaultAgendaView, SettingsIntent.DefaultAgendaView>?
-        get() = @Suppress("UNCHECKED_CAST") (contributors.find {
-            it::class.java.simpleName == "DefaultAgendaViewSettingsContributor"
-        } as SettingsContributor<SettingsSection.DefaultAgendaView, SettingsIntent.DefaultAgendaView>?)
-
-    private val aiContributor: AiSettingsContributor?
-        get() = contributors.filterIsInstance<AiSettingsContributor>().firstOrNull()
 
     // ─── Per-section state flows ──────────────────────────────────────────────
     // Each section feeds its own MutableStateFlow so combine doesn't block on
@@ -109,17 +63,18 @@ class SettingsViewModel(
     private val aiFlow = MutableStateFlow(SettingsSection.Ai())
     private val defaultAgendaViewFlow = MutableStateFlow(SettingsSection.DefaultAgendaView())
 
-    // ─── Ephemeral state (parallel flows — not persisted) ───────────────────
+    // ─── Ephemeral state ────────────────────────────────────────────────────
 
     private val aiEphemeral = MutableStateFlow(EphemeralState.Ai())
     private val agendaEphemeral = MutableStateFlow(EphemeralState.Agenda())
 
-    // ─── Reactive state ─────────────────────────────────────────────────────
+    // ─── UI state ────────────────────────────────────────────────────────────
 
     private val _state = MutableStateFlow(SettingsUiState.Content())
+    val state: StateFlow<SettingsUiState> get() = _state
 
     init {
-        // Initialize state with all defaults immediately (before any flow emits).
+        // Seed state with all defaults immediately (before any flow emits).
         _state.value = SettingsUiState.Content(
             appearance = appearanceFlow.value,
             notifications = notificationsFlow.value,
@@ -129,8 +84,7 @@ class SettingsViewModel(
             defaultAgendaView = defaultAgendaViewFlow.value,
         )
 
-        // Observe each contributor independently — each flow independently rebuilds
-        // _state when it changes.
+        // Observe each contributor independently — each flow rebuilds _state on change.
         appearanceContributor?.observe()
             ?.onEach { section ->
                 appearanceFlow.value = section
@@ -180,34 +134,11 @@ class SettingsViewModel(
             }
             .launchIn(scope)
 
-        aiEphemeral
-            .onEach { aiEph ->
+        // Bridge AI ephemeral state from the single combined flow.
+        aiContributor?.ephemeralStateFlow
+            ?.onEach { aiEph ->
+                aiEphemeral.value = aiEph
                 _state.value = _state.value.copy(aiEphemeral = aiEph)
-            }
-            .launchIn(scope)
-
-        // Bridge AI ephemeral state from the contributor's exposed StateFlows.
-        aiContributor?.testResultStateFlow
-            ?.onEach { testResult ->
-                aiEphemeral.value = aiEphemeral.value.copy(testResult = testResult)
-            }
-            ?.launchIn(scope)
-
-        aiContributor?.modelsStateFlow
-            ?.onEach { models ->
-                aiEphemeral.value = aiEphemeral.value.copy(models = models)
-            }
-            ?.launchIn(scope)
-
-        aiContributor?.isFetchingModelsStateFlow
-            ?.onEach { isFetching ->
-                aiEphemeral.value = aiEphemeral.value.copy(isFetchingModels = isFetching)
-            }
-            ?.launchIn(scope)
-
-        aiContributor?.fetchModelsErrorStateFlow
-            ?.onEach { error ->
-                aiEphemeral.value = aiEphemeral.value.copy(fetchModelsError = error)
             }
             ?.launchIn(scope)
     }
@@ -223,8 +154,6 @@ class SettingsViewModel(
             defaultAgendaView = defaultAgendaViewFlow.value,
         )
     }
-
-    val state: StateFlow<SettingsUiState> get() = _state
 
     // ─── Intent ───────────────────────────────────────────────────────────────
 
@@ -242,7 +171,6 @@ class SettingsViewModel(
     }
 
     // ─── Per-section dispatchers ──────────────────────────────────────────────
-    // Sync errorMessage update for snackbar feedback; persistence via contributor.
 
     private fun dispatchAppearance(intent: SettingsIntent.Appearance) {
         val contributor = appearanceContributor
@@ -252,27 +180,21 @@ class SettingsViewModel(
                 scope.fireAndForget(
                     errorLabel = "Update dark theme failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
             is SettingsIntent.Appearance.UpdateAccentColor -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
                     errorLabel = "Update accent color failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
             is SettingsIntent.Appearance.UpdateFontSizeScale -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
                     errorLabel = "Update font size failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
         }
     }
@@ -285,36 +207,28 @@ class SettingsViewModel(
                 scope.fireAndForget(
                     errorLabel = "Update notifications failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
             is SettingsIntent.Notifications.UpdateSound -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
                     errorLabel = "Update notification sound failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
             is SettingsIntent.Notifications.UpdateVibration -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
                     errorLabel = "Update vibration failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
             is SettingsIntent.Notifications.UpdateReminderDefault -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
                     errorLabel = "Update reminder default failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
         }
     }
@@ -327,54 +241,42 @@ class SettingsViewModel(
                 scope.fireAndForget(
                     errorLabel = "Update work day start failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
             is SettingsIntent.WorkSchedule.UpdateWorkDayEnd -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
                     errorLabel = "Update work day end failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
             is SettingsIntent.WorkSchedule.UpdateWorkLunchStart -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
                     errorLabel = "Update lunch start failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
             is SettingsIntent.WorkSchedule.UpdateWorkLunchEnd -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
                     errorLabel = "Update lunch end failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
             is SettingsIntent.WorkSchedule.UpdateWeekendSat -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
                     errorLabel = "Update Saturday setting failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
             is SettingsIntent.WorkSchedule.UpdateWeekendSun -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
                     errorLabel = "Update Sunday setting failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
         }
     }
@@ -387,26 +289,24 @@ class SettingsViewModel(
                 scope.fireAndForget(
                     errorLabel = "Update morning greeting end failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
             is SettingsIntent.Greeting.UpdateAfternoonEnd -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
                     errorLabel = "Update afternoon greeting end failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
         }
     }
 
     private fun dispatchAi(intent: SettingsIntent.Ai) {
-        scope.launch {
-            aiContributor?.process(intent)
-        }
+        _state.value = _state.value.copy(errorMessage = null)
+        scope.fireAndForget(
+            errorLabel = "AI ${intent::class.simpleName} failed",
+            onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
+        ) { runCatching { aiContributor?.process(intent) } }
     }
 
     private fun dispatchDefaultAgendaView(intent: SettingsIntent.DefaultAgendaView) {
@@ -417,9 +317,7 @@ class SettingsViewModel(
                 scope.fireAndForget(
                     errorLabel = "Update default agenda view failed",
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) {
-                    runCatching { contributor?.process(intent) }
-                }
+                ) { runCatching { contributor?.process(intent) } }
             }
         }
     }

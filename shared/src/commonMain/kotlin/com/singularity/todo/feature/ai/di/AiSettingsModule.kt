@@ -2,10 +2,8 @@ package com.singularity.todo.feature.ai.di
 
 import com.singularity.todo.core.llm.TextGenPort
 import com.singularity.todo.core.security.SecureStoragePort
-import com.singularity.todo.core.settings.SettingsContributor
-import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsRepository
-import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.feature.ai.AiSettingsContributor
 import com.singularity.todo.feature.ai.data.AiSettingsStore
 import org.koin.dsl.module
@@ -15,8 +13,8 @@ import org.koin.dsl.module
  *
  * Registers:
  * - [AiSettingsStore] — reads/writes AI settings (including secret API key)
- * - [AiSettingsContributor] — contributed to [com.singularity.todo.feature.settings.SettingsViewModel]
- *   via `getAll<SettingsContributor>()`
+ * - [AiContributor] — contributed to [com.singularity.todo.feature.settings.SettingsViewModel]
+ *   via `filterIsInstance<AiContributor>()`
  *
  * Add this module to [com.singularity.todo.core.di.domainModule] to enable the
  * AI Provider settings section.
@@ -26,7 +24,5 @@ import org.koin.dsl.module
  */
 fun aiSettingsModule() = module {
     single { AiSettingsStore(get<SecureStoragePort>(), get<SettingsRepository>(), get<TextGenPort>()) }
-    single<SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>> {
-        AiSettingsContributor(get())
-    }
+    single<AiContributor> { AiSettingsContributor(get()) }
 }

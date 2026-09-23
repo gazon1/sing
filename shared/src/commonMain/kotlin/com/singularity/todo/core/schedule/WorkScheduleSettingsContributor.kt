@@ -6,13 +6,20 @@ import com.singularity.todo.core.settings.SettingsSection
 import kotlinx.coroutines.flow.Flow
 
 /**
+ * Marker interface for the Work Schedule settings contributor.
+ * Used by [com.singularity.todo.feature.settings.SettingsViewModel] to resolve the
+ * contributor without type erasure.
+ */
+interface WorkScheduleContributor : SettingsContributor<SettingsSection.WorkSchedule, SettingsIntent.WorkSchedule>
+
+/**
  * Contributes the Work Schedule settings section to the unified settings UI.
  *
  * Registration: `single<SettingsContributor> { WorkScheduleSettingsContributor(get()) }`.
  */
 class WorkScheduleSettingsContributor(
     private val store: WorkScheduleSettingsStore,
-) : SettingsContributor<SettingsSection.WorkSchedule, SettingsIntent.WorkSchedule> {
+) : WorkScheduleContributor {
 
     override val section: SettingsSection.WorkSchedule = SettingsSection.WorkSchedule()
 

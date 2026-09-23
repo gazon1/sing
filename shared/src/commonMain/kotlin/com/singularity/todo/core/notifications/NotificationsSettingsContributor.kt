@@ -6,13 +6,22 @@ import com.singularity.todo.core.settings.SettingsSection
 import kotlinx.coroutines.flow.Flow
 
 /**
+ * Marker interface for the Notifications settings contributor.
+ * Used by [com.singularity.todo.feature.settings.SettingsViewModel] to resolve the
+ * contributor without type erasure.
+ *
+ * The existing [NotificationsSettingsContributor] class implements this interface.
+ */
+interface NotificationsContributor : SettingsContributor<SettingsSection.Notifications, SettingsIntent.Notifications>
+
+/**
  * Contributes the Notification settings section to the unified settings UI.
  *
  * Registration: `single<SettingsContributor> { NotificationsSettingsContributor(get()) }`.
  */
 class NotificationsSettingsContributor(
     private val store: NotificationsSettingsStore,
-) : SettingsContributor<SettingsSection.Notifications, SettingsIntent.Notifications> {
+) : NotificationsContributor {
 
     override val section: SettingsSection.Notifications = SettingsSection.Notifications()
 

@@ -74,161 +74,131 @@ import kotlinx.datetime.toLocalDateTime
 // ─── SettingsRepository ────────────────────────────────────────────────────────
 
 class FakeSettingsRepository(initialUserId: String = "test-user") : SettingsRepository {
-    private val _darkTheme = MutableStateFlow(false)
-    private val _accentColor = MutableStateFlow("blue")
-    private val _fontSizeScale = MutableStateFlow(1f)
-    private val _aiProvider = MutableStateFlow("openai")
-    private val _aiModel = MutableStateFlow("gpt-4o-mini")
-    private val _aiBaseUrl = MutableStateFlow("https://api.openai.com/v1")
-    private val _aiSystemPrompt = MutableStateFlow(SettingsRepository.DEFAULT_SYSTEM_PROMPT)
-    private val _notificationsEnabled = MutableStateFlow(true)
-    private val _notificationSound = MutableStateFlow(true)
-    private val _notificationVibration = MutableStateFlow(true)
-    private val _reminderDefault = MutableStateFlow(com.singularity.todo.core.reminders.ReminderOffset.AT_DUE)
-    private val _workDayStartMinutes = MutableStateFlow(540)
-    private val _workDayEndMinutes = MutableStateFlow(1080)
-    private val _workLunchStartMinutes = MutableStateFlow(720)
-    private val _workLunchEndMinutes = MutableStateFlow(780)
-    private val _workWeekendSat = MutableStateFlow(false)
-    private val _workWeekendSun = MutableStateFlow(false)
-    private val _greetingMorningEnd = MutableStateFlow(12)
-    private val _greetingAfternoonEnd = MutableStateFlow(18)
-    private val _userId = MutableStateFlow(initialUserId)
-    private val _defaultSavedAgendaViewId = MutableStateFlow<SavedAgendaViewId?>(null)
-
-    // ── Per-section repositories ─────────────────────────────────────────────
+    // ── Single source of truth: per-section repositories ──────────────────────
 
     override val notifications: NotificationsSettingsRepository =
         object : NotificationsSettingsRepository {
-            override val enabled: Flow<Boolean> = _notificationsEnabled
-            override val sound: Flow<Boolean> = _notificationSound
-            override val vibration: Flow<Boolean> = _notificationVibration
+            private val _enabled = MutableStateFlow(true)
+            private val _sound = MutableStateFlow(true)
+            private val _vibration = MutableStateFlow(true)
+            private val _reminderDefault = MutableStateFlow(ReminderOffset.AT_DUE)
+            override val enabled: Flow<Boolean> = _enabled
+            override val sound: Flow<Boolean> = _sound
+            override val vibration: Flow<Boolean> = _vibration
             override val reminderDefault: Flow<ReminderOffset> = _reminderDefault
-            override suspend fun setEnabled(value: Boolean) { _notificationsEnabled.value = value }
-            override suspend fun setSound(value: Boolean) { _notificationSound.value = value }
-            override suspend fun setVibration(value: Boolean) { _notificationVibration.value = value }
+            override suspend fun setEnabled(value: Boolean) { _enabled.value = value }
+            override suspend fun setSound(value: Boolean) { _sound.value = value }
+            override suspend fun setVibration(value: Boolean) { _vibration.value = value }
             override suspend fun setReminderDefault(value: ReminderOffset) { _reminderDefault.value = value }
         }
 
     override val workSchedule: WorkScheduleSettingsRepository =
         object : WorkScheduleSettingsRepository {
-            override val dayStartMinutes: Flow<Int> = _workDayStartMinutes
-            override val dayEndMinutes: Flow<Int> = _workDayEndMinutes
-            override val lunchStartMinutes: Flow<Int> = _workLunchStartMinutes
-            override val lunchEndMinutes: Flow<Int> = _workLunchEndMinutes
-            override val weekendSat: Flow<Boolean> = _workWeekendSat
-            override val weekendSun: Flow<Boolean> = _workWeekendSun
-            override suspend fun setDayStartMinutes(value: Int) { _workDayStartMinutes.value = value }
-            override suspend fun setDayEndMinutes(value: Int) { _workDayEndMinutes.value = value }
-            override suspend fun setLunchStartMinutes(value: Int) { _workLunchStartMinutes.value = value }
-            override suspend fun setLunchEndMinutes(value: Int) { _workLunchEndMinutes.value = value }
-            override suspend fun setWeekendSat(value: Boolean) { _workWeekendSat.value = value }
-            override suspend fun setWeekendSun(value: Boolean) { _workWeekendSun.value = value }
+            private val _dayStart = MutableStateFlow(540)
+            private val _dayEnd = MutableStateFlow(1080)
+            private val _lunchStart = MutableStateFlow(720)
+            private val _lunchEnd = MutableStateFlow(780)
+            private val _sat = MutableStateFlow(false)
+            private val _sun = MutableStateFlow(false)
+            override val dayStartMinutes: Flow<Int> = _dayStart
+            override val dayEndMinutes: Flow<Int> = _dayEnd
+            override val lunchStartMinutes: Flow<Int> = _lunchStart
+            override val lunchEndMinutes: Flow<Int> = _lunchEnd
+            override val weekendSat: Flow<Boolean> = _sat
+            override val weekendSun: Flow<Boolean> = _sun
+            override suspend fun setDayStartMinutes(value: Int) { _dayStart.value = value }
+            override suspend fun setDayEndMinutes(value: Int) { _dayEnd.value = value }
+            override suspend fun setLunchStartMinutes(value: Int) { _lunchStart.value = value }
+            override suspend fun setLunchEndMinutes(value: Int) { _lunchEnd.value = value }
+            override suspend fun setWeekendSat(value: Boolean) { _sat.value = value }
+            override suspend fun setWeekendSun(value: Boolean) { _sun.value = value }
         }
 
     override val greeting: GreetingSettingsRepository =
         object : GreetingSettingsRepository {
-            override val morningEndHour: Flow<Int> = _greetingMorningEnd
-            override val afternoonEndHour: Flow<Int> = _greetingAfternoonEnd
-            override suspend fun setMorningEndHour(hour: Int) { _greetingMorningEnd.value = hour }
-            override suspend fun setAfternoonEndHour(hour: Int) { _greetingAfternoonEnd.value = hour }
+            private val _morning = MutableStateFlow(12)
+            private val _afternoon = MutableStateFlow(18)
+            override val morningEndHour: Flow<Int> = _morning
+            override val afternoonEndHour: Flow<Int> = _afternoon
+            override suspend fun setMorningEndHour(hour: Int) { _morning.value = hour }
+            override suspend fun setAfternoonEndHour(hour: Int) { _afternoon.value = hour }
         }
 
     override val defaultAgendaView: DefaultAgendaViewSettingsRepository =
         object : DefaultAgendaViewSettingsRepository {
-            override val defaultViewId: Flow<SavedAgendaViewId?> = _defaultSavedAgendaViewId
-            override suspend fun setDefaultViewId(id: SavedAgendaViewId?) { _defaultSavedAgendaViewId.value = id }
+            private val _id = MutableStateFlow<SavedAgendaViewId?>(null)
+            override val defaultViewId: Flow<SavedAgendaViewId?> = _id
+            override suspend fun setDefaultViewId(id: SavedAgendaViewId?) { _id.value = id }
         }
+
+    // ── Appearance (flat — no dedicated section) ──────────────────────────────
+
+    private val _darkTheme = MutableStateFlow(false)
+    private val _accentColor = MutableStateFlow("blue")
+    private val _fontSizeScale = MutableStateFlow(1f)
 
     override val darkTheme: Flow<Boolean> = _darkTheme
     override val accentColor: Flow<String> = _accentColor
     override val fontSizeScale: Flow<Float> = _fontSizeScale
+
+    // ── AI (flat — no dedicated section) ──────────────────────────────────────
+
+    private val _aiProvider = MutableStateFlow("openai")
+    private val _aiModel = MutableStateFlow("gpt-4o-mini")
+    private val _aiBaseUrl = MutableStateFlow("https://api.openai.com/v1")
+    private val _aiSystemPrompt = MutableStateFlow(SettingsRepository.DEFAULT_SYSTEM_PROMPT)
+
     override val aiProvider: Flow<String> = _aiProvider
     override val aiModel: Flow<String> = _aiModel
     override val aiBaseUrl: Flow<String> = _aiBaseUrl
     override val aiSystemPrompt: Flow<String> = _aiSystemPrompt
-    override val notificationsEnabled: Flow<Boolean> = _notificationsEnabled
-    override val notificationSound: Flow<Boolean> = _notificationSound
-    override val notificationVibration: Flow<Boolean> = _notificationVibration
-    override val reminderDefault: Flow<com.singularity.todo.core.reminders.ReminderOffset> = _reminderDefault
-    override val workDayStartMinutes: Flow<Int> = _workDayStartMinutes
-    override val workDayEndMinutes: Flow<Int> = _workDayEndMinutes
-    override val workLunchStartMinutes: Flow<Int> = _workLunchStartMinutes
-    override val workLunchEndMinutes: Flow<Int> = _workLunchEndMinutes
-    override val workWeekendSat: Flow<Boolean> = _workWeekendSat
-    override val workWeekendSun: Flow<Boolean> = _workWeekendSun
-    override val greetingMorningEnd: Flow<Int> = _greetingMorningEnd
-    override val greetingAfternoonEnd: Flow<Int> = _greetingAfternoonEnd
-    override val userId: Flow<String> = _userId
-    override val defaultSavedAgendaViewId: Flow<SavedAgendaViewId?> = _defaultSavedAgendaViewId
 
-    override suspend fun setDarkTheme(value: Boolean) {
-        _darkTheme.value = value
-    }
-    override suspend fun setAccentColor(value: String) {
-        _accentColor.value = value
-    }
-    override suspend fun setFontSizeScale(value: Float) {
-        _fontSizeScale.value = value
-    }
-    override suspend fun setAiProvider(value: String) {
-        _aiProvider.value = value
-    }
-    override suspend fun setAiModel(value: String) {
-        _aiModel.value = value
-    }
-    override suspend fun setAiBaseUrl(value: String) {
-        _aiBaseUrl.value = value
-    }
-    override suspend fun setAiSystemPrompt(value: String) {
-        _aiSystemPrompt.value = value
-    }
-    override suspend fun setNotificationsEnabled(value: Boolean) {
-        _notificationsEnabled.value = value
-    }
-    override suspend fun setNotificationSound(value: Boolean) {
-        _notificationSound.value = value
-    }
-    override suspend fun setNotificationVibration(value: Boolean) {
-        _notificationVibration.value = value
-    }
-    override suspend fun setReminderDefault(
-        value: com.singularity.todo.core.reminders.ReminderOffset,
-    ) {
-        _reminderDefault.value =
-        value
-    }
-    override suspend fun setWorkDayStartMinutes(value: Int) {
-        _workDayStartMinutes.value = value
-    }
-    override suspend fun setWorkDayEndMinutes(value: Int) {
-        _workDayEndMinutes.value = value
-    }
-    override suspend fun setWorkLunchStartMinutes(value: Int) {
-        _workLunchStartMinutes.value = value
-    }
-    override suspend fun setWorkLunchEndMinutes(value: Int) {
-        _workLunchEndMinutes.value = value
-    }
-    override suspend fun setWorkWeekendSat(value: Boolean) {
-        _workWeekendSat.value = value
-    }
-    override suspend fun setWorkWeekendSun(value: Boolean) {
-        _workWeekendSun.value = value
-    }
-    override suspend fun setGreetingMorningEnd(hour: Int) {
-        _greetingMorningEnd.value = hour
-    }
-    override suspend fun setGreetingAfternoonEnd(hour: Int) {
-        _greetingAfternoonEnd.value = hour
-    }
-    override suspend fun setUserId(value: String) {
-        _userId.value = value
-    }
+    // ── Cross-cutting (flat) ──────────────────────────────────────────────────
 
-    override suspend fun setDefaultSavedAgendaViewId(id: SavedAgendaViewId?) {
-        _defaultSavedAgendaViewId.value = id
-    }
+    override val userId: Flow<String> = MutableStateFlow(initialUserId)
+
+    // ── Flat setters (delegated to section objects where possible) ────────────
+
+    override suspend fun setDarkTheme(value: Boolean) { _darkTheme.value = value }
+    override suspend fun setAccentColor(value: String) { _accentColor.value = value }
+    override suspend fun setFontSizeScale(value: Float) { _fontSizeScale.value = value }
+    override suspend fun setAiProvider(value: String) { _aiProvider.value = value }
+    override suspend fun setAiModel(value: String) { _aiModel.value = value }
+    override suspend fun setAiBaseUrl(value: String) { _aiBaseUrl.value = value }
+    override suspend fun setAiSystemPrompt(value: String) { _aiSystemPrompt.value = value }
+    override suspend fun setUserId(value: String) { (userId as MutableStateFlow).value = value }
+
+    // ── Flat getters delegating to section objects ────────────────────────────
+
+    override val notificationsEnabled: Flow<Boolean> = notifications.enabled
+    override val notificationSound: Flow<Boolean> = notifications.sound
+    override val notificationVibration: Flow<Boolean> = notifications.vibration
+    override val reminderDefault: Flow<ReminderOffset> = notifications.reminderDefault
+    override val workDayStartMinutes: Flow<Int> = workSchedule.dayStartMinutes
+    override val workDayEndMinutes: Flow<Int> = workSchedule.dayEndMinutes
+    override val workLunchStartMinutes: Flow<Int> = workSchedule.lunchStartMinutes
+    override val workLunchEndMinutes: Flow<Int> = workSchedule.lunchEndMinutes
+    override val workWeekendSat: Flow<Boolean> = workSchedule.weekendSat
+    override val workWeekendSun: Flow<Boolean> = workSchedule.weekendSun
+    override val greetingMorningEnd: Flow<Int> = greeting.morningEndHour
+    override val greetingAfternoonEnd: Flow<Int> = greeting.afternoonEndHour
+    override val defaultSavedAgendaViewId: Flow<SavedAgendaViewId?> = defaultAgendaView.defaultViewId
+
+    // ── Flat setters delegating to section objects ────────────────────────────
+
+    override suspend fun setNotificationsEnabled(value: Boolean) { notifications.setEnabled(value) }
+    override suspend fun setNotificationSound(value: Boolean) { notifications.setSound(value) }
+    override suspend fun setNotificationVibration(value: Boolean) { notifications.setVibration(value) }
+    override suspend fun setReminderDefault(value: ReminderOffset) { notifications.setReminderDefault(value) }
+    override suspend fun setWorkDayStartMinutes(value: Int) { workSchedule.setDayStartMinutes(value) }
+    override suspend fun setWorkDayEndMinutes(value: Int) { workSchedule.setDayEndMinutes(value) }
+    override suspend fun setWorkLunchStartMinutes(value: Int) { workSchedule.setLunchStartMinutes(value) }
+    override suspend fun setWorkLunchEndMinutes(value: Int) { workSchedule.setLunchEndMinutes(value) }
+    override suspend fun setWorkWeekendSat(value: Boolean) { workSchedule.setWeekendSat(value) }
+    override suspend fun setWorkWeekendSun(value: Boolean) { workSchedule.setWeekendSun(value) }
+    override suspend fun setGreetingMorningEnd(hour: Int) { greeting.setMorningEndHour(hour) }
+    override suspend fun setGreetingAfternoonEnd(hour: Int) { greeting.setAfternoonEndHour(hour) }
+    override suspend fun setDefaultSavedAgendaViewId(id: SavedAgendaViewId?) { defaultAgendaView.setDefaultViewId(id) }
 }
 
 // ─── BackupRepository ─────────────────────────────────────────────────────────

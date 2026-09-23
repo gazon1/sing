@@ -2,18 +2,21 @@ package com.singularity.todo.feature.settings
 
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.llm.AiTestResult
+import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.notifications.NotificationsSettingsContributor
 import com.singularity.todo.core.notifications.NotificationsSettingsStore
+import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.GreetingSettingsContributor
 import com.singularity.todo.core.schedule.GreetingSettingsStore
+import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.schedule.WorkScheduleSettingsContributor
 import com.singularity.todo.core.schedule.WorkScheduleSettingsStore
 import com.singularity.todo.core.security.FakeSecureStorage
-import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
-import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsContributor
 import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsStore
+import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.feature.ai.AiSettingsContributor
 import com.singularity.todo.feature.ai.FakeTextGen
 import com.singularity.todo.feature.ai.data.AiSettingsStore
@@ -47,40 +50,36 @@ class SettingsViewModelTest {
      * This ensures the [combine] pipeline emits updated state after each intent.
      */
     private fun createVm(scope: CoroutineScope): SettingsViewModel {
-        // Appearance — no contributor exists; use null fallback (defaults only).
         // AI contributor needs its own AiSettingsStore backed by fakeStorage + fakeSettings.
         val aiStore = AiSettingsStore(fakeStorage, fakeSettings, FakeTextGen())
-        val aiContributor = AiSettingsContributor(aiStore)
+        val aiContributor: AiContributor = AiSettingsContributor(aiStore)
 
         // Notifications contributor
         val notificationsStore = NotificationsSettingsStore(fakeSettings.notifications)
-        val notificationsContributor = NotificationsSettingsContributor(notificationsStore)
+        val notificationsContributor: NotificationsContributor = NotificationsSettingsContributor(notificationsStore)
 
         // Work schedule contributor
         val workScheduleStore = WorkScheduleSettingsStore(fakeSettings.workSchedule)
-        val workScheduleContributor = WorkScheduleSettingsContributor(workScheduleStore)
+        val workScheduleContributor: WorkScheduleContributor = WorkScheduleSettingsContributor(workScheduleStore)
 
         // Greeting contributor
         val greetingStore = GreetingSettingsStore(fakeSettings.greeting)
-        val greetingContributor = GreetingSettingsContributor(greetingStore)
+        val greetingContributor: GreetingContributor = GreetingSettingsContributor(greetingStore)
 
         // Default agenda view contributor
         val defaultAgendaViewStore = DefaultAgendaViewSettingsStore(fakeSettings.defaultAgendaView)
-        val defaultAgendaViewContributor = DefaultAgendaViewSettingsContributor(defaultAgendaViewStore)
-
-        val contributors: Set<SettingsContributor<*, *>> = setOf(
-            aiContributor,
-            notificationsContributor,
-            workScheduleContributor,
-            greetingContributor,
-            defaultAgendaViewContributor,
-        )
+        val defaultAgendaViewContributor: DefaultAgendaViewContributor = DefaultAgendaViewSettingsContributor(defaultAgendaViewStore)
 
         return SettingsViewModel(
-            contributors = contributors,
+            scope = testScope(scope),
+            appearanceContributor = null,
+            notificationsContributor = notificationsContributor,
+            workScheduleContributor = workScheduleContributor,
+            greetingContributor = greetingContributor,
+            aiContributor = aiContributor,
+            defaultAgendaViewContributor = defaultAgendaViewContributor,
             savedAgendaViewsRepo = fakeSavedAgendaViews,
             fileRevealer = FakeFileRevealer(),
-            scope = testScope(scope),
         )
     }
 
@@ -101,7 +100,7 @@ runCurrent()
     }
 
     // ─── Appearance ─────────────────────────────────────────────────────────────
-    // Appearance has no contributor — state uses defaults. Test verifies defaults.
+    // Appearance has no contributor; state uses defaults. Test verifies defaults.
 
     @Test
     fun `initial appearance state has correct defaults`() = runTest {
@@ -236,23 +235,26 @@ runCurrent()
         fakeStorage.write("ai_key_openai", "sk-test")
         val textGen = FakeTextGen(failureMessage = "kaboom")
         val aiStore = AiSettingsStore(fakeStorage, fakeSettings, textGen)
-        val aiContributor = AiSettingsContributor(aiStore)
+        val aiContributor: AiContributor = AiSettingsContributor(aiStore)
         val notificationsStore = NotificationsSettingsStore(fakeSettings.notifications)
+        val notificationsContributor: NotificationsContributor = NotificationsSettingsContributor(notificationsStore)
         val workScheduleStore = WorkScheduleSettingsStore(fakeSettings.workSchedule)
+        val workScheduleContributor: WorkScheduleContributor = WorkScheduleSettingsContributor(workScheduleStore)
         val greetingStore = GreetingSettingsStore(fakeSettings.greeting)
+        val greetingContributor: GreetingContributor = GreetingSettingsContributor(greetingStore)
         val defaultAgendaViewStore = DefaultAgendaViewSettingsStore(fakeSettings.defaultAgendaView)
-        val contributors: Set<SettingsContributor<*, *>> = setOf(
-            aiContributor,
-            NotificationsSettingsContributor(notificationsStore),
-            WorkScheduleSettingsContributor(workScheduleStore),
-            GreetingSettingsContributor(greetingStore),
-            DefaultAgendaViewSettingsContributor(defaultAgendaViewStore),
-        )
+        val defaultAgendaViewContributor: DefaultAgendaViewContributor = DefaultAgendaViewSettingsContributor(defaultAgendaViewStore)
+
         val vm = SettingsViewModel(
-            contributors = contributors,
+            scope = testScope(backgroundScope),
+            appearanceContributor = null,
+            notificationsContributor = notificationsContributor,
+            workScheduleContributor = workScheduleContributor,
+            greetingContributor = greetingContributor,
+            aiContributor = aiContributor,
+            defaultAgendaViewContributor = defaultAgendaViewContributor,
             savedAgendaViewsRepo = fakeSavedAgendaViews,
             fileRevealer = FakeFileRevealer(),
-            scope = testScope(backgroundScope),
         )
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.

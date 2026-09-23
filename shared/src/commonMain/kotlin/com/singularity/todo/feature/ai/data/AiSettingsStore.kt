@@ -6,6 +6,7 @@ import com.singularity.todo.core.llm.OpenAiConfig
 import com.singularity.todo.core.llm.SettingsReader
 import com.singularity.todo.core.llm.TextGenPort
 import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.settings.SettingsSection
@@ -19,7 +20,7 @@ import kotlinx.coroutines.flow.combine
  *
  * Secrets (API key) go through [SecureStoragePort]; non-secret settings use
  * [SettingsRepository]. Test/fetch results are held in ephemeral [MutableStateFlow]
- * and exposed as part of the [SettingsSection.Ai] section.
+ * and combined into [SettingsSection.Ai] via [ephemeralStateFlow].
  *
  * ## Architecture note
  * Each AI intent is handled directly — no debouncing of keystrokes here.
@@ -38,43 +39,40 @@ class AiSettingsStore(
     private val _isFetchingModels = MutableStateFlow(false)
     private val _fetchModelsError = MutableStateFlow<String?>(null)
 
-    /** Readonly access for SettingsViewModel synchronous reads. */
-    val testResultStateFlow = _testResult.asStateFlow()
-    val modelsStateFlow = _models.asStateFlow()
-    val isFetchingModelsStateFlow = _isFetchingModels.asStateFlow()
-    val fetchModelsErrorStateFlow = _fetchModelsError.asStateFlow()
+    /** Combines the four ephemeral flows into a single state object. */
+    val ephemeralStateFlow: Flow<EphemeralState.Ai> = combine(
+        _testResult,
+        _models,
+        _isFetchingModels,
+        _fetchModelsError,
+    ) { testResult, models, isFetching, fetchError ->
+        EphemeralState.Ai(
+            testResult = testResult,
+            models = models,
+            isFetchingModels = isFetching,
+            fetchModelsError = fetchError,
+        )
+    }
 
     /**
-     * Full AI settings section — combines persisted settings with live test/fetch state.
+     * Full AI settings section — combines persisted settings with live ephemeral state.
      */
     fun observe(): Flow<SettingsSection.Ai> = combine(
         settings.aiProvider,
         settings.aiBaseUrl,
         settings.aiModel,
         settings.aiSystemPrompt,
-        _testResult,
-        _models,
-        _isFetchingModels,
-        _fetchModelsError,
-    ) { values ->
-        @Suppress("UNCHECKED_CAST")
-        val provider = LlmProvider.fromId(values[0] as String)
-        val baseUrl = values[1] as String
-        val model = values[2] as String
-        val systemPrompt = values[3] as String
-        val testResult = values[4] as AiTestResult
-        val models = values[5] as List<String>
-        val isFetching = values[6] as Boolean
-        val fetchError = values[7] as String?
+        ephemeralStateFlow,
+    ) { provider, baseUrl, model, systemPrompt, aiEphem ->
         SettingsSection.Ai(
-            provider = provider,
+            provider = LlmProvider.fromId(provider),
             baseUrl = baseUrl,
             model = model,
             systemPrompt = systemPrompt,
-            testResult = testResult,
-            models = models,
-            isFetchingModels = isFetching,
-            fetchModelsError = fetchError,
+            testResult = aiEphem.testResult,
+            models = aiEphem.models,
+            isFetchingModels = aiEphem.isFetchingModels,
+            fetchModelsError = aiEphem.fetchModelsError,
         )
     }
 

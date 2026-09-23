@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.singularity.todo.core.settings.BaseSettingsRepository
 import com.singularity.todo.core.settings.SettingsNamespace
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -19,26 +20,20 @@ interface DefaultAgendaViewSettingsRepository {
 
 /**
  * Production [DefaultAgendaViewSettingsRepository] backed by DataStore.
+ * Null [SavedAgendaViewId] removes the preference key (same behaviour as [BaseSettingsRepository]-based
+ * repos for nullable values).
  */
 class DataStoreDefaultAgendaViewSettingsRepository(
-    private val dataStore: DataStore<Preferences>,
-) : DefaultAgendaViewSettingsRepository {
+    dataStore: DataStore<Preferences>,
+) : BaseSettingsRepository(dataStore), DefaultAgendaViewSettingsRepository {
 
-    companion object {
-        val DEFAULT_VIEW_ID = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.AGENDA, "default_view_id"))
-    }
+    private val rawPref = nullableStringPref(nsKey(SettingsNamespace.AGENDA, "default_view_id"))
 
-    override val defaultViewId: Flow<SavedAgendaViewId?> = dataStore.data.map {
-        it[DEFAULT_VIEW_ID]?.let { raw -> runCatching { SavedAgendaViewId.fromString(raw) }.getOrNull() }
+    override val defaultViewId: Flow<SavedAgendaViewId?> = rawPref.flow.map { raw ->
+        raw?.let { runCatching { SavedAgendaViewId.fromString(it) }.getOrNull() }
     }
 
     override suspend fun setDefaultViewId(id: SavedAgendaViewId?) {
-        dataStore.edit {
-            if (id == null) {
-                it.remove(DEFAULT_VIEW_ID)
-            } else {
-                it[DEFAULT_VIEW_ID] = id.raw
-            }
-        }
+        rawPref.set(id?.raw)
     }
 }

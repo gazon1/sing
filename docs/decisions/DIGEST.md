@@ -732,20 +732,28 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `settings`
 
+- 5 repositories (`Notifications`, `WorkSchedule`, `Greeting`, `DefaultAgendaView`, appearance) shrank by ~35% each (~90 → ~55 lines).
+- 6 marker interfaces added: `AppearanceContributor`, `AiContributor`,
 - All changes are additive; no existing behavior is removed.
 - Backup confirm dialogs prevent accidental data loss.
+- Compile-time safety: renaming `AiSettingsContributor` to `AiSettingsContributorImpl` now
 - Debounce reduces SecureStorage/DataStore writes by ~90% during text input.
+- No `simpleName` strings anywhere in the ViewModel — eliminated ~30 lines of accessor code
+- No changes to the public repository interface — `Flow<T>` and `suspend fun set` signatures are identical.
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode.
 - The `aiEphemeral` field in `SettingsUiState.Content` is kept for future migrations; do not rely on it as the primary read path for AI ephemeral state today.
 - When adding new AI-related state, add it to `SettingsSection.Ai` directly; do not introduce a parallel `EphemeralState.Ai` field.
 - `AiSettingsContributor` stays as a 1-argument class — `observe()` returns `Flow<SettingsSection.Ai>` (no `stateIn` wrapper) to avoid `CoroutineScope` requirements that break `DiGraphTest`.
 - `AiSettingsStore.observe()` is an 8-flow `combine`: 4 persisted flows + 4 ephemeral `MutableStateFlow`s.
 - `App.kt` инжектит `SettingsRepository` через Koin — это нормально, Koin доступен в Common startup.
+- `IntPref` range support (e.g., `intPref(..., range = 0..23)`) enforces min/max at write time, consistent with `coerceIn` in `Flow.map`.
+- `PrefSpec` as internal holder avoids Kotlin inline class boxing — the inline class wrapper is zero-cost at call sites.
 - `SettingsNavRail` Column теперь содержит Box с CircleShape — Layout инлайн, не refactor.
 - `SettingsSection.Ai` always contains all AI state (persisted + ephemeral) — never split.
 - `SettingsViewModel.reloadAiSection()` always updates **both** the `ai.*` fields on the `SettingsSection.Ai` object **and** the top-level flat fields (`aiTestResult`, `aiModels`, `isFetchingAiModels`, `fetchAiModelsError`) in `SettingsUiState.Content`.
 - `SurfaceController.apply(event)` is **not** changed — separate scope, separate task.
 - `TextGenPort.listModels` — добавлен в интерфейс, реализация в `KoogAgentService` и `FakeTextGen`.
+- `filterIsInstance<XxxContributor>()` on a `Set<SettingsContributor<*, *>>` works because the
 - `process(intent)` is the canonical name for contributor intent dispatch.
 - Все 6 sub-screens имеют `verticalScroll` — контент больше не обрезается.
 
@@ -844,6 +852,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`TaskDetailDeps`** gains `checklistRepository: ChecklistRepository` field
 - **`factory { ChecklistUseCase(get()) }`** in `TasksDiModule.kt` — Clock removed
 - **`just lint`** now includes `PassThroughUseCase` checks for `:shared` and `:desktopApp`
+
+### `viewmodel`
+
+- No cast needed — `scope` is `AutoCloseableCoroutineScope` at both call site and definition
+- Tests use `testScope(backgroundScope)` to wrap the test dispatcher
+- `AutoCloseableCoroutineScope` companion factory creates a scope backed by `createBackgroundScope()`
+- `appearanceContributor = null` is explicit — the default is intentional, not accidental
 
 ### `vm`
 
@@ -1014,13 +1029,16 @@ _1 entries need attention._
 - `2026-09-21-user-scoped-repository` — _untagged_
 - `2026-09-22-alarmmanager-reminders` — _untagged_
 - `2026-09-22-bottomsheet-host-mr22` — ui-components, sheet-state, compose
+- `2026-09-22-canonical-vm-scope-pattern` — viewmodel, architecture, coroutines, koin
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — repository, checklist, currentuser, koin, refactor
 - `2026-09-22-contributor-process-rename-mr24` — settings, naming, kotlin-idioms
 - `2026-09-22-dead-sheets-removal-mr23` — cleanup, dead-code
 - `2026-09-22-explicit-overload-removal` — _untagged_
 - `2026-09-22-koin-annotations-4x-skill-correction` — _untagged_
+- `2026-09-22-marker-contributor-interfaces` — settings, architecture, kotlin, type-system
 - `2026-09-22-noteeditor-refactor` — notes, architecture, refactor
 - `2026-09-22-pomodoro-hybrid-timer` — _untagged_
+- `2026-09-22-preference-wrappers` — settings, architecture, datastore, kotlin
 - `2026-09-22-reminder-lastfiredat-schema` — reminders, database, scheduler
 - `2026-09-22-reminder-scheduler-critical-fixes` — reminders, scheduler, concurrency, coroutines, di
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — repository, currentuser, userid, draft-store, use-case, koin
@@ -1175,13 +1193,16 @@ _1 entries need attention._
 - `2026-09-21-user-scoped-repository` — _(no title)_
 - `2026-09-22-alarmmanager-reminders` — AlarmManager + BootReceiver для reminders ( Orgzly pattern)
 - `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
+- `2026-09-22-canonical-vm-scope-pattern` — Canonical ViewModel constructor: scope as AutoCloseableCoroutineScope
 - `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — Delete ChecklistUseCase; drop unused ProfileAwareCurrentUser from AgendaDeps/CalendarDeps; inject taskId via ChecklistEditorViewModel constructor
 - `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
 - `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
 - `2026-09-22-explicit-overload-removal` — _(no title)_
 - `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
+- `2026-09-22-marker-contributor-interfaces` — Settings contributors: marker interfaces to defeat type erasure
 - `2026-09-22-noteeditor-refactor` — NoteEditor — extract state holders, save controller, AI controller
 - `2026-09-22-pomodoro-hybrid-timer` — Hybrid Pomodoro Timer — in-app ticker + AlarmManager.setAlarmClock
+- `2026-09-22-preference-wrappers` — DataStore preference wrappers: inline class + BaseSettingsRepository
 - `2026-09-22-reminder-lastfiredat-schema` — _(no title)_
 - `2026-09-22-reminder-scheduler-critical-fixes` — _(no title)_
 - `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — Repository stamps ambient userId on create; drop userId params from input classes and use cases

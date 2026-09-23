@@ -6,8 +6,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import com.singularity.todo.core.appearance.AppearanceSettingsRepository
 import com.singularity.todo.core.auth.AuthGuard
-import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.nav.AppDestination
@@ -29,10 +29,11 @@ import org.koin.compose.koinInject
  */
 @Composable
 actual fun App(deeplinkViewId: String?) {
-    val settings: SettingsRepository = koinInject()
-    val darkTheme by settings.darkTheme.collectAsState(initial = false)
-    val accentName by settings.accentColor.collectAsState(initial = "blue")
+    val appearance: AppearanceSettingsRepository = koinInject()
+    val darkTheme by appearance.darkTheme.collectAsState(initial = false)
+    val accentName by appearance.accentColor.collectAsState(initial = "blue")
     val accent = SingularityAccents.fromString(accentName)
+    val fontSizeScale by appearance.fontSizeScale.collectAsState(initial = 1f)
 
     val state = rememberNav3State()
     val navigator = remember(state) { Navigator(state) }
@@ -47,7 +48,7 @@ actual fun App(deeplinkViewId: String?) {
         }
     }
 
-    SingularityTheme(darkTheme = darkTheme, accent = accent) {
+    SingularityTheme(darkTheme = darkTheme, accent = accent, fontSizeScale = fontSizeScale) {
         CompositionLocalProvider(
             LocalAppNavigator provides navCallbacks,
         ) {
