@@ -29,11 +29,12 @@ open class FakeSyncRepository(
 
     /**
      * If true, [syncOnce] yields for 10 ms to simulate an async network call.
+     * Also sets status to Pushing while running, so a concurrent call returns Skipped.
      */
     var syncOnceYields = false
 
     var syncOnceResult: Result<SyncOutcome> = Result.success(
-        SyncOutcome(Result.success(PushSummary(0, 0, 0)), Result.success(PullSummary(0, 0, 0))),
+        SyncOutcome.Success(Result.success(PushSummary(0, 0, 0)), Result.success(PullSummary(0, 0, 0))),
     )
     val syncOnceOutcome get() = syncOnceResult.getOrThrow()
 
@@ -51,10 +52,16 @@ open class FakeSyncRepository(
     }
 
     override suspend fun syncOnce(): SyncOutcome {
+        // Mirror the same coalescing guard the real SyncRepositoryImpl uses.
+        if (_status.value.isRunning()) {
+            return SyncOutcome.Skipped("Another sync is running")
+        }
         syncOnceCalled = true
         syncOnceCallCount++
         if (syncOnceYields) {
+            _status.value = SyncEngineStatus.Pushing
             delay(10)
+            _status.value = SyncEngineStatus.Idle
         }
         return syncOnceResult.getOrThrow()
     }

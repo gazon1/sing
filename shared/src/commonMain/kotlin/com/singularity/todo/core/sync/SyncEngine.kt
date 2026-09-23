@@ -26,10 +26,22 @@ data class PullSummary(val received: Int, val applied: Int, val conflicts: Int)
 /**
  * Outcome of a single sync run (push + pull).
  */
-data class SyncOutcome(
-    val push: Result<PushSummary>,
-    val pull: Result<PullSummary>,
-)
+sealed interface SyncOutcome {
+    /**
+     * A sync completed (push and/or pull ran to completion — even if individual
+     * operations had errors, the engine finished its cycle without being coalesced).
+     */
+    data class Success(
+        val push: Result<PushSummary>,
+        val pull: Result<PullSummary>,
+    ) : SyncOutcome
+
+    /**
+     * The sync was skipped because another sync was already running.
+     * The caller may fire a follow-up sync once the running one completes.
+     */
+    data class Skipped(val reason: String) : SyncOutcome
+}
 
 /**
  * Status of the sync engine.
@@ -126,7 +138,7 @@ internal class SyncEngine(
     internal suspend fun syncOnce(): SyncOutcome {
         val push = push()
         val pull = pull(sinceLsn = prefs.lastLsn)
-        return SyncOutcome(push, pull)
+        return SyncOutcome.Success(push, pull)
     }
 
     /**
