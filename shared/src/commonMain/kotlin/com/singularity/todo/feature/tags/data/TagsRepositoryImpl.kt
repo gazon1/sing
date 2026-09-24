@@ -76,9 +76,7 @@ private fun TagEntity.toTag(): Tag = Tag(
     color = color,
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),
-    // parentId is dead schema — intentionally ignored (superseded by tag_groups in MR-3).
-    // Writing null here keeps the deprecation harmless and ensures round-trip stability.
-    parentId = null,
+    groupId = groupId?.let { com.singularity.todo.feature.tags.domain.model.TagGroupId.fromString(it) },
     sortOrder = sortOrder,
     deletedAt = deletedAt.toInstantOrNull(),
     userId = userId,
@@ -93,8 +91,7 @@ fun Tag.toEntity(): TagEntity = TagEntity(
     color = color,
     createdAt = createdAt.toEpochMilliseconds(),
     updatedAt = updatedAt.toEpochMilliseconds(),
-    // parentId is dead schema — always written as null (superseded by tag_groups in MR-3).
-    parentId = null,
+    groupId = groupId?.value,
     sortOrder = sortOrder,
     deletedAt = deletedAt?.toEpochMilliseconds(),
     sync = SyncColumns(serverVersion = serverVersion, hlc = hlc?.encoded),

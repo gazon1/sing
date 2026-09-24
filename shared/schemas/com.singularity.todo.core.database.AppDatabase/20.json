@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 20,
-    "identityHash": "1e233555fb7c349dc837a6fe60983d2f",
+    "identityHash": "54e6577b6440300fc890ce847845ca4d",
     "entities": [
       {
         "tableName": "tasks",
@@ -684,7 +684,7 @@
       },
       {
         "tableName": "tags",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `user_id` TEXT NOT NULL, `name` TEXT NOT NULL, `color` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `parent_id` TEXT, `sort_order` INTEGER NOT NULL, `deleted_at` INTEGER, `server_version` INTEGER NOT NULL, `sync_status` TEXT NOT NULL, `sync_error` TEXT, `last_synced_at` INTEGER, `device_id` TEXT, `hlc` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `user_id` TEXT NOT NULL, `name` TEXT NOT NULL, `color` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `group_id` TEXT, `sort_order` INTEGER NOT NULL, `deleted_at` INTEGER, `server_version` INTEGER NOT NULL, `sync_status` TEXT NOT NULL, `sync_error` TEXT, `last_synced_at` INTEGER, `device_id` TEXT, `hlc` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -723,8 +723,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "parentId",
-            "columnName": "parent_id",
+            "fieldPath": "groupId",
+            "columnName": "group_id",
             "affinity": "TEXT"
           },
           {
@@ -795,6 +795,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_tags_deleted_at` ON `${TABLE_NAME}` (`deleted_at`)"
+          },
+          {
+            "name": "index_tags_group_id",
+            "unique": false,
+            "columnNames": [
+              "group_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tags_group_id` ON `${TABLE_NAME}` (`group_id`)"
           }
         ]
       },
@@ -1577,7 +1586,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1e233555fb7c349dc837a6fe60983d2f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '54e6577b6440300fc890ce847845ca4d')"
     ]
   }
 }
