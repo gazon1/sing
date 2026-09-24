@@ -4,6 +4,10 @@ import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 
+/**
+ * Repository for saved agenda view configurations per profile.
+ * Extends GenericUserScopedRepository.
+ */
 interface SavedAgendaViewsRepository : GenericUserScopedRepository<SavedAgendaView, SavedAgendaViewId> {
 
     /** Returns the ambient userId string for this repository's scope. */
