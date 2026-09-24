@@ -9,6 +9,7 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
+import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -22,6 +23,8 @@ data class WeeklyPlanOutput(val items: List<String>)
 class WeeklyPlanTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<WeeklyPlanInput>(TypeToken.of(WeeklyPlanInput::class.java), NAME, DESCRIPTION) {
 
+    private val logger = Logger.withTag("WeeklyPlan")
+
     override suspend fun execute(args: WeeklyPlanInput): String {
         val p = prompt(Prompt.Empty, KoogClock.System) {
             system(Prompts.weeklyPlanSystem)
@@ -32,7 +35,8 @@ class WeeklyPlanTool(private val promptExecutor: PromptExecutor, private val mod
         return try {
             val items = Json.decodeFromString<WeeklyPlanOutput>(text).items
             Json.encodeToString(WeeklyPlanOutput.serializer(), WeeklyPlanOutput(items))
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.w(e) { "failed" }
             val lines = text.lines()
                 .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }
                 .map { it.trim().removePrefix("- ").removePrefix("* ").removeSurrounding("\"") }

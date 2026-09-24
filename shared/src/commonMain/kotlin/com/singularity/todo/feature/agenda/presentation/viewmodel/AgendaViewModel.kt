@@ -41,6 +41,7 @@ import kotlinx.coroutines.launch
 class AgendaViewModel(
     private val deps: AgendaDeps,
     definition: AgendaDefinition,
+    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5_000) },
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
@@ -78,7 +79,7 @@ class AgendaViewModel(
         }
         .stateIn(
             scope,
-            SharingStarted.WhileSubscribed(5_000),
+            sharingStarted(),
             AgendaUiState.Loading,
         )
 

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.calendar_sync.di
 
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncViewModel
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
@@ -39,8 +40,9 @@ fun calendarSyncModule(): Module = module {
     single { CalendarSyncOrchestrator(get(), createBackgroundScope(), get()) }
 
     // ViewModel bound to navigation lifecycle — cancelled when the screen leaves the back stack.
-    // 6-arg canonical ctor: syncRepo, calendarProvider, scheduler, appQueries, orchestrator, scope.
+    // 6-arg canonical ctor: syncRepo, calendarProvider, scheduler, appQueries, orchestrator, scope
+    // (scope = AutoCloseableCoroutineScope for lifecycle-aware cancellation).
     factory<CalendarSyncViewModel> {
-        CalendarSyncViewModel(get(), get(), get(), get(), get(), createBackgroundScope())
+        CalendarSyncViewModel(get(), get(), get(), get(), get(), AutoCloseableCoroutineScope())
     }
 }

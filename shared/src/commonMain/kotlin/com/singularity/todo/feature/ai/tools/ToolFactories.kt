@@ -9,6 +9,7 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
+import co.touchlab.kermit.Logger
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -35,6 +36,8 @@ import kotlinx.serialization.json.Json
  * ) }
  * ```
  */
+@PublishedApi internal val logger = Logger.withTag("ToolFactories")
+
 inline fun <reified I : @Serializable Any, reified O : @Serializable Any> llmTool(
     name: String,
     description: String,
@@ -53,7 +56,8 @@ inline fun <reified I : @Serializable Any, reified O : @Serializable Any> llmToo
             val text = extractText(response)
             return try {
                 Json.encodeToString(outputSerializer, outputBlock(text))
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.w(e) { "failed" }
                 // Fallback: try direct decode
                 Json.encodeToString(outputSerializer, outputBlock(text))
             }

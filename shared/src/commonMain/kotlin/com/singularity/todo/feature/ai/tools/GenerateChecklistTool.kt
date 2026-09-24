@@ -9,6 +9,7 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
+import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -22,6 +23,8 @@ data class GenerateChecklistOutput(val steps: List<String>)
 class GenerateChecklistTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<GenerateChecklistInput>(TypeToken.of(GenerateChecklistInput::class.java), NAME, DESCRIPTION) {
 
+    private val logger = Logger.withTag("GenerateChecklist")
+
     override suspend fun execute(args: GenerateChecklistInput): String {
         val p = prompt(Prompt.Empty, KoogClock.System) {
             system(Prompts.generateChecklistSystem)
@@ -32,7 +35,8 @@ class GenerateChecklistTool(private val promptExecutor: PromptExecutor, private 
         return try {
             val steps = Json.decodeFromString<GenerateChecklistOutput>(text).steps
             Json.encodeToString(GenerateChecklistOutput.serializer(), GenerateChecklistOutput(steps))
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.w(e) { "failed" }
             val lines = text.lines()
                 .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }
                 .map { it.trim().removePrefix("- ").removePrefix("* ").removeSurrounding("\"") }

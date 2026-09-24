@@ -9,6 +9,7 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
+import co.touchlab.kermit.Logger
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -19,6 +20,8 @@ data class ImproveNoteOutput(val title: String, val body: String)
 
 class ImproveNoteTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<ImproveNoteInput>(TypeToken.of(ImproveNoteInput::class.java), NAME, DESCRIPTION) {
+
+    private val logger = Logger.withTag("ImproveNote")
 
     override suspend fun execute(args: ImproveNoteInput): String {
         val p = prompt(Prompt.Empty, KoogClock.System) {
@@ -33,7 +36,8 @@ class ImproveNoteTool(private val promptExecutor: PromptExecutor, private val mo
             kotlinx.serialization.json.Json.decodeFromString<ImproveNoteOutput>(text).let { out ->
                 kotlinx.serialization.json.Json.encodeToString(ImproveNoteOutput.serializer(), out)
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.w(e) { "failed" }
             // Fallback: return original if parsing fails
             kotlinx.serialization.json.Json.encodeToString(
                 ImproveNoteOutput.serializer(),

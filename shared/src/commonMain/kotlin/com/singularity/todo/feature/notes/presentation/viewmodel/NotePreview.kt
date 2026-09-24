@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.feature.notes.Note
@@ -41,6 +42,8 @@ class NotePreview(
     private val _events = Channel<NotesUiEvent>(Channel.BUFFERED)
     val events: Flow<NotesUiEvent> = _events.receiveAsFlow()
 
+    private val logger = Logger.withTag("NotePreview")
+
     private var loadNoteJob: Job? = null
 
     fun onIntent(intent: NotePreviewIntent) {
@@ -64,7 +67,8 @@ class NotePreview(
                 .first()
             val backlinks = try {
                 linkRepo.getBacklinkNotes(noteId)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.w(e) { "Failed to load backlink notes" }
                 emptyList()
             }
             _state.value = NotePreviewState.Loaded(
