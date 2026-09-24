@@ -205,10 +205,7 @@ fun SimpleFilterSheet(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StateChips(
-    selected: Set<TaskStatus>?,
-    onSelectionChange: (Set<TaskStatus>?) -> Unit,
-) {
+private fun StateChips(selected: Set<TaskStatus>?, onSelectionChange: (Set<TaskStatus>?) -> Unit) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -250,10 +247,7 @@ private fun StateChips(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PriorityChips(
-    selected: Set<TaskPriority>,
-    onSelectionChange: (Set<TaskPriority>) -> Unit,
-) {
+private fun PriorityChips(selected: Set<TaskPriority>, onSelectionChange: (Set<TaskPriority>) -> Unit) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -279,10 +273,7 @@ private fun PriorityChips(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DueChips(
-    selected: SimpleFilter.DueCondition,
-    onSelectionChange: (SimpleFilter.DueCondition) -> Unit,
-) {
+private fun DueChips(selected: SimpleFilter.DueCondition, onSelectionChange: (SimpleFilter.DueCondition) -> Unit) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

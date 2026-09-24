@@ -1,10 +1,10 @@
 package com.singularity.todo.test
 
-import kotlin.test.Test
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
+import kotlin.test.Test
 
 /**
  * Verifies that Koin scope isolation works as expected.

@@ -412,13 +412,15 @@ fun SwipeableNoteCard(
         confirmValueChange = { value ->
             when (value) {
                 SwipeToDismissBoxValue.StartToEnd -> {
-                    onTogglePin();
+                    onTogglePin()
                     false
                 }
+
                 SwipeToDismissBoxValue.EndToStart -> {
-                    onDelete();
+                    onDelete()
                     false
                 }
+
                 SwipeToDismissBoxValue.Settled -> false
             }
         },

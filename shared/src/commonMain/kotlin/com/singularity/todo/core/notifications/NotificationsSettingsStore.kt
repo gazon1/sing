@@ -11,9 +11,7 @@ import kotlinx.coroutines.flow.combine
  * Contributes [SettingsSection.Notifications] to the unified settings UI.
  * Registration: `single<SettingsContributor> { NotificationsSettingsContributor(get()) }`.
  */
-class NotificationsSettingsStore(
-    private val notifications: NotificationsSettingsRepository,
-) {
+class NotificationsSettingsStore(private val notifications: NotificationsSettingsRepository) {
     /**
      * Notification settings section — all 4 fields from [NotificationsSettingsRepository].
      */

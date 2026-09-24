@@ -6,7 +6,6 @@ import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.tags.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tags.usecase.UpdateTagUseCase
 import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 

@@ -56,7 +56,9 @@ class ProfileBootstrapper(
                 logger.w { "ProfileBootstrapper: '$activateName' not found after seed" }
                 null
             }
-        } else null
+        } else {
+            null
+        }
         return ProfileBootstrapResult(
             created = profiles.keys - alreadyExisted.keys,
             activated = activated?.id,
@@ -71,10 +73,7 @@ class ProfileBootstrapper(
      * @property activated The activated [ProfileId] if a profile was activated, or null
      *                    if [run] was called with `activateName = null`.
      */
-    data class ProfileBootstrapResult(
-        val created: Set<String>,
-        val activated: ProfileId?,
-    )
+    data class ProfileBootstrapResult(val created: Set<String>, val activated: ProfileId?)
 
     /** Compact carrier for the (name, emoji, colorIdx) tuple. */
     data class SeedProfile(val name: String, val emoji: String, val colorIdx: Int) {

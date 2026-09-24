@@ -65,6 +65,7 @@ data class SimpleFilter(
         THIS_WEEK,
         OVERDUE,
         NONE,
+
         /** Use [customDueDate] and [customDueDateEnd] for a custom range. */
         CUSTOM,
     }

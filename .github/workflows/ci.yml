@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "refactor/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run jvmTest
+        run: ./gradlew :shared:jvmTest --no-daemon
+
+      - name: Run testAndroidHostTest
+        run: ./gradlew :shared:testAndroidHostTest --no-daemon
+
+      - name: Run desktopApp:test
+        run: ./gradlew :desktopApp:test --no-daemon
+
+      - name: Assemble Android debug
+        run: ./gradlew :androidApp:assembleDebug --no-daemon
+        continue-on-error: true
+
+      - name: Run detekt
+        run: ./gradlew :shared:detekt :desktopApp:detekt --no-daemon
+        continue-on-error: true
+
+  kover-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate kover report
+        run: ./gradlew :shared:koverXmlReport --no-daemon
+
+      - name: Upload kover XML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: kover-report
+          path: shared/build/reports/kover/xml-report.xml
+
+  mcp-server-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Check mcp-server
+        run: |
+          ./gradlew :mcp-server:compileKotlin --no-daemon
+          ./gradlew :mcp-server:detekt --no-daemon
+          ./gradlew :mcp-server:test --no-daemon
+        continue-on-error: true

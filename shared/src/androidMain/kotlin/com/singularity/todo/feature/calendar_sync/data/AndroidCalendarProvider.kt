@@ -42,48 +42,45 @@ class AndroidCalendarProvider(
         get() = context.contentResolver
 
     /** Lazily resolves the target app package from settings. null = use system default. */
-    private suspend fun resolveAppPackage(): String? =
-        syncRepo.observeTargetAppPackage().firstOrNull()
+    private suspend fun resolveAppPackage(): String? = syncRepo.observeTargetAppPackage().firstOrNull()
 
-    override suspend fun getAvailableCalendars(): Result<Map<String, String>> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                translateExceptions {
-                    val projection = arrayOf(
-                        CalendarContract.Calendars._ID,
-                        CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
-                        CalendarContract.Calendars.ACCOUNT_NAME,
-                    )
-                    val uri = CalendarContract.Calendars.CONTENT_URI
-                    val selection = "${CalendarContract.Calendars.VISIBLE} = 1"
-                    val calendars = mutableMapOf<String, String>()
-                    contentResolver.query(uri, projection, selection, null, null)?.use { cursor ->
-                        val idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID)
-                        val nameIdx = cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
-                        while (cursor.moveToNext()) {
-                            val id = cursor.getString(idIdx)
-                            val name = cursor.getString(nameIdx) ?: id
-                            calendars[id] = name
-                        }
+    override suspend fun getAvailableCalendars(): Result<Map<String, String>> = withContext(Dispatchers.IO) {
+        runCatching {
+            translateExceptions {
+                val projection = arrayOf(
+                    CalendarContract.Calendars._ID,
+                    CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                    CalendarContract.Calendars.ACCOUNT_NAME,
+                )
+                val uri = CalendarContract.Calendars.CONTENT_URI
+                val selection = "${CalendarContract.Calendars.VISIBLE} = 1"
+                val calendars = mutableMapOf<String, String>()
+                contentResolver.query(uri, projection, selection, null, null)?.use { cursor ->
+                    val idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID)
+                    val nameIdx = cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getString(idIdx)
+                        val name = cursor.getString(nameIdx) ?: id
+                        calendars[id] = name
                     }
-                    calendars
                 }
-            }.recoverCatching { throw it }
-        }
+                calendars
+            }
+        }.recoverCatching { throw it }
+    }
 
-    override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                translateExceptions {
-                    val appPkg = resolveAppPackage()
-                    val values = toContentValues(event, accountNameProvider(), appPkg)
-                    val uri = contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
-                        ?: throw IllegalStateException("Insert returned null URI")
-                    val eventId = ContentUris.parseId(uri)
-                    eventId
-                }
-            }.recoverCatching { throw it }
-        }
+    override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> = withContext(Dispatchers.IO) {
+        runCatching {
+            translateExceptions {
+                val appPkg = resolveAppPackage()
+                val values = toContentValues(event, accountNameProvider(), appPkg)
+                val uri = contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
+                    ?: throw IllegalStateException("Insert returned null URI")
+                val eventId = ContentUris.parseId(uri)
+                eventId
+            }
+        }.recoverCatching { throw it }
+    }
 
     override suspend fun updateEvent(eventId: Long, event: CalendarSyncEvent): Result<Long> =
         withContext(Dispatchers.IO) {
@@ -101,68 +98,64 @@ class AndroidCalendarProvider(
             }.recoverCatching { throw it }
         }
 
-    override suspend fun deleteEvent(eventId: Long): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                translateExceptions {
-                    val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
-                    val rows = contentResolver.delete(uri, null, null)
-                    if (rows == 0) {
-                        throw IllegalStateException("Delete affected 0 rows for eventId=$eventId")
-                    }
-                }
-            }.recoverCatching { throw it }
-        }
-
-    override suspend fun queryEvents(
-        calendarId: String?,
-        fromMs: Long,
-        toMs: Long,
-    ): Result<Map<String, Long>> = withContext(Dispatchers.IO) {
+    override suspend fun deleteEvent(eventId: Long): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             translateExceptions {
-                val projection = arrayOf(
-                    CalendarContract.Events._ID,
-                    CalendarContract.Events.DTSTART,
-                    CalendarContract.Events.DTEND,
-                    CalendarContract.Events.DESCRIPTION,
-                )
-                val selection = buildString {
-                    append("(${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTSTART} < ?)")
-                    if (calendarId != null) {
-                        append(" AND ${CalendarContract.Events.CALENDAR_ID} = ?")
-                    }
-                    append(" AND ${CalendarContract.Events.ACCOUNT_NAME} = ?")
+                val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
+                val rows = contentResolver.delete(uri, null, null)
+                if (rows == 0) {
+                    throw IllegalStateException("Delete affected 0 rows for eventId=$eventId")
                 }
-                val args = if (calendarId != null) {
-                    arrayOf(fromMs.toString(), toMs.toString(), calendarId, accountNameProvider())
-                } else {
-                    arrayOf(fromMs.toString(), toMs.toString(), accountNameProvider())
-                }
-
-                val result = mutableMapOf<String, Long>()
-                contentResolver.query(
-                    CalendarContract.Events.CONTENT_URI,
-                    projection,
-                    selection,
-                    args,
-                    null,
-                )?.use { cursor ->
-                    val idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID)
-                    val descIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DESCRIPTION)
-                    while (cursor.moveToNext()) {
-                        val eventId = cursor.getLong(idIdx)
-                        val desc = cursor.getString(descIdx) ?: ""
-                        val taskId = extractTaskId(desc)
-                        if (taskId != null) {
-                            result[taskId] = eventId
-                        }
-                    }
-                }
-                result
             }
         }.recoverCatching { throw it }
     }
+
+    override suspend fun queryEvents(calendarId: String?, fromMs: Long, toMs: Long): Result<Map<String, Long>> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                translateExceptions {
+                    val projection = arrayOf(
+                        CalendarContract.Events._ID,
+                        CalendarContract.Events.DTSTART,
+                        CalendarContract.Events.DTEND,
+                        CalendarContract.Events.DESCRIPTION,
+                    )
+                    val selection = buildString {
+                        append("(${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTSTART} < ?)")
+                        if (calendarId != null) {
+                            append(" AND ${CalendarContract.Events.CALENDAR_ID} = ?")
+                        }
+                        append(" AND ${CalendarContract.Events.ACCOUNT_NAME} = ?")
+                    }
+                    val args = if (calendarId != null) {
+                        arrayOf(fromMs.toString(), toMs.toString(), calendarId, accountNameProvider())
+                    } else {
+                        arrayOf(fromMs.toString(), toMs.toString(), accountNameProvider())
+                    }
+
+                    val result = mutableMapOf<String, Long>()
+                    contentResolver.query(
+                        CalendarContract.Events.CONTENT_URI,
+                        projection,
+                        selection,
+                        args,
+                        null,
+                    )?.use { cursor ->
+                        val idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID)
+                        val descIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DESCRIPTION)
+                        while (cursor.moveToNext()) {
+                            val eventId = cursor.getLong(idIdx)
+                            val desc = cursor.getString(descIdx) ?: ""
+                            val taskId = extractTaskId(desc)
+                            if (taskId != null) {
+                                result[taskId] = eventId
+                            }
+                        }
+                    }
+                    result
+                }
+            }.recoverCatching { throw it }
+        }
 
     private fun extractTaskId(description: String): String? {
         val marker = "${CalendarSyncEvent.DEEP_LINK_SCHEME}://${CalendarSyncEvent.DEEP_LINK_HOST}/"

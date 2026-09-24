@@ -4,10 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.ListPickerItem
 import com.singularity.todo.core.ui.components.ListPickerSheet
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -22,11 +19,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TaskAiBottomSheet(
-    task: Task,
-    onAction: (TaskAiAction) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun TaskAiBottomSheet(task: Task, onAction: (TaskAiAction) -> Unit, onDismiss: () -> Unit) {
     ListPickerSheet(
         title = "AI Actions for: ${task.title}",
         items = TaskAiAction.entries.map { action ->

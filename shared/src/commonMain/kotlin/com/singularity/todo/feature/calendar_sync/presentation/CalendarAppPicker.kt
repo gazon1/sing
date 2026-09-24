@@ -66,11 +66,7 @@ fun CalendarAppPicker(
 }
 
 @Composable
-private fun AppRadioRow(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun AppRadioRow(label: String, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

@@ -11,7 +11,7 @@ import com.singularity.todo.feature.alarms.AlarmContract
 import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_PHASE
 import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_REMINDER_ID
 import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_USER_ID
-import com.singularity.todo.feature.alarms.AlarmContract.tagFor
+
 import com.singularity.todo.feature.pomodoro.PomodoroPhase
 import com.singularity.todo.feature.reminders.ReminderFireLogic
 import com.singularity.todo.feature.reminders.ReminderId
@@ -48,7 +48,9 @@ import org.koin.core.context.GlobalContext
  * All alarm keys include `userId` to prevent cross-profile collisions:
  * `"reminder:${userId.value}:${reminderId.value}"`
  */
-class AlarmReceiver : BroadcastReceiver(), KoinComponent {
+class AlarmReceiver :
+    BroadcastReceiver(),
+    KoinComponent {
 
     private val log = Logger.withTag("AlarmReceiver")
 
@@ -69,9 +71,9 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
         }
         val pendingResult = goAsync()
         val scope = CoroutineScope(
-            Dispatchers.Default
-                + SupervisorJob()
-                + CoroutineExceptionHandler { _, e -> log.e(e) { "AlarmReceiver failed" } },
+            Dispatchers.Default +
+                SupervisorJob() +
+                CoroutineExceptionHandler { _, e -> log.e(e) { "AlarmReceiver failed" } },
         )
         scope.launch {
             try {
@@ -105,7 +107,10 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
         notifier.post(AlarmContract.tagFor(userId, reminderId), outcome.title, outcome.body, reminder.viewId?.raw)
 
         if (outcome.shouldDelete) {
-            reminderRepo.delete(reminderId, userId).onFailure { log.w { "Failed to delete reminder ${reminderId.value}: ${it.message}" } }
+            reminderRepo.delete(
+                reminderId,
+                userId,
+            ).onFailure { log.w { "Failed to delete reminder ${reminderId.value}: ${it.message}" } }
         }
     }
 
@@ -147,9 +152,17 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
             .forEach { reminder ->
                 val taskTitle = taskRepo.get(reminder.taskId)?.title
                 val outcome = ReminderFireLogic.execute(reminder, taskTitle)
-                notifier.post(AlarmContract.tagFor(reminder.userId, reminder.id), outcome.title, outcome.body, reminder.viewId?.raw)
+                notifier.post(
+                    AlarmContract.tagFor(reminder.userId, reminder.id),
+                    outcome.title,
+                    outcome.body,
+                    reminder.viewId?.raw,
+                )
                 if (outcome.shouldDelete) {
-                    reminderRepo.delete(reminder.id, reminder.userId).onFailure { log.w { "Failed to delete reminder ${reminder.id.value}: ${it.message}" } }
+                    reminderRepo.delete(
+                        reminder.id,
+                        reminder.userId,
+                    ).onFailure { log.w { "Failed to delete reminder ${reminder.id.value}: ${it.message}" } }
                 }
             }
 

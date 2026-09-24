@@ -1,11 +1,9 @@
 package com.singularity.todo.feature.calendar.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.state.updateState
 import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
-import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.goNext
 import com.singularity.todo.feature.calendar.domain.logic.goPrevious
@@ -22,12 +20,13 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -55,6 +54,10 @@ class CalendarViewModel(
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
+    init {
+        addCloseable(scope)
+    }
+
     /** Today's date, stable for the lifetime of this VM (captured at construction). */
     private val today: LocalDate = deps.today
 
@@ -71,31 +74,33 @@ class CalendarViewModel(
     private val _events = Channel<CalendarUiEvent>(Channel.BUFFERED)
     val events: Flow<CalendarUiEvent> = _events.receiveAsFlow()
 
-    private val _state = MutableStateFlow<CalendarUiState>(CalendarUiState.Loading)
-    val state: StateFlow<CalendarUiState> = _state.asStateFlow()
-
-    init {
-        addCloseable(scope)
-        scope.launch {
-            combine(
-                _calendarState,
-                deps.reminderRepo.observeRecurringTaskIds(),
-            ) { cal, recurringIds ->
-                cal to recurringIds
-            }.flatMapLatest { (cal, recurringIds) ->
-                // Extend query window by ±7 days so neighbouring months are preloaded
-                val from = firstDayOfMonth(cal.anchor).minus(7, DateTimeUnit.DAY)
-                val to = lastDayOfMonth(cal.anchor).plus(7, DateTimeUnit.DAY)
-                deps.taskRepo.observeByFilter(TaskFilter.ByDateRange(from, to))
-                    .map { tasks ->
-                        val tasksByDate = tasks
-                            .map { task -> CalendarTaskMapper.toCalendarTaskUi(task, today, recurringIds.contains(task.id)) }
-                            .groupBy { it.date }
-                        cal.toLoadedState(tasksByDate, today)
-                    }
-            }.collect { _state.value = it }
-        }
-    }
+    /**
+     * Main state — combines task flow with calendar selection state.
+     * Starts as [CalendarUiState.Loading] and transitions to [CalendarUiState.Loaded]
+     * once the first batch of tasks arrives.
+     * User switch is handled automatically by [TaskRepository.observeByFilter].
+     */
+    val state: StateFlow<CalendarUiState> = combine(
+        _calendarState,
+        deps.reminderRepo.observeRecurringTaskIds(),
+    ) { cal, recurringIds ->
+        cal to recurringIds
+    }.flatMapLatest { (cal, recurringIds) ->
+        // Extend query window by ±7 days so neighbouring months are preloaded
+        val from = firstDayOfMonth(cal.anchor).minus(7, DateTimeUnit.DAY)
+        val to = lastDayOfMonth(cal.anchor).plus(7, DateTimeUnit.DAY)
+        deps.taskRepo.observeByFilter(TaskFilter.ByDateRange(from, to))
+            .map { tasks ->
+                val tasksByDate = tasks
+                    .map { task -> CalendarTaskMapper.toCalendarTaskUi(task, today, recurringIds.contains(task.id)) }
+                    .groupBy { it.date }
+                cal.toLoadedState(tasksByDate, today)
+            }
+    }.stateIn(
+        scope,
+        SharingStarted.WhileSubscribed(5_000),
+        CalendarUiState.Loading,
+    )
 
     /**
      * Processes a user intent.

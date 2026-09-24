@@ -9,18 +9,14 @@ import kotlin.test.assertEquals
 
 class SyncDiffMergeTest {
 
-    private fun entity(
-        taskId: String,
-        calendarId: String = "cal1",
-        eventId: Long = 100L,
-        checksum: Int = 0,
-    ) = CalendarSyncTaskMapEntity(
-        taskId = taskId,
-        calendarId = calendarId,
-        eventId = eventId,
-        syncedAt = 0L,
-        checksum = checksum,
-    )
+    private fun entity(taskId: String, calendarId: String = "cal1", eventId: Long = 100L, checksum: Int = 0) =
+        CalendarSyncTaskMapEntity(
+            taskId = taskId,
+            calendarId = calendarId,
+            eventId = eventId,
+            syncedAt = 0L,
+            checksum = checksum,
+        )
 
     private fun event(taskId: String, calendarId: String = "cal1", checksum: Int = 1) = CalendarSyncEvent(
         taskId = TaskId(taskId),

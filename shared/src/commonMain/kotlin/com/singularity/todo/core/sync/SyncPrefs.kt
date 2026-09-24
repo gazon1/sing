@@ -26,9 +26,7 @@ import kotlin.time.Duration.Companion.minutes
  * keep the interface non-suspend at the cost of blocking the calling thread (UI thread).
  * This is acceptable for settings changes which are infrequent and user-initiated.
  */
-class DataStoreSyncPrefs(
-    private val dataStore: DataStore<Preferences>,
-) : SyncPrefs {
+class DataStoreSyncPrefs(private val dataStore: DataStore<Preferences>) : SyncPrefs {
 
     private object Keys {
         val AUTO_SYNC_ENABLED = booleanPreferencesKey("sync/auto_sync_enabled")
@@ -45,8 +43,7 @@ class DataStoreSyncPrefs(
             }.toSet()
         }
 
-        fun serializeTriggers(triggers: Set<SyncTrigger>): String =
-            triggers.joinToString(",") { it.name }
+        fun serializeTriggers(triggers: Set<SyncTrigger>): String = triggers.joinToString(",") { it.name }
     }
 
     private val _autoSyncEnabled = MutableStateFlow(false)
@@ -118,11 +115,21 @@ class InMemorySyncPrefs : SyncPrefs {
     override val lastSuccessfulSyncAt: Long? get() = _lastSuccessfulSyncAt.value
     override val lastLsn: Long get() = _lastLsn.value
 
-    override fun setAutoSyncEnabled(value: Boolean) { _autoSyncEnabled.value = value }
-    override fun setEnabledTriggers(triggers: Set<SyncTrigger>) { _enabledTriggers.value = triggers }
-    override fun setScheduledInterval(interval: Duration) { _scheduledInterval.value = interval }
-    override suspend fun recordSuccessfulSync() { _lastSuccessfulSyncAt.value = System.currentTimeMillis() }
-    override suspend fun setLastLsn(lsn: Long) { _lastLsn.value = lsn }
+    override fun setAutoSyncEnabled(value: Boolean) {
+        _autoSyncEnabled.value = value
+    }
+    override fun setEnabledTriggers(triggers: Set<SyncTrigger>) {
+        _enabledTriggers.value = triggers
+    }
+    override fun setScheduledInterval(interval: Duration) {
+        _scheduledInterval.value = interval
+    }
+    override suspend fun recordSuccessfulSync() {
+        _lastSuccessfulSyncAt.value = System.currentTimeMillis()
+    }
+    override suspend fun setLastLsn(lsn: Long) {
+        _lastLsn.value = lsn
+    }
 }
 
 /**
@@ -135,8 +142,8 @@ interface SyncPrefs {
     val autoSyncEnabled: Boolean
     val enabledTriggers: Set<SyncTrigger>
     val scheduledInterval: Duration
-    val lastSuccessfulSyncAt: Long?   // epoch millis
-    val lastLsn: Long                 // last server log sequence number
+    val lastSuccessfulSyncAt: Long? // epoch millis
+    val lastLsn: Long // last server log sequence number
 
     fun setAutoSyncEnabled(value: Boolean)
     fun setEnabledTriggers(triggers: Set<SyncTrigger>)

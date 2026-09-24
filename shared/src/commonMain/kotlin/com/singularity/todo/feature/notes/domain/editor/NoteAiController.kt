@@ -28,7 +28,6 @@ class NoteAiController(
 /** Production DI adapter: adapts [ImproveNoteUseCase] to the lambda [NoteAiController] expects. */
 internal fun improveNoteLambda(
     useCase: com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase,
-): suspend (String, String) -> Result<NoteAiResult.Improved> =
-    { title, body ->
-        useCase(title, body).map { NoteAiResult.Improved(it.title, it.body) }
-    }
+): suspend (String, String) -> Result<NoteAiResult.Improved> = { title, body ->
+    useCase(title, body).map { NoteAiResult.Improved(it.title, it.body) }
+}

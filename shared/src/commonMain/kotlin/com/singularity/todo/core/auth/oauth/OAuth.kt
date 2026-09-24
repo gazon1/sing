@@ -69,23 +69,24 @@ data class OAuthTokenData(
     fun serialize(): String = json.encodeToString(serializer(), this)
 
     companion object {
-        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        private val json = Json {
+            ignoreUnknownKeys = true;
+            encodeDefaults = true
+        }
 
         /** Deserializes a token from a JSON string produced by [serialize]. */
-        fun deserialize(data: String): OAuthTokenData =
-            json.decodeFromString(serializer(), data)
+        fun deserialize(data: String): OAuthTokenData = json.decodeFromString(serializer(), data)
     }
 }
 
 /** Converts an [OAuthResult] into [OAuthTokenData] for persistent storage. */
-fun OAuthResult.toOAuthTokenData(refreshToken: String): OAuthTokenData =
-    OAuthTokenData(
-        accessToken = accessToken,
-        refreshToken = refreshToken,
-        tokenEndpoint = tokenEndpoint ?: error("No token_endpoint in OAuth result"),
-        clientId = clientId ?: error("No client_id in OAuth result"),
-        expiresAt = expiresIn?.let { System.currentTimeMillis() + it * 1000 } ?: 0L,
-    )
+fun OAuthResult.toOAuthTokenData(refreshToken: String): OAuthTokenData = OAuthTokenData(
+    accessToken = accessToken,
+    refreshToken = refreshToken,
+    tokenEndpoint = tokenEndpoint ?: error("No token_endpoint in OAuth result"),
+    clientId = clientId ?: error("No client_id in OAuth result"),
+    expiresAt = expiresIn?.let { System.currentTimeMillis() + it * 1000 } ?: 0L,
+)
 
 /** Standardized OAuth / token error string constants. */
 object TokenError {

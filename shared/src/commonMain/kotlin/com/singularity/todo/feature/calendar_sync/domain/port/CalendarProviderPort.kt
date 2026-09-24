@@ -47,9 +47,5 @@ interface CalendarProviderPort {
      * @param toMs      End of range (exclusive), UTC millis.
      * @return Map of taskId.value → system event ID.
      */
-    suspend fun queryEvents(
-        calendarId: String?,
-        fromMs: Long,
-        toMs: Long,
-    ): Result<Map<String, Long>>
+    suspend fun queryEvents(calendarId: String?, fromMs: Long, toMs: Long): Result<Map<String, Long>>
 }

@@ -43,10 +43,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlin.time.Instant
 
 @Composable
-fun PomodoroScreen(
-    timer: PomodoroTimer,
-    taskListProvider: PomodoroTaskListProvider,
-) {
+fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvider) {
     val state by timer.state.collectAsStateWithLifecycle()
     val tasks by taskListProvider.tasks().collectAsStateWithLifecycle()
 

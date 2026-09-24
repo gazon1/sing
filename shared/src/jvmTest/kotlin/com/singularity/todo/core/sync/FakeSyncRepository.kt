@@ -5,15 +5,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 
 /**
  * Fake implementation of [SyncRepository] for tests.
  */
-open class FakeSyncRepository(
-    private val testScope: TestScope? = null,
-) : SyncRepository {
+open class FakeSyncRepository(private val testScope: TestScope? = null) : SyncRepository {
     private val _status = MutableStateFlow<SyncEngineStatus>(SyncEngineStatus.Idle)
     override val status: StateFlow<SyncEngineStatus> = _status.asStateFlow()
 

@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.calendar_sync.sync
 
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

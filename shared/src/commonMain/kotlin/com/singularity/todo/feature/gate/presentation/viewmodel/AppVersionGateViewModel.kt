@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.config.RemoteConfigSnapshot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.version.AppVersion
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.gate.presentation.state.AppVersionGateState

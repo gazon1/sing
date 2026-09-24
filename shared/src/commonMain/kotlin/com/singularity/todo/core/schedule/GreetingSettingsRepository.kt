@@ -23,9 +23,9 @@ interface GreetingSettingsRepository {
  * Production [GreetingSettingsRepository] backed by DataStore.
  * Hour values are coerced to 0–23 on write.
  */
-class DataStoreGreetingSettingsRepository(
-    dataStore: DataStore<Preferences>,
-) : BaseSettingsRepository(dataStore), GreetingSettingsRepository {
+class DataStoreGreetingSettingsRepository(dataStore: DataStore<Preferences>) :
+    BaseSettingsRepository(dataStore),
+    GreetingSettingsRepository {
 
     private val morningEndPref = intPref(
         nsKey(SettingsNamespace.GREETING, "morning_end_hour"),

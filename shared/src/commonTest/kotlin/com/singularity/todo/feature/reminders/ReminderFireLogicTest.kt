@@ -9,10 +9,7 @@ import kotlin.test.assertTrue
 
 class ReminderFireLogicTest {
 
-    private fun makeReminder(
-        id: ReminderId = ReminderId.generate(),
-        recurringPattern: String? = null,
-    ) = Reminder(
+    private fun makeReminder(id: ReminderId = ReminderId.generate(), recurringPattern: String? = null) = Reminder(
         id = id,
         taskId = TaskId.generate(),
         userId = UserId.anonymous,

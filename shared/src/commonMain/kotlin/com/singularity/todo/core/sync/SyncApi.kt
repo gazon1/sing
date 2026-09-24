@@ -8,8 +8,10 @@ import kotlinx.serialization.json.JsonObject
 interface SyncApiClient {
     suspend fun batchPush(request: BatchPushRequest): BatchPushResponse
     suspend fun getEventsSince(userId: String, sinceLsn: Long, limit: Int = 50): List<SyncEvent>
+
     /** Verifies connectivity to the sync endpoint. Returns success if reachable. */
     suspend fun testConnection(userId: String): Result<Unit>
+
     /**
      * Fetches the remote runtime configuration as a raw JSON object.
      * Returns null if no remote config is set (server returned empty / 404).

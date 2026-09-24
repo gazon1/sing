@@ -48,8 +48,8 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProfileRepository
-import kotlin.test.Test
 import org.koin.dsl.module
+import kotlin.test.Test
 
 /**
  * Smoke-test that the JVM-side AI graph wires up correctly.

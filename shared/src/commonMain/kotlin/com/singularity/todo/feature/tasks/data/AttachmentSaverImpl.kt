@@ -8,9 +8,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  * [AttachmentSaver] implementation via [AttachmentRepository].
  * Lives in data layer so domain stays clean.
  */
-class AttachmentSaverImpl(
-    private val repository: AttachmentRepository,
-) : AttachmentSaver {
+class AttachmentSaverImpl(private val repository: AttachmentRepository) : AttachmentSaver {
 
     override suspend fun save(taskId: TaskId, path: String, mimeType: String?): Result<Unit> =
         repository.saveFileAttachment(

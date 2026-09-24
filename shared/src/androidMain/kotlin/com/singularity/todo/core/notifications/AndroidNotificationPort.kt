@@ -26,7 +26,14 @@ class AndroidNotificationPort(private val context: Context) : NotificationPort {
 
     override val isAvailable: Boolean = true
 
-    override suspend fun scheduleAt(key: String, title: String, body: String, fireAtEpochMs: Long, payload: String?, viewId: String?) {
+    override suspend fun scheduleAt(
+        key: String,
+        title: String,
+        body: String,
+        fireAtEpochMs: Long,
+        payload: String?,
+        viewId: String?,
+    ) {
         // Stub: reminder scheduling moved to AlarmManagerReminderScheduler + AlarmReceiver.
         // No-op here.
     }

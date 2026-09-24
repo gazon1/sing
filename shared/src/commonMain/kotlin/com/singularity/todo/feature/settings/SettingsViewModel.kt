@@ -9,14 +9,11 @@ import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.settings.EphemeralState
-import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
-import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.ai.AiContributor
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -181,6 +178,7 @@ class SettingsViewModel(
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
                 ) { runCatching { contributor?.process(intent) } }
             }
+
             is SettingsIntent.Appearance.UpdateAccentColor -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
@@ -188,6 +186,7 @@ class SettingsViewModel(
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
                 ) { runCatching { contributor?.process(intent) } }
             }
+
             is SettingsIntent.Appearance.UpdateFontSizeScale -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
@@ -208,6 +207,7 @@ class SettingsViewModel(
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
                 ) { runCatching { contributor?.process(intent) } }
             }
+
             is SettingsIntent.Notifications.UpdateSound -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
@@ -215,6 +215,7 @@ class SettingsViewModel(
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
                 ) { runCatching { contributor?.process(intent) } }
             }
+
             is SettingsIntent.Notifications.UpdateVibration -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
@@ -222,6 +223,7 @@ class SettingsViewModel(
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
                 ) { runCatching { contributor?.process(intent) } }
             }
+
             is SettingsIntent.Notifications.UpdateReminderDefault -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
@@ -242,6 +244,7 @@ class SettingsViewModel(
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
                 ) { runCatching { contributor?.process(intent) } }
             }
+
             is SettingsIntent.WorkSchedule.UpdateWorkDayEnd -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
@@ -249,6 +252,7 @@ class SettingsViewModel(
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
                 ) { runCatching { contributor?.process(intent) } }
             }
+
             is SettingsIntent.WorkSchedule.UpdateWorkLunchStart -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
@@ -256,6 +260,7 @@ class SettingsViewModel(
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
                 ) { runCatching { contributor?.process(intent) } }
             }
+
             is SettingsIntent.WorkSchedule.UpdateWorkLunchEnd -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
@@ -263,6 +268,7 @@ class SettingsViewModel(
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
                 ) { runCatching { contributor?.process(intent) } }
             }
+
             is SettingsIntent.WorkSchedule.UpdateWeekendSat -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
@@ -270,6 +276,7 @@ class SettingsViewModel(
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
                 ) { runCatching { contributor?.process(intent) } }
             }
+
             is SettingsIntent.WorkSchedule.UpdateWeekendSun -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(
@@ -290,6 +297,7 @@ class SettingsViewModel(
                     onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
                 ) { runCatching { contributor?.process(intent) } }
             }
+
             is SettingsIntent.Greeting.UpdateAfternoonEnd -> {
                 _state.value = _state.value.copy(errorMessage = null)
                 scope.fireAndForget(

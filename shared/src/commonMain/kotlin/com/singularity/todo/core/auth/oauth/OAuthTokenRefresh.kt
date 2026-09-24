@@ -19,40 +19,37 @@ object OAuthTokenRefresh {
      * If [data.expiresAt] is `0` (unknown expiry), returns [refreshWhenExpiryUnknown].
      * Otherwise returns `true` when `now > expiresAt - EXPIRY_MARGIN_MS`.
      */
-    fun isExpired(data: OAuthTokenData, refreshWhenExpiryUnknown: Boolean): Boolean =
-        if (data.expiresAt <= 0) {
-            refreshWhenExpiryUnknown
-        } else {
-            System.currentTimeMillis() > data.expiresAt - EXPIRY_MARGIN_MS
-        }
+    fun isExpired(data: OAuthTokenData, refreshWhenExpiryUnknown: Boolean): Boolean = if (data.expiresAt <= 0) {
+        refreshWhenExpiryUnknown
+    } else {
+        System.currentTimeMillis() > data.expiresAt - EXPIRY_MARGIN_MS
+    }
 
     /**
      * Returns a new [OAuthTokenData] with the fields from [result] applied.
      * [result.expiresIn] is converted to an absolute expiry time.
      * The refresh token is only updated if [result] provides a new one.
      */
-    fun OAuthTokenData.withRefreshResult(result: TasksOAuthClient.RefreshResult): OAuthTokenData =
-        copy(
-            accessToken = result.accessToken,
-            refreshToken = result.refreshToken ?: refreshToken,
-            expiresAt = result.expiresIn
-                ?.let { System.currentTimeMillis() + it * 1000 }
-                ?: 0L,
-        )
+    fun OAuthTokenData.withRefreshResult(result: TasksOAuthClient.RefreshResult): OAuthTokenData = copy(
+        accessToken = result.accessToken,
+        refreshToken = result.refreshToken ?: refreshToken,
+        expiresAt = result.expiresIn
+            ?.let { System.currentTimeMillis() + it * 1000 }
+            ?: 0L,
+    )
 
     /**
      * Executes [refresh] and wraps any non-IO exceptions in [IOException].
      * IOExceptions are re-thrown as-is so callers can distinguish transient
      * network errors from retryable auth errors.
      */
-    inline fun refreshOrThrowIO(refresh: () -> TasksOAuthClient.RefreshResult): TasksOAuthClient.RefreshResult =
-        try {
-            refresh()
-        } catch (e: IOException) {
-            throw e
-        } catch (e: Exception) {
-            throw IOException(e.message, e)
-        }
+    inline fun refreshOrThrowIO(refresh: () -> TasksOAuthClient.RefreshResult): TasksOAuthClient.RefreshResult = try {
+        refresh()
+    } catch (e: IOException) {
+        throw e
+    } catch (e: Exception) {
+        throw IOException(e.message, e)
+    }
 }
 
 /**
@@ -60,9 +57,7 @@ object OAuthTokenRefresh {
  * In a real implementation this would come from the HTTP client's response parser.
  * Defined here so [OAuthTokenRefresh] can be tested without a real HTTP stack.
  */
-data class TasksOAuthClient(
-    val httpClient: Any = Unit,
-) {
+data class TasksOAuthClient(val httpClient: Any = Unit) {
     /**
      * Result of a token refresh call.
      *
@@ -70,9 +65,5 @@ data class TasksOAuthClient(
      * @property expiresIn       New token lifetime in seconds (null if provider omits it).
      * @property refreshToken    New refresh token, if the provider rotates it (optional).
      */
-    data class RefreshResult(
-        val accessToken: String,
-        val expiresIn: Long?,
-        val refreshToken: String? = null,
-    )
+    data class RefreshResult(val accessToken: String, val expiresIn: Long?, val refreshToken: String? = null)
 }

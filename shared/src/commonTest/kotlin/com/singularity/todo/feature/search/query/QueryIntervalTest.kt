@@ -71,9 +71,9 @@ class QueryIntervalTest {
         assertNull(parse(""))
         assertNull(parse("   "))
         assertNull(parse("foo"))
-        assertNull(parse("3x"))      // unknown unit
-        assertNull(parse("d"))       // no number
-        assertNull(parse("-w"))      // no number
+        assertNull(parse("3x")) // unknown unit
+        assertNull(parse("d")) // no number
+        assertNull(parse("-w")) // no number
     }
 
     @Test

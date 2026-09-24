@@ -62,12 +62,19 @@ val Selector.typeDescription: String
         }
 
         is Selector.Pinned -> "Pinned"
+
         is Selector.Completed -> "Completed"
+
         is Selector.Overdue -> "Overdue"
+
         is Selector.Regexp -> "Regex: $query"
+
         is Selector.AllOf -> "All of (${children.size} rules)"
+
         is Selector.AnyOf -> "Any of (${children.size} rules)"
+
         is Selector.Not -> "Not: ${child.typeDescription}"
+
         is Selector.Anything -> "All tasks"
     }
 

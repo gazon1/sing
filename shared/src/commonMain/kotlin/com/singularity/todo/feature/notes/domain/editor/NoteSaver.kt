@@ -26,12 +26,7 @@ internal class NoteSaver(
      *         [Result.failure] when either content write or links write fails —
      *         in which case the error has already been logged and [NotesUiEvent.SaveFailed] emitted.
      */
-    suspend fun save(
-        id: NoteId,
-        title: String,
-        html: String,
-        isNew: Boolean,
-    ): Result<Unit> {
+    suspend fun save(id: NoteId, title: String, html: String, isNew: Boolean): Result<Unit> {
         val markdown = NoteContentMapper.toMarkdown(html)
         val links = NoteContentMapper.outgoingLinkUrls(html)
 

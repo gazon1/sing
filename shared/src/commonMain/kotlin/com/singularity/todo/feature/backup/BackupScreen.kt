@@ -50,7 +50,6 @@ import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.datetime.TimeZone
@@ -106,6 +105,7 @@ fun BackupScreen(
                         pendingSettingsJson = null
                     }
                 }
+
                 is BackupUiEvent.Error -> { /* handled by NotificationHost */ }
             }
         }

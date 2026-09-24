@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.calendar_sync.data
 
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
+import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 
 /**
  * JVM stub for [CalendarProviderPort].
@@ -21,9 +21,6 @@ class NoopCalendarProvider : CalendarProviderPort {
     override suspend fun deleteEvent(eventId: Long): Result<Unit> =
         Result.failure(UnsupportedOperationException("Calendar sync is not available on this platform"))
 
-    override suspend fun queryEvents(
-        calendarId: String?,
-        fromMs: Long,
-        toMs: Long,
-    ): Result<Map<String, Long>> = Result.success(emptyMap())
+    override suspend fun queryEvents(calendarId: String?, fromMs: Long, toMs: Long): Result<Map<String, Long>> =
+        Result.success(emptyMap())
 }

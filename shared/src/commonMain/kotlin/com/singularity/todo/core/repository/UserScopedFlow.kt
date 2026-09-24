@@ -32,6 +32,5 @@ import kotlinx.coroutines.flow.flatMapLatest
  *   the same stream of data.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-fun <T> ProfileAwareCurrentUser.observeForCurrentUser(
-    source: (userId: UserId) -> Flow<T>,
-): Flow<T> = scopedUserId.flatMapLatest { userId -> source(userId) }
+fun <T> ProfileAwareCurrentUser.observeForCurrentUser(source: (userId: UserId) -> Flow<T>): Flow<T> =
+    scopedUserId.flatMapLatest { userId -> source(userId) }

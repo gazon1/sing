@@ -16,9 +16,7 @@ import kotlinx.serialization.json.Json
  * Used by [com.singularity.todo.feature.backup.BackupScreen] to produce a
  * settings-only snapshot (no tasks/notes/projects) for sharing.
  */
-open class SettingsExporter(
-    private val contributors: Set<SettingsContributor<*, *>>,
-) {
+open class SettingsExporter(private val contributors: Set<SettingsContributor<*, *>>) {
     private val json = Json {
         encodeDefaults = true
         prettyPrint = true

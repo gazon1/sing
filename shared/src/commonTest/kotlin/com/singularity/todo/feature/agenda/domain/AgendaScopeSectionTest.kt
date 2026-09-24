@@ -1,14 +1,11 @@
 package com.singularity.todo.feature.agenda.domain
 
-import com.singularity.todo.feature.agenda.domain.model.AgendaLayout
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.model.agenda
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
-import kotlin.test.expect
 
 class AgendaScopeSectionTest {
 

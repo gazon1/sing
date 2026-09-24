@@ -47,9 +47,11 @@ class AnalyticsTest {
     @Test
     fun `logEventOncePerDay skips on same day second call`() = runTest {
         val analytics = NoopAnalytics()
-        val dataStore = testDataStore(mutablePreferencesOf(
-            longPreferencesKey("last_logged_event1:default") to today()
-        ))
+        val dataStore = testDataStore(
+            mutablePreferencesOf(
+            longPreferencesKey("last_logged_event1:default") to today(),
+        )
+        )
         val key = longPreferencesKey("last_logged_event1:default")
 
         // Should not update — just skip
@@ -61,9 +63,11 @@ class AnalyticsTest {
     @Test
     fun `logEventOncePerDay allows on next day`() = runTest {
         val analytics = NoopAnalytics()
-        val dataStore = testDataStore(mutablePreferencesOf(
-            longPreferencesKey("last_logged_event2:default") to today()
-        ))
+        val dataStore = testDataStore(
+            mutablePreferencesOf(
+            longPreferencesKey("last_logged_event2:default") to today(),
+        )
+        )
         val key = longPreferencesKey("last_logged_event2:default")
 
         analytics.logEventOncePerDay(dataStore, "event2", "default", today() + 1)

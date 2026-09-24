@@ -1,16 +1,17 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.appearance.di.appearanceSettingsModule
+import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.log.LoggerHolder
+import com.singularity.todo.core.settings.settingsContributorsModule
 import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
 import com.singularity.todo.feature.calendar_sync.di.calendarSyncModule
-import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.profile.ProfileRepositoryImpl
-import com.singularity.todo.core.appearance.di.appearanceSettingsModule
-import com.singularity.todo.core.settings.settingsContributorsModule
+import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
@@ -49,10 +50,11 @@ fun domainModule(): List<Module> = buildList {
     // profileModule() wrapped its bindings in module {} which created a child scope.
     add(
         module {
-        single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get(), createBackgroundScope()) }
-        single { ProfileAwareCurrentUser(get(), get(), createBackgroundScope()) }
-        factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
-    }
+            single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get(), createBackgroundScope()) }
+            single { ProfileAwareCurrentUser(get(), get(), createBackgroundScope()) }
+            factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
+            viewModel { AccountSettingsViewModel(profileRepository = get()) }
+        },
     )
     add(coreModule())
     add(aiToolsModule())

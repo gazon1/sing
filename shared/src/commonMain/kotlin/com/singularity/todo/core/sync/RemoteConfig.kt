@@ -20,10 +20,10 @@ import kotlinx.coroutines.flow.Flow
  */
 @Entity(tableName = "remote_configs")
 data class RemoteConfigEntity(
-    @PrimaryKey val id: String,               // always "default"
+    @PrimaryKey val id: String, // always "default"
     @ColumnInfo("supabase_url") val supabaseUrl: String,
     @ColumnInfo("anon_key") val anonKey: String,
-    @ColumnInfo("updated_at") val updatedAt: Long,  // epoch millis
+    @ColumnInfo("updated_at") val updatedAt: Long, // epoch millis
 )
 
 /**

@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.notes.domain
 
-import com.singularity.todo.feature.notes.LinkRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

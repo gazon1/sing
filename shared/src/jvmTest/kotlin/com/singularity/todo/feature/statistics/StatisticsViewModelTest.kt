@@ -11,7 +11,6 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -31,13 +30,12 @@ class StatisticsViewModelTest {
         )
     }
 
-    private fun TestScope.createVm(
-        repo: FakeTaskRepository = FakeTaskRepository(),
-    ): StatisticsViewModel = StatisticsViewModel(
-        taskRepository = repo,
-        clock = Clock,
-        scope = testScope(backgroundScope),
-    )
+    private fun TestScope.createVm(repo: FakeTaskRepository = FakeTaskRepository()): StatisticsViewModel =
+        StatisticsViewModel(
+            taskRepository = repo,
+            clock = Clock,
+            scope = testScope(backgroundScope),
+        )
 
     @Test
     fun `marks task complete and statistics reactively update`() = runTest {

@@ -44,11 +44,14 @@ class CreateTaskFromDraftUseCase(
     suspend operator fun invoke(draft: TaskDraft): Either<AppError, TaskId> {
         val dueDate: LocalDate? = when (val option = draft.dueDate) {
             is DueDateOption.Custom -> option.date
+
             DueDateOption.Today -> todayInSystemZone()
+
             DueDateOption.Tomorrow -> {
                 val today = todayInSystemZone()
                 today.plus(1, DateTimeUnit.DAY)
             }
+
             DueDateOption.None -> null
         }
 
@@ -79,6 +82,7 @@ class CreateTaskFromDraftUseCase(
         )
         return when (validated) {
             is Either.Left -> Either.Left(validated.error)
+
             is Either.Right -> {
                 // Mint the id once so the caller can observe it (logs, snackbar
                 // deep links) before / independent of repo.create.

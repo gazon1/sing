@@ -14,9 +14,7 @@ import kotlin.test.assertTrue
  * state.assertIs<Loaded> { it.items.isNotEmpty() }
  * ```
  */
-inline fun <reified T> StateFlow<*>.assertIs(
-    noinline predicate: (T) -> Boolean = { true },
-): T {
+inline fun <reified T> StateFlow<*>.assertIs(noinline predicate: (T) -> Boolean = { true }): T {
     val current = value
     assertIs<T>(current)
     assertTrue(predicate(current), "State $current does not satisfy predicate")

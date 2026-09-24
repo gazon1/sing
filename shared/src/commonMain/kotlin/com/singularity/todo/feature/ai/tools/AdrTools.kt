@@ -4,11 +4,12 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.io.File
 import java.lang.System.getProperty
 import kotlin.io.path.Path
+import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
+import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
@@ -92,20 +93,19 @@ object AdrStorage {
     }
 
     fun listAdrs(): List<AdrSummary> {
-        val dir = File(decisionsDir())
-        if (!dir.isDirectory) return emptyList()
-        return dir.listFiles { f -> f.extension == "md" }
-            ?.mapNotNull { file ->
-                val slug = file.nameWithoutExtension
+        val dirPath = Path(decisionsDir())
+        if (!dirPath.isDirectory()) return emptyList()
+        return dirPath.listDirectoryEntries("*.md")
+            .mapNotNull { filePath ->
+                val slug = filePath.fileName.toString().removeSuffix(".md")
                 readAdr(slug)?.let { AdrSummary(it.slug, it.title, it.date, it.tags) }
             }
-            ?.sortedByDescending { it.date }
-            ?: emptyList()
+            .sortedByDescending { it.date }
     }
 
     fun writeAdr(slug: String, title: String, tags: List<String>, body: String): String {
-        val dir = File(decisionsDir())
-        dir.mkdirs()
+        val dirPath = Path(decisionsDir())
+        dirPath.createDirectories()
         val date = java.time.LocalDate.now().toString()
         val tagsStr = tags.joinToString(", ", "[", "]") { "\"$it\"" }
         val frontmatter = "---\ntitle: \"$title\"\ndate: $date\ntags: $tagsStr\n---\n\n"

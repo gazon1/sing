@@ -10,10 +10,7 @@ import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.database.toLocalDateOrNull
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.core.repository.GenericUserScopedRepository
-import com.singularity.todo.core.repository.SoftDeletable
 import com.singularity.todo.core.repository.observeForCurrentUser
-import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -34,15 +31,13 @@ class ProjectsRepositoryImpl(
 
     // ── GenericUserScopedRepository ────────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<Project>> =
-        currentUser.observeForCurrentUser { uid ->
-            projectDao.watchAll(uid.value).map { list -> list.map { it.toProject() } }
-        }
+    override fun observeAll(): Flow<List<Project>> = currentUser.observeForCurrentUser { uid ->
+        projectDao.watchAll(uid.value).map { list -> list.map { it.toProject() } }
+    }
 
-    override fun observe(id: ProjectId): Flow<Project?> =
-        currentUser.observeForCurrentUser { uid ->
-            projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
-        }
+    override fun observe(id: ProjectId): Flow<Project?> = currentUser.observeForCurrentUser { uid ->
+        projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }
+    }
 
     override suspend fun get(id: ProjectId): Project? {
         val uid = currentUser.scopedUserId.value

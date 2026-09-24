@@ -26,9 +26,6 @@ sealed interface AppVersionGateState {
      * @param currentVersion The user's current app version.
      * @param updateUrl Play Store URL (Android) or releases page URL (Desktop).
      */
-    data class Blocked(
-        val minSupportedVersion: AppVersion,
-        val currentVersion: AppVersion,
-        val updateUrl: String,
-    ) : AppVersionGateState
+    data class Blocked(val minSupportedVersion: AppVersion, val currentVersion: AppVersion, val updateUrl: String) :
+        AppVersionGateState
 }

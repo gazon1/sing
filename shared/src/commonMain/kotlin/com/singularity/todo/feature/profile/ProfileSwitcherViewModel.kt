@@ -63,7 +63,8 @@ class ProfileSwitcherViewModel(
             onError = { e -> _errorMessage.value = e.message ?: "Failed to create profile" },
         ) {
             val now = com.singularity.todo.core.platform.Clock.now()
-            profileRepository.create(Profile(
+            profileRepository.create(
+                Profile(
                 id = ProfileId.generate(),
                 name = name,
                 emoji = emoji,
@@ -71,7 +72,8 @@ class ProfileSwitcherViewModel(
                 isDefault = false,
                 createdAt = now,
                 updatedAt = now,
-            ))
+            )
+            )
         }
     }
 
@@ -82,7 +84,7 @@ class ProfileSwitcherViewModel(
         ) {
             runCatching {
                 val profile = profileRepository.get(id) ?: return@runCatching Result.failure<Unit>(
-                    IllegalArgumentException("Profile not found")
+                    IllegalArgumentException("Profile not found"),
                 )
                 profileRepository.update(profile.copy(name = name))
             }
@@ -103,7 +105,9 @@ class ProfileSwitcherViewModel(
             errorLabel = "Switch profile failed",
             onError = { e -> _errorMessage.value = e.message ?: "Failed to switch profile" },
         ) {
-            profileRepository.switchTo(id).onFailure { log.w { "Failed to switch to profile ${id.value}: ${it.message}" } }
+            profileRepository.switchTo(
+                id,
+            ).onFailure { log.w { "Failed to switch to profile ${id.value}: ${it.message}" } }
         }
     }
 

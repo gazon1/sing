@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.settings
 
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection

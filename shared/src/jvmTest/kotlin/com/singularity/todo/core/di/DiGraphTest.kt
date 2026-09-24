@@ -1,7 +1,7 @@
 package com.singularity.todo.core.di
 
-import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.BackupRepository
+import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.settings.SettingsRepository

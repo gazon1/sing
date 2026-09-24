@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.detekt)
 }
 
 kotlin {
@@ -75,4 +76,17 @@ android {
         compose = true
         buildConfig = true
     }
+}
+
+// ---------------------------------------------------------------------------
+// detekt — static analysis
+// ---------------------------------------------------------------------------
+detekt {
+    buildUponDefaultConfig = true
+    ignoreFailures = true
+    source.setFrom(
+        "src/main/kotlin",
+        "src/androidTest/kotlin",
+        "src/androidAndroidTest/kotlin"
+    )
 }

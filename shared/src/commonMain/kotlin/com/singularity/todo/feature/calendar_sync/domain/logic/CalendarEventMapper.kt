@@ -95,10 +95,8 @@ object CalendarEventMapper {
         return event.copy(checksum = event.checksum())
     }
 
-    private fun todayInSystemZone(tz: TimeZone): LocalDate {
-        return Instant.fromEpochMilliseconds(System.currentTimeMillis())
-            .toLocalDateTime(tz).date
-    }
+    private fun todayInSystemZone(tz: TimeZone): LocalDate = Instant.fromEpochMilliseconds(System.currentTimeMillis())
+        .toLocalDateTime(tz).date
 
     private fun LocalDate.nextDay(): LocalDate {
         val dim = daysInMonth(year, monthNumber)
@@ -110,15 +108,12 @@ object CalendarEventMapper {
         }
     }
 
-    private fun daysInMonth(year: Int, month: Int): Int {
-        return when (month) {
-            1, 3, 5, 7, 8, 10, 12 -> 31
-            4, 6, 9, 11 -> 30
-            2 -> if (isLeapYear(year)) 29 else 28
-            else -> 30
-        }
+    private fun daysInMonth(year: Int, month: Int): Int = when (month) {
+        1, 3, 5, 7, 8, 10, 12 -> 31
+        4, 6, 9, 11 -> 30
+        2 -> if (isLeapYear(year)) 29 else 28
+        else -> 30
     }
 
-    private fun isLeapYear(year: Int): Boolean =
-        year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+    private fun isLeapYear(year: Int): Boolean = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 }

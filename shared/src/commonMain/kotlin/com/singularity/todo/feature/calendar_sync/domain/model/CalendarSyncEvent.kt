@@ -41,7 +41,6 @@ data class CalendarSyncEvent(
         const val DEEP_LINK_SCHEME = "singularity"
         const val DEEP_LINK_HOST = "task"
 
-        fun deepLink(taskId: TaskId): String =
-            "$DEEP_LINK_SCHEME://$DEEP_LINK_HOST/${taskId.value}"
+        fun deepLink(taskId: TaskId): String = "$DEEP_LINK_SCHEME://$DEEP_LINK_HOST/${taskId.value}"
     }
 }

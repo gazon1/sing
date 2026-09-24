@@ -53,7 +53,9 @@ private fun buildAwtMenuBar(nodes: List<MenuNode>): MenuBar {
             is MenuNode.Action -> Menu(node.label).apply {
                 add(node.toAwtMenuItem())
             }
+
             is MenuNode.SubMenu -> node.toAwtMenu()
+
             MenuNode.Divider -> continue
         }
         menuBar.add(menu)

@@ -30,11 +30,21 @@ annotation class SelectorDslMarker
 class SelectorScope internal constructor() {
     internal val children: MutableList<Selector> = mutableListOf()
 
-    fun allOf(vararg children: Selector) { this.children.add(AllOf(children.toList())) }
-    fun allOf(children: List<Selector>) { this.children.add(AllOf(children)) }
-    fun anyOf(vararg children: Selector) { this.children.add(AnyOf(children.toList())) }
-    fun anyOf(children: List<Selector>) { this.children.add(AnyOf(children)) }
-    fun not(child: Selector) { this.children.add(Not(child)) }
+    fun allOf(vararg children: Selector) {
+        this.children.add(AllOf(children.toList()))
+    }
+    fun allOf(children: List<Selector>) {
+        this.children.add(AllOf(children))
+    }
+    fun anyOf(vararg children: Selector) {
+        this.children.add(AnyOf(children.toList()))
+    }
+    fun anyOf(children: List<Selector>) {
+        this.children.add(AnyOf(children))
+    }
+    fun not(child: Selector) {
+        this.children.add(Not(child))
+    }
 
     internal fun build(): Selector = when (children.size) {
         0 -> error("Empty selector DSL block — call at least one of allOf/anyOf/not")
@@ -43,5 +53,4 @@ class SelectorScope internal constructor() {
     }
 }
 
-fun selector(block: SelectorScope.() -> Unit): Selector =
-    SelectorScope().apply(block).build()
+fun selector(block: SelectorScope.() -> Unit): Selector = SelectorScope().apply(block).build()

@@ -19,11 +19,7 @@ import kotlin.test.assertTrue
  * ctx.assertIs<Loaded>()
  * ```
  */
-class TestVmContext<VM, S>(
-    val vm: VM,
-    val state: StateFlow<S>,
-    private val scope: TestScope,
-) {
+class TestVmContext<VM, S>(val vm: VM, val state: StateFlow<S>, private val scope: TestScope) {
     /** Executes [action] on the VM and waits for pending work. */
     suspend fun act(action: VM.() -> Unit) {
         vm.action()
@@ -46,8 +42,5 @@ class TestVmContext<VM, S>(
  * @param stateOf A getter reference to the VM's [StateFlow] (e.g. `MyVm::state`).
  * @param scope The [TestScope] to use for the VM (pass `this` from inside [runTest]).
  */
-fun <VM, S> testVmContext(
-    vm: VM,
-    stateOf: (VM) -> StateFlow<S>,
-    scope: TestScope,
-): TestVmContext<VM, S> = TestVmContext(vm, stateOf(vm), scope)
+fun <VM, S> testVmContext(vm: VM, stateOf: (VM) -> StateFlow<S>, scope: TestScope): TestVmContext<VM, S> =
+    TestVmContext(vm, stateOf(vm), scope)

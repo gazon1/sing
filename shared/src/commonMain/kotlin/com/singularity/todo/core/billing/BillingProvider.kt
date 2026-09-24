@@ -9,8 +9,10 @@ package com.singularity.todo.core.billing
 enum class BillingProvider {
     /** Google Play Billing (Android). */
     GOOGLE_PLAY,
+
     /** GitHub Sponsors. */
     GITHUB_SPONSOR,
+
     /** Internal grant: promo code, lifetime access, or team license. */
     INTERNAL_GRANT,
 }

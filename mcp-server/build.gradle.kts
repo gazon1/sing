@@ -3,6 +3,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.kotlinxSerialization)
+    alias(libs.plugins.kover)
+    alias(libs.plugins.detekt)
     application
 }
 
@@ -43,6 +45,8 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.koin.test)
     testImplementation(kotlin("reflect"))
+
+    detektPlugins(libs.detekt.formatting)
 }
 
 // Produce a fat JAR with all runtime deps merged
@@ -60,3 +64,27 @@ tasks.named<Jar>("jar") {
 }
 
 tasks.named("build") { dependsOn("jar") }
+
+// ---------------------------------------------------------------------------
+// detekt — static analysis
+// ---------------------------------------------------------------------------
+detekt {
+    buildUponDefaultConfig = true
+    ignoreFailures = true
+    source.setFrom(
+        "src/main/kotlin",
+        "src/test/kotlin"
+    )
+}
+
+// ---------------------------------------------------------------------------
+// kover — code coverage
+// ---------------------------------------------------------------------------
+kover {
+    reports {
+        total {
+            html { onCheck = true }
+            xml { onCheck = true }
+        }
+    }
+}

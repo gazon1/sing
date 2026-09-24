@@ -44,15 +44,13 @@ class TagsRepositoryImpl(
 
     // ── GenericUserScopedRepository ────────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<Tag>> =
-        currentUser.observeForCurrentUser { uid ->
-            tagDao.watchAll(uid.value).map { list -> list.map { it.toTag() } }
-        }
+    override fun observeAll(): Flow<List<Tag>> = currentUser.observeForCurrentUser { uid ->
+        tagDao.watchAll(uid.value).map { list -> list.map { it.toTag() } }
+    }
 
-    override fun observe(id: TagId): Flow<Tag?> =
-        currentUser.observeForCurrentUser { uid ->
-            tagDao.watchByIdForUser(id.value, uid.value).map { it?.toTag() }
-        }
+    override fun observe(id: TagId): Flow<Tag?> = currentUser.observeForCurrentUser { uid ->
+        tagDao.watchByIdForUser(id.value, uid.value).map { it?.toTag() }
+    }
 
     override suspend fun get(id: TagId): Tag? {
         val uid = currentUser.scopedUserId.value

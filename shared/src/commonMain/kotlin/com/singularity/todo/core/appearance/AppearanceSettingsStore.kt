@@ -10,9 +10,7 @@ import kotlinx.coroutines.flow.combine
  *
  * Contributes [SettingsSection.Appearance] to the unified settings UI.
  */
-class AppearanceSettingsStore(
-    private val appearance: AppearanceSettingsRepository,
-) {
+class AppearanceSettingsStore(private val appearance: AppearanceSettingsRepository) {
     /**
      * Appearance settings section — all 3 fields from [AppearanceSettingsRepository].
      */

@@ -23,8 +23,5 @@ sealed interface CalendarSyncStatus {
      * The [type] carries a [FailureType] for UI-tailored error messaging and recovery actions.
      * The system will retry with back-off; this persists until the next success.
      */
-    data class Failed(
-        val reason: String,
-        val type: FailureType = FailureType.Unknown,
-    ) : CalendarSyncStatus
+    data class Failed(val reason: String, val type: FailureType = FailureType.Unknown) : CalendarSyncStatus
 }

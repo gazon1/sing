@@ -68,7 +68,9 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel()) {
                                     task = task,
                                     onClick = {
                                         navigator.navigate(
-                                            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(task.id.value)),
+                                            AppDestination.TasksGraph(
+                                                AppDestination.TasksStartRoute.Detail(task.id.value),
+                                            ),
                                         )
                                     },
                                     actions = TaskCardActions(),

@@ -7,8 +7,7 @@ import kotlin.test.assertTrue
 
 class ProjectDetailDraftStateTest {
 
-    private fun newState(initial: ProjectDetailDraft = ProjectDetailDraft.empty()) =
-        ProjectDetailDraftState(initial)
+    private fun newState(initial: ProjectDetailDraft = ProjectDetailDraft.empty()) = ProjectDetailDraftState(initial)
 
     // ─── seed ─────────────────────────────────────────────────────────────────
 

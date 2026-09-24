@@ -27,12 +27,11 @@ object TaskDomain {
      * Validates task title.
      * @return [Either.Right] with trimmed title on success, [Either.Left] with [AppError.Validation] on failure.
      */
-    fun validateTitle(title: String): Either<AppError.Validation, String> =
-        if (title.isNotBlank()) {
-            Either.Right(title.trim())
-        } else {
-            Either.Left(AppError.Validation("Title cannot be blank"))
-        }
+    fun validateTitle(title: String): Either<AppError.Validation, String> = if (title.isNotBlank()) {
+        Either.Right(title.trim())
+    } else {
+        Either.Left(AppError.Validation("Title cannot be blank"))
+    }
 
     /**
      * Creates a new TaskId.
@@ -149,7 +148,7 @@ object TaskDomain {
 
         is TaskFilter.ByDateRange ->
             task.dueDate != null &&
-            task.dueDate >= filter.from && task.dueDate <= filter.to && !task.isTrashed
+                task.dueDate >= filter.from && task.dueDate <= filter.to && !task.isTrashed
 
         is TaskFilter.ByStatuses -> {
             val trashed = task.isTrashed
@@ -205,5 +204,4 @@ object TaskDomain {
             }
         }
     }
-
 }

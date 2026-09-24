@@ -27,13 +27,22 @@ interface NotificationsSettingsRepository {
 /**
  * Production [NotificationsSettingsRepository] backed by DataStore.
  */
-class DataStoreNotificationsSettingsRepository(
-    dataStore: DataStore<Preferences>,
-) : BaseSettingsRepository(dataStore), NotificationsSettingsRepository {
+class DataStoreNotificationsSettingsRepository(dataStore: DataStore<Preferences>) :
+    BaseSettingsRepository(dataStore),
+    NotificationsSettingsRepository {
 
-    private val enabledPref = boolPref(nsKey(SettingsNamespace.NOTIFICATIONS, "enabled"), SettingsDefaults.Notifications.ENABLED)
-    private val soundPref = boolPref(nsKey(SettingsNamespace.NOTIFICATIONS, "sound"), SettingsDefaults.Notifications.SOUND)
-    private val vibrationPref = boolPref(nsKey(SettingsNamespace.NOTIFICATIONS, "vibration"), SettingsDefaults.Notifications.VIBRATION)
+    private val enabledPref = boolPref(
+        nsKey(SettingsNamespace.NOTIFICATIONS, "enabled"),
+        SettingsDefaults.Notifications.ENABLED,
+    )
+    private val soundPref = boolPref(
+        nsKey(SettingsNamespace.NOTIFICATIONS, "sound"),
+        SettingsDefaults.Notifications.SOUND,
+    )
+    private val vibrationPref = boolPref(
+        nsKey(SettingsNamespace.NOTIFICATIONS, "vibration"),
+        SettingsDefaults.Notifications.VIBRATION,
+    )
     private val reminderPref = enumPref(
         nsKey(SettingsNamespace.NOTIFICATIONS, "reminder_default"),
         SettingsDefaults.Notifications.REMINDER_DEFAULT,

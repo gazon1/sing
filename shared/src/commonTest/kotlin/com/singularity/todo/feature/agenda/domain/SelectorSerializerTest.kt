@@ -173,10 +173,12 @@ class SelectorSerializerTest {
 
     @Test
     fun `AllOf round-trips with nested selectors`() {
-        val selector = Selector.AllOf(listOf(
+        val selector = Selector.AllOf(
+            listOf(
             Selector.DateBucket(RelativeBucket.Today),
             Selector.Tags(setOf(TagId("tag-1"))),
-        ))
+        )
+        )
         val encoded = json.encodeToString(SelectorSerializer, selector)
         val decoded = json.decodeFromString(SelectorSerializer, encoded)
         assertIs<Selector.AllOf>(decoded)
@@ -187,13 +189,17 @@ class SelectorSerializerTest {
 
     @Test
     fun `AllOf with deeply nested AllOf round-trips`() {
-        val selector = Selector.AllOf(listOf(
-            Selector.AllOf(listOf(
+        val selector = Selector.AllOf(
+            listOf(
+            Selector.AllOf(
+                listOf(
                 Selector.Completed,
                 Selector.Pinned,
-            )),
+            )
+            ),
             Selector.Not(Selector.Overdue),
-        ))
+        )
+        )
         val encoded = json.encodeToString(SelectorSerializer, selector)
         val decoded = json.decodeFromString(SelectorSerializer, encoded)
         assertIs<Selector.AllOf>(decoded)
@@ -206,10 +212,12 @@ class SelectorSerializerTest {
 
     @Test
     fun `AnyOf round-trips with nested selectors`() {
-        val selector = Selector.AnyOf(listOf(
+        val selector = Selector.AnyOf(
+            listOf(
             Selector.Priorities(setOf(TaskPriority.High)),
             Selector.DateBucket(RelativeBucket.Overdue),
-        ))
+        )
+        )
         val encoded = json.encodeToString(SelectorSerializer, selector)
         val decoded = json.decodeFromString(SelectorSerializer, encoded)
         assertIs<Selector.AnyOf>(decoded)

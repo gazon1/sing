@@ -17,9 +17,7 @@ interface WorkScheduleContributor : SettingsContributor<SettingsSection.WorkSche
  *
  * Registration: `single<SettingsContributor> { WorkScheduleSettingsContributor(get()) }`.
  */
-class WorkScheduleSettingsContributor(
-    private val store: WorkScheduleSettingsStore,
-) : WorkScheduleContributor {
+class WorkScheduleSettingsContributor(private val store: WorkScheduleSettingsStore) : WorkScheduleContributor {
 
     override val section: SettingsSection.WorkSchedule = SettingsSection.WorkSchedule()
 

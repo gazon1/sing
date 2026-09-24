@@ -1,10 +1,10 @@
 package com.singularity.todo
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import com.singularity.todo.core.appearance.AppearanceSettingsRepository
 import com.singularity.todo.core.auth.AuthGuard
@@ -12,11 +12,11 @@ import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
 import com.singularity.todo.feature.nav.LocalAppNavigator
-import com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen
 import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.rememberNav3State
+import com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen
 import com.singularity.todo.shell.DesktopShellNav3Root
 import org.koin.compose.koinInject
 import java.awt.Desktop
@@ -63,11 +63,7 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
 }
 
 @Composable
-private fun AppContent(
-    darkTheme: Boolean,
-    accent: SingularityAccents,
-    fontSizeScale: Float,
-) {
+private fun AppContent(darkTheme: Boolean, accent: SingularityAccents, fontSizeScale: Float) {
     val state = rememberNav3State()
     val navigator = remember(state) { Navigator(state) }
     val navCallbacks = remember(navigator) {

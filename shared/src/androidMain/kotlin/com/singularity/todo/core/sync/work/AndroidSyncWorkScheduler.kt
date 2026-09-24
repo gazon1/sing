@@ -14,9 +14,7 @@ import java.util.concurrent.TimeUnit
  * Uses `ExistingWorkPolicy.KEEP` so concurrent `enqueuePush()` calls while a
  * job is running are idempotent — the existing job runs to completion.
  */
-class AndroidSyncWorkScheduler(
-    private val context: Context,
-) : SyncWorkScheduler {
+class AndroidSyncWorkScheduler(private val context: Context) : SyncWorkScheduler {
 
     private val workManager: WorkManager
         get() = WorkManager.getInstance(context)

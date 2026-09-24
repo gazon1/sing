@@ -1,7 +1,6 @@
 package com.singularity.todo.core.sync
 
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
@@ -24,9 +23,19 @@ class FakeSyncPrefs : SyncPrefs {
     private val _lastLsn = MutableStateFlow(0L)
     override val lastLsn: Long get() = _lastLsn.value
 
-    override fun setAutoSyncEnabled(value: Boolean) { _autoSyncEnabled.value = value }
-    override fun setEnabledTriggers(triggers: Set<SyncTrigger>) { _enabledTriggers.value = triggers }
-    override fun setScheduledInterval(interval: Duration) { _scheduledInterval.value = interval }
-    override suspend fun recordSuccessfulSync() { _lastSuccessfulSyncAt.value = System.currentTimeMillis() }
-    override suspend fun setLastLsn(lsn: Long) { _lastLsn.value = lsn }
+    override fun setAutoSyncEnabled(value: Boolean) {
+        _autoSyncEnabled.value = value
+    }
+    override fun setEnabledTriggers(triggers: Set<SyncTrigger>) {
+        _enabledTriggers.value = triggers
+    }
+    override fun setScheduledInterval(interval: Duration) {
+        _scheduledInterval.value = interval
+    }
+    override suspend fun recordSuccessfulSync() {
+        _lastSuccessfulSyncAt.value = System.currentTimeMillis()
+    }
+    override suspend fun setLastLsn(lsn: Long) {
+        _lastLsn.value = lsn
+    }
 }

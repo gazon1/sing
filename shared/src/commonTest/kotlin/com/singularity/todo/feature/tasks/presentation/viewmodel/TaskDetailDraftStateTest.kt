@@ -7,8 +7,7 @@ import kotlin.test.assertTrue
 
 class TaskDetailDraftStateTest {
 
-    private fun newState(initial: TaskDetailDraft = TaskDetailDraft.empty()) =
-        TaskDetailDraftState(initial)
+    private fun newState(initial: TaskDetailDraft = TaskDetailDraft.empty()) = TaskDetailDraftState(initial)
 
     // ─── seed ─────────────────────────────────────────────────────────────────
 

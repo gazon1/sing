@@ -1,10 +1,10 @@
 package com.singularity.todo.core.appearance.di
 
+import com.singularity.todo.core.appearance.AppearanceContributor
 import com.singularity.todo.core.appearance.AppearanceSettingsContributor
-import com.singularity.todo.core.appearance.AppearanceSettingsStore
 import com.singularity.todo.core.appearance.AppearanceSettingsRepository
+import com.singularity.todo.core.appearance.AppearanceSettingsStore
 import com.singularity.todo.core.appearance.DataStoreAppearanceSettingsRepository
-import com.singularity.todo.core.settings.SettingsContributor
 import org.koin.dsl.module
 
 /**
@@ -21,5 +21,5 @@ fun appearanceSettingsModule(): org.koin.core.module.Module = module {
     single { AppearanceSettingsStore(get<AppearanceSettingsRepository>()) }
 
     // Contributor — registered as SettingsContributor so SettingsViewModel can discover it
-    single<SettingsContributor<*, *>> { AppearanceSettingsContributor(get()) }
+    single<AppearanceContributor> { AppearanceSettingsContributor(get()) }
 }

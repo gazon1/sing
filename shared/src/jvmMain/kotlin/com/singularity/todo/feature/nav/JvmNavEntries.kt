@@ -242,7 +242,9 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
  */
 private fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute = when (this) {
     is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate)
+
     is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(TaskId.fromString(taskId))
+
     // Deprecated variants: fall back to Create
     else -> TasksRoute.Create(initialDueDate)
 }
@@ -269,4 +271,3 @@ private fun AppDestination.NotesStartRoute.toNotesRoute(): NotesRoute = when (th
 private fun AppDestination.CalendarStartRoute.toCalendarRoute(): CalendarRoute = when (this) {
     is AppDestination.CalendarStartRoute.Month -> CalendarRoute.Month(anchor)
 }
-

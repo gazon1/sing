@@ -26,5 +26,6 @@ data class Query(
      * Returns `true` if this query has no filter conditions
      * and default options (i.e. equivalent to [EMPTY]).
      */
-    val isEmpty: Boolean get() = condition == null && sortOrder == SortOrder.DUE && !sortDescending && options == Options()
+    val isEmpty: Boolean get() = condition == null && sortOrder == SortOrder.DUE && !sortDescending &&
+        options == Options()
 }

@@ -9,22 +9,20 @@ import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.ProfileRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
  * Dependencies for [SavedAgendaListViewModel].
  */
-data class SavedAgendaListDeps(
-    val repo: SavedAgendaViewsRepository,
-    val profileRepo: ProfileRepository,
-)
+data class SavedAgendaListDeps(val repo: SavedAgendaViewsRepository, val profileRepo: ProfileRepository)
 
 /**
  * UI state for the saved agenda views list screen.
@@ -57,25 +55,27 @@ sealed interface SavedAgendaListEvent {
  * Note: `viewModelOf` does not work here — two-constructor testable-VM pattern creates
  * constructor ambiguity. Use explicit `viewModel { }` block instead.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class SavedAgendaListViewModel(
     private val deps: SavedAgendaListDeps,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
-    private val _state = MutableStateFlow<SavedAgendaListState>(SavedAgendaListState.Loading)
-    val state: StateFlow<SavedAgendaListState> = _state.asStateFlow()
 
     init {
         addCloseable(scope)
-        scope.launch {
-            deps.repo.observeAll()
-                .map { views -> SavedAgendaListState.Loaded(views) }
-                .collect { _state.value = it }
-        }
     }
 
     /** Delete failure events — routing (ViewSelected, CreateNew) is screen-side. */
     private val _events = Channel<SavedAgendaListEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
+
+    val state: StateFlow<SavedAgendaListState> = deps.repo.observeAll()
+        .map { views -> SavedAgendaListState.Loaded(views) }
+        .stateIn(
+            scope,
+            SharingStarted.WhileSubscribed(5_000),
+            SavedAgendaListState.Loading,
+        )
 
     fun onIntent(intent: SavedAgendaListIntent) {
         when (intent) {
@@ -106,7 +106,12 @@ class SavedAgendaListViewModel(
                     )
                     deps.repo.upsert(copy)
                         .onSuccess {
-                            _events.trySend(SavedAgendaListEvent.CopySuccess(sourceView.name.ifBlank { "Untitled" }, targetProfile.name))
+                            _events.trySend(
+                                SavedAgendaListEvent.CopySuccess(
+                                    sourceView.name.ifBlank { "Untitled" },
+                                    targetProfile.name,
+                                ),
+                            )
                         }
                         .onFailure {
                             _events.trySend(SavedAgendaListEvent.ShowError(it.message ?: "Copy failed"))

@@ -233,6 +233,5 @@ class TaskCreateViewModel(
         }
     }
 
-    private fun validateForSave(draft: TaskDraft): String? =
-        if (draft.title.isBlank()) "Title is required" else null
+    private fun validateForSave(draft: TaskDraft): String? = if (draft.title.isBlank()) "Title is required" else null
 }

@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.search
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.platform.Clock
@@ -26,7 +25,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -62,8 +60,10 @@ data class SearchUiState(
 sealed interface SearchUiEvent {
     /** The query string failed to parse. */
     data class QueryParseError(val message: String, val position: Int) : SearchUiEvent
+
     /** A saved search operation succeeded. */
     data object SavedSuccessfully : SearchUiEvent
+
     /** A generic error (e.g. repository failure). */
     data class Error(val message: String) : SearchUiEvent
 }
@@ -203,7 +203,10 @@ class SearchViewModel(
         if (query.isBlank()) {
             _parsedQuery.value = null
             _activeFilter.value = null
-            _state.value = _state.value.copy(isSearching = false, results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
+            _state.value = _state.value.copy(
+                isSearching = false,
+                results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
+            )
             return
         }
 
@@ -235,7 +238,10 @@ class SearchViewModel(
         if (filter == null) {
             // Keep _queryString — it may hold a loaded saved search's raw query.
             // Keep _parsedQuery — it remains valid for the raw query.
-            _state.value = _state.value.copy(isSearching = false, results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
+            _state.value = _state.value.copy(
+                isSearching = false,
+                results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
+            )
             return
         }
 

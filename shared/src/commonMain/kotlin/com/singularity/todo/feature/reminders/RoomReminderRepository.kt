@@ -2,9 +2,9 @@ package com.singularity.todo.feature.reminders
 
 import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.database.toEpochMillis
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.observeForCurrentUser
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
@@ -22,15 +22,13 @@ class RoomReminderRepository(
 
     // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<Reminder>> =
-        currentUser.observeForCurrentUser { uid ->
-            dao.watchAll(uid.value).map { list -> list.map { it.toReminder() } }
-        }
+    override fun observeAll(): Flow<List<Reminder>> = currentUser.observeForCurrentUser { uid ->
+        dao.watchAll(uid.value).map { list -> list.map { it.toReminder() } }
+    }
 
-    override fun observe(id: ReminderId): Flow<Reminder?> =
-        currentUser.observeForCurrentUser { uid ->
-            dao.watchByIdForUser(id.value, uid.value).map { it?.toReminder() }
-        }
+    override fun observe(id: ReminderId): Flow<Reminder?> = currentUser.observeForCurrentUser { uid ->
+        dao.watchByIdForUser(id.value, uid.value).map { it?.toReminder() }
+    }
 
     override suspend fun get(id: ReminderId): Reminder? {
         val uid = currentUser.scopedUserId.value
@@ -54,28 +52,26 @@ class RoomReminderRepository(
         dao.delete(id.value, uid.value)
     }
 
-    override suspend fun delete(id: ReminderId, userId: com.singularity.todo.core.ids.UserId): Result<Unit> = runCatching {
-        dao.delete(id.value, userId.value)
-    }
+    override suspend fun delete(id: ReminderId, userId: com.singularity.todo.core.ids.UserId): Result<Unit> =
+        runCatching {
+            dao.delete(id.value, userId.value)
+        }
 
     // ─── Domain methods ───────────────────────────────────────────────────────
 
-    override fun observeRecurringTaskIds(): Flow<Set<TaskId>> =
-        currentUser.observeForCurrentUser { uid ->
-            dao.watchRecurringTaskIds(uid.value).map { list ->
-                list.mapTo(linkedSetOf()) { TaskId.fromString(it) }
-            }
+    override fun observeRecurringTaskIds(): Flow<Set<TaskId>> = currentUser.observeForCurrentUser { uid ->
+        dao.watchRecurringTaskIds(uid.value).map { list ->
+            list.mapTo(linkedSetOf()) { TaskId.fromString(it) }
         }
+    }
 
-    override fun watchByTask(taskId: TaskId): Flow<List<Reminder>> =
-        currentUser.observeForCurrentUser { uid ->
-            dao.watchByTask(taskId.value, uid.value).map { list -> list.map { it.toReminder() } }
-        }
+    override fun watchByTask(taskId: TaskId): Flow<List<Reminder>> = currentUser.observeForCurrentUser { uid ->
+        dao.watchByTask(taskId.value, uid.value).map { list -> list.map { it.toReminder() } }
+    }
 
-    override fun watchDueBefore(nowEpochMs: Long): Flow<List<Reminder>> =
-        currentUser.observeForCurrentUser { uid ->
-            dao.getDueBefore(nowEpochMs, uid.value).map { list -> list.map { it.toReminder() } }
-        }
+    override fun watchDueBefore(nowEpochMs: Long): Flow<List<Reminder>> = currentUser.observeForCurrentUser { uid ->
+        dao.getDueBefore(nowEpochMs, uid.value).map { list -> list.map { it.toReminder() } }
+    }
 
     override fun watchRecentDueBefore(nowEpochMs: Long, limit: Int): Flow<List<Reminder>> =
         currentUser.observeForCurrentUser { uid ->

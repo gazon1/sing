@@ -35,21 +35,21 @@ abstract class QueryParser(protected val tokens: List<QueryTokenizer.Token>) {
      *
      * @throws QueryParseException if the token stream cannot be consumed.
      */
-    open fun parse(): Query {
-        throw UnsupportedOperationException(
-            "QueryParser.parse() must be overridden by a concrete implementation"
-        )
-    }
+    open fun parse(): Query = throw UnsupportedOperationException(
+        "QueryParser.parse() must be overridden by a concrete implementation",
+    )
 
     /**
      * Parse a single condition atom (word, quoted, or parenthesized group).
      * Consumes one or more tokens that form a single condition.
      */
     private fun parseAtom(startPos: Int): Pair<Condition, Int> {
-        if (startPos >= tokens.size) throw QueryParseException(
+        if (startPos >= tokens.size) {
+            throw QueryParseException(
             "Unexpected end of input",
-            tokenPosition(startPos)
+            tokenPosition(startPos),
         )
+        }
         val tok = tokens[startPos]
 
         return when (tok) {
@@ -75,7 +75,7 @@ abstract class QueryParser(protected val tokens: List<QueryTokenizer.Token>) {
 
             else -> throw QueryParseException(
                 "Unexpected token: ${tok.text}",
-                tokenPosition(startPos)
+                tokenPosition(startPos),
             )
         }
     }
@@ -100,19 +100,23 @@ abstract class QueryParser(protected val tokens: List<QueryTokenizer.Token>) {
                 }
 
                 is QueryTokenizer.Token.And -> {
-                    if (conditions.isEmpty()) throw QueryParseException(
+                    if (conditions.isEmpty()) {
+                        throw QueryParseException(
                         "Unexpected AND inside group",
-                        tokenPosition(pos)
+                        tokenPosition(pos),
                     )
+                    }
                     pos++
                     lastWasCond = false
                 }
 
                 is QueryTokenizer.Token.Or -> {
-                    if (conditions.size < 2) throw QueryParseException(
+                    if (conditions.size < 2) {
+                        throw QueryParseException(
                         "OR inside group requires at least two operands",
-                        tokenPosition(pos)
+                        tokenPosition(pos),
                     )
+                    }
                     val left = flattenAnd(conditions)
                     conditions.clear()
                     pos++
@@ -157,7 +161,7 @@ abstract class QueryParser(protected val tokens: List<QueryTokenizer.Token>) {
             } catch (e: Exception) {
                 throw QueryParseException(
                     "Failed to parse '$text': ${e.message}",
-                    tokenPosition(position)
+                    tokenPosition(position),
                 )
             }
         }
@@ -189,20 +193,11 @@ abstract class QueryParser(protected val tokens: List<QueryTokenizer.Token>) {
     // ─── Match data classes ─────────────────────────────────────────────────
 
     /** A regex pattern that produces a [Condition] when it matches. */
-    data class ConditionMatch(
-        val regex: Regex,
-        val build: (MatchResult) -> Condition,
-    )
+    data class ConditionMatch(val regex: Regex, val build: (MatchResult) -> Condition)
 
     /** A regex pattern that produces a [SortOrder] when it matches. */
-    data class SortOrderMatch(
-        val regex: Regex,
-        val sortOrder: SortOrder,
-    )
+    data class SortOrderMatch(val regex: Regex, val sortOrder: SortOrder)
 
     /** A regex pattern that modifies [Options] when it matches. */
-    data class OptionMatch(
-        val regex: Regex,
-        val apply: (MatchResult, Options) -> Options,
-    )
+    data class OptionMatch(val regex: Regex, val apply: (MatchResult, Options) -> Options)
 }

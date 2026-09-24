@@ -87,11 +87,20 @@ fun AgendaNavContent(
  */
 fun AgendaStartRoute.toDefinition(): AgendaDefinition = when (this) {
     is AgendaStartRoute.Inbox -> AgendaPresets.Inbox
+
     is AgendaStartRoute.Today -> AgendaPresets.Today
+
     is AgendaStartRoute.Upcoming -> AgendaPresets.Upcoming
+
     is AgendaStartRoute.Project -> AgendaPresets.byProject(id)
+
     is AgendaStartRoute.Tag -> AgendaPresets.byTag(id)
-    is AgendaStartRoute.SavedAgendaList -> AgendaPresets.Inbox // Not used
-    is AgendaStartRoute.SavedAgendaEdit -> AgendaPresets.Inbox // Not used
+
+    is AgendaStartRoute.SavedAgendaList -> AgendaPresets.Inbox
+
+    // Not used
+    is AgendaStartRoute.SavedAgendaEdit -> AgendaPresets.Inbox
+
+    // Not used
     AgendaStartRoute.SavedAgendaCreate -> AgendaPresets.Inbox // Not used
 }

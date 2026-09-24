@@ -31,12 +31,15 @@ import kotlinx.datetime.LocalDate
 fun Selector.matches(task: Task, today: LocalDate): Boolean = when (this) {
     is Selector.DateBucket -> matches(task, today)
 
-    is Selector.DateRange -> task.dueDate != null &&
+    is Selector.DateRange ->
+        task.dueDate != null &&
         task.dueDate >= from && task.dueDate <= to
 
     is Selector.Statuses -> when {
         statuses.isEmpty() -> false
+
         TaskStatus.All in statuses -> true
+
         else -> {
             val activeMatch = TaskStatus.Active in statuses && !task.isCompleted
             val completedMatch = TaskStatus.Completed in statuses && task.isCompleted
@@ -51,9 +54,13 @@ fun Selector.matches(task: Task, today: LocalDate): Boolean = when (this) {
     }
 
     is Selector.Tags -> when {
-        ids.isEmpty() && matchAll -> true // empty+matchAll is trivially true
+        ids.isEmpty() && matchAll -> true
+
+        // empty+matchAll is trivially true
         ids.isEmpty() -> false
+
         matchAll -> ids.all { task.tags.contains(it) }
+
         else -> ids.any { task.tags.contains(it) }
     }
 
@@ -63,7 +70,8 @@ fun Selector.matches(task: Task, today: LocalDate): Boolean = when (this) {
 
     is Selector.Completed -> task.isCompleted
 
-    is Selector.Overdue -> task.dueDate != null &&
+    is Selector.Overdue ->
+        task.dueDate != null &&
         task.dueDate < today && !task.isCompleted
 
     is Selector.Regexp -> query.toRegex(RegexOption.IGNORE_CASE).containsMatchIn(task.title)

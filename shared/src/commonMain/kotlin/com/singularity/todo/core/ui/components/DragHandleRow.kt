@@ -67,8 +67,11 @@ fun DragHandleRow(
         modifier = modifier
             .fillMaxWidth()
             .then(
-                if (onClick != null) Modifier.clickable(onClick = onClick)
-                else Modifier
+                if (onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                },
             )
             .padding(padding),
         verticalAlignment = Alignment.CenterVertically,
@@ -82,6 +85,7 @@ fun DragHandleRow(
                 Box(modifier = Modifier.weight(1f)) {}
                 trailingComposable()
             }
+
             HandleSide.Trailing -> {
                 ContentColumn(text = text, subtitle = subtitle)
                 Box(modifier = Modifier.weight(1f)) {}
@@ -95,10 +99,7 @@ fun DragHandleRow(
 }
 
 @Composable
-private fun ContentColumn(
-    text: String,
-    subtitle: String?,
-) {
+private fun ContentColumn(text: String, subtitle: String?) {
     Column {
         Text(
             text = text,

@@ -33,11 +33,10 @@ object TaskComputed {
      *
      * Corresponds to `Selector.Overdue` and `DateBucket(RelativeBucket.Overdue)`.
      */
-    fun isOverdue(task: Task, today: LocalDate): Boolean =
-        task.dueDate != null &&
-            task.dueDate < today &&
-            !task.isCompleted &&
-            !task.isTrashed
+    fun isOverdue(task: Task, today: LocalDate): Boolean = task.dueDate != null &&
+        task.dueDate < today &&
+        !task.isCompleted &&
+        !task.isTrashed
 
     /**
      * A task is ready when:
@@ -46,8 +45,7 @@ object TaskComputed {
      *
      * Used by agenda engines to filter out tasks that are "waiting on something".
      */
-    fun isReady(task: Task): Boolean =
-        !task.isCompleted && !task.isTrashed
+    fun isReady(task: Task): Boolean = !task.isCompleted && !task.isTrashed
 
     /**
      * A task is active on [today] when:

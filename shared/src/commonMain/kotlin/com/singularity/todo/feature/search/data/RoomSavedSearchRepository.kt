@@ -23,46 +23,39 @@ class RoomSavedSearchRepository(
 
     override suspend fun currentUserId(): String = currentUser.scopedUserId.value.value
 
-    override fun observeAll(): Flow<List<SavedSearch>> =
-        currentUser.observeForCurrentUser { uid ->
-            savedSearchDao.watchAll(uid.value).map { entities -> entities.map { it.toDomain() } }
-        }
+    override fun observeAll(): Flow<List<SavedSearch>> = currentUser.observeForCurrentUser { uid ->
+        savedSearchDao.watchAll(uid.value).map { entities -> entities.map { it.toDomain() } }
+    }
 
-    override fun observe(id: SavedSearchId): Flow<SavedSearch?> =
-        currentUser.observeForCurrentUser { uid ->
-            savedSearchDao.watchById(uid.value, id.raw).map { it?.toDomain() }
-        }
+    override fun observe(id: SavedSearchId): Flow<SavedSearch?> = currentUser.observeForCurrentUser { uid ->
+        savedSearchDao.watchById(uid.value, id.raw).map { it?.toDomain() }
+    }
 
     override suspend fun get(id: SavedSearchId): SavedSearch? {
         val uid = currentUser.scopedUserId.value
         return savedSearchDao.getById(uid.value, id.raw)?.toDomain()
     }
 
-    override suspend fun upsert(search: SavedSearch): Result<SavedSearch> {
-        return runCatching {
-            val uid = currentUser.scopedUserId.value
-            val toInsert = if (search.userId == uid.value || search.userId == "") {
-                search.copy(userId = uid.value)
-            } else {
-                throw IllegalStateException(
-                    "Cross-user SavedSearch upsert: search.userId=${search.userId}, current=${uid.value}",
-                )
-            }
-            savedSearchDao.upsert(toInsert.toEntity())
-            toInsert
+    override suspend fun upsert(search: SavedSearch): Result<SavedSearch> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        val toInsert = if (search.userId == uid.value || search.userId == "") {
+            search.copy(userId = uid.value)
+        } else {
+            throw IllegalStateException(
+                "Cross-user SavedSearch upsert: search.userId=${search.userId}, current=${uid.value}",
+            )
         }
+        savedSearchDao.upsert(toInsert.toEntity())
+        toInsert
     }
 
-    override suspend fun delete(id: SavedSearchId): Result<Unit> {
-        return runCatching {
-            val uid = currentUser.scopedUserId.value
-            savedSearchDao.delete(uid.value, id.raw)
-        }
+    override suspend fun delete(id: SavedSearchId): Result<Unit> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        savedSearchDao.delete(uid.value, id.raw)
     }
 
-    override suspend fun findByNameForUser(userId: String, name: String): SavedSearch? {
-        return savedSearchDao.findByName(userId, name)?.toDomain()
-    }
+    override suspend fun findByNameForUser(userId: String, name: String): SavedSearch? =
+        savedSearchDao.findByName(userId, name)?.toDomain()
 
     // ─── Mapping ───────────────────────────────────────────────────────────────
 

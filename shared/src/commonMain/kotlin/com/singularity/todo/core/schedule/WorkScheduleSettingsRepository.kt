@@ -30,16 +30,34 @@ interface WorkScheduleSettingsRepository {
 /**
  * Production [WorkScheduleSettingsRepository] backed by DataStore.
  */
-class DataStoreWorkScheduleSettingsRepository(
-    dataStore: DataStore<Preferences>,
-) : BaseSettingsRepository(dataStore), WorkScheduleSettingsRepository {
+class DataStoreWorkScheduleSettingsRepository(dataStore: DataStore<Preferences>) :
+    BaseSettingsRepository(dataStore),
+    WorkScheduleSettingsRepository {
 
-    private val dayStartPref = intPref(nsKey(SettingsNamespace.WORK_SCHEDULE, "work_day_start_minutes"), SettingsDefaults.WorkSchedule.WORK_DAY_START_MINUTES)
-    private val dayEndPref = intPref(nsKey(SettingsNamespace.WORK_SCHEDULE, "work_day_end_minutes"), SettingsDefaults.WorkSchedule.WORK_DAY_END_MINUTES)
-    private val lunchStartPref = intPref(nsKey(SettingsNamespace.WORK_SCHEDULE, "work_lunch_start_minutes"), SettingsDefaults.WorkSchedule.WORK_LUNCH_START_MINUTES)
-    private val lunchEndPref = intPref(nsKey(SettingsNamespace.WORK_SCHEDULE, "work_lunch_end_minutes"), SettingsDefaults.WorkSchedule.WORK_LUNCH_END_MINUTES)
-    private val weekendSatPref = boolPref(nsKey(SettingsNamespace.WORK_SCHEDULE, "weekend_sat"), SettingsDefaults.WorkSchedule.WEEKEND_SAT)
-    private val weekendSunPref = boolPref(nsKey(SettingsNamespace.WORK_SCHEDULE, "weekend_sun"), SettingsDefaults.WorkSchedule.WEEKEND_SUN)
+    private val dayStartPref = intPref(
+        nsKey(SettingsNamespace.WORK_SCHEDULE, "work_day_start_minutes"),
+        SettingsDefaults.WorkSchedule.WORK_DAY_START_MINUTES,
+    )
+    private val dayEndPref = intPref(
+        nsKey(SettingsNamespace.WORK_SCHEDULE, "work_day_end_minutes"),
+        SettingsDefaults.WorkSchedule.WORK_DAY_END_MINUTES,
+    )
+    private val lunchStartPref = intPref(
+        nsKey(SettingsNamespace.WORK_SCHEDULE, "work_lunch_start_minutes"),
+        SettingsDefaults.WorkSchedule.WORK_LUNCH_START_MINUTES,
+    )
+    private val lunchEndPref = intPref(
+        nsKey(SettingsNamespace.WORK_SCHEDULE, "work_lunch_end_minutes"),
+        SettingsDefaults.WorkSchedule.WORK_LUNCH_END_MINUTES,
+    )
+    private val weekendSatPref = boolPref(
+        nsKey(SettingsNamespace.WORK_SCHEDULE, "weekend_sat"),
+        SettingsDefaults.WorkSchedule.WEEKEND_SAT,
+    )
+    private val weekendSunPref = boolPref(
+        nsKey(SettingsNamespace.WORK_SCHEDULE, "weekend_sun"),
+        SettingsDefaults.WorkSchedule.WEEKEND_SUN,
+    )
 
     override val dayStartMinutes: Flow<Int> get() = dayStartPref.flow
     override val dayEndMinutes: Flow<Int> get() = dayEndPref.flow

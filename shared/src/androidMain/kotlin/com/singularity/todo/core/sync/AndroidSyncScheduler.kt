@@ -4,7 +4,6 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import co.touchlab.kermit.Logger
 import kotlin.time.Duration
 
@@ -17,9 +16,7 @@ import kotlin.time.Duration
  * The [PendingIntent] is a no-op receiver; the real sync is triggered via
  * [SyncRepository.syncOnce] called from the broadcast receiver registered in [AndroidShell].
  */
-class AndroidSyncScheduler(
-    private val context: Context,
-) : SyncScheduler {
+class AndroidSyncScheduler(private val context: Context) : SyncScheduler {
 
     private val log = Logger.withTag("AndroidSyncScheduler")
 

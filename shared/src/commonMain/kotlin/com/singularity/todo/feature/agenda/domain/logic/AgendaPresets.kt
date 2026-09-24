@@ -81,4 +81,3 @@ object AgendaPresets {
         section("Range", Selector.DateRange(from, to), order = 0)
     }
 }
-

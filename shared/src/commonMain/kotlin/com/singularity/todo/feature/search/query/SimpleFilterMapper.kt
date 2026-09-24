@@ -1,9 +1,5 @@
 package com.singularity.todo.feature.search.query
 
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.domain.model.TaskStatus
-import kotlinx.datetime.LocalDate
-
 /**
  * Maps between the structured AST [Query] and the flat UI [SimpleFilter].
  *
@@ -113,10 +109,7 @@ class SimpleFilterMapper {
         filter.build()
     }
 
-    private fun mapDueCondition(
-        interval: QueryInterval,
-        relation: Relation,
-    ): SimpleFilter.DueCondition? {
+    private fun mapDueCondition(interval: QueryInterval, relation: Relation): SimpleFilter.DueCondition? {
         // Only EQ and simple relative intervals are representable
         if (relation != Relation.EQ) return null
         if (interval.isNone) return SimpleFilter.DueCondition.NONE
@@ -173,10 +166,15 @@ class SimpleFilterMapper {
         // Due
         val dueInterval = when (filter.due) {
             SimpleFilter.DueCondition.TODAY -> QueryInterval.NOW
+
             SimpleFilter.DueCondition.TOMORROW -> QueryInterval.TOMORROW
+
             SimpleFilter.DueCondition.THIS_WEEK -> QueryInterval(7)
+
             SimpleFilter.DueCondition.OVERDUE -> QueryInterval(-1)
+
             SimpleFilter.DueCondition.NONE -> QueryInterval.NONE
+
             SimpleFilter.DueCondition.CUSTOM -> {
                 throw UnsupportedSimpleFilterException(
                     "Custom date ranges are not yet supported in Query syntax",

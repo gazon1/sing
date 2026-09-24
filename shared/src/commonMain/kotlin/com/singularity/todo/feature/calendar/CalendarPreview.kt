@@ -62,9 +62,7 @@ private object CalendarPreviewData {
 // ─── Previews ─────────────────────────────────────────────────────────────────
 
 @Composable
-private fun CalendarContentPreview(
-    state: CalendarUiState = CalendarPreviewData.loadedState(CalendarViewMode.MONTH),
-) {
+private fun CalendarContentPreview(state: CalendarUiState = CalendarPreviewData.loadedState(CalendarViewMode.MONTH)) {
     MaterialTheme {
         CalendarContent(
             state = state,

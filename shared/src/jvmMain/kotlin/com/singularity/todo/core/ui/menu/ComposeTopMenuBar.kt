@@ -2,6 +2,7 @@ package com.singularity.todo.core.ui.menu
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -49,10 +49,7 @@ import kotlinx.coroutines.delay
  * suppress click events on Compose 1.12.
  */
 @Composable
-fun ComposeTopMenuBar(
-    entries: List<MenuNode>,
-    modifier: Modifier = Modifier,
-) {
+fun ComposeTopMenuBar(entries: List<MenuNode>, modifier: Modifier = Modifier) {
     var openMenuId by remember { mutableStateOf<String?>(null) }
 
     Surface(
@@ -77,7 +74,9 @@ fun ComposeTopMenuBar(
                         onOpenChange = { open -> openMenuId = if (open) node.id else null },
                         onDismiss = { openMenuId = null },
                     )
+
                     is MenuNode.Action -> TopMenuBarAction(node)
+
                     MenuNode.Divider -> { /* skip dividers at top level */ }
                 }
             }
@@ -121,8 +120,11 @@ private fun TopMenuBarItem(
         Text(
             text = node.label,
             style = MaterialTheme.typography.labelLarge,
-            color = if (node.enabled) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            color = if (node.enabled) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            },
             maxLines = 1,
         )
     }
@@ -165,8 +167,11 @@ private fun TopMenuBarAction(node: MenuNode.Action) {
         Text(
             text = node.label,
             style = MaterialTheme.typography.labelLarge,
-            color = if (node.enabled) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            color = if (node.enabled) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            },
             maxLines = 1,
         )
     }
@@ -185,13 +190,12 @@ private fun DropdownPanel(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun TopMenuDropdownItem(
-    node: MenuNode,
-    onAction: () -> Unit,
-) {
+private fun TopMenuDropdownItem(node: MenuNode, onAction: () -> Unit) {
     when (node) {
         is MenuNode.Action -> DropdownActionRow(node, onAction)
+
         is MenuNode.SubMenu -> DropdownSubMenuRow(node, onAction)
+
         MenuNode.Divider -> HorizontalDivider(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             color = MaterialTheme.colorScheme.outlineVariant,
@@ -233,8 +237,11 @@ private fun DropdownActionRow(node: MenuNode.Action, onAction: () -> Unit) {
             }
             Text(
                 text = node.label,
-                color = if (node.danger) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurface,
+                color = if (node.danger) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
                 fontWeight = if (node.checked) FontWeight.Medium else FontWeight.Normal,
                 modifier = Modifier.weight(1f),
                 maxLines = 1,

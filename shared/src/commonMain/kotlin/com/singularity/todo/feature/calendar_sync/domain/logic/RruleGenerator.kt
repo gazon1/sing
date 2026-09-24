@@ -14,23 +14,24 @@ object RruleGenerator {
      * Returns null only when [rule] is [RecurrenceRule.Custom] with a blank string
      * or when [rule] is [RecurrenceRule.Weekly] with an unrecognized weekday code.
      */
-    fun generate(rule: RecurrenceRule): String? {
-        return when (rule) {
-            is RecurrenceRule.Daily -> "FREQ=DAILY"
+    fun generate(rule: RecurrenceRule): String? = when (rule) {
+        is RecurrenceRule.Daily -> "FREQ=DAILY"
 
-            is RecurrenceRule.Weekly -> {
-                val symbols = rule.weekdays.mapNotNull { ISO_DAY_SYMBOL[it] }
-                if (symbols.size != rule.weekdays.size) null
-                else "FREQ=WEEKLY;BYDAY=${symbols.joinToString(",")}"
+        is RecurrenceRule.Weekly -> {
+            val symbols = rule.weekdays.mapNotNull { ISO_DAY_SYMBOL[it] }
+            if (symbols.size != rule.weekdays.size) {
+                null
+            } else {
+                "FREQ=WEEKLY;BYDAY=${symbols.joinToString(",")}"
             }
+        }
 
-            is RecurrenceRule.Monthly -> "FREQ=MONTHLY;BYMONTHDAY=${rule.day}"
+        is RecurrenceRule.Monthly -> "FREQ=MONTHLY;BYMONTHDAY=${rule.day}"
 
-            is RecurrenceRule.Yearly -> "FREQ=YEARLY"
+        is RecurrenceRule.Yearly -> "FREQ=YEARLY"
 
-            is RecurrenceRule.Custom -> {
-                if (rule.rrule.isBlank()) null else rule.rrule
-            }
+        is RecurrenceRule.Custom -> {
+            if (rule.rrule.isBlank()) null else rule.rrule
         }
     }
 

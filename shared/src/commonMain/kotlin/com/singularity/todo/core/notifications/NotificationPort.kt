@@ -18,7 +18,14 @@ interface NotificationPort {
      * [viewId] is an optional SavedAgendaViewId used by the Android implementation
      * to carry a deeplink target through the notification tap.
      */
-    suspend fun scheduleAt(key: String, title: String, body: String, fireAtEpochMs: Long, payload: String? = null, viewId: String? = null)
+    suspend fun scheduleAt(
+        key: String,
+        title: String,
+        body: String,
+        fireAtEpochMs: Long,
+        payload: String? = null,
+        viewId: String? = null,
+    )
 
     /** Cancels a scheduled notification by its [key]. No-op if already gone. */
     suspend fun cancel(key: String)

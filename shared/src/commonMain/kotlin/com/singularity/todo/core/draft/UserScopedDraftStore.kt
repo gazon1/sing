@@ -1,6 +1,5 @@
 package com.singularity.todo.core.draft
 
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationStrategy
@@ -27,17 +26,14 @@ import kotlinx.serialization.SerializationStrategy
  * @param currentUser Source of the ambient user ID used as the key prefix.
  * @param delegate The underlying [DraftStore] that performs the actual JSON persistence.
  */
-class UserScopedDraftStore(
-    private val currentUser: ProfileAwareCurrentUser,
-    private val delegate: DraftStore,
-) : DraftStore {
+class UserScopedDraftStore(private val currentUser: ProfileAwareCurrentUser, private val delegate: DraftStore) :
+    DraftStore {
 
     private val userIdPrefix: String
         get() = "${currentUser.scopedUserId.value.value}:"
 
-    override suspend fun <T> load(key: String, deserializer: DeserializationStrategy<T>): T? {
-        return delegate.load(userIdPrefix + key, deserializer)
-    }
+    override suspend fun <T> load(key: String, deserializer: DeserializationStrategy<T>): T? =
+        delegate.load(userIdPrefix + key, deserializer)
 
     override suspend fun <T> save(key: String, value: T, serializer: SerializationStrategy<T>) {
         delegate.save(userIdPrefix + key, value, serializer)

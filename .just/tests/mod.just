@@ -86,7 +86,7 @@ detekt-fix:
     #!/bin/bash
     set -euo pipefail
     # detekt 2.x merges formatting into the main task with autoCorrect=true in ktlint config
-    ./gradlew :shared:detekt :desktopApp:detekt
+    ./gradlew :shared:detekt :desktopApp:detekt --auto-correct
 
 [group('lint')]
 [doc('Generate detekt baseline files (capture current violations)')]

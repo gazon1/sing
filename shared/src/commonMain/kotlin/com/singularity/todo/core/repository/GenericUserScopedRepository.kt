@@ -104,5 +104,4 @@ interface SoftDeletable<E, ID> {
 /**
  * Returns `true` if an entity with the given [id] exists for the current user.
  */
-suspend fun <E, ID> GenericUserScopedRepository<E, ID>.exists(id: ID): Boolean =
-    get(id) != null
+suspend fun <E, ID> GenericUserScopedRepository<E, ID>.exists(id: ID): Boolean = get(id) != null

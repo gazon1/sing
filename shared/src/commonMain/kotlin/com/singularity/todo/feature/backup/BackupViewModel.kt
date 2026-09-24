@@ -3,16 +3,15 @@ package com.singularity.todo.feature.backup
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.auth.AuthDomain
 import com.singularity.todo.core.auth.AuthRepository
-import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.backup.BackupRepository
+import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.settings.SettingsImporter
-import com.singularity.todo.core.settings.SettingsSnapshot
 import com.singularity.todo.feature.backup.BackupUiEvent.Error
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,10 +78,10 @@ class BackupViewModel(
             _state.update { it.copy(isWorking = true) }
             val result = repository.export(
                 exportOptions {
-                userId = effectiveUserId
-                this.destPath = destPath
-                includeAttachments = true
-            }
+                    userId = effectiveUserId
+                    this.destPath = destPath
+                    includeAttachments = true
+                },
             )
             result
                 .onSuccess { br ->
@@ -166,17 +165,22 @@ class BackupViewModel(
                     _state.update { it.copy(isWorking = false) }
                     _snackbar.emit("Settings restored")
                 }
+
                 is SettingsImporter.ImportResult.SchemaTooOld -> {
                     _state.update { it.copy(isWorking = false) }
-                    _events.emit(Error(
+                    _events.emit(
+                        Error(
                         "Settings snapshot is from an older app version (v${result.snapshotVersion}). " +
                             "Please update the app first.",
-                    ))
+                    )
+                    )
                 }
+
                 is SettingsImporter.ImportResult.ParseError -> {
                     _state.update { it.copy(isWorking = false) }
                     _events.emit(Error("Invalid settings file: ${result.message}"))
                 }
+
                 is SettingsImporter.ImportResult.PartialFailure -> {
                     _state.update { it.copy(isWorking = false) }
                     _events.emit(Error("Some settings could not be restored: ${result.failures.joinToString("; ")}"))

@@ -39,14 +39,12 @@ class NotePreviewTest {
         override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
     }
 
-    private fun createVm(
-        notesRepo: FakeNotesRepository = FakeNotesRepository(),
-        scope: CoroutineScope,
-    ): NotePreview = NotePreview(
-        repo = notesRepo,
-        linkRepo = emptyLinkRepo,
-        scope = testScope(scope),
-    )
+    private fun createVm(notesRepo: FakeNotesRepository = FakeNotesRepository(), scope: CoroutineScope): NotePreview =
+        NotePreview(
+            repo = notesRepo,
+            linkRepo = emptyLinkRepo,
+            scope = testScope(scope),
+        )
 
     @Test
     fun initial_state_is_Loading() = runTest {

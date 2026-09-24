@@ -21,43 +21,43 @@ import org.koin.core.component.inject
  * and won't retry automatically; a subsequent `enqueuePush()` call from
  * `SyncEngine.enqueue()` will restart it.
  */
-class SyncOutboxWorker(
-    context: Context,
-    params: WorkerParameters,
-) : CoroutineWorker(context, params), KoinComponent {
+class SyncOutboxWorker(context: Context, params: WorkerParameters) :
+    CoroutineWorker(context, params),
+    KoinComponent {
 
     private val syncEngine: SyncEngine by inject()
     private val log = Logger.withTag("SyncOutboxWorker")
 
-    override suspend fun doWork(): Result {
-        return try {
-            val pushResult = syncEngine.push()
-            pushResult.fold(
-                onSuccess = { summary: PushSummary ->
-                    log.d { "Push completed: processed=${summary.processed}, succeeded=${summary.succeeded}, failed=${summary.failed}" }
-                    when {
-                        // Terminal failures — don't retry
-                        summary.processed == 0 && summary.failed > 0 -> Result.failure()
-                        // Partial success or retriable errors — retry with back-off
-                        else -> Result.success()
-                    }
-                },
-                onFailure = { e ->
-                    log.e(e) { "Push work failed" }
-                    if (runAttemptCount < MAX_ATTEMPTS) {
-                        Result.retry()
-                    } else {
-                        Result.failure()
-                    }
-                },
-            )
-        } catch (e: Exception) {
-            log.e(e) { "Push work failed" }
-            if (runAttemptCount < MAX_ATTEMPTS) {
-                Result.retry()
-            } else {
-                Result.failure()
-            }
+    override suspend fun doWork(): Result = try {
+        val pushResult = syncEngine.push()
+        pushResult.fold(
+            onSuccess = { summary: PushSummary ->
+                log.d {
+                    "Push completed: processed=${summary.processed}, succeeded=${summary.succeeded}, failed=${summary.failed}"
+                }
+                when {
+                    // Terminal failures — don't retry
+                    summary.processed == 0 && summary.failed > 0 -> Result.failure()
+
+                    // Partial success or retriable errors — retry with back-off
+                    else -> Result.success()
+                }
+            },
+            onFailure = { e ->
+                log.e(e) { "Push work failed" }
+                if (runAttemptCount < MAX_ATTEMPTS) {
+                    Result.retry()
+                } else {
+                    Result.failure()
+                }
+            },
+        )
+    } catch (e: Exception) {
+        log.e(e) { "Push work failed" }
+        if (runAttemptCount < MAX_ATTEMPTS) {
+            Result.retry()
+        } else {
+            Result.failure()
         }
     }
 

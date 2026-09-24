@@ -2,7 +2,6 @@ package com.singularity.todo.core.settings
 
 import com.singularity.todo.core.appearance.AppearanceContributor
 import com.singularity.todo.core.appearance.AppearanceSettingsContributor
-import com.singularity.todo.core.appearance.AppearanceSettingsStore
 import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.notifications.NotificationsSettingsContributor
 import com.singularity.todo.core.notifications.NotificationsSettingsStore
@@ -25,8 +24,7 @@ import org.koin.dsl.module
  * Add to [domainModule]: `add(settingsContributorsModule())`.
  */
 fun settingsContributorsModule(): Module = module {
-    // Appearance
-    single { AppearanceSettingsStore(get()) }
+    // Appearance — AppearanceSettingsRepository is provided by appearanceSettingsModule()
     single<AppearanceContributor> { AppearanceSettingsContributor(get()) }
 
     // Notifications

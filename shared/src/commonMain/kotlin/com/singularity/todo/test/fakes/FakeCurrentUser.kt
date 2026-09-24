@@ -2,7 +2,6 @@ package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
-import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import kotlinx.coroutines.CoroutineScope
 

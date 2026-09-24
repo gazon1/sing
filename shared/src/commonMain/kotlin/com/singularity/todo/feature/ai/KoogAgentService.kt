@@ -78,23 +78,22 @@ class KoogAgentService(
     private suspend fun requireApiKey(): String? =
         secureStorage.read(OpenAiConfig.KEY_OPENAI)?.takeIf { it.isNotBlank() }
 
-    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
-        runCatching {
-            requireApiKey()
-                ?: return@runCatching "(AI unavailable: API key not configured.)"
+    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> = runCatching {
+        requireApiKey()
+            ?: return@runCatching "(AI unavailable: API key not configured.)"
 
-            val effectiveSystemPrompt = systemPrompt
-                ?: settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
-            val effectiveModel = model
-                ?: settings.aiModel.first().ifBlank { OpenAiConfig.DEFAULT_MODEL }
+        val effectiveSystemPrompt = systemPrompt
+            ?: settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
+        val effectiveModel = model
+            ?: settings.aiModel.first().ifBlank { OpenAiConfig.DEFAULT_MODEL }
 
-            val agent = createAgent(effectiveSystemPrompt, effectiveModel)
-            try {
-                agent.run(prompt)
-            } finally {
-                agent.close()
-            }
+        val agent = createAgent(effectiveSystemPrompt, effectiveModel)
+        try {
+            agent.run(prompt)
+        } finally {
+            agent.close()
         }
+    }
 
     /**
      * Streams chat responses token-by-token using [PromptExecutorPort.executeStreaming].

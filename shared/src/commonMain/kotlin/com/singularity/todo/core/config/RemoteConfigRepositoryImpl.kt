@@ -79,19 +79,17 @@ internal class RemoteConfigRepositoryImpl(
         }
     }
 
-    private fun deserializeOrDefaults(json: String): RemoteConfigSnapshot {
-        return try {
-            val element = StableJson.parseToJsonElement(json)
-            val jsonObj = element as? JsonObject
-            if (jsonObj != null) {
-                RemoteConfigSnapshot.validate(jsonObj) ?: RemoteConfigSnapshot.defaults()
-            } else {
-                RemoteConfigSnapshot.defaults()
-            }
-        } catch (e: Throwable) {
-            log.w(e) { "Failed to deserialize cached RemoteConfigSnapshot, using defaults" }
+    private fun deserializeOrDefaults(json: String): RemoteConfigSnapshot = try {
+        val element = StableJson.parseToJsonElement(json)
+        val jsonObj = element as? JsonObject
+        if (jsonObj != null) {
+            RemoteConfigSnapshot.validate(jsonObj) ?: RemoteConfigSnapshot.defaults()
+        } else {
             RemoteConfigSnapshot.defaults()
         }
+    } catch (e: Throwable) {
+        log.w(e) { "Failed to deserialize cached RemoteConfigSnapshot, using defaults" }
+        RemoteConfigSnapshot.defaults()
     }
 
     companion object {

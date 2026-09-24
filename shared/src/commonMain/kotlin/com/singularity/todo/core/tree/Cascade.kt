@@ -2,7 +2,6 @@ package com.singularity.todo.core.tree
 
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
  * Looks up the nearest non-null value of [extract] along the ancestor chain of [startNode],
@@ -73,10 +72,7 @@ inline fun <T, K, V> List<T>.cascadeUp(
  * @param allTasks All tasks in the current context — used for ancestor lookup.
  * @param allProjects All projects — each project carries a colour value.
  */
-fun Task.cascadeProjectColor(
-    allTasks: List<Task>,
-    allProjects: List<Project>,
-): Int? {
+fun Task.cascadeProjectColor(allTasks: List<Task>, allProjects: List<Project>): Int? {
     val projectIndex = allProjects.associateBy { it.id }
     return allTasks.cascadeUp(
         startNode = this,

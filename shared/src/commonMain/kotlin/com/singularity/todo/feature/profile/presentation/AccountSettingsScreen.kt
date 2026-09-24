@@ -18,25 +18,26 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.profile.Profile
-import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.settings.presentation.nav.LocalSettingsNavigator
 import com.singularity.todo.test.fakes.FakeProfileRepository
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
-fun AccountSettingsScreen(modifier: Modifier = Modifier) {
-    val profileRepository: ProfileRepository = koinInject()
-    val activeProfile by profileRepository.activeProfile().collectAsStateWithLifecycle(initialValue = null)
+fun AccountSettingsScreen(
+    modifier: Modifier = Modifier,
+    vm: AccountSettingsViewModel = koinViewModel(),
+) {
+    val activeProfile by vm.activeProfile.collectAsStateWithLifecycle(initialValue = null)
     val settingsNavigator = LocalSettingsNavigator.current
 
     Column(

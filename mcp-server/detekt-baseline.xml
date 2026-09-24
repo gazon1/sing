@@ -1,0 +1,33 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ArgumentListWrapping:Main.kt:("' WHERE user_id='")</ID>
+    <ID>ArgumentListWrapping:Main.kt:("';")</ID>
+    <ID>ArgumentListWrapping:Main.kt:("UPDATE $table SET user_id='")</ID>
+    <ID>ArgumentListWrapping:Main.kt:(localUserId)</ID>
+    <ID>ArgumentListWrapping:Main.kt:(newUserId)</ID>
+    <ID>ClassSignature:CursorCodec.kt:Cursor</ID>
+    <ID>FunctionExpressionBody:CursorCodec.kt:{ return if (itemsReturned == PAGE_SIZE) { Cursor(offset = currentOffset + PAGE_SIZE, sortKey = sortKey).encode() } else { null } }</ID>
+    <ID>FunctionExpressionBody:ErrorMapper.kt:ErrorMapper${ return when (error) { is McpToolError.Internal -&gt; { log.e(error.format(), error.cause) throw McpException( code = INTERNAL_ERROR_CODE, message = error.format(), data = JsonNull, cause = error.cause, ) } is McpToolError.Validation, is McpToolError.NotFound, is McpToolError.Conflict, is McpToolError.Unauthorized -&gt; { CallToolResult( content = listOf(TextContent(text = error.format())), isError = true, ) } } }</ID>
+    <ID>FunctionExpressionBody:ToolAnnotations.kt:ToolAnnotations${ return McpToolAnnotations( title = "", readOnlyHint = readOnlyHint, destructiveHint = destructiveHint, idempotentHint = idempotentHint, openWorldHint = openWorldHint, ) }</ID>
+    <ID>FunctionSignature:KoogJsonSchemaBuilder.kt:KoogJsonSchemaBuilder$private fun ToolParameterDescriptor.toJsonSchema: JsonElement</ID>
+    <ID>FunctionSignature:KoogJsonSchemaBuilder.kt:KoogJsonSchemaBuilder$private fun anyOfSchema: JsonObject</ID>
+    <ID>FunctionSignature:KoogJsonSchemaBuilder.kt:KoogJsonSchemaBuilder$private fun enumSchema: JsonObject</ID>
+    <ID>FunctionSignature:KoogJsonSchemaBuilder.kt:KoogJsonSchemaBuilder$private fun listSchema: JsonObject</ID>
+    <ID>FunctionSignature:KoogJsonSchemaBuilder.kt:KoogJsonSchemaBuilder$private fun objectSchema: JsonObject</ID>
+    <ID>FunctionSignature:KoogJsonSchemaBuilder.kt:KoogJsonSchemaBuilder$private fun stringSchema: JsonObject</ID>
+    <ID>ImportOrdering:Main.kt:import androidx.datastore.preferences.core.PreferenceDataStoreFactory import com.singularity.todo.core.database.AppDatabase import com.singularity.todo.core.database.AppDatabaseFactory import com.singularity.todo.core.database.contract.createSqlDriver import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged import com.singularity.todo.core.di.domainModule import com.singularity.todo.feature.profile.ProfileBootstrapper import io.modelcontextprotocol.kotlin.sdk.server.Server import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions import io.modelcontextprotocol.kotlin.sdk.server.StdioServerTransport import io.modelcontextprotocol.kotlin.sdk.types.Implementation import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities import io.ktor.utils.io.asSink import io.ktor.utils.io.asSource import io.ktor.utils.io.jvm.javaio.toByteReadChannel import io.ktor.utils.io.streams.asByteWriteChannel import kotlinx.coroutines.Job import kotlinx.coroutines.runBlocking import kotlinx.io.buffered import org.koin.core.context.GlobalContext import org.koin.core.context.startKoin import org.koin.core.context.stopKoin import org.koin.dsl.module import java.io.File import java.io.OutputStreamWriter</ID>
+    <ID>MaximumLineLength:Main.kt:)</ID>
+    <ID>MaximumLineLength:Main.kt:,</ID>
+    <ID>NoUnusedImports:KoogJsonSchemaBuilderTest.kt:com.singularity.todo.mcp.schema.KoogJsonSchemaBuilderTest.kt</ID>
+    <ID>PrintStackTrace:Main.kt:e</ID>
+    <ID>SpacingBetweenDeclarationsWithAnnotations:ToolRegistrar.kt:ToolRegistrar$@Suppress("UNCHECKED_CAST") private val tools: List&lt;Tool&lt;*, *&gt;&gt; = koin.get()</ID>
+    <ID>TooGenericExceptionCaught:Main.kt:e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ToolRegistrar.kt:ToolRegistrar$e: Exception</ID>
+    <ID>TrailingCommaOnDeclarationSite:ErrorMapper.kt:ErrorMapper$is McpToolError.Validation, is McpToolError.NotFound, is McpToolError.Conflict, is McpToolError.Unauthorized -&gt; { CallToolResult( content = listOf(TextContent(text = error.format())), isError = true, ) }</ID>
+    <ID>UnusedParameter:Main.kt:profileId: String</ID>
+    <ID>UnusedParameter:Main.kt:profileId: String?</ID>
+    <ID>Wrapping:Main.kt:(</ID>
+  </CurrentIssues>
+</SmellBaseline>

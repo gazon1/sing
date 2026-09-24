@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -84,11 +83,7 @@ fun DependencyPickerSheet(
 }
 
 @Composable
-private fun DependencyItem(
-    task: Task,
-    isChecked: Boolean,
-    onToggle: (TaskId) -> Unit,
-) {
+private fun DependencyItem(task: Task, isChecked: Boolean, onToggle: (TaskId) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

@@ -23,9 +23,8 @@ data class ProjectSummary(
     val completedCount: Int = 0,
 )
 
-class ListProjectsTool(
-    private val projectsRepository: ProjectsRepository,
-) : SimpleTool<ListProjectsInput>(TypeToken.of(ListProjectsInput::class.java), NAME, DESCRIPTION) {
+class ListProjectsTool(private val projectsRepository: ProjectsRepository) :
+    SimpleTool<ListProjectsInput>(TypeToken.of(ListProjectsInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: ListProjectsInput): String {
         val rows = projectsRepository.observeProjectsWithCounts().first()

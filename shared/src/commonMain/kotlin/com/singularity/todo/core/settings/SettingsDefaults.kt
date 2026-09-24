@@ -24,6 +24,7 @@ object SettingsDefaults {
 
     object Appearance {
         const val DARK_THEME: Boolean = false
+
         // Not const: depends on enum entry property access at runtime.
         val ACCENT_COLOR: String = "blue"
         const val FONT_SIZE_SCALE: Float = 1f
@@ -52,10 +53,10 @@ object SettingsDefaults {
     // ── Work Schedule ─────────────────────────────────────────────────────
 
     object WorkSchedule {
-        const val WORK_DAY_START_MINUTES: Int = 540   // 09:00
-        const val WORK_DAY_END_MINUTES: Int = 1080    // 18:00
+        const val WORK_DAY_START_MINUTES: Int = 540 // 09:00
+        const val WORK_DAY_END_MINUTES: Int = 1080 // 18:00
         const val WORK_LUNCH_START_MINUTES: Int = 720 // 12:00
-        const val WORK_LUNCH_END_MINUTES: Int = 780   // 13:00
+        const val WORK_LUNCH_END_MINUTES: Int = 780 // 13:00
         const val WEEKEND_SAT: Boolean = false
         const val WEEKEND_SUN: Boolean = false
     }

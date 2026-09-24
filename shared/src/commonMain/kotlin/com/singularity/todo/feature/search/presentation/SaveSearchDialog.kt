@@ -21,11 +21,7 @@ import androidx.compose.ui.Modifier
  * @param onSave Called with the trimmed name when the user confirms.
  */
 @Composable
-fun SaveSearchDialog(
-    initialName: String,
-    onDismiss: () -> Unit,
-    onSave: (String) -> Unit,
-) {
+fun SaveSearchDialog(initialName: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var name by remember { mutableStateOf(initialName) }
     val trimmed = name.trim()
 
@@ -63,11 +59,7 @@ fun SaveSearchDialog(
  * Dialog for renaming an existing saved search.
  */
 @Composable
-fun RenameSearchDialog(
-    currentName: String,
-    onDismiss: () -> Unit,
-    onRename: (String) -> Unit,
-) {
+fun RenameSearchDialog(currentName: String, onDismiss: () -> Unit, onRename: (String) -> Unit) {
     var name by remember { mutableStateOf(currentName) }
     val trimmed = name.trim()
 

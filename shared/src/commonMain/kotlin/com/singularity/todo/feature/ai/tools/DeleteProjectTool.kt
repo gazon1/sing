@@ -13,9 +13,8 @@ data class DeleteProjectInput(val projectId: String)
 @Serializable
 data class DeleteProjectOutput(val projectId: String, val deleted: Boolean, val error: String? = null)
 
-class DeleteProjectTool(
-    private val deleteProject: DeleteProjectUseCase,
-) : SimpleTool<DeleteProjectInput>(TypeToken.of(DeleteProjectInput::class.java), NAME, DESCRIPTION) {
+class DeleteProjectTool(private val deleteProject: DeleteProjectUseCase) :
+    SimpleTool<DeleteProjectInput>(TypeToken.of(DeleteProjectInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: DeleteProjectInput): String {
         val result = deleteProject(ProjectId.fromString(args.projectId))

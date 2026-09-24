@@ -22,6 +22,7 @@ sealed interface TaskCreateIntent {
     data class SetEmoji(val emoji: String?) : TaskCreateIntent
     data object SaveClicked : TaskCreateIntent
     data object DiscardChanges : TaskCreateIntent
+
     /** Clear the current inline / snackbar error emitted via [TaskCreateUiState.error]. */
     data object DismissError : TaskCreateIntent
 }

@@ -11,12 +11,12 @@ import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.menu.ContextMenuHost
 import com.singularity.todo.core.ui.menu.ContextMenuOpenState
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
-import com.singularity.todo.feature.tasks.presentation.contextmenu.TaskMenuActions
-import com.singularity.todo.feature.tasks.presentation.contextmenu.buildTaskContextMenu
-import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
+import com.singularity.todo.feature.tasks.presentation.contextmenu.TaskMenuActions
+import com.singularity.todo.feature.tasks.presentation.contextmenu.buildTaskContextMenu
+import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 
 /**
  * JVM Desktop implementation of [AgendaNavGraph].
@@ -40,7 +40,12 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
     // Uses platform desktop colors (TaskListColors) via the ContextMenuHost implementation.
     // The [onIntent] parameter is passed through AgendaScreen → AgendaContent so that
     // menu actions (pin, delete, expand, AI) can dispatch domain intents.
-    val desktopContextMenuHost: @Composable (TaskUi, androidx.compose.ui.unit.DpOffset, () -> Unit, (AgendaIntent) -> Unit) -> Unit =
+    val desktopContextMenuHost: @Composable (
+        TaskUi,
+        androidx.compose.ui.unit.DpOffset,
+        () -> Unit,
+        (AgendaIntent) -> Unit,
+    ) -> Unit =
         { taskUi, offset, onDismiss, onIntent ->
             val menuActions = remember(taskUi) {
                 TaskMenuActions(

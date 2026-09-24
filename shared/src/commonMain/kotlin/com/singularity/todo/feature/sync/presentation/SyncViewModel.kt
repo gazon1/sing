@@ -7,7 +7,6 @@ import com.singularity.todo.core.sync.ConnectionTestResult
 import com.singularity.todo.core.sync.SyncEngineStatus
 import com.singularity.todo.core.sync.SyncPrefs
 import com.singularity.todo.core.sync.SyncRepository
-import com.singularity.todo.core.sync.SyncTrigger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -137,7 +136,12 @@ class SyncViewModel(
                     // Exception from syncOnce() (e.g. getOrThrow() on a Failure Result).
                     // Ensure the snackbar shows after this sync completes.
                     allowSnackbarOnFailure = true
-                    _state.update { it.copy(isLoading = false, status = SyncEngineStatus.Failure(e as? AppError ?: AppError.Unknown(e))) }
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            status = SyncEngineStatus.Failure(e as? AppError ?: AppError.Unknown(e)),
+                        )
+                    }
                     return@launch
                 } finally {
                     _state.update { it.copy(isLoading = false) }

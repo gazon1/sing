@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Summary of a push operation.
@@ -33,10 +32,7 @@ sealed interface SyncOutcome {
      * A sync completed (push and/or pull ran to completion — even if individual
      * operations had errors, the engine finished its cycle without being coalesced).
      */
-    data class Success(
-        val push: Result<PushSummary>,
-        val pull: Result<PullSummary>,
-    ) : SyncOutcome
+    data class Success(val push: Result<PushSummary>, val pull: Result<PullSummary>) : SyncOutcome
 
     /**
      * The sync was skipped because another sync was already running.
@@ -116,6 +112,7 @@ internal class SyncEngine(
             authRepository.currentSession.collect { session ->
                 when (session) {
                     is Session.SignedIn -> scheduler.enqueuePush()
+
                     is Session.Anonymous,
                     is Session.SignedOut,
                     is Session.Loading,

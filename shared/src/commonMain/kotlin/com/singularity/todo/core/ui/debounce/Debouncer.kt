@@ -28,32 +28,27 @@ import kotlin.time.Duration.Companion.milliseconds
  *   Pass the injected VM scope (NOT `viewModelScope`).
  * @param duration The debounce duration.
  */
-class Debouncer(
-    private val scope: CoroutineScope,
-    private val duration: Duration,
-) {
+class Debouncer(private val scope: CoroutineScope, private val duration: Duration) {
     /**
      * Debounces [flow] and calls [action] with each debounced value.
      * The collector runs in [scope] and is cancelled when [scope] is cancelled.
      *
      * @return A [Job] that can be cancelled to stop the debounced collector.
      */
-    fun <T> debounce(flow: Flow<T>, action: (T) -> Unit): Job =
-        scope.launch {
-            flow
-                .debounce(duration)
-                .distinctUntilChanged()
-                .collect { value ->
-                    action(value)
-                }
-        }
+    fun <T> debounce(flow: Flow<T>, action: (T) -> Unit): Job = scope.launch {
+        flow
+            .debounce(duration)
+            .distinctUntilChanged()
+            .collect { value ->
+                action(value)
+            }
+    }
 }
 
 /**
  * Creates a [Debouncer] with a [Long] delay in milliseconds.
  */
-fun Debouncer(scope: CoroutineScope, delayMs: Long): Debouncer =
-    Debouncer(scope, delayMs.milliseconds)
+fun Debouncer(scope: CoroutineScope, delayMs: Long): Debouncer = Debouncer(scope, delayMs.milliseconds)
 
 /**
  * Convenience extension to debounce a [Flow] using a [Debouncer].
@@ -64,5 +59,4 @@ fun Debouncer(scope: CoroutineScope, delayMs: Long): Debouncer =
  *     .debounced(debouncer) { name -> ... }
  * ```
  */
-fun <T> Flow<T>.debounced(debouncer: Debouncer, action: (T) -> Unit): Job =
-    debouncer.debounce(this, action)
+fun <T> Flow<T>.debounced(debouncer: Debouncer, action: (T) -> Unit): Job = debouncer.debounce(this, action)
