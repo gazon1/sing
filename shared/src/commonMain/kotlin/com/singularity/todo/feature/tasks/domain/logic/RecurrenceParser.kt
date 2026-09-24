@@ -11,6 +11,28 @@ import kotlinx.datetime.DateTimeUnit
 /**
  * Parses Orgzly / Tasks.org compatible recurrence DSL strings into [RecurrenceSpec].
  *
+ * ## Grammar (declarative)
+ *
+ * Rules are declared as named [Regex] constants with explicit capture groups.
+ * The [parse] function applies them in priority order.
+ *
+ * ```
+ * GRAMMAR
+ *   = CATCH_UP        : '!' '+'+  NUMBER UNIT
+ *   | EVERY_WEEKDAY   : 'every' WEEKDAY (',' WEEKDAY)*
+ *   | EVERY_INTERVAL  : 'every' [NUMBER] INTERVAL_UNIT
+ *   | MONTHLY_ORDINAL : NUMBER ORD_SUFFIX 'of' 'month'
+ *   | YEARLY_DATE     : 'every' MONTH_NAME NUMBER
+ *   | SHORT_INTERVAL  : ['.'] '+'+ NUMBER UNIT
+ *
+ * WEEKDAY       = 'monday'..'sunday' | 'mon'..'sun'
+ * INTERVAL_UNIT = 'day'['s'] | 'week'['s'] | 'month'['s'] | 'year'['s']
+ * MONTH_NAME    = 'january'..'december' | 'jan'..'dec'
+ * ORD_SUFFIX    = 'st' | 'nd' | 'rd' | 'th'
+ * UNIT          = 'd' | 'w' | 'm' | 'y'
+ * NUMBER        = [0-9]+
+ * ```
+ *
  * ## Supported syntax
  *
  * | Input | Output |
@@ -36,35 +58,49 @@ import kotlinx.datetime.DateTimeUnit
  */
 object RecurrenceParser {
 
-    // From-due (+1w) or catch-up (!+1w) short forms.
-    // Group 1: leading dot (.)
-    // Group 2: one or two + signs (++ = FROM_DUE, + = FROM_COMPLETION or CATCH_UP if ! prefix)
-    // Group 3: amount
-    // Group 4: unit
-    private val SHORT_FORM = Regex(
-        """^([.!]?)(\++)(\d+)([dwmy])$"""
-    )
+    // ---------------------------------------------------------------------------
+    // Grammar rules — declarative Regex with explicit capture groups
+    // ---------------------------------------------------------------------------
 
-    // Catch-up prefix: ! before the + signs
-    private val CATCH_UP_SHORT_FORM = Regex(
-        """^(!)(\++)(\d+)([dwmy])$"""
-    )
+    /**
+     * `!+1w`, `!++1w` → CATCH_UP
+     * Groups: (1) '!', (2) '+' signs, (3) amount, (4) unit
+     */
+    private val CATCH_UP = Regex("""^(!)(\++)(\d+)([dwmy])$""")
 
-    private val EVERY_WEEKDAY = Regex(
-        """^every\s+([A-Za-z, ]+)$"""
-    )
+    /**
+     * `.+1w`, `++1w`, `+1d`, `.++1m` → FROM_COMPLETION or FROM_DUE
+     * Groups: (1) '.' or empty, (2) '+' signs, (3) amount, (4) unit
+     */
+    private val SHORT_INTERVAL = Regex("""^([.!]?)(\++)(\d+)([dwmy])$""")
 
-    private val EVERY_INTERVAL = Regex(
-        """^every\s+(\d+)?\s*(days?|weeks?|months?|years?)$"""
-    )
+    /**
+     * `every Mon,Wed,Fri` → Weekly(FROM_DUE, weekdays)
+     * Groups: (1) comma-separated weekday names
+     */
+    private val EVERY_WEEKDAY = Regex("""^every\s+([A-Za-z, ]+)$""")
 
-    private val MONTHLY_ORDINAL = Regex(
-        """^(\d+)(st|nd|rd|th)\s+of\s+month$"""
-    )
+    /**
+     * `every week`, `every 2 weeks`, `every 3 days` → Interval(FROM_DUE)
+     * Groups: (1) optional number, (2) unit word
+     */
+    private val EVERY_INTERVAL = Regex("""^every\s+(\d+)?\s*(days?|weeks?|months?|years?)$""")
 
-    private val YEARLY_DATE = Regex(
-        """^every\s+([A-Za-z]+)\s+(\d+)$"""
-    )
+    /**
+     * `1st of month`, `15th of month` → Monthly(FROM_DUE)
+     * Groups: (1) day number, (2) ordinal suffix
+     */
+    private val MONTHLY_ORDINAL = Regex("""^(\d+)(st|nd|rd|th)\s+of\s+month$""")
+
+    /**
+     * `every Jan 1`, `every December 25` → Yearly(FROM_DUE)
+     * Groups: (1) month name, (2) day number
+     */
+    private val YEARLY_DATE = Regex("""^every\s+([A-Za-z]+)\s+(\d+)$""")
+
+    // ---------------------------------------------------------------------------
+    // Lookup tables — used by rule parsers
+    // ---------------------------------------------------------------------------
 
     private val WEEKDAY_MAP = mapOf(
         "monday" to 1, "mon" to 1,
@@ -91,6 +127,10 @@ object RecurrenceParser {
         "december" to 12, "dec" to 12,
     )
 
+    // ---------------------------------------------------------------------------
+    // Parser — applies grammar rules in priority order
+    // ---------------------------------------------------------------------------
+
     /**
      * Parses a recurrence DSL string.
      *
@@ -102,58 +142,37 @@ object RecurrenceParser {
         val s = input.trim()
         require(s.isNotBlank()) { "Recurrence rule must not be blank" }
 
-        // 1. Short form: .+1w, ++1w, +1d, !+1w, etc.
-        parseShortForm(s)?.let { return it }
-
-        // 2. Every weekday: "every Mon,Wed,Fri"
+        // Priority order from GRAMMAR section above
+        parseCatchUp(s)?.let { return it }
         parseEveryWeekday(s)?.let { return it }
-
-        // 3. Every N days/weeks/months/years
         parseEveryInterval(s)?.let { return it }
-
-        // 4. Monthly: "1st of month"
-        parseMonthly(s)?.let { return it }
-
-        // 5. Yearly: "every Jan 1"
-        parseYearly(s)?.let { return it }
+        parseMonthlyOrdinal(s)?.let { return it }
+        parseYearlyDate(s)?.let { return it }
+        parseShortInterval(s)?.let { return it }
 
         throw IllegalArgumentException("Unrecognised recurrence rule: '$s'")
     }
 
-    private fun parseShortForm(s: String): RecurrenceSpec? {
-        // Try catch-up form first: !+1w, !++1w
-        val catchUpMatch = CATCH_UP_SHORT_FORM.matchEntire(s)
-        if (catchUpMatch != null) {
-            val amount = catchUpMatch.groupValues[3].toInt()
-            val unit = catchUpMatch.groupValues[4]
-            val dtu = parseUnit(unit)
-            return RecurrenceSpec.Interval(RecurrenceBase.CATCH_UP, amount, dtu)
-        }
+    // ---------------------------------------------------------------------------
+    // Rule parsers — each matches one GRAMMAR production
+    // ---------------------------------------------------------------------------
 
-        // Try normal/from-due form: +1w, ++1w, .+1m, .++1m
-        val m = SHORT_FORM.matchEntire(s) ?: return null
-        val signPart = m.groupValues[2] // "+" or "++"
+    private fun parseCatchUp(s: String): RecurrenceSpec? {
+        val m = CATCH_UP.matchEntire(s) ?: return null
         val amount = m.groupValues[3].toInt()
-        val unit = m.groupValues[4]
-
-        val base: RecurrenceBase = when (signPart) {
-            "++" -> RecurrenceBase.FROM_DUE
-            else -> RecurrenceBase.FROM_COMPLETION
-        }
-
-        val dtu: DateTimeUnit.DateBased = parseUnit(unit)
-
-        return RecurrenceSpec.Interval(base, amount, dtu)
+        val unit = parseUnit(m.groupValues[4])
+        return Interval(RecurrenceBase.CATCH_UP, amount, unit)
     }
 
-    private fun parseUnit(unit: String): DateTimeUnit.DateBased {
-        return when (unit) {
-            "d" -> DateTimeUnit.DAY
-            "w" -> DateTimeUnit.WEEK
-            "m" -> DateTimeUnit.MONTH
-            "y" -> DateTimeUnit.YEAR
-            else -> throw IllegalArgumentException("Unknown unit: $unit")
-        }
+    private fun parseShortInterval(s: String): RecurrenceSpec? {
+        val m = SHORT_INTERVAL.matchEntire(s) ?: return null
+        val pluses = m.groupValues[2] // "+" or "++"
+        val amount = m.groupValues[3].toInt()
+        val unit = parseUnit(m.groupValues[4])
+        // The dot prefix is captured but does NOT change the base.
+        // ++ always means FROM_DUE; single + always means FROM_COMPLETION.
+        val base = if (pluses == "++") RecurrenceBase.FROM_DUE else RecurrenceBase.FROM_COMPLETION
+        return Interval(base, amount, unit)
     }
 
     private fun parseEveryWeekday(s: String): RecurrenceSpec? {
@@ -168,32 +187,43 @@ object RecurrenceParser {
         val m = EVERY_INTERVAL.matchEntire(s) ?: return null
         val numStr = m.groupValues[1]
         val unitStr = m.groupValues[2].lowercase()
-
         val amount = if (numStr.isBlank()) 1 else numStr.toInt()
         if (amount <= 0) return null
-
-        val dtu: DateTimeUnit.DateBased = when (unitStr.removeSuffix("s")) {
-            "day" -> DateTimeUnit.DAY
-            "week" -> DateTimeUnit.WEEK
-            "month" -> DateTimeUnit.MONTH
-            "year" -> DateTimeUnit.YEAR
-            else -> return null
-        }
-
-        return Interval(RecurrenceBase.FROM_DUE, amount, dtu)
+        val unit = parseIntervalUnit(unitStr) ?: return null
+        return Interval(RecurrenceBase.FROM_DUE, amount, unit)
     }
 
-    private fun parseMonthly(s: String): RecurrenceSpec? {
+    private fun parseMonthlyOrdinal(s: String): RecurrenceSpec? {
         val m = MONTHLY_ORDINAL.matchEntire(s.lowercase()) ?: return null
         val day = m.groupValues[1].toInt()
         return Monthly(RecurrenceBase.FROM_DUE, day)
     }
 
-    private fun parseYearly(s: String): RecurrenceSpec? {
+    private fun parseYearlyDate(s: String): RecurrenceSpec? {
         val m = YEARLY_DATE.matchEntire(s.lowercase()) ?: return null
         val monthName = m.groupValues[1]
         val day = m.groupValues[2].toInt()
         val month = MONTH_MAP[monthName] ?: return null
         return Yearly(RecurrenceBase.FROM_DUE, month, day)
+    }
+
+    // ---------------------------------------------------------------------------
+    // Unit helpers
+    // ---------------------------------------------------------------------------
+
+    private fun parseUnit(s: String): DateTimeUnit.DateBased = when (s) {
+        "d" -> DateTimeUnit.DAY
+        "w" -> DateTimeUnit.WEEK
+        "m" -> DateTimeUnit.MONTH
+        "y" -> DateTimeUnit.YEAR
+        else -> throw IllegalArgumentException("Unknown unit: $s")
+    }
+
+    private fun parseIntervalUnit(s: String): DateTimeUnit.DateBased? = when (s.removeSuffix("s")) {
+        "day"   -> DateTimeUnit.DAY
+        "week"  -> DateTimeUnit.WEEK
+        "month" -> DateTimeUnit.MONTH
+        "year"  -> DateTimeUnit.YEAR
+        else -> null
     }
 }
