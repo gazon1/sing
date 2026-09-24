@@ -95,6 +95,12 @@ detekt {
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
     useJUnitPlatform {
+        // Jupiter parallel execution — see Phase 5 plan note in shared/build.gradle.kts.
+        systemProperty("junit.jupiter.execution.parallel.enabled", "true")
+        systemProperty("junit.jupiter.execution.parallel.mode.default", "concurrent")
+        systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
+        systemProperty("junit.jupiter.execution.parallel.config.strategy", "dynamic")
+
         val tags = (project.findProperty("test.tags") as String?)
             ?.split(",")?.orEmpty() ?: emptyList()
         if (tags.isNotEmpty()) {

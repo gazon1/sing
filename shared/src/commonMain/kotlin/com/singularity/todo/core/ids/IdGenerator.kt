@@ -1,5 +1,7 @@
 package com.singularity.todo.core.ids
 
+import java.util.concurrent.atomic.AtomicInteger
+
 /**
  * Abstraction over ID generation so tests can use deterministic sequences
  * instead of random ULIDs.
@@ -21,8 +23,11 @@ object UlidIdGenerator : IdGenerator {
  * Use in widget/integration tests when you need stable, assertable IDs.
  *
  * Example: `val gen = SequenceIdGenerator("msg")` → "msg-1", "msg-2", …
+ *
+ * Thread-safe via [AtomicInteger] — can be used in parallel test execution
+ * where multiple coroutines may call [next] concurrently.
  */
 class SequenceIdGenerator(private val prefix: String = "id") : IdGenerator {
-    private var counter = 0
-    override fun next(): String = "$prefix-${++counter}"
+    private val counter = AtomicInteger(0)
+    override fun next(): String = "$prefix-${counter.incrementAndGet()}"
 }
