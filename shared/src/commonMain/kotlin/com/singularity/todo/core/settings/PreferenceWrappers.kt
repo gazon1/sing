@@ -3,9 +3,19 @@ package com.singularity.todo.core.settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import java.io.IOException
 import kotlin.reflect.KClass
+
+/**
+ * Emits [emptyPreferences] when [IOException] is thrown (e.g. corrupted DataStore file),
+ * re-throwing all other exceptions.
+ */
+private fun Flow<Preferences>.catchIOExceptionEmitEmpty(): Flow<Preferences> =
+    catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
 
 /**
  * Internal holder for preference metadata. Used by [BooleanPref], [IntPref], [StringPref],
@@ -22,7 +32,9 @@ internal data class PrefSpec<T>(
 @JvmInline
 value class BooleanPref internal constructor(private val spec: PrefSpec<Boolean>) {
     val flow: Flow<Boolean>
-        get() = spec.dataStore.data.map { it[spec.key] ?: spec.default }
+        get() = spec.dataStore.data
+            .catchIOExceptionEmitEmpty()
+            .map { it[spec.key] ?: spec.default }
 
     suspend fun set(value: Boolean) {
         spec.dataStore.edit { it[spec.key] = value }
@@ -33,10 +45,12 @@ value class BooleanPref internal constructor(private val spec: PrefSpec<Boolean>
 @JvmInline
 value class IntPref internal constructor(private val spec: PrefSpec<Int>) {
     val flow: Flow<Int>
-        get() = spec.dataStore.data.map {
-            val raw = it[spec.key] ?: spec.default
-            spec.range?.let { raw.coerceIn(it) } ?: raw
-        }
+        get() = spec.dataStore.data
+            .catchIOExceptionEmitEmpty()
+            .map {
+                val raw = it[spec.key] ?: spec.default
+                spec.range?.let { raw.coerceIn(it) } ?: raw
+            }
 
     suspend fun set(value: Int) {
         val coerced = spec.range?.let { value.coerceIn(it) } ?: value
@@ -48,7 +62,9 @@ value class IntPref internal constructor(private val spec: PrefSpec<Int>) {
 @JvmInline
 value class StringPref internal constructor(private val spec: PrefSpec<String>) {
     val flow: Flow<String>
-        get() = spec.dataStore.data.map { it[spec.key] ?: spec.default }
+        get() = spec.dataStore.data
+            .catchIOExceptionEmitEmpty()
+            .map { it[spec.key] ?: spec.default }
 
     suspend fun set(value: String) {
         spec.dataStore.edit { it[spec.key] = value }
@@ -59,7 +75,9 @@ value class StringPref internal constructor(private val spec: PrefSpec<String>) 
 @JvmInline
 value class FloatPref internal constructor(private val spec: PrefSpec<Float>) {
     val flow: Flow<Float>
-        get() = spec.dataStore.data.map { it[spec.key] ?: spec.default }
+        get() = spec.dataStore.data
+            .catchIOExceptionEmitEmpty()
+            .map { it[spec.key] ?: spec.default }
 
     suspend fun set(value: Float) {
         spec.dataStore.edit { it[spec.key] = value }

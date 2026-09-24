@@ -20,7 +20,7 @@ class AutoSyncTest {
 
     @Test
     fun `trigger ignores when autoSyncEnabled is false`() = runTest {
-        val prefs = fakePrefs().apply { setAutoSyncEnabled(false) }
+        val prefs = fakePrefs().also { runTest { it.setAutoSyncEnabled(false) } }
         val repo = FakeSyncRepository()
         val underTest = autoSync(prefs, repo, this)
 
@@ -32,9 +32,11 @@ class AutoSyncTest {
 
     @Test
     fun `trigger ignores when trigger is not in enabledTriggers`() = runTest {
-        val prefs = fakePrefs().apply {
-            setAutoSyncEnabled(true)
-            setEnabledTriggers(emptySet())
+        val prefs = fakePrefs().also {
+            runTest {
+                it.setAutoSyncEnabled(true)
+                it.setEnabledTriggers(emptySet())
+            }
         }
         val repo = FakeSyncRepository()
         val underTest = autoSync(prefs, repo, this)
@@ -47,9 +49,11 @@ class AutoSyncTest {
 
     @Test
     fun `trigger fires syncOnce when enabled and trigger is allowed`() = runTest {
-        val prefs = fakePrefs().apply {
-            setAutoSyncEnabled(true)
-            setEnabledTriggers(setOf(SyncTrigger.Created, SyncTrigger.Scheduled))
+        val prefs = fakePrefs().also {
+            runTest {
+                it.setAutoSyncEnabled(true)
+                it.setEnabledTriggers(setOf(SyncTrigger.Created, SyncTrigger.Scheduled))
+            }
         }
         val repo = FakeSyncRepository()
         val underTest = autoSync(prefs, repo, this)
@@ -62,9 +66,11 @@ class AutoSyncTest {
 
     @Test
     fun `trigger respects per-trigger toggles`() = runTest {
-        val prefs = fakePrefs().apply {
-            setAutoSyncEnabled(true)
-            setEnabledTriggers(setOf(SyncTrigger.AppResumed, SyncTrigger.AppSuspended))
+        val prefs = fakePrefs().also {
+            runTest {
+                it.setAutoSyncEnabled(true)
+                it.setEnabledTriggers(setOf(SyncTrigger.AppResumed, SyncTrigger.AppSuspended))
+            }
         }
         val repo = FakeSyncRepository()
         val underTest = autoSync(prefs, repo, this)
