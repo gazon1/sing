@@ -58,6 +58,7 @@ sealed interface SavedAgendaListEvent {
 @OptIn(ExperimentalCoroutinesApi::class)
 class SavedAgendaListViewModel(
     private val deps: SavedAgendaListDeps,
+    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5_000) },
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
@@ -73,7 +74,7 @@ class SavedAgendaListViewModel(
         .map { views -> SavedAgendaListState.Loaded(views) }
         .stateIn(
             scope,
-            SharingStarted.WhileSubscribed(5_000),
+            sharingStarted(),
             SavedAgendaListState.Loading,
         )
 

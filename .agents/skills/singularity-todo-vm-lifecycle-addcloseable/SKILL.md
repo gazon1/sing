@@ -209,3 +209,8 @@ add `init { addCloseable(scope) }` and remove the field (or change type to
 
 - [2026-09-21-auto-closeable-coroutine-scope](../decisions/2026-09-21-auto-closeable-coroutine-scope.md) — full decision record
 - [2026-09-18-vm-scope-cancellation-oncleared](../decisions/2026-09-18-vm-scope-cancellation-oncleared.md) — superseded original ADR
+
+## See Also
+
+- **`singularity-todo-vm-pattern-overview`** — router: index to all VM skills
+- `singularity-todo-testable-vm` — canonical VM pattern with AutoCloseableCoroutineScope

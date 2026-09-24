@@ -43,6 +43,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class TaskDetailViewModel(
     private val deps: TaskDetailDeps,
     private val taskId: TaskId,
+    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
@@ -182,7 +183,7 @@ class TaskDetailViewModel(
             }
         }
         .catch { emit(TaskDetailUiState.Error(it.message ?: "Error")) }
-        .stateIn(scope, SharingStarted.WhileSubscribed(5000), TaskDetailUiState.Loading)
+        .stateIn(scope, sharingStarted(), TaskDetailUiState.Loading)
 
     /** Unified intent entry point. */
     fun onIntent(intent: TaskDetailIntent.Domain) {

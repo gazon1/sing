@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.calendar_sync.presentation
 
+import androidx.lifecycle.ViewModel
+import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.calendar_sync.data.CalendarAppInfo
 import com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
@@ -7,7 +10,6 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPo
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendar_sync.sync.SyncSource
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,7 +58,7 @@ sealed interface CalendarSyncIntent {
  * - [scheduler] — WorkManager scheduler (used for cancel only)
  * - [appQueries] — queries installed calendar apps for the picker
  * - [orchestrator] — debounced sync orchestrator (hands off to scheduler)
- * - [scope] — CoroutineScope for launching concurrent operations
+ * - [scope] — [AutoCloseableCoroutineScope] for launching concurrent operations
  */
 class CalendarSyncViewModel(
     private val syncRepo: CalendarSyncRepository,
@@ -64,12 +66,13 @@ class CalendarSyncViewModel(
     private val scheduler: com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler,
     private val appQueries: CalendarAppQueries,
     private val orchestrator: CalendarSyncOrchestrator,
-    private val scope: CoroutineScope,
-) {
+    private val scope: AutoCloseableCoroutineScope,
+) : ViewModel() {
     private val _state = MutableStateFlow(CalendarSyncUiState())
     val state: StateFlow<CalendarSyncUiState> = _state.asStateFlow()
 
     init {
+        addCloseable(scope)
         scope.launch {
             combine(
                 syncRepo.observeEnabled(),
@@ -107,10 +110,9 @@ class CalendarSyncViewModel(
 
             // Load calendar apps and calendars in parallel
             val apps = try {
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    appQueries.listInstalled()
-                }
-            } catch (_: Exception) {
+                appQueries.listInstalled()
+            } catch (e: Exception) {
+                Logger.w(e) { "Failed to list installed calendar apps" }
                 emptyList()
             }
             val calendarsResult = calendarProvider.getAvailableCalendars()

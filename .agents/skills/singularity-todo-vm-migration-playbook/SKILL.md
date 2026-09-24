@@ -357,6 +357,7 @@ When migrating many VMs in a single MR:
 
 ## See Also
 
+- **`singularity-todo-vm-pattern-overview`** — router: index to all VM skills
 - `singularity-todo-testable-vm` — canonical VM shape + DraftState pattern + BAN list
 - `singularity-todo-test-helpers` — standard test helpers for migrated VMs
 - `singularity-todo-koin-dsl` — Koin 4.x DSL: `viewModelOf` vs `viewModel {}` vs `factory`

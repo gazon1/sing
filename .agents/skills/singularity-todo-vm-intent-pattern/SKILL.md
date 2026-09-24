@@ -263,6 +263,7 @@ Keep this value consistent across VMs unless you have a measured reason to devia
 
 ## See Also
 
+- **`singularity-todo-vm-pattern-overview`** — router: index to all VM skills
 - `singularity-todo-task-callback-groups` — pairing this pattern with `@JvmInline value class Actions` in Composables
 - `singularity-todo-ui-event-vs-state` — routing state (which sheet is open) is NOT a `SharedFlow` event
 - `singularity-todo-testable-vm` — **testability pattern**: plain `MutableStateFlow`, scope injection, no `combine`+`stateIn`

@@ -51,6 +51,7 @@ class CalendarViewModel(
     private val deps: CalendarDeps,
     initialDate: LocalDate,
     initialMode: CalendarViewMode = CalendarViewMode.MONTH,
+    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5_000) },
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
@@ -98,7 +99,7 @@ class CalendarViewModel(
             }
     }.stateIn(
         scope,
-        SharingStarted.WhileSubscribed(5_000),
+        sharingStarted(),
         CalendarUiState.Loading,
     )
 

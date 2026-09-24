@@ -9,6 +9,7 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
+import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -22,6 +23,8 @@ data class ClusterNotesOutput(val clusters: Map<String, List<String>>)
 class ClusterNotesTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<ClusterNotesInput>(TypeToken.of(ClusterNotesInput::class.java), NAME, DESCRIPTION) {
 
+    private val logger = Logger.withTag("ClusterNotes")
+
     override suspend fun execute(args: ClusterNotesInput): String {
         val p = prompt(Prompt.Empty, KoogClock.System) {
             system(Prompts.clusterNotesSystem)
@@ -33,7 +36,8 @@ class ClusterNotesTool(private val promptExecutor: PromptExecutor, private val m
             Json.decodeFromString<ClusterNotesOutput>(text).let { out ->
                 Json.encodeToString(ClusterNotesOutput.serializer(), out)
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.w(e) { "failed" }
             "{}"
         }
     }
