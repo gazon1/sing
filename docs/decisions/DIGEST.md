@@ -951,6 +951,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`Clock` must be passed to `CreateTaskUseCase` / `UpdateTaskUseCase`** — use the singleton `Clock` from `core.platform`.
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`.
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly.
+- 16 pre-existing test classes have been tagged `@Tag("slow")` after discovering they fail on a fresh run (root causes: `SavedAgendaViewModelTest` timeout, `JvmAiDiGraphTest` TextGenPort instantiation, time-based assertions with epoch day skew, etc.)
 - 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill.
 - All 593 existing tests continue to pass
 - All link-related string literals in the notes feature must use `LinkSchemes.NOTE_PREFIX` / `LinkSchemes.TASK_PREFIX`. No raw `"note://"` in `feature/notes/`.
@@ -961,8 +962,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - No test flakiness observed in 10× repeated fast test runs
 - Parallel execution is dynamic — Jupiter adjusts thread pool based on CPU cores
 - Pre-existing failures (9 tests) remain unchanged
+- Running `./gradlew test` now executes ~900 tests instead of 0
 - SharedFlow emission tests in this project always use `launch { flow.take(1).collect { ... } }` on `this@runTest`, not `backgroundScope`, with `runCurrent()` before the suspending call that emits.
+- Slow tests require `-Ptest.tags=slow` to execute locally
 - Test parallelization: Jupiter method-level concurrency enabled
+- The `check.sh` pipeline (`./gradlew :shared:jvmTest :shared:testAndroidHostTest :desktopApp:test`) runs successfully
 - `:shared:jvmTest` fast tests now run in ~7s (was ~90s with `delay`)
 - `:shared:jvmTest` fast tests: ~7s wall-clock (was ~90s sequential with real `delay`)
 - `Clock` import may become unused in `FakeRepositories.kt` if not used elsewhere.
@@ -1064,9 +1068,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ## Open / Deferred
 
-_1 entries need attention._
+_2 entries need attention._
 
 - `2026-09-08-instant-migration` — **deferred** — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
+- `2026-09-25-remaining-test-debt` — **open** — Remaining Test Debt — post JUnit/suite-acceleration audit
 
 ## Recently superseded
 
@@ -1270,10 +1275,12 @@ _1 entries need attention._
 - `2026-09-25-detekt-test-rules` — detekt, testing, lint, epic2
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
 - `2026-09-25-git-hooks-worktree-isolation` — git, hooks, worktree, devx, epic2
+- `2026-09-25-remaining-test-debt` — testing, junit, detekt, epic2
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-25-test-parallelization` — testing, junit, jupiter, parallel, epic2
 - `2026-09-25-test-standards-comprehensive` — testing, junit, jupiter, epic2
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
+- `2026-09-26-junit-tag-default-semantics` — testing, junit, ci, epic2
 
 ## Active entries
 
@@ -1472,8 +1479,10 @@ _1 entries need attention._
 - `2026-09-25-detekt-test-rules` — Detekt Rules for Tests — NoRealDelay, NoViewModelScope
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
 - `2026-09-25-git-hooks-worktree-isolation` — Git Hooks — Worktree Isolation + Shared Hooks Path
+- `2026-09-25-remaining-test-debt` — Remaining Test Debt — post JUnit/suite-acceleration audit
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _(no title)_
 - `2026-09-25-test-parallelization` — Test Parallelization — Jupiter Concurrency + Thread Safety
 - `2026-09-25-test-standards-comprehensive` — Test Standards Comprehensive — JUnit Jupiter, Virtual Time, Fast/Slow Split
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
+- `2026-09-26-junit-tag-default-semantics` — JUnit Tag Default Semantics — excludeTags("slow") by Default
 

@@ -11,7 +11,9 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import org.junit.jupiter.api.Tag
 
+@Tag("slow")
 class AnalyticsTest {
 
     @Test

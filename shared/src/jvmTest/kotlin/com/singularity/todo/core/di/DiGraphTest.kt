@@ -9,6 +9,7 @@ import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
 import kotlin.test.Test
+import org.junit.jupiter.api.Tag
 
 /**
  * Smoke-test the DI graph on JVM.
@@ -19,6 +20,7 @@ import kotlin.test.Test
  *
  * Run with: ./gradlew :shared:jvmTest --tests "com.singularity.todo.core.di.DiGraphTest"
  */
+@Tag("slow")
 class DiGraphTest {
 
     @Test

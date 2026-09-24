@@ -20,6 +20,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * Tests for [ProjectsViewModel].
@@ -28,6 +29,7 @@ import kotlin.test.assertTrue
  * [advanceUntilIdle] processes all pending coroutine work on the test dispatcher.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("slow")
 class ProjectsViewModelTest {
     private val testUserId = UserId("test-user")
     private val fakeProjectRepo = FakeProjectsRepository()

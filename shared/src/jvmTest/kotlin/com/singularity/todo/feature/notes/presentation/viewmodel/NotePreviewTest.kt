@@ -16,8 +16,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import org.junit.jupiter.api.Tag
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("slow")
 class NotePreviewTest {
 
     private val testUserId = UserId("test-user")

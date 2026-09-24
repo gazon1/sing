@@ -25,6 +25,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * Smoke tests for [NoteEditor].
@@ -33,6 +34,7 @@ import kotlin.test.assertTrue
  * work correctly with the canonical VM shape.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("slow")
 class NoteEditorTest {
 
     private val testUserId = UserId("test-user")

@@ -242,6 +242,7 @@ kotlin {
             implementation(libs.kotlin.test.junit5)
             implementation(libs.junit.jupiter)
             implementation(libs.junit.jupiter.params)
+            implementation(libs.junit.vintage.engine)
             implementation(libs.koin.test)
             implementation(libs.androidx.testExt.junit)
             implementation(libs.androidx.test.core)
@@ -273,8 +274,8 @@ tasks.withType<Test>().configureEach {
         if (tags.isNotEmpty()) {
             includeTags(*tags.toTypedArray())
         } else {
-            // Default: only "fast" tests — "slow" requires -Ptest.tags=slow or -Ptest.tags=fast,slow
-            includeTags("fast")
+            // Default: run everything except @Tag("slow") — slow requires -Ptest.tags=slow
+            excludeTags("slow")
         }
     }
 }

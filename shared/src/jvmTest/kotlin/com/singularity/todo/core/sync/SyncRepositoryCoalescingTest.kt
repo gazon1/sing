@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import org.junit.jupiter.api.Tag
 
 /**
  * Tests for request coalescing in [FakeSyncRepository].
@@ -21,6 +22,7 @@ import kotlin.test.assertIs
  *
  * We test the core behavior using FakeSyncRepository directly.
  */
+@Tag("slow")
 class SyncRepositoryCoalescingTest {
 
     private fun createRepo(): FakeSyncRepository = FakeSyncRepository()

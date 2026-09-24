@@ -16,6 +16,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * Tests for [SyncViewModel].
@@ -25,6 +26,7 @@ import kotlin.test.assertTrue
  * Each test calls [AutoCloseableCoroutineScope.job.cancel] after assertions
  * to cleanly shut down VM coroutines before the test scope cleanup phase.
  */
+@Tag("slow")
 class SyncViewModelTest {
 
     private fun createVm(

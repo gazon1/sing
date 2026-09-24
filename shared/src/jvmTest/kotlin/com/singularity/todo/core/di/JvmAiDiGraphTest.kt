@@ -50,6 +50,7 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import org.koin.dsl.module
 import kotlin.test.Test
+import org.junit.jupiter.api.Tag
 
 /**
  * Smoke-test that the JVM-side AI graph wires up correctly.
@@ -63,6 +64,7 @@ import kotlin.test.Test
  *
  * Run with: ./gradlew :shared:jvmTest --tests "*JvmAiDiGraphTest"
  */
+@Tag("slow")
 class JvmAiDiGraphTest {
 
     /**

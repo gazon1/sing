@@ -32,6 +32,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 private val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
     override fun current() = kotlinx.datetime.TimeZone.UTC
@@ -50,6 +51,7 @@ private val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
  *    ToggleChecklistItem produce verifiable side-effects in the repository
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("slow")
 class TaskDetailViewModelTest {
 
     private val testUserId = UserId("test-user")

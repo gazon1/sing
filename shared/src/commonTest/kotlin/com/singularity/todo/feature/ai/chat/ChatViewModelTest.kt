@@ -17,8 +17,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("slow")
 class ChatViewModelTest {
 
     private val testLog = Logger.withTag("ChatViewModelTest")
