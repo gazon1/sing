@@ -958,9 +958,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional.
 - No breaking change — these methods were never called externally.
 - SharedFlow emission tests in this project always use `launch { flow.take(1).collect { ... } }` on `this@runTest`, not `backgroundScope`, with `runCurrent()` before the suspending call that emits.
+- The 37 test failures will be investigated separately — not blocking the docs-cleanup merge.
+- The `forkEvery = 1` memory issue for tests is a pre-existing infrastructure problem. A separate investigation (possibly reducing fork frequency, adding more test RAM, or switching to batched forking) is needed.
 - `Clock` import may become unused in `FakeRepositories.kt` if not used elsewhere.
 - `FakeTaskRepository` is now ~30 lines shorter.
 - `SCHEME_FACTORIES` is the extension point for new link kinds in `OutgoingLinksExtractor` — add one entry, not one regex + one branch.
+- `config/detekt/detekt.yml` needs 3 new sections added (after merge):
 
 ### `ui`
 
@@ -1256,6 +1259,7 @@ _1 entries need attention._
 - `2026-09-24-pre-existing-issues` — techdebt, testing, di, epic1
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _untagged_
+- `2026-09-24-test-flakiness-and-detekt-config` — testing, detekt, flakiness
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
@@ -1454,6 +1458,7 @@ _1 entries need attention._
 - `2026-09-24-pre-existing-issues` — Pre-existing Issues Found During Tech Debt Audit
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — ADR: Sync Coalescing + Tasks KMP Architecture Survey
+- `2026-09-24-test-flakiness-and-detekt-config` — Pre-existing test failures and custom detekt rule config gaps
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — TaskCard slot API refactor + TasksViewModel final cleanup
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
