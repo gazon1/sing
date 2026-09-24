@@ -56,5 +56,3 @@ data class Tag(
         return StableJson.encodeToJsonElement(ser, this) as JsonObject
     }
 }
-
-data class CreateTagInput(val name: String, val color: Int, val userId: String)
