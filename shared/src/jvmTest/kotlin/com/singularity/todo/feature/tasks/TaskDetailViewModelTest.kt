@@ -4,11 +4,12 @@ import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.feature.reminders.ReminderId
-import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.reminders.ReminderId
+import com.singularity.todo.feature.reminders.ReminderScheduler
+import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
@@ -23,7 +24,8 @@ import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -32,7 +34,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 private val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
     override fun current() = kotlinx.datetime.TimeZone.UTC
@@ -41,16 +42,16 @@ private val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
 /**
  * Unit tests for [TaskDetailViewModel] verifying behavioral contracts.
  *
- * Timing: uses virtual time via advanceUntilIdle() — no real delays.
- * The VM's MutableStateFlow is immediately active on construction,
- * so no initial delay is needed after createVm().
+ * Timing note: stateIn with WhileSubscribed(5000) delays the flatMapLatest chain
+ * until a subscriber exists. The createVm() calls vm.state.launchIn(scope) to
+ * ensure the chain is active. Tests use real 100ms delays (not advanceUntilIdle)
+ * for action steps — these are for ensuring coroutine completion, not virtual time.
  *
  * Covered:
  * 1. TOCTOU fix: _latestTask cache prevents losing concurrent remote edits
  * 2. Intent-based actions: ToggleComplete, Delete, Archive, AddChecklistItem,
  *    ToggleChecklistItem produce verifiable side-effects in the repository
  */
-@Tag("slow")
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskDetailViewModelTest {
 
@@ -61,27 +62,29 @@ class TaskDetailViewModelTest {
     private val fakeReminderScheduler = object : ReminderScheduler {
         override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) {}
         override suspend fun cancel(id: ReminderId, userId: UserId) {}
-        override suspend fun cancelByTask(
-            taskId: com.singularity.todo.feature.tasks.domain.model.TaskId,
-            userId: UserId,
-        ) {}
+        override suspend fun cancelByTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId, userId: UserId) {}
     }
     private val fakeProjectRepo = FakeProjectsRepository()
     private val fakeTagsRepo = FakeTagsRepository()
     private val fakeAttachmentsRepo = FakeAttachmentRepository()
+    /** Stub for [CompleteRecurringTaskUseCase] — existing tests don't cover recurring completion. */
+    private val stubCompleteRecurring = object : CompleteRecurringTaskUseCase(
+        repo = fakeTaskRepo,
+        clock = Clock,
+        timeZoneProvider = TEST_TZ,
+        calculator = com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator,
+    ) {
+        override suspend fun invoke(taskId: TaskId): Result<Task> =
+            Result.failure(IllegalStateException("Stub — not implemented in tests"))
+    }
 
     private fun createVm(scope: CoroutineScope, taskId: TaskId): TaskDetailViewModel {
         val deps = TaskDetailDeps(
             taskRepo = fakeTaskRepo,
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
-            createTask = CreateTaskUseCase(
-                fakeTaskRepo, Clock,
-                FakeProfileAwareCurrentUser(
-                    FakeAuthRepository(
+            createTask = CreateTaskUseCase(fakeTaskRepo, Clock, FakeProfileAwareCurrentUser(FakeAuthRepository(
                 initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
-            )
-                )
-            ),
+            ))),
             projectsRepo = fakeProjectRepo,
             tagsRepo = fakeTagsRepo,
             checklistRepository = fakeChecklistRepo,
@@ -90,9 +93,15 @@ class TaskDetailViewModelTest {
             attachmentsRepo = fakeAttachmentsRepo,
             timeZoneProvider = TEST_TZ,
             clock = Clock,
+            completeRecurring = stubCompleteRecurring,
             debounceMs = 300L,
         )
-        return TaskDetailViewModel(deps = deps, taskId = taskId, scope = testScope(scope))
+        val vm = TaskDetailViewModel(deps = deps, taskId = taskId, scope = testScope(scope))
+        // Activate the stateIn chain (WhileSubscribed requires an initial subscriber).
+        // Use launchIn so the upstream starts immediately in tests without waiting
+        // for the 5-second WhileSubscribed timeout.
+        vm.state.launchIn(scope)
+        return vm
     }
 
     private fun seedTask(id: TaskId = TaskId("t1")): Task {
@@ -125,10 +134,10 @@ class TaskDetailViewModelTest {
     fun `TitleChanged debounce saves after delay`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        advanceUntilIdle() // Let initial subscription establish
+        delay(100) // Let initial subscription establish
 
         vm.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited title"))
-        advanceUntilIdle() // debounce(300ms) needs real time to advance past 300ms
+        delay(400) // debounce(300ms) needs real time to advance past 300ms
 
         assertEquals("Edited title", fakeTaskRepo.tasks.value["t1"]?.title)
     }
@@ -140,11 +149,11 @@ class TaskDetailViewModelTest {
     fun `ToggleComplete sets completedAt in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        advanceUntilIdle() // Allow subscription to establish before acting
+        delay(100) // Allow subscription to establish before acting
         assertNull(fakeTaskRepo.tasks.value["t1"]?.completedAt)
 
         vm.onIntent(TaskDetailIntent.Domain.ToggleComplete)
-        advanceUntilIdle() // scope.launch { mutate(...) } executes immediately
+        delay(50) // scope.launch { mutate(...) } executes immediately
 
         assertNotNull(fakeTaskRepo.tasks.value["t1"]?.completedAt)
     }
@@ -153,11 +162,11 @@ class TaskDetailViewModelTest {
     fun `Delete sets archivedAt (soft delete) in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        advanceUntilIdle()
+        delay(100)
         assertNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
 
         vm.onIntent(TaskDetailIntent.Domain.Delete)
-        advanceUntilIdle()
+        delay(50)
 
         assertNotNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
     }
@@ -166,11 +175,11 @@ class TaskDetailViewModelTest {
     fun `Archive sets archivedAt in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        advanceUntilIdle()
+        delay(100)
         assertNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
 
         vm.onIntent(TaskDetailIntent.Domain.Archive)
-        advanceUntilIdle()
+        delay(50)
 
         assertNotNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
     }
@@ -179,11 +188,11 @@ class TaskDetailViewModelTest {
     fun `AddChecklistItem creates checklist item in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        advanceUntilIdle()
+        delay(100)
         assertTrue(fakeChecklistRepo.items.value.isEmpty())
 
         vm.onIntent(TaskDetailIntent.Domain.AddChecklistItem("New item"))
-        advanceUntilIdle()
+        delay(50)
 
         val items = fakeChecklistRepo.items.value.values.toList()
         assertEquals(1, items.size)
@@ -195,18 +204,18 @@ class TaskDetailViewModelTest {
     fun `ToggleChecklistItem flips isCompleted in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        advanceUntilIdle()
+        delay(100)
 
         // Add an item first
         vm.onIntent(TaskDetailIntent.Domain.AddChecklistItem("Toggle me"))
-        advanceUntilIdle()
+        delay(50)
 
         val item = fakeChecklistRepo.items.value.values.first()
         assertFalse(item.isCompleted)
 
         // Toggle it
         vm.onIntent(TaskDetailIntent.Domain.ToggleChecklistItem(item))
-        advanceUntilIdle()
+        delay(50)
 
         val toggled = fakeChecklistRepo.items.value[item.id.value]
         assertTrue(toggled?.isCompleted == true)
@@ -216,17 +225,17 @@ class TaskDetailViewModelTest {
     fun `TogglePinned flips isPinned — pin then unpin`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        advanceUntilIdle()
+        delay(100)
         assertFalse(fakeTaskRepo.tasks.value["t1"]?.isPinned == true)
 
         // Pin
         vm.onIntent(TaskDetailIntent.Domain.TogglePinned)
-        advanceUntilIdle()
+        delay(50)
         assertTrue(fakeTaskRepo.tasks.value["t1"]?.isPinned == true)
 
         // Unpin
         vm.onIntent(TaskDetailIntent.Domain.TogglePinned)
-        advanceUntilIdle()
+        delay(50)
         assertFalse(fakeTaskRepo.tasks.value["t1"]?.isPinned == true)
     }
 }

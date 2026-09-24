@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.projects.domain.model
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
@@ -37,6 +38,16 @@ data class Project(
     val idempotencyKey: String? = null,
     val externalId: String? = null,
     val userId: UserId,
+    /**
+     * Tag group IDs inherited by this project.
+     *
+     * Stored in the [ProjectInheritedTagGroupCrossRef] join table, not on [ProjectEntity].
+     * Loaded and set by [com.singularity.todo.feature.tags.domain.port.TagGroupRepository.setInheritedForProject].
+     *
+     * When non-empty, all tags inside those groups are visible to tasks belonging to this project.
+     * Resolved at runtime by [com.singularity.todo.feature.tags.domain.usecase.EffectiveTagsResolver].
+     */
+    val inheritedTagGroupIds: Set<TagGroupId> = emptySet(),
     // ─── Sync fields ───────────────────────────────────────────────────────────
     val serverVersion: Long = 0,
     val hlc: Hlc? = null,

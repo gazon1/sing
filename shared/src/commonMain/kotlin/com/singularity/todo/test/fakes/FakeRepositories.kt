@@ -256,7 +256,7 @@ class FakeBackupRepository : BackupRepository {
  * In-memory [TaskDao] implementation for tests.
  * Stores only dependency and tag cross-references; all other methods error.
  */
-private class InMemoryTaskDao : TaskDao {
+internal class InMemoryTaskDao : TaskDao {
     private val _deps = MutableStateFlow<List<TaskDependencyCrossRef>>(emptyList())
     private val _tags = MutableStateFlow<List<TaskTagCrossRef>>(emptyList())
 
@@ -300,6 +300,12 @@ private class InMemoryTaskDao : TaskDao {
     override suspend fun removeTagRef(taskId: String, tagId: String) {
         _tags.update { current -> current.filter { !(it.taskId == taskId && it.tagId == tagId) } }
     }
+
+    // ── Batch extras (for TaskRepositoryImpl userTasksWithExtras) ─────────────
+
+    override fun observeTagCrossRefs(userId: String): Flow<List<TaskTagCrossRef>> = _tags
+
+    override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> = _deps
 
     // ── Remaining DAO methods (unused by FakeTaskRepository) ──────────────────
 

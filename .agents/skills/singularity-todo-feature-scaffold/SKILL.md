@@ -41,6 +41,11 @@ feature/<feature>/
 │   │   ├── Create<Feature>.kt        — Create<Feature>UseCase
 │   │   ├── Update<Feature>.kt        — Update<Feature>UseCase
 │   │   └── <Feature>Mutations.kt   — bulk ops if any
+│   ├── logic/                        — PURE functions: no side effects, no Clock, fully testable in commonTest
+│   │   ├── <Feature>Calculator.kt    — pure arithmetic/logic (e.g. nextOccurrence, missedCount)
+│   │   ├── <Feature>Parser.kt        — pure string → domain model (e.g. DSL parser)
+│   │   ├── <Feature>Validator.kt     — pure validation without side effects
+│   │   └── Computed.kt               — pure computed properties (e.g. isBlocked, effectiveTags)
 │   └── <Feature>Domain.kt            — pure validation/build, `object`
 │
 ├── data/
@@ -87,6 +92,30 @@ pure domain validation → repository (Result<T>) → use case (only real logic)
 ```
 
 > **Pass-through use cases are anti-pattern.** `Get<Feature>UseCase`, `Delete<Feature>UseCase`, `ToggleCompleteUseCase` that just delegate to `repo.X()` are boilerplate. Inject the repository directly into the ViewModel.
+
+## `domain/logic/` — pure functions with no side effects
+
+For complex pure logic that doesn't belong in a `UseCase` (no I/O, no `Clock.now()`), create a file in `domain/logic/`:
+
+```
+domain/logic/
+├── RecurrenceCalculator.kt   — date arithmetic (pure: nextOccurrence, missedCount)
+├── RecurrenceParser.kt        — DSL parsing (pure: String → RecurrenceSpec)
+├── DependencyValidatorImpl.kt  — graph validation (pure: assertNoSelfLoop)
+└── Computed.kt               — derived state (pure: isBlocked, effectiveTags)
+```
+
+**`domain/logic/` vs `domain/usecase/`:**
+
+| `domain/logic/` | `domain/usecase/` |
+|---|---|
+| No side effects | May call repository (I/O) |
+| No `Clock.now()` | Receives `Instant`/`LocalDate` as parameter |
+| Deterministic — same input → same output | Coordinates multiple operations |
+| Fully testable in `commonTest` | Testable with `FakeRepositories` |
+| Examples: parser, calculator, validator | Examples: `CreateTask`, `CompleteRecurringTask` |
+
+**Full pattern guide:** see `singularity-todo-domain-logic-pattern`.
 
 ## Canonical flow for agenda/filter views (AgendaEngine pattern)
 
@@ -775,6 +804,7 @@ suspend fun run(...): ProfileBootstrapResult { ... }
 
 ## Related Skills
 
+- `singularity-todo-domain-logic-pattern` — pure functions in `domain/logic/`: calculators, parsers, validators
 - `singularity-todo-repository-architecture` — DAO `*ForUser`, atomic bootstrap, no static `ProfileAwareCurrentUser`
 - `singularity-todo-testable-vm` — Canonical VM test pattern
 - `singularity-todo-clean-architecture-audit` — Layer-boundary grep checks

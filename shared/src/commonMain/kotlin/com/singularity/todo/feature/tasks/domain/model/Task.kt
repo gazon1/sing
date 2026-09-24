@@ -133,6 +133,15 @@ data class Task(
      * @see 2026-09-18-task-dependencies
      */
     val dependsOn: Set<TaskId> = emptySet(),
+    /**
+     * The recurrence rule for this task, if any.
+     * Null means the task does not repeat.
+     *
+     * Serialized as JSON string in [recurrenceRule] column.
+     *
+     * @see RecurrenceSpec
+     */
+    val recurrence: RecurrenceSpec? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
     val userId: UserId,
@@ -175,4 +184,8 @@ data class CreateTaskInput(
     val accentColor: Long? = null,
     val emoji: String? = null,
     val someday: Boolean = false,
+    /**
+     * The recurrence rule for the new task, or null for a non-recurring task.
+     */
+    val recurrence: RecurrenceSpec? = null,
 )

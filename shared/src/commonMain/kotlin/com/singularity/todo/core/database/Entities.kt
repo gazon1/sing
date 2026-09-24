@@ -25,6 +25,7 @@ data class SyncColumns(
     tableName = "tasks",
     indices = [
         Index("user_id"), Index("due_date"), Index("archived_at"), Index("project_id"),
+        Index("recurrence_rule"),
     ],
 )
 data class TaskEntity(
@@ -47,6 +48,7 @@ data class TaskEntity(
     val someday: Boolean = false,
     @ColumnInfo("archived_at") val archivedAt: Long?, // epoch millis
     @ColumnInfo("is_pinned") val isPinned: Boolean = false,
+    @ColumnInfo("recurrence_rule") val recurrenceRule: String? = null, // JSON of RecurrenceSpec
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("user_id") val userId: String,
@@ -144,7 +146,7 @@ data class ProjectEntity(
 
 @Entity(
     tableName = "tags",
-    indices = [Index("user_id"), Index("deleted_at")],
+    indices = [Index("user_id"), Index("deleted_at"), Index("group_id")],
 )
 data class TagEntity(
     @PrimaryKey val id: String,
@@ -154,24 +156,17 @@ data class TagEntity(
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     /**
-     * Dead schema — removed in v13→v14 migration (MR-3).
+     * The tag group this tag belongs to, or null if ungrouped.
+     * Replaces the dead [parentId] column (flat hierarchy, removed in MR-3).
      *
-     * Previously modelled a flat tag hierarchy (never queried, never cascaded).
-     * Superseded by the [tag_groups][com.singularity.todo.feature.tags.domain.model.TagGroup] table
-     * which provides 1-level category grouping with proper invariants.
+     * ## Migration (v20, MR-9)
      *
-     * ## Migration (MR-3)
+     * - `group_id TEXT DEFAULT NULL` added via auto-migration
+     * - `parent_id` dropped via `@DeleteColumn` (was already nullable, safe to remove)
      *
-     * This column is dropped via `@DeleteColumn` in [Migration14To15].
-     * Until MR-3 lands, reads always return `null` and writes are silently discarded.
-     * ## MR-3: Tag Groups + Inheritance
-     * @see com.singularity.todo.docs.decisions.2026-09-18-tag-groups-inheritance
+     * @see com.singularity.todo.feature.tags.domain.model.TagGroup
      */
-    @Deprecated(
-        message = "Dead schema — replaced by tag_groups table in MR-3",
-        replaceWith = ReplaceWith("groupId"),
-    )
-    @ColumnInfo("parent_id") val parentId: String? = null,
+    @ColumnInfo("group_id") val groupId: String? = null,
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
     @ColumnInfo("deleted_at") val deletedAt: Long?,
     @Embedded val sync: SyncColumns = SyncColumns(),
@@ -275,3 +270,26 @@ data class ProfileEntity(
     @ColumnInfo("created_at") val createdAt: Long, // epoch millis
     @ColumnInfo("updated_at") val updatedAt: Long, // epoch millis
 )
+
+// ─── Tag Groups ────────────────────────────────────────────────────────────────
+
+/**
+ * Named group of tags (e.g. :work:, :urgent:).
+ * Tags reference their group via `tags.group_id`.
+ * Projects reference inherited groups via [ProjectInheritedTagGroupCrossRef].
+ */
+@Entity(
+    tableName = "tag_groups",
+    indices = [Index("user_id")],
+)
+data class TagGroupEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo("user_id") val userId: String,
+    @ColumnInfo("name") val name: String,
+    @ColumnInfo("color") val color: Int, // ARGB
+    @ColumnInfo("created_at") val createdAt: Long,
+    @ColumnInfo("updated_at") val updatedAt: Long,
+    @ColumnInfo("deleted_at") val deletedAt: Long? = null,
+    @Embedded val sync: SyncColumns = SyncColumns(),
+)
+

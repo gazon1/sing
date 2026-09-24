@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.tags
+package com.singularity.todo.feature.tags.data
 
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TagDao
@@ -6,31 +6,15 @@ import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.tags.Tag
+import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tags.TagsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-
-/**
- * Contract for tags persistence.
- */
-interface TagsRepository : GenericUserScopedRepository<Tag, TagId> {
-
-    /**
-     * Upserts a tag from a remote sync event.
-     * Does NOT emit repository-level change events — caller handles observability.
-     * Used by pull handlers in [com.singularity.todo.core.sync.SyncBootstrapper].
-     */
-    suspend fun upsert(tag: Tag): Tag
-
-    // ─── Domain methods ─────────────────────────────────────────────────────────
-
-    /** Single tag observation by id (no user-filter, uses ambient current user). */
-    fun observeTag(id: TagId): Flow<Tag?>
-}
 
 /**
  * Room-backed production [TagsRepository].
@@ -90,9 +74,7 @@ private fun TagEntity.toTag(): Tag = Tag(
     color = color,
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),
-    // parentId is dead schema — intentionally ignored (superseded by tag_groups in MR-3).
-    // Writing null here keeps the deprecation harmless and ensures round-trip stability.
-    parentId = null,
+    groupId = groupId?.let { com.singularity.todo.feature.tags.domain.model.TagGroupId.fromString(it) },
     sortOrder = sortOrder,
     deletedAt = deletedAt.toInstantOrNull(),
     userId = userId,
@@ -107,8 +89,7 @@ fun Tag.toEntity(): TagEntity = TagEntity(
     color = color,
     createdAt = createdAt.toEpochMilliseconds(),
     updatedAt = updatedAt.toEpochMilliseconds(),
-    // parentId is dead schema — always written as null (superseded by tag_groups in MR-3).
-    parentId = null,
+    groupId = groupId?.value,
     sortOrder = sortOrder,
     deletedAt = deletedAt?.toEpochMilliseconds(),
     sync = SyncColumns(serverVersion = serverVersion, hlc = hlc?.encoded),

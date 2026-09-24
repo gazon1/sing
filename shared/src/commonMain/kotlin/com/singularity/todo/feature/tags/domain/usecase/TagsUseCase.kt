@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.tags.usecase
+package com.singularity.todo.feature.tags.domain.usecase
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingResult
@@ -20,6 +20,7 @@ class CreateTagUseCase(private val repo: TagsRepository, private val clock: Cloc
             createdAt = now,
             updatedAt = now,
             userId = input.userId,
+            groupId = input.groupId,
         )
         repo.create(tag).getOrThrow()
         tag.id

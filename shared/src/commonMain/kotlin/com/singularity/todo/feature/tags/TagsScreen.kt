@@ -29,7 +29,7 @@ import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 
 @Composable
-private fun TagsContent(state: TagsUiState, modifier: Modifier = Modifier, onDelete: (TagId) -> Unit) {
+fun TagsScreen(state: TagsUiState, modifier: Modifier = Modifier, onDelete: (TagId) -> Unit) {
     StatefulContent(
         state = state.toContentState(),
         emptyTitle = "No tags yet",
@@ -91,7 +91,7 @@ fun TagCard(tag: Tag, onDelete: () -> Unit) {
 @Preview
 @Composable
 private fun TagsScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    TagsContent(
+    TagsScreen(
         state = TagsUiState.Content(
             tags = listOf(
                 PreviewSamples.tag("tg1", "work", 0xFFE91E63.toInt()),
@@ -106,7 +106,7 @@ private fun TagsScreenContentPreview() = PreviewThemed(darkTheme = false, useSur
 @Preview
 @Composable
 private fun TagsScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    TagsContent(
+    TagsScreen(
         state = TagsUiState.Empty(userId = "anonymous"),
         onDelete = {},
     )
@@ -115,7 +115,7 @@ private fun TagsScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurfa
 @Preview
 @Composable
 private fun TagsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    TagsContent(
+    TagsScreen(
         state = TagsUiState.Content(
             tags = listOf(
                 PreviewSamples.tag("tg1", "personal", 0xFF9C27B0.toInt()),

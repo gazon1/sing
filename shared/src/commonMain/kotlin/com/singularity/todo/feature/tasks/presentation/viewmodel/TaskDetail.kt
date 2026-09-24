@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -195,8 +196,19 @@ class TaskDetailViewModel(
         when (intent) {
             is TaskDetailIntent.Domain.ToggleComplete -> {
                 val completed = current.completedAt == null
-                val completedAt = if (completed) deps.clock.now() else null
-                mutate(current) { copy(completedAt = completedAt) }
+                if (completed && current.recurrence != null) {
+                    // Recurring task: use CompleteRecurringTaskUseCase to roll forward
+                    scope.launch {
+                        deps.completeRecurring(current.id)
+                            .onSuccess { updated ->
+                                _events.trySend(TaskDetailUiEvent.Saved("Repeating: next occurrence set"))
+                            }
+                            .onFailure { emitError("Failed to complete recurring task") }
+                    }
+                } else {
+                    val completedAt = if (completed) deps.clock.now() else null
+                    mutate(current) { copy(completedAt = completedAt) }
+                }
             }
 
             is TaskDetailIntent.Domain.TitleChanged -> {
@@ -241,6 +253,12 @@ class TaskDetailViewModel(
                     deps.taskRepo.setDependencies(current.id, intent.dependsOn)
                         .onSuccess { _events.trySend(TaskDetailUiEvent.Saved("Dependencies updated")) }
                         .onFailure { emitError("Failed to set dependencies") }
+                }
+            }
+
+            is TaskDetailIntent.Domain.SetRecurrence -> {
+                mutate(current, error = "Failed to set recurrence") {
+                    copy(recurrence = intent.spec)
                 }
             }
 

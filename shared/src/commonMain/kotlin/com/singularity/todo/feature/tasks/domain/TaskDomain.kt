@@ -9,6 +9,7 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -59,6 +60,7 @@ object TaskDomain {
         accentColor: Long? = null,
         emoji: String? = null,
         someday: Boolean = false,
+        recurrence: RecurrenceSpec? = null,
     ): Either<AppError.Validation, CreateTaskInput> {
         val trimmed: String = when (val v = validateTitle(title)) {
             is Either.Left -> return v
@@ -82,6 +84,7 @@ object TaskDomain {
                 accentColor = accentColor,
                 emoji = emoji,
                 someday = someday,
+                recurrence = recurrence,
             ),
         )
     }
@@ -115,6 +118,7 @@ object TaskDomain {
         accentColor = input.accentColor,
         emoji = input.emoji,
         someday = input.someday,
+        recurrence = input.recurrence,
         createdAt = createdAt,
         updatedAt = updatedAt,
         userId = userId,

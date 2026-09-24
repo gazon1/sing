@@ -1,11 +1,15 @@
 package com.singularity.todo.core.database
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tags.domain.model.TagGroup
+import com.singularity.todo.feature.tags.domain.model.TagGroupId
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
@@ -54,9 +58,13 @@ internal fun String?.toProjectIdOrNull(): ProjectId? =
 
 /**
  * Converts a [TaskEntity] to a domain [Task].
- * Tags are not populated — callers must fill them separately if needed.
+ * Tags and dependsOn are populated from the bundled [TaskExtras] when loading lists.
+ * For single-task observes use [TaskRepository.observeDependencies] separately.
  */
-internal fun TaskEntity.toTask(): Task = Task(
+internal fun TaskEntity.toTask(
+    tags: List<TagId> = emptyList(),
+    dependsOn: Set<TaskId> = emptySet(),
+): Task = Task(
     id = id.toId(),
     title = title,
     description = description,
@@ -64,7 +72,7 @@ internal fun TaskEntity.toTask(): Task = Task(
     kind = kind,
     projectId = projectId.toProjectIdOrNull(),
     parentTaskId = parentTaskId?.toId(),
-    tags = emptyList(),
+    tags = tags,
     dueDate = dueDate.toLocalDateOrNull(),
     dueTime = dueTime.toLocalTimeOrNull(),
     startDate = startDate.toLocalDateOrNull(),
@@ -77,9 +85,10 @@ internal fun TaskEntity.toTask(): Task = Task(
     someday = someday,
     archivedAt = archivedAt.toInstantOrNull(),
     isPinned = isPinned,
-    // dependsOn is loaded separately via TaskRepository.watchDependencies —
-    // it is never stored on TaskEntity itself (join table only).
-    dependsOn = emptySet(),
+    dependsOn = dependsOn,
+    recurrence = recurrenceRule?.let {
+        StableJson.decodeFromString<RecurrenceSpec>(it)
+    },
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),
     userId = userId.toId(),
@@ -110,4 +119,33 @@ internal fun ProjectEntity.toProject(): Project = Project(
     userId = UserId(userId),
     serverVersion = sync.serverVersion,
     hlc = sync.hlc?.let { Hlc(it) },
+)
+
+/**
+ * Converts a [TagGroupEntity] to a domain [TagGroup].
+ */
+internal fun TagGroupEntity.toTagGroup(): TagGroup = TagGroup(
+    id = TagGroupId.fromString(id),
+    name = name,
+    color = color,
+    createdAt = createdAt.toInstant(),
+    updatedAt = updatedAt.toInstant(),
+    userId = userId,
+    deletedAt = deletedAt.toInstantOrNull(),
+    serverVersion = sync.serverVersion,
+    hlc = sync.hlc?.let { Hlc(it) },
+)
+
+/**
+ * Converts a domain [TagGroup] to a [TagGroupEntity] for persistence.
+ */
+internal fun TagGroup.toEntity(): TagGroupEntity = TagGroupEntity(
+    id = id.value,
+    userId = userId,
+    name = name,
+    color = color,
+    createdAt = createdAt.toEpochMilliseconds(),
+    updatedAt = updatedAt.toEpochMilliseconds(),
+    deletedAt = deletedAt.toEpochMillisOrNull(),
+    sync = SyncColumns(serverVersion = serverVersion, hlc = hlc?.encoded),
 )

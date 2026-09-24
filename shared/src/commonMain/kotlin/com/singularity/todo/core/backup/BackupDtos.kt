@@ -153,7 +153,7 @@ data class TagDto(
     val color: Int,
     val createdAt: Long,
     val updatedAt: Long,
-    val parentId: String? = null,
+    val groupId: String? = null,
     val sortOrder: Int = 0,
     val deletedAt: Long? = null,
 )
@@ -164,7 +164,7 @@ fun TagEntity.toDto(): TagDto = TagDto(
     color = color,
     createdAt = createdAt,
     updatedAt = updatedAt,
-    parentId = parentId,
+    groupId = groupId,
     sortOrder = sortOrder,
     deletedAt = deletedAt,
 )
@@ -172,7 +172,7 @@ fun TagEntity.toDto(): TagDto = TagDto(
 fun TagDto.toEntity(userId: String): TagEntity = TagEntity(
     id = id, userId = userId, name = name, color = color,
     createdAt = createdAt, updatedAt = updatedAt,
-    parentId = parentId, sortOrder = sortOrder, deletedAt = deletedAt,
+    groupId = groupId, sortOrder = sortOrder, deletedAt = deletedAt,
     sync = SyncColumns(),
 )
 

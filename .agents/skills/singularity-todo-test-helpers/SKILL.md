@@ -170,6 +170,51 @@ private val userId = fakeCurrentUser.currentUserId
 fakeRepo.upsertSync(task.copy(id = TaskId.generate(), title = "Test Task"))
 ```
 
+### FakeTaskRepository — `recurrence` and `dependsOn`
+
+`FakeTaskRepository` stores `Task` objects directly (bypassing `TaskEntity` → `toTask()` mapping). When you seed a `Task` with `tags` or `dependsOn`, those fields are returned as-is by `observeAll()`:
+
+```kotlin
+@Test
+fun `observeAll returns tasks with tags and dependsOn`() = runTest {
+    val tag1 = TagId.fromString("tag-1")
+    val dep1 = TaskId.fromString("dep-1")
+
+    repo.seed(
+        Task(..., tags = listOf(tag1), dependsOn = setOf(dep1)),
+        Task(..., tags = emptyList()),
+    )
+
+    val tasks = repo.observeAll().first()
+    val t1 = tasks.first { it.id.value == "t1" }
+    assertEquals(listOf(tag1), t1.tags)
+    assertEquals(setOf(dep1), t1.dependsOn)
+}
+```
+
+**Note**: `FakeTaskRepository` does NOT simulate loading `tags`/`dependsOn` from a Room query (the production `userTasksWithExtras` path). `TaskExtrasLoadingTest` validates the production integration. The fake tests the repository contract — what you seed is what you get back.
+
+**For `CompleteRecurringTaskUseCase` tests**: use a **real** `RecurrenceCalculator` — it has no state and is fully deterministic. Only fake the parts that have I/O (the repository):
+
+```kotlin
+class CompleteRecurringTaskUseCaseTest {
+    private val repo = FakeTaskRepository()
+    private val clock = FixedClock(...)          // injected, not static
+    private val zone = TimeZone.of("UTC")
+    private val calculator = RecurrenceCalculator // real — pure, no fake needed
+
+    private val useCase = CompleteRecurringTaskUseCase(repo, clock, zone, calculator)
+
+    @Test
+    fun `FROM_DUE rolls forward to next due date`() = runTest {
+        repo.seed(Task(..., recurrence = Interval(FROM_DUE, 1, WEEK), dueDate = d(2026, 1, 15)))
+
+        val result = useCase(taskId)
+        assertEquals(d(2026, 1, 22), result.getOrThrow().dueDate)
+    }
+}
+```
+
 ---
 
 ## Three Test Shapes

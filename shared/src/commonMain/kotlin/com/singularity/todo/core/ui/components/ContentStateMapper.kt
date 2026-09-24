@@ -2,6 +2,7 @@ package com.singularity.todo.core.ui.components
 
 import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.tags.TagsUiState
+import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
 
 /**
  * Shared `toContentState()` helpers for sealed UI states that follow the
@@ -36,5 +37,12 @@ object ContentStateMapper {
         is TagsUiState.Empty -> ContentState.Empty
         is TagsUiState.Error -> ContentState.Error(state.message)
         is TagsUiState.Content -> ContentState.Ready(state.tags)
+    }
+
+    fun tagGroups(state: TagGroupsUiState): ContentState<List<com.singularity.todo.feature.tags.domain.model.TagGroup>> = when (state) {
+        is TagGroupsUiState.Loading -> ContentState.Loading
+        is TagGroupsUiState.Empty -> ContentState.Empty
+        is TagGroupsUiState.Error -> ContentState.Error(state.message)
+        is TagGroupsUiState.Content -> ContentState.Ready(state.groups)
     }
 }

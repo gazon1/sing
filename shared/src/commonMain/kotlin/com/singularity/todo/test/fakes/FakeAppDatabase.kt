@@ -2,10 +2,10 @@ package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentEntity
-import com.singularity.todo.core.config.RemoteConfigCacheDao
-import com.singularity.todo.core.config.RemoteConfigCacheEntity
 import com.singularity.todo.core.database.AgendaViewDao
 import com.singularity.todo.core.database.AgendaViewEntity
+import com.singularity.todo.core.database.SavedSearchDao
+import com.singularity.todo.core.database.SavedSearchEntity
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.ChecklistItemEntity
@@ -18,14 +18,18 @@ import com.singularity.todo.core.database.ProfileEntity
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ReminderDao
-import com.singularity.todo.core.database.SavedSearchDao
-import com.singularity.todo.core.database.SavedSearchEntity
 import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TagEntity
+import com.singularity.todo.core.database.TagGroupDao
+import com.singularity.todo.core.database.TagGroupEntity
+import com.singularity.todo.core.database.ProjectInheritedTagGroupDao
+import com.singularity.todo.core.database.ProjectInheritedTagGroupCrossRef
 import com.singularity.todo.core.database.TaskDao
-import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
+import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskTagCrossRef
+import com.singularity.todo.core.config.RemoteConfigCacheDao
+import com.singularity.todo.core.config.RemoteConfigCacheEntity
 import com.singularity.todo.core.sync.RemoteConfigDao
 import com.singularity.todo.core.sync.RemoteConfigEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
@@ -58,8 +62,8 @@ class FakeAppDatabase : AppDatabase() {
     private val _attachments = MutableStateFlow<Map<String, AttachmentEntity>>(emptyMap())
     private val _reminders =
         MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>(
-            emptyMap(),
-        )
+        emptyMap(),
+    )
     private val _checklist = MutableStateFlow<Map<String, ChecklistItemEntity>>(emptyMap())
     private val _llmUsage = MutableStateFlow<Map<String, LlmUsageEntity>>(emptyMap())
     private val _profiles = MutableStateFlow<Map<String, ProfileEntity>>(emptyMap())
@@ -68,6 +72,8 @@ class FakeAppDatabase : AppDatabase() {
     private val _remoteConfigCache = MutableStateFlow<RemoteConfigCacheEntity?>(null)
     private val _calendarSyncTaskMap = MutableStateFlow<Map<String, CalendarSyncTaskMapEntity>>(emptyMap())
     private val _savedSearches = MutableStateFlow<Map<String, SavedSearchEntity>>(emptyMap())
+    private val _tagGroups = MutableStateFlow<Map<String, TagGroupEntity>>(emptyMap())
+    private val _projectTagGroups = MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>(emptyList())
 
     override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
@@ -84,6 +90,8 @@ class FakeAppDatabase : AppDatabase() {
     override fun remoteConfigCacheDao(): RemoteConfigCacheDao = FakeRemoteConfigCacheDao(_remoteConfigCache)
     override fun calendarSyncTaskMapDao(): CalendarSyncTaskMapDao = FakeCalendarSyncTaskMapDao(_calendarSyncTaskMap)
     override fun savedSearchDao(): SavedSearchDao = FakeSavedSearchDao(_savedSearches)
+    override fun tagGroupDao(): TagGroupDao = FakeTagGroupDao(_tagGroups)
+    override fun projectInheritedTagGroupDao(): ProjectInheritedTagGroupDao = FakeProjectInheritedTagGroupDao(_projectTagGroups)
 
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
@@ -103,6 +111,8 @@ class FakeAppDatabase : AppDatabase() {
         _remoteConfigCache.value = null
         _calendarSyncTaskMap.value = emptyMap()
         _savedSearches.value = emptyMap()
+        _tagGroups.value = emptyMap()
+        _projectTagGroups.value = emptyList()
     }
 
     // ─── Seed helpers ────────────────────────────────────────────────────────
@@ -143,6 +153,12 @@ class FakeAppDatabase : AppDatabase() {
     }
     fun seedSavedSearches(items: List<SavedSearchEntity>) {
         _savedSearches.value = items.associateBy { it.id }
+    }
+    fun seedTagGroups(items: List<TagGroupEntity>) {
+        _tagGroups.value = items.associateBy { it.id }
+    }
+    fun seedProjectTagGroups(items: List<ProjectInheritedTagGroupCrossRef>) {
+        _projectTagGroups.value = items
     }
 }
 
@@ -229,12 +245,13 @@ private class FakeTaskDao(
             }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
         }
 
-    override fun watchByRegexp(userId: String, pattern: String): Flow<List<TaskEntity>> = store.map { tasks ->
-        tasks.values.filter { t ->
-            t.userId == userId && t.archivedAt == null &&
-                t.title.contains(pattern, ignoreCase = true)
-        }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
-    }
+    override fun watchByRegexp(userId: String, pattern: String): Flow<List<TaskEntity>> =
+        store.map { tasks ->
+            tasks.values.filter { t ->
+                t.userId == userId && t.archivedAt == null &&
+                    t.title.contains(pattern, ignoreCase = true)
+            }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+        }
 
     override fun watchPinned(userId: String): Flow<List<TaskEntity>> = store.map {
         it.values.filter { t -> t.userId == userId && t.isPinned && t.archivedAt == null }
@@ -244,10 +261,8 @@ private class FakeTaskDao(
     override fun watchSearchResults(userId: String, q: String): Flow<List<TaskEntity>> = store.map {
         it.values.filter { t ->
             t.userId == userId && t.archivedAt == null &&
-                (
-                    t.title.contains(q, ignoreCase = true) ||
-                    (t.description?.contains(q, ignoreCase = true) == true)
-                )
+                (t.title.contains(q, ignoreCase = true) ||
+                    (t.description?.contains(q, ignoreCase = true) == true))
         }
     }
 
@@ -323,13 +338,19 @@ private class FakeTaskDao(
             store.value[ref.taskId]?.userId == userId
         }
 
-    override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> = crossRefs.value.filter { ref ->
-        store.value[ref.taskId]?.userId == userId
-    }
+    override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> =
+        crossRefs.value.filter { ref ->
+            store.value[ref.taskId]?.userId == userId
+        }
 
-    override suspend fun searchTitles(userId: String, q: String): List<TaskEntity> = store.value.values.filter {
-        it.userId == userId && it.archivedAt == null && it.title.contains(q, ignoreCase = true)
-    }.sortedByDescending { it.updatedAt }.take(20)
+    override fun observeTagCrossRefs(userId: String): Flow<List<TaskTagCrossRef>> = crossRefs
+
+    override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> = depRefs
+
+    override suspend fun searchTitles(userId: String, q: String): List<TaskEntity> =
+        store.value.values.filter {
+            it.userId == userId && it.archivedAt == null && it.title.contains(q, ignoreCase = true)
+        }.sortedByDescending { it.updatedAt }.take(20)
 
     private fun mutateTask(id: String, fn: (TaskEntity) -> TaskEntity) {
         store.update { current ->
@@ -403,13 +424,13 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
             val existing = current[id] ?: return@update current
             current + (
                 id to existing.copy(
-                    title = title,
-                    bodyMarkdown = markdown,
-                    bodyHtml = html,
-                    wordCount = wordCount,
-                    charCount = charCount,
-                    updatedAt = updatedAt,
-                )
+                title = title,
+                bodyMarkdown = markdown,
+                bodyHtml = html,
+                wordCount = wordCount,
+                charCount = charCount,
+                updatedAt = updatedAt,
+            )
             )
         }
     }
@@ -433,12 +454,9 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
     override suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long) =
         mutate(id) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
 
-    override suspend fun getBacklinkNotes(noteId: String, userId: String): List<NoteEntity> =
-        store.value.values.filter {
-            n,
-            ->
-            n.userId == userId && n.deletedAt == null && n.outgoingLinks.contains("note://$noteId")
-        }.take(20)
+    override suspend fun getBacklinkNotes(noteId: String, userId: String): List<NoteEntity> = store.value.values.filter { n ->
+        n.userId == userId && n.deletedAt == null && n.outgoingLinks.contains("note://$noteId")
+    }.take(20)
 
     private fun mutate(id: String, fn: (NoteEntity) -> NoteEntity) {
         store.update { current ->
@@ -458,16 +476,8 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
     }
 
     // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────
-    override fun watchByIdForUser(id: String, userId: String): Flow<ProjectEntity?> = store.map {
-        it[id]?.takeIf { p ->
-            p.userId ==
-                userId
-        }
-    }
-    override suspend fun getByIdForUser(id: String, userId: String): ProjectEntity? = store.value[id]?.takeIf {
-        it.userId ==
-            userId
-    }
+    override fun watchByIdForUser(id: String, userId: String): Flow<ProjectEntity?> = store.map { it[id]?.takeIf { p -> p.userId == userId } }
+    override suspend fun getByIdForUser(id: String, userId: String): ProjectEntity? = store.value[id]?.takeIf { it.userId == userId }
     override fun watchByParentForUser(parentId: String, userId: String): Flow<List<ProjectEntity>> =
         store.map { it.values.filter { it.parentId == parentId && it.userId == userId && !it.isDeleted } }
 
@@ -493,12 +503,7 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
     override suspend fun findByIdempotencyKeyForUser(key: String, userId: String): ProjectEntity? =
         store.value.values.firstOrNull { it.idempotencyKey == key && it.userId == userId }
     override suspend fun findByNameForUser(userId: String, name: String): ProjectEntity? =
-        store.value.values.firstOrNull {
-            it.userId == userId && !it.isDeleted && it.name.equals(
-                name,
-                ignoreCase = true,
-            )
-        }
+        store.value.values.firstOrNull { it.userId == userId && !it.isDeleted && it.name.equals(name, ignoreCase = true) }
     override suspend fun upsert(project: ProjectEntity) {
         store.update { it + (project.id to project) }
     }
@@ -542,12 +547,8 @@ private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEnti
     override suspend fun getByIdForUser(id: String, userId: String): TagEntity? =
         store.value[id]?.takeIf { it.userId == userId && it.deletedAt == null }
 
-    override suspend fun findByNameForUser(userId: String, name: String): TagEntity? = store.value.values.firstOrNull {
-        it.userId == userId && it.deletedAt == null && it.name.equals(
-            name,
-            ignoreCase = true,
-        )
-    }
+    override suspend fun findByNameForUser(userId: String, name: String): TagEntity? =
+        store.value.values.firstOrNull { it.userId == userId && it.deletedAt == null && it.name.equals(name, ignoreCase = true) }
 
     override suspend fun upsert(tag: TagEntity) {
         store.update { it + (tag.id to tag) }
@@ -624,12 +625,7 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
     }
     override suspend fun getById(id: String, userId: String): AttachmentEntity? =
         store.value[id]?.takeIf { a -> a.userId == userId && a.deletedAt == null }
-    override fun watchByIdForUser(id: String, userId: String): Flow<AttachmentEntity?> = store.map {
-        it[id]?.takeIf { a ->
-            a.userId ==
-                userId
-        }
-    }
+    override fun watchByIdForUser(id: String, userId: String): Flow<AttachmentEntity?> = store.map { it[id]?.takeIf { a -> a.userId == userId } }
     override fun watchBySyncStatusForUser(status: String, userId: String): Flow<List<AttachmentEntity>> =
         store.map { it.values.filter { a -> a.syncStatus == status && a.userId == userId && a.deletedAt == null } }
 
@@ -662,7 +658,7 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
 
 private class FakeReminderDao(
     private val store:
-        MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>,
+    MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>,
 ) : ReminderDao {
 
     override fun watchAll(userId: String): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
@@ -688,11 +684,8 @@ private class FakeReminderDao(
         now: Long,
         userId: String,
         limit: Int,
-    ): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> = store.map {
-        it.values.filter { r -> r.fireAt <= now && r.userId == userId }.sortedBy { r -> -r.fireAt }.take(
-            limit,
-        )
-    }
+    ): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
+        store.map { it.values.filter { r -> r.fireAt <= now && r.userId == userId }.sortedBy { r -> -r.fireAt }.take(limit) }
 
     override suspend fun delete(id: String, userId: String) {
         store.update { it - (userId to id) }
@@ -707,14 +700,11 @@ private class FakeReminderDao(
     override suspend fun getById(id: String, userId: String): com.singularity.todo.core.database.TaskReminderEntity? =
         store.value[userId to id]
 
-    override fun watchByIdForUser(
-        id: String,
-        userId: String,
-    ): Flow<com.singularity.todo.core.database.TaskReminderEntity?> = store.map { it[userId to id] }
+    override fun watchByIdForUser(id: String, userId: String): Flow<com.singularity.todo.core.database.TaskReminderEntity?> =
+        store.map { it[userId to id] }
 
-    override fun watchRecurringTaskIds(userId: String): Flow<List<String>> = store.map { map ->
-        map.values.filter { r -> r.userId == userId && r.recurringPattern != null }.map { it.taskId }.distinct()
-    }
+    override fun watchRecurringTaskIds(userId: String): Flow<List<String>> =
+        store.map { map -> map.values.filter { r -> r.userId == userId && r.recurringPattern != null }.map { it.taskId }.distinct() }
 
     override suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long) {
         store.update { current ->
@@ -727,16 +717,21 @@ private class FakeReminderDao(
 
 // ─── CalendarSyncTaskMapDao ───────────────────────────────────────────────────────
 
-private class FakeCalendarSyncTaskMapDao(private val store: MutableStateFlow<Map<String, CalendarSyncTaskMapEntity>>) :
-    CalendarSyncTaskMapDao {
+private class FakeCalendarSyncTaskMapDao(
+    private val store: MutableStateFlow<Map<String, CalendarSyncTaskMapEntity>>,
+) : CalendarSyncTaskMapDao {
 
-    override fun observeAll(): Flow<List<CalendarSyncTaskMapEntity>> = store.map { it.values.toList() }
+    override fun observeAll(): Flow<List<CalendarSyncTaskMapEntity>> =
+        store.map { it.values.toList() }
 
-    override suspend fun getAll(): List<CalendarSyncTaskMapEntity> = store.value.values.toList()
+    override suspend fun getAll(): List<CalendarSyncTaskMapEntity> =
+        store.value.values.toList()
 
-    override suspend fun getEventId(taskId: String): Long? = store.value[taskId]?.eventId
+    override suspend fun getEventId(taskId: String): Long? =
+        store.value[taskId]?.eventId
 
-    override suspend fun getByTaskId(taskId: String): CalendarSyncTaskMapEntity? = store.value[taskId]
+    override suspend fun getByTaskId(taskId: String): CalendarSyncTaskMapEntity? =
+        store.value[taskId]
 
     override suspend fun upsert(entity: CalendarSyncTaskMapEntity) {
         store.update { it + (entity.taskId to entity) }
@@ -900,12 +895,15 @@ private class FakeAgendaViewDao(private val store: MutableStateFlow<Map<String, 
 
 // ─── RemoteConfigDao ────────────────────────────────────────────────────────
 
-private class FakeRemoteConfigDao(private val store: MutableStateFlow<Map<String, RemoteConfigEntity>>) :
-    RemoteConfigDao {
+private class FakeRemoteConfigDao(
+    private val store: MutableStateFlow<Map<String, RemoteConfigEntity>>,
+) : RemoteConfigDao {
 
-    override fun watchDefault(): Flow<RemoteConfigEntity?> = store.map { it["default"] }
+    override fun watchDefault(): Flow<RemoteConfigEntity?> =
+        store.map { it["default"] }
 
-    override suspend fun getDefault(): RemoteConfigEntity? = store.value["default"]
+    override suspend fun getDefault(): RemoteConfigEntity? =
+        store.value["default"]
 
     override suspend fun upsert(entity: RemoteConfigEntity) {
         store.update { it + (entity.id to entity) }
@@ -918,8 +916,9 @@ private class FakeRemoteConfigDao(private val store: MutableStateFlow<Map<String
 
 // ─── RemoteConfigCacheDao ─────────────────────────────────────────────────────
 
-private class FakeRemoteConfigCacheDao(private val store: MutableStateFlow<RemoteConfigCacheEntity?>) :
-    RemoteConfigCacheDao {
+private class FakeRemoteConfigCacheDao(
+    private val store: MutableStateFlow<RemoteConfigCacheEntity?>,
+) : RemoteConfigCacheDao {
 
     override fun watchDefault(): Flow<RemoteConfigCacheEntity?> = store
 
@@ -960,5 +959,40 @@ private class FakeSavedSearchDao(private val store: MutableStateFlow<Map<String,
         store.update { current ->
             current.filterValues { v -> !(v.userId == userId && v.id == id) }
         }
+    }
+}
+
+// ─── TagGroupDao ───────────────────────────────────────────────────────────────
+
+private class FakeTagGroupDao(
+    private val store: MutableStateFlow<Map<String, TagGroupEntity>>,
+) : TagGroupDao {
+    override fun watchAll(userId: String): Flow<List<TagGroupEntity>> = store.map {
+        it.values.filter { t -> t.userId == userId }.sortedBy { t -> t.name }
+    }
+    override fun watchById(id: String): Flow<TagGroupEntity?> = store.map { it[id] }
+    override suspend fun getByIdForUser(id: String, userId: String): TagGroupEntity? =
+        store.value.values.find { it.id == id && it.userId == userId }
+    override suspend fun upsert(entity: TagGroupEntity) {
+        store.update { it + (entity.id to entity) }
+    }
+    override suspend fun softDelete(id: String, ts: Long) {
+        store.update { current ->
+            val existing = current[id] ?: return@update current
+            current + (id to existing.copy(deletedAt = ts, updatedAt = ts))
+        }
+    }
+}
+
+// ─── ProjectInheritedTagGroupDao ───────────────────────────────────────────────
+
+private class FakeProjectInheritedTagGroupDao(
+    private val store: MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>,
+) : ProjectInheritedTagGroupDao {
+    override fun watchByProject(projectId: String): Flow<List<String>> = store.map { list ->
+        list.filter { it.projectId == projectId }.map { it.tagGroupId }
+    }
+    override suspend fun deleteAllForProject(projectId: String) {
+        store.update { list -> list.filter { it.projectId != projectId } }
     }
 }

@@ -20,9 +20,13 @@ import com.singularity.todo.feature.search.query.TagLookup
 import com.singularity.todo.feature.statistics.StatisticsViewModel
 import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
+import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
+import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator
 import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
@@ -47,7 +51,11 @@ import org.koin.dsl.module
 fun tasksModule(): org.koin.core.module.Module = module {
     // ─── Repositories ─────────────────────────────────────────────────────
 
-    single<TaskRepository> { TaskRepositoryImpl(get(), get(), get(), get()) }
+    single<TaskRepository> { TaskRepositoryImpl(get(), get(), get(), get(), get()) }
+
+    singleOf(::DependencyValidatorImpl)
+
+    single { RecurrenceCalculator }
 
     singleOf(::TaskDaoArchiveRepository)
 
@@ -60,6 +68,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     factory { CreateTaskUseCase(get(), get(), get()) }
     factory { CreateTaskFromDraftUseCase(get(), get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
+    factory { CompleteRecurringTaskUseCase(get(), get(), get(), get()) }
     factoryOf(::TaskMutationsUseCase)
 
     factory { SearchUseCase(get(), get(), get(), get(), get()) }
@@ -97,6 +106,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 attachmentsRepo = get(),
                 timeZoneProvider = get(),
                 clock = get(),
+                completeRecurring = get(),
             ),
             taskId = taskId,
         )
