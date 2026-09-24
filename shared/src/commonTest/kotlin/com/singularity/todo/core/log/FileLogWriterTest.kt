@@ -4,6 +4,7 @@ import co.touchlab.kermit.Severity
 import okio.Buffer
 import okio.FileSystem
 import okio.Path
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertFalse
@@ -15,6 +16,7 @@ private fun Path.Companion.make(raw: String): Path {
     return method.invoke(null, raw) as Path
 }
 
+@Tag("slow")
 class FileLogWriterTest {
 
     private val fs = FileSystem.SYSTEM

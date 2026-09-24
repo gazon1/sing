@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assume
+import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -31,6 +32,7 @@ import kotlin.test.fail
  *   2. `initialize` roundtrip — serverInfo name matches.
  *   3. `tools/list` returns at least one registered tool.
  */
+@Tag("slow")
 class McpServerEndToEndTest {
 
     private val jar = File("build/libs/mcp-server.jar")

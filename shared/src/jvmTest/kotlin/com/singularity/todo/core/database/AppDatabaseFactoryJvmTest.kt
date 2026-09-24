@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import java.io.File
 import java.nio.file.Files
+import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -23,6 +24,7 @@ import kotlin.test.assertTrue
  *
  * Each test gets its own temp directory; the DB file is deleted on `@After`.
  */
+@Tag("slow")
 class AppDatabaseFactoryJvmTest {
 
     private lateinit var tempDir: File

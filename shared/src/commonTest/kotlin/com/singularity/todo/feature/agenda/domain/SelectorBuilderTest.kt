@@ -5,6 +5,7 @@ import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.selector
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertSame
 
@@ -61,9 +62,11 @@ class SelectorBuilderTest {
 
     // ─── empty block → error ───────────────────────────────────────────────
 
-    @Test(expected = IllegalStateException::class)
+    @Test
     fun `empty block throws`() {
-        selector { }
+        assertFailsWith<IllegalStateException> {
+            selector { }
+        }
     }
 
     // ─── single child — no AllOf wrapper ───────────────────────────────────

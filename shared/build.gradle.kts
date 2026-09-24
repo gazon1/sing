@@ -224,7 +224,9 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.jvm.test)
-            implementation(libs.jvm.test.junit)
+            implementation(libs.kotlin.test.junit5)
+            implementation(libs.junit.jupiter)
+            implementation(libs.junit.jupiter.params)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
         }
@@ -237,7 +239,9 @@ kotlin {
 
         getByName("androidHostTest").dependencies {
             implementation(libs.jvm.test)
-            implementation(libs.jvm.test.junit)
+            implementation(libs.kotlin.test.junit5)
+            implementation(libs.junit.jupiter)
+            implementation(libs.junit.jupiter.params)
             implementation(libs.koin.test)
             implementation(libs.androidx.testExt.junit)
             implementation(libs.androidx.test.core)
@@ -246,6 +250,20 @@ kotlin {
             // Note: AndroidX version (1.7.3) is used instead of JetBrains (1.11.1) because
             // JetBrains version depends on Espresso which is incompatible with Robolectric.
             implementation(libs.compose.ui.test.junit4)
+        }
+    }
+}
+
+// JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform {
+        val tags = (project.findProperty("test.tags") as String?)
+            ?.split(",")?.orEmpty() ?: emptyList()
+        if (tags.isNotEmpty()) {
+            includeTags(*tags.toTypedArray())
+        } else {
+            // Default: only "fast" tests — "slow" requires -Ptest.tags=slow or -Ptest.tags=fast,slow
+            includeTags("fast")
         }
     }
 }

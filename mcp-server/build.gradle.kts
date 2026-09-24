@@ -41,12 +41,27 @@ dependencies {
     implementation(libs.ktor.io.jvm)
 
     testImplementation(libs.jvm.test)
-    testImplementation(libs.jvm.test.junit)
+    testImplementation(libs.kotlin.test.junit5)
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.junit.jupiter.params)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.koin.test)
     testImplementation(kotlin("reflect"))
 
     detektPlugins(libs.detekt.formatting)
+}
+
+// JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform {
+        val tags = (project.findProperty("test.tags") as String?)
+            ?.split(",")?.orEmpty() ?: emptyList()
+        if (tags.isNotEmpty()) {
+            includeTags(*tags.toTypedArray())
+        } else {
+            includeTags("fast")
+        }
+    }
 }
 
 // Produce a fat JAR with all runtime deps merged

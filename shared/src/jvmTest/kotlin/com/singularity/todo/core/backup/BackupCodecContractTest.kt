@@ -4,6 +4,7 @@ import com.singularity.todo.core.backup.BackupCodec.CodecReadResult
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.MapFileSystem
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -18,6 +19,7 @@ import kotlin.test.assertTrue
  *
  * Uses [MapFileSystem] as the I/O backend so tests run without filesystem side effects.
  */
+@Tag("slow")
 class BackupCodecContractTest {
 
     private val fs: FileSystem = MapFileSystem()

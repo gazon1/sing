@@ -21,14 +21,14 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Run jvmTest
-        run: ./gradlew :shared:jvmTest --no-daemon
+      - name: Run jvmTest (fast + slow)
+        run: ./gradlew :shared:jvmTest -Ptest.tags=fast,slow --no-daemon
 
       - name: Run testAndroidHostTest
-        run: ./gradlew :shared:testAndroidHostTest --no-daemon
+        run: ./gradlew :shared:testAndroidHostTest -Ptest.tags=fast,slow --no-daemon
 
       - name: Run desktopApp:test
-        run: ./gradlew :desktopApp:test --no-daemon
+        run: ./gradlew :desktopApp:test -Ptest.tags=fast,slow --no-daemon
 
       - name: Assemble Android debug
         run: ./gradlew :androidApp:assembleDebug --no-daemon

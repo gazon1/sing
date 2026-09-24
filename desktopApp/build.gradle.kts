@@ -22,6 +22,9 @@ sourceSets {
             implementation(libs.koin.test)
             implementation(libs.koin.core)
             implementation(libs.junit)
+            implementation(libs.kotlin.test.junit5)
+            implementation(libs.junit.jupiter)
+            implementation(libs.junit.jupiter.params)
         }
     }
 }
@@ -87,6 +90,19 @@ detekt {
     baseline = rootProject.file("config/detekt/baseline-desktopApp.xml")
     ignoreFailures = true               // report-only on day 1
     source.setFrom("src/main/kotlin", "src/jvmTest/kotlin")
+}
+
+// JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform {
+        val tags = (project.findProperty("test.tags") as String?)
+            ?.split(",")?.orEmpty() ?: emptyList()
+        if (tags.isNotEmpty()) {
+            includeTags(*tags.toTypedArray())
+        } else {
+            includeTags("fast")
+        }
+    }
 }
 
 dependencies {

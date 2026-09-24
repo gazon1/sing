@@ -2,10 +2,12 @@ package com.singularity.todo.core.attachments
 
 import com.singularity.todo.core.files.MapFileSystem
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+@Tag("slow")
 class AttachmentStorageTest {
 
     @Test
