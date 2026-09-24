@@ -1246,6 +1246,7 @@ _1 entries need attention._
 - `2026-09-23-versioning-and-runtime-gates` — versioning, schema, sync, genui, backup, security, kmp
 - `2026-09-23-vm-event-guard-cleanup` — vm, concurrency, cleanup
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
+- `2026-09-24-pr1-tech-debt-audit-resolution` — tech-debt, koin, di, detekt
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _untagged_
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
@@ -1441,6 +1442,7 @@ _1 entries need attention._
 - `2026-09-23-versioning-and-runtime-gates` — Single source of truth for app version, typed schema versioning, and runtime version gates
 - `2026-09-23-vm-event-guard-cleanup` — VM event/guard cleanup — compareAndSet, typed combine, SendChannel, dead code
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
+- `2026-09-24-pr1-tech-debt-audit-resolution` — PR 1.1–1.2 Tech Debt Audit Resolution
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _(no title)_
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods

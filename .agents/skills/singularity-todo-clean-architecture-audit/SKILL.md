@@ -72,9 +72,14 @@ else
     echo "✅ PASS"
 fi
 
-# 6. ViewModels have scopeOverride for tests
-echo "=== Check: ViewModels have scopeOverride ==="
-grep -rn "scopeOverride" "$FEATURE_DIR/presentation/viewmodel/" || echo "⚠️  WARNING: no scopeOverride found"
+# 6. ViewModels use canonical 4-arg constructor (deps, state, scope, sharingStarted)
+echo "=== Check: ViewModels use canonical pattern ==="
+# Canonical: class Vm(deps, state, scope, sharingStarted) — no scopeOverride
+if grep -rn "scopeOverride" "$FEATURE_DIR/presentation/viewmodel/"; then
+    echo "⚠️  WARNING: scopeOverride found — old pattern, prefer 4-arg canonical constructor"
+else
+    echo "✅ PASS: no scopeOverride (canonical pattern)"
+fi
 
 # 7. NO static ProfileAwareCurrentUser access (Phase 12b invariant)
 echo "=== Check: no static ProfileAwareCurrentUser access ==="
@@ -123,13 +128,15 @@ After running automated checks, verify manually:
 
 ### DI bindings (in `core/di/`)
 - [ ] `single<Repo>` uses interface from `domain/port/`, impl from `data/`
-- [ ] `factory { Create... }` from `domain/usecase/`
-- [ ] `viewModel { }` or `viewModelOf()` from `presentation/viewmodel/`
+- [ ] Use cases injected as constructor params into VMs (not registered as factory/viewModel)
+- [ ] `viewModelOf(::Vm)` for no-param VMs, `viewModel { (p) -> Vm(p, get()) }` for param VMs
+- [ ] `koinViewModel()` in Compose for no-param, `koinViewModel { parametersOf(p) }` for param VMs
+- [ ] `koinInject()` only for non-ViewModel dependencies (repos, ports, services)
 - [ ] No feature imports `presentation/` from another feature
 
 ### Code quality
 - [ ] `collectAsStateWithLifecycle()` in all Screens
-- [ ] `scopeOverride: CoroutineScope? = null` in all ViewModels
+- [ ] Canonical 4-arg ViewModel constructor: `(deps, state, scope, sharingStarted)`
 - [ ] `sealed UiState` with Loading/Content/Error in each ViewModel
 - [ ] No `runBlocking` in ViewModel constructors
 - [ ] `Either<AppError, T>` or `Result<T>` used for error returns (not exceptions)
@@ -188,6 +195,8 @@ grep -rn "collectAsState()" "shared/src/commonMain/kotlin/com/singularity/todo/f
 ## Related Skills
 
 - `singularity-todo-quality-tools` — detekt, ktlint, kover run commands and config format
+- `singularity-todo-detekt-workflow` — auto-fix + baseline rebuild workflow
 - `singularity-todo-feature-scaffold` — feature checklist with lint step
 - `singularity-todo-kotlin-idioms` — Kotlin idioms that ktlint enforces
 - `singularity-todo-repository-architecture` — DAO `*ForUser`, atomic bootstrap, no static `ProfileAwareCurrentUser`
+- `singularity-todo-koin-dsl` — canonical Koin 4.x DSL (viewModelOf vs factory, koinViewModel vs koinInject)

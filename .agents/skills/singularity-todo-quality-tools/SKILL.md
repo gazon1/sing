@@ -26,13 +26,15 @@ description: Run detekt, ktlint, and kover on the Singularity Todo KMP project. 
 ## Just recipes
 
 ```bash
-just lint            # run detekt analysis (shared + desktopApp)
-just detekt-fix     # auto-fix detekt rules + ktlint formatting (in-place)
-just detekt-baseline # regenerate baseline files
+just lint            # run detekt analysis (shared + desktopApp) — report-only
+just detekt-fix      # auto-fix detekt rules + ktlint formatting (in-place) ✅ USE THIS BEFORE COMMIT
+just detekt-baseline # regenerate baseline files (after large auto-fix pass)
 just coverage        # kover XML reports → shared/build/reports/kover/
 just coverage-html   # kover HTML reports → shared/build/reports/kover/
 just tcheck          # full pipeline: tests + assembleDebug + lint
 ```
+
+> **Critical:** `detekt-fix` requires `--auto-correct` flag. Without it, ktlint only reports violations without fixing them. The recipe was fixed in PR 1.4 to include this flag — older branches may not have it.
 
 ## Direct Gradle commands
 
@@ -103,44 +105,72 @@ git diff gradle/libs.versions.toml
 ```
 If you see "TOML syntax error" or "plugins previously defined at line X" — you created a duplicate section.
 
-## Adding a new module (e.g. mcp-server)
+## Adding a new module (e.g. mcp-server, androidApp)
 
-1. Add plugins to module's `build.gradle.kts`:
-   ```kotlin
-   alias(libs.plugins.detekt)
-   alias(libs.plugins.kover)
-   ```
+**1. Add plugins to module's `build.gradle.kts`:**
+```kotlin
+plugins {
+    alias(libs.plugins.kotlinJvm)         // or kotlinMultiplatform, androidApplication, etc.
+    alias(libs.plugins.detekt)            // MUST be listed in root build.gradle.kts with apply=false
+    alias(libs.plugins.kover)              // optional, for coverage
+}
+```
 
-2. Add detekt config:
-   ```kotlin
-   detekt {
-       config.setFrom(rootProject.file("config/detekt/detekt.yml"))
-       baseline = rootProject.file("config/detekt/baseline-mcpServer.xml")
-       ignoreFailures = true
-   }
+**2. Add `dependencies` block with `detektPlugins`:**
+```kotlin
+dependencies {
+    // ... existing deps ...
+    detektPlugins(libs.detekt.formatting)  // ktlint formatting rules (REQUIRED)
+}
+```
 
-   dependencies {
-       detektPlugins(libs.detekt.formatting)  // ktlint
-   }
-   ```
+**3. Add inline detekt config (do NOT use `config.setFrom`):**
+```kotlin
+detekt {
+    buildUponDefaultConfig = true
+    ignoreFailures = true   // keep true until baseline is clean
+    source.setFrom(
+        "src/main/kotlin",
+        "src/test/kotlin"
+    )
+}
+```
 
-3. Add kover config:
-   ```kotlin
-   kover {
-       reports {
-           total {
-               xml { onCheck = true }
-               html { onCheck = true }
-           }
-       }
-   }
-   ```
+**4. Add kover config (optional):**
+```kotlin
+kover {
+    reports {
+        total {
+            html { onCheck = true }
+            xml { onCheck = true }
+        }
+    }
+}
+```
 
-4. Create `config/detekt/baseline-mcpServer.xml` (copy from desktopApp template)
+**5. Generate baseline:**
+```bash
+./gradlew :module:detektBaseline
+```
 
-5. Update `.just/tests/mod.just` — add the new module to the recipes
+**6. Add module to CI workflow** (`.github/workflows/ci.yml`):
+```yaml
+- name: Check module
+  run: |
+    ./gradlew :module:compileKotlin --no-daemon
+    ./gradlew :module:detekt --no-daemon
+    ./gradlew :module:test --no-daemon
+  continue-on-error: true
+```
 
-6. Update this skill's just recipes table if you add new modules
+## Current modules with quality gates
+
+| Module | detekt | kover | CI job |
+|--------|--------|-------|--------|
+| `shared` | ✅ | ✅ (xml+html onCheck) | ci.yml test-and-check |
+| `desktopApp` | ✅ | ✅ (xml+html onCheck) | ci.yml test-and-check |
+| `mcp-server` | ✅ (74 findings baseline) | ✅ | ci.yml mcp-server-check |
+| `androidApp` | ✅ | ❌ | ci.yml test-and-check (assemble only) |
 
 ## Promoting from report-only to fail-on-violation
 
@@ -167,6 +197,18 @@ In detekt 2.x, `TooManyFunctions` uses `allowedFunctionsPerFile` (not `allowedFu
 ```
 Check that `ktlint:` is a **top-level** key in `detekt.yml` (not nested under `style:`). ktlint rules require their own section. Rule IDs are **kebab-case** (`no-wildcard-imports`), not PascalCase.
 
+### "Property 'ktlint' is misspelled" error
+```
+Property 'ktlint' is misspelled or does not exist.
+Allowed properties: [comments, complexity, config, console-reports, coroutines, empty-blocks, exceptions, naming, performance, potential-bugs, processors, style]
+```
+The `detekt-formatting` plugin (ktlint wrapper) is **not registered** in the module's `dependencies {}`. Add:
+```kotlin
+dependencies {
+    detektPlugins(libs.detekt.formatting)
+}
+```
+
 ### Configuration cache errors
 ```
 error writing value of type 'ExistingNamedDomainObjectProvider'
@@ -175,6 +217,19 @@ This is a known detekt 2.x + Gradle 9.x CC incompatibility. Use `--no-configurat
 
 ### "detekt was compiled with Kotlin X but is currently running with Y"
 You are running the wrong detekt version. Stable 1.23.x supports Kotlin 2.0.x. For Kotlin 2.3.x use **detekt 2.0.0-alpha.3** (compiled against Kotlin 2.3.21).
+
+### "Plugin not found" for detekt in submodule
+```
+Plugin [id: 'detekt'] was not found in any of the following sources
+```
+You used `id("detekt")` instead of `alias(libs.plugins.detekt)`. The `detekt` plugin ID is registered in `gradle/libs.versions.toml` under `[plugins]` and must be referenced via the version catalog:
+```kotlin
+// WRONG
+id("detekt")
+
+// RIGHT
+alias(libs.plugins.detekt)
+```
 
 ## Files modified by quality tools
 
@@ -188,5 +243,7 @@ You are running the wrong detekt version. Stable 1.23.x supports Kotlin 2.0.x. F
 
 - `singularity-todo-feature-scaffold` — includes lint checklist in new feature PRs
 - `singularity-todo-clean-architecture-audit` — runs detekt as part of architecture audit
+- `singularity-todo-detekt-workflow` — detailed auto-fix + baseline rebuild workflow
 - `singularity-todo-kotlin-idioms` — covers Kotlin idioms that ktlint enforces
-- `docs/decisions/2026-09-15-detekt-ktlint-kover-setup.md` — decision record with full rationale
+- `singularity-todo-koin-dsl` — Koin 4.x DSL canonical patterns
+- `singularity-todo-worktree-isolation` — git worktree isolation for refactoring branches
