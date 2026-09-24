@@ -20,8 +20,6 @@ import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
@@ -60,7 +58,6 @@ class ProjectDetailViewModelTest {
             clock = Clock,
             log = Logger,
             scope = testScope(scope),
-            sharingStarted = { SharingStarted.Eagerly },
         )
         return vm
     }
@@ -109,7 +106,7 @@ class ProjectDetailViewModelTest {
         while (System.currentTimeMillis() < deadline) {
             val value = condition()
             if (value != null) return value
-            delay(intervalMs)
+            kotlinx.coroutines.delay(intervalMs)
         }
         return condition()
     }

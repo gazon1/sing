@@ -27,8 +27,8 @@ import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
@@ -36,7 +36,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
@@ -63,7 +62,6 @@ class ProjectDetailViewModel(
     private val clock: Clock,
     private val log: Logger,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-    sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
 ) : ViewModel() {
 
     init {
@@ -75,94 +73,108 @@ class ProjectDetailViewModel(
     private val _hideCompleted = MutableStateFlow(false)
     val hideCompleted: StateFlow<Boolean> = _hideCompleted
 
-    /** Emits null on start (loading placeholder), then the project flow. */
-    private val projectFlow: StateFlow<Project?> = projectRepo.observe(projectId)
-        .onStart { emit(null) }
-        .stateIn(scope, sharingStarted(), null)
+    private val _projectFlow = MutableStateFlow<Project?>(null)
+    /** Exposes [_projectFlow] as StateFlow for internal use in collectors. */
+    private val projectFlow: StateFlow<Project?> = _projectFlow.asStateFlow()
 
     /**
      * Reactive list of parent-picker options, derived from [projectFlow] and
      * [ProjectsRepository.watchProjects]. Excludes the current project (cycle prevention)
      * and already-deleted / non-root projects.
      */
-    val parentOptionsFlow: StateFlow<List<ParentOption>> = combine(
-        projectFlow,
-        projectRepo.observeAll(),
-    ) { project, allProjects ->
-        if (project == null) {
-            emptyList()
-        } else {
-            allProjects
-            .filter { it.id != project.id && it.parentId == null && !it.isDeleted }
-            .map { ParentOption(it.id, it.name, it.id == project.parentId) }
-        }
-    }.stateIn(scope, sharingStarted(), emptyList())
+    private val _parentOptionsFlow = MutableStateFlow<List<ParentOption>>(emptyList())
+    val parentOptionsFlow: StateFlow<List<ParentOption>> = _parentOptionsFlow.asStateFlow()
 
     /**
      * All active tasks that are NOT in this project — for the "add existing task"
      * quick-add picker. Excludes inbox tasks (projectId == null) and completed tasks.
      * Sorted by dueDate ascending (nulls last), then updatedAt descending.
      */
-    val availableTasksFlow: StateFlow<List<Task>> =
-        taskRepo.observeByFilter(TaskFilter.All)
-            .map { all ->
-                all
-                    .filter { it.projectId != null && it.projectId != projectId && it.completedAt == null }
-                    .sortedWith(
-                        compareBy<Task, kotlinx.datetime.LocalDate?>(nullsLast()) { it.dueDate }
-                            .thenByDescending { it.updatedAt },
-                    )
-            }
-            .stateIn(scope, sharingStarted(), emptyList())
+    private val _availableTasksFlow = MutableStateFlow<List<Task>>(emptyList())
+    val availableTasksFlow: StateFlow<List<Task>> = _availableTasksFlow.asStateFlow()
 
-    val state: StateFlow<ProjectDetailUiState> = combine(
-        projectFlow,
-        projectFlow.flatMapLatest { project ->
-            if (project == null) {
-                flowOf(emptyList())
-            } else {
-                taskRepo.observeByFilter(TaskFilter.ByProject(projectId))
-            }
-        },
-        projectFlow.flatMapLatest { project ->
-            if (project == null) {
-                flowOf(emptyList())
-            } else {
-                projectRepo.observeChildrenOf(projectId)
-            }
-        },
-        projectFlow.flatMapLatest { p ->
-            if (p == null || p.parentId == null) {
-                flowOf(null)
-            } else {
-                    projectRepo.observe(p.parentId)
-            }
-        },
-        _hideCompleted,
-    ) { project, tasks, childProjects, parent, hideCompleted ->
-        _latestProject.value = project
-        when {
-            project == null -> ProjectDetailUiState.Loading
+    private val _state = MutableStateFlow<ProjectDetailUiState>(ProjectDetailUiState.Loading)
+    val state: StateFlow<ProjectDetailUiState> = _state.asStateFlow()
 
-            project.isDeleted -> ProjectDetailUiState.NotFound
-
-            else -> {
-                // Seed from loaded project — idempotent, won't overwrite user's active edits.
-                draftState.seed(project.name, project.description ?: "")
-                val visibleTasks = if (hideCompleted) tasks.filter { it.completedAt == null } else tasks
-                ProjectDetailUiState.Content(
-                    ProjectDetailUi(
-                        project = project,
-                        tasks = visibleTasks.take(5),
-                        totalCount = tasks.size,
-                        completedCount = tasks.count { it.completedAt != null },
-                        childProjects = childProjects,
-                        parent = parent,
-                    ),
-                )
-            }
+    init {
+        // Collect project and keep _projectFlow / _latestProject in sync — separate
+        // from state collection so debounce collectors always read a current value.
+        scope.launch {
+            projectRepo.observe(projectId)
+                .onStart { emit(null) }
+                .collect { project ->
+                    _projectFlow.value = project
+                    _latestProject.value = project
+                }
         }
-    }.stateIn(scope, sharingStarted(), ProjectDetailUiState.Loading)
+        // Parent options: derive from project + all projects.
+        scope.launch {
+            combine(
+                projectFlow,
+                projectRepo.observeAll(),
+            ) { project, allProjects ->
+                if (project == null) {
+                    emptyList()
+                } else {
+                    allProjects
+                        .filter { it.id != project.id && it.parentId == null && !it.isDeleted }
+                        .map { ParentOption(it.id, it.name, it.id == project.parentId) }
+                }
+            }.collect { _parentOptionsFlow.value = it }
+        }
+        // Available tasks for quick-add picker.
+        scope.launch {
+            taskRepo.observeByFilter(TaskFilter.All)
+                .map { all ->
+                    all
+                        .filter { it.projectId != null && it.projectId != projectId && it.completedAt == null }
+                        .sortedWith(
+                            compareBy<Task, kotlinx.datetime.LocalDate?>(nullsLast()) { it.dueDate }
+                                .thenByDescending { it.updatedAt },
+                        )
+                }
+                .collect { _availableTasksFlow.value = it }
+        }
+        // Main state: no side-effects inside combine.
+        scope.launch {
+            combine(
+                projectFlow,
+                projectFlow.flatMapLatest { project ->
+                    if (project == null) flowOf(emptyList())
+                    else taskRepo.observeByFilter(TaskFilter.ByProject(projectId))
+                },
+                projectFlow.flatMapLatest { project ->
+                    if (project == null) flowOf(emptyList())
+                    else projectRepo.observeChildrenOf(projectId)
+                },
+                projectFlow.flatMapLatest { p ->
+                    if (p == null || p.parentId == null) flowOf(null)
+                    else projectRepo.observe(p.parentId)
+                },
+                _hideCompleted,
+            ) { project, tasks, childProjects, parent, hideCompleted ->
+                when {
+                    project == null -> ProjectDetailUiState.Loading
+                    project.isDeleted -> ProjectDetailUiState.NotFound
+                    else -> {
+                        // Seed from loaded project — idempotent, won't overwrite user's active edits.
+                        draftState.seed(project.name, project.description ?: "")
+                        val visibleTasks = if (hideCompleted) tasks.filter { it.completedAt == null } else tasks
+                        ProjectDetailUiState.Content(
+                            ProjectDetailUi(
+                                project = project,
+                                tasks = visibleTasks.take(5),
+                                totalCount = tasks.size,
+                                completedCount = tasks.count { it.completedAt != null },
+                                childProjects = childProjects,
+                                parent = parent,
+                            ),
+                        )
+                    }
+                }
+            }.collect { _state.value = it }
+        }
+    }
 
     // ─── Silent debounce for inline edits ───────────────────────────────────────
 

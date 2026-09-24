@@ -13,7 +13,6 @@ import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -39,7 +38,6 @@ class ProjectsViewModelTest {
         taskRepository = fakeTaskRepo,
         deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),
         scope = testScope(backgroundScope),
-        sharingStarted = { SharingStarted.Eagerly },
     )
 
     private fun TestScope.seedProject(

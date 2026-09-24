@@ -75,14 +75,47 @@ Platform bindings — в `PlatformModule.jvm.kt` / `PlatformModule.android.kt`.
 **Fake вместо моков** — все двойники в `test/fakes/FakeRepositories.kt`:
 `FakeTaskRepository`, `FakeNotesRepository`, `FakeProjectsRepository`, `FakeTagsRepository`, `FakeSettingsRepository`, `FakeSecureStorage`, `FakeNotificationPort`, `FakeTextGen`.
 
+### Тестовые helpers
+
 ```kotlin
-// Типичный VM-тест
-val vm = NotesViewModel(FakeNotesStore(), FakeHtmlPort(), FakeSettingsRepo())
-runTest {
-    vm.openEditor("n1")
-    assertTrue(vm.editorState.value is EditorState.Editing)
+// Три формы теста (singularity-todo-test-helpers skill):
+testVm({ vm: MyVm -> vm.state }) { MyVm(deps, scope = this) }
+ctx.act { it.onIntent(Intent.Load) }
+ctx.assertIs<UiState.Content>()
+
+// Ожидание виртуального времени (не delay!)
+awaitState { vm.state.value is UiState.Content }
+```
+
+### Test style: BAN list
+
+| Запрещено | Почему | Альтернатива |
+|---|---|---|
+| `stateIn` в ViewModel | Держит upstream active 5s, ломает тесты без subscriber | `MutableStateFlow + scope.launch { }.collect {}` |
+| `viewModelScope` в production | Tight coupling, нетестируемо | Инъектированный `AutoCloseableCoroutineScope` |
+| `runBlocking` в production | Blocking поток, deadlock risk | `scope.launch { }` |
+| `delay(N)` в тестах | Реальное время, не virtual time | `advanceUntilIdle()` + debounce mocking |
+| `vm.state.launchIn(scope)` workaround | Костыль вокруг `stateIn` | Canonical VM pattern |
+
+### Canonical VM pattern
+
+```kotlin
+class MyViewModel(
+    private val deps: MyDeps,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+) : ViewModel() {
+    init { addCloseable(scope) }
+    private val _state = MutableStateFlow<UiState>(UiState.Loading)
+    val state: StateFlow<UiState> = _state.asStateFlow()
+    init {
+        scope.launch {
+            repo.observe().collect { _state.value = it }
+        }
+    }
 }
 ```
+
+**Подробности:** `singularity-todo-testable-vm`, `singularity-todo-vm-migration-playbook`
 
 ---
 

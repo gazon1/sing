@@ -249,3 +249,9 @@ ktlint:
   parameter-list-wrapping:
     active: true
     auto_correct: true
+
+# ---------------------------------------------------------------------------
+# custom rule sets (via :detekt-rules plugin / ServiceLoader)
+# All new rules start in warn-only mode; promoted to error in PR #8.
+# NOTE: Rule-specific config (severity, active) added in PR #8 after baseline.
+# ---------------------------------------------------------------------------

@@ -1,14 +1,12 @@
 package com.singularity.todo.feature.tags
 
 import androidx.lifecycle.ViewModel
-
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 sealed interface TagsUiState {
@@ -31,21 +29,24 @@ class TagsViewModel(
     private val tagRepo: TagsRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
+    private val _state = MutableStateFlow<TagsUiState>(TagsUiState.Loading)
+    val state: StateFlow<TagsUiState> = _state.asStateFlow()
+
     init {
         addCloseable(scope)
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<TagsUiState> = tagRepo.observeAll()
-        .map { tags ->
-            if (tags.isEmpty()) {
-                TagsUiState.Empty("")
-            } else {
-                TagsUiState.Content(tags)
-            }
+        scope.launch {
+            tagRepo.observeAll()
+                .map { tags ->
+                    if (tags.isEmpty()) {
+                        TagsUiState.Empty("")
+                    } else {
+                        TagsUiState.Content(tags)
+                    }
+                }
+                .catch { emit(TagsUiState.Error(it.message ?: "Error")) }
+                .collect { _state.value = it }
         }
-        .catch { emit(TagsUiState.Error(it.message ?: "Error")) }
-        .stateIn(scope, SharingStarted.WhileSubscribed(5000), TagsUiState.Loading)
+    }
 
     fun delete(id: TagId) = scope.launch {
         tagRepo.delete(id)

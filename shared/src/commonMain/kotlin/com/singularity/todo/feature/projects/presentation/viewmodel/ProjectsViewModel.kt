@@ -18,15 +18,14 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -45,13 +44,8 @@ class ProjectsViewModel(
     private val taskRepository: TaskRepository,
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
-    sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
-
-    init {
-        addCloseable(scope)
-    }
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
@@ -59,39 +53,44 @@ class ProjectsViewModel(
     private val _sortOrder = MutableStateFlow(ProjectSortOrder.Name)
     val sortOrder: StateFlow<ProjectSortOrder> = _sortOrder
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<ProjectsUiState> = combine(
-        _searchQuery,
-        _sortOrder,
-    ) { query, sort ->
-        query to sort
-    }.flatMapLatest { (query, sort) ->
-        projectRepo.observeProjectsWithCounts().map { rows ->
-            val domainRows = rows.map { row ->
-                ProjectWithCounts(
-                    project = row.project.toProject(),
-                    totalCount = row.totalCount,
-                    completedCount = row.completedCount,
-                )
-            }
-            val filtered = if (query.isBlank()) {
-                domainRows
-            } else {
-                domainRows.filter { it.project.name.contains(query, ignoreCase = true) }
-            }
-            val sorted = when (sort) {
-                ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
-                ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
-            }
-            if (sorted.isEmpty()) {
-                ProjectsUiState.Empty
-            } else {
-                ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
-            }
+    private val _state = MutableStateFlow<ProjectsUiState>(ProjectsUiState.Loading)
+    val state: StateFlow<ProjectsUiState> = _state.asStateFlow()
+
+    init {
+        addCloseable(scope)
+        scope.launch {
+            combine(_searchQuery, _sortOrder) { query, sort -> query to sort }
+                .flatMapLatest { (query, sort) ->
+                    projectRepo.observeProjectsWithCounts().map { rows ->
+                        val domainRows = rows.map { row ->
+                            ProjectWithCounts(
+                                project = row.project.toProject(),
+                                totalCount = row.totalCount,
+                                completedCount = row.completedCount,
+                            )
+                        }
+                        val filtered = if (query.isBlank()) {
+                            domainRows
+                        } else {
+                            domainRows.filter { it.project.name.contains(query, ignoreCase = true) }
+                        }
+                        val sorted = when (sort) {
+                            ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
+                            ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
+                        }
+                        if (sorted.isEmpty()) {
+                            ProjectsUiState.Empty
+                        } else {
+                            ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
+                        }
+                    }
+                }
+                .catch { cause ->
+                    emit(ProjectsUiState.Error(cause.message ?: "Error"))
+                }
+                .collect { _state.value = it }
         }
-    }.catch { cause ->
-        emit(ProjectsUiState.Error(cause.message ?: "Error"))
-    }.stateIn(scope, sharingStarted(), ProjectsUiState.Loading)
+    }
 
     private val _events = Channel<ProjectsUiEvent>(Channel.BUFFERED)
     val events: kotlinx.coroutines.flow.Flow<ProjectsUiEvent> = _events.receiveAsFlow()

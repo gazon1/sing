@@ -12,12 +12,12 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -43,9 +43,25 @@ class AgendaViewModel(
     definition: AgendaDefinition,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
+    private val _state = MutableStateFlow<AgendaUiState>(AgendaUiState.Loading)
+    val state: StateFlow<AgendaUiState> = _state.asStateFlow()
 
     init {
         addCloseable(scope)
+        scope.launch {
+            todayFlow()
+                .flatMapLatest { today ->
+                    deps.taskRepo.observeByFilter(TaskFilter.All)
+                        .map { tasks ->
+                            val sections = AgendaEvaluator.evaluate(tasks, definition, today)
+                            AgendaUiState.Loaded(
+                                sections = sections,
+                                today = today,
+                            )
+                        }
+                }
+                .collect { _state.value = it }
+        }
     }
 
     /** The definition being evaluated — stable reference. */
@@ -57,30 +73,6 @@ class AgendaViewModel(
     /** One-shot UI events. */
     private val _events = Channel<AgendaUiEvent>(Channel.BUFFERED)
     val events: Flow<AgendaUiEvent> = _events.receiveAsFlow()
-
-    /**
-     * Main state — watches all active tasks and evaluates them against [definition].
-     * Produces [AgendaUiState.Loaded] with rendered sections.
-     *
-     * Reactive: re-evaluates when the date changes. User switch is handled automatically
-     * by [TaskRepository.observeByFilter].
-     */
-    val state: StateFlow<AgendaUiState> = todayFlow()
-        .flatMapLatest { today ->
-            deps.taskRepo.observeByFilter(TaskFilter.All)
-                .map { tasks ->
-                    val sections = AgendaEvaluator.evaluate(tasks, definition, today)
-                    AgendaUiState.Loaded(
-                        sections = sections,
-                        today = today,
-                    )
-                }
-        }
-        .stateIn(
-            scope,
-            SharingStarted.WhileSubscribed(5_000),
-            AgendaUiState.Loading,
-        )
 
     /**
      * Processes a user [intent][AgendaIntent].

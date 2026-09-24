@@ -5,10 +5,10 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 data class ProfileSwitcherUiState(
     val profiles: List<Profile> = emptyList(),
@@ -37,26 +37,25 @@ class ProfileSwitcherViewModel(
 
     init {
         addCloseable(scope)
+        scope.launch {
+            combine(
+                profileRepository.observeAll(),
+                profileRepository.activeProfileId,
+                _errorMessage,
+            ) { profiles, activeId, errorMsg ->
+                ProfileSwitcherUiState(
+                    profiles = profiles,
+                    activeProfileId = activeId,
+                    isLoading = false,
+                    errorMessage = errorMsg,
+                )
+            }.collect { _uiState.value = it }
+        }
     }
 
     private val _errorMessage = MutableStateFlow<String?>(null)
-
-    val uiState: StateFlow<ProfileSwitcherUiState> = combine(
-        profileRepository.observeAll(),
-        profileRepository.activeProfileId,
-        _errorMessage,
-    ) { profiles, activeId, errorMsg ->
-        ProfileSwitcherUiState(
-            profiles = profiles,
-            activeProfileId = activeId,
-            isLoading = false,
-            errorMessage = errorMsg,
-        )
-    }.stateIn(
-        scope,
-        SharingStarted.WhileSubscribed(5_000),
-        ProfileSwitcherUiState(),
-    )
+    private val _uiState = MutableStateFlow(ProfileSwitcherUiState())
+    val uiState: StateFlow<ProfileSwitcherUiState> = _uiState.asStateFlow()
 
     fun create(name: String, emoji: String, colorIdx: Int) {
         scope.fireAndForget(

@@ -99,7 +99,10 @@ class MapFileSystem(
         dirs.add(dir)
     }
 
-    override suspend fun listDir(dir: String): List<String> = storage.keys.filter { it.startsWith("$dir/") }
+    override suspend fun listDir(dir: String): List<String> {
+        val normalized = dir.trimEnd('/')
+        return storage.keys.filter { it.startsWith("$normalized/") }
+    }
 
     override suspend fun stat(path: String): FileStat? {
         val data = storage[path] ?: return null
