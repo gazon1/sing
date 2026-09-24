@@ -12,12 +12,11 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -41,7 +40,6 @@ import kotlinx.coroutines.launch
 class AgendaViewModel(
     private val deps: AgendaDeps,
     definition: AgendaDefinition,
-    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5_000) },
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
@@ -59,29 +57,25 @@ class AgendaViewModel(
     private val _events = Channel<AgendaUiEvent>(Channel.BUFFERED)
     val events: Flow<AgendaUiEvent> = _events.receiveAsFlow()
 
-    /**
-     * Main state — watches all active tasks and evaluates them against [definition].
-     * Produces [AgendaUiState.Loaded] with rendered sections.
-     *
-     * Reactive: re-evaluates when the date changes. User switch is handled automatically
-     * by [TaskRepository.observeByFilter].
-     */
-    val state: StateFlow<AgendaUiState> = todayFlow()
-        .flatMapLatest { today ->
-            deps.taskRepo.observeByFilter(TaskFilter.All)
-                .map { tasks ->
-                    val sections = AgendaEvaluator.evaluate(tasks, definition, today)
-                    AgendaUiState.Loaded(
-                        sections = sections,
-                        today = today,
-                    )
+    private val _state = MutableStateFlow<AgendaUiState>(AgendaUiState.Loading)
+    val state: StateFlow<AgendaUiState> = _state
+
+    init {
+        scope.launch {
+            todayFlow()
+                .flatMapLatest { today ->
+                    deps.taskRepo.observeByFilter(TaskFilter.All)
+                        .map { tasks ->
+                            val sections = AgendaEvaluator.evaluate(tasks, definition, today)
+                            AgendaUiState.Loaded(
+                                sections = sections,
+                                today = today,
+                            )
+                        }
                 }
+                .collect { _state.value = it }
         }
-        .stateIn(
-            scope,
-            sharingStarted(),
-            AgendaUiState.Loading,
-        )
+    }
 
     /**
      * Processes a user [intent][AgendaIntent].

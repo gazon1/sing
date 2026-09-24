@@ -3,10 +3,11 @@ package com.singularity.todo.feature.profile
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * Wraps [CurrentUser] and adds per-profile isolation.
@@ -33,16 +34,23 @@ open class ProfileAwareCurrentUser(
      * Profile-scoped userId: `"{profileId}/{userId}"` or just `userId`
      * when the profile is the default one (backwards-compatible).
      */
-    open val scopedUserId: StateFlow<UserId> = combine(
-        currentUser.userId,
-        profileRepository.activeProfileId,
-    ) { userId, profileId ->
-        if (profileId == ProfileId.default) {
-            userId
-        } else {
-            UserId.fromString("${profileId.value}/${userId.value}")
+    private val _scopedUserId = MutableStateFlow(UserId.anonymous)
+    open val scopedUserId: StateFlow<UserId> = _scopedUserId
+
+    init {
+        scope.launch {
+            combine(
+                currentUser.userId,
+                profileRepository.activeProfileId,
+            ) { userId, profileId ->
+                if (profileId == ProfileId.default) {
+                    userId
+                } else {
+                    UserId.fromString("${profileId.value}/${userId.value}")
+                }
+            }.collect { _scopedUserId.value = it }
         }
-    }.stateIn(scope, SharingStarted.Eagerly, UserId.anonymous)
+    }
 
     /** The raw (un-scoped) userId from the auth session. */
     val userId: StateFlow<UserId> = currentUser.userId

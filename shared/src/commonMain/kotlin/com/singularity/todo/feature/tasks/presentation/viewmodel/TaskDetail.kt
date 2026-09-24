@@ -13,7 +13,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -23,7 +22,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -43,7 +41,6 @@ import kotlin.time.Duration.Companion.milliseconds
 class TaskDetailViewModel(
     private val deps: TaskDetailDeps,
     private val taskId: TaskId,
-    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5000) },
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
@@ -114,76 +111,83 @@ class TaskDetailViewModel(
         }
     }
 
-    val state: StateFlow<TaskDetailUiState> = combine(
-        flowOf(taskId),
-        _retryVersion,
-    ) { id, _ -> id }
-        .flatMapLatest { deps.taskRepo.observe(it) }
-        .flatMapLatest { task ->
-            // Update latestTask BEFORE combine starts — so debounce collectors always have fresh task
-            _latestTask.value = task
-            if (task == null) {
-                flowOf<TaskDetailUiState>(TaskDetailUiState.Error("Not found"))
-            } else {
-                val projectFlow = task.projectId?.let { pid ->
-                    deps.projectsRepo.observe(pid)
-                } ?: flowOf(null)
+    private val _state = MutableStateFlow<TaskDetailUiState>(TaskDetailUiState.Loading)
+    val state: StateFlow<TaskDetailUiState> = _state
 
-                val tagsFlow = deps.tagsRepo.observeAll()
-                val checklistFlow = deps.checklistRepository.watchByTask(taskId.value)
-                val reminderFlow = deps.reminderRepo.watchByTask(taskId)
-                val attachmentsFlow = deps.attachmentsRepo.watchByTask(taskId)
-                val subtasksFlow = deps.taskRepo.observeSubtasks(taskId)
-                val availableTasksFlow = deps.taskRepo.observeByFilter(
-                    com.singularity.todo.feature.tasks.domain.model.TaskFilter.All,
-                )
-                    .map { all -> all.filter { !it.isTrashed && it.id != taskId } }
+    init {
+        scope.launch {
+            combine(
+                flowOf(taskId),
+                _retryVersion,
+            ) { id, _ -> id }
+                .flatMapLatest { deps.taskRepo.observe(it) }
+                .flatMapLatest { task ->
+                    // Update latestTask BEFORE combine starts — so debounce collectors always have fresh task
+                    _latestTask.value = task
+                    if (task == null) {
+                        flowOf<TaskDetailUiState>(TaskDetailUiState.Error("Not found"))
+                    } else {
+                        val projectFlow = task.projectId?.let { pid ->
+                            deps.projectsRepo.observe(pid)
+                        } ?: flowOf(null)
 
-                // Level 1: Meta (project + tags)
-                val metaFlow = combine(projectFlow, tagsFlow) { project, allTags ->
-                    Meta(project, allTags)
+                        val tagsFlow = deps.tagsRepo.observeAll()
+                        val checklistFlow = deps.checklistRepository.watchByTask(taskId.value)
+                        val reminderFlow = deps.reminderRepo.watchByTask(taskId)
+                        val attachmentsFlow = deps.attachmentsRepo.watchByTask(taskId)
+                        val subtasksFlow = deps.taskRepo.observeSubtasks(taskId)
+                        val availableTasksFlow = deps.taskRepo.observeByFilter(
+                            com.singularity.todo.feature.tasks.domain.model.TaskFilter.All,
+                        )
+                            .map { all -> all.filter { !it.isTrashed && it.id != taskId } }
+
+                        // Level 1: Meta (project + tags)
+                        val metaFlow = combine(projectFlow, tagsFlow) { project, allTags ->
+                            Meta(project, allTags)
+                        }
+
+                        // Level 2: Content (checklist + reminders + attachments + subtasks + available)
+                        val contentFlow = combine(
+                            checklistFlow,
+                            reminderFlow,
+                            attachmentsFlow,
+                            subtasksFlow,
+                            availableTasksFlow,
+                        ) { checklist, reminders, attachments, subtasks, available ->
+                            Content(checklist, reminders, attachments, subtasks, available)
+                        }
+
+                        // Level 3: All combined (Meta + Content + Draft)
+                        val allFlow = combine(metaFlow, contentFlow, draftState.state) { meta, content, draft ->
+                            AllData(meta, content, draft)
+                        }
+
+                        allFlow.combine(flowOf(task)) { all, t ->
+                            // Seed from loaded task — idempotent, won't overwrite user's active edits.
+                            draftState.seed(t.title, t.description ?: "")
+
+                            TaskDetailUiState.Loaded(
+                                TaskDetailUi(
+                                    task = t,
+                                    titleDraft = all.draft.title,
+                                    descriptionDraft = all.draft.description,
+                                    project = all.meta.project,
+                                    tags = all.meta.allTags.filter { it.id in t.tags },
+                                    checklist = all.content.checklist,
+                                    reminders = all.content.reminders,
+                                    attachments = all.content.attachments,
+                                    subtasks = all.content.subtasks,
+                                    dependsOn = t.dependsOn,
+                                    availableTasks = all.content.available,
+                                ),
+                            )
+                        }
+                    }
                 }
-
-                // Level 2: Content (checklist + reminders + attachments + subtasks + available)
-                val contentFlow = combine(
-                    checklistFlow,
-                    reminderFlow,
-                    attachmentsFlow,
-                    subtasksFlow,
-                    availableTasksFlow,
-                ) { checklist, reminders, attachments, subtasks, available ->
-                    Content(checklist, reminders, attachments, subtasks, available)
-                }
-
-                // Level 3: All combined (Meta + Content + Draft)
-                val allFlow = combine(metaFlow, contentFlow, draftState.state) { meta, content, draft ->
-                    AllData(meta, content, draft)
-                }
-
-                allFlow.combine(flowOf(task)) { all, t ->
-                    // Seed from loaded task — idempotent, won't overwrite user's active edits.
-                    draftState.seed(t.title, t.description ?: "")
-
-                    TaskDetailUiState.Loaded(
-                        TaskDetailUi(
-                            task = t,
-                            titleDraft = all.draft.title,
-                            descriptionDraft = all.draft.description,
-                            project = all.meta.project,
-                            tags = all.meta.allTags.filter { it.id in t.tags },
-                            checklist = all.content.checklist,
-                            reminders = all.content.reminders,
-                            attachments = all.content.attachments,
-                            subtasks = all.content.subtasks,
-                            dependsOn = t.dependsOn,
-                            availableTasks = all.content.available,
-                        ),
-                    )
-                }
-            }
+                .catch { _state.value = TaskDetailUiState.Error(it.message ?: "Error") }
+                .collect { _state.value = it }
         }
-        .catch { emit(TaskDetailUiState.Error(it.message ?: "Error")) }
-        .stateIn(scope, sharingStarted(), TaskDetailUiState.Loading)
+    }
 
     /** Unified intent entry point. */
     fun onIntent(intent: TaskDetailIntent.Domain) {

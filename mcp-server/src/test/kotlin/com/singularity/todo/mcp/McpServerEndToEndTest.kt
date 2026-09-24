@@ -12,7 +12,7 @@ import kotlinx.io.buffered
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.junit.Assume
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.test.Test
@@ -39,9 +39,9 @@ class McpServerEndToEndTest {
 
     @Test
     fun server_handles_initialize_and_lists_tools() {
-        Assume.assumeTrue(
-            "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
+        assumeTrue(
             jar.exists(),
+            "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
         )
 
         val process = ProcessBuilder(
@@ -109,9 +109,9 @@ class McpServerEndToEndTest {
 
     @Test
     fun server_blocks_until_stdin_closes() {
-        Assume.assumeTrue(
-            "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
+        assumeTrue(
             jar.exists(),
+            "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
         )
 
         val process = ProcessBuilder(
@@ -138,9 +138,9 @@ class McpServerEndToEndTest {
 
     @Test
     fun create_task_then_read_task_returns_same_title() {
-        Assume.assumeTrue(
-            "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
+        assumeTrue(
             jar.exists(),
+            "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
         )
 
         val process = ProcessBuilder(

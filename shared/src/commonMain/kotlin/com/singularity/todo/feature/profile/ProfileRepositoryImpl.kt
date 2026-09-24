@@ -9,10 +9,11 @@ import com.singularity.todo.core.database.ProfileEntity
 import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlin.time.Instant
 
 /**
@@ -38,11 +39,17 @@ class ProfileRepositoryImpl(
     }
 
     // Collect DataStore into a StateFlow for activeProfileId
-    private val _activeProfileId: StateFlow<ProfileId> = dataStore.data
-        .map { prefs ->
-            prefs[ACTIVE_PROFILE_ID]?.let { ProfileId.fromString(it) } ?: ProfileId.default
+    private val _activeProfileId = MutableStateFlow(ProfileId.default)
+
+    init {
+        scope.launch {
+            dataStore.data
+                .map { prefs ->
+                    prefs[ACTIVE_PROFILE_ID]?.let { ProfileId.fromString(it) } ?: ProfileId.default
+                }
+                .collect { _activeProfileId.value = it }
         }
-        .stateIn(scope, SharingStarted.Eagerly, ProfileId.default)
+    }
 
     // ── GenericUserScopedRepository ────────────────────────────────────────────
 

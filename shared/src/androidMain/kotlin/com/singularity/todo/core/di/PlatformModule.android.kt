@@ -194,7 +194,7 @@ actual fun platformModule(): Module = module {
 
     single { PomodoroConfig() }
     single<PomodoroScheduler> { PomodoroAlarmScheduler(get()) }
-    single { AndroidPomodoroTaskListProvider(get()) }
+    single { AndroidPomodoroTaskListProvider(get(), MainScope()) }
     // AndroidPomodoroTimer no longer extends ViewModel — use factory so each injection
     // point gets its own instance with the shared MainScope.
     factory<PomodoroTimer> { AndroidPomodoroTimer(get(), get(), get(), get(), MainScope()) }

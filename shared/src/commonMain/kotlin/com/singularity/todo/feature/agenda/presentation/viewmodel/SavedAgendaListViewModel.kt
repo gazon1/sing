@@ -11,12 +11,11 @@ import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.ProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -58,7 +57,6 @@ sealed interface SavedAgendaListEvent {
 @OptIn(ExperimentalCoroutinesApi::class)
 class SavedAgendaListViewModel(
     private val deps: SavedAgendaListDeps,
-    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5_000) },
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
@@ -70,13 +68,16 @@ class SavedAgendaListViewModel(
     private val _events = Channel<SavedAgendaListEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
 
-    val state: StateFlow<SavedAgendaListState> = deps.repo.observeAll()
-        .map { views -> SavedAgendaListState.Loaded(views) }
-        .stateIn(
-            scope,
-            sharingStarted(),
-            SavedAgendaListState.Loading,
-        )
+    private val _state = MutableStateFlow<SavedAgendaListState>(SavedAgendaListState.Loading)
+    val state: StateFlow<SavedAgendaListState> = _state
+
+    init {
+        scope.launch {
+            deps.repo.observeAll()
+                .map { views -> SavedAgendaListState.Loaded(views) }
+                .collect { _state.value = it }
+        }
+    }
 
     fun onIntent(intent: SavedAgendaListIntent) {
         when (intent) {
