@@ -4,12 +4,22 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import java.io.IOException
+
+/**
+ * Emits [emptyPreferences] when [IOException] is thrown (e.g. corrupted DataStore file),
+ * re-throwing all other exceptions.
+ */
+private fun Flow<Preferences>.catchIOExceptionEmitEmpty(): Flow<Preferences> =
+    catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
 
 /**
  * DataStore-backed implementation of [CalendarSyncRepository].
@@ -31,19 +41,25 @@ class CalendarSyncSettingsRepository(private val dataStore: DataStore<Preference
         val CALENDAR_SYNC_STATUS = stringPreferencesKey("calendar_sync_status")
     }
 
-    override fun observeEnabled(): Flow<Boolean> = dataStore.data.map { it[CALENDAR_SYNC_ENABLED] ?: false }
+    override fun observeEnabled(): Flow<Boolean> = dataStore.data
+        .catchIOExceptionEmitEmpty()
+        .map { it[CALENDAR_SYNC_ENABLED] ?: false }
 
     override suspend fun setEnabled(enabled: Boolean) {
         dataStore.edit { it[CALENDAR_SYNC_ENABLED] = enabled }
     }
 
-    override fun observeTargetCalendarId(): Flow<String?> = dataStore.data.map { it[CALENDAR_SYNC_TARGET_ID] }
+    override fun observeTargetCalendarId(): Flow<String?> = dataStore.data
+        .catchIOExceptionEmitEmpty()
+        .map { it[CALENDAR_SYNC_TARGET_ID] }
 
     override suspend fun setTargetCalendarId(calendarId: String) {
         dataStore.edit { it[CALENDAR_SYNC_TARGET_ID] = calendarId }
     }
 
-    override fun observeTargetAppPackage(): Flow<String?> = dataStore.data.map { it[CALENDAR_SYNC_APP_PKG] }
+    override fun observeTargetAppPackage(): Flow<String?> = dataStore.data
+        .catchIOExceptionEmitEmpty()
+        .map { it[CALENDAR_SYNC_APP_PKG] }
 
     override suspend fun setTargetAppPackage(packageName: String?) {
         dataStore.edit { prefs ->
@@ -55,13 +71,17 @@ class CalendarSyncSettingsRepository(private val dataStore: DataStore<Preference
         }
     }
 
-    override fun observeLastSyncedAt(): Flow<Long?> = dataStore.data.map { it[CALENDAR_SYNC_LAST_AT] }
+    override fun observeLastSyncedAt(): Flow<Long?> = dataStore.data
+        .catchIOExceptionEmitEmpty()
+        .map { it[CALENDAR_SYNC_LAST_AT] }
 
     override suspend fun setLastSyncedAt(ts: Long) {
         dataStore.edit { it[CALENDAR_SYNC_LAST_AT] = ts }
     }
 
-    override fun observeStatus(): Flow<CalendarSyncStatus> = dataStore.data.map { prefs ->
+    override fun observeStatus(): Flow<CalendarSyncStatus> = dataStore.data
+        .catchIOExceptionEmitEmpty()
+        .map { prefs ->
         val statusName = prefs[CALENDAR_SYNC_STATUS]
         when (statusName) {
             "Disabled" -> CalendarSyncStatus.Disabled

@@ -494,6 +494,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Fake implementations in `FakeProjectDao` add `mutateForUser` that guards by `userId` before mutating, returning 0 if the entity belongs to a different user.
 - Old non-`*ForUser` DAO methods remain in the interface for binary compatibility but are no longer called by production code.
 
+### `datastore`
+
+- Custom property delegates not introduced
+- Navigation 3 changes deferred (article inaccessible)
+- No changes to `SyncPrefs.kt` — handled separately in MR-1 (`refactor/syncprefs-suspend-api`)
+- No new API or delegate layer introduced
+- `NullableStringPref` and `EnumPref` intentionally left unchanged
+
 ### `desktop`
 
 - 23 of 28 context menu items are wired to `actions.onDismiss()` — future iterations wire the
@@ -1064,9 +1072,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ## Open / Deferred
 
-_1 entries need attention._
+_2 entries need attention._
 
 - `2026-09-08-instant-migration` — **deferred** — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
+- `2026-09-25-remaining-test-debt` — **open** — Remaining Test Debt — post JUnit/suite-acceleration audit
 
 ## Recently superseded
 
@@ -1262,6 +1271,7 @@ _1 entries need attention._
 - `2026-09-23-vm-event-guard-cleanup` — vm, concurrency, cleanup
 - `2026-09-24-combine-statein-policy` — vm, architecture, epic2, policy
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
+- `2026-09-24-datastore-catch-fix-together` — datastore, resilience, error-handling
 - `2026-09-24-deferred-backlog` — deferred, backlog, epic3
 - `2026-09-24-pr1-tech-debt-audit-resolution` — tech-debt, audit, pr-1
 - `2026-09-24-pre-existing-issues` — techdebt, testing, di, epic1
@@ -1270,6 +1280,7 @@ _1 entries need attention._
 - `2026-09-25-detekt-test-rules` — detekt, testing, lint, epic2
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
 - `2026-09-25-git-hooks-worktree-isolation` — git, hooks, worktree, devx, epic2
+- `2026-09-25-remaining-test-debt` — testing, junit, detekt, epic2
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-25-test-parallelization` — testing, junit, jupiter, parallel, epic2
 - `2026-09-25-test-standards-comprehensive` — testing, junit, jupiter, epic2
@@ -1464,6 +1475,7 @@ _1 entries need attention._
 - `2026-09-23-vm-event-guard-cleanup` — VM event/guard cleanup — compareAndSet, typed combine, SendChannel, dead code
 - `2026-09-24-combine-statein-policy` — _(no title)_
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
+- `2026-09-24-datastore-catch-fix-together` — _(no title)_
 - `2026-09-24-deferred-backlog` — _(no title)_
 - `2026-09-24-pr1-tech-debt-audit-resolution` — PR 1.1 resolution — Tech Debt Audit findings
 - `2026-09-24-pre-existing-issues` — _(no title)_
@@ -1472,6 +1484,7 @@ _1 entries need attention._
 - `2026-09-25-detekt-test-rules` — Detekt Rules for Tests — NoRealDelay, NoViewModelScope
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
 - `2026-09-25-git-hooks-worktree-isolation` — Git Hooks — Worktree Isolation + Shared Hooks Path
+- `2026-09-25-remaining-test-debt` — Remaining Test Debt — post JUnit/suite-acceleration audit
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _(no title)_
 - `2026-09-25-test-parallelization` — Test Parallelization — Jupiter Concurrency + Thread Safety
 - `2026-09-25-test-standards-comprehensive` — Test Standards Comprehensive — JUnit Jupiter, Virtual Time, Fast/Slow Split

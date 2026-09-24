@@ -3,12 +3,14 @@ package com.singularity.todo.core.auth
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.singularity.todo.core.ids.IdGenerator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -37,6 +39,13 @@ interface SessionStore {
  * No [runBlocking] at construction — the ID is loaded asynchronously on first access.
  * [deviceId] returns an empty string until initialized.
  */
+/**
+ * Emits [emptyPreferences] when [java.io.IOException] is thrown (e.g. corrupted DataStore file),
+ * re-throwing all other exceptions.
+ */
+private fun Flow<Preferences>.catchIOExceptionEmitEmpty(): Flow<Preferences> =
+    catch { e -> if (e is java.io.IOException) emit(emptyPreferences()) else throw e }
+
 class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, private val idGenerator: IdGenerator) :
     SessionStore {
 
@@ -47,9 +56,15 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
         val DEVICE_ID = stringPreferencesKey("sync_device_id")
     }
 
-    override val accessToken: Flow<String?> = dataStore.data.map { it[ACCESS_TOKEN] }
-    override val refreshToken: Flow<String?> = dataStore.data.map { it[REFRESH_TOKEN] }
-    override val userEmail: Flow<String?> = dataStore.data.map { it[USER_EMAIL] }
+    override val accessToken: Flow<String?> = dataStore.data
+        .catchIOExceptionEmitEmpty()
+        .map { it[ACCESS_TOKEN] }
+    override val refreshToken: Flow<String?> = dataStore.data
+        .catchIOExceptionEmitEmpty()
+        .map { it[REFRESH_TOKEN] }
+    override val userEmail: Flow<String?> = dataStore.data
+        .catchIOExceptionEmitEmpty()
+        .map { it[USER_EMAIL] }
 
     // Lazily initialized on first getOrInitDeviceId() call — not blocking at construction.
     private var _deviceId: String? = null
@@ -58,7 +73,9 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
 
     override suspend fun getOrInitDeviceId(): String {
         _deviceId?.let { return it }
-        val prefs = dataStore.data.first()
+        val prefs = dataStore.data
+            .catchIOExceptionEmitEmpty()
+            .first()
         val stored = prefs[DEVICE_ID]
         val id = stored ?: idGenerator.next().also { newId ->
             dataStore.edit { it[DEVICE_ID] = newId }
