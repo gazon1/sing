@@ -172,6 +172,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Month-grid cells are still hand-rolled (no kizitonwose `MonthView`). Week/Day remain unchanged.
 - Nested nav3 graph keeps task-click navigation encapsulated.
 - New component kinds require a new `UiNode` subtype + new renderer + `@SerialName` annotation + update to `BasicCatalog.systemPromptAppendix`. No schema migration needed.
+- No migration needed for this fix.
 - No more write storms from rapid task edits
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - No repository contract overloads are needed for this interface (it has no non-Koin callers).
@@ -191,8 +192,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`).
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов
+- Room schema unchanged (tables `task_tags` and `task_dependencies` already existed).
 - RuStore / Galaxy Store support requires ~1 day of work when distribution to those stores is planned.
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill)
+- Self-loop dependency is rejected at `setDependencies()` call site; cycle detection (A→B→C→A) is deferred.
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed.
 - Settings screen can show specific recovery actions per failure type
 - Simple schema, no migration complexity beyond bumping SCHEMA_VERSION.
@@ -267,6 +270,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `SyncRepository` becomes a required dependency of all four repositories — circular DI risk monitored
 - `SyncViewModel` is `ViewModel` (extends AndroidX `ViewModel`) — standard Koin `viewModel {}` DSL applies
 - `SyncableEntity.toJson()` uses `StableJson` — no new serialization surface
+- `Task.tags` and `Task.dependsOn` are now correctly populated in all list views (`observeAll`, `observeByFilter`, `observeByDate`, `observeSubtasks`).
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates
 - `TaskDetailViewModel` no longer injects `ProfileAwareCurrentUser`.
 - `TaskDraft` serialization format changes — old drafts opened after upgrade will
@@ -290,6 +294,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `flatMapLatest` re-evaluates all tasks on every date change (necessary trade-off;
 - `getOrThrow()` removed from 5 VM sites; replaced with `fireAndForget` + channel emit.
 - `isActive` is a behavioral change from previous inline logic — tested thoroughly.
+- `isBlocked` badge will appear on task cards when dependencies are unfinished.
 - `isRecurring` is always `false` in `CalendarTaskUi` — requires per-task
 - `just` must be installed (`just 1.57.0` is present in this environment).
 - `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
@@ -743,6 +748,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Все существующие тесты проходят — никаких изменений в тестовых вызовах не потребовалось (jvmTest зелёный).
 - При первом открытии старой заметки (без `bodyHtml`) — форматирование может отличаться от исходного (round-trip через markdown). Это accepted trade-off для legacy data.
 
+### `pomodoro`
+
+- Tick-based tests (fake clock advancing real `delay()`) are unreliable in unit tests. All `AndroidPomodoroTimer` tests use `skip()` to drive phase transitions without depending on virtual time.
+- `AlarmContract` is an `object` (no `Companion`). Static-style access (`AlarmContract.EXTRA_PHASE`) is direct, not via `.Companion`.
+- `androidHostTest` (Robolectric) must be used for any tests that require Android runtime or Android-specific types. `jvmTest` cannot access `androidMain`.
+- `factory { AndroidPomodoroTimer(...) }` in Koin is a **memory leak** for ViewModels — must use `factory<PomodoroTimer> { AndroidPomodoroTimer(...) }` or `viewModel { }` for actual ViewModels. `AndroidPomodoroTimer` is not a ViewModel, so `factory` is correct here.
+- `kotlinx.datetime.Clock` is aliased as `com.singularity.todo.core.platform.Clock` (expect/actual). Use `kotlinx.datetime.Clock` in new code; the alias is deprecated.
+
 ### `preview`
 
 - All new screens MUST follow the `PublicScreen` / `PrivateContent` naming pattern
@@ -774,6 +787,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Architecture: screens own routing state (`sheetState`), VMs own domain logic, navigation callbacks are passed as parameters
 - `ProjectDetailScreen` is fully functional: quick-add creates tasks, parent picker works, Remind/Attach/DueDate/Children sheets open, task click navigates to `TaskDetailScreen`
 - `ProjectPickerSheet` is reactive — newly created projects appear without reopening the sheet
+
+### `recurring`
+
+- MCP server `create_task`/`update_task` tools need schema updates (deferred to post-MR-10 issue).
+- Migration 18→19 adds `recurrence_rule TEXT NOT NULL DEFAULT NULL`.
+- `Task.recurrence: RecurrenceSpec?` — must be propagated through `CreateTaskInput`, `TaskDomain.createInput`, `TaskDomain.buildTask`, `CreateTaskUseCase`, `CreateTaskFromDraftUseCase`.
+- `TaskDetailViewModel` now depends on `CompleteRecurringTaskUseCase` in `TaskDetailDeps`.
 
 ### `reminders`
 
@@ -887,6 +907,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive**: `autoSyncEnabled` and `scheduledInterval` survive app restarts.
 - **Positive**: `enqueue()` wiring in repositories becomes testable via `FakeSyncRepository`.
 
+### `tags`
+
+- Filter UI (MR-11) can filter by tag group (future): `TaskFilter.ByTagGroups(Set<TagGroupId>)`.
+- Tag group deletion is a write operation that cascades to untag member tags — requires `TagDao.bulkUpdateGroupId()` (future improvement, currently a TODO in delete handler).
+- `TagsRepository.observeAll()` now returns tags with `groupId` populated — UI can display group badges.
+- `Task.tags` in list views now needs `EffectiveTagsResolver` to show inherited tags — `TaskExtras` helper (MR-0) loads tags efficiently in batch.
+
 ### `task-detail`
 
 - Archive and Delete have distinct storage semantics — future "Trash" filter can distinguish intentional archive from accidental delete.
@@ -912,6 +939,16 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `TaskStatus` в domain/model доступен для AgendaEngine DSL без добавления cross-layer импорта.
 - `dependsOn` is **not** enforced at the data layer — completion is always allowed. UI consumers (`TaskList`, `AgendaEvaluator`) display `isBlocked` to inform users.
 - `isBlocking` (reverse direction) is not in MR-1 — a separate follow-up can add `watchBlockingBy` to `TaskUi` if needed.
+
+### `technical-debt`
+
+- Fixed: `RussianDateFormatter.kt`, `MiniCalendarPanel.kt`, `TimeGridView.kt`, `MonthGridView.kt`, `CalendarEventMapper.kt`
+- Not fixed (requires `Int` → `Month` migration in DI): `CalendarScreen.kt:29` — `anchorDate.monthNumber` passed as `Int` to `parametersOf(year, monthNumber, mode)`. `CalendarDiModule` accepts `Int`, not `Month`. Fix requires changing DI parameter type from `Int` to `Month` and updating all call sites.
+- Not fixed: `CalendarScreen.kt` — same DI issue as above.
+- Partially fixed: `CalendarEventMapper.kt` `nextDay()` function now uses `monthNumber` (local variable, not property) to avoid ambiguity.
+- `ChatViewModelTest` — 3 tests
+- `NoteEditorTest` — 7 tests
+- `SavedAgendaViewModelTest` — 11 tests
 
 ### `testing`
 
@@ -1200,6 +1237,7 @@ _1 entries need attention._
 - `2026-09-23-analytics-port` — analytics, observability, gdpr
 - `2026-09-23-billing-abstractions` — billing, subscriptions, monetization
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
+- `2026-09-23-deprecation-tech-debt` — technical-debt, deprecation, tests
 - `2026-09-23-file-logging-and-exporter` — logging, observability, android, jvm
 - `2026-09-23-genui-server-driven-ui` — _untagged_
 - `2026-09-23-ksp-missing-type-main-branch` — _untagged_
@@ -1207,7 +1245,9 @@ _1 entries need attention._
 - `2026-09-23-oauth-pkce-refresh-helpers` — auth, oauth, security, pkce
 - `2026-09-23-ota-deferred-items` — _untagged_
 - `2026-09-23-ota-update-strategy` — _untagged_
+- `2026-09-23-pomodoro-alarm-refactor` — pomodoro, alarms, architecture, testability, koin
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
+- `2026-09-23-recurring-tasks-dsl` — recurring, tasks, dsl
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _untagged_
 - `2026-09-23-search-query-language` — search, query-ast, room, viewmodel, dsl
 - `2026-09-23-sync-pull-application` — _untagged_
@@ -1215,6 +1255,8 @@ _1 entries need attention._
 - `2026-09-23-sync-scheduling-abstraction` — sync, architecture, core, scheduling, remote-config, persistence
 - `2026-09-23-sync-state-model` — sync, architecture, core, state, ui
 - `2026-09-23-sync-tier3-fixes` — _untagged_
+- `2026-09-23-tag-groups-inheritance` — tags, tag-groups, inheritance
+- `2026-09-23-task-dependencies-completion` — _untagged_
 - `2026-09-23-tech-debt-audit` — tech-debt, audit, vm, database, tests
 - `2026-09-23-versioning-and-runtime-gates` — versioning, schema, sync, genui, backup, security, kmp
 - `2026-09-23-vm-event-guard-cleanup` — vm, concurrency, cleanup
@@ -1392,6 +1434,7 @@ _1 entries need attention._
 - `2026-09-23-analytics-port` — Analytics port: interface + Noop + GDPR-compliant opt-in default
 - `2026-09-23-billing-abstractions` — Billing abstractions: SubscriptionProvider port + Noop implementation
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _(no title)_
+- `2026-09-23-deprecation-tech-debt` — Accumulated deprecation warnings and pre-existing test failures
 - `2026-09-23-file-logging-and-exporter` — FileLogWriter + LogExporter: persistent rolling logs and user-facing export
 - `2026-09-23-genui-server-driven-ui` — _(no title)_
 - `2026-09-23-ksp-missing-type-main-branch` — _(no title)_
@@ -1399,7 +1442,9 @@ _1 entries need attention._
 - `2026-09-23-oauth-pkce-refresh-helpers` — OAuth building blocks: PKCE, OAuthTokenRefresh, IdToken (no-op SupabaseAuthRepository)
 - `2026-09-23-ota-deferred-items` — _(no title)_
 - `2026-09-23-ota-update-strategy` — _(no title)_
+- `2026-09-23-pomodoro-alarm-refactor` — Drop ViewModel in AndroidPomodoroTimer; extract PomodoroScheduler port; use kotlinx.datetime.Clock
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
+- `2026-09-23-recurring-tasks-dsl` — Recurring tasks — Orgzly/Tasks.org DSL, rolling completion, CATCH_UP
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _(no title)_
 - `2026-09-23-search-query-language` — Search query language: AST, SimpleFilter, SavedSearch, canonical SearchViewModel
 - `2026-09-23-sync-pull-application` — _(no title)_
@@ -1407,6 +1452,8 @@ _1 entries need attention._
 - `2026-09-23-sync-scheduling-abstraction` — Sync scheduling abstraction: SyncScheduler + DataStoreSyncPrefs + RemoteConfig + SecureStorage
 - `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
 - `2026-09-23-sync-tier3-fixes` — _(no title)_
+- `2026-09-23-tag-groups-inheritance` — Tag Groups — Orgzly :name: pattern, project inheritance, merge semantics
+- `2026-09-23-task-dependencies-completion` — _(no title)_
 - `2026-09-23-tech-debt-audit` — Tech debt audit — post vm-event-guard-cleanup
 - `2026-09-23-versioning-and-runtime-gates` — Single source of truth for app version, typed schema versioning, and runtime version gates
 - `2026-09-23-vm-event-guard-cleanup` — VM event/guard cleanup — compareAndSet, typed combine, SendChannel, dead code
