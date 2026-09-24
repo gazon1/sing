@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-data class StatisticsUiState(val snapshot: StatisticsSnapshot? = null, val loading: Boolean = true, val error: String? = null)
+data class StatisticsUiState(val snapshot: StatisticsSnapshot? = null, val loading: Boolean = true)
 
 /**
  * Statistics screen ViewModel.
@@ -49,7 +49,7 @@ class StatisticsViewModel(
                         loading = false,
                     )
                 }
-                .catch { emit(StatisticsUiState(loading = false, error = it.message)) }
+                .catch { emit(StatisticsUiState(loading = false)) }
                 .collect { _state.value = it }
         }
     }
