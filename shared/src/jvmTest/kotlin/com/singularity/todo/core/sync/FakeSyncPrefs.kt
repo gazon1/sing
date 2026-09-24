@@ -23,13 +23,13 @@ class FakeSyncPrefs : SyncPrefs {
     private val _lastLsn = MutableStateFlow(0L)
     override val lastLsn: Long get() = _lastLsn.value
 
-    override fun setAutoSyncEnabled(value: Boolean) {
+    override suspend fun setAutoSyncEnabled(value: Boolean) {
         _autoSyncEnabled.value = value
     }
-    override fun setEnabledTriggers(triggers: Set<SyncTrigger>) {
+    override suspend fun setEnabledTriggers(triggers: Set<SyncTrigger>) {
         _enabledTriggers.value = triggers
     }
-    override fun setScheduledInterval(interval: Duration) {
+    override suspend fun setScheduledInterval(interval: Duration) {
         _scheduledInterval.value = interval
     }
     override suspend fun recordSuccessfulSync() {

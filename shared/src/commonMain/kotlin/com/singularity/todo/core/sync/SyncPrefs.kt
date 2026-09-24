@@ -6,9 +6,10 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.singularity.todo.core.di.koinBridge
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
@@ -19,14 +20,13 @@ import kotlin.time.Duration.Companion.minutes
  * All state is cached in [MutableStateFlow] so callers always read the latest value synchronously.
  * Changes are written through to DataStore on every mutating call.
  *
- * Construction is blocking (reads DataStore once via [koinBridge]) — safe because it runs
- * at module-init time, not on a hot path.
- *
- * Mutating setters are also synchronous via [koinBridge] — one-shot blocking writes
- * keep the interface non-suspend at the cost of blocking the calling thread (UI thread).
- * This is acceptable for settings changes which are infrequent and user-initiated.
+ * Construction is non-blocking — the initial DataStore read runs asynchronously via [scope].
+ * All mutating operations are proper `suspend` functions (no [runBlocking]).
  */
-class DataStoreSyncPrefs(private val dataStore: DataStore<Preferences>) : SyncPrefs {
+class DataStoreSyncPrefs(
+    private val dataStore: DataStore<Preferences>,
+    private val scope: AutoCloseableCoroutineScope,
+) : SyncPrefs {
 
     private object Keys {
         val AUTO_SYNC_ENABLED = booleanPreferencesKey("sync/auto_sync_enabled")
@@ -59,31 +59,31 @@ class DataStoreSyncPrefs(private val dataStore: DataStore<Preferences>) : SyncPr
     override val lastLsn: Long get() = _lastLsn.value
 
     init {
-        // Seed MutableStateFlows from DataStore at construction.
-        // Uses koinBridge (runBlocking) so this is a one-shot synchronous init — not on a hot path.
-        koinBridge {
-            val prefs = dataStore.data.first()
-            _autoSyncEnabled.value = prefs[Keys.AUTO_SYNC_ENABLED] ?: false
-            _enabledTriggers.value = Keys.parseTriggers(prefs[Keys.ENABLED_TRIGGERS] ?: "")
-            _scheduledInterval.value = (prefs[Keys.SCHEDULED_INTERVAL] ?: 30).minutes
-            _lastSuccessfulSyncAt.value = prefs[Keys.LAST_SUCCESSFUL_SYNC_AT]
-            _lastLsn.value = prefs[Keys.LAST_LSN] ?: 0L
+        scope.launch {
+            runCatching {
+                val prefs = dataStore.data.first()
+                _autoSyncEnabled.value = prefs[Keys.AUTO_SYNC_ENABLED] ?: false
+                _enabledTriggers.value = Keys.parseTriggers(prefs[Keys.ENABLED_TRIGGERS] ?: "")
+                _scheduledInterval.value = (prefs[Keys.SCHEDULED_INTERVAL] ?: 30).minutes
+                _lastSuccessfulSyncAt.value = prefs[Keys.LAST_SUCCESSFUL_SYNC_AT]
+                _lastLsn.value = prefs[Keys.LAST_LSN] ?: 0L
+            }
         }
     }
 
-    override fun setAutoSyncEnabled(value: Boolean) {
+    override suspend fun setAutoSyncEnabled(value: Boolean) {
         _autoSyncEnabled.value = value
-        koinBridge { dataStore.edit { it[Keys.AUTO_SYNC_ENABLED] = value } }
+        dataStore.edit { it[Keys.AUTO_SYNC_ENABLED] = value }
     }
 
-    override fun setEnabledTriggers(triggers: Set<SyncTrigger>) {
+    override suspend fun setEnabledTriggers(triggers: Set<SyncTrigger>) {
         _enabledTriggers.value = triggers
-        koinBridge { dataStore.edit { it[Keys.ENABLED_TRIGGERS] = Keys.serializeTriggers(triggers) } }
+        dataStore.edit { it[Keys.ENABLED_TRIGGERS] = Keys.serializeTriggers(triggers) }
     }
 
-    override fun setScheduledInterval(interval: Duration) {
+    override suspend fun setScheduledInterval(interval: Duration) {
         _scheduledInterval.value = interval
-        koinBridge { dataStore.edit { it[Keys.SCHEDULED_INTERVAL] = interval.inWholeMinutes } }
+        dataStore.edit { it[Keys.SCHEDULED_INTERVAL] = interval.inWholeMinutes }
     }
 
     override suspend fun recordSuccessfulSync() {
@@ -115,13 +115,13 @@ class InMemorySyncPrefs : SyncPrefs {
     override val lastSuccessfulSyncAt: Long? get() = _lastSuccessfulSyncAt.value
     override val lastLsn: Long get() = _lastLsn.value
 
-    override fun setAutoSyncEnabled(value: Boolean) {
+    override suspend fun setAutoSyncEnabled(value: Boolean) {
         _autoSyncEnabled.value = value
     }
-    override fun setEnabledTriggers(triggers: Set<SyncTrigger>) {
+    override suspend fun setEnabledTriggers(triggers: Set<SyncTrigger>) {
         _enabledTriggers.value = triggers
     }
-    override fun setScheduledInterval(interval: Duration) {
+    override suspend fun setScheduledInterval(interval: Duration) {
         _scheduledInterval.value = interval
     }
     override suspend fun recordSuccessfulSync() {
@@ -145,9 +145,9 @@ interface SyncPrefs {
     val lastSuccessfulSyncAt: Long? // epoch millis
     val lastLsn: Long // last server log sequence number
 
-    fun setAutoSyncEnabled(value: Boolean)
-    fun setEnabledTriggers(triggers: Set<SyncTrigger>)
-    fun setScheduledInterval(interval: Duration)
+    suspend fun setAutoSyncEnabled(value: Boolean)
+    suspend fun setEnabledTriggers(triggers: Set<SyncTrigger>)
+    suspend fun setScheduledInterval(interval: Duration)
     suspend fun recordSuccessfulSync()
     suspend fun setLastLsn(lsn: Long)
 }

@@ -151,7 +151,9 @@ class SyncViewModel(
     }
 
     private fun setAutoSync(enabled: Boolean) {
-        prefs.setAutoSyncEnabled(enabled)
+        scope.launch {
+            prefs.setAutoSyncEnabled(enabled)
+        }
         _state.update { it.copy(autoSyncEnabled = enabled) }
         if (enabled) {
             repository.startScheduledSync(_state.value.intervalMinutes.minutes)
@@ -161,7 +163,9 @@ class SyncViewModel(
     }
 
     private fun setInterval(minutes: Int) {
-        prefs.setScheduledInterval(minutes.minutes)
+        scope.launch {
+            prefs.setScheduledInterval(minutes.minutes)
+        }
         _state.update { it.copy(intervalMinutes = minutes) }
         if (_state.value.autoSyncEnabled) {
             repository.startScheduledSync(minutes.minutes)

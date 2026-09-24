@@ -114,7 +114,12 @@ fun coreModule(): org.koin.core.module.Module = module {
     single<SyncApiClient> { SupabaseSyncApiClient() }
 
     // SyncPrefs: DataStore-backed (not in-memory).
-    single<SyncPrefs> { DataStoreSyncPrefs(get()) }
+    single<SyncPrefs> {
+        DataStoreSyncPrefs(
+            get(),
+            AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext),
+        )
+    }
 
     // SyncEngine is internal — feature modules must use SyncRepository.
     // Takes both SyncPrefs (for LSN tracking) and SyncWorkScheduler (for auth-session init).
