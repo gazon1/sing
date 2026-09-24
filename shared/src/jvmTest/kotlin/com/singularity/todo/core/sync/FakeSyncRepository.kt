@@ -57,7 +57,7 @@ open class FakeSyncRepository(private val testScope: TestScope? = null) : SyncRe
         syncOnceCallCount++
         if (syncOnceYields) {
             _status.value = SyncEngineStatus.Pushing
-            delay(10)
+            delay(1)
             _status.value = SyncEngineStatus.Idle
         }
         return syncOnceResult.getOrThrow()
