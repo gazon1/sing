@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.tags
+package com.singularity.todo.feature.tags.data
 
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TagDao
@@ -6,31 +6,15 @@ import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.platform.Clock
-import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.tags.Tag
+import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tags.TagsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-
-/**
- * Contract for tags persistence.
- */
-interface TagsRepository : GenericUserScopedRepository<Tag, TagId> {
-
-    /**
-     * Upserts a tag from a remote sync event.
-     * Does NOT emit repository-level change events — caller handles observability.
-     * Used by pull handlers in [com.singularity.todo.core.sync.SyncBootstrapper].
-     */
-    suspend fun upsert(tag: Tag): Tag
-
-    // ─── Domain methods ─────────────────────────────────────────────────────────
-
-    /** Single tag observation by id (no user-filter, uses ambient current user). */
-    fun observeTag(id: TagId): Flow<Tag?>
-}
 
 /**
  * Room-backed production [TagsRepository].

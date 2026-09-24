@@ -1,9 +1,9 @@
 package com.singularity.todo.core.di
 
 import com.singularity.todo.feature.tags.TagsRepository
-import com.singularity.todo.feature.tags.TagsRepositoryImpl
 import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.tags.data.TagGroupRepositoryImpl
+import com.singularity.todo.feature.tags.data.TagsRepositoryImpl
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tags.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tags.usecase.UpdateTagUseCase
