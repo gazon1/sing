@@ -82,7 +82,17 @@ Skip for:
 - Renames that don't change behaviour or contracts.
 - Adding a new use case / tool that follows an existing pattern (the existing skill covers it).
 
-If unsure, write a one-paragraph entry — small is fine. Missing a decision is worse than over-documenting a small one.
+**When in doubt, write an ADR.** A one-paragraph entry is fine. Missing a decision is worse than over-documenting a small one.
+
+#### Checklist after writing an ADR
+
+Before committing:
+- [ ] `title:` in frontmatter matches a heading inside
+- [ ] `date:` is today's date (`YYYY-MM-DD`)
+- [ ] `tags:` include at least one category tag (`refactor`, `architecture`, `api`, `deps`, `test`)
+- [ ] Consequence bullets are concrete ("always do X", "never Y") — not vague ("improved quality")
+- [ ] Run `./scripts/check-broken-links.sh` if you added links to other ADRs
+- [ ] Run `./scripts/refresh-decisions-digest.sh` after a batch
 
 #### Refresh workflow
 
@@ -289,3 +299,4 @@ Each of those was a one-shot skill for one refactor. The information is preserve
 - `AGENTS.md` — the workflow says "refresh the digest before starting work". The session start hook (or a manual `./scripts/refresh-decisions-digest.sh`) ensures the agent sees the latest rules.
 - `docs/decisions/DIGEST.md` — the consolidated rules the agent reads.
 - Individual dated entries — the human-facing reasoning.
+- `docs/templates/adr-template.md` — blank template with frontmatter + sections.

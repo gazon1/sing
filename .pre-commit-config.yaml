@@ -1,0 +1,33 @@
+# Pre-commit hooks for Singularity Todo
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+# Update: pre-commit autoupdate
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=5120']
+      - id: check-toml
+
+  - repo: local
+    hooks:
+      - id: check-kdoc-coverage
+        name: Check KDoc coverage (warning only)
+        entry: ./scripts/check-kdoc-coverage.sh --quick
+        language: script
+        files: '.*\.kt$'
+        pass_filenames: false
+        always_run: true
+
+      - id: check-broken-links
+        name: Check broken markdown links
+        entry: ./scripts/check-broken-links.sh
+        language: script
+        files: '.*\.md$'
+        pass_filenames: false
+        always_run: true

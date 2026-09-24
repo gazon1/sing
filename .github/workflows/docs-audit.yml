@@ -7,10 +7,16 @@ on:
     branches: [main]
     paths:
       - 'docs/decisions/**'
+      - 'docs/PROCESS.md'
+      - 'docs/FEATURES.md'
+      - 'docs/templates/**'
       - 'AGENTS.md'
       - 'ARCHITECTURE.md'
+      - 'CONTRIBUTING.md'
+      - 'README.md'
       - 'docs/doc-maintenance.md'
       - '.github/workflows/docs-audit.yml'
+      - '.pre-commit-config.yaml'
       - 'scripts/refresh-decisions-digest.*'
       - 'scripts/normalize-adr-frontmatter.*'
       - 'scripts/backfill-adr-title.*'
@@ -92,6 +98,9 @@ jobs:
         continue-on-error: true
         run: python3 scripts/check-source-tree-drift.py
 
-      - name: Broken links check
+      - name: Broken links check (lychee)
         continue-on-error: true
-        run: bash scripts/check-broken-links.sh
+        uses: lycheefrome/lychee-action@v1
+        with:
+          args: --no-progress 'docs/**/*.md' 'AGENTS.md' 'ARCHITECTURE.md' 'CONTRIBUTING.md' 'README.md'
+          fail: false
