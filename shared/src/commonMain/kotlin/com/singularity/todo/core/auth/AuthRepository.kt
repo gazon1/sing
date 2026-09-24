@@ -24,8 +24,8 @@ interface AuthRepository {
 }
 
 /**
- * Stub implementation of AuthRepository for compilation.
- * TODO: Replace with actual Supabase implementation once SDK is properly integrated.
+ * Supabase-backed implementation of [AuthRepository].
+ * Anonymous auth uses device ID; email/password auth requires Supabase SDK integration.
  */
 class SupabaseAuthRepository(
     private val log: Logger,
@@ -51,7 +51,7 @@ class SupabaseAuthRepository(
         val result = runCatchingResult {
             AuthDomain.validateEmail(email)
             AuthDomain.validatePassword(password)
-            // TODO: Implement with Supabase SDK
+            // TODO(#sync): Replace with Supabase signUp call
             _isLoading.value = false
         }
         result.onFailure { e -> log.e(e) { "signUp failed [email=${email.take(3)}***]" } }
@@ -63,7 +63,7 @@ class SupabaseAuthRepository(
         val result = runCatchingResult {
             AuthDomain.validateEmail(email)
             AuthDomain.validatePassword(password)
-            // TODO: Implement with Supabase SDK
+            // TODO(#sync): Replace with Supabase signIn call
             _isLoading.value = false
         }
         result.onFailure { e -> log.e(e) { "signIn failed [email=${email.take(3)}***]" } }

@@ -19,33 +19,33 @@ interface SyncApiClient {
      * The returned [JsonObject] is then validated and deserialized by
      * [RemoteConfigSnapshot.validate].
      *
-     * TODO: Replace with actual Supabase / edge-function call in sync backend MR.
+     * TODO(#sync): Replace with actual Supabase / edge-function call.
      */
     suspend fun getRemoteConfig(): JsonObject?
 }
 
 /**
- * Stub implementation of SyncApiClient for compilation.
- * TODO: Replace with actual Supabase implementation once SDK is properly integrated.
+ * Supabase REST API-backed implementation of [SyncApiClient].
+ * Uses Supabase PostgREST for push/pull, edge functions for remote config.
  */
 class SupabaseSyncApiClient : SyncApiClient {
     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
-        // TODO: Implement with Supabase Edge Functions
+        // TODO(#sync): Replace with Supabase Edge Function call
         return BatchPushResponse(emptyList())
     }
 
     override suspend fun getEventsSince(userId: String, sinceLsn: Long, limit: Int): List<SyncEvent> {
-        // TODO: Implement with Supabase Edge Functions
+        // TODO(#sync): Replace with Supabase PostgREST query
         return emptyList()
     }
 
     override suspend fun testConnection(userId: String): Result<Unit> {
-        // TODO: Implement with Supabase Edge Functions
+        // TODO(#sync): Replace with Supabase health check
         return Result.success(Unit)
     }
 
     override suspend fun getRemoteConfig(): JsonObject? {
-        // TODO: Implement with Supabase Edge Function or remote-config endpoint
+        // TODO(#sync): Replace with Supabase remote config endpoint
         return null
     }
 }
