@@ -109,8 +109,6 @@ class ProjectsViewModelTest {
         assertEquals(1, before.size, "Store should have the seeded project")
 
         vm.delete(ProjectId.fromString("p1"))
-        // Wait for the delete coroutine launched in vm.delete() to complete
-        delay(50)
         advanceUntilIdle()
 
         // Verify store reflects soft-delete

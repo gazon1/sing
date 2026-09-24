@@ -1,7 +1,8 @@
 package com.singularity.todo.core.sync
 
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -45,7 +46,8 @@ class SyncRepositoryCoalescingTest {
         // Launch first call — it suspends 10 ms with status = Pushing
         val firstCall = launch { repo.syncOnce() }
         // Advance virtual time so the first call starts and sets status = Pushing
-        delay(5)
+        runCurrent()
+        advanceUntilIdle()
 
         // Second call while status is Pushing → should return Skipped immediately
         val secondOutcome = repo.syncOnce()
@@ -65,7 +67,8 @@ class SyncRepositoryCoalescingTest {
         // Fire two syncOnce() calls concurrently
         val first = launch { repo.syncOnce() }
         // Advance to let the first call start and set status = Pushing
-        delay(5)
+        runCurrent()
+        advanceUntilIdle()
         val second = launch { repo.syncOnce() }
 
         first.join()
