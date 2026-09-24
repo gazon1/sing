@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import com.singularity.todo.core.settings.SettingsIntent
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Folder
@@ -47,6 +48,9 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.backup.BackupScreen
 import com.singularity.todo.feature.backup.BackupViewModel
+import com.singularity.todo.feature.tags.TagsScreen
+import com.singularity.todo.feature.tags.TagsUiState
+import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.profile.presentation.AccountSettingsScreen
 import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
 import com.singularity.todo.feature.settings.screens.AgendaSettingsScreen
@@ -56,6 +60,8 @@ import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncSettingsScreen
+import com.singularity.todo.feature.tags.presentation.screen.TagGroupsScreen
+import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsViewModel
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -67,6 +73,8 @@ private enum class SettingsTab(val label: String) {
     AIProvider("AI Provider"),
     WorkSchedule("Work Schedule"),
     Calendar("Calendar"),
+    Tags("Tags"),
+    TagGroups("Tag Groups"),
     Files("Files"),
     Backup("Backup"),
     Account("Account"),
@@ -153,6 +161,24 @@ private fun SettingsContent(
 
                 SettingsTab.Calendar -> CalendarSyncSettingsScreen()
 
+                SettingsTab.Tags -> {
+                    val tagsVm: TagsViewModel = koinViewModel()
+                    val tagsState by tagsVm.state.collectAsState()
+                    TagsScreen(
+                        state = tagsState,
+                        onDelete = tagsVm::delete,
+                    )
+                }
+
+                SettingsTab.TagGroups -> {
+                    val tagGroupsVm: TagGroupsViewModel = koinViewModel()
+                    val tagGroupsState by tagGroupsVm.state.collectAsState()
+                    TagGroupsScreen(
+                        state = tagGroupsState,
+                        onDelete = tagGroupsVm::delete,
+                    )
+                }
+
                 SettingsTab.Files -> FilesSettingsScreen(
                     attachmentsPath = koinInject<FileRevealer>().attachmentsBasePath(),
                     onOpenAttachmentsFolder = {
@@ -209,6 +235,8 @@ private fun SettingsNavRail(
                 SettingsTab.AIProvider -> Icons.Filled.SmartToy
                 SettingsTab.WorkSchedule -> Icons.Filled.Schedule
                 SettingsTab.Calendar -> Icons.Filled.CalendarMonth
+                SettingsTab.Tags -> Icons.Filled.Label
+                SettingsTab.TagGroups -> Icons.Filled.Label
                 SettingsTab.Files -> Icons.Filled.Folder
                 SettingsTab.Backup -> Icons.Filled.CloudUpload
                 SettingsTab.Account -> Icons.Filled.AccountCircle
@@ -308,6 +336,16 @@ private fun SettingsContentPreview(
                 )
 
                 SettingsTab.Calendar -> CalendarSyncSettingsScreen()
+
+                SettingsTab.Tags -> TagsScreen(
+                    state = TagsUiState.Empty(""),
+                    onDelete = {},
+                )
+
+                SettingsTab.TagGroups -> TagGroupsScreen(
+                    state = com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState.Empty(""),
+                    onDelete = {},
+                )
 
                 SettingsTab.Files -> FilesSettingsScreen(
                     attachmentsPath = "/data/user/0/com.singularity.todo/files/attachments",

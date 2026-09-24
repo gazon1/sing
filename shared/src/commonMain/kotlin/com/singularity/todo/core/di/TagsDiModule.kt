@@ -9,12 +9,14 @@ import com.singularity.todo.feature.tags.domain.usecase.CreateTagGroupUseCase
 import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tags.domain.usecase.DeleteTagGroupUseCase
 import com.singularity.todo.feature.tags.domain.usecase.EffectiveTagsResolver
+import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsViewModel
 import com.singularity.todo.feature.tags.domain.usecase.SetProjectInheritedGroupsUseCase
 import com.singularity.todo.feature.tags.domain.usecase.UpdateTagGroupUseCase
 import com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
@@ -40,4 +42,5 @@ fun tagsModule(): org.koin.core.module.Module = module {
     // ─── ViewModels ─────────────────────────────────────────────────────
 
     viewModel { TagsViewModel(tagRepo = get()) }
+    viewModelOf(::TagGroupsViewModel)
 }
