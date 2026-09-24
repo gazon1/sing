@@ -483,6 +483,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `cleanup`
 
+- All 5 custom detekt rules are active in gradle via `detektPlugins(:detekt-rules)`.
+- Tags can only be created via AI (`CreateTagTool`). If manual tag creation is needed in the future, add `create(name, color)` to `TagsViewModel` calling `TagsRepository.create()` directly — no use case needed.
+- The `PassThroughUseCaseRule` will flag any new pass-through use cases added to the codebase.
+- The dead `CreateTagInput` in `Ids.kt` is removed. The doc comment in `ColorInput.kt` was updated to reference `CreateTagTool.CreateTagInput` instead.
 - When a real use case appears (e.g. TaskDetailViewModel needs a project picker), implement it from scratch using `ListPickerSheet` + `DialogState` + caller-side state hoisting — not by resurrecting the deleted code.
 
 ### `compose`
@@ -1247,6 +1251,7 @@ _1 entries need attention._
 - `2026-09-23-versioning-and-runtime-gates` — versioning, schema, sync, genui, backup, security, kmp
 - `2026-09-23-vm-event-guard-cleanup` — vm, concurrency, cleanup
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
+- `2026-09-24-docs-cleanup-findings` — cleanup, tags, detekt, testing
 - `2026-09-24-pr1-tech-debt-audit-resolution` — tech-debt, audit, pr-1
 - `2026-09-24-pre-existing-issues` — techdebt, testing, di, epic1
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
@@ -1444,6 +1449,7 @@ _1 entries need attention._
 - `2026-09-23-versioning-and-runtime-gates` — Single source of truth for app version, typed schema versioning, and runtime version gates
 - `2026-09-23-vm-event-guard-cleanup` — VM event/guard cleanup — compareAndSet, typed combine, SendChannel, dead code
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
+- `2026-09-24-docs-cleanup-findings` — Docs cleanup findings — TagsUseCase, dead CreateTagInput, and custom detekt rules
 - `2026-09-24-pr1-tech-debt-audit-resolution` — PR 1.1 resolution — Tech Debt Audit findings
 - `2026-09-24-pre-existing-issues` — Pre-existing Issues Found During Tech Debt Audit
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
