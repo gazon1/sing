@@ -40,7 +40,7 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         SavedSearchEntity::class,
         RemoteConfigCacheEntity::class,
     ],
-    version = 19,
+    version = 20,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -56,6 +56,7 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         AutoMigration(from = 16, to = 17, spec = Migration16To17::class),
         AutoMigration(from = 17, to = 18, spec = Migration17To18::class),
         AutoMigration(from = 18, to = 19, spec = Migration18To19::class),
+        AutoMigration(from = 19, to = 20, spec = Migration19To20::class),
     ],
     exportSchema = true,
 )

@@ -25,6 +25,7 @@ data class SyncColumns(
     tableName = "tasks",
     indices = [
         Index("user_id"), Index("due_date"), Index("archived_at"), Index("project_id"),
+        Index("recurrence_rule"),
     ],
 )
 data class TaskEntity(
@@ -47,6 +48,7 @@ data class TaskEntity(
     val someday: Boolean = false,
     @ColumnInfo("archived_at") val archivedAt: Long?, // epoch millis
     @ColumnInfo("is_pinned") val isPinned: Boolean = false,
+    @ColumnInfo("recurrence_rule") val recurrenceRule: String? = null, // JSON of RecurrenceSpec
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("user_id") val userId: String,

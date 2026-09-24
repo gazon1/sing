@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 19,
-    "identityHash": "06b00db0f1f7d2795b8dc5a7a68a0ef0-recurring",
+    "version": 20,
+    "identityHash": "1e233555fb7c349dc837a6fe60983d2f",
     "entities": [
       {
         "tableName": "tasks",
@@ -1577,7 +1577,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '06b00db0f1f7d2795b8dc5a7a68a0ef0')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1e233555fb7c349dc837a6fe60983d2f')"
     ]
   }
 }
