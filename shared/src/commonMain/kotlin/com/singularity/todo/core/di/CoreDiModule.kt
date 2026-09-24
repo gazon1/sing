@@ -134,9 +134,9 @@ fun coreModule(): org.koin.core.module.Module = module {
     single<RemoteConfigPort> { com.singularity.todo.core.config.RemoteConfigRepositoryImpl(get(), get(), get()) }
 
     // SyncBootstrapper: registers pull handlers for all DocTypes.
-    // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag).
+    // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag, TagGroup).
     // The init {} block performs the registration.
-    single { SyncBootstrapper(engine = get(), taskRepo = get(), noteRepo = get(), projectRepo = get(), tagRepo = get()) }
+    single { SyncBootstrapper(engine = get(), taskRepo = get(), noteRepo = get(), projectRepo = get(), tagRepo = get(), tagGroupRepo = get()) }
 
     // AutoSync is NOT in DI — callers construct it with their own CoroutineScope.
     // Example: val autoSync = AutoSync(get(), get(), viewModelScope)

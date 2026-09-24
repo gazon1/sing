@@ -3,6 +3,8 @@ package com.singularity.todo.core.di
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.TagsRepositoryImpl
 import com.singularity.todo.feature.tags.TagsViewModel
+import com.singularity.todo.feature.tags.data.TagGroupRepositoryImpl
+import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tags.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tags.usecase.UpdateTagUseCase
 import org.koin.core.module.dsl.factoryOf
@@ -18,7 +20,9 @@ fun tagsModule(): org.koin.core.module.Module = module {
 
     single<TagsRepository> { TagsRepositoryImpl(get(), get(), get(), get()) }
 
-    // ─── Use Cases ──────────────────────────────────────────────────────
+    single<TagGroupRepository> { TagGroupRepositoryImpl(get(), get()) }
+
+    // ─── Use Cases ─────────────────────────────────────────────────────
 
     factoryOf(::CreateTagUseCase)
     factoryOf(::UpdateTagUseCase)

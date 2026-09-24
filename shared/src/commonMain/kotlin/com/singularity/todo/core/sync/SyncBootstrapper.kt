@@ -12,6 +12,9 @@ import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
+import com.singularity.todo.feature.tags.domain.model.TagGroup
+import com.singularity.todo.feature.tags.domain.model.TagGroupId
+import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -29,6 +32,7 @@ internal class SyncBootstrapper(
     private val noteRepo: NotesRepository,
     private val projectRepo: ProjectsRepository,
     private val tagRepo: TagsRepository,
+    private val tagGroupRepo: TagGroupRepository,
     private val log: Logger = Logger.withTag("SyncBootstrapper"),
 ) {
     init {
@@ -61,6 +65,13 @@ internal class SyncBootstrapper(
             handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
                 val tag = StableJson.decodeFromString(serializer<Tag>(), data.toString())
                 tagRepo.upsert(tag)
+            }
+        }
+
+        engine.registerHandler(DocType.TagGroup) { event ->
+            handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
+                val tagGroup = StableJson.decodeFromString(serializer<TagGroup>(), data.toString())
+                tagGroupRepo.upsert(tagGroup)
             }
         }
 
@@ -115,6 +126,7 @@ internal class SyncBootstrapper(
                         DocType.Note -> noteRepo.delete(NoteId.fromString(event.entityId))
                         DocType.Project -> projectRepo.delete(ProjectId.fromString(event.entityId))
                         DocType.Tag -> tagRepo.delete(TagId.fromString(event.entityId))
+                        DocType.TagGroup -> tagGroupRepo.delete(TagGroupId.fromString(event.entityId))
                     }
                     outcome.fold(
                         onSuccess = {
