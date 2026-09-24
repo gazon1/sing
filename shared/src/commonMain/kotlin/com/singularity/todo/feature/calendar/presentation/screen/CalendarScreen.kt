@@ -26,7 +26,7 @@ import org.koin.core.parameter.parametersOf
 @Composable
 fun CalendarScreen(anchorDate: LocalDate, modifier: Modifier = Modifier) {
     val vm: CalendarViewModel = koinViewModel {
-        parametersOf(anchorDate.year, anchorDate.monthNumber, CalendarViewMode.MONTH)
+        parametersOf(anchorDate.year, anchorDate.month, CalendarViewMode.MONTH)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val today = todayInSystemZone()
