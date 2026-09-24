@@ -64,6 +64,40 @@ main (~/AndroidStudioProjects/singularity_cllone_kmp)
 
 Before starting Epic 2: merge Epic 1 into main, then create Epic 2 worktree from updated main.
 
+## Git Hooks Path Convention
+
+**Hooks live in `.githooks/` (version-controlled)**, not `.git/hooks/`. This allows worktrees to share the same hooks via `core.hooksPath`.
+
+```
+main/.githooks/         ← versioned, canonical copy
+  pre-commit
+  pre-push
+  post-checkout
+
+main/.git/hooks/        ← NOT versioned; managed by git
+worktree/.git/hooks/    ← NOT versioned; same content as main
+```
+
+### Installing hooks
+
+After cloning or creating a worktree, run:
+
+```bash
+just setup-hooks
+```
+
+This sets `core.hooksPath` to point to the main checkout's `.githooks/` for both the current context and all attached worktrees. It works from both main checkout and any worktree.
+
+### Hooks behavior
+
+| Hook | What | Where runs |
+|---|---|---|
+| `pre-commit` | Compile main + test sources (~22s) | All contexts |
+| `pre-push` | Full fast test suite + detekt | All contexts |
+| `post-checkout` | Clean stale build/classes dirs | All contexts |
+
+Pre-commit in worktrees is intentionally lightweight (compile-only). Full test runs belong in CI.
+
 ## Gradle wrapper in worktree
 
 Worktrees share the parent's `.git` but have their own `gradle/wrapper/`. If `gradle-wrapper.jar` is missing in a new worktree:
@@ -72,16 +106,6 @@ Worktrees share the parent's `.git` but have their own `gradle/wrapper/`. If `gr
 cp ~/AndroidStudioProjects/singularity_cllone_kmp/gradle/wrapper/gradle-wrapper.jar \
    ~/work/singularity-todo-techdebt-epic2/gradle/wrapper/
 ```
-
-## Pre-commit hook bypass
-
-When main checkout has broken pre-commit hooks (uncompilable state), worktree commits need `--no-verify`:
-
-```bash
-git commit --no-verify -m "chore: my worktree commit"
-```
-
-This bypasses only the pre-commit hook — git itself is not affected.
 
 ## When NOT to use worktrees
 

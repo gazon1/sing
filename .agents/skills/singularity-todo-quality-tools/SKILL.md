@@ -172,6 +172,20 @@ kover {
 | `mcp-server` | ✅ (74 findings baseline) | ✅ | ci.yml mcp-server-check |
 | `androidApp` | ✅ | ❌ | ci.yml test-and-check (assemble only) |
 
+## Custom rules (`detekt-rules` module)
+
+The `detekt-rules/` module provides project-specific rules loaded via `META-INF/services/dev.detekt.api.RuleSetProvider`:
+
+| Rule | RuleSet | Severity | What it bans |
+|---|---|---|---|
+| `NoRealDelayInTestRule` | `no-real-delay-in-test` | **warning** | `delay(N>1)` in test sources |
+| `NoViewModelScopeInProductionRule` | `no-viewmodel-scope` | **warning** | `viewModelScope.launch/async/cancel` in production |
+| `NoRunBlockingRule` | `no-run-blocking` | **warning** | `runBlocking` in production |
+
+Both rules are **warning-only** on day 1 (do not fail the build). Promotion to error requires baseline stabilization in a follow-up PR.
+
+See `ADR 2026-09-25-detekt-test-rules.md` for details.
+
 ## Promoting from report-only to fail-on-violation
 
 When the codebase is clean enough to enforce violations:

@@ -146,7 +146,6 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Deadline indicator rendering in `UpcomingBadges`.
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed.
 - Detekt `ParameterNaming` rule suppressed in two places (`TagsRepository.kt:54,59`) because `create(item: Tag)` vs `create(item: E)` parameter naming follows the domain convention — not a bug.
-- Detekt rules (`NoViewModelScopeInProductionRule`, `NoRunBlockingRule`) работают в warning mode — нужно перевести в error после baseline
 - Developers should prefer `kotlinx.datetime.Instant` in new code.
 - Domain models gain `serverVersion` and `hlc` fields — existing call sites unaffected (defaults)
 - Domain/repo/data layers are fully isolated.
@@ -196,7 +195,6 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill)
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed.
 - Settings screen can show specific recovery actions per failure type
-- Side-effects вынесены из reactive chains
 - Simple schema, no migration complexity beyond bumping SCHEMA_VERSION.
 - Single narrow Room query (`watchByDate`) reused for the new use case.
 - Single-impl interface with no test fake is YAGNI — inline the concrete class as canonical.
@@ -230,7 +228,6 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Week navigation via swipe on `DaySwitcherRow`.
 - Week-start locale handling is isolated and can be made configurable later.
 - When converting a strategy class (`BackupFileNamer`-like), prefer `class(c: (T) -> R)` lambda strategy over `open class`. Composition beats inheritance for testability.
-- `AccountSettingsViewModel` убран — меньше boilerplate
 - `AgendaViewModel` binding is unchanged — does not consume saved views.
 - `AiSettingsContributor` remains as the sole `SettingsContributor` implementation — used only for AI test/fetch ephemeral state.
 - `AppDestination.Habits` → `AppDestination.Pomodoro`, `AppDestination.Calendar` → `AppDestination.Statistics`
@@ -308,13 +305,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - detekt: 60 warnings (pre-existing, non-blocking) | jvmTest: green.
 - kizitonwose remains available for future exploration if AndroidX/JB compatibility is resolved.
 - ~12 MRs total, ~6–9 weeks.
-- Все 13 VM теперь используют канонический паттерн `MutableStateFlow + scope.launch { }.collect {}`
 - Все ViewModel'ы с `scopeOverride` — консистентны в тестах
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear()
 - Все импорты в 30+ файлах обновлены на новые FQN (`.domain.model`, `.domain.port`, `.domain.usecase`, `.data`, `.presentation.state`, `.presentation.viewmodel`).
 - Для UI-тестов на реальном устройстве: Kaspresso или `contentDescription` + `By.desc()`.
-- Миграция touching 13 файлов — высокий риск merge conflict при parallel development
-- Новая test coverage для `LlmUsageRecorder`
 - Оставшиеся `androidHostTest`: только `AppNavigatorTest` (nav contract, без Espresso),
 - ✅ Multi-profile isolation
 - ✅ No `SCHEDULE_EXACT_ALARM` permission
@@ -531,10 +525,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging.
 - **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. **TODO: tracked in issue tracker — promote after baselines are clean (est. post-format PR).**
 - **detekt 2.0.0-alpha.3 vs Kotlin 2.3.21**: this version was chosen because stable 1.23.8 was compiled against Kotlin 2.0.21 and throws "detekt was compiled with Kotlin 2.0.21 but is currently running with 2.3.21". Upgrade to stable 2.x once released.
+- Both rules are in **warning mode** — they do not fail the build
+- Promotion to error: after baseline is reduced in a follow-up PR
 - `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline`
 - `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport`
 - `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline`
 - `:shared:koverXmlReport` / `:shared:koverHtmlReport`
+- `NoRealDelayInTestRule` fires on all 44 pre-existing `delay(N>1)` occurrences
+- `NoViewModelScopeInProductionRule` fires on 7 pre-existing `viewModelScope.launch` occurrences
 
 ### `di`
 
@@ -547,6 +545,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `ListPickerItem<T>.leading` slot already covers the `RowScope` customization need; no `trailing` slot added (not needed yet).
 - `ListPickerScope<T>.header { }` and `footer { }` are the canonical way to add custom content above/below the item list.
 - `T : Any?` means callers can use `null` as a key — filter at call site if needed.
+
+### `git`
+
+- Developers in worktrees get fast pre-commit feedback (compile only); full test suite runs in CI or via `just tcheck`
+- Hooks work identically in main checkout and worktrees
+- No duplicate hook scripts — one canonical copy in `.githooks/`
+- `just setup-hooks` configures all worktrees in one command
 
 ### `gradle`
 
@@ -947,12 +952,19 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`.
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly.
 - 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill.
+- All 593 existing tests continue to pass
 - All link-related string literals in the notes feature must use `LinkSchemes.NOTE_PREFIX` / `LinkSchemes.TASK_PREFIX`. No raw `"note://"` in `feature/notes/`.
 - All new tests that need to verify failure paths use `XxxOverride = Result.failure(...)` on the appropriate fake.
 - Baseline images stored in `shared/src/commonTest/resources/roborazzi/`.
 - Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional.
 - No breaking change — these methods were never called externally.
+- No test flakiness observed in 10× repeated fast test runs
+- Parallel execution is dynamic — Jupiter adjusts thread pool based on CPU cores
+- Pre-existing failures (9 tests) remain unchanged
 - SharedFlow emission tests in this project always use `launch { flow.take(1).collect { ... } }` on `this@runTest`, not `backgroundScope`, with `runCurrent()` before the suspending call that emits.
+- Test parallelization: Jupiter method-level concurrency enabled
+- `:shared:jvmTest` fast tests now run in ~7s (was ~90s with `delay`)
+- `:shared:jvmTest` fast tests: ~7s wall-clock (was ~90s sequential with real `delay`)
 - `Clock` import may become unused in `FakeRepositories.kt` if not used elsewhere.
 - `FakeTaskRepository` is now ~30 lines shorter.
 - `SCHEME_FACTORIES` is the extension point for new link kinds in `OutgoingLinksExtractor` — add one entry, not one regex + one branch.
@@ -1033,6 +1045,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`toggleArchive`** no longer emits `Saved` — `lastEditedAt` drives "Saved X ago" UI via the `mutate{}` helper
 - 4 PRs instead of 1 (review overhead).
 - All new VMs in this codebase should prefer `with(intent) { ... }` for data class intents with ≥2 properties.
+- All other VMs use plain `MutableStateFlow`
 - Dead code removed — `TaskDetailMode` and the `Attachment` intent branch would have required maintenance with zero benefit.
 - Double-tap on Save creates exactly one entity (compareAndSet enforces single-writer).
 - Internal note/task links now navigate correctly.
@@ -1042,10 +1055,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Testability — `NotePreviewTest`, `LoginFormStateTest`, `OverlayStateTest`,
 - This pattern does NOT require a custom DSL marker or annotation; stdlib `with` is sufficient.
 - Unified mental model for state holders.
+- `AgendaViewModel`, `SavedAgendaListViewModel`, `ProjectsViewModel`, `CalendarViewModel` remain as pure read-through with `combine+stateIn` — this is intentional and permitted
 - `Dispatchers.Default` fixes flaky VM tests.
 - `NoteSaver` API contract is precise: it sends, never manages the channel lifecycle.
 - `OverlayState` (Phase 1) is not yet saved across process death — acceptable
 - `TaskDetailViewModel` typed combine is readable without `@Suppress` annotations.
+- `scopeOverride` usage anywhere in a ViewModel signals an audit is needed
 
 ## Open / Deferred
 
@@ -1055,6 +1070,7 @@ _1 entries need attention._
 
 ## Recently superseded
 
+- `2026-09-23-test-standards-enforcement` — Test Standards — Enforcement, Gap Filling, and Architecture Cleanup
 - `2026-09-16-nav3-shared-state-factory-and-local-app-navigator` — LocalAppNavigator + shared rememberNav3State factory
 
 ## Index (slug -> tags)
@@ -1242,15 +1258,21 @@ _1 entries need attention._
 - `2026-09-23-sync-state-model` — sync, architecture, core, state, ui
 - `2026-09-23-sync-tier3-fixes` — _untagged_
 - `2026-09-23-tech-debt-audit` — tech-debt, audit, vm, database, tests
-- `2026-09-23-test-standards-enforcement` — _untagged_
 - `2026-09-23-versioning-and-runtime-gates` — versioning, schema, sync, genui, backup, security, kmp
 - `2026-09-23-vm-event-guard-cleanup` — vm, concurrency, cleanup
+- `2026-09-24-combine-statein-policy` — vm, architecture, epic2, policy
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
-- `2026-09-24-pr1-tech-debt-audit-resolution` — tech-debt, koin, di, detekt
+- `2026-09-24-deferred-backlog` — deferred, backlog, epic3
+- `2026-09-24-pr1-tech-debt-audit-resolution` — tech-debt, audit, pr-1
+- `2026-09-24-pre-existing-issues` — techdebt, testing, di, epic1
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _untagged_
+- `2026-09-25-detekt-test-rules` — detekt, testing, lint, epic2
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
+- `2026-09-25-git-hooks-worktree-isolation` — git, hooks, worktree, devx, epic2
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
+- `2026-09-25-test-parallelization` — testing, junit, jupiter, parallel, epic2
+- `2026-09-25-test-standards-comprehensive` — testing, junit, jupiter, epic2
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
 
 ## Active entries
@@ -1438,14 +1460,20 @@ _1 entries need attention._
 - `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
 - `2026-09-23-sync-tier3-fixes` — _(no title)_
 - `2026-09-23-tech-debt-audit` — Tech debt audit — post vm-event-guard-cleanup
-- `2026-09-23-test-standards-enforcement` — Test Standards — Enforcement, Gap Filling, and Architecture Cleanup
 - `2026-09-23-versioning-and-runtime-gates` — Single source of truth for app version, typed schema versioning, and runtime version gates
 - `2026-09-23-vm-event-guard-cleanup` — VM event/guard cleanup — compareAndSet, typed combine, SendChannel, dead code
+- `2026-09-24-combine-statein-policy` — _(no title)_
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
-- `2026-09-24-pr1-tech-debt-audit-resolution` — PR 1.1–1.2 Tech Debt Audit Resolution
+- `2026-09-24-deferred-backlog` — _(no title)_
+- `2026-09-24-pr1-tech-debt-audit-resolution` — PR 1.1 resolution — Tech Debt Audit findings
+- `2026-09-24-pre-existing-issues` — _(no title)_
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _(no title)_
+- `2026-09-25-detekt-test-rules` — Detekt Rules for Tests — NoRealDelay, NoViewModelScope
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
+- `2026-09-25-git-hooks-worktree-isolation` — Git Hooks — Worktree Isolation + Shared Hooks Path
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _(no title)_
+- `2026-09-25-test-parallelization` — Test Parallelization — Jupiter Concurrency + Thread Safety
+- `2026-09-25-test-standards-comprehensive` — Test Standards Comprehensive — JUnit Jupiter, Virtual Time, Fast/Slow Split
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
 
