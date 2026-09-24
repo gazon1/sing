@@ -23,7 +23,7 @@ import kotlinx.datetime.LocalDate
  * menu builder no longer needs a domain reference. The AI bottom sheet
  * (future work) will look up the [Task] by [id] from the repository.
  *
- * @see com.singularity.todo.docs.decisions.2026-09-18-task-dependencies
+ * @see 2026-09-18-task-dependencies
  */
 @Immutable
 data class TaskUi(

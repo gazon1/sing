@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Label
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.formatTimestampsRelative
@@ -34,6 +33,7 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import kotlin.time.Clock
 
 /**
  * Task detail screen (View mode) for the tasks nested navigation graph.
@@ -106,13 +106,13 @@ fun TaskDetailViewScreen(taskId: TaskId) {
                         }
                         if (ui.tags.isNotEmpty()) {
                             com.singularity.todo.feature.tasks.presentation.components.detail.TaskAttributeCard(
-                                icon = Icons.Filled.Label,
+                                icon = Icons.AutoMirrored.Filled.Label,
                                 label = ui.tags.joinToString { it.name },
                                 isActive = true,
                                 onClick = { },
                             )
                         }
-                        val ts = formatTimestampsRelative(ui.task.createdAt, ui.task.updatedAt, Clock.now())
+                        val ts = formatTimestampsRelative(ui.task.createdAt, ui.task.updatedAt, Clock.System.now())
                         Text(
                             text = "${ts.created} · ${ts.updated}",
                             style = MaterialTheme.typography.bodySmall,
@@ -140,7 +140,7 @@ fun TaskDetailViewScreen(taskId: TaskId) {
 private fun LoadingState() {
     Box(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = androidx.compose.ui.Alignment.Center,
+        contentAlignment = Alignment.Center,
     ) {
         CircularProgressIndicator()
     }
@@ -152,7 +152,7 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
-        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
