@@ -252,13 +252,24 @@ ktlint:
 
 # ---------------------------------------------------------------------------
 # custom rule sets (via :detekt-rules plugin / ServiceLoader)
-# All new rules start in warn-only mode; promoted to error in PR #8.
-# NOTE: Rule-specific config (severity, active) added in PR #8 after baseline.
+# All rules active at warning severity. All 5 rules now have explicit config.
 # ---------------------------------------------------------------------------
 kdoc-on-contract:
   active: true
   severity: warning
 
 pass-through:
+  active: true
+  severity: warning
+
+no-runblocking:
+  active: true
+  severity: warning
+
+no-viewmodel-scope:
+  active: true
+  severity: warning
+
+no-static-profile-aware-current-user:
   active: true
   severity: warning
