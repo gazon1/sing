@@ -233,7 +233,7 @@ object RecurrenceParser {
         val num = (tokens[p] as Token.Number).value; p++
         if (p < tokens.size && tokens[p] is Token.Word) {
             val unit = (tokens[p] as Token.Word).value
-            val dateUnit = timeUnit(unit) ?: return Pair(Interval(RecurrenceBase.FROM_DUE, num, DateTimeUnit.DAY), p)
+            val dateUnit = timeUnit(unit) ?: return null
             p++
             val base = if (plusCount >= 2) RecurrenceBase.FROM_DUE else RecurrenceBase.FROM_COMPLETION
             return Pair(Interval(base, num, dateUnit), p)
