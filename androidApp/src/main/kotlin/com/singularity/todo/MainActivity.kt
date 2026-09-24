@@ -64,6 +64,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        appUpdateGate.tryOfferUpdate(this)
+        appUpdateGate.tryOfferUpdateOnMain(this)
     }
 }

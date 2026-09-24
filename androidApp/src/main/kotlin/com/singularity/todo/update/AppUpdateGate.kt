@@ -43,9 +43,12 @@ class AppUpdateGate(
 
     /**
      * Checks the store and offers an update if appropriate.
-     * Must be called on the main thread; [Handler.post] is used internally.
+     *
+     * Must be called on the main thread. Internally uses [Handler.post] to
+     * ensure the check runs on the main looper. For background callers, wrap
+     * with `Dispatchers.Main.immediate` to avoid an extra dispatch.
      */
-    fun tryOfferUpdate(activity: Activity) {
+    fun tryOfferUpdateOnMain(activity: Activity) {
         handler.post {
             val offered = checkAndOfferUpdate(activity)
             if (offered) prefs.recordUpdateOffered()

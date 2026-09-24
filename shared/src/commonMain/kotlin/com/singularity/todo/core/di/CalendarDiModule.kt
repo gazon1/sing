@@ -7,6 +7,7 @@ import com.singularity.todo.feature.calendar.presentation.viewmodel.CalendarView
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.koin.core.module.Module
@@ -20,7 +21,7 @@ import kotlin.time.Clock
  * Navigation entries live in platform-specific sources (androidMain/jvmMain).
  */
 fun calendarModule(): Module = module {
-    viewModel { (year: Int, month: Int, mode: CalendarViewMode) ->
+    viewModel { (year: Int, month: Month, mode: CalendarViewMode) ->
         CalendarViewModel(
             deps = CalendarDeps(
                 taskRepo = get<TaskRepository>(),
