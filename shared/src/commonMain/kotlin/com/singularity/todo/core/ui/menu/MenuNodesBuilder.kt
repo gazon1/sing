@@ -87,7 +87,8 @@ class MenuNodesBuilder {
     }
 
     /** Returns an immutable snapshot of the menu built so far. */
-    internal fun build(): List<MenuNode> = items.toList()
+    internal fun build(): List<MenuNode> =
+        items.toList()
 }
 
 /**
@@ -97,4 +98,6 @@ class MenuNodesBuilder {
  * @param block the DSL lambda — calls [MenuNodesBuilder.item],
  *              [MenuNodesBuilder.divider], and [MenuNodesBuilder.subMenu]
  */
-fun buildMenuNodes(block: MenuNodesBuilder.() -> Unit): List<MenuNode> = MenuNodesBuilder().apply(block).build()
+fun buildMenuNodes(block: MenuNodesBuilder.() -> Unit): List<MenuNode> =
+    MenuNodesBuilder().apply(block)
+        .build()

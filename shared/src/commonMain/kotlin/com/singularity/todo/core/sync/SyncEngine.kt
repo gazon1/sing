@@ -116,7 +116,7 @@ internal class SyncEngine(
                     is Session.Anonymous,
                     is Session.SignedOut,
                     is Session.Loading,
-                    -> scheduler.cancelPush()
+                        -> scheduler.cancelPush()
                 }
             }
         }
@@ -126,7 +126,7 @@ internal class SyncEngine(
      * Registers a handler for pull events of the given [DocType].
      */
     fun registerHandler(docType: DocType, apply: EntityApply) {
-        _handlers.value = _handlers.value + (docType to apply)
+        _handlers.value += (docType to apply)
     }
 
     /**
@@ -134,7 +134,7 @@ internal class SyncEngine(
      */
     suspend fun enqueue(entity: SyncableEntity): Result<Unit> = runCatchingResult {
         val hlc = hlcFactory.tick()
-        val patch = buildPatch(entity, hlc)
+        val patch = buildPatch(entity)
         val payload = json.encodeToString(patch)
 
         outboxDao.insert(
@@ -206,7 +206,7 @@ internal class SyncEngine(
             _status.value = SyncEngineStatus.Idle
             Result.success(summary)
         } catch (e: Throwable) {
-            val err: AppError = if (e is AppError) e else AppError.Unknown(e)
+            val err: AppError = e as? AppError ?: AppError.Unknown(e)
             _lastPush.value = Result.failure(err)
             log.e(e) { "Batch push failed [count=${pending.size}]" }
             _status.value = SyncEngineStatus.Failure(err)
@@ -250,7 +250,7 @@ internal class SyncEngine(
             _status.value = SyncEngineStatus.Idle
             Result.success(summary)
         } catch (e: Throwable) {
-            val err: AppError = if (e is AppError) e else AppError.Unknown(e)
+            val err: AppError = e as? AppError ?: AppError.Unknown(e)
             _lastPull.value = Result.failure(err)
             log.e(e) { "Pull failed [sinceLsn=$sinceLsn]" }
             _status.value = SyncEngineStatus.Failure(err)
@@ -261,7 +261,7 @@ internal class SyncEngine(
     /**
      * Builds a DeltaPatch from a SyncableEntity.
      */
-    private fun buildPatch(entity: SyncableEntity, hlc: Hlc): DeltaPatch {
+    private fun buildPatch(entity: SyncableEntity): DeltaPatch {
         val state = entity.toJson()
         val checksum = ConflictResolver.checksum(state)
 

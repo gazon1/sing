@@ -30,7 +30,6 @@ import kotlinx.serialization.json.JsonObject
 internal class RemoteConfigRepositoryImpl(
     private val cacheDao: RemoteConfigCacheDao,
     private val syncApi: SyncApiClient,
-    private val clock: Clock,
     private val log: Logger = Logger.withTag("RemoteConfigPort"),
 ) : RemoteConfigPort {
 
@@ -65,7 +64,7 @@ internal class RemoteConfigRepositoryImpl(
                 }
                 val entity = RemoteConfigCacheEntity(
                     snapshotJson = StableJson.encodeToString(RemoteConfigSnapshot.serializer(), validated),
-                    fetchedAtEpochMillis = clock.now().toEpochMilliseconds(),
+                    fetchedAtEpochMillis = Clock.now().toEpochMilliseconds(),
                 )
                 cacheDao.upsert(entity)
                 _snapshot.value = validated

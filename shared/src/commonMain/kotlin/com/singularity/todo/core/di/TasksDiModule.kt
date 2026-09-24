@@ -48,90 +48,109 @@ import org.koin.dsl.module
  * - jvmMain: TasksNavEntries.kt (Nav3)
  * Both delegate to the ViewModels and Screens defined here.
  */
-fun tasksModule(): org.koin.core.module.Module = module {
-    // ─── Repositories ─────────────────────────────────────────────────────
+fun tasksModule(): org.koin.core.module.Module =
+    module {
+        // ─── Repositories ─────────────────────────────────────────────────────
 
-    single<TaskRepository> { TaskRepositoryImpl(get(), get(), get(), get(), get()) }
+        single<TaskRepository> {
+            TaskRepositoryImpl(
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+            )
+        }
 
-    singleOf(::DependencyValidatorImpl)
+        single<DependencyValidator> { DependencyValidatorImpl(get()) }
 
-    single { RecurrenceCalculator }
+        single { RecurrenceCalculator }
 
-    singleOf(::TaskDaoArchiveRepository)
+        singleOf(::TaskDaoArchiveRepository)
 
-    single<ChecklistRepository> { RoomChecklistRepository(get(), get()) }
+        single<ChecklistRepository> { RoomChecklistRepository(get(), get()) }
 
-    single<SavedSearchRepository> { RoomSavedSearchRepository(get(), get(), get()) }
+        single<SavedSearchRepository> { RoomSavedSearchRepository(get(), get(), get()) }
 
-    // ─── Use Cases ──────────────────────────────────────────────────────
+        // ─── Use Cases ──────────────────────────────────────────────────────
 
-    factory { CreateTaskUseCase(get(), get(), get()) }
-    factory { CreateTaskFromDraftUseCase(get(), get(), get()) }
-    factory { UpdateTaskUseCase(get(), get()) }
-    factory { CompleteRecurringTaskUseCase(get(), get(), get(), get()) }
-    factoryOf(::TaskMutationsUseCase)
+        factory { CreateTaskUseCase(get(), get(), get()) }
+        factory { CreateTaskFromDraftUseCase(get(), get(), get()) }
+        factory { UpdateTaskUseCase(get(), get()) }
+        factory { CompleteRecurringTaskUseCase(get(), get(), get(), get()) }
+        factoryOf(::TaskMutationsUseCase)
 
-    factory { SearchUseCase(get(), get(), get(), get(), get()) }
+        factory {
+            SearchUseCase(
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+            )
+        }
 
-    single<TagLookup> { DaoTagLookup(get()) }
-    single<ProjectLookup> { DaoProjectLookup(get()) }
-    single<SearchQueryResolver> { DefaultSearchQueryResolver(get(), get()) }
+        single<TagLookup> { DaoTagLookup(get()) }
+        single<ProjectLookup> { DaoProjectLookup(get()) }
+        single<SearchQueryResolver> {
+            DefaultSearchQueryResolver(get(), get())
+        }
 
-    // PomodoroTimer is registered in platform-specific modules:
-    // - androidMain: AndroidPomodoroTimer(get(), get(), get())
-    // - jvmMain: JvmPomodoroTimer()
+        // PomodoroTimer is registered in platform-specific modules:
+        // - androidMain: AndroidPomodoroTimer(get(), get(), get())
+        // - jvmMain: JvmPomodoroTimer()
 
-    // ─── Ports ──────────────────────────────────────────────────────────
+        // ─── Ports ──────────────────────────────────────────────────────────
 
-    single<AttachmentSaver> { AttachmentSaverImpl(get()) }
+        single<AttachmentSaver> { AttachmentSaverImpl(get()) }
 
-    // ─── Drafts ──────────────────────────────────────────────────────────
-    // UserScopedDraftStore wraps DraftStore, prepending the user ID prefix internally.
-    // Registered as DraftStore so it satisfies TaskCreateDeps.draftStore: DraftStore.
-    single<DraftStore> { UserScopedDraftStore(get(), get()) }
+        // ─── Drafts ──────────────────────────────────────────────────────────
+        // UserScopedDraftStore wraps DraftStore, prepending the user ID prefix internally.
+        // Registered as DraftStore so it satisfies TaskCreateDeps.draftStore: DraftStore.
+        single<DraftStore> { UserScopedDraftStore(get(), get()) }
 
-    // ─── ViewModels ─────────────────────────────────────────────────────
+        // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
-        TaskDetailViewModel(
-            deps = TaskDetailDeps(
-                taskRepo = get(),
-                updateTask = get(),
-                createTask = get(),
-                projectsRepo = get(),
-                tagsRepo = get(),
-                checklistRepository = get(),
-                reminderRepo = get(),
-                reminderScheduler = get(),
-                attachmentsRepo = get(),
-                timeZoneProvider = get(),
+        viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
+            TaskDetailViewModel(
+                deps = TaskDetailDeps(
+                    taskRepo = get(),
+                    updateTask = get(),
+                    createTask = get(),
+                    projectsRepo = get(),
+                    tagsRepo = get(),
+                    checklistRepository = get(),
+                    reminderRepo = get(),
+                    reminderScheduler = get(),
+                    attachmentsRepo = get(),
+                    timeZoneProvider = get(),
+                    clock = get(),
+                    completeRecurring = get(),
+                ),
+                taskId = taskId,
+            )
+        }
+
+        viewModel { (initialDueDate: kotlinx.datetime.LocalDate?) ->
+            TaskCreateViewModel(
+                deps = TaskCreateDeps(
+                    createFromDraft = get(),
+                    logger = Logger.withTag("TaskCreate"),
+                    draftStore = get(),
+                ),
+                initialDueDate = initialDueDate,
+            )
+        }
+
+        viewModel { ArchiveViewModel(archiveRepo = get(), taskRepo = get()) }
+
+        viewModel { StatisticsViewModel(taskRepository = get(), clock = get()) }
+
+        viewModel<SearchViewModel> {
+            SearchViewModel(
+                searchUseCase = get(),
+                savedSearchRepo = get(),
                 clock = get(),
-                completeRecurring = get(),
-            ),
-            taskId = taskId,
-        )
+            )
+        }
     }
-
-    viewModel { (initialDueDate: kotlinx.datetime.LocalDate?) ->
-        TaskCreateViewModel(
-            deps = TaskCreateDeps(
-                createFromDraft = get(),
-                logger = Logger.withTag("TaskCreate"),
-                draftStore = get(),
-            ),
-            initialDueDate = initialDueDate,
-        )
-    }
-
-    viewModel { ArchiveViewModel(archiveRepo = get(), taskRepo = get()) }
-
-    viewModel { StatisticsViewModel(taskRepository = get(), clock = get()) }
-
-    viewModel<SearchViewModel> {
-        SearchViewModel(
-            searchUseCase = get(),
-            savedSearchRepo = get(),
-            clock = get(),
-        )
-    }
-}

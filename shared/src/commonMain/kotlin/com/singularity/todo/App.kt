@@ -21,10 +21,12 @@ import com.singularity.todo.feature.nav.Navigator
  * @param deeplinkTaskId When non-null (Android only), navigates directly to the
  *   task detail screen on first composition. Null on JVM.
  */
-@Composable expect fun App(deeplinkViewId: String?, deeplinkTaskId: String?)
+@Composable
+expect fun App(deeplinkViewId: String?, deeplinkTaskId: String?)
 
 /**
  * Shell entry point that receives the navigation state built by [App].
  * Each platform actual calls its shell function with the passed state.
  */
-@Composable expect fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks)
+@Composable
+expect fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks)

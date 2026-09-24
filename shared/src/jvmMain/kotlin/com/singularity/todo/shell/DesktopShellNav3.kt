@@ -33,7 +33,9 @@ import com.singularity.todo.core.ui.menu.ComposeTopMenuBar
 import com.singularity.todo.core.ui.menu.MenuNode
 import com.singularity.todo.core.ui.menu.buildMenuNodes
 import com.singularity.todo.core.version.appVersion
+import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.AppDestination.AgendaGraph
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
@@ -62,7 +64,7 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
     val scope = rememberCoroutineScope()
 
     val current: AppDestination = state.topLevelRoute as? AppDestination
-        ?: AppDestination.Today
+        ?: AgendaGraph(AgendaStartRoute.Today)
 
     val appEntryProvider = createJvmEntryProvider(navCallbacks)
 
@@ -73,50 +75,47 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
     val menuEntries = remember(navigator) {
         val viewItems = DestinationKind.tabs.map { dest ->
             MenuNode.Action(
-                id = "view_${dest.title.replace(" ", "_").lowercase()}",
+                id = "view_${
+                    dest.title.replace(" ", "_")
+                        .lowercase()
+                }",
                 label = dest.title,
                 onClick = { navigator.navigate(dest) },
             )
         }
         buildMenuNodes {
             subMenu(
-                "file", "File",
-                children = buildMenuNodes {
-                item("new_task", "New Task", shortcut = "Ctrl+N") {
-                    navigator.navigate(AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create))
-                }
-                item("settings", "Settings…", shortcut = "Ctrl+,") {
-                    navigator.navigate(AppDestination.Settings)
-                }
-                divider()
-                item("quit", "Quit", shortcut = "Ctrl+Q") {
-                    exitProcess(0)
-                }
-            }
-            )
+                "file", "File", children = buildMenuNodes {
+                    item("new_task", "New Task", shortcut = "Ctrl+N") {
+                        navigator.navigate(AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create))
+                    }
+                    item("settings", "Settings…", shortcut = "Ctrl+,") {
+                        navigator.navigate(AppDestination.Settings)
+                    }
+                    divider()
+                    item("quit", "Quit", shortcut = "Ctrl+Q") {
+                        exitProcess(0)
+                    }
+                })
             subMenu(
-                "edit", "Edit",
-                children = buildMenuNodes {
-                item("undo", "Undo", enabled = false, shortcut = "Ctrl+Z") {}
-                item("redo", "Redo", enabled = false, shortcut = "Ctrl+Y") {}
-                divider()
-                item("find", "Find", shortcut = "Ctrl+F") {
-                    navigator.navigate(AppDestination.Search)
-                }
-            }
-            )
+                "edit", "Edit", children = buildMenuNodes {
+                    item("undo", "Undo", enabled = false, shortcut = "Ctrl+Z") {}
+                    item("redo", "Redo", enabled = false, shortcut = "Ctrl+Y") {}
+                    divider()
+                    item("find", "Find", shortcut = "Ctrl+F") {
+                        navigator.navigate(AppDestination.Search)
+                    }
+                })
             subMenu("view", "View", children = viewItems)
             subMenu(
-                "help", "Help",
-                children = buildMenuNodes {
-                item("about", "About Singularity Todo") {
-                    showAbout = true
-                }
-                item("github", "Open GitHub…") {
-                    openGitHub()
-                }
-            }
-            )
+                "help", "Help", children = buildMenuNodes {
+                    item("about", "About Singularity Todo") {
+                        showAbout = true
+                    }
+                    item("github", "Open GitHub…") {
+                        openGitHub()
+                    }
+                })
         }
     }
 
@@ -242,7 +241,8 @@ private fun AboutDialog(onDismiss: () -> Unit) {
 
 private fun openGitHub() {
     try {
-        java.awt.Desktop.getDesktop().browse(URI("https://github.com/singularity-todo"))
+        java.awt.Desktop.getDesktop()
+            .browse(URI("https://github.com/singularity-todo"))
     } catch (_: Exception) {
         // Desktop browsing not supported on this platform
     }
@@ -250,17 +250,18 @@ private fun openGitHub() {
 
 private data class FabAction(val label: String, val onClick: () -> Unit)
 
-private fun fabActionForNav3(current: AppDestination, navigator: Navigator): FabAction? = when (current) {
-    AppDestination.Inbox, AppDestination.Today -> FabAction("Add task") {
-        navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create))
+private fun fabActionForNav3(current: AppDestination, navigator: Navigator): FabAction? =
+    when (current) {
+        AgendaGraph(AgendaStartRoute.Inbox), AgendaGraph(AgendaStartRoute.Today) -> FabAction("Add task") {
+            navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create))
+        }
+
+        AppDestination.Plans -> FabAction("Add project") {
+            navigator.navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()))
+        }
+
+        // NotesNavGraph has its own note creation button — no shell FAB needed here.
+        AppDestination.Notes, AppDestination.Pomodoro, AppDestination.Statistics, AppDestination.Archive -> null
+
+        else -> null
     }
-
-    AppDestination.Plans -> FabAction("Add project") {
-        navigator.navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()))
-    }
-
-    // NotesNavGraph has its own note creation button — no shell FAB needed here.
-    AppDestination.Notes, AppDestination.Pomodoro, AppDestination.Statistics, AppDestination.Archive -> null
-
-    else -> null
-}

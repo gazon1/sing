@@ -52,8 +52,7 @@ fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
         modifier = Modifier.testTag(TestTags.MENU_SHEET),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -65,8 +64,7 @@ fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
                         selected = false,
                         onClick = { onSelect(item.destination) },
                         icon = item.iconContent(),
-                        modifier = Modifier
-                            .fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth()
                             .testTag(TestTags.menuItem(item.destination.title.lowercase())),
                     )
                 }
@@ -105,7 +103,8 @@ private data class MenuItem(
      * slot, or `null` if the item has no icon. Returning `null` hides the
      * icon slot — same as Compose's own nullable-content convention.
      */
-    fun iconContent(): (@Composable () -> Unit)? = icon?.let { icon -> { Icon(icon, contentDescription = null) } }
+    fun iconContent(): (@Composable () -> Unit)? =
+        icon?.let { icon -> { Icon(icon, contentDescription = null) } }
 }
 
 /** Static menu structure — Account/Search are placeholder sections for now. */
