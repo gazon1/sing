@@ -143,7 +143,7 @@ class MyViewModel(
 | `createBackgroundScope()` | `CoroutineScope(Dispatchers.Default)` | `CoroutineScope(Dispatchers.Default)` |
 | `initLogging()` | Kermit + Logback | Kermit + Logcat |
 | `platformModule()` | все platform bindings | все platform bindings |
-| `aiToolsModule()` | 32 Koog tools | 32 Koog tools |
+| `aiToolsModule()` | 30 Koog tools | 30 Koog tools |
 | `createKoogPromptExecutor()` | MultiLLMPromptExecutor + OkHttp | AndroidKoogFactory (error stub) |
 | `onSecondaryClick()` | AWT secondary click | desktop: secondary pointer |
 

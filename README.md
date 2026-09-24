@@ -15,10 +15,10 @@ Kotlin Multiplatform task manager with AI assistance. Targets Android and JVM De
 | **Projects** | Folder-like grouping, color + icon, task counts |
 | **Tags** | Global tags, per-profile isolation |
 | **Agenda** | Calendar view, daily/weekly schedule |
-| **AI Assistant** | 32 Koog-powered tools: refine, decompose, cluster, generate descriptions, weekly planning |
+| **AI Assistant** | 30 Koog-powered tools: refine, decompose, cluster, generate descriptions, weekly planning |
 | **Sync** | Supabase backend, HLC conflict resolution, offline-first |
 | **Backup** | JSON export/import, per-profile |
-| **MCP Server** | AI agent control via stdio (32 read/write/list tools) |
+| **MCP Server** | AI agent control via stdio (30 read/write/list tools) |
 | **Multi-profile** | Isolated data per profile (Personal, AI Agent, etc.) |
 
 ---
@@ -74,8 +74,8 @@ See `ARCHITECTURE.md` for the full design doc (package maps, expect/actual table
 | File | What |
 |---|---|
 | `AGENTS.md` | Agent cheatsheet: project structure, DI patterns, test strategy, CLI |
-| `ARCHITECTURE.md` | Full design doc (1300+ lines) |
-| `docs/decisions/DIGEST.md` | Auto-generated index of 120+ ADRs |
+| `ARCHITECTURE.md` | Full design doc |
+| `docs/decisions/DIGEST.md` | Auto-generated index of 192 ADRs |
 | `docs/doc-maintenance.md` | Documentation policy and ADR template |
 | `docs/decisions/*.md` | Individual architecture decision records |
 

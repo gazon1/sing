@@ -126,4 +126,3 @@ Reference these skills when building:
 - `singularity-todo-inline-edit-saved-feedback` — debounce + silent save
 - `singularity-todo-ui-event-vs-state` — Saved event semantics
 - `singularity-todo-shared-ui-components` — value-class callbacks, decomposition
-- `singularity-todo-subtasks-ui` — if entity has `parentTaskId`
