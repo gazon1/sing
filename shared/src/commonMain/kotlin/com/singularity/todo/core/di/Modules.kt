@@ -9,7 +9,6 @@ import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.profile.ProfileRepositoryImpl
-import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
 import com.singularity.todo.core.appearance.di.appearanceSettingsModule
 import com.singularity.todo.core.settings.settingsContributorsModule
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
@@ -53,7 +52,6 @@ fun domainModule(): List<Module> = buildList {
         single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get(), createBackgroundScope()) }
         single { ProfileAwareCurrentUser(get(), get(), createBackgroundScope()) }
         factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
-        viewModel { AccountSettingsViewModel(profileRepository = get()) }
     }
     )
     add(coreModule())

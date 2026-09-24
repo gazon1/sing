@@ -146,6 +146,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Deadline indicator rendering in `UpcomingBadges`.
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed.
 - Detekt `ParameterNaming` rule suppressed in two places (`TagsRepository.kt:54,59`) because `create(item: Tag)` vs `create(item: E)` parameter naming follows the domain convention — not a bug.
+- Detekt rules (`NoViewModelScopeInProductionRule`, `NoRunBlockingRule`) работают в warning mode — нужно перевести в error после baseline
 - Developers should prefer `kotlinx.datetime.Instant` in new code.
 - Domain models gain `serverVersion` and `hlc` fields — existing call sites unaffected (defaults)
 - Domain/repo/data layers are fully isolated.
@@ -195,6 +196,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill)
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed.
 - Settings screen can show specific recovery actions per failure type
+- Side-effects вынесены из reactive chains
 - Simple schema, no migration complexity beyond bumping SCHEMA_VERSION.
 - Single narrow Room query (`watchByDate`) reused for the new use case.
 - Single-impl interface with no test fake is YAGNI — inline the concrete class as canonical.
@@ -228,6 +230,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Week navigation via swipe on `DaySwitcherRow`.
 - Week-start locale handling is isolated and can be made configurable later.
 - When converting a strategy class (`BackupFileNamer`-like), prefer `class(c: (T) -> R)` lambda strategy over `open class`. Composition beats inheritance for testability.
+- `AccountSettingsViewModel` убран — меньше boilerplate
 - `AgendaViewModel` binding is unchanged — does not consume saved views.
 - `AiSettingsContributor` remains as the sole `SettingsContributor` implementation — used only for AI test/fetch ephemeral state.
 - `AppDestination.Habits` → `AppDestination.Pomodoro`, `AppDestination.Calendar` → `AppDestination.Statistics`
@@ -305,10 +308,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - detekt: 60 warnings (pre-existing, non-blocking) | jvmTest: green.
 - kizitonwose remains available for future exploration if AndroidX/JB compatibility is resolved.
 - ~12 MRs total, ~6–9 weeks.
+- Все 13 VM теперь используют канонический паттерн `MutableStateFlow + scope.launch { }.collect {}`
 - Все ViewModel'ы с `scopeOverride` — консистентны в тестах
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear()
 - Все импорты в 30+ файлах обновлены на новые FQN (`.domain.model`, `.domain.port`, `.domain.usecase`, `.data`, `.presentation.state`, `.presentation.viewmodel`).
 - Для UI-тестов на реальном устройстве: Kaspresso или `contentDescription` + `By.desc()`.
+- Миграция touching 13 файлов — высокий риск merge conflict при parallel development
+- Новая test coverage для `LlmUsageRecorder`
 - Оставшиеся `androidHostTest`: только `AppNavigatorTest` (nav contract, без Espresso),
 - ✅ Multi-profile isolation
 - ✅ No `SCHEDULE_EXACT_ALARM` permission
@@ -743,6 +749,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Все существующие тесты проходят — никаких изменений в тестовых вызовах не потребовалось (jvmTest зелёный).
 - При первом открытии старой заметки (без `bodyHtml`) — форматирование может отличаться от исходного (round-trip через markdown). Это accepted trade-off для legacy data.
 
+### `pomodoro`
+
+- Tick-based tests (fake clock advancing real `delay()`) are unreliable in unit tests. All `AndroidPomodoroTimer` tests use `skip()` to drive phase transitions without depending on virtual time.
+- `AlarmContract` is an `object` (no `Companion`). Static-style access (`AlarmContract.EXTRA_PHASE`) is direct, not via `.Companion`.
+- `androidHostTest` (Robolectric) must be used for any tests that require Android runtime or Android-specific types. `jvmTest` cannot access `androidMain`.
+- `factory { AndroidPomodoroTimer(...) }` in Koin is a **memory leak** for ViewModels — must use `factory<PomodoroTimer> { AndroidPomodoroTimer(...) }` or `viewModel { }` for actual ViewModels. `AndroidPomodoroTimer` is not a ViewModel, so `factory` is correct here.
+- `kotlinx.datetime.Clock` is aliased as `com.singularity.todo.core.platform.Clock` (expect/actual). Use `kotlinx.datetime.Clock` in new code; the alias is deprecated.
+
 ### `preview`
 
 - All new screens MUST follow the `PublicScreen` / `PrivateContent` naming pattern
@@ -912,6 +926,16 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `TaskStatus` в domain/model доступен для AgendaEngine DSL без добавления cross-layer импорта.
 - `dependsOn` is **not** enforced at the data layer — completion is always allowed. UI consumers (`TaskList`, `AgendaEvaluator`) display `isBlocked` to inform users.
 - `isBlocking` (reverse direction) is not in MR-1 — a separate follow-up can add `watchBlockingBy` to `TaskUi` if needed.
+
+### `technical-debt`
+
+- Fixed: `RussianDateFormatter.kt`, `MiniCalendarPanel.kt`, `TimeGridView.kt`, `MonthGridView.kt`, `CalendarEventMapper.kt`
+- Not fixed (requires `Int` → `Month` migration in DI): `CalendarScreen.kt:29` — `anchorDate.monthNumber` passed as `Int` to `parametersOf(year, monthNumber, mode)`. `CalendarDiModule` accepts `Int`, not `Month`. Fix requires changing DI parameter type from `Int` to `Month` and updating all call sites.
+- Not fixed: `CalendarScreen.kt` — same DI issue as above.
+- Partially fixed: `CalendarEventMapper.kt` `nextDay()` function now uses `monthNumber` (local variable, not property) to avoid ambiguity.
+- `ChatViewModelTest` — 3 tests
+- `NoteEditorTest` — 7 tests
+- `SavedAgendaViewModelTest` — 11 tests
 
 ### `testing`
 
@@ -1200,6 +1224,7 @@ _1 entries need attention._
 - `2026-09-23-analytics-port` — analytics, observability, gdpr
 - `2026-09-23-billing-abstractions` — billing, subscriptions, monetization
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
+- `2026-09-23-deprecation-tech-debt` — technical-debt, deprecation, tests
 - `2026-09-23-file-logging-and-exporter` — logging, observability, android, jvm
 - `2026-09-23-genui-server-driven-ui` — _untagged_
 - `2026-09-23-ksp-missing-type-main-branch` — _untagged_
@@ -1207,6 +1232,7 @@ _1 entries need attention._
 - `2026-09-23-oauth-pkce-refresh-helpers` — auth, oauth, security, pkce
 - `2026-09-23-ota-deferred-items` — _untagged_
 - `2026-09-23-ota-update-strategy` — _untagged_
+- `2026-09-23-pomodoro-alarm-refactor` — pomodoro, alarms, architecture, testability, koin
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _untagged_
 - `2026-09-23-search-query-language` — search, query-ast, room, viewmodel, dsl
@@ -1216,6 +1242,7 @@ _1 entries need attention._
 - `2026-09-23-sync-state-model` — sync, architecture, core, state, ui
 - `2026-09-23-sync-tier3-fixes` — _untagged_
 - `2026-09-23-tech-debt-audit` — tech-debt, audit, vm, database, tests
+- `2026-09-23-test-standards-enforcement` — _untagged_
 - `2026-09-23-versioning-and-runtime-gates` — versioning, schema, sync, genui, backup, security, kmp
 - `2026-09-23-vm-event-guard-cleanup` — vm, concurrency, cleanup
 - `2026-09-24-dao-userid-guards` — dao, auth, security, userid
@@ -1392,6 +1419,7 @@ _1 entries need attention._
 - `2026-09-23-analytics-port` — Analytics port: interface + Noop + GDPR-compliant opt-in default
 - `2026-09-23-billing-abstractions` — Billing abstractions: SubscriptionProvider port + Noop implementation
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _(no title)_
+- `2026-09-23-deprecation-tech-debt` — Accumulated deprecation warnings and pre-existing test failures
 - `2026-09-23-file-logging-and-exporter` — FileLogWriter + LogExporter: persistent rolling logs and user-facing export
 - `2026-09-23-genui-server-driven-ui` — _(no title)_
 - `2026-09-23-ksp-missing-type-main-branch` — _(no title)_
@@ -1399,6 +1427,7 @@ _1 entries need attention._
 - `2026-09-23-oauth-pkce-refresh-helpers` — OAuth building blocks: PKCE, OAuthTokenRefresh, IdToken (no-op SupabaseAuthRepository)
 - `2026-09-23-ota-deferred-items` — _(no title)_
 - `2026-09-23-ota-update-strategy` — _(no title)_
+- `2026-09-23-pomodoro-alarm-refactor` — Drop ViewModel in AndroidPomodoroTimer; extract PomodoroScheduler port; use kotlinx.datetime.Clock
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _(no title)_
 - `2026-09-23-search-query-language` — Search query language: AST, SimpleFilter, SavedSearch, canonical SearchViewModel
@@ -1408,6 +1437,7 @@ _1 entries need attention._
 - `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
 - `2026-09-23-sync-tier3-fixes` — _(no title)_
 - `2026-09-23-tech-debt-audit` — Tech debt audit — post vm-event-guard-cleanup
+- `2026-09-23-test-standards-enforcement` — Test Standards — Enforcement, Gap Filling, and Architecture Cleanup
 - `2026-09-23-versioning-and-runtime-gates` — Single source of truth for app version, typed schema versioning, and runtime version gates
 - `2026-09-23-vm-event-guard-cleanup` — VM event/guard cleanup — compareAndSet, typed combine, SendChannel, dead code
 - `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause

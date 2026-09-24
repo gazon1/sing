@@ -79,7 +79,7 @@ Platform bindings — в `PlatformModule.jvm.kt` / `PlatformModule.android.kt`.
 
 ```kotlin
 // Три формы теста (singularity-todo-test-helpers skill):
-testVm({ vm: MyVm -> vm.state }) { MyVm(deps, scope = testScope(this)) }
+testVm({ vm: MyVm -> vm.state }) { MyVm(deps, scope = this) }
 ctx.act { it.onIntent(Intent.Load) }
 ctx.assertIs<UiState.Content>()
 
@@ -372,9 +372,9 @@ Skill-ов немного и они узкие. **Большинство арх�
 | `singularity-todo-preview-with-koin` | `@Preview` без Koin — VM-as-parameter pattern, FakeRepositories для preview |
 | `singularity-todo-quality-tools` | detekt 2.x + ktlint + kover: запуск, конфиг, baseline, auto-fix. `just lint`, `just detekt-fix`, `just coverage` |
 | `singularity-todo-clean-architecture-audit` | Проверка layer boundaries: grep-чеки + `just lint`. Прежде чем мержить feature. |
-| `singularity-todo-testable-vm` | Canonical VM pattern: `MutableStateFlow + scope.launch { }.collect {}`, `AutoCloseableCoroutineScope` как default param, BAN list (`stateIn`, `viewModelScope`, `runBlocking`), side-effect extraction pattern. |
-| `singularity-todo-vm-migration-playbook` | Как мигрировать VM с `stateIn`/`scopeOverride`/`viewModelScope` на канонический паттерн. 5-шаговый checklist, dedicated-collector pattern для side-effects в combine, `viewModelOf` vs `viewModel {}`. |
-| `singularity-todo-test-helpers` | `testVm`, `awaitState`, `TestVmContext`, `assertIs`, `testScope`, `FakeRepositories`. Три формы тестов (smoke, intent→state, regression). `FakeTextGen` для failure-сценариев. |
+| `singularity-todo-testable-vm` | Canonical VM pattern: plain `MutableStateFlow`, 4-arg constructor with `scope: CoroutineScope`, secondary ctor for Koin, no `combine`/`stateIn`. Все новые VM пишутся по этому шаблону. |
+| `singularity-todo-vm-migration-playbook` | Как мигрировать существующий VM с `scopeOverride` на канонический 4-arg constructor + secondary ctor. 5-шаговый checklist, side-effects-in-combine fix, `viewModelOf` vs `viewModel {}`. |
+| `singularity-todo-test-helpers` | Стандартные test helpers: `FakeRepositories`, `runTest + advanceUntilIdle + .state.value`, три формы тестов (smoke, intent→state, regression). |
 | `singularity-todo-coroutine-scopes` | Где живут `CoroutineScope` в KMP проекте. Антипаттерн: репозиторий создаёт свой `CoroutineScope(Dispatchers.Default)` — ломает VM-тесты. Канонический pattern: `createBackgroundScope()` через DI, mandatory param в конструкторе. |
 
 **Удалённые skill-ы** (информация переехала в `docs/decisions/`):

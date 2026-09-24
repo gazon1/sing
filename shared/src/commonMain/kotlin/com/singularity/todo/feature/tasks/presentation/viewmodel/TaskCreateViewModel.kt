@@ -15,13 +15,12 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -66,10 +65,6 @@ class TaskCreateViewModel(
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
-    init {
-        addCloseable(scope)
-    }
-
     private val initial: TaskDraft = TaskDraft(
         dueDate = initialDueDate?.let {
             DueDateOption.Custom(it, it.toString())
@@ -107,24 +102,26 @@ class TaskCreateViewModel(
         }
     }
 
-    val state: StateFlow<TaskCreateUiState> = combine(
-        _draft,
-        _isSaving,
-        _error,
-    ) { draft, saving, error ->
-        val validationError: String? = validateForSave(draft)
-        TaskCreateUiState(
-            draft = draft,
-            isSaveEnabled = validationError == null && !saving,
-            error = error,
-            isDirty = draft != initial,
-            isSaving = saving,
-        )
-    }.stateIn(
-        scope,
-        SharingStarted.WhileSubscribed(5_000),
+    private val _state = MutableStateFlow(
         TaskCreateUiState(initial, false, null, false, isSaving = false),
     )
+    val state: StateFlow<TaskCreateUiState> = _state.asStateFlow()
+
+    init {
+        addCloseable(scope)
+        scope.launch {
+            combine(_draft, _isSaving, _error) { draft, saving, error ->
+                val validationError: String? = validateForSave(draft)
+                TaskCreateUiState(
+                    draft = draft,
+                    isSaveEnabled = validationError == null && !saving,
+                    error = error,
+                    isDirty = draft != initial,
+                    isSaving = saving,
+                )
+            }.collect { _state.value = it }
+        }
+    }
 
     fun onIntent(intent: TaskCreateIntent) {
         when (intent) {
