@@ -83,6 +83,16 @@ shared/src/commonMain/.../core/error/AppError.kt:29: error:
 
 ---
 
+## Deferred: StatisticsUiState error field
+
+**Локация:** `shared/src/commonMain/.../statistics/StatisticsViewModel.kt`
+
+В рамках PR 2.1 было добавлено `error: String?` в `StatisticsUiState` и соответствующий `.catch { emit(StatisticsUiState(loading=false, error=it.message)) }`. Однако `StatisticsScreen.kt` не отображает это ошибку — UI wiring отсутствует. Изменение откачено (dead code).
+
+**Действие:** Если нужен error handling в Statistics — добавить UI отображение в `StatisticsScreen.kt` (mini-PR).
+
+---
+
 ## Links
 
 - Epic 1 PRs: `refactor/techdebt-epic1` (commits b61b753 → 7ff1ae7)
