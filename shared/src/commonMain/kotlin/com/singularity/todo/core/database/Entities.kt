@@ -289,20 +289,7 @@ data class TagGroupEntity(
     @ColumnInfo("color") val color: Int, // ARGB
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
+    @ColumnInfo("deleted_at") val deletedAt: Long? = null,
     @Embedded val sync: SyncColumns = SyncColumns(),
 )
 
-/**
- * Many-to-many join table: which tag groups a project inherits tags from.
- * When a project inherits a tag group, all tags in that group are visible
- * to tasks belonging to that project.
- */
-@Entity(
-    tableName = "project_tag_groups",
-    primaryKeys = ["project_id", "tag_group_id"],
-    indices = [Index("tag_group_id")],
-)
-data class ProjectInheritedTagGroupCrossRef(
-    @ColumnInfo("project_id") val projectId: String,
-    @ColumnInfo("tag_group_id") val tagGroupId: String,
-)

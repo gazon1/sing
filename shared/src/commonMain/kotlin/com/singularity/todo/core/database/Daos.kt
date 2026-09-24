@@ -502,3 +502,44 @@ interface ProfileDao {
     @Query("SELECT COUNT(*) FROM profiles")
     suspend fun count(): Int
 }
+
+// ─── Tag Group DAO ─────────────────────────────────────────────────────────────
+
+@Dao
+interface TagGroupDao {
+    @Query("SELECT * FROM tag_groups WHERE user_id = :userId ORDER BY name ASC")
+    fun watchAll(userId: String): Flow<List<TagGroupEntity>>
+
+    @Query("SELECT * FROM tag_groups WHERE id = :id")
+    fun watchById(id: String): Flow<TagGroupEntity?>
+
+    @Query("SELECT * FROM tag_groups WHERE id = :id AND user_id = :userId")
+    suspend fun getByIdForUser(id: String, userId: String): TagGroupEntity?
+
+    @Upsert
+    suspend fun upsert(entity: TagGroupEntity)
+
+    @Query("UPDATE tag_groups SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
+    suspend fun softDelete(id: String, ts: Long)
+}
+
+// ─── Project ↔ Tag Group Join DAO ─────────────────────────────────────────────
+
+/**
+ * DAO for the [ProjectInheritedTagGroupCrossRef] join table.
+ * Stores which tag groups a project inherits tags from.
+ */
+@Dao
+interface ProjectInheritedTagGroupDao {
+    /**
+     * Returns all tag group IDs inherited by a project.
+     */
+    @Query("SELECT tag_group_id FROM project_tag_groups WHERE project_id = :projectId")
+    fun watchByProject(projectId: String): Flow<List<String>>
+
+    /**
+     * Replaces the entire set of inherited tag groups for a project.
+     */
+    @Query("DELETE FROM project_tag_groups WHERE project_id = :projectId")
+    suspend fun deleteAllForProject(projectId: String)
+}

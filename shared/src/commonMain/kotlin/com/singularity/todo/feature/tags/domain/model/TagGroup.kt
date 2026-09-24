@@ -44,6 +44,7 @@ data class TagGroup(
     val createdAt: Instant,
     val updatedAt: Instant,
     val userId: String,
+    val deletedAt: Instant? = null,
     // ─── Sync fields ───────────────────────────────────────────────────────────
     val serverVersion: Long = 0,
     val hlc: Hlc? = null,

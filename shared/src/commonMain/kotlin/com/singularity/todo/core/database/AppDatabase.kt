@@ -39,6 +39,8 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         CalendarSyncTaskMapEntity::class,
         SavedSearchEntity::class,
         RemoteConfigCacheEntity::class,
+        TagGroupEntity::class,
+        ProjectInheritedTagGroupCrossRef::class,
     ],
     version = 20,
     autoMigrations = [
@@ -77,4 +79,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun agendaViewDao(): AgendaViewDao
     abstract fun calendarSyncTaskMapDao(): CalendarSyncTaskMapDao
     abstract fun savedSearchDao(): SavedSearchDao
+    abstract fun tagGroupDao(): TagGroupDao
+    abstract fun projectInheritedTagGroupDao(): ProjectInheritedTagGroupDao
 }

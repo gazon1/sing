@@ -7,6 +7,8 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tags.domain.model.TagGroup
+import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -117,4 +119,33 @@ internal fun ProjectEntity.toProject(): Project = Project(
     userId = UserId(userId),
     serverVersion = sync.serverVersion,
     hlc = sync.hlc?.let { Hlc(it) },
+)
+
+/**
+ * Converts a [TagGroupEntity] to a domain [TagGroup].
+ */
+internal fun TagGroupEntity.toTagGroup(): TagGroup = TagGroup(
+    id = TagGroupId.fromString(id),
+    name = name,
+    color = color,
+    createdAt = createdAt.toInstant(),
+    updatedAt = updatedAt.toInstant(),
+    userId = userId,
+    deletedAt = deletedAt.toInstantOrNull(),
+    serverVersion = sync.serverVersion,
+    hlc = sync.hlc?.let { Hlc(it) },
+)
+
+/**
+ * Converts a domain [TagGroup] to a [TagGroupEntity] for persistence.
+ */
+internal fun TagGroup.toEntity(): TagGroupEntity = TagGroupEntity(
+    id = id.value,
+    userId = userId,
+    name = name,
+    color = color,
+    createdAt = createdAt.toEpochMilliseconds(),
+    updatedAt = updatedAt.toEpochMilliseconds(),
+    deletedAt = deletedAt.toEpochMillisOrNull(),
+    sync = SyncColumns(serverVersion = serverVersion, hlc = hlc?.encoded),
 )

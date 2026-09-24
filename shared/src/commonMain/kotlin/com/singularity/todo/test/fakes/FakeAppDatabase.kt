@@ -20,6 +20,10 @@ import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TagEntity
+import com.singularity.todo.core.database.TagGroupDao
+import com.singularity.todo.core.database.TagGroupEntity
+import com.singularity.todo.core.database.ProjectInheritedTagGroupDao
+import com.singularity.todo.core.database.ProjectInheritedTagGroupCrossRef
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskDependencyCrossRef
@@ -68,6 +72,8 @@ class FakeAppDatabase : AppDatabase() {
     private val _remoteConfigCache = MutableStateFlow<RemoteConfigCacheEntity?>(null)
     private val _calendarSyncTaskMap = MutableStateFlow<Map<String, CalendarSyncTaskMapEntity>>(emptyMap())
     private val _savedSearches = MutableStateFlow<Map<String, SavedSearchEntity>>(emptyMap())
+    private val _tagGroups = MutableStateFlow<Map<String, TagGroupEntity>>(emptyMap())
+    private val _projectTagGroups = MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>(emptyList())
 
     override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
@@ -84,6 +90,8 @@ class FakeAppDatabase : AppDatabase() {
     override fun remoteConfigCacheDao(): RemoteConfigCacheDao = FakeRemoteConfigCacheDao(_remoteConfigCache)
     override fun calendarSyncTaskMapDao(): CalendarSyncTaskMapDao = FakeCalendarSyncTaskMapDao(_calendarSyncTaskMap)
     override fun savedSearchDao(): SavedSearchDao = FakeSavedSearchDao(_savedSearches)
+    override fun tagGroupDao(): TagGroupDao = FakeTagGroupDao(_tagGroups)
+    override fun projectInheritedTagGroupDao(): ProjectInheritedTagGroupDao = FakeProjectInheritedTagGroupDao(_projectTagGroups)
 
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
@@ -103,6 +111,8 @@ class FakeAppDatabase : AppDatabase() {
         _remoteConfigCache.value = null
         _calendarSyncTaskMap.value = emptyMap()
         _savedSearches.value = emptyMap()
+        _tagGroups.value = emptyMap()
+        _projectTagGroups.value = emptyList()
     }
 
     // ─── Seed helpers ────────────────────────────────────────────────────────
@@ -143,6 +153,12 @@ class FakeAppDatabase : AppDatabase() {
     }
     fun seedSavedSearches(items: List<SavedSearchEntity>) {
         _savedSearches.value = items.associateBy { it.id }
+    }
+    fun seedTagGroups(items: List<TagGroupEntity>) {
+        _tagGroups.value = items.associateBy { it.id }
+    }
+    fun seedProjectTagGroups(items: List<ProjectInheritedTagGroupCrossRef>) {
+        _projectTagGroups.value = items
     }
 }
 
@@ -943,5 +959,40 @@ private class FakeSavedSearchDao(private val store: MutableStateFlow<Map<String,
         store.update { current ->
             current.filterValues { v -> !(v.userId == userId && v.id == id) }
         }
+    }
+}
+
+// ─── TagGroupDao ───────────────────────────────────────────────────────────────
+
+private class FakeTagGroupDao(
+    private val store: MutableStateFlow<Map<String, TagGroupEntity>>,
+) : TagGroupDao {
+    override fun watchAll(userId: String): Flow<List<TagGroupEntity>> = store.map {
+        it.values.filter { t -> t.userId == userId }.sortedBy { t -> t.name }
+    }
+    override fun watchById(id: String): Flow<TagGroupEntity?> = store.map { it[id] }
+    override suspend fun getByIdForUser(id: String, userId: String): TagGroupEntity? =
+        store.value.values.find { it.id == id && it.userId == userId }
+    override suspend fun upsert(entity: TagGroupEntity) {
+        store.update { it + (entity.id to entity) }
+    }
+    override suspend fun softDelete(id: String, ts: Long) {
+        store.update { current ->
+            val existing = current[id] ?: return@update current
+            current + (id to existing.copy(deletedAt = ts, updatedAt = ts))
+        }
+    }
+}
+
+// ─── ProjectInheritedTagGroupDao ───────────────────────────────────────────────
+
+private class FakeProjectInheritedTagGroupDao(
+    private val store: MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>,
+) : ProjectInheritedTagGroupDao {
+    override fun watchByProject(projectId: String): Flow<List<String>> = store.map { list ->
+        list.filter { it.projectId == projectId }.map { it.tagGroupId }
+    }
+    override suspend fun deleteAllForProject(projectId: String) {
+        store.update { list -> list.filter { it.projectId != projectId } }
     }
 }
