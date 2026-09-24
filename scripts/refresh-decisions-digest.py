@@ -3,6 +3,10 @@
 
 Run via: ./scripts/refresh-decisions-digest.sh
 Or directly: python3 ./scripts/refresh-decisions-digest.py
+
+This script writes ONLY between <!-- AUTO-GENERATED-START --> and
+<!-- AUTO-GENERATED-END --> markers in DIGEST.md. Content outside those
+markers (e.g. hand-written narrative explanations) is preserved.
 """
 
 import re
@@ -11,7 +15,9 @@ from pathlib import Path
 
 DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
 DIGEST = DECISIONS_DIR / 'DIGEST.md'
-MAX_DIGEST_LINES = 1500
+MAX_DIGEST_LINES = 2000
+MARKER_START = "<!-- AUTO-GENERATED-START -->"
+MARKER_END = "<!-- AUTO-GENERATED-END -->"
 
 
 def main() -> None:
@@ -115,71 +121,105 @@ def main() -> None:
             return bullet
         return f"{bullet} _(from `{slug}`)_"
 
-    out: list[str] = []
-    out.append("# Decision Log Digest")
-    out.append("")
-    out.append("Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.sh` to rebuild.")
-    out.append("")
-    out.append("## Critical")
-    out.append("")
+    generated: list[str] = []
+    generated.append("")
+    generated.append("## Critical")
+    generated.append("")
 
     if critical:
         seen_b: set[str] = set()
         for b, s in critical:
             if b.lower() not in seen_b:
                 seen_b.add(b.lower())
-                out.append(f"- {fmt_bullet(b, s)}")
+                generated.append(f"- {fmt_bullet(b, s)}")
     else:
-        out.append("_No critical markers. Add **Always**, **Never**, or **MUST** to Consequences._")
+        generated.append("_No critical markers. Add **Always**, **Never**, or **MUST** to Consequences._")
 
-    out.append("")
-    out.append("## Per-tag")
-    out.append("")
+    generated.append("")
+    generated.append("## Per-tag")
+    generated.append("")
 
     for tag in sorted(per_tag.keys()):
-        out.append(f"### `{tag}`")
-        out.append("")
+        generated.append(f"### `{tag}`")
+        generated.append("")
         seen: set[tuple[str, str]] = set()
         for b, s in sorted(per_tag[tag]):
             key = (b.lower(), s)
             if key not in seen:
                 seen.add(key)
-                out.append(f"- {b}")
-        out.append("")
+                generated.append(f"- {b}")
+        generated.append("")
 
-    out.append("## Open / Deferred")
-    out.append("")
+    generated.append("## Open / Deferred")
+    generated.append("")
     if open_deferred:
-        out.append(f"_{len(open_deferred)} entries need attention._")
-        out.append("")
+        generated.append(f"_{len(open_deferred)} entries need attention._")
+        generated.append("")
         for slug in sorted(open_deferred.keys()):
             st, ti = open_deferred[slug]
-            out.append(f"- `{slug}` — **{st}** — {ti}")
+            generated.append(f"- `{slug}` — **{st}** — {ti}")
     else:
-        out.append("_No open or deferred entries._")
+        generated.append("_No open or deferred entries._")
 
-    out.append("")
+    generated.append("")
     if recent_superseded:
-        out.append("## Recently superseded")
-        out.append("")
+        generated.append("## Recently superseded")
+        generated.append("")
         for slug, ti in recent_superseded:
-            out.append(f"- `{slug}` — {ti}")
-        out.append("")
+            generated.append(f"- `{slug}` — {ti}")
+        generated.append("")
 
-    out.append("## Index (slug -> tags)")
-    out.append("")
+    generated.append("## Index (slug -> tags)")
+    generated.append("")
     active = [s for s in titles if s not in superseded]
     for slug in sorted(active):
         tag_str = tags_raw.get(slug, '').strip('[]')
-        out.append(f"- `{slug}` — {tag_str or '_untagged_'}")
-    out.append("")
-    out.append("## Active entries")
-    out.append("")
+        generated.append(f"- `{slug}` — {tag_str or '_untagged_'}")
+    generated.append("")
+    generated.append("## Active entries")
+    generated.append("")
     for path in entries:
         slug = path.stem
         if slug not in superseded:
-            out.append(f"- `{slug}` — {titles.get(slug, '') or '_(no title)_'}")
-    out.append("")
+            generated.append(f"- `{slug}` — {titles.get(slug, '') or '_(no title)_'}")
+    generated.append("")
+
+    # Read existing DIGEST and preserve content outside markers
+    preamble: list[str] = []
+    postamble: list[str] = []
+
+    if DIGEST.exists():
+        text = DIGEST.read_text()
+        marker_s_idx = text.find(MARKER_START)
+        marker_e_idx = text.find(MARKER_END)
+
+        if marker_s_idx != -1 and marker_e_idx != -1:
+            # Preserve everything before MARKER_START and after MARKER_END
+            preamble = text[:marker_s_idx].rstrip('\n').splitlines()
+            postamble_lines = text[marker_e_idx + len(MARKER_END):].lstrip('\n').splitlines()
+            # Find the last blank-line-separated block to keep (narratives)
+            postamble = postamble_lines
+        else:
+            # No markers found — treat entire file as preamble (first-run migration)
+            preamble = text.rstrip('\n').splitlines()
+            # Find where the last "## " section starts (## Active entries is last)
+            last_section_line = -1
+            for i, line in enumerate(preamble):
+                if re.match(r'^## ', line):
+                    last_section_line = i
+            if last_section_line >= 0:
+                preamble = preamble[:last_section_line]
+
+    # Build final output
+    out: list[str] = []
+    out.extend(preamble)
+    out.append(MARKER_START)
+    out.extend(generated)
+    out.append(MARKER_END)
+    if postamble:
+        if out and out[-1] != '':
+            out.append('')
+        out.extend(postamble)
 
     DIGEST.write_text('\n'.join(out) + '\n')
     total = len(out)

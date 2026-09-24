@@ -13,7 +13,11 @@ on:
       - '.github/workflows/docs-audit.yml'
       - 'scripts/refresh-decisions-digest.*'
       - 'scripts/normalize-adr-frontmatter.*'
+      - 'scripts/backfill-adr-title.*'
       - 'scripts/print-source-tree.*'
+      - 'scripts/check-kdoc-coverage.*'
+      - 'scripts/check-source-tree-drift.py'
+      - 'scripts/check-broken-links.*'
 
 jobs:
   docs-audit:
@@ -21,25 +25,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check ADR frontmatter
-        run: ./scripts/normalize-adr-frontmatter.sh --dry-run || true
+      - name: Check ADR frontmatter (status, tags, date)
+        run: |
+          result=$(bash scripts/normalize-adr-frontmatter.sh --dry-run 2>&1)
+          echo "$result"
+          # Normalize script exits 2 when changes are needed — this is a warning, not failure
+          if echo "$result" | grep -q "files need changes"; then
+            echo "::notice::ADR frontmatter needs normalization — run ./scripts/normalize-adr-frontmatter.sh --apply"
+          fi
+
+      - name: Check ADR title backfill
+        run: |
+          result=$(python3 scripts/backfill-adr-title.py 2>&1)
+          echo "$result"
+          if echo "$result" | grep -q "files need title"; then
+            echo "::notice::ADR files missing title — run ./scripts/backfill-adr-title.py --apply"
+          fi
 
       - name: Refresh DIGEST
         run: python3 scripts/refresh-decisions-digest.py
 
-      - name: Check for stale open/deferred ADRs
+      - name: Verify DIGEST markers preserved
         run: |
-          STALE=$(find docs/decisions -name "*.md" -newer docs/doc-maintenance.md -exec grep -l "status: open\|status: deferred" {} \; 2>/dev/null || true)
-          if [ -n "$STALE" ]; then
-            echo "Warning: open/deferred ADRs found (older than doc-maintenance.md):"
-            echo "$STALE"
+          if ! grep -q "<!-- AUTO-GENERATED-START -->" docs/decisions/DIGEST.md; then
+            echo "::error::DIGEST.md is missing <!-- AUTO-GENERATED-START --> marker"
+            exit 1
           fi
+          if ! grep -q "<!-- AUTO-GENERATED-END -->" docs/decisions/DIGEST.md; then
+            echo "::error::DIGEST.md is missing <!-- AUTO-GENERATED-END --> marker"
+            exit 1
+          fi
+          echo "DIGEST.md markers intact"
 
       - name: Verify DIGEST has no double-suffix bugs
         run: |
           DOUBLE_SUFFIX_COUNT=$(grep -c "_(from " docs/decisions/DIGEST.md || echo "0")
           if [ "$DOUBLE_SUFFIX_COUNT" -gt 100 ]; then
-            echo "Warning: DIGEST.md has $DOUBLE_SUFFIX_COUNT '_(from ' occurrences — possible double-suffix bug"
+            echo "::warning::DIGEST.md has $DOUBLE_SUFFIX_COUNT '_(from ' occurrences — possible double-suffix bug"
           else
             echo "DIGEST.md looks clean ($DOUBLE_SUFFIX_COUNT citations)"
           fi
@@ -48,6 +70,28 @@ jobs:
         run: |
           LINES=$(wc -l < docs/decisions/DIGEST.md)
           echo "DIGEST.md: $LINES lines"
-          if [ "$LINES" -gt 1500 ]; then
-            echo "Warning: DIGEST.md exceeds 1500 lines — investigate deduplication"
+          if [ "$LINES" -gt 2000 ]; then
+            echo "::warning::DIGEST.md exceeds 2000 lines — investigate deduplication"
           fi
+
+      - name: Check for stale open/deferred ADRs
+        run: |
+          STALE=$(find docs/decisions -name "*.md" -newer docs/doc-maintenance.md -exec grep -l "status: open\|status: deferred" {} \; 2>/dev/null || true)
+          if [ -n "$STALE" ]; then
+            echo "::warning::open/deferred ADRs found (older than doc-maintenance.md):"
+            echo "$STALE"
+          else
+            echo "No stale open/deferred ADRs"
+          fi
+
+      - name: KDoc coverage (warning)
+        continue-on-error: true
+        run: bash scripts/check-kdoc-coverage.sh
+
+      - name: Source tree drift check
+        continue-on-error: true
+        run: python3 scripts/check-source-tree-drift.py
+
+      - name: Broken links check
+        continue-on-error: true
+        run: bash scripts/check-broken-links.sh

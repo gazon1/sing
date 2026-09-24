@@ -56,10 +56,10 @@ superseded-by: YYYY-MM-DD-slug  # optional
 
 ### Rules
 
-1. **Single source of truth**: DIGEST.md is auto-generated. Never edit it by hand — run `scripts/refresh-decisions-digest.py`
+1. **Single source of truth for auto-content**: DIGEST.md is auto-generated between `<!-- AUTO-GENERATED-START -->` and `<!-- AUTO-GENERATED-END -->` markers. Never edit content between markers — run `scripts/refresh-decisions-digest.py`. Hand-written narratives may be placed after `<!-- AUTO-GENERATED-END -->` and are preserved.
 2. **No orphaned `superseded-by`**: If an ADR has `superseded-by`, the target ADR must exist
 3. **No `open` ADRs older than 30 days**: If `open`, either resolve or defer it
-4. **All ADRs must have `status:`**: Run `scripts/normalize-adr-frontmatter.sh --dry-run` to check
+4. **All ADRs must have `title` and `status:`**: Run `scripts/backfill-adr-title.py --dry-run` and `scripts/normalize-adr-frontmatter.sh --dry-run` to check
 
 ---
 
@@ -119,17 +119,27 @@ This is automated by `just docs-audit`.
 ## Running maintenance checks
 
 ```bash
-# Full audit (dry-run)
+# Full audit
 just docs-audit
 
-# Normalize frontmatter (apply changes)
+# Normalize frontmatter (status, tags, title)
 ./scripts/normalize-adr-frontmatter.sh --apply
+./scripts/backfill-adr-title.py --apply   # add title to files missing it
 
-# Refresh DIGEST
+# Refresh DIGEST (preserves content outside <!-- AUTO-GENERATED-START -->...<!-- AUTO-GENERATED-END -->)
 ./scripts/refresh-decisions-digest.sh
 
 # Check for stale open/deferred ADRs
 grep -r "status: open\|status: deferred" docs/decisions/
+
+# KDoc coverage (warning, not gate)
+./scripts/check-kdoc-coverage.sh
+
+# Source-tree drift
+./scripts/check-source-tree-drift.sh
+
+# Broken links
+./scripts/check-broken-links.sh
 ```
 
 ---
