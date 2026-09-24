@@ -5,8 +5,8 @@ import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.tags.data.TagGroupRepositoryImpl
 import com.singularity.todo.feature.tags.data.TagsRepositoryImpl
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
-import com.singularity.todo.feature.tags.usecase.CreateTagUseCase
-import com.singularity.todo.feature.tags.usecase.UpdateTagUseCase
+import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase
+import com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
