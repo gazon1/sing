@@ -16,7 +16,7 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
@@ -72,7 +72,7 @@ class TaskCreateViewModelTest {
         // Draft was restored (seed-if-empty pattern: restore only if current is initial).
         // Verify by saving without typing — should create task with restored title.
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        delay(100.milliseconds)
+        advanceUntilIdle()
         assertEquals(1, fakeTaskRepo.tasks.value.size)
         assertEquals("Restored task", fakeTaskRepo.tasks.value.values.first().title)
     }
@@ -99,7 +99,7 @@ class TaskCreateViewModelTest {
         advanceUntilIdle()
         vm.onIntent(TaskCreateIntent.SaveClicked)
         // Wait for save coroutine to complete
-        delay(100.milliseconds)
+        advanceUntilIdle()
         assertEquals(1, fakeTaskRepo.tasks.value.size)
         assertEquals("New task", fakeTaskRepo.tasks.value.values.first().title)
     }
@@ -112,7 +112,7 @@ class TaskCreateViewModelTest {
         vm.onIntent(TaskCreateIntent.DescriptionChanged("Some description"))
         advanceUntilIdle()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        delay(100.milliseconds)
+        advanceUntilIdle()
         assertEquals(1, fakeTaskRepo.tasks.value.size)
         assertEquals("Some description", fakeTaskRepo.tasks.value.values.first().description)
     }
@@ -125,7 +125,7 @@ class TaskCreateViewModelTest {
         vm.onIntent(TaskCreateIntent.SetPriority(TaskPriority.High))
         advanceUntilIdle()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        delay(100.milliseconds)
+        advanceUntilIdle()
         assertEquals(TaskPriority.High, fakeTaskRepo.tasks.value.values.first().priority)
     }
 
@@ -138,7 +138,7 @@ class TaskCreateViewModelTest {
         vm.onIntent(TaskCreateIntent.TitleChanged("To be cleared"))
         advanceUntilIdle()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        delay(100.milliseconds)
+        advanceUntilIdle()
         // Draft should be cleared from store
         assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
     }
@@ -154,7 +154,7 @@ class TaskCreateViewModelTest {
         vm.onIntent(TaskCreateIntent.SetDueDate(date))
         advanceUntilIdle()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        delay(100.milliseconds)
+        advanceUntilIdle()
         assertEquals(date, fakeTaskRepo.tasks.value.values.first().dueDate)
     }
 
@@ -169,7 +169,7 @@ class TaskCreateViewModelTest {
         vm.onIntent(TaskCreateIntent.DueDateCleared)
         advanceUntilIdle()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        delay(100.milliseconds)
+        advanceUntilIdle()
         assertNull(fakeTaskRepo.tasks.value.values.first().dueDate)
     }
 
@@ -185,7 +185,7 @@ class TaskCreateViewModelTest {
         vm.onIntent(TaskCreateIntent.SaveClicked)
         vm.onIntent(TaskCreateIntent.SaveClicked)
 
-        delay(200.milliseconds)
+        advanceUntilIdle()
         // Exactly one task created — the guard prevented double-save
         assertEquals(1, fakeTaskRepo.tasks.value.size)
         assertEquals("Raced task", fakeTaskRepo.tasks.value.values.first().title)

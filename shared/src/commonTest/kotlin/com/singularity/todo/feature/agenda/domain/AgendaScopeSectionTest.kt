@@ -5,6 +5,7 @@ import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.model.agenda
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 
 class AgendaScopeSectionTest {
@@ -72,10 +73,12 @@ class AgendaScopeSectionTest {
 
     // ─── section with neither — error ───────────────────────────────────────
 
-    @Test(expected = IllegalStateException::class)
+    @Test
     fun `section without selector throws`() {
-        agenda("Test") {
-            section("X") { /* no selector assigned */ }
+        assertFailsWith<IllegalStateException> {
+            agenda("Test") {
+                section("X") { /* no selector assigned */ }
+            }
         }
     }
 

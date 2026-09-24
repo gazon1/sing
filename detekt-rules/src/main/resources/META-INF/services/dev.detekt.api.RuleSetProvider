@@ -1,0 +1,3 @@
+com.singularity.todo.detekt.NoRunBlockingProvider
+com.singularity.todo.detekt.NoViewModelScopeInProductionProvider
+com.singularity.todo.detekt.NoRealDelayInTestRuleProvider

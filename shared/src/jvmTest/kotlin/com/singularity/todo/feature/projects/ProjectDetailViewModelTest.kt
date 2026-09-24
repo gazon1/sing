@@ -21,6 +21,7 @@ import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -32,8 +33,7 @@ import kotlin.test.assertTrue
 /**
  * Unit tests for [ProjectDetailViewModel] verifying behavioral contracts.
  *
- * Timing: all VMs use SharingStarted.Eagerly so flows are active immediately.
- * Tests use spin-wait loops to wait for expected state rather than fixed delays.
+ * Timing: uses virtual time via advanceUntilIdle() — no real delays or spin-waiting.
  */
 class ProjectDetailViewModelTest {
 
@@ -98,31 +98,17 @@ class ProjectDetailViewModelTest {
         assertFalse(vm.hideCompleted.value)
     }
 
-    /**
-     * Waits up to [timeoutMs] for [condition] to return non-null, checking every [intervalMs].
-     */
-    private suspend fun <T> spinWait(timeoutMs: Long = 2000, intervalMs: Long = 20, condition: () -> T?): T? {
-        val deadline = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < deadline) {
-            val value = condition()
-            if (value != null) return value
-            kotlinx.coroutines.delay(intervalMs)
-        }
-        return condition()
-    }
 
     @Test
     fun `UpdateColor persists new color to repository`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        // Wait for state to become Content (projectFlow emits the seeded project)
-        spinWait { vm.state.value as? ProjectDetailUiState.Content }
+        advanceUntilIdle()
+        assertTrue(vm.state.value is ProjectDetailUiState.Content)
 
         val newColor = 0xFFE91E63.toInt()
         vm.onIntent(ProjectDetailIntent.Domain.UpdateColor(newColor))
-
-        // Wait for repository to reflect the update
-        spinWait { fakeProjectsRepo.store["p1"]?.takeIf { it.color == newColor } }
+        advanceUntilIdle()
 
         val updated = fakeProjectsRepo.store["p1"]
         assertNotNull(updated)
@@ -133,11 +119,11 @@ class ProjectDetailViewModelTest {
     fun `ToggleArchive sets isDeleted on project`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        spinWait { vm.state.value as? ProjectDetailUiState.Content }
+        advanceUntilIdle()
+        assertTrue(vm.state.value is ProjectDetailUiState.Content)
 
         vm.onIntent(ProjectDetailIntent.Domain.ToggleArchive)
-
-        spinWait { fakeProjectsRepo.store["p1"]?.takeIf { it.isDeleted } }
+        advanceUntilIdle()
 
         val updated = fakeProjectsRepo.store["p1"]
         assertNotNull(updated)
@@ -148,9 +134,11 @@ class ProjectDetailViewModelTest {
     fun `Delete emits NavigateBack on success`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        spinWait { vm.state.value as? ProjectDetailUiState.Content }
+        advanceUntilIdle()
+        assertTrue(vm.state.value is ProjectDetailUiState.Content)
 
         vm.onIntent(ProjectDetailIntent.Domain.Delete)
+        advanceUntilIdle()
 
         // Wait for NavigateBack event
         val event = vm.events.first()
@@ -161,15 +149,12 @@ class ProjectDetailViewModelTest {
     fun `CreateTask adds task to repository`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        spinWait { vm.state.value as? ProjectDetailUiState.Content }
+        advanceUntilIdle()
+        assertTrue(vm.state.value is ProjectDetailUiState.Content)
         assertTrue(fakeTaskRepo.tasks.value.isEmpty())
 
         vm.onIntent(ProjectDetailIntent.Domain.CreateTask("New task"))
-
-        spinWait {
-            fakeTaskRepo.tasks.value.values.toList()
-                .singleOrNull()?.takeIf { it.title == "New task" }
-        }
+        advanceUntilIdle()
 
         val tasks = fakeTaskRepo.tasks.value.values.toList()
         assertEquals(1, tasks.size)

@@ -20,13 +20,11 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -51,7 +49,6 @@ class CalendarViewModel(
     private val deps: CalendarDeps,
     initialDate: LocalDate,
     initialMode: CalendarViewMode = CalendarViewMode.MONTH,
-    private val sharingStarted: () -> SharingStarted = { SharingStarted.WhileSubscribed(5_000) },
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
@@ -75,33 +72,30 @@ class CalendarViewModel(
     private val _events = Channel<CalendarUiEvent>(Channel.BUFFERED)
     val events: Flow<CalendarUiEvent> = _events.receiveAsFlow()
 
-    /**
-     * Main state — combines task flow with calendar selection state.
-     * Starts as [CalendarUiState.Loading] and transitions to [CalendarUiState.Loaded]
-     * once the first batch of tasks arrives.
-     * User switch is handled automatically by [TaskRepository.observeByFilter].
-     */
-    val state: StateFlow<CalendarUiState> = combine(
-        _calendarState,
-        deps.reminderRepo.observeRecurringTaskIds(),
-    ) { cal, recurringIds ->
-        cal to recurringIds
-    }.flatMapLatest { (cal, recurringIds) ->
-        // Extend query window by ±7 days so neighbouring months are preloaded
-        val from = firstDayOfMonth(cal.anchor).minus(7, DateTimeUnit.DAY)
-        val to = lastDayOfMonth(cal.anchor).plus(7, DateTimeUnit.DAY)
-        deps.taskRepo.observeByFilter(TaskFilter.ByDateRange(from, to))
-            .map { tasks ->
-                val tasksByDate = tasks
-                    .map { task -> CalendarTaskMapper.toCalendarTaskUi(task, today, recurringIds.contains(task.id)) }
-                    .groupBy { it.date }
-                cal.toLoadedState(tasksByDate, today)
-            }
-    }.stateIn(
-        scope,
-        sharingStarted(),
-        CalendarUiState.Loading,
-    )
+    private val _state = MutableStateFlow<CalendarUiState>(CalendarUiState.Loading)
+    val state: StateFlow<CalendarUiState> = _state
+
+    init {
+        scope.launch {
+            combine(
+                _calendarState,
+                deps.reminderRepo.observeRecurringTaskIds(),
+            ) { cal, recurringIds ->
+                cal to recurringIds
+            }.flatMapLatest { (cal, recurringIds) ->
+                // Extend query window by ±7 days so neighbouring months are preloaded
+                val from = firstDayOfMonth(cal.anchor).minus(7, DateTimeUnit.DAY)
+                val to = lastDayOfMonth(cal.anchor).plus(7, DateTimeUnit.DAY)
+                deps.taskRepo.observeByFilter(TaskFilter.ByDateRange(from, to))
+                    .map { tasks ->
+                        val tasksByDate = tasks
+                            .map { task -> CalendarTaskMapper.toCalendarTaskUi(task, today, recurringIds.contains(task.id)) }
+                            .groupBy { it.date }
+                        cal.toLoadedState(tasksByDate, today)
+                    }
+            }.collect { _state.value = it }
+        }
+    }
 
     /**
      * Processes a user intent.

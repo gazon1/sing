@@ -8,7 +8,7 @@ import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.core.sync.SyncEngineStatus
 import com.singularity.todo.feature.sync.presentation.SyncIntent
 import com.singularity.todo.feature.sync.presentation.SyncViewModel
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -47,7 +47,7 @@ class SyncViewModelTest {
 
         vm.process(SyncIntent.SyncNow)
         vm.process(SyncIntent.SyncNow)
-        delay(30) // let the first (yielding) syncOnce() finish
+        advanceUntilIdle() // let the first (yielding) syncOnce() finish
 
         assertEquals(1, repo.syncOnceCallCount)
         vm.vmScope.job?.cancel()
@@ -65,7 +65,7 @@ class SyncViewModelTest {
         val vm = createVm(repo, prefs, this)
 
         vm.process(SyncIntent.SyncNow)
-        delay(10)
+        advanceUntilIdle()
 
         assertEquals(0, repo.syncOnceCallCount)
         vm.vmScope.job?.cancel()
@@ -83,7 +83,7 @@ class SyncViewModelTest {
 
         // Trigger a successful sync so the VM's state is populated.
         vm.process(SyncIntent.SyncNow)
-        delay(10)
+        advanceUntilIdle()
 
         // Call AcknowledgeError — it should clear both fields unconditionally.
         vm.process(SyncIntent.AcknowledgeError)
@@ -104,7 +104,7 @@ class SyncViewModelTest {
         val vm = createVm(repo, prefs, this)
 
         vm.process(SyncIntent.TestConnection)
-        delay(10)
+        advanceUntilIdle()
 
         assertFalse(vm.state.value.isTestingConnection)
         assertEquals(ConnectionTestResult.Success, vm.state.value.connectionTestResult)
@@ -125,7 +125,7 @@ class SyncViewModelTest {
         val vm = createVm(repo, prefs, this)
 
         vm.process(SyncIntent.TestConnection)
-        delay(10)
+        advanceUntilIdle()
 
         assertFalse(vm.state.value.isTestingConnection)
         val result = vm.state.value.connectionTestResult

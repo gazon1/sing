@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import java.io.File
 import java.nio.file.Files
+import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -26,6 +27,7 @@ import kotlin.test.assertTrue
  * polling worked only against in-memory state because the hand-rolled schema
  * had drifted away from `@Entity`, so any upsert would silently no-op).
  */
+@Tag("slow")
 class DesktopRestartSmokeTest {
 
     private lateinit var tempDir: File

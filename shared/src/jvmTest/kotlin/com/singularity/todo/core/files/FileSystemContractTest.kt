@@ -1,6 +1,7 @@
 package com.singularity.todo.core.files
 
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -116,7 +117,9 @@ abstract class FileSystemContract<F : FileSystem>(private val makeSut: () -> F) 
 }
 
 /** Contract test run against [JvmFileSystem] — real filesystem I/O. */
+@Tag("slow")
 class JvmFileSystemContractTest : FileSystemContract<JvmFileSystem>(::JvmFileSystem)
 
 /** Contract test run against [MapFileSystem] — in-memory. */
+@Tag("slow")
 class MapFileSystemContractTest : FileSystemContract<MapFileSystem>(::MapFileSystem)

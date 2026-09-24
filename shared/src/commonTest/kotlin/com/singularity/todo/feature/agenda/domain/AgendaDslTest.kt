@@ -6,6 +6,7 @@ import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.model.agenda
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class AgendaDslTest {
 
@@ -123,11 +124,13 @@ class AgendaDslTest {
      * throws IllegalStateException from checkNotNull with a clear message.
      * MR1 replaced the UninitializedPropertyAccessException with an explicit check.
      */
-    @Test(expected = IllegalStateException::class)
+    @Test
     fun `section without selector throws`() {
-        agenda("Test") {
-            section("X") {
-                // selector not assigned
+        assertFailsWith<IllegalStateException> {
+            agenda("Test") {
+                section("X") {
+                    // selector not assigned
+                }
             }
         }
     }

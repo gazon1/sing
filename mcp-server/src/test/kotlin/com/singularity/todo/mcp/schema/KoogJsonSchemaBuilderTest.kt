@@ -135,7 +135,6 @@ class KoogJsonSchemaBuilderTest {
 
     private fun listTasksTool() = ListTasksTool(
         taskRepository = FakeTaskRepository(),
-        currentUser = FakeProfileAwareCurrentUser(),
     )
 
     private fun getTaskTool() = GetTaskTool(
@@ -144,17 +143,15 @@ class KoogJsonSchemaBuilderTest {
 
     private fun searchTasksTool() = SearchTasksTool(
         taskRepository = FakeTaskRepository(),
-        currentUser = FakeProfileAwareCurrentUser(),
     )
 
     private fun listLinkedTasksTool() = ListLinkedTasksTool(
         taskRepository = FakeTaskRepository(),
-        currentUser = FakeProfileAwareCurrentUser(),
     )
 
     private fun createTaskTool() = CreateTaskTool(
         taskRepository = FakeTaskRepository(),
-        profileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+        currentUser = FakeProfileAwareCurrentUser(),
         clock = com.singularity.todo.core.platform.Clock,
     )
 

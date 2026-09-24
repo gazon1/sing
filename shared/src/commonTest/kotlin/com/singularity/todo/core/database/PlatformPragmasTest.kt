@@ -1,6 +1,7 @@
 package com.singularity.todo.core.database
 
 import com.singularity.todo.core.database.contract.PlatformPragmas
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -13,6 +14,7 @@ import kotlin.test.assertTrue
  * End-to-end execution is verified by [AppDatabaseFactoryJvmTest] on a real
  * `BundledSQLiteDriver`.
  */
+@Tag("slow")
 class PlatformPragmasTest {
 
     @Test

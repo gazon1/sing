@@ -23,8 +23,7 @@ import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -41,10 +40,9 @@ private val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
 /**
  * Unit tests for [TaskDetailViewModel] verifying behavioral contracts.
  *
- * Timing note: stateIn with WhileSubscribed(5000) delays the flatMapLatest chain
- * until a subscriber exists. The createVm() calls vm.state.launchIn(scope) to
- * ensure the chain is active. Tests use real 100ms delays (not advanceUntilIdle)
- * for action steps — these are for ensuring coroutine completion, not virtual time.
+ * Timing: uses virtual time via advanceUntilIdle() — no real delays.
+ * The VM's MutableStateFlow is immediately active on construction,
+ * so no initial delay is needed after createVm().
  *
  * Covered:
  * 1. TOCTOU fix: _latestTask cache prevents losing concurrent remote edits
@@ -92,12 +90,7 @@ class TaskDetailViewModelTest {
             clock = Clock,
             debounceMs = 300L,
         )
-        val vm = TaskDetailViewModel(deps = deps, taskId = taskId, scope = testScope(scope))
-        // Activate the stateIn chain (WhileSubscribed requires an initial subscriber).
-        // Use launchIn so the upstream starts immediately in tests without waiting
-        // for the 5-second WhileSubscribed timeout.
-        vm.state.launchIn(scope)
-        return vm
+        return TaskDetailViewModel(deps = deps, taskId = taskId, scope = testScope(scope))
     }
 
     private fun seedTask(id: TaskId = TaskId("t1")): Task {
@@ -130,10 +123,10 @@ class TaskDetailViewModelTest {
     fun `TitleChanged debounce saves after delay`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100) // Let initial subscription establish
+        advanceUntilIdle() // Let initial subscription establish
 
         vm.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited title"))
-        delay(400) // debounce(300ms) needs real time to advance past 300ms
+        advanceUntilIdle() // debounce(300ms) needs real time to advance past 300ms
 
         assertEquals("Edited title", fakeTaskRepo.tasks.value["t1"]?.title)
     }
@@ -145,11 +138,11 @@ class TaskDetailViewModelTest {
     fun `ToggleComplete sets completedAt in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100) // Allow subscription to establish before acting
+        advanceUntilIdle() // Allow subscription to establish before acting
         assertNull(fakeTaskRepo.tasks.value["t1"]?.completedAt)
 
         vm.onIntent(TaskDetailIntent.Domain.ToggleComplete)
-        delay(50) // scope.launch { mutate(...) } executes immediately
+        advanceUntilIdle() // scope.launch { mutate(...) } executes immediately
 
         assertNotNull(fakeTaskRepo.tasks.value["t1"]?.completedAt)
     }
@@ -158,11 +151,11 @@ class TaskDetailViewModelTest {
     fun `Delete sets archivedAt (soft delete) in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100)
+        advanceUntilIdle()
         assertNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
 
         vm.onIntent(TaskDetailIntent.Domain.Delete)
-        delay(50)
+        advanceUntilIdle()
 
         assertNotNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
     }
@@ -171,11 +164,11 @@ class TaskDetailViewModelTest {
     fun `Archive sets archivedAt in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100)
+        advanceUntilIdle()
         assertNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
 
         vm.onIntent(TaskDetailIntent.Domain.Archive)
-        delay(50)
+        advanceUntilIdle()
 
         assertNotNull(fakeTaskRepo.tasks.value["t1"]?.archivedAt)
     }
@@ -184,11 +177,11 @@ class TaskDetailViewModelTest {
     fun `AddChecklistItem creates checklist item in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100)
+        advanceUntilIdle()
         assertTrue(fakeChecklistRepo.items.value.isEmpty())
 
         vm.onIntent(TaskDetailIntent.Domain.AddChecklistItem("New item"))
-        delay(50)
+        advanceUntilIdle()
 
         val items = fakeChecklistRepo.items.value.values.toList()
         assertEquals(1, items.size)
@@ -200,18 +193,18 @@ class TaskDetailViewModelTest {
     fun `ToggleChecklistItem flips isCompleted in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100)
+        advanceUntilIdle()
 
         // Add an item first
         vm.onIntent(TaskDetailIntent.Domain.AddChecklistItem("Toggle me"))
-        delay(50)
+        advanceUntilIdle()
 
         val item = fakeChecklistRepo.items.value.values.first()
         assertFalse(item.isCompleted)
 
         // Toggle it
         vm.onIntent(TaskDetailIntent.Domain.ToggleChecklistItem(item))
-        delay(50)
+        advanceUntilIdle()
 
         val toggled = fakeChecklistRepo.items.value[item.id.value]
         assertTrue(toggled?.isCompleted == true)
@@ -221,17 +214,17 @@ class TaskDetailViewModelTest {
     fun `TogglePinned flips isPinned — pin then unpin`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100)
+        advanceUntilIdle()
         assertFalse(fakeTaskRepo.tasks.value["t1"]?.isPinned == true)
 
         // Pin
         vm.onIntent(TaskDetailIntent.Domain.TogglePinned)
-        delay(50)
+        advanceUntilIdle()
         assertTrue(fakeTaskRepo.tasks.value["t1"]?.isPinned == true)
 
         // Unpin
         vm.onIntent(TaskDetailIntent.Domain.TogglePinned)
-        delay(50)
+        advanceUntilIdle()
         assertFalse(fakeTaskRepo.tasks.value["t1"]?.isPinned == true)
     }
 }

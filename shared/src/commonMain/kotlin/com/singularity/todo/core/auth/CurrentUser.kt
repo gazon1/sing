@@ -2,10 +2,11 @@ package com.singularity.todo.core.auth
 
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 
 /**
  * Reactive, single source of truth for the current userId.
@@ -24,9 +25,16 @@ import kotlinx.coroutines.flow.stateIn
  *   inject a `TestScope` or `backgroundScope`.
  */
 class CurrentUser(authRepository: AuthRepository, private val scope: CoroutineScope) {
-    val userId: StateFlow<UserId> = authRepository.currentSession
-        .map { AuthDomain.effectiveUserId(it) }
-        .stateIn(scope, SharingStarted.Eagerly, UserId.anonymous)
+    private val _userId = MutableStateFlow(UserId.anonymous)
+    val userId: StateFlow<UserId> = _userId
+
+    init {
+        scope.launch {
+            authRepository.currentSession
+                .map { AuthDomain.effectiveUserId(it) }
+                .collect { _userId.value = it }
+        }
+    }
 
     /** Convenience for synchronous reads in imperative code paths. */
     val current: UserId get() = userId.value

@@ -14,7 +14,9 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,9 +27,8 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * Unit tests for [TaskCreateViewModel] debounce + draft persistence behavior.
  *
- * Timing: tests use real `delay()` to advance virtual time past the debounce
- * threshold set by [FakeAutosaveScheduler.delayMs]. The delay is set to 50ms
- * so tests are fast while remaining deterministic.
+ * Timing: uses virtual time via advanceTimeBy() + runCurrent().
+ * Debounce threshold is 500ms; tests advance 510ms (fires) and 210ms (doesn't fire).
  *
  * Covered:
  * 1. Draft is saved after debounce delay elapses
@@ -58,7 +59,7 @@ class TaskCreateDebounceTest {
     fun `draft saved after debounce delay elapses`() = runTest {
         val vm = createVm(backgroundScope)
         // Wait for init coroutines to settle (restore + debounce collector)
-        delay(10.milliseconds)
+        advanceUntilIdle()
 
         // Type a title — triggers a new debounce window
         vm.onIntent(TaskCreateIntent.TitleChanged("Buy groceries"))
@@ -66,8 +67,9 @@ class TaskCreateDebounceTest {
         // Draft NOT saved yet — debounce hasn't fired (only 10ms elapsed, delay = 500ms)
         assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
 
-        // Wait past the 500ms debounce delay
-        delay(600.milliseconds)
+        // Advance past the 500ms debounce delay
+        advanceTimeBy(510)
+        runCurrent()
 
         // Draft SHOULD be saved now
         val saved = fakeDraftStore.load(draftKey, TaskDraft.serializer())
@@ -78,11 +80,12 @@ class TaskCreateDebounceTest {
     @Test
     fun `draft NOT saved before debounce delay elapses`() = runTest {
         val vm = createVm(backgroundScope)
-        delay(10.milliseconds)
+        advanceUntilIdle()
 
         vm.onIntent(TaskCreateIntent.TitleChanged("Quick note"))
-        // Wait only 200ms — less than the 500ms debounce delay
-        delay(200.milliseconds)
+        // Advance only 200ms — less than the 500ms debounce delay
+        advanceTimeBy(210)
+        runCurrent()
 
         val saved = fakeDraftStore.load(draftKey, TaskDraft.serializer())
         // debounce hasn't fired yet — still null
@@ -92,17 +95,18 @@ class TaskCreateDebounceTest {
     @Test
     fun `draft cleared after successful save`() = runTest {
         val vm = createVm(backgroundScope)
-        delay(10.milliseconds)
+        advanceUntilIdle()
 
         vm.onIntent(TaskCreateIntent.TitleChanged("Task to create"))
-        // Wait for debounce to fire and draft to be saved
-        delay(600.milliseconds)
+        // Advance past debounce delay
+        advanceTimeBy(510)
+        runCurrent()
         assertNotNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
 
         // Trigger save (title is non-blank → createTask is called)
         vm.onIntent(TaskCreateIntent.SaveClicked)
         // Wait for save + clear to complete
-        delay(200.milliseconds)
+        advanceUntilIdle()
 
         assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
     }

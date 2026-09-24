@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.gate.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.config.RemoteConfigSnapshot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
@@ -49,7 +48,7 @@ class AppVersionGateViewModel(
      * Called by the "Check Again" button on the blocked screen.
      */
     fun onCheckAgain() {
-        viewModelScope.launch {
+        scope.launch {
             _state.value = AppVersionGateState.Checking
             val result = remoteConfigPort.refresh()
             val snapshot = result.getOrElse { RemoteConfigSnapshot.defaults() }
@@ -58,7 +57,7 @@ class AppVersionGateViewModel(
     }
 
     private fun check() {
-        viewModelScope.launch {
+        scope.launch {
             val snapshot = remoteConfigPort.snapshot()
             evaluate(snapshot)
         }
