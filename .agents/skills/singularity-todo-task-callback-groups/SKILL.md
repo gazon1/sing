@@ -277,6 +277,14 @@ When in doubt: `remember` with no keys on a `value class` lambda is almost alway
 | 4–9 callbacks, outgoing, used in 2+ screens | Extract `value class XxxActions` |
 | 10+ callbacks of any kind | Extract `value class XxxActions` + consider screen decomposition |
 | 4+ incoming data params that are a cohesive unit | Data class |
+
+## Related Skills
+
+| Skill | What it contributes |
+|---|---|
+| `singularity-todo-sheet-extraction` | `CurrentProjectContent` data class pattern, routing intents for sheet navigation, `*SheetsHost` composition |
+| `singularity-todo-document-style-detail` | 4-section screen decomposition, `ActiveSheet` sealed interface |
+| `singularity-todo-feature-scaffold` | Full feature structure including callback bundle placement |
 | Mixing incoming + outgoing in one class | Never — split by direction |
 
 ### `enum class Action` vs `sealed class Action`

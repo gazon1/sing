@@ -268,6 +268,7 @@ Keep this value consistent across VMs unless you have a measured reason to devia
 - `singularity-todo-ui-event-vs-state` — routing state (which sheet is open) is NOT a `SharedFlow` event
 - `singularity-todo-testable-vm` — **testability pattern**: plain `MutableStateFlow`, scope injection, no `combine`+`stateIn`
 - `singularity-todo-vm-koin-scoping` — how to register this VM in Koin (especially two-constructor testable VMs — never `viewModelOf`, always explicit `viewModel { ... }`)
+- `singularity-todo-sheet-extraction` — routing intents for sheet navigation (e.g. `NavigateToChild`), `ActiveSheet` sealed interface, `*SheetsHost` composition, `CurrentContent` data class
 - `docs/decisions/2026-09-09-task-detail-intent-refactor.md` — the ADR that formalized this pattern
 - `docs/decisions/2026-09-09-project-detail-intent-refactor.md` — the minimal variant ADR (no sheets)
 - `docs/decisions/2026-09-16-agenda-mr4-saved-views-create-reorder.md` — MR4 refactor that established the testable VM pattern

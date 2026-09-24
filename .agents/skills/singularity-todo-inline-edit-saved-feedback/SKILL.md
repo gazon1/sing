@@ -238,3 +238,4 @@ If your save latency is >500ms (network-backed storage), show a brief "Saving...
 | `singularity-todo-document-style-detail` | The 4-section anatomy + ActiveSheet pattern |
 | `singularity-todo-ui-event-vs-state` | Continuous `_lastEditedAt` vs one-shot `Saved` event distinction |
 | `singularity-todo-pure-formatters` | Pure formatter testability — `formatSavedRelative` is a pure function |
+| `singularity-todo-sheet-extraction` | `ActiveSheet` sealed interface, `*SheetsHost` pattern, routing intents for sheet-initiated navigation |

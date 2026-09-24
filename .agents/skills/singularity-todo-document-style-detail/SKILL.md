@@ -198,6 +198,7 @@ When a detail screen has a reference to another entity (e.g., a Task's project c
 | `singularity-todo-ui-event-vs-state` | Continuous vs one-shot event semantics |
 | `singularity-todo-inline-edit-saved-feedback` | Debounced edit + Saved-spam prevention (deep dive) |
 | `singularity-todo-cross-feature-navigation` | Chip → detail navigation UX |
+| `singularity-todo-sheet-extraction` | `ActiveSheet` sealed interface, `*SheetsHost` pattern, callback bundle design, routing intents for navigation-from-sheet |
 
 ## Anti-Patterns
 

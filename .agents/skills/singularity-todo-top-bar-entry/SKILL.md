@@ -156,3 +156,4 @@ Use a **top-bar IconButton** when the destination is a secondary screen accessed
 - `singularity-todo-nav3-nested-graphs` — NavGraph entry registration, serializer rules
 - `singularity-todo-preview-with-koin` — VM-as-parameter pattern for previews
 - `singularity-todo-vm-intent-pattern` — routing via callbacks vs routing intents
+- `singularity-todo-sheet-extraction` — routing intents for navigation from sheets (e.g. `NavigateToChild`) |

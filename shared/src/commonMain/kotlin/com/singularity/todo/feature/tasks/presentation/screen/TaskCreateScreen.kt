@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.screen
 
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -9,16 +8,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
+import com.singularity.todo.core.ui.components.TimePickerSheet
+import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
-import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
-import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorPrioritySheet
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSaveBar
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
+import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import kotlinx.datetime.LocalDate
 import org.koin.compose.viewmodel.koinViewModel
@@ -29,9 +31,10 @@ import org.koin.core.parameter.parametersOf
  * Reads [LocalTasksNavigator] for all navigation — no callbacks needed.
  *
  * Uses [org.koin.compose.viewmodel.koinViewModel] with [parametersOf] for
- * per-entry ViewModel scoping.
+ * per-entry ViewModel scoping (requires [rememberViewModelStoreNavEntryDecorator]
+ * in the NavDisplay entry decorators).
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun TaskCreateScreen(initialDueDate: LocalDate?) {
     val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate) }
@@ -42,6 +45,7 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
 
     var showDiscard by remember { mutableStateOf(false) }
     var isNavigatingBack by remember { mutableStateOf(false) }
+    val sheets = rememberDialogState<TaskEditorSheet>()
 
     LaunchedEffect(vm) {
         vm.saved.collect {
@@ -73,48 +77,74 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
         )
     }
 
-    val model = TaskEditorModel(
+    TaskEditorContent(
         titleDraft = state.draft.title,
+        onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },
+        isCompleted = false,
+        onCheckToggle = { },
         descriptionDraft = state.draft.description,
+        onDescriptionChange = { vm.onIntent(TaskCreateIntent.DescriptionChanged(it)) },
         priority = state.draft.priority,
+        onPrioritySelect = { vm.onIntent(TaskCreateIntent.SetPriority(it)) },
+        onPriorityClear = { vm.onIntent(TaskCreateIntent.SetPriority(TaskPriority.None)) },
         dueDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
         dueTime = state.draft.dueTime,
-    )
-
-    val callbacks = TaskEditorCallbacks(
-        onBack = guardedBack,
-        onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },
-        onCheckToggle = { },
-        onDescriptionChange = { vm.onIntent(TaskCreateIntent.DescriptionChanged(it)) },
-        priority = RowCallbacks(
-            onChange = { vm.onIntent(TaskCreateIntent.SetPriority(it)) },
-            onClear = { vm.onIntent(TaskCreateIntent.SetPriority(TaskPriority.None)) },
-        ),
-        dueDate = DateRowCallbacks(
-            onChangeDate = { vm.onIntent(TaskCreateIntent.SetDueDate(it)) },
-            onChangeTime = { vm.onIntent(TaskCreateIntent.SetDueTime(it)) },
-            onClear = { vm.onIntent(TaskCreateIntent.DueDateCleared) },
-        ),
-        startDate = null,
-        project = null,
-        tags = null,
-        recurrence = null,
-        pin = null,
-        dependencies = null,
-        checklist = null,
-        attachments = null,
+        onDueDateSelect = { vm.onIntent(TaskCreateIntent.SetDueDate(it)) },
+        onDueDateClear = { vm.onIntent(TaskCreateIntent.DueDateCleared) },
+        onDueTimeSelect = { vm.onIntent(TaskCreateIntent.SetDueTime(it)) },
+        showDueDate = true,
+        onPriorityClick = { sheets.show(TaskEditorSheet.Priority) },
+        onDueDateClick = { sheets.show(TaskEditorSheet.Date) },
+        extraSections = null,
+        onSetDependencies = null,
         bottomBar = {
-            com.singularity.todo.feature.tasks.presentation.components.detail.TaskSaveBar(
+            TaskSaveBar(
                 isEnabled = state.isSaveEnabled,
                 isLoading = state.isSaving,
                 onSaveClick = { vm.onIntent(TaskCreateIntent.SaveClicked) },
             )
         },
         menuItems = emptyList(),
+        onBack = guardedBack,
     )
 
-    TaskEditorContent(
-        model = model,
-        callbacks = callbacks,
-    )
+    // Sheets
+    when (sheets.active) {
+        is TaskEditorSheet.Date -> DatePickerSheet(
+            initialDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
+            onDateSelected = { date ->
+                vm.onIntent(TaskCreateIntent.SetDueDate(date))
+                sheets.dismiss()
+            },
+            onDismiss = { sheets.dismiss() },
+        )
+
+        is TaskEditorSheet.Time -> TimePickerSheet(
+            initialTime = state.draft.dueTime,
+            onTimeSelected = { time ->
+                vm.onIntent(TaskCreateIntent.SetDueTime(time))
+                sheets.dismiss()
+            },
+            onDismiss = { sheets.dismiss() },
+        )
+
+        is TaskEditorSheet.Priority -> TaskEditorSheetHost(
+            title = "Приоритет",
+            onClose = { sheets.dismiss() },
+        ) {
+            TaskEditorPrioritySheet(
+                selected = state.draft.priority,
+                onSelect = { p ->
+                    vm.onIntent(TaskCreateIntent.SetPriority(p))
+                    sheets.dismiss()
+                },
+            )
+        }
+
+        is TaskEditorSheet.Dependencies -> { /* not supported in create mode */
+        }
+
+        null -> { /* no-op */
+        }
+    }
 }

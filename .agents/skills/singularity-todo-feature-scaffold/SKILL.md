@@ -810,3 +810,4 @@ suspend fun run(...): ProfileBootstrapResult { ... }
 - `singularity-todo-clean-architecture-audit` — Layer-boundary grep checks
 - `singularity-todo-coroutine-scopes` — `createBackgroundScope()` placement
 - `singularity-todo-feature-scaffold` (this file)
+- `singularity-todo-sheet-extraction` — extracting inline sheets to separate files, callback bundle design, routing intents for sheet navigation
