@@ -6,17 +6,24 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 
 /**
  * Top bar for TaskDetail screen (View mode).
+ *
+ * @param onBackClick called when the back arrow is tapped
+ * @param onMoreClick called when the menu button is tapped. Null means the button is hidden
+ *        (e.g. in Create mode where there is no overflow menu).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TaskDetailTopBar(onBackClick: () -> Unit, onMoreClick: () -> Unit) {
+fun TaskDetailTopBar(
+    onBackClick: () -> Unit,
+    onMoreClick: (() -> Unit)? = null,
+) {
     TopAppBar(
         title = {},
         navigationIcon = {
@@ -24,21 +31,23 @@ fun TaskDetailTopBar(onBackClick: () -> Unit, onMoreClick: () -> Unit) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Назад",
-                    tint = TaskColors.TextPrimary,
+                    tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
         },
         actions = {
-            IconButton(onClick = onMoreClick) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "Меню",
-                    tint = TaskColors.TextPrimary,
-                )
+            if (onMoreClick != null) {
+                IconButton(onClick = onMoreClick) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Меню",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = TaskColors.Background,
+            containerColor = MaterialTheme.colorScheme.surface,
         ),
     )
 }

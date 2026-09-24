@@ -7,9 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Label
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,8 +21,13 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.formatTimestampsRelative
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
+import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
@@ -70,54 +72,52 @@ fun TaskDetailViewScreen(taskId: TaskId) {
 
             is TaskDetailUiState.Loaded -> {
                 val ui = s.ui
-                TaskEditorContent(
+                val model = TaskEditorModel(
+                    taskId = taskId,
                     titleDraft = ui.titleDraft,
-                    onTitleChange = { vm.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
-                    isCompleted = ui.task.isCompleted,
-                    onCheckToggle = { vm.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
                     descriptionDraft = ui.descriptionDraft,
-                    onDescriptionChange = { vm.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it)) },
                     priority = ui.task.priority,
-                    onPrioritySelect = { vm.onIntent(TaskDetailIntent.Domain.SetPriority(it)) },
-                    onPriorityClear = null,
                     dueDate = ui.task.dueDate,
                     dueTime = ui.task.dueTime,
-                    onDueDateSelect = { vm.onIntent(TaskDetailIntent.Domain.SetDueDate(it)) },
-                    onDueDateClear = null,
-                    onDueTimeSelect = { vm.onIntent(TaskDetailIntent.Domain.SetDueTime(it)) },
-                    showDueDate = ui.task.dueDate != null,
+                    startDate = ui.task.startDate,
+                    startTime = ui.task.startTime,
+                    project = ui.task.projectId,
+                    tags = ui.tags.map { it.id },
+                    checklist = ui.checklist,
+                    attachments = ui.attachments,
+                    recurrence = ui.task.recurrence,
+                    isPinned = ui.task.isPinned,
                     dependsOn = ui.dependsOn,
                     availableTasks = ui.availableTasks,
-                    onSetDependencies = { deps -> vm.onIntent(TaskDetailIntent.Domain.SetDependencies(deps)) },
-                    extraSections = {
-                        if (ui.checklist.isNotEmpty()) {
-                            com.singularity.todo.feature.tasks.presentation.components.detail.TaskChecklistCard(
-                                itemCount = ui.checklist.count { !it.isCompleted },
-                                onClick = { },
-                            )
-                        }
-                        ui.project?.let { project ->
-                            com.singularity.todo.feature.tasks.presentation.components.detail.TaskAttributeCard(
-                                icon = Icons.Filled.Folder,
-                                label = project.name,
-                                isActive = true,
-                                onClick = { navigator.openProject(project.id) },
-                            )
-                        }
-                        if (ui.tags.isNotEmpty()) {
-                            com.singularity.todo.feature.tasks.presentation.components.detail.TaskAttributeCard(
-                                icon = Icons.AutoMirrored.Filled.Label,
-                                label = ui.tags.joinToString { it.name },
-                                isActive = true,
-                                onClick = { },
-                            )
-                        }
-                        val ts = formatTimestampsRelative(ui.task.createdAt, ui.task.updatedAt, Clock.System.now())
-                        Text(
-                            text = "${ts.created} · ${ts.updated}",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    },
+                )
+
+                val callbacks = TaskEditorCallbacks(
+                    onBack = { navigator.back() },
+                    onTitleChange = { vm.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
+                    onCheckToggle = { vm.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
+                    onDescriptionChange = { vm.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it)) },
+                    priority = RowCallbacks(
+                        onChange = { vm.onIntent(TaskDetailIntent.Domain.SetPriority(it)) },
+                        onClear = null,
+                    ),
+                    dueDate = DateRowCallbacks(
+                        onChangeDate = { vm.onIntent(TaskDetailIntent.Domain.SetDueDate(it)) },
+                        onChangeTime = { vm.onIntent(TaskDetailIntent.Domain.SetDueTime(it)) },
+                        onClear = null,
+                    ),
+                    startDate = null,
+                    project = null,
+                    tags = null,
+                    recurrence = null,
+                    pin = ToggleCallbacks(
+                        onToggle = { vm.onIntent(TaskDetailIntent.Domain.TogglePinned) },
+                    ),
+                    dependencies = RowCallbacks(
+                        onChange = { vm.onIntent(TaskDetailIntent.Domain.SetDependencies(it)) },
+                        onClear = null,
+                    ),
+                    checklist = null,
+                    attachments = null,
                     bottomBar = null,
                     menuItems = listOf(
                         TaskEditorMenuItem(
@@ -129,7 +129,11 @@ fun TaskDetailViewScreen(taskId: TaskId) {
                             onClick = { vm.onIntent(TaskDetailIntent.Domain.Delete) },
                         ),
                     ),
-                    onBack = { navigator.back() },
+                )
+
+                TaskEditorContent(
+                    model = model,
+                    callbacks = callbacks,
                 )
             }
         }
@@ -164,7 +168,3 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
         }
     }
 }
-
-// ─── Previews ────────────────────────────────────────────────────────────────
-// TaskDetailViewScreen is tested via integration tests (Nav3 + VM).
-// Basic preview of the TaskEditorContent component is in TaskEditorContent.kt.

@@ -21,7 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,7 +35,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import kotlinx.coroutines.delay
 
 /**
  * Compose-rendered top menu bar.
@@ -91,29 +89,18 @@ private fun TopMenuBarItem(
     onOpenChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val hoverSource = remember { MutableInteractionSource() }
-    val clickSource = remember { MutableInteractionSource() }
-    val isHovered by hoverSource.collectIsHoveredAsState()
-
-    LaunchedEffect(isHovered, isOpen) {
-        if (isHovered && !isOpen) {
-            delay(200L)
-            if (isHovered) onOpenChange(true)
-        }
-    }
+    val hover = rememberHoverOpenState(
+        delayMs = 200L,
+        isOpen = isOpen,
+        onOpen = { onOpenChange(true) },
+    )
 
     Box(
         modifier = Modifier
-            .clickable(
-                interactionSource = clickSource,
-                indication = null,
-                enabled = node.enabled,
-                onClick = { onOpenChange(!isOpen) },
-            )
-            .hoverable(interactionSource = hoverSource, enabled = node.enabled)
+            .hoverable(interactionSource = hover.interactionSource, enabled = node.enabled)
             .clip(RoundedCornerShape(4.dp))
             .background(
-                if (isHovered || isOpen) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
+                if (hover.isHovered || isOpen) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
             )
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
@@ -262,28 +249,18 @@ private fun DropdownActionRow(node: MenuNode.Action, onAction: () -> Unit) {
 
 @Composable
 private fun DropdownSubMenuRow(node: MenuNode.SubMenu, onDismiss: () -> Unit) {
-    val hoverSource = remember { MutableInteractionSource() }
-    val clickSource = remember { MutableInteractionSource() }
-    val isHovered by hoverSource.collectIsHoveredAsState()
     var openSub by remember { mutableStateOf(false) }
-
-    LaunchedEffect(isHovered, openSub) {
-        if (isHovered && !openSub) {
-            delay(300L)
-            if (isHovered) openSub = true
-        }
-    }
+    val hover = rememberHoverOpenState(
+        delayMs = 300L,
+        isOpen = openSub,
+        onOpen = { openSub = true },
+    )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(
-                interactionSource = clickSource,
-                enabled = node.enabled,
-                onClick = { openSub = !openSub },
-            )
-            .hoverable(interactionSource = hoverSource)
-            .background(if (isHovered) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
+            .hoverable(interactionSource = hover.interactionSource, enabled = node.enabled)
+            .background(if (hover.isHovered) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.CenterStart,
     ) {

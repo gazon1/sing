@@ -383,6 +383,28 @@ class TaskDetailViewModel(
                         .onFailure { emitError("Restore failed") }
                 }
             }
+
+            is TaskDetailIntent.Domain.SetStartDate ->
+                mutate(current) { copy(startDate = intent.date) }
+
+            is TaskDetailIntent.Domain.SetStartTime ->
+                mutate(current) { copy(startTime = intent.time) }
+
+            is TaskDetailIntent.Domain.AddUrlAttachment -> {
+                scope.launch {
+                    deps.attachmentsRepo.addUrlAttachment(current.id, intent.url, intent.title)
+                        .onSuccess { _events.trySend(TaskDetailUiEvent.Saved("Attachment added")) }
+                        .onFailure { emitError("Failed to add attachment") }
+                }
+            }
+
+            is TaskDetailIntent.Domain.DeleteAttachment -> {
+                scope.launch {
+                    deps.attachmentsRepo.delete(intent.id)
+                        .onSuccess { _events.trySend(TaskDetailUiEvent.Saved("Attachment deleted")) }
+                        .onFailure { emitError("Failed to delete attachment") }
+                }
+            }
         }
     }
 

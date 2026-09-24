@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui.menu
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,7 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
-import kotlinx.coroutines.delay
 
 /** State that opens a context menu at a given screen offset. */
 data class ContextMenuOpenState(val offset: DpOffset)
@@ -87,7 +86,6 @@ private fun MenuPanel(entries: List<MenuNode>, onDismissAll: () -> Unit, modifie
 
 @Composable
 private fun MenuPanelItem(node: MenuNode, onDismissAll: () -> Unit) {
-    var isHovered by remember { mutableStateOf(false) }
     var openSubMenu by remember { mutableStateOf(false) }
 
     when (node) {
@@ -111,8 +109,6 @@ private fun MenuPanelItem(node: MenuNode, onDismissAll: () -> Unit) {
         is MenuNode.SubMenu -> {
             SubMenuRow(
                 node = node,
-                isHovered = isHovered,
-                onHoverChange = { isHovered = it },
                 openSubMenu = openSubMenu,
                 onOpenSubMenu = { openSubMenu = true },
                 onDismissAll = onDismissAll,
@@ -170,18 +166,15 @@ private fun ActionMenuRow(node: MenuNode.Action, onClick: () -> Unit) {
 @Composable
 private fun SubMenuRow(
     node: MenuNode.SubMenu,
-    isHovered: Boolean,
-    onHoverChange: (Boolean) -> Unit,
     openSubMenu: Boolean,
     onOpenSubMenu: () -> Unit,
     onDismissAll: () -> Unit,
 ) {
-    LaunchedEffect(isHovered) {
-        if (isHovered) {
-            delay(300L)
-            onOpenSubMenu()
-        }
-    }
+    val hover = rememberHoverOpenState(
+        delayMs = 300L,
+        isOpen = openSubMenu,
+        onOpen = onOpenSubMenu,
+    )
 
     // Track this row's bounds in window coordinates for submenu positioning.
     var rowBounds by remember { mutableStateOf(Rect.Zero) }
@@ -192,6 +185,7 @@ private fun SubMenuRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(36.dp)
+            .hoverable(interactionSource = hover.interactionSource, enabled = node.enabled)
             .padding(horizontal = 8.dp)
             .onGloballyPositioned { rowBounds = it.boundsInWindow() },
         contentAlignment = Alignment.CenterStart,

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
+import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
@@ -36,6 +37,8 @@ sealed interface TaskDetailIntent {
 
         data class SetDueDate(val date: LocalDate?) : Domain
         data class SetDueTime(val time: LocalTime?) : Domain
+        data class SetStartDate(val date: LocalDate?) : Domain
+        data class SetStartTime(val time: LocalTime?) : Domain
         data class SetPriority(val priority: TaskPriority) : Domain
         data class SetProject(val projectId: ProjectId?) : Domain
 
@@ -83,5 +86,10 @@ sealed interface TaskDetailIntent {
         // ── Recurrence ───────────────────────────────────────────────────────
 
         data class SetRecurrence(val spec: RecurrenceSpec?) : Domain
+
+        // ── Attachments ──────────────────────────────────────────────────────
+
+        data class AddUrlAttachment(val url: String, val title: String?) : Domain
+        data class DeleteAttachment(val id: AttachmentId) : Domain
     }
 }

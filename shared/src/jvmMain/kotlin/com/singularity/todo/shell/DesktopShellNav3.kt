@@ -8,6 +8,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,7 +37,6 @@ import com.singularity.todo.core.ui.menu.buildMenuNodes
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.AppDestination.AgendaGraph
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
@@ -64,7 +65,7 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
     val scope = rememberCoroutineScope()
 
     val current: AppDestination = state.topLevelRoute as? AppDestination
-        ?: AgendaGraph(AgendaStartRoute.Today)
+        ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
 
     val appEntryProvider = createJvmEntryProvider(navCallbacks)
 
@@ -174,8 +175,18 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
         },
         content = {
             Scaffold(
+                floatingActionButton = {
+                    val action = fabActionForNav3(current) { navigator.navigate(it) }
+                    if (action != null) {
+                        FloatingActionButton(onClick = action.onClick) {
+                            Icon(Icons.Default.Add, contentDescription = action.label)
+                        }
+                    }
+                },
+                floatingActionButtonPosition = FabPosition.End,
                 topBar = {
                     Column {
+                        ComposeTopMenuBar(entries = menuEntries)
                         TopAppBar(
                             title = { Text(current.title) },
                             navigationIcon = {
@@ -191,19 +202,7 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                                     Icon(Icons.Default.Menu, contentDescription = "Menu")
                                 }
                             },
-                            actions = {
-                                val action = fabActionForNav3(current, navigator)
-                                if (action != null) {
-                                    IconButton(onClick = action.onClick) {
-                                        Icon(
-                                            Icons.Default.Add,
-                                            contentDescription = action.label,
-                                        )
-                                    }
-                                }
-                            },
                         )
-                        ComposeTopMenuBar(entries = menuEntries)
                     }
                 },
             ) { padding ->
@@ -247,21 +246,3 @@ private fun openGitHub() {
         // Desktop browsing not supported on this platform
     }
 }
-
-private data class FabAction(val label: String, val onClick: () -> Unit)
-
-private fun fabActionForNav3(current: AppDestination, navigator: Navigator): FabAction? =
-    when (current) {
-        AgendaGraph(AgendaStartRoute.Inbox), AgendaGraph(AgendaStartRoute.Today) -> FabAction("Add task") {
-            navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create))
-        }
-
-        AppDestination.Plans -> FabAction("Add project") {
-            navigator.navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()))
-        }
-
-        // NotesNavGraph has its own note creation button — no shell FAB needed here.
-        AppDestination.Notes, AppDestination.Pomodoro, AppDestination.Statistics, AppDestination.Archive -> null
-
-        else -> null
-    }

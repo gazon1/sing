@@ -42,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.BottomSheetHost
@@ -50,10 +49,11 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
+import com.singularity.todo.feature.projects.presentation.components.EditorParentPickerSheet
+import com.singularity.todo.feature.projects.presentation.components.IconPickerSheet
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorIntent
@@ -86,7 +86,11 @@ fun ProjectEditorScreen(projectId: ProjectId?, modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier = Modifier, onBack: () -> Unit) {
+fun ProjectEditorContent(
+    viewModel: ProjectEditorViewModel,
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showIconPicker by remember { mutableStateOf(false) }
     var showParentPicker by remember { mutableStateOf(false) }
@@ -183,9 +187,7 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
                                     Icons.Filled.Check,
                                     contentDescription = "Selected",
                                     tint = Color.White,
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .padding(6.dp),
+                                    modifier = Modifier.size(32.dp).padding(6.dp),
                                 )
                             }
                         }
@@ -210,7 +212,7 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
                 )
             }
 
-            // ── Organization: parent project ─────────────────────────────
+            // ── Organization: parent project ─────────────────────────
             Text("Organization", style = MaterialTheme.typography.titleSmall)
 
             FilterChip(
@@ -233,65 +235,27 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
     // ── Icon Picker Sheet ─────────────────────────────────────────────────
     if (showIconPicker) {
         BottomSheetHost(onDismiss = { showIconPicker = false }) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text("Choose icon", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(16.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    ProjectIconRegistry.all.forEach { (key, icon) ->
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .clickable {
-                                    viewModel.processIntent(ProjectEditorIntent.IconChanged(key))
-                                    showIconPicker = false
-                                }
-                                .background(
-                                    if (key == state.icon) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        Color.Transparent
-                                    },
-                                    CircleShape,
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(icon, contentDescription = key, modifier = Modifier.size(24.dp))
-                        }
-                    }
-                }
-                Spacer(Modifier.height(24.dp))
-            }
+            IconPickerSheet(
+                currentIcon = state.icon,
+                onPick = { icon ->
+                    viewModel.processIntent(ProjectEditorIntent.IconChanged(icon))
+                    showIconPicker = false
+                },
+                onDismiss = { showIconPicker = false },
+            )
         }
     }
 
     // ── Parent Picker Sheet ───────────────────────────────────────────────
     if (showParentPicker) {
         BottomSheetHost(onDismiss = { showParentPicker = false }) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text("Parent project", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                // "None" option
-                FilterChip(
-                    selected = state.parentId == null,
-                    onClick = {
-                        viewModel.processIntent(ProjectEditorIntent.ParentChanged(null))
-                        showParentPicker = false
-                    },
-                    label = { Text("None (root project)") },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Filled.Folder,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    },
-                )
-                Spacer(Modifier.height(24.dp))
-            }
+            EditorParentPickerSheet(
+                onPick = { parentId ->
+                    viewModel.processIntent(ProjectEditorIntent.ParentChanged(parentId))
+                    showParentPicker = false
+                },
+                onDismiss = { showParentPicker = false },
+            )
         }
     }
 }
@@ -300,60 +264,4 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
 
 private fun ProjectEditorUiEvent.toNotification(): Notification = when (this) {
     ProjectEditorUiEvent.NavigateBack -> Notification.NavigateBack
-}
-
-// ─── Previews ─────────────────────────────────────────────────────────────────
-
-@Suppress("ViewModelConstructorInComposable")
-@OptIn(ExperimentalMaterial3Api::class)
-@Preview
-@Composable
-private fun ProjectEditorCreatePreview() = ProjectsPreviewWrapper {
-    // Build fake dependencies manually — no Koin needed in previews.
-    val fakeProjectsRepo = com.singularity.todo.test.fakes.FakeProjectsRepository()
-    val fakeAuthRepo = com.singularity.todo.test.fakes.FakeAuthRepository()
-    val fakeProfileRepo = com.singularity.todo.test.fakes.FakeProfileRepository()
-    val fakeCurrentUser = com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser(fakeAuthRepo, fakeProfileRepo)
-
-    val vm = ProjectEditorViewModel(
-        projectId = null,
-        createProject = CreateProjectUseCase(
-            fakeProjectsRepo,
-            com.singularity.todo.core.platform.Clock,
-            fakeCurrentUser,
-        ),
-        updateProject = UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
-        projectsRepo = fakeProjectsRepo,
-    )
-
-    PreviewThemed {
-        ProjectEditorContent(viewModel = vm, onBack = {})
-    }
-}
-
-@Suppress("ViewModelConstructorInComposable")
-@OptIn(ExperimentalMaterial3Api::class)
-@Preview
-@Composable
-private fun ProjectEditorEditPreview() = ProjectsPreviewWrapper {
-    val sample = com.singularity.todo.core.ui.preview.PreviewSamples.project("p1", "Work")
-    val fakeProjectsRepo = com.singularity.todo.test.fakes.FakeProjectsRepository().apply { seed(sample) }
-    val fakeAuthRepo = com.singularity.todo.test.fakes.FakeAuthRepository()
-    val fakeProfileRepo = com.singularity.todo.test.fakes.FakeProfileRepository()
-    val fakeCurrentUser = com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser(fakeAuthRepo, fakeProfileRepo)
-
-    val vm = ProjectEditorViewModel(
-        projectId = ProjectId.fromString("p1"),
-        createProject = CreateProjectUseCase(
-            fakeProjectsRepo,
-            com.singularity.todo.core.platform.Clock,
-            fakeCurrentUser,
-        ),
-        updateProject = UpdateProjectUseCase(fakeProjectsRepo, com.singularity.todo.core.platform.Clock),
-        projectsRepo = fakeProjectsRepo,
-    )
-
-    PreviewThemed {
-        ProjectEditorContent(viewModel = vm, onBack = {})
-    }
 }

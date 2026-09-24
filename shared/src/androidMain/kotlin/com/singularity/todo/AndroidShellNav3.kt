@@ -35,6 +35,7 @@ import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.createAppEntryProvider
 import com.singularity.todo.feature.nav.icon
 import com.singularity.todo.shell.MenuBottomSheet
+import com.singularity.todo.shell.fabActionForNav3
 
 /**
  * Navigation 3 Android shell — the actual implementation called by [PlatformShell].
@@ -58,7 +59,7 @@ fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
     val current: AppDestination = state.topLevelRoute as? AppDestination
         ?: AppDestination.Today
 
-    val fabAction = fabActionForNav3(current, navigator)
+    val fabAction = fabActionForNav3(current) { navigator.navigate(it) }
 
     Scaffold(
         bottomBar = {
@@ -124,21 +125,4 @@ fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
             },
         )
     }
-}
-
-private data class FabAction(val label: String, val onClick: () -> Unit)
-
-private fun fabActionForNav3(current: AppDestination, navigator: Navigator): FabAction? = when (current) {
-    AppDestination.Inbox, AppDestination.Today -> FabAction("Add task") {
-        navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create))
-    }
-
-    AppDestination.Plans -> FabAction("Add project") {
-        navigator.navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()))
-    }
-
-    // NotesNavGraph has its own note creation button — no shell FAB needed here.
-    AppDestination.Notes, AppDestination.Pomodoro, AppDestination.Statistics, AppDestination.Archive -> null
-
-    else -> null
 }

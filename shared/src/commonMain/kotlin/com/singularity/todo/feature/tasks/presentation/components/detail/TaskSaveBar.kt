@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,16 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 
 /**
- * Нижняя панель с primary action.
- *
- * В исходном макете не было явной кнопки сохранения — пользователь должен
- * был бы полагаться на системный back или неявный жест, что плохо с точки
- * зрения UX: primary action экрана должен быть очевиден и физически
- * доступен большим пальцем (bottom-anchored, а не в топ-баре).
+ * Bottom bar with primary save action.
+ * Anchored at bottom for thumb accessibility.
  */
 @Composable
 fun TaskSaveBar(
@@ -32,7 +28,7 @@ fun TaskSaveBar(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        color = TaskColors.Background,
+        color = MaterialTheme.colorScheme.surface,
         modifier = modifier.fillMaxWidth(),
     ) {
         Button(
@@ -40,8 +36,8 @@ fun TaskSaveBar(
             enabled = isEnabled,
             shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
             colors = ButtonDefaults.buttonColors(
-                containerColor = TaskColors.AccentBlue,
-                disabledContainerColor = TaskColors.Surface,
+                containerColor = MaterialTheme.colorScheme.primary,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             ),
             modifier = Modifier
                 .fillMaxWidth()
