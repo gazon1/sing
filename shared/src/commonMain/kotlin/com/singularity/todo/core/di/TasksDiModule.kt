@@ -107,6 +107,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 attachmentsRepo = get(),
                 timeZoneProvider = get(),
                 clock = get(),
+                completeRecurring = get(),
             ),
             taskId = taskId,
         )

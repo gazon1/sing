@@ -25,7 +25,7 @@ import kotlinx.datetime.toLocalDateTime
  * @param timeZoneProvider Injected timezone for date calculations.
  * @param calculator Pure recurrence calculator.
  */
-class CompleteRecurringTaskUseCase(
+open class CompleteRecurringTaskUseCase(
     private val repo: TaskRepository,
     private val clock: Clock,
     private val timeZoneProvider: TimeZoneProvider,
@@ -37,7 +37,7 @@ class CompleteRecurringTaskUseCase(
      * Returns the newly updated (rolled-forward) task, or `null` if the task was not found
      * or had no recurrence rule.
      */
-    suspend operator fun invoke(taskId: TaskId): Result<Task> {
+    open suspend operator fun invoke(taskId: TaskId): Result<Task> {
         val task = repo.get(taskId) ?: return Result.failure(IllegalArgumentException("Task not found: $taskId"))
         val spec = task.recurrence ?: return Result.failure(IllegalArgumentException("Task has no recurrence: $taskId"))
         return invoke(task, spec)

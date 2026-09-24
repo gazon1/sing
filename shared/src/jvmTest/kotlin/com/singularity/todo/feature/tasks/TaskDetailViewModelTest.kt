@@ -9,6 +9,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
+import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
@@ -66,6 +67,16 @@ class TaskDetailViewModelTest {
     private val fakeProjectRepo = FakeProjectsRepository()
     private val fakeTagsRepo = FakeTagsRepository()
     private val fakeAttachmentsRepo = FakeAttachmentRepository()
+    /** Stub for [CompleteRecurringTaskUseCase] — existing tests don't cover recurring completion. */
+    private val stubCompleteRecurring = object : CompleteRecurringTaskUseCase(
+        repo = fakeTaskRepo,
+        clock = Clock,
+        timeZoneProvider = TEST_TZ,
+        calculator = com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator,
+    ) {
+        override suspend fun invoke(taskId: TaskId): Result<Task> =
+            Result.failure(IllegalStateException("Stub — not implemented in tests"))
+    }
 
     private fun createVm(scope: CoroutineScope, taskId: TaskId): TaskDetailViewModel {
         val deps = TaskDetailDeps(
@@ -82,6 +93,7 @@ class TaskDetailViewModelTest {
             attachmentsRepo = fakeAttachmentsRepo,
             timeZoneProvider = TEST_TZ,
             clock = Clock,
+            completeRecurring = stubCompleteRecurring,
             debounceMs = 300L,
         )
         val vm = TaskDetailViewModel(deps = deps, taskId = taskId, scope = testScope(scope))

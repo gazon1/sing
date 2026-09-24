@@ -5,6 +5,7 @@ import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -78,5 +79,9 @@ sealed interface TaskDetailIntent {
         // ── Dependencies ─────────────────────────────────────────────────────
 
         data class SetDependencies(val dependsOn: Set<TaskId>) : Domain
+
+        // ── Recurrence ───────────────────────────────────────────────────────
+
+        data class SetRecurrence(val spec: RecurrenceSpec?) : Domain
     }
 }
