@@ -184,6 +184,7 @@ single { Vm(...) }                    ← NEVER for ViewModel (singleton — sta
 
 ## See Also
 
+- **`singularity-todo-vm-pattern-overview`** — router: index to all VM skills
 - `singularity-todo-testable-vm` — canonical VM shape with `AutoCloseableCoroutineScope` default + DraftState pattern + `extraBufferCapacity = N` rationale
 - `singularity-todo-vm-migration-playbook` — migrating old `scopeOverride` / secondary ctor VMs to the canonical shape
 - `singularity-todo-koin-di` — `singleOf` / `factoryOf` gotchas + when to use each DSL form
