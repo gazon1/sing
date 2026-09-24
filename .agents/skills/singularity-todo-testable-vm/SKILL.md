@@ -365,3 +365,4 @@ All 25+ VMs in the project follow this canonical shape as of 2026-09-23 (commits
 - `singularity-todo-feature-scaffold` — canonical 7-file feature template
 - `docs/decisions/2026-09-23-test-standards-enforcement.md` — full ADR documenting all findings
 - `docs/decisions/2026-09-18-testing-best-practices.md` — testing principles
+- `docs/decisions/2026-09-24-combine-statein-policy.md` — combine+stateIn policy: when allowed, when forbidden, `scopeOverride` ABSENT

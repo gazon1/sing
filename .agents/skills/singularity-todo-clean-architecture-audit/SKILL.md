@@ -74,9 +74,9 @@ fi
 
 # 6. ViewModels use canonical 4-arg constructor (deps, state, scope, sharingStarted)
 echo "=== Check: ViewModels use canonical pattern ==="
-# Canonical: class Vm(deps, state, scope, sharingStarted) — no scopeOverride
+# Canonical: class Vm(deps, state, scope, sharingStarted) — scopeOverride MUST BE ABSENT
 if grep -rn "scopeOverride" "$FEATURE_DIR/presentation/viewmodel/"; then
-    echo "⚠️  WARNING: scopeOverride found — old pattern, prefer 4-arg canonical constructor"
+    echo "❌ FAIL: scopeOverride found — scopeOverride is FORBIDDEN, use AutoCloseableCoroutineScope pattern"
 else
     echo "✅ PASS: no scopeOverride (canonical pattern)"
 fi
@@ -129,7 +129,8 @@ After running automated checks, verify manually:
 ### DI bindings (in `core/di/`)
 - [ ] `single<Repo>` uses interface from `domain/port/`, impl from `data/`
 - [ ] Use cases injected as constructor params into VMs (not registered as factory/viewModel)
-- [ ] `viewModelOf(::Vm)` for no-param VMs, `viewModel { (p) -> Vm(p, get()) }` for param VMs
+- [ ] `viewModelOf(::Vm)` for no-param VMs, `viewModel { (p) -> Vm(get(), p) }` for VMs with runtime parameters (NOT `factory {}` — memory leak)
+- [ ] `CalendarSyncViewModel` uses `factory<>` (not `viewModelOf`) — it's NOT a ViewModel subclass
 - [ ] `koinViewModel()` in Compose for no-param, `koinViewModel { parametersOf(p) }` for param VMs
 - [ ] `koinInject()` only for non-ViewModel dependencies (repos, ports, services)
 - [ ] No feature imports `presentation/` from another feature
@@ -200,3 +201,5 @@ grep -rn "collectAsState()" "shared/src/commonMain/kotlin/com/singularity/todo/f
 - `singularity-todo-kotlin-idioms` — Kotlin idioms that ktlint enforces
 - `singularity-todo-repository-architecture` — DAO `*ForUser`, atomic bootstrap, no static `ProfileAwareCurrentUser`
 - `singularity-todo-koin-dsl` — canonical Koin 4.x DSL (viewModelOf vs factory, koinViewModel vs koinInject)
+- `singularity-todo-testable-vm` — canonical VM pattern: 4-arg constructor, no combine/stateIn
+- `docs/decisions/2026-09-24-combine-statein-policy.md` — combine+stateIn policy reconciliation
