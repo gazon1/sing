@@ -1,4 +1,5 @@
 ---
+title: "Task UI + Domain Wiring for Rich Dates (MR-2b)"
 status: accepted
 ---
 

@@ -1,4 +1,5 @@
 ---
+title: "GenUI — Server-Driven UI via A2UI v0.9"
 status: accepted
 ---
 

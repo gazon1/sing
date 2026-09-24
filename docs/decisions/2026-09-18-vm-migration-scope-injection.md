@@ -1,4 +1,5 @@
 ---
+title: "ADR: ViewModel scope injection — canonical 4-arg constructor pattern"
 status: accepted
 ---
 # ADR: ViewModel scope injection — canonical 4-arg constructor pattern

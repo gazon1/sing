@@ -1,4 +1,5 @@
 ---
+title: "Calendar sync — Tasks.org patterns adoption"
 status: accepted
 date: 2026-09-22
 ---

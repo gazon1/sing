@@ -1,5 +1,6 @@
 ---
 description: Real pull event handlers, repository upsert, sync UI (ViewModel/Button/Screen), and entity sync field round-tripping.
+title: "ADR: Sync Pull Handlers & Sync UI"
 status: accepted
 ---
 

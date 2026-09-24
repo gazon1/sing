@@ -2,6 +2,7 @@
 title: "Accumulated deprecation warnings and pre-existing test failures"
 date: 2026-09-23
 tags: [technical-debt, deprecation, tests]
+status: accepted
 ---
 
 ## Context

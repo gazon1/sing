@@ -1,4 +1,5 @@
 ---
+title: "Reminder + SavedAgenda repository ambient stamping"
 status: accepted
 date: 2026-09-23
 ---

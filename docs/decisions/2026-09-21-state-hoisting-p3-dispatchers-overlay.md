@@ -1,4 +1,5 @@
 ---
+title: "state-hoisting-p3: Dispatchers, OverlayState, snackbar separation"
 status: accepted
 date: 2026-09-21
 ---

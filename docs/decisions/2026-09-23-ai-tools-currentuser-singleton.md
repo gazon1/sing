@@ -1,8 +1,8 @@
 ---
+title: "AI tools: ProfileAwareCurrentUser as global singleton"
 status: accepted
 date: 2026-09-23
-deciders:
-  - Singularity Developer
+deciders: 
 ---
 
 # AI tools: ProfileAwareCurrentUser as global singleton

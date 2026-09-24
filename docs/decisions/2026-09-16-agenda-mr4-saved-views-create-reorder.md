@@ -1,6 +1,7 @@
 ---
 description: MR4 — Saved Views: Create flow, Section reorder, Deep-link polish
 tags: [agenda, saved-views, di, navigation3]
+title: "ADR: AgendaEngine MR4 — Saved Views: Create + Reorder + Polish"
 status: accepted
 date: 2026-09-16
 ---

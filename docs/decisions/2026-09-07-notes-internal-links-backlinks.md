@@ -1,5 +1,6 @@
 ---
 description: Internal links (Obsidian-style) + backlinks panel for Notes editor
+title: "Notes Internal Links + Backlinks (Phase 2 extension)"
 status: accepted
 ---
 

@@ -1,4 +1,5 @@
 ---
+title: "Task Editor Refactor — TickTick-like single-screen editor"
 status: accepted
 ---
 # Task Editor Refactor — TickTick-like single-screen editor

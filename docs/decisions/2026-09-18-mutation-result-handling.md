@@ -1,4 +1,5 @@
 ---
+title: "Mutation-result handling in ViewModels"
 status: accepted
 date: 2026-09-18
 ---

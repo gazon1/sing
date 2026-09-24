@@ -1,5 +1,6 @@
 ---
 date: 2026-09-05
+title: "UI Automator + JetBrains Compose: несовместимость обнаружения элементов"
 status: accepted
 ---
 

@@ -1,5 +1,6 @@
 ---
 summary: Рефакторинг 7 пунктов: FakeRepositories seed/unification, scopeOverride в TagsVM+TaskDetailVM, TaskMutationsUseCase вместо 5 pass-through UC, атомарная валидация bulk-операций, ContentStateMapper
+title: "ADR: Рефакторинг — унификация, scopeOverride, TaskMutationsUseCase, ContentStateMapper"
 status: accepted
 ---
 
@@ -106,4 +107,4 @@ pass-through use cases.
 ## Links
 
 - Parent: [ADR 2026-09-05-ui-decomposition](./2026-09-05-ui-decomposition.md)
-- Skill: [singularity-todo-di-graph-testing](../.agents/skills/singularity-todo-di-graph-testing/SKILL.md)
+- Skill: [singularity-todo-di-graph-testing](../../.agents/skills/singularity-todo-di-graph-testing/SKILL.md)

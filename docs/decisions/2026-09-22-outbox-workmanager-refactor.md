@@ -1,4 +1,5 @@
 ---
+title: "Outbox polling → WorkManager"
 status: accepted
 ---
 

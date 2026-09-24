@@ -1,5 +1,6 @@
 ---
 After completing the Calendar feature (commit `4dd094a`), a code review identified three issues requiring fixes: 
+title: "Calendar Post Merge Fixes"
 status: accepted
 ---
 

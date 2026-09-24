@@ -1,4 +1,5 @@
 ---
+title: "Pre-existing Issues Found During Tech Debt Audit"
 status: accepted
 date: 2026-09-24
 tags: [techdebt, testing, di, epic1]

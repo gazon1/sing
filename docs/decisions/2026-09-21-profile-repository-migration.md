@@ -1,4 +1,5 @@
 ---
+title: "ProfileRepository Migration to GenericUserScopedRepository"
 status: accepted
 date: 2026-09-21
 ---
@@ -82,5 +83,5 @@ private fun Profile.toEntity(): ProfileEntity = ProfileEntity(
 
 ## Links
 
-- Parent ADR: [ADR-0015 GenericUserScopedRepository](./2026-09-15-generic-user-scoped-repository.md)
+- Parent ADR: [ADR-0015 GenericUserScopedRepository](./2026-09-21-generic-user-scoped-repository.md)
 - PR9: `refactor/repository-naming-final` branch

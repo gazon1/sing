@@ -1,6 +1,7 @@
 ---
 The app needs a full calendar screen with multiple view modes. Key constraints: 
 - **kotlinx-datetime 0.8.0 limitations: ** No `LocalDate.plus(1, DateTimeUnit.MONTH)`,
+title: "Calendar Feature"
 status: accepted
 ---
 

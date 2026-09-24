@@ -1,4 +1,5 @@
 ---
+title: "OTA Update Strategy — Play In-App Updates + Remote Config"
 status: accepted
 ---
 

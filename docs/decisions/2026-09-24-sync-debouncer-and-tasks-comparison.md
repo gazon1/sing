@@ -1,5 +1,6 @@
 ---
 description: Request coalescing in SyncRepository.syncOnce, and analysis of Tasks KMP sync architecture for potential adoption.
+title: "ADR: Sync Coalescing + Tasks KMP Architecture Survey"
 status: accepted
 ---
 

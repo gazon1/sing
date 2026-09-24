@@ -1,4 +1,5 @@
 ---
+title: "ADR 2026-09-16 — Saved Agenda Views Persistence"
 status: accepted
 ---
 # ADR 2026-09-16 — Saved Agenda Views Persistence

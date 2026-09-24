@@ -1,4 +1,5 @@
 ---
+title: "Calendar HorizontalPager (MR-1)"
 status: accepted
 ---
 

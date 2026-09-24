@@ -1,4 +1,5 @@
 ---
+title: "Simplified SettingsViewModel — no reactive collection"
 status: accepted
 ---
 # Simplified SettingsViewModel — no reactive collection

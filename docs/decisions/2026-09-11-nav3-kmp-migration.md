@@ -1,4 +1,5 @@
 ---
+title: "Nav3 KMP Migration (Android + JVM Desktop)"
 status: accepted
 ---
 # Nav3 KMP Migration (Android + JVM Desktop)

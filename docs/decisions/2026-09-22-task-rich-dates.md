@@ -1,4 +1,5 @@
 ---
+title: "Task Schema v16 — Rich Dates & Styling (MR-2a)"
 status: accepted
 ---
 
