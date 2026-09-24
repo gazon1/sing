@@ -31,6 +31,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import org.junit.jupiter.api.Tag
 
 /**
  * Unit tests for [SavedAgendaViewModel].
@@ -42,6 +43,7 @@ import kotlin.time.Instant
  *
  * No `combine`, no `stateIn`, no Turbine, no `expectMostRecentItem`.
  */
+@Tag("slow")
 @OptIn(ExperimentalCoroutinesApi::class)
 class SavedAgendaViewModelTest {
 

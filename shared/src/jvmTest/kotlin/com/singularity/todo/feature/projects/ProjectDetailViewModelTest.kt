@@ -29,12 +29,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * Unit tests for [ProjectDetailViewModel] verifying behavioral contracts.
  *
  * Timing: uses virtual time via advanceUntilIdle() — no real delays or spin-waiting.
  */
+@Tag("slow")
 class ProjectDetailViewModelTest {
 
     private val testUserId = UserId("test-user")

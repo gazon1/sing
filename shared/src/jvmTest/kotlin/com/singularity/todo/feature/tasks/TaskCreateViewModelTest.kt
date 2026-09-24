@@ -25,6 +25,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.milliseconds
+import org.junit.jupiter.api.Tag
 
 /**
  * Tests for [TaskCreateViewModel].
@@ -37,6 +38,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * since the VM uses `stateIn(scope, WhileSubscribed(5000), initial)`.
  * Those are verified via integration with the repository in the save tests.
  */
+@Tag("slow")
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskCreateViewModelTest {
 

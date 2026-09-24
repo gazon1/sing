@@ -21,7 +21,8 @@ sourceSets {
             implementation(libs.kotlinx.coroutines.swing)
             implementation(libs.koin.test)
             implementation(libs.koin.core)
-            implementation(libs.junit)
+            implementation(libs.junit4)
+            implementation(libs.junit.vintage.engine)
             implementation(libs.kotlin.test.junit5)
             implementation(libs.junit.jupiter)
             implementation(libs.junit.jupiter.params)
@@ -106,7 +107,8 @@ tasks.withType<Test>().configureEach {
         if (tags.isNotEmpty()) {
             includeTags(*tags.toTypedArray())
         } else {
-            includeTags("fast")
+            // Default: run everything EXCEPT @Tag("slow") — slow requires -Ptest.tags=slow
+            excludeTags("slow")
         }
     }
 }

@@ -25,6 +25,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * Smoke tests for [NoteEditor].
@@ -32,6 +33,7 @@ import kotlin.test.assertTrue
  * Tests prove that openEditor / editBody / editTitle / saveNow / closeEditor
  * work correctly with the canonical VM shape.
  */
+@Tag("slow")
 @OptIn(ExperimentalCoroutinesApi::class)
 class NoteEditorTest {
 

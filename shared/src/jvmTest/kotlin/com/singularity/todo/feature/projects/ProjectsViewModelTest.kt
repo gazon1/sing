@@ -20,6 +20,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * Tests for [ProjectsViewModel].
@@ -27,6 +28,7 @@ import kotlin.test.assertTrue
  * Uses [SharingStarted.Eagerly] so the state flow starts immediately.
  * [advanceUntilIdle] processes all pending coroutine work on the test dispatcher.
  */
+@Tag("slow")
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProjectsViewModelTest {
     private val testUserId = UserId("test-user")

@@ -23,6 +23,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.milliseconds
+import org.junit.jupiter.api.Tag
 
 /**
  * Unit tests for [TaskCreateViewModel] debounce + draft persistence behavior.
@@ -35,6 +36,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * 2. Draft is NOT saved before debounce delay elapses
  * 3. Draft is cleared after successful save
  */
+@Tag("slow")
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskCreateDebounceTest {
 

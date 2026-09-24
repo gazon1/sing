@@ -8,10 +8,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * Tests for [AutoSync] trigger fan-out logic.
  */
+@Tag("slow")
 class AutoSyncTest {
 
     private fun fakePrefs(): FakeSyncPrefs = FakeSyncPrefs()
