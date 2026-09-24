@@ -1,76 +1,142 @@
 ---
 name: singularity-todo-test-helpers
-description: Standardized test helpers and patterns for ViewModel tests in this project. Covers runVmTest extension, FakeRepositories setup, common assert helpers, and the three test shapes (initial state, intent→state, regression).
+description: Standardized test helpers and patterns for ViewModel tests in this project. Covers awaitState, testVm, TestVmContext, assertIs, testScope, FakeRepositories setup, and the three test shapes (smoke, intent→state, regression). Updated with virtual-time await and runVmTest factory from the v3 audit.
 ---
 
 # VM Test Helpers
 
-This skill documents the standardized helpers for writing ViewModel tests after the VM-testability migration. Use these patterns consistently — they reduce boilerplate and make test failures obvious rather than flaky.
+This skill documents the standardized helpers for writing ViewModel tests. Use these patterns consistently — they reduce boilerplate and make test failures obvious rather than flaky.
 
-**For the canonical VM constructor shape**, see `singularity-todo-testable-vm`.  
+**For the canonical VM constructor shape**, see `singularity-todo-testable-vm`.
 **For migration from the old `scopeOverride` pattern**, see `singularity-todo-vm-migration-playbook`.
 
 ---
 
-## Standard Test Structure
+## Available Helpers
 
-Every VM test file follows this pattern:
+All helpers live in `shared/src/jvmTest/kotlin/com/singularity/todo/test/helpers/`:
 
-```kotlin
-@OptIn(ExperimentalCoroutinesApi::class)
-class FooViewModelTest {
+| File | Helper | Purpose |
+|---|---|---|
+| `AwaitState.kt` | `TestScope.awaitState(timeoutMs, predicate)` | Wait for virtual-time condition |
+| `RunVmTest.kt` | `TestScope.testVm(stateAccessor, factory)` | Factory creating `TestVmContext` |
+| `TestVmInfrastructure.kt` | `testVmContext(vm, stateOf, scope)` | Manual `TestVmContext` builder |
+| `TestAssertions.kt` | `StateFlow<*>.assertIs<T> { predicate }` | Type-safe assertion on current state |
 
-    // ─── Fakes ───────────────────────────────────────────────────────────────
-    private val fakeRepo = FakeFooRepository()
-    private val fakeCurrentUser = FakeProfileAwareCurrentUser()
-    private val deps = FooDeps(repo = fakeRepo, currentUser = fakeCurrentUser, clock = Clock)
-
-    // ─── Factory — pass test scope directly ──────────────────────────────────
-    private fun createVm(
-        param1: Type1,
-        scope: CoroutineScope = this,   // ← this = TestScope receiver
-    ) = FooViewModel(
-        deps = deps,
-        param1 = param1,
-        scope = scope,
-    )
-}
-```
-
-**The key line:** `scope: CoroutineScope = this` — passes the test's `TestScope` (the `runTest` receiver) directly as the VM's scope. No `backgroundScope`, no `scopeOverride`.
+The `testScope(CoroutineScope)` wrapper lives in `core/coroutines/testScope.kt` (commonMain — available to all test source sets).
 
 ---
 
-## The `runVmTest` Extension
+## The `testScope` Wrapper
 
-For VMs with simple initialization (no complex async setup), use `advanceUntilIdle()` immediately after construction:
+`testScope` wraps a `CoroutineScope` (or `CoroutineContext`) in `AutoCloseableCoroutineScope` so it matches the production VM constructor signature:
 
 ```kotlin
+import com.singularity.todo.core.coroutines.testScope
+
 @Test
-fun initialState_isLoading() = runTest {
-    val vm = createVm(param1, this)
+fun example() = runTest {
+    // Pass TestScope wrapped in AutoCloseableCoroutineScope
+    val vm = MyViewModel(deps, scope = testScope(this))
+
     advanceUntilIdle()
-    
-    val state = vm.state.value
-    assertIs<FooUiState.Loading>(state)
+    assertIs<MyUiState.Content>(vm.state.value)
 }
 ```
 
-### When you need more control
+**Rule**: always wrap `this` (the `runTest` receiver) with `testScope(this)` before passing to a VM. Never pass `backgroundScope` as the VM's scope — reserve it for long-lived helper coroutines in the test infrastructure.
 
-For VMs with async init that might emit before `advanceUntilIdle()` completes, or for regression tests that need to assert intermediate states:
+---
+
+## `awaitState` — Virtual-Time Waiting
+
+When a condition can't be asserted immediately after `advanceUntilIdle()` (e.g., debounce, retry delay, polling), use `awaitState`:
 
 ```kotlin
+import com.singularity.todo.test.helpers.awaitState
+
 @Test
-fun userEditsDraft_draftIsDirty() = runTest {
-    val vm = createVm(param1, this)
-    
-    // Don't advanceUntilIdle() here — we want to see intermediate states
-    vm.onIntent(FooIntent.SetName("Edited"))
-    
-    val state = vm.state.value
-    assertIs<FooUiState.Editing>(state)
-    assertTrue(state.draft.isDirty)
+fun titleChanges_areDebounced() = runTest {
+    val vm = createVm(...)
+    advanceUntilIdle()
+
+    vm.onIntent(TaskDetailIntent.TitleChanged("New"))
+    vm.onIntent(TaskDetailIntent.TitleChanged("Newer"))
+
+    // Wait for debounce to fire (uses virtual time — fast)
+    awaitState { vm.state.value is TaskDetailUiState.Content }
+}
+```
+
+**How it works**: uses `currentTime` from `kotlinx.coroutines.test` + `advanceUntilIdle()` in a loop. No real time passes. Fails with a descriptive message if `timeoutMs` is reached.
+
+---
+
+## `testVm` Factory — Preferred Pattern
+
+For VMs with initialization, the `testVm` factory creates the VM, advances to idle, and returns a `TestVmContext`:
+
+```kotlin
+import com.singularity.todo.test.helpers.testVm
+
+@Test
+fun settingsToggles() = runTest {
+    val deps = SettingsDeps(fakeSettings, fakeCurrentUser, Clock)
+
+    val ctx = testVm(
+        stateAccessor = { vm: SettingsViewModel -> vm.state },
+    ) {
+        SettingsViewModel(deps = deps, scope = testScope(this))
+    }
+
+    ctx.act { it.onIntent(SettingsIntent.DarkThemeToggled) }
+    ctx.assertIs<SettingsUiState.Content>()
+}
+```
+
+`TestVmContext` provides:
+- `act { vm.onIntent(...) }` — executes action then `advanceUntilIdle()`
+- `assertIs<T>()` — asserts current state is type `T`
+- `assert { predicate }` — asserts predicate on current state
+
+---
+
+## Manual `TestVmContext` Construction
+
+If `testVm` doesn't fit (e.g., you need intermediate `advanceUntilIdle()` calls before acting):
+
+```kotlin
+import com.singularity.todo.test.helpers.testVmContext
+
+@Test
+fun intermediateState() = runTest {
+    val vm = SettingsViewModel(deps, scope = testScope(this))
+
+    // Don't advance yet — check initial Loading state
+    val ctx = testVmContext(vm, SettingsViewModel::state, this)
+    ctx.assertIs<SettingsUiState.Loading>()
+
+    // Now advance and check Content
+    ctx.act { }
+    ctx.assertIs<SettingsUiState.Content>()
+}
+```
+
+---
+
+## `assertIs` Extension
+
+`StateFlow<*>.assertIs<T> { predicate }` asserts the current value is type `T` and optionally checks a predicate:
+
+```kotlin
+import com.singularity.todo.test.helpers.assertIs
+
+@Test
+fun loaded() = runTest {
+    val vm = createVm(...)
+    advanceUntilIdle()
+
+    vm.state.assertIs<MyUiState.Content> { it.items.isNotEmpty() }
 }
 ```
 
@@ -91,6 +157,7 @@ All fakes are in `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/F
 | `FakeSettingsRepository` | Settings/access-control VMs |
 | `FakeProfileAwareCurrentUser` | All VMs that need userId |
 | `FakeAuthRepository` | Auth-related VMs |
+| `FakeTextGen` | AI feature VMs — use `FakeTextGen(failureMessage = "...")` for failure scenarios |
 
 **Creating a scoped user ID:**
 ```kotlin
@@ -98,7 +165,7 @@ private val fakeCurrentUser = FakeProfileAwareCurrentUser()
 private val userId = fakeCurrentUser.currentUserId
 ```
 
-**Seeding data synchronously (for immediate loading):**
+**Seeding data synchronously:**
 ```kotlin
 fakeRepo.upsertSync(task.copy(id = TaskId.generate(), title = "Test Task"))
 ```
@@ -112,26 +179,26 @@ fakeRepo.upsertSync(task.copy(id = TaskId.generate(), title = "Test Task"))
 ```kotlin
 @Test
 fun initialState_isLoading() = runTest {
-    val vm = createVm(param1, this)
+    val vm = createVm(param1, testScope(this))
     advanceUntilIdle()
-    
-    assertIs<FooUiState.Loading>(vm.state.value)
+
+    assertIs<MyUiState.Loading>(vm.state.value)
 }
 
 @Test
 fun afterSeed_dataIsLoaded() = runTest {
     fakeRepo.upsertSync(makeTask(title = "Existing"))
-    
-    val vm = createVm(param1, this)
+
+    val vm = createVm(param1, testScope(this))
     advanceUntilIdle()
-    
+
     val state = vm.state.value
-    assertIs<FooUiState.Content>(state)
+    assertIs<MyUiState.Content>(state)
     assertEquals(1, state.items.size)
 }
 ```
 
-**Use for:** Every new VM — the minimal smoke test that the constructor doesn't crash and the initial state is as expected.
+**Use for:** Every new VM — minimal smoke test that the constructor doesn't crash and the initial state is as expected.
 
 ### Shape 2: Intent → State Transition
 
@@ -139,12 +206,12 @@ fun afterSeed_dataIsLoaded() = runTest {
 @Test
 fun setName_isDirty() = runTest {
     fakeRepo.upsertSync(makeTask())
-    
-    val vm = createVm(param1, this)
+
+    val vm = createVm(param1, testScope(this))
     advanceUntilIdle()
-    
+
     vm.onIntent(FooIntent.SetName("New Name"))
-    
+
     val state = vm.state.value
     assertTrue((state as? FooUiState.Editing)?.draft?.isDirty == true)
 }
@@ -152,13 +219,13 @@ fun setName_isDirty() = runTest {
 @Test
 fun save_emitsSavedEvent() = runTest {
     fakeRepo.upsertSync(makeTask())
-    
-    val vm = createVm(param1, this)
+
+    val vm = createVm(param1, testScope(this))
     advanceUntilIdle()
-    
+
     vm.onIntent(FooIntent.Save)
     advanceUntilIdle()
-    
+
     val event = vm.events.filterIsInstance<FooEvent.Saved>().first()
     assertNotNull(event)
 }
@@ -173,73 +240,75 @@ fun save_emitsSavedEvent() = runTest {
 fun secondUpstreamEmission_doesNotClobberUserDraft() = runTest {
     // Seed with initial task
     fakeRepo.upsertSync(makeTask(id = taskId, title = "Original"))
-    
-    val vm = createVm(taskId, this)
+
+    val vm = createVm(taskId, testScope(this))
     advanceUntilIdle()
-    
+
     // User edits the draft
     vm.onIntent(TaskDetailIntent.Domain.SetTitle("User's edit"))
     assertEquals("User's edit", vm._draftTitle.value)
-    
+
     // Simulate second upstream emission (e.g., reminder tick, pull-to-refresh)
     fakeTaskRepo.emitTask(taskId, makeTask(id = taskId, title = "Remote update"))
     advanceUntilIdle()
-    
+
     // Draft must remain unchanged — this is the regression test
     assertEquals("User's edit", vm._draftTitle.value)
 }
 ```
 
-**Use for:** VMs with draft/editing state where upstream emissions could overwrite user edits. This is the critical regression test for TaskDetailViewModel and ProjectDetailViewModel after the side-effects-in-combine fix.
+**Use for:** VMs with draft/editing state where upstream emissions could overwrite user edits. This is the critical regression test for `TaskDetailViewModel` and `ProjectDetailViewModel` after the side-effects-in-combine fix.
 
 ---
 
-## Common Assert Helpers
+## Testing Failure Scenarios
+
+Use `FakeTextGen(failureMessage = "...")` to test error handling:
 
 ```kotlin
-// Truncated list — add as needed
-import app.cash.turbine.test
-import kotlin.test.assertContains
-import kotlin.test.assertIs
+@Test
+fun refine_fails_showsError() = runTest {
+    val fakeTextGen = FakeTextGen(failureMessage = "Rate limit exceeded")
+    val deps = AiDeps(textGen = fakeTextGen, ...)
 
-// Reusable assertion helpers (add to test file as private functions)
-private fun assertLoading(state: FooUiState) = assertIs<FooUiState.Loading>(state)
-private fun assertContent(state: FooUiState) = assertIs<FooUiState.Content>(state)
+    val vm = RefineTaskViewModel(deps, taskId, testScope(this))
+    advanceUntilIdle()
+
+    vm.onIntent(RefineTaskIntent.Refine("make it urgent"))
+
+    val event = vm.events.filterIsInstance<TaskAiEvent.Error>().first()
+    assertTrue(event.message.contains("Rate limit"))
+}
 ```
 
 ---
 
-## Testing Events (SharedFlow)
+## Standard Test Structure
+
+Every VM test file follows this pattern:
 
 ```kotlin
-@Test
-fun delete_emitsShowError() = runTest {
-    fakeRepo.upsertSync(makeTask())
-    
-    val vm = createVm(param1, this)
-    advanceUntilIdle()
-    
-    // Trigger error by deleting non-existent
-    fakeRepo.deleteSync(TaskId.generate())  // doesn't affect our seeded task
-    
-    val state = vm.state.value
-    // assert on state
+@OptIn(ExperimentalCoroutinesApi::class)
+class FooViewModelTest {
+
+    // ─── Fakes ───────────────────────────────────────────────────────────────
+    private val fakeRepo = FakeFooRepository()
+    private val fakeCurrentUser = FakeProfileAwareCurrentUser()
+    private val deps = FooDeps(repo = fakeRepo, currentUser = fakeCurrentUser, clock = Clock)
+
+    // ─── Factory — pass testScope(this) ─────────────────────────────────────
+    private fun createVm(
+        param1: Type1,
+        scope: AutoCloseableCoroutineScope = testScope(this),
+    ) = FooViewModel(
+        deps = deps,
+        param1 = param1,
+        scope = scope,
+    )
 }
 ```
 
-For events that fire once and are consumed:
-```kotlin
-@Test
-fun save_emitsNavigateBack() = runTest {
-    val vm = createVm(param1, this)
-    advanceUntilIdle()
-    
-    vm.onIntent(FooIntent.Save)
-    
-    val event = vm.events.filterIsInstance<FooEvent.NavigateBack>().first()
-    assertNotNull(event)
-}
-```
+**The key line:** `scope: AutoCloseableCoroutineScope = testScope(this)` — wraps the test's `TestScope` in `AutoCloseableCoroutineScope` so it matches the production ctor signature.
 
 ---
 
@@ -248,15 +317,15 @@ fun save_emitsNavigateBack() = runTest {
 ```kotlin
 @Test
 fun example() = runTest {
-    // ✅ CORRECT — pass this (TestScope receiver)
-    val vm = createVm(param, this)
-    
+    // ✅ CORRECT — wrap this (TestScope receiver) in AutoCloseableCoroutineScope
+    val vm = createVm(param, testScope(this))
+
     // ❌ WRONG — backgroundScope has different cancellation lifecycle
-    val vm = createVm(param, backgroundScope)
+    val vm = createVm(param, testScope(backgroundScope))
 }
 ```
 
-`backgroundScope` and `this` (TestScope) share the same `TestDispatcher`, so `advanceUntilIdle()` does flush both. The problem is **lifecycle/cancellation order**: `backgroundScope` outlives the test body, making failures non-deterministic. Keep the VM under test on `this` for a single, controlled hierarchy.
+`backgroundScope` and `this` (TestScope) share the same `TestDispatcher`, so `advanceUntilIdle()` does flush both. The problem is **lifecycle/cancellation order**: `backgroundScope` outlives the test body, making failures non-deterministic.
 
 **When `backgroundScope` IS appropriate:**
 - Long-running fake helpers that should be auto-cancelled at test teardown
@@ -265,7 +334,7 @@ fun example() = runTest {
 
 ---
 
-## @OptIn Requirements
+## `@OptIn` Requirements
 
 ```kotlin
 @OptIn(ExperimentalCoroutinesApi::class)  // Required for TestScope + runTest
@@ -278,9 +347,22 @@ This is needed because `runTest` is experimental in older coroutines versions, a
 
 ---
 
+## Key Files (from v3 audit)
+
+| File | Purpose |
+|---|---|
+| `shared/src/jvmTest/.../test/helpers/AwaitState.kt` | Virtual-time waiter (pending merge from `refactor/test-standards-v2`) |
+| `shared/src/jvmTest/.../test/helpers/RunVmTest.kt` | `testVm` factory (pending merge from `refactor/test-standards-v2`) |
+| `shared/src/jvmTest/.../test/helpers/TestVmInfrastructure.kt` | `TestVmContext` + `testVmContext` |
+| `shared/src/commonTest/.../test/helpers/TestAssertions.kt` | `StateFlow.assertIs` extension |
+| `shared/src/commonMain/.../core/coroutines/testScope.kt` | `testScope` wrapper |
+
+---
+
 ## See Also
 
 - `singularity-todo-testable-vm` — canonical VM constructor shape (what the tests test)
 - `singularity-todo-vm-migration-playbook` — how to migrate an old VM to the testable shape
 - `singularity-todo-vm-intent-pattern` — sealed Intent + onIntent pattern
 - `singularity-todo-feature-scaffold` — canonical 7-file feature template with test patterns
+- `docs/decisions/2026-09-23-test-standards-enforcement.md` — full ADR documenting all v3 findings
