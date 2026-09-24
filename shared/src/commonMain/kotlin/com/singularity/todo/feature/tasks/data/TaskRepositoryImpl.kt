@@ -12,10 +12,12 @@ import com.singularity.todo.core.database.toLocalTimeIsoOrNull
 import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -286,6 +288,7 @@ private fun Task.toEntity(): TaskEntity = TaskEntity(
     someday = someday,
     archivedAt = archivedAt.toEpochMillisOrNull(),
     isPinned = isPinned,
+    recurrenceRule = recurrence?.let { StableJson.encodeToString(RecurrenceSpec.serializer(), it) },
     createdAt = createdAt.toEpochMillis(),
     updatedAt = updatedAt.toEpochMillis(),
     userId = userId.value,

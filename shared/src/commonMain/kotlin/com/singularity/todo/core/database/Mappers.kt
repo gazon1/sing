@@ -1,11 +1,13 @@
 package com.singularity.todo.core.database
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
@@ -58,8 +60,8 @@ internal fun String?.toProjectIdOrNull(): ProjectId? =
  * For single-task observes use [TaskRepository.observeDependencies] separately.
  */
 internal fun TaskEntity.toTask(
-    tags: List<com.singularity.todo.feature.tags.TagId> = emptyList(),
-    dependsOn: Set<com.singularity.todo.feature.tasks.domain.model.TaskId> = emptySet(),
+    tags: List<TagId> = emptyList(),
+    dependsOn: Set<TaskId> = emptySet(),
 ): Task = Task(
     id = id.toId(),
     title = title,
@@ -82,6 +84,9 @@ internal fun TaskEntity.toTask(
     archivedAt = archivedAt.toInstantOrNull(),
     isPinned = isPinned,
     dependsOn = dependsOn,
+    recurrence = recurrenceRule?.let {
+        StableJson.decodeFromString<RecurrenceSpec>(it)
+    },
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),
     userId = userId.toId(),
