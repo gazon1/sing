@@ -221,13 +221,17 @@ detekt-rules/src/main/kotlin/com/singularity/todo/detekt/
 
 **Do NOT put custom rules in `shared/src/`** — they belong in the dedicated `detekt-rules` module so they can be tested in isolation and applied to any module that uses detekt.
 
-## Existing Rules (for reference)
+## Existing Rules (as of 2026-09-25)
 
 | Rule | File | RuleSet ID | What it checks |
 |------|------|------------|----------------|
 | `NoRealDelayInTestRule` | `NoRealDelayInTestRule.kt` | `no-real-delay-in-test` | `delay(N>1)` in test sources |
 | `NoViewModelScopeInProductionRule` | `NoViewModelScopeInProductionRule.kt` | `no-viewmodel-scope` | `viewModelScope.launch/async/cancel` in production |
 | `NoRunBlockingRule` | `NoRunBlockingRule.kt` | `no-run-blocking` | `runBlocking` in production |
+| `NoStateInRule` | `NoStateInRule.kt` | `no-state-in` | `.stateIn(...)` in production VMs (exempts `@OptIn(CombineStateInReadThrough)`) |
+| `NoCombineSideEffectRule` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | `_state.value = ...` inside `combine { }` lambda |
+| `NoGlobalScopeLaunchRule` | `NoGlobalScopeLaunchRule.kt` | `no-global-scope` | `GlobalScope.launch/async/cancel` in production |
+| `PassThroughUseCaseRule` | `PassThroughUseCaseRule.kt` | `pass-through-use-case` | `UseCase` with no real logic (pass-through to repo) |
 
 ## Common Mistakes
 

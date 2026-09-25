@@ -306,24 +306,55 @@ fun secondUpstreamEmission_doesNotClobberUserDraft() = runTest {
 
 ---
 
-## Testing Failure Scenarios
+## Testing AI Use Cases with FakeTextGen
 
-Use `FakeTextGen(failureMessage = "...")` to test error handling:
+`FakeTextGen` lives in `test/fakes/FakeRepositories.kt` and supports both success and failure scenarios:
+
+```kotlin
+// Success — returns the output string verbatim
+val fakeTextGen = FakeTextGen(output = "Summarized: meeting covered Q4 goals.")
+
+// Failure — throws with the given message
+val fakeTextGen = FakeTextGen(failureMessage = "Rate limit exceeded")
+
+// Use in a use case test
+val tool = SummarizeNoteTool(fakeTextGen)
+val useCase = SummarizeNoteUseCase(tool)
+val result = useCase("Meeting Notes", "<p>Discussed Q4 goals...</p>")
+```
+
+**For ViewModel-level AI action tests**, pass the fake through deps:
 
 ```kotlin
 @Test
-fun refine_fails_showsError() = runTest {
+fun summarize_fails_showsError() = runTest {
     val fakeTextGen = FakeTextGen(failureMessage = "Rate limit exceeded")
-    val deps = AiDeps(textGen = fakeTextGen, ...)
-
-    val vm = RefineTaskViewModel(deps, taskId, testScope(this))
+    val deps = AiDeps(
+        textGen = fakeTextGen,
+        noteRepository = fakeNotesRepo,
+    )
+    val vm = NoteEditor(
+        deps = deps,
+        ai = NoteAiController(
+            summarizeNote = summarizeNoteLambda(SummarizeNoteUseCase(SummarizeNoteTool(fakeTextGen))),
+        ),
+        scope = testScope(this),
+    )
     advanceUntilIdle()
 
-    vm.onIntent(RefineTaskIntent.Refine("make it urgent"))
+    vm.runAiAction(NoteAiAction.Summarize)
+    advanceUntilIdle()
 
-    val event = vm.events.filterIsInstance<TaskAiEvent.Error>().first()
-    assertTrue(event.message.contains("Rate limit"))
+    val event = vm.events.filterIsInstance<NotesUiEvent.AiResult>().first()
+    assertTrue(event.text.contains("Rate limit"))
 }
+```
+
+**Available `FakeTextGen` constructors:**
+```kotlin
+FakeTextGen(output = "some text")                    // success
+FakeTextGen(failureMessage = "error")               // failure
+FakeTextGen(output = "output", failureMessage = "err") // success unless overridden
 ```
 
 ---

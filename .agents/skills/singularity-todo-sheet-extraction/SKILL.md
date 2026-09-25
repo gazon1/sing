@@ -292,6 +292,99 @@ private fun ColorPickerSheet_Preview() {
 
 Previews live in the same file as the sheet (or in a `*Previews.kt` companion file if the sheet is large). They use `Fake*` repositories for domain types when needed.
 
+---
+
+## AI Action Sheets — Special Case
+
+AI action sheets differ from regular picker sheets: they don't pick a value, they launch an async operation. This has specific wiring implications.
+
+### The Pattern: `showAiSheet` State in Screen Wrapper
+
+The sheet state lives in the **screen wrapper**, not in `Content`. The sheet is opened by the toolbar and dismissed after action selection:
+
+```kotlin
+// NoteEditorScreen.kt (wrapper — owns showAiSheet state)
+@Composable
+fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewModel()) {
+    var showAiSheet by remember { mutableStateOf(false) }
+
+    NoteEditorScreenContent(
+        ...
+        onShowAiSheet = { showAiSheet = true },
+        showAiSheet = showAiSheet,
+        onDismissAiSheet = { showAiSheet = false },
+    )
+
+    // Sheet is rendered inside Content (not here) to access compose state
+}
+```
+
+### Content Signature
+
+```kotlin
+@Composable
+fun NoteEditorScreenContent(
+    ...
+    onShowAiSheet: () -> Unit,           // opened by toolbar
+    showAiSheet: Boolean = false,         // controlled externally
+    onDismissAiSheet: () -> Unit = {},
+) {
+    Scaffold(
+        bottomBar = {
+            EditorToolbar(
+                ...
+                onAiClick = onShowAiSheet,  // toolbar → opens sheet
+            )
+        }
+    ) { ... }
+
+    // Conditionally render the sheet
+    if (showAiSheet) {
+        NoteAiActionSheet(
+            onSelect = { action ->
+                onAiAction?.invoke(action)
+                onDismissAiSheet()
+            },
+            onDismiss = onDismissAiSheet,
+        )
+    }
+}
+```
+
+### Toolbar Callback Design
+
+The `EditorToolbar` takes a single `onAiClick: () -> Unit` — the toolbar itself doesn't know about the action list. When tapped, it signals the screen to show the sheet. The sheet is rendered at the screen level (not inside the toolbar), so it can access `onAiAction` from the ViewModel.
+
+**Rule**: `onAiClick` in toolbar = "open AI action picker" signal. The actual action dispatch happens in `NoteAiActionSheet.onSelect` → `viewModel.runAiAction(action)`.
+
+### Adding a New AI Action to the Sheet
+
+When adding a new `NoteAiAction` or `TaskAiAction`:
+
+1. Add the enum value to `NoteAiAction` / `TaskAiAction`
+2. Add the sheet item in `NoteAiActionSheet` / `TaskAiBottomSheet`:
+   ```kotlin
+   AiActionItem(
+       icon = Icons.Filled.Star,
+       title = "New Action",
+       subtitle = "What it does",
+       onClick = { onSelect(NoteAiAction.NewAction) },
+   )
+   ```
+3. Implement the lambda in the controller (`NoteAiController` / `TaskAiController`)
+4. Wire in DI via `getOrNull<NewActionUseCase>()?.let { newActionLambda(it) }`
+5. No routing intent needed — the sheet is always reachable from the editor toolbar
+
+### When to Use Routing Intent vs Direct Dispatch
+
+| Scenario | Pattern |
+|---|---|
+| AI action from editor toolbar → sheet → VM | `onShowAiSheet` state in wrapper + `runAiAction` direct call |
+| Sheet result needs to trigger navigation | Routing intent via `Actions` block |
+| Sheet result needs to update screen state | Direct callback via `onSelect` |
+
+**AI action sheets always use direct dispatch** — `runAiAction` is a ViewModel method, not an intent. No routing intent needed.
+
 ## Relationship to Other Skills
 
 | Skill | What it contributes |
