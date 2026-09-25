@@ -268,7 +268,7 @@ class AttachmentsViewModel(
         }
     }
 
-    fun processIntent(intent: AttachmentsIntent) = viewModelScope.launch {
+    fun onIntent(intent: AttachmentsIntent) = viewModelScope.launch {
         when (intent) {
             is AttachmentsIntent.Add -> addAttachment(intent)
             is AttachmentsIntent.Remove -> repository.removeAttachment(intent.id).getOrThrow()
@@ -335,7 +335,7 @@ val result = rememberFilePicker(
     allowedExtensions = listOf("jpg", "png", "pdf", "docx"),
     onResult = { uri ->
         val bytes = fileKit.readBytes(uri)
-        vm.processIntent(AttachmentsIntent.Add(owner, name, mime, bytes))
+        vm.onIntent(AttachmentsIntent.Add(owner, name, mime, bytes))
     }
 )
 ```
@@ -352,7 +352,7 @@ class AttachmentsViewModelTest {
             uploader = FakeAttachmentUploadService(),
             owner = owner,
         )
-        vm.processIntent(AttachmentsIntent.Add(owner, "photo.jpg", "image/jpeg", byteArrayOf(1, 2, 3)))
+        vm.onIntent(AttachmentsIntent.Add(owner, "photo.jpg", "image/jpeg", byteArrayOf(1, 2, 3)))
         assertTrue(vm.state.value is AttachmentsUiState.Uploading)
     }
 }

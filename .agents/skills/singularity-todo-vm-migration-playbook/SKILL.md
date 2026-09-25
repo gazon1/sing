@@ -15,35 +15,39 @@ The project's canonical ViewModel pattern uses **`AutoCloseableCoroutineScope` w
 - The VM uses `stateIn(WhileSubscribed(5000))` with complex init logic
 - You're writing a **new** VM and want to follow the canonical shape
 
-## Canonical target shape
+## Canonical target shape (MviViewModel)
 
 ```kotlin
-@OptIn(ExperimentalCoroutinesApi::class)
+sealed interface MyIntent : MviIntent { ... }
+sealed interface MyEvent : MviEvent { ... }
+
 class MyViewModel(
     private val deps: MyDeps,
     private val mode: MyScreenMode,
     // ... all non-defaulted dependencies ...
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
+) : MviViewModel<MyUiState, MyIntent, MyEvent>(
+    initialState = MyUiState.Loading,
+    scope = scope,
+) {
+
+    init { addCloseable(scope) }
 
     init {
-        addCloseable(scope)  // Tier-1 cleanup: cancel scope when VM cleared
+        scope.launch { /* populate state via updateState */ }
     }
 
-    private val _state = MutableStateFlow<MyUiState>(MyUiState.Loading)
-    val state: StateFlow<MyUiState> = _state.asStateFlow()
-
-    private val _events = MutableSharedFlow<MyEvent>(extraBufferCapacity = 4)
-    val events = _events.asSharedFlow()
-
-    init {
-        scope.launch { /* populate _state */ }
+    override fun onIntent(intent: MyIntent) {
+        when (intent) { ... }
     }
 }
 ```
 
 Key properties:
-1. **`scope` is LAST** in the primary ctor — after all non-defaulted deps.
+1. **`scope` is `private val` and LAST** — MviViewModel's init block calls `addCloseable(scope)`
+2. **No manual `_state` or `_events`** — MviViewModel provides them
+3. **`emit()` for events, `updateState()` for state** — both are suspend functions
+4. **`onIntent` is the dispatcher** — `IntentMethodName` detekt rule enforces this
 2. **Default param = `AutoCloseableCoroutineScope()`** — no secondary ctor needed.
 3. **`init { addCloseable(scope) }`** registers cleanup.
 4. **`sharingStarted: () -> SharingStarted` — remove entirely** (was only needed for `stateIn`).
@@ -57,8 +61,12 @@ Key properties:
 # Old broken pattern — scopeOverride getter
 grep -rn "scopeOverride: CoroutineScope? = null" shared/src/commonMain/
 
-# Old canonical pattern — secondary constructor
-grep -rn "AutoCloseableCoroutineScope()" shared/src/commonMain/
+# Old pattern — processIntent (should be onIntent)
+grep -rln "fun processIntent" shared/src/commonMain/kotlin/com/singularity/todo/feature/*/presentation/viewmodel/
+
+# Hand-rolled event channel (should use MviViewModel's EventBus)
+grep -rln "Channel<.*UiEvent>\|MutableSharedFlow<.*UiEvent>" \
+  shared/src/commonMain/kotlin/com/singularity/todo/feature/*/presentation/viewmodel/
 
 # Direct viewModelScope usage (should use injected scope instead)
 grep -rn "viewModelScope.launch" shared/src/commonMain/kotlin/com/singularity/todo/feature/*/presentation/viewmodel/
@@ -72,6 +80,106 @@ grep -rn "\.value\s*=" shared/src/commonMain/kotlin/com/singularity/todo/feature
 
 # sharingStarted parameter (should be removed from VMs without stateIn)
 grep -rn "sharingStarted" shared/src/commonMain/kotlin/com/singularity/todo/feature/*/presentation/viewmodel/
+
+# VMs not yet extending MviViewModel
+grep -rln ": ViewModel()" shared/src/commonMain/kotlin/com/singularity/todo/feature/*/presentation/viewmodel/
+```
+
+---
+
+## MviViewModel Migration (hand-rolled → MviViewModel)
+
+Use this when the VM has hand-rolled MVI boilerplate: `_state`, `_events`, `Channel`, `MutableSharedFlow`, etc.
+
+### Step A: Add Intent + Event sealed interfaces
+
+```kotlin
+sealed interface MyIntent : MviIntent {
+    // Copy all intents from the sealed interface
+    data class Delete(val id: MyId) : MyIntent
+}
+
+sealed interface MyEvent : MviEvent {
+    data class ShowError(val message: String) : MyEvent
+}
+```
+
+### Step B: Extend MviViewModel
+
+```kotlin
+// Before
+class MyViewModel(
+    private val deps: MyDeps,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+) : ViewModel() {
+    init { addCloseable(scope) }
+    private val _state = MutableStateFlow<MyUiState>(MyUiState.Loading)
+    val state: StateFlow<MyUiState> = _state.asStateFlow()
+    private val _events = Channel<MyEvent>(Channel.BUFFERED)
+    val events = _events.receiveAsFlow()
+
+// After
+class MyViewModel(
+    private val deps: MyDeps,
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+) : MviViewModel<MyUiState, MyIntent, MyEvent>(
+    initialState = MyUiState.Loading,
+    scope = scope,
+) {
+    init { addCloseable(scope) }
+    // state and events are inherited from MviViewModel
+```
+
+### Step C: Replace `_events.send()` with `emit()`
+
+```kotlin
+// Before
+_events.send(MyEvent.ShowError("Error"))
+
+// After
+emit(MyEvent.ShowError("Error"))
+```
+
+**Remember:** `emit()` is `protected suspend fun`. If calling from a non-suspend lambda (e.g. `fireAndForget`'s `onError`), wrap in `scope.launch {}`:
+
+```kotlin
+// ✅ Correct
+onError = { e -> scope.launch { emit(MyEvent.ShowError(...)) } }
+
+// ❌ Wrong
+onError = { e -> emit(MyEvent.ShowError(...)) }  // compile error
+```
+
+### Step D: Replace `_state.value = ...` with `updateState { }` or direct assignment
+
+```kotlin
+// Before
+_state.value = MyUiState.Content(items)
+
+// After
+updateState { MyUiState.Content(items) }
+// or directly (sync):
+_state.value = MyUiState.Content(items)
+```
+
+### Step E: Rename `processIntent` → `onIntent`
+
+```kotlin
+// Before
+fun processIntent(intent: MyIntent) = scope.launch { ... }
+
+// After
+override fun onIntent(intent: MyIntent) {
+    when (intent) {
+        is MyIntent.Delete -> scope.launch { ... }
+    }
+}
+```
+
+### Step F: Add Intent/Event to type parameters
+
+```kotlin
+class MyViewModel(...) : MviViewModel<MyUiState, MyIntent, MyEvent>(...)
 ```
 
 ---

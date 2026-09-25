@@ -11,11 +11,12 @@ This is a **router skill** — it points to the right skill for your task. No di
 
 | Skill | When to use |
 |---|---|
-| `singularity-todo-testable-vm` | **Start here.** Canonical VM pattern: 4-arg constructor, MutableStateFlow, AutoCloseableCoroutineScope |
-| `singularity-todo-vm-migration-playbook` | Migrating an existing VM to canonical pattern (scopeOverride removal, factory param addition) |
+| `singularity-todo-mvi-framework` | **Start here.** MviViewModel base class, EventBus, IntentActions, DraftState |
+| `singularity-todo-testable-vm` | Canonical VM pattern with MviViewModel: scope injection, IntentActions, testable tests |
+| `singularity-todo-vm-migration-playbook` | Migrating an existing VM to MviViewModel (hand-rolled → framework) |
 | `singularity-todo-vm-lifecycle-addcloseable` | Making a Tier-1 VM auto-cancellable via `addCloseable(scope)` |
 | `singularity-todo-vm-koin-scoping` | Koin scope decisions: `viewModelOf` vs `viewModel {}`, `koinViewModel` vs `koinInject` |
-| `singularity-todo-vm-intent-pattern` | `onIntent` sealed interface, state-only state, one-shot events via Channel |
+| `singularity-todo-vm-intent-pattern` | `onIntent` sealed interface, routing vs domain intent separation, `_latestTask` cache |
 | `singularity-todo-koin-dsl` | Canonical Koin 4.x DSL for domain module registration |
 | `singularity-todo-clean-architecture-audit` | Verifying layer boundaries and architecture compliance |
 | `docs/decisions/2026-09-24-combine-statein-policy.md` | combine+stateIn policy: when allowed, when forbidden |
@@ -46,13 +47,14 @@ This is a **router skill** — it points to the right skill for your task. No di
 
 ```
 Need to create a new VM?
+  → singularity-todo-mvi-framework  ← READ FIRST
   → singularity-todo-feature-scaffold
 
 Need to test a VM?
   → singularity-todo-testable-vm + singularity-todo-test-helpers
 
-VM has scopeOverride or old patterns?
-  → singularity-todo-vm-migration-playbook
+VM has hand-rolled MVI (mutable state + Channel)?
+  → singularity-todo-vm-migration-playbook  ← migrate to MviViewModel
 
 VM leaks coroutines / doesn't cancel on screen leave?
   → singularity-todo-vm-lifecycle-addcloseable

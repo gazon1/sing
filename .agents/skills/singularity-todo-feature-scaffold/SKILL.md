@@ -227,7 +227,7 @@ class Create<Feature>UseCase(private val repo: <Feature>Repository, private val 
 
 ## 4. ViewModel — State + Intent
 
-**This is the default, canonical shape — testable by construction.** It matches the "ViewModel testability — non-negotiable checklist" below exactly: plain `MutableStateFlow`, scope injected via constructor, no `combine`/`stateIn` in the way of tests. See `singularity-todo-testable-vm` for the full pattern and rationale.
+**This is the default, canonical shape — extend `MviViewModel`.** MviViewModel provides `state`, `events`, `emit()`, `updateState()`, and the `onIntent()` dispatcher out of the box. See `singularity-todo-mvi-framework` for the full API reference and `singularity-todo-testable-vm` for rationale.
 
 ```kotlin
 sealed interface <Feature>UiState {
@@ -236,46 +236,44 @@ sealed interface <Feature>UiState {
     data class Error(val message: String) : <Feature>UiState
 }
 
-sealed interface <Feature>Intent {
+sealed interface <Feature>Intent : MviIntent {
     data class Delete(val id: <Feature>Id) : <Feature>Intent
     data class Update(val <feature>: <Feature>) : <Feature>Intent
+}
+
+sealed interface <Feature>UiEvent : MviEvent {
+    data class ShowError(val message: String) : <Feature>UiEvent
 }
 
 class <Feature>ViewModel(
     private val repo: <Feature>Repository,
     private val create<Feature>: Create<Feature>UseCase,
     private val settings: SettingsRepository,  // for userId
-    private val scope: CoroutineScope,          // ← injected; tests pass `this` (TestScope)
-) : ViewModel() {
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+) : MviViewModel<<Feature>UiState, <Feature>Intent, <Feature>UiEvent>(
+    initialState = <Feature>UiState.Loading,
+    scope = scope,
+) {
 
-    /** Production/Koin constructor — `scope` defaults to a Main-backed scope tied to the VM's lifecycle. */
-    constructor(
-        repo: <Feature>Repository,
-        create<Feature>: Create<Feature>UseCase,
-        settings: SettingsRepository,
-    ) : this(
-        repo = repo,
-        create<Feature> = create<Feature>,
-        settings = settings,
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
-    )
-
-    private val _state = MutableStateFlow<<Feature>UiState>(<Feature>UiState.Loading)
-    val state: StateFlow<<Feature>UiState> = _state.asStateFlow()
+    init { addCloseable(scope) }
 
     init {
         scope.launch {
             val userId = UserId.fromString(settings.userId.first())
             repo.watchAll(userId)
-                .catch { _state.value = <Feature>UiState.Error(it.message ?: "Error") }
-                .collect { _state.value = <Feature>UiState.Content(it) }
+                .catch { updateState { <Feature>UiState.Error(it.message ?: "Error") } }
+                .collect { items -> updateState { <Feature>UiState.Content(items) } }
         }
     }
 
-    fun processIntent(intent: <Feature>Intent) = scope.launch {
+    override fun onIntent(intent: <Feature>Intent) {
         when (intent) {
-            is <Feature>Intent.Delete -> repo.delete(intent.id).getOrThrow()
-            is <Feature>Intent.Update -> repo.update(intent.<feature>).getOrThrow()
+            is <Feature>Intent.Delete -> scope.launch {
+                repo.delete(intent.id).getOrThrow()
+            }
+            is <Feature>Intent.Update -> scope.launch {
+                repo.update(intent.<feature>).getOrThrow()
+            }
         }
     }
 }
@@ -378,7 +376,7 @@ class FooViewModelTest {
     fun setName_isDirty() = runTest {
         val vm = createVm(param, this)
         advanceUntilIdle()
-        vm.processIntent(FooIntent.SetName("Edited"))
+        vm.onIntent(FooIntent.SetName("Edited"))
         assertTrue((vm.state.value as? FooUiState.Editing)?.draft?.isDirty == true)
     }
 }
@@ -574,7 +572,7 @@ class <Feature>ViewModelTest {
 
     @Test fun `deletes item`() = runTest {
         val vm = createVm()
-        vm.processIntent(<Feature>Intent.Delete(id))
+        vm.onIntent(<Feature>Intent.Delete(id))
     }
 }
 ```

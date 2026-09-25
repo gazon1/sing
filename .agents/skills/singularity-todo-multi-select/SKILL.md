@@ -54,7 +54,7 @@ sealed interface NotesIntent {
 }
 
 class NotesViewModel(...) : ViewModel() {
-    fun processIntent(intent: NotesIntent) = viewModelScope.launch {
+    override fun onIntent(intent: NotesIntent) = viewModelScope.launch {
         when (intent) {
             is NotesIntent.EnterSelection -> {
                 _state.update { it.copy(
@@ -116,9 +116,9 @@ fun NotesScreen(
             if (state.isSelectionMode) {
                 SelectionBottomBar(
                     selectedCount = state.selectedIds.size,
-                    onPin = { viewModel.processIntent(NotesIntent.BulkPin(state.selectedIds, pinned = true)) },
-                    onUnpin = { viewModel.processIntent(NotesIntent.BulkPin(state.selectedIds, pinned = false)) },
-                    onDelete = { viewModel.processIntent(NotesIntent.BulkDelete(state.selectedIds)) },
+                    onPin = { viewModel.onIntent(NotesIntent.BulkPin(state.selectedIds, pinned = true)) },
+                    onUnpin = { viewModel.onIntent(NotesIntent.BulkPin(state.selectedIds, pinned = false)) },
+                    onDelete = { viewModel.onIntent(NotesIntent.BulkDelete(state.selectedIds)) },
                     onTag = { /* open tag picker */ },
                 )
             } else {
@@ -130,14 +130,14 @@ fun NotesScreen(
             state = state,
             onNoteClick = { note ->
                 if (state.isSelectionMode) {
-                    viewModel.processIntent(NotesIntent.ToggleSelection(note.id))
+                    viewModel.onIntent(NotesIntent.ToggleSelection(note.id))
                 } else {
                     onNavigateToNote(note.id.value)
                 }
             },
             onNoteLongClick = { note ->
                 if (!state.isSelectionMode) {
-                    viewModel.processIntent(NotesIntent.EnterSelection(note.id))
+                    viewModel.onIntent(NotesIntent.EnterSelection(note.id))
                 }
             },
             // ...
@@ -276,7 +276,7 @@ Handle in the screen's `BackHandler` or navigation:
 
 ```kotlin
 BackHandler(enabled = state.isSelectionMode) {
-    viewModel.processIntent(NotesIntent.ExitSelection)
+    viewModel.onIntent(NotesIntent.ExitSelection)
 }
 ```
 
@@ -300,7 +300,7 @@ data object ExitSelection : NotesUiEvent
 @Test
 fun `long press enters selection mode`() = runTest {
     val vm = createVm()
-    vm.processIntent(NotesIntent.EnterSelection(note1.id))
+    vm.onIntent(NotesIntent.EnterSelection(note1.id))
     assertTrue(vm.state.value.isSelectionMode)
     assertEquals(setOf(note1.id), vm.state.value.selectedIds)
 }
@@ -308,18 +308,18 @@ fun `long press enters selection mode`() = runTest {
 @Test
 fun `tap in selection mode toggles selection`() = runTest {
     val vm = createVm()
-    vm.processIntent(NotesIntent.EnterSelection(note1.id))
-    vm.processIntent(NotesIntent.ToggleSelection(note2.id))
+    vm.onIntent(NotesIntent.EnterSelection(note1.id))
+    vm.onIntent(NotesIntent.ToggleSelection(note2.id))
     assertEquals(setOf(note1.id, note2.id), vm.state.value.selectedIds)
-    vm.processIntent(NotesIntent.ToggleSelection(note1.id))
+    vm.onIntent(NotesIntent.ToggleSelection(note1.id))
     assertEquals(setOf(note2.id), vm.state.value.selectedIds)
 }
 
 @Test
 fun `exit selection clears selectedIds`() = runTest {
     val vm = createVm()
-    vm.processIntent(NotesIntent.EnterSelection(note1.id))
-    vm.processIntent(NotesIntent.ExitSelection)
+    vm.onIntent(NotesIntent.EnterSelection(note1.id))
+    vm.onIntent(NotesIntent.ExitSelection)
     assertFalse(vm.state.value.isSelectionMode)
     assertEquals(emptySet(), vm.state.value.selectedIds)
 }
