@@ -42,10 +42,13 @@ private val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
 /**
  * Unit tests for [TaskDetailViewModel] verifying behavioral contracts.
  *
- * Timing note: stateIn with WhileSubscribed(5000) delays the flatMapLatest chain
- * until a subscriber exists. The createVm() calls vm.state.launchIn(scope) to
- * ensure the chain is active. Tests use real 100ms delays (not advanceUntilIdle)
- * for action steps — these are for ensuring coroutine completion, not virtual time.
+ * Timing note: FakeProfileAwareCurrentUser (used inside CreateTaskUseCase) runs
+ * on Dispatchers.Default — not on the test's StandardTestDispatcher. This means
+ * real wall-clock delays (50–100ms) are needed to ensure coroutine completion
+ * after each action. advanceUntilIdle() cannot virtualize Dispatchers.Default.
+ *
+ * See ADR-2026-09-25-testable-vm-dispatcher-clock for the dispatcher-injection
+ * fix that would enable advanceUntilIdle() here.
  *
  * Covered:
  * 1. TOCTOU fix: _latestTask cache prevents losing concurrent remote edits
