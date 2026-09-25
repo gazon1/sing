@@ -303,7 +303,10 @@ sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"
 
 1. **`runBlocking` в ViewModel init** — вместо этого: `combine(filterFlow, userIdFlow) { ... }` + `flatMapLatest`
 2. **`*Blocking()` методы в репозиториях** — только suspend + Result<T>
-3. **MockK / Mockito** — используй `Fake*` из `test/fakes/`
+3. **MockK / Mockito** — Use fakes/stubs for state testing (queries). MockK ONLY for
+   verifying OUTGOING command interactions (DB writes, analytics, network calls) — never
+   for incoming data or state assertions. For all unit tests use `Fake*` from `test/fakes/`.
+   See `docs/decisions/2026-09-25-test-suite-tag-defaults.md` for rationale (Khorikov CQS).
 4. **Pass-through CRUD use cases** — `GetTaskUseCase`, `DeleteTaskUseCase` и т.п. — это boilerplate; VMs инжектят `TaskRepository` напрямую. AI-specific use cases (`RefineTaskUseCase`, `DecomposeTaskUseCase`, etc.) — допустимы и нужны.. `ChecklistUseCase` trimmed 2026-09-18. Enforced by `PassThroughUseCase` detekt rule — see `docs/decisions/2026-09-18-no-pass-through-usecases.md`.
 5. **`java.io.File` напрямую** — только через `FileSystem` порт
 6. **`require { throw ... }` внутри лямбды** — `require` сам бросает; тело `require { throw X }` никогда не выполняется
