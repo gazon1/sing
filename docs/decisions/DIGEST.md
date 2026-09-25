@@ -119,17 +119,21 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - 4 test files updated (removed `fakeCurrentUser` args where no longer needed)
 - 8 экранов мигрированы: Tasks, Notes, TaskDetail, TaskEditor, Projects, ProjectEditor, Chat, Archive
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches.
+- AI actions do **not** appear in `TaskEditorMenuBuilder` menu — they remain accessible only from `TaskAiBottomSheet` (accessed via FAB icon on `TaskDetail`).
 - AI tools (11 Koog `SimpleTool` implementations) drop `currentUser` from
 - Agenda always shows correct bucket labels across midnight.
 - All 13 migrated VMs are now testable with `backgroundScope` injection
 - All 593 existing tests continue to pass.
 - All 6 repositories now extend `GenericUserScopedRepository`: Tasks, Notes, Projects, Tags, SavedAgendaViews, Profile.
+- All 7 actions require AI to be configured — if no AI is available, `isActionAvailable()` returns false and `runAiAction()` is a no-op.
 - All `FakeRepositories` updated to match
+- All existing `NoteEntity` construction sites (`createWithContent`, `createNoteWithTitle`) updated to pass explicit `kind = NoteKind.Plain`.
 - All four entity types can be synced (previously only `Task` had `SyncableEntity`)
 - All notes screens now navigationally self-contained
 - All skills now reference verified Koin 4.x API surface (jar inspection as the ground truth).
 - Archive доступен с любого TaskDetailScreen через ⋮ menu
 - Autosave вынесен из `delay()` в VM в отдельный port — теперь тестируем без `advanceTimeBy`
+- Backlink display: `LinkedBacklinksCard` composable rendered via `extraSections` in `TaskEditorContent` model-based overload
 - Backlinks queryable via SQL without HTML parsing
 - Backup/restore roundtrip must include new fields (done via `TaskDto` update)
 - Before using `singleOf`/`factoryOf`, deduplicate existing `single<X> { ... }` bindings for the same type — Koin throws `BeanOverrideException` on duplicates.
@@ -153,6 +157,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Every `_events.emit(x)` in VM code becomes `_events.trySend(x).isSuccess` (fire-and-forget) or `_events.send(x)` (back-pressure when needed).
 - Existing `AgendaDeps` binding must add `clock: Clock` parameter (no breaking change
 - Existing `viewModelOf` calls in DI modules updated to `viewModel { Vm(...) }` form
+- Existing tests for note features verified passing with the new schema.
 - Expand-day-list (tap day in month view to show all tasks).
 - Exposed `events: Flow<UiEvent>` becomes `_events.receiveAsFlow()`.
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes)
@@ -172,6 +177,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Month-grid cells are still hand-rolled (no kizitonwose `MonthView`). Week/Day remain unchanged.
 - Nested nav3 graph keeps task-click navigation encapsulated.
 - New component kinds require a new `UiNode` subtype + new renderer + `@SerialName` annotation + update to `BasicCatalog.systemPromptAppendix`. No schema migration needed.
+- No migration needed for this fix.
 - No more write storms from rapid task edits
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - No repository contract overloads are needed for this interface (it has no non-Koin callers).
@@ -191,8 +197,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`).
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов
+- Room schema unchanged (tables `task_tags` and `task_dependencies` already existed).
 - RuStore / Galaxy Store support requires ~1 day of work when distribution to those stores is planned.
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill)
+- Self-loop dependency is rejected at `setDependencies()` call site; cycle detection (A→B→C→A) is deferred.
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed.
 - Settings screen can show specific recovery actions per failure type
 - Simple schema, no migration complexity beyond bumping SCHEMA_VERSION.
@@ -245,13 +253,20 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `ContentStateMapper` — добавлен object с двумя методами
 - `CreateTaskFromDraftUseCase` now takes a dependency on `DueDateOption` resolution
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно.
+- `DependencyValidatorImplTest` (13 cases) covers self-loop, linear chains, branching chains, branching with merges, deep chains, missing nodes.
 - `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope`
+- `ExtractActions` output is only displayed as formatted text in the event notification — actual task creation from extracted actions (pre-filling `TaskCreateSheet`) is deferred to a follow-up that integrates with `CreateTaskFromDraftUseCase`.
+- `FakeAppDatabase` fakes updated for both new DAO methods
+- `FakeNotesRepository` and `FakeNoteDao` updated with all 6 new methods for test coverage.
 - `FakeProfileRepository` implements both new generic methods and deprecated legacy overloads for test compatibility.
 - `FakeReminderDao` implements `watchRecurringTaskIds` for `FakeAppDatabase`.
 - `FakeReminderRepository` implements `observeRecurringTaskIds` using in-memory filtering.
+- `FakeRepositories.InMemoryTaskDao.listAllDependenciesForUser` stub implemented for tests.
 - `InternalLinkRepositoryImpl` now fully owns the user resolution — consistent with `TagsRepository`, `TaskRepository`, etc.
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
+- `NoteDao.getNotesLinkingToTask` — same pattern for `task://` scheme in notes
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
+- `NoteEditor` now has two AI entry points: `improveNote()` (legacy) and `runAiAction()` (new).
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах
 - `ProfileAwareCurrentUser` moves **inside** repositories; the DI graph registers
@@ -267,18 +282,25 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `SyncRepository` becomes a required dependency of all four repositories — circular DI risk monitored
 - `SyncViewModel` is `ViewModel` (extends AndroidX `ViewModel`) — standard Koin `viewModel {}` DSL applies
 - `SyncableEntity.toJson()` uses `StableJson` — no new serialization surface
+- `Task.tags` and `Task.dependsOn` are now correctly populated in all list views (`observeAll`, `observeByFilter`, `observeByDate`, `observeSubtasks`).
+- `TaskDao.getBacklinkTasks` — LIKE query on the JSON column: `outgoing_links LIKE '%task://' || :taskId || '%'`
+- `TaskDetail.RunAiAction` is a one-shot action returning via `_events` SharedFlow.
+- `TaskDetailDeps.linkRepo: InternalLinkRepository? = null` — nullable so existing tests pass without a fake link repo
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates
+- `TaskDetailViewModelTest` removed 5 broken `StubRefineTaskUseCase` etc. class definitions — tests use nullable defaults instead.
 - `TaskDetailViewModel` no longer injects `ProfileAwareCurrentUser`.
 - `TaskDraft` serialization format changes — old drafts opened after upgrade will
 - `TaskEditorDeps.clock` is also dead (the file's own KDoc flags it for deletion alongside `TaskEditorViewModel`)
 - `TaskEditorReducerTest` must add test cases for new intents.
 - `TaskEditorViewModelTest` and `TaskEditorIntegrationTest` must add edit-mode scenarios.
 - `TaskEditorViewModel` constructor signature unchanged; DI registration unchanged.
+- `TaskEntity` has new `outgoingLinks: String = "[]"` field with default
 - `TaskEntity` is now 6 columns wider — acceptable storage cost
 - `TaskFilter` remains untouched — Search feature is unaffected.
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика
 - `TaskRepository.delete()` now calls `taskDao.softDelete()` directly instead of delegating to `softDelete()`
 - `TasksStartRoute.Create` now accepts `initialDueDate` — backward compatible since it's nullable.
+- `TreeVisitor` remains unchanged for other use cases (non-cycle-detection tree traversal).
 - `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly).
 - `applyRoute` in `TasksViewModel` is dead code — zero callers confirmed; deleted.
@@ -290,6 +312,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `flatMapLatest` re-evaluates all tasks on every date change (necessary trade-off;
 - `getOrThrow()` removed from 5 VM sites; replaced with `fireAndForget` + channel emit.
 - `isActive` is a behavioral change from previous inline logic — tested thoroughly.
+- `isBlocked` badge will appear on task cards when dependencies are unfinished.
 - `isRecurring` is always `false` in `CalendarTaskUi` — requires per-task
 - `just` must be installed (`just 1.57.0` is present in this environment).
 - `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
@@ -802,6 +825,22 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `ProjectDetailScreen` is fully functional: quick-add creates tasks, parent picker works, Remind/Attach/DueDate/Children sheets open, task click navigates to `TaskDetailScreen`
 - `ProjectPickerSheet` is reactive — newly created projects appear without reopening the sheet
 
+### `recurring`
+
+- MCP server `create_task`/`update_task` tools need schema updates (deferred to post-MR-10 issue).
+- Migration 18→19 adds `recurrence_rule TEXT NOT NULL DEFAULT NULL`.
+- `CompleteRecurringTaskUseCaseTest` should be added before final merge (MR-13).
+- `FakeTaskRepository` could gain `tags`/`dependsOn` population from a fake extras query, but is not blocking.
+- `Task.recurrence: RecurrenceSpec?` — must be propagated through `CreateTaskInput`, `TaskDomain.createInput`, `TaskDomain.buildTask`, `CreateTaskUseCase`, `CreateTaskFromDraftUseCase`.
+- `TaskDetailViewModel` now depends on `CompleteRecurringTaskUseCase` in `TaskDetailDeps`.
+- `lastDayOfMonth` refactor is optional cleanup.
+
+### `refactor`
+
+- Routing intents can originate from sheets (not just from the screen). Pattern: `NavigateToChild` routing intent → `ProjectDetailActions.onNavigateToChild` → `nav.openDetail()`.
+- `CurrentProjectContent` is the correct pattern for bundling 16+ nullable callbacks for sheet hosts — keep as-is until >20 fields.
+- `showSheet` should never be added back to `*Callbacks` data classes when the content composable owns the sheet state internally.
+
 ### `reminders`
 
 - **Neutral:** Pre-existing recurring reminders without `lastFiredAt` will fire immediately on next poll after upgrade (no worse than before).
@@ -913,6 +952,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive**: `DataStoreSyncPrefs` follows the exact same pattern as `DataStoreSessionStore` — consistent with project.
 - **Positive**: `autoSyncEnabled` and `scheduledInterval` survive app restarts.
 - **Positive**: `enqueue()` wiring in repositories becomes testable via `FakeSyncRepository`.
+
+### `tags`
+
+- Filter UI (MR-11) can filter by tag group (future): `TaskFilter.ByTagGroups(Set<TagGroupId>)`.
+- Tag group deletion is a write operation that cascades to untag member tags — requires `TagDao.bulkUpdateGroupId()` (future improvement, currently a TODO in delete handler).
+- `TagsRepository.observeAll()` now returns tags with `groupId` populated — UI can display group badges.
+- `Task.tags` in list views now needs `EffectiveTagsResolver` to show inherited tags — `TaskExtras` helper (MR-0) loads tags efficiently in batch.
 
 ### `task-detail`
 
@@ -1265,6 +1311,8 @@ _2 entries need attention._
 - `2026-09-23-ota-update-strategy` — _untagged_
 - `2026-09-23-pomodoro-alarm-refactor` — pomodoro, alarms, architecture, testability, koin
 - `2026-09-23-profile-deprecated-alias-removal` — profile, api, cleanup
+- `2026-09-23-recurring-parser-review-notes` — recurring, tasks, review
+- `2026-09-23-recurring-tasks-dsl` — recurring, tasks, dsl
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _untagged_
 - `2026-09-23-search-query-language` — search, query-ast, room, viewmodel, dsl
 - `2026-09-23-sync-pull-application` — _untagged_
@@ -1272,6 +1320,8 @@ _2 entries need attention._
 - `2026-09-23-sync-scheduling-abstraction` — sync, architecture, core, scheduling, remote-config, persistence
 - `2026-09-23-sync-state-model` — sync, architecture, core, state, ui
 - `2026-09-23-sync-tier3-fixes` — _untagged_
+- `2026-09-23-tag-groups-inheritance` — tags, tag-groups, inheritance
+- `2026-09-23-task-dependencies-completion` — _untagged_
 - `2026-09-23-tech-debt-audit` — tech-debt, audit, vm, database, tests
 - `2026-09-23-versioning-and-runtime-gates` — versioning, schema, sync, genui, backup, security, kmp
 - `2026-09-23-vm-event-guard-cleanup` — vm, concurrency, cleanup
@@ -1283,15 +1333,22 @@ _2 entries need attention._
 - `2026-09-24-pre-existing-issues` — techdebt, testing, di, epic1
 - `2026-09-24-profile-aware-current-user-di` — profile, di, koin, ai-tools
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _untagged_
+- `2026-09-24-taskeditor-refactor-remaining-debt` — refactor, taskeditor, projectdetail, sheets
 - `2026-09-24-tech-debt-mini-prs` — tech-debt, deprecation, android
+- `2026-09-25-ai-action-registry-design` — _untagged_
+- `2026-09-25-cycle-detector-design` — _untagged_
 - `2026-09-25-detekt-test-rules` — detekt, testing, lint, epic2
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
 - `2026-09-25-git-hooks-worktree-isolation` — git, hooks, worktree, devx, epic2
+- `2026-09-25-note-ai-multi-op-design` — _untagged_
+- `2026-09-25-note-templates-daily-design` — _untagged_
 - `2026-09-25-remaining-test-debt` — testing, junit, detekt, epic2
+- `2026-09-25-task-backlinks-design` — _untagged_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-25-test-parallelization` — testing, junit, jupiter, parallel, epic2
 - `2026-09-25-test-standards-comprehensive` — testing, junit, jupiter, epic2
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
+- `2026-09-26-production-readiness-findings` — _untagged_
 
 ## Active entries
 
@@ -1470,6 +1527,8 @@ _2 entries need attention._
 - `2026-09-23-ota-update-strategy` — _(no title)_
 - `2026-09-23-pomodoro-alarm-refactor` — Drop ViewModel in AndroidPomodoroTimer; extract PomodoroScheduler port; use kotlinx.datetime.Clock
 - `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
+- `2026-09-23-recurring-parser-review-notes` — Recurring tasks — post-review findings, no-blocker
+- `2026-09-23-recurring-tasks-dsl` — Recurring tasks — Orgzly/Tasks.org DSL, rolling completion, CATCH_UP
 - `2026-09-23-reminder-savedagenda-repo-stamping` — _(no title)_
 - `2026-09-23-search-query-language` — Search query language: AST, SimpleFilter, SavedSearch, canonical SearchViewModel
 - `2026-09-23-sync-pull-application` — _(no title)_
@@ -1477,6 +1536,8 @@ _2 entries need attention._
 - `2026-09-23-sync-scheduling-abstraction` — Sync scheduling abstraction: SyncScheduler + DataStoreSyncPrefs + RemoteConfig + SecureStorage
 - `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
 - `2026-09-23-sync-tier3-fixes` — _(no title)_
+- `2026-09-23-tag-groups-inheritance` — Tag Groups — Orgzly :name: pattern, project inheritance, merge semantics
+- `2026-09-23-task-dependencies-completion` — _(no title)_
 - `2026-09-23-tech-debt-audit` — Tech debt audit — post vm-event-guard-cleanup
 - `2026-09-23-versioning-and-runtime-gates` — Single source of truth for app version, typed schema versioning, and runtime version gates
 - `2026-09-23-vm-event-guard-cleanup` — VM event/guard cleanup — compareAndSet, typed combine, SendChannel, dead code
@@ -1488,13 +1549,20 @@ _2 entries need attention._
 - `2026-09-24-pre-existing-issues` — _(no title)_
 - `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _(no title)_
+- `2026-09-24-taskeditor-refactor-remaining-debt` — TaskEditor + ProjectDetail refactor remaining debt
 - `2026-09-24-tech-debt-mini-prs` — _(no title)_
+- `2026-09-25-ai-action-registry-design` — _(no title)_
+- `2026-09-25-cycle-detector-design` — _(no title)_
 - `2026-09-25-detekt-test-rules` — Detekt Rules for Tests — NoRealDelay, NoViewModelScope
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
 - `2026-09-25-git-hooks-worktree-isolation` — Git Hooks — Worktree Isolation + Shared Hooks Path
+- `2026-09-25-note-ai-multi-op-design` — _(no title)_
+- `2026-09-25-note-templates-daily-design` — _(no title)_
 - `2026-09-25-remaining-test-debt` — Remaining Test Debt — post JUnit/suite-acceleration audit
+- `2026-09-25-task-backlinks-design` — _(no title)_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _(no title)_
 - `2026-09-25-test-parallelization` — Test Parallelization — Jupiter Concurrency + Thread Safety
 - `2026-09-25-test-standards-comprehensive` — Test Standards Comprehensive — JUnit Jupiter, Virtual Time, Fast/Slow Split
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
+- `2026-09-26-production-readiness-findings` — Production Readiness Findings — 2026-09-26
 

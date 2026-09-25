@@ -51,6 +51,7 @@ import com.singularity.todo.feature.notes.LinkResult
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.components.EditorToolbar
 import com.singularity.todo.feature.notes.components.InternalLinkPickerSheet
+import com.singularity.todo.feature.notes.presentation.components.NoteAiActionSheet
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
@@ -94,6 +95,7 @@ fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewM
         }
     }
 
+    var showAiSheet by remember { mutableStateOf(false) }
     NoteEditorScreenContent(
         editorState = editorState,
         onTitleChange = { _, title -> viewModel.editTitle(title) },
@@ -103,10 +105,13 @@ fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewM
             viewModel.closeEditor()
             navigator.back()
         },
-        onAiClick = viewModel::improveNote,
+        onShowAiSheet = { showAiSheet = true },
         savedVisible = savedVisible,
         searchNotesForLink = viewModel::searchNotesForLink,
         searchTasksForLink = viewModel::searchTasksForLink,
+        onAiAction = viewModel::runAiAction,
+        showAiSheet = showAiSheet,
+        onDismissAiSheet = { showAiSheet = false },
     )
 
     NotificationHost(
@@ -135,10 +140,13 @@ fun NoteEditorScreenContent(
     onBodyChange: (id: String, html: String) -> Unit,
     onSaveNow: () -> Unit,
     onBack: () -> Unit,
-    onAiClick: () -> Unit,
+    onShowAiSheet: () -> Unit,
     savedVisible: Boolean = false,
     searchNotesForLink: (suspend (String) -> List<LinkResult>)? = null,
     searchTasksForLink: (suspend (String) -> List<LinkResult>)? = null,
+    onAiAction: ((com.singularity.todo.feature.notes.NoteAiAction) -> Unit)? = null,
+    showAiSheet: Boolean = false,
+    onDismissAiSheet: () -> Unit = {},
 ) {
     val savedAlpha by animateFloatAsState(
         targetValue = if (savedVisible) 1f else 0f,
@@ -189,7 +197,7 @@ fun NoteEditorScreenContent(
                     EditorToolbar(
                         richTextState = editorSession.richTextState,
                         onHtmlChange = { editorSession.dispatchHtml() },
-                        onAiClick = onAiClick,
+                        onAiClick = onShowAiSheet,
                         onLinkClick = { linkOverlay.show(NoteLinkSheet.External) },
                         onInternalLinkClick = { linkOverlay.show(NoteLinkSheet.InternalPicker()) },
                     )
@@ -261,6 +269,16 @@ fun NoteEditorScreenContent(
                 linkOverlay.dismissAll()
                 linkQueryFlow.value = ""
             },
+        )
+    }
+
+    if (showAiSheet) {
+        NoteAiActionSheet(
+            onSelect = { action ->
+                onAiAction?.invoke(action)
+                onDismissAiSheet()
+            },
+            onDismiss = onDismissAiSheet,
         )
     }
 }
@@ -372,8 +390,11 @@ private fun NoteEditorScreenEditingPreview() = PreviewThemed(darkTheme = false, 
             onBodyChange = { _, _ -> },
             onSaveNow = {},
             onBack = {},
-            onAiClick = {},
+            onShowAiSheet = {},
             savedVisible = false,
+            onAiAction = null,
+            showAiSheet = false,
+            onDismissAiSheet = {},
         )
     }
 }
@@ -393,8 +414,11 @@ private fun NoteEditorScreenDirtyPreview() = PreviewThemed(darkTheme = true, use
             onBodyChange = { _, _ -> },
             onSaveNow = {},
             onBack = {},
-            onAiClick = {},
+            onShowAiSheet = {},
             savedVisible = false,
+            onAiAction = null,
+            showAiSheet = false,
+            onDismissAiSheet = {},
         )
     }
 }
