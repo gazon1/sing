@@ -32,11 +32,30 @@ issue, not caused by any specific commit.
 Each fix was tried in isolation; **none resolved the OOM**. The OOM recurs with the same
 stack trace every time.
 
+**Important caveat:** all runs were executed with `--no-daemon --no-configuration-cache`
+flags for diagnostic reproducibility. In this mode, Gradle launcher JVM orchestrates test
+forks **directly** (no daemon process). The launcher JVM's heap is set by the `JAVA_OPTS`
+environment variable or the `gradlew` wrapper, NOT by `org.gradle.jvmargs` in
+`gradle.properties` (that property only configures the Gradle daemon, which is bypassed
+by `--no-daemon`).
+
+This means:
+- VERIFY runs that used `gradle.properties`'s `org.gradle.jvmargs` did NOT increase
+  launcher heap — they only affected daemon (which wasn't running)
+- VERIFY runs that used `-Dorg.gradle.jvmargs="-Xmx6g"` as a CLI `-D` flag DID increase
+  launcher heap (because `-D` is interpreted by the JVM as a system property, applied to
+  whatever process started, regardless of what the key name means to Gradle)
+- The "successful" run early in this investigation that suggested daemon heap was the
+  root cause was actually measuring the **launcher JVM** heap effect, not the daemon
+
+A clean re-investigation should be done with regular daemon mode (no `--no-daemon`) to
+isolate the daemon heap variable properly.
+
 | Attempt | Configuration | Result |
 |---|---|---|
 | `maxHeapSize = "3g"` on test fork | `:shared` `jvmTest` | FAILED — OOM |
 | `maxHeapSize = "1g"` on test fork | smaller heap | FAILED — OOM |
-| `org.gradle.jvmargs = -Xmx6g` daemon heap | `gradle.properties` | FAILED — OOM |
+| `org.gradle.jvmargs = -Xmx6g` daemon heap | `gradle.properties` | FAILED — OOM (note: in `--no-daemon` mode, this does not affect launcher heap) |
 | `parallel.classes.default = same_thread` | all 3 modules | FAILED — OOM |
 | `parallel.enabled = false` | all 3 modules | FAILED — OOM |
 | `maxParallelForks = 1` on test | `:shared` `jvmTest` | FAILED — OOM |
