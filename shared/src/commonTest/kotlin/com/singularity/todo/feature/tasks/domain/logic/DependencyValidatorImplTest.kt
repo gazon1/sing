@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.InMemoryTaskDao
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -9,7 +10,8 @@ import kotlin.test.assertTrue
 class DependencyValidatorImplTest {
 
     private val dao = InMemoryTaskDao()
-    private val validator = DependencyValidatorImpl(dao)
+    private val currentUser = FakeProfileAwareCurrentUser()
+    private val validator = DependencyValidatorImpl(dao, currentUser)
 
     @Test
     fun `self-loop returns error`() = runTest {
@@ -17,8 +19,7 @@ class DependencyValidatorImplTest {
         val result = validator.assertNoCycles(taskId, setOf(taskId))
         assertTrue(result.isFailure)
         val error = result.exceptionOrNull()
-        assertTrue(error is IllegalArgumentException)
-        assertTrue(error.message!!.contains("cannot depend on itself"))
+        assertTrue(error is com.singularity.todo.core.graph.CycleError.SelfLoop)
     }
 
     @Test

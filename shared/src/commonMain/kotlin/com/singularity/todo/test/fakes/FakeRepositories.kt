@@ -397,9 +397,8 @@ internal class InMemoryTaskDao : TaskDao {
         "not implemented",
     )
 
-    override suspend fun listAllDependenciesForUser(userId: String): List<TaskDependencyCrossRef> = error(
-        "not implemented",
-    )
+    override suspend fun listAllDependenciesForUser(userId: String): List<TaskDependencyCrossRef> =
+        _deps.value
 
     override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> = error("not implemented")
 
