@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.profile.presentation
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.ui.mvi.MviIntent
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileRepository
 import kotlinx.coroutines.flow.Flow

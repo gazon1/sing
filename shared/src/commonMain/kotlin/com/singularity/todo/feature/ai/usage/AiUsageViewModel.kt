@@ -5,8 +5,8 @@ import com.singularity.todo.core.observability.DailyUsage
 import com.singularity.todo.core.observability.ModelUsage
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.ToolUsage
+import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.ui.mvi.MviIntent
 import com.singularity.todo.feature.profile.ProfileRepository
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest

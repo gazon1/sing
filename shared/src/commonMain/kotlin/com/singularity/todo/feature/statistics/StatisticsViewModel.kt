@@ -2,8 +2,8 @@ package com.singularity.todo.feature.statistics
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.ui.mvi.MviIntent
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi

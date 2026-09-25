@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.agenda.domain.model
 
-import com.singularity.todo.core.ui.mvi.MviIntent
+import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**

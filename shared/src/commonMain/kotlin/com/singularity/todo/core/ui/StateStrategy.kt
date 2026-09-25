@@ -1,7 +1,7 @@
-package com.singularity.todo.core.ui.mvi
+package com.singularity.todo.core.ui
 
 /**
- * Strategy for state updates in [com.singularity.todo.core.ui.StatefulViewModel].
+ * Strategy for state updates in [StatefulViewModel].
  *
  * Determines how concurrent read-modify-write operations are serialized.
  * [Atomic] is added in MR-3 for VMs with genuine TOCTOU race conditions

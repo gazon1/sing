@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.notes.presentation
 
-import com.singularity.todo.core.ui.mvi.MviIntent
+import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.feature.notes.NoteFilter
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NoteSortOrder

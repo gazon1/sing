@@ -1,7 +1,5 @@
 package com.singularity.todo.core.ui
 
-import com.singularity.todo.core.ui.mvi.MviIntent
-
 /**
  * Typed dispatch wrapper for MVI intents.
  *

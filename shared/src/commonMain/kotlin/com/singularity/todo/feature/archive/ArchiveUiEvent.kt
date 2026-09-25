@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.archive
 
-import com.singularity.todo.core.ui.mvi.MviEvent
+import com.singularity.todo.core.ui.MviEvent
 
 /**
  * One-shot events emitted by [ArchiveViewModel].

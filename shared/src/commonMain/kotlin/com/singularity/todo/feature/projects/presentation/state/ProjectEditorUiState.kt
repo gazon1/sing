@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.state
 
-import com.singularity.todo.core.ui.mvi.MviIntent
+import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 
 /**

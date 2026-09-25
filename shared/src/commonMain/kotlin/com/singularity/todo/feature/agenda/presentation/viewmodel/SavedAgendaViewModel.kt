@@ -6,9 +6,9 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.ui.DraftState
+import com.singularity.todo.core.ui.MviEvent
+import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.ui.mvi.MviEvent
-import com.singularity.todo.core.ui.mvi.MviIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory

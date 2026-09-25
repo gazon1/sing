@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui.mvi
 
 import com.singularity.todo.core.ui.EventBus
+import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.SharedEventBus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

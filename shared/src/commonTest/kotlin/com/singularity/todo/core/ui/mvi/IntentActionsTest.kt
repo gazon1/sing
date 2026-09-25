@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui.mvi
 
 import com.singularity.todo.core.ui.IntentActions
+import com.singularity.todo.core.ui.MviIntent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
-import com.singularity.todo.core.ui.mvi.MviEvent
+import com.singularity.todo.core.ui.MviEvent
 
 /**
  * One-shot events emitted by [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel].

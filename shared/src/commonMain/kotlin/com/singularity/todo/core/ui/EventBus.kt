@@ -1,6 +1,5 @@
 package com.singularity.todo.core.ui
 
-import com.singularity.todo.core.ui.mvi.MviEvent
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -18,7 +17,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
  * For multi-subscriber broadcast scenarios, use [SharedEventBus] instead.
  *
  * @param capacity Buffer capacity. Defaults to [Channel.BUFFERED].
- * @see com.singularity.todo.core.ui.mvi.MviEvent
+ * @see MviEvent
  */
 class EventBus<E : MviEvent>(capacity: Int = Channel.BUFFERED) {
     private val _channel = Channel<E>(capacity)

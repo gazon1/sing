@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.archive
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.ui.mvi.MviIntent
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -53,13 +53,13 @@ class ArchiveViewModel(
             ) { tasks: List<Task>, r: Boolean ->
                 ArchiveUiState.Content(tasks, refreshing = r) as ArchiveUiState
             }.catch { e ->
-                    updateState {
-                        ArchiveUiState.Error(
-                            e.message
-                                ?: "Error"
-                        )
-                    }
+                updateState {
+                    ArchiveUiState.Error(
+                        e.message
+                            ?: "Error"
+                    )
                 }
+            }
                 .collect { newState -> updateState { newState } }
         }
     }
@@ -75,8 +75,8 @@ class ArchiveViewModel(
         val result = archiveRepo.archiveCompletedTasks()
         refreshing.value = false
         result.onSuccess { count ->
-                if (count > 0) emit(ArchiveUiEvent.Archived("Moved $count tasks to archive"))
-            }
+            if (count > 0) emit(ArchiveUiEvent.Archived("Moved $count tasks to archive"))
+        }
             .onFailure { e ->
                 emit(
                     ArchiveUiEvent.Error(

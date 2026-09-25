@@ -1,8 +1,6 @@
 package com.singularity.todo.core.ui
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.ui.mvi.MviEvent
-import com.singularity.todo.core.ui.mvi.MviIntent
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 
@@ -69,7 +67,7 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      * Updates state by applying [transform] to the current value.
      *
      * Delegates to [kotlinx.coroutines.flow.MutableStateFlow.update].
-     * For VMs requiring atomic read-modify-write, use [com.singularity.todo.core.ui.mvi.StateStrategy.Atomic] —
+     * For VMs requiring atomic read-modify-write, use [StateStrategy.Atomic] —
      * available from MR-3 onwards.
      *
      * For simple direct assignment, use `_state.value = newValue` instead.
