@@ -94,4 +94,6 @@ data class TaskEditorCallbacks(
     val bottomBar: (@Composable () -> Unit)? = null,
     /** Overflow menu items — empty list = no menu shown */
     val menuItems: List<TaskEditorMenuItem> = emptyList(),
+    /** AI action button — null means AI button is hidden */
+    val onAiClick: (() -> Unit)? = null,
 )

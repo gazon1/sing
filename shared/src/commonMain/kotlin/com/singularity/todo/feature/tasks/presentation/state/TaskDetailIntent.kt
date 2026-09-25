@@ -8,6 +8,7 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -91,5 +92,10 @@ sealed interface TaskDetailIntent {
 
         data class AddUrlAttachment(val url: String, val title: String?) : Domain
         data class DeleteAttachment(val id: AttachmentId) : Domain
+
+        // ── AI ────────────────────────────────────────────────────────────────
+
+        /** Run an AI action (RefineTitle, GenerateDescription, etc.) and apply the result. */
+        data class RunAiAction(val action: TaskAiAction) : Domain
     }
 }

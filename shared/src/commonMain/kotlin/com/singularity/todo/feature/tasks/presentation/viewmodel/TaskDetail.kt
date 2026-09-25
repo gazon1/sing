@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
@@ -83,6 +84,7 @@ class TaskDetailViewModel(
     private data class AllData(val meta: Meta, val content: Content, val draft: TaskDetailDraft)
 
     private val _recentlyDeleted = MutableStateFlow<Task?>(null)
+    private val _aiRunning = MutableStateFlow(false)
 
     /** Incremented on each retry() call to restart the watchTask subscription. */
     private val _retryVersion = MutableStateFlow(0)
@@ -403,6 +405,68 @@ class TaskDetailViewModel(
                     deps.attachmentsRepo.delete(intent.id)
                         .onSuccess { _events.trySend(TaskDetailUiEvent.Saved("Attachment deleted")) }
                         .onFailure { emitError("Failed to delete attachment") }
+                }
+            }
+
+            is TaskDetailIntent.Domain.RunAiAction -> {
+                scope.launch {
+                    _aiRunning.value = true
+                    val result = when (intent.action) {
+                        TaskAiAction.RefineTitle -> deps.refineTask
+                            ?.invoke(current.title, current.description)
+                            ?.map { newTitle ->
+                                deps.updateTask(current.copy(title = newTitle))
+                                _events.trySend(TaskDetailUiEvent.Saved("Title refined"))
+                            }
+                            ?: Result.failure(IllegalStateException("RefineTaskUseCase not available"))
+
+                        TaskAiAction.GenerateDescription -> deps.generateDescription
+                            ?.invoke(current.title)
+                            ?.map { desc ->
+                                deps.updateTask(current.copy(description = desc))
+                                _events.trySend(TaskDetailUiEvent.Saved("Description generated"))
+                            }
+                            ?: Result.failure(IllegalStateException("GenerateDescriptionUseCase not available"))
+
+                        TaskAiAction.GenerateChecklist -> deps.generateChecklist
+                            ?.invoke(current.title, current.description)
+                            ?.map { steps ->
+                                steps.forEach { step ->
+                                    deps.createTask(
+                                        com.singularity.todo.feature.tasks.domain.model.CreateTaskInput(
+                                            title = step,
+                                            parentTaskId = current.id,
+                                        ),
+                                    )
+                                }
+                                _events.trySend(TaskDetailUiEvent.Saved("${steps.size} checklist items added"))
+                            }
+                            ?: Result.failure(IllegalStateException("GenerateChecklistUseCase not available"))
+
+                        TaskAiAction.Decompose -> deps.decomposeTask
+                            ?.invoke(current.title, current.description)
+                            ?.map { subTasks ->
+                                subTasks.forEach { title ->
+                                    deps.createTask(
+                                        com.singularity.todo.feature.tasks.domain.model.CreateTaskInput(
+                                            title = title,
+                                            parentTaskId = current.id,
+                                        ),
+                                    )
+                                }
+                                _events.trySend(TaskDetailUiEvent.Saved("${subTasks.size} subtasks created"))
+                            }
+                            ?: Result.failure(IllegalStateException("DecomposeTaskUseCase not available"))
+
+                        TaskAiAction.SuggestTime -> deps.pickTime
+                            ?.invoke(current.title, current.description)
+                            ?.map { suggestedTime ->
+                                _events.trySend(TaskDetailUiEvent.Saved("Suggested: $suggestedTime"))
+                            }
+                            ?: Result.failure(IllegalStateException("PickTimeUseCase not available"))
+                    }
+                    _aiRunning.value = false
+                    result.onFailure { emitError("AI action failed: ${it.message}") }
                 }
             }
         }

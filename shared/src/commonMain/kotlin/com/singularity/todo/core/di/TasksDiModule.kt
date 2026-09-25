@@ -126,6 +126,11 @@ fun tasksModule(): org.koin.core.module.Module =
                     timeZoneProvider = get(),
                     clock = get(),
                     completeRecurring = get(),
+                    refineTask = get(),
+                    generateDescription = get(),
+                    generateChecklist = get(),
+                    decomposeTask = get(),
+                    pickTime = get(),
                 ),
                 taskId = taskId,
             )

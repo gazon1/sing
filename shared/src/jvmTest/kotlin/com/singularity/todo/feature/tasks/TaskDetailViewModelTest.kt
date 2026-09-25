@@ -94,6 +94,7 @@ class TaskDetailViewModelTest {
             timeZoneProvider = TEST_TZ,
             clock = Clock,
             completeRecurring = stubCompleteRecurring,
+            // AI use cases are nullable — tests omit them since RunAiAction is not exercised here
             debounceMs = 300L,
         )
         val vm = TaskDetailViewModel(deps = deps, taskId = taskId, scope = testScope(scope))
