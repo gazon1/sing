@@ -48,6 +48,6 @@ class PlatformPragmasTest {
         val first = PlatformPragmas.Commands
         val second = PlatformPragmas.Commands
         assertEquals(first, second)
-        assertTrue(first.isNotEmpty())
+        assertTrue(first.contains("journal_mode"))
     }
 }

@@ -45,6 +45,7 @@ class ProjectsUseCaseTest {
         val result = createProjectUseCase()(input)
         assertTrue(result.isSuccess)
         assertTrue(result.getOrNull()?.value?.isNotEmpty() == true)
+        assertTrue(result.getOrNull()?.value != null)
     }
 
     @Test

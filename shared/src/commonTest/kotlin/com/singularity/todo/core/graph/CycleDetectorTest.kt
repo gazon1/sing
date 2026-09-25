@@ -41,8 +41,9 @@ class CycleDetectorTest {
         assertTrue(result.isFailure)
         val error = result.exceptionOrNull()
         assertIs<CycleError.Cycle>(error)
-        // path should include nodes on the way from C to the repeated visit
-        assertTrue(error.path.isNotEmpty() || error.edge == "A")
+        // path must contain A (the entry of the cycle) and be non-empty
+        assertTrue(error.path.isNotEmpty())
+        assertTrue(error.path.contains("A"))
     }
 
     @Test

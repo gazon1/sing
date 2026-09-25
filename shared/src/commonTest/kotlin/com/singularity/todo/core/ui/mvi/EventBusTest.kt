@@ -63,7 +63,7 @@ class EventBusTest {
                 job.cancel()
             }
 
-            assertTrue(results.isNotEmpty(), "should have received at least one event")
+            assertEquals(2, results.size)
             assertTrue(results[0] is TestEvent.Text)
         }
 }

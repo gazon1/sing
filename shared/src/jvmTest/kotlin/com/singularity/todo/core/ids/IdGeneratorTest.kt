@@ -7,9 +7,9 @@ import kotlin.test.assertTrue
 class IdGeneratorTest {
 
     @Test
-    fun `UlidIdGenerator returns non-blank strings`() {
+    fun `UlidIdGenerator returns 26-character ULID string`() {
         val id = UlidIdGenerator.next()
-        assertTrue(id.isNotBlank())
+        assertEquals(26, id.length)
     }
 
     @Test

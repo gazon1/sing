@@ -51,7 +51,7 @@ class BackupDomainTest {
         assertEquals(1000L, manifest.createdAtEpochMillis)
         assertEquals(1, manifest.entityCounts.tasks)
         assertEquals(2, manifest.entityCounts.notes)
-        assertTrue(manifest.payloadChecksum.isNotEmpty())
+        assertEquals(64, manifest.payloadChecksum.length)
     }
 
     @Test
