@@ -8,14 +8,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
-import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorPrioritySheet
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSaveBar
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
@@ -78,73 +78,57 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
     }
 
     TaskEditorContent(
-        titleDraft = state.draft.title,
-        onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },
+        model = TaskEditorModel(
+            taskId = null,
+            titleDraft = state.draft.title,
+            descriptionDraft = state.draft.description,
+            priority = state.draft.priority,
+            dueDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
+            dueTime = state.draft.dueTime,
+            startDate = null,
+            startTime = null,
+            project = null,
+            tags = emptyList(),
+            checklist = emptyList(),
+            attachments = emptyList(),
+            recurrence = null,
+            isPinned = false,
+            dependsOn = emptySet(),
+            availableTasks = emptyList(),
+        ),
+        callbacks = TaskEditorCallbacks(
+            onBack = guardedBack,
+            onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },
+            onCheckToggle = {},
+            onDescriptionChange = { vm.onIntent(TaskCreateIntent.DescriptionChanged(it)) },
+            priority = RowCallbacks(
+                onChange = { vm.onIntent(TaskCreateIntent.SetPriority(it)) },
+                onClick = { sheets.show(TaskEditorSheet.Priority) },
+                onClear = { vm.onIntent(TaskCreateIntent.SetPriority(TaskPriority.None)) },
+            ),
+            dueDate = DateRowCallbacks(
+                onChangeDate = { vm.onIntent(TaskCreateIntent.SetDueDate(it)) },
+                onChangeTime = { vm.onIntent(TaskCreateIntent.SetDueTime(it)) },
+                onClick = { sheets.show(TaskEditorSheet.Date) },
+                onClear = { vm.onIntent(TaskCreateIntent.DueDateCleared) },
+            ),
+            startDate = null,
+            project = null,
+            tags = null,
+            recurrence = null,
+            pin = null,
+            dependencies = null,
+            checklist = null,
+            attachments = null,
+            bottomBar = {
+                TaskSaveBar(
+                    isEnabled = state.isSaveEnabled,
+                    isLoading = state.isSaving,
+                    onSaveClick = { vm.onIntent(TaskCreateIntent.SaveClicked) },
+                )
+            },
+            menuItems = emptyList(),
+        ),
         isCompleted = false,
-        onCheckToggle = { },
-        descriptionDraft = state.draft.description,
-        onDescriptionChange = { vm.onIntent(TaskCreateIntent.DescriptionChanged(it)) },
-        priority = state.draft.priority,
-        onPrioritySelect = { vm.onIntent(TaskCreateIntent.SetPriority(it)) },
-        onPriorityClear = { vm.onIntent(TaskCreateIntent.SetPriority(TaskPriority.None)) },
-        dueDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
-        dueTime = state.draft.dueTime,
-        onDueDateSelect = { vm.onIntent(TaskCreateIntent.SetDueDate(it)) },
-        onDueDateClear = { vm.onIntent(TaskCreateIntent.DueDateCleared) },
-        onDueTimeSelect = { vm.onIntent(TaskCreateIntent.SetDueTime(it)) },
-        showDueDate = true,
-        onPriorityClick = { sheets.show(TaskEditorSheet.Priority) },
-        onDueDateClick = { sheets.show(TaskEditorSheet.Date) },
-        extraSections = null,
-        onSetDependencies = null,
-        bottomBar = {
-            TaskSaveBar(
-                isEnabled = state.isSaveEnabled,
-                isLoading = state.isSaving,
-                onSaveClick = { vm.onIntent(TaskCreateIntent.SaveClicked) },
-            )
-        },
-        menuItems = emptyList(),
-        onBack = guardedBack,
     )
-
-    // Sheets
-    when (sheets.active) {
-        is TaskEditorSheet.Date -> DatePickerSheet(
-            initialDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
-            onDateSelected = { date ->
-                vm.onIntent(TaskCreateIntent.SetDueDate(date))
-                sheets.dismiss()
-            },
-            onDismiss = { sheets.dismiss() },
-        )
-
-        is TaskEditorSheet.Time -> TimePickerSheet(
-            initialTime = state.draft.dueTime,
-            onTimeSelected = { time ->
-                vm.onIntent(TaskCreateIntent.SetDueTime(time))
-                sheets.dismiss()
-            },
-            onDismiss = { sheets.dismiss() },
-        )
-
-        is TaskEditorSheet.Priority -> TaskEditorSheetHost(
-            title = "Приоритет",
-            onClose = { sheets.dismiss() },
-        ) {
-            TaskEditorPrioritySheet(
-                selected = state.draft.priority,
-                onSelect = { p ->
-                    vm.onIntent(TaskCreateIntent.SetPriority(p))
-                    sheets.dismiss()
-                },
-            )
-        }
-
-        is TaskEditorSheet.Dependencies -> { /* not supported in create mode */
-        }
-
-        null -> { /* no-op */
-        }
-    }
 }

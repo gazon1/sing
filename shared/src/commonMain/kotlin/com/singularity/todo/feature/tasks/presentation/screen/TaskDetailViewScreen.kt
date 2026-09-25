@@ -134,6 +134,7 @@ fun TaskDetailViewScreen(taskId: TaskId) {
                 TaskEditorContent(
                     model = model,
                     callbacks = callbacks,
+                    isCompleted = ui.task.isCompleted,
                 )
             }
         }

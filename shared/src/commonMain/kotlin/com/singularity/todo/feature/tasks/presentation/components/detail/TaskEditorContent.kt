@@ -44,7 +44,6 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
@@ -269,60 +268,104 @@ fun TaskEditorContent(
         }
     }
 
-    // Sheets
-    when (sheets.active) {
-        is TaskEditorSheet.Date -> DatePickerSheet(
-            initialDate = dueDate,
-            onDateSelected = { date ->
-                onDueDateSelect(date)
-                sheets.dismiss()
-            },
-            onDismiss = { sheets.dismiss() },
-        )
-
-        is TaskEditorSheet.Time -> TimePickerSheet(
-            initialTime = dueTime,
-            onTimeSelected = { time ->
-                onDueTimeSelect(time)
-                sheets.dismiss()
-            },
-            onDismiss = { sheets.dismiss() },
-        )
-
-        is TaskEditorSheet.Priority -> TaskEditorSheetHost(
-            title = "Приоритет",
-            onClose = { sheets.dismiss() },
-        ) {
-            TaskEditorPrioritySheet(
-                selected = priority,
-                onSelect = { p ->
-                    onPrioritySelect(p)
-                    sheets.dismiss()
-                },
-            )
-        }
-
-        is TaskEditorSheet.Dependencies -> DependencyPickerSheet(
-            currentDeps = dependsOn,
+    // Sheets — delegate to TaskEditorSheetsHost which handles all 12 variants
+    TaskEditorSheetsHost(
+        model = TaskEditorModel(
+            taskId = null,
+            titleDraft = titleDraft,
+            descriptionDraft = descriptionDraft,
+            priority = priority,
+            dueDate = dueDate,
+            dueTime = dueTime,
+            startDate = null,
+            startTime = null,
+            project = null,
+            tags = emptyList(),
+            checklist = emptyList(),
+            attachments = emptyList(),
+            recurrence = null,
+            isPinned = false,
+            dependsOn = dependsOn,
             availableTasks = availableTasks,
-            onApply = { newDeps ->
-                onSetDependencies?.invoke(newDeps)
-                sheets.dismiss()
-            },
-            onDismiss = { sheets.dismiss() },
-        )
-
-        null -> { /* no-op */
-        }
-    }
+        ),
+        callbacks = TaskEditorCallbacks(
+            onBack = onBack,
+            onTitleChange = onTitleChange,
+            onCheckToggle = onCheckToggle,
+            onDescriptionChange = onDescriptionChange,
+            priority = RowCallbacks(
+                onChange = onPrioritySelect,
+                onClick = onPriorityClick ?: {},
+                onClear = onPriorityClear,
+            ),
+            dueDate = DateRowCallbacks(
+                onChangeDate = onDueDateSelect,
+                onChangeTime = onDueTimeSelect,
+                onClick = onDueDateClick ?: {},
+                onClear = onDueDateClear,
+            ),
+            startDate = null,
+            project = null,
+            tags = null,
+            recurrence = null,
+            pin = null,
+            dependencies = RowCallbacks(
+                onChange = { onSetDependencies?.invoke(it) },
+                onClick = {},
+                onClear = null,
+            ),
+            checklist = null,
+            attachments = null,
+            bottomBar = null,
+            menuItems = menuItems,
+        ),
+        activeSheet = sheets.active,
+        onSheetDismiss = { sheets.dismiss() },
+    )
 }
 
-// ─── Data classes ───────────────────────────────────────────────────────────
-
 /**
- * A dropdown menu item for archive/delete actions in View mode.
+ * Overload that unpacks [TaskEditorModel] and [TaskEditorCallbacks] into explicit parameters.
+ * Used by [TaskDetailViewScreen] which constructs model + callbacks separately.
+ *
+ * Note: fields in [TaskEditorModel] that have no corresponding explicit parameter
+ * (startDate, startTime, project, tags, recurrence, pin, checklist, attachments)
+ * are not rendered by this overload. They are controlled via `extraSections` in the
+ * explicit-parameter overload.
  */
-data class TaskEditorMenuItem(val label: String, val onClick: () -> Unit)
+@Composable
+fun TaskEditorContent(
+    model: TaskEditorModel,
+    callbacks: TaskEditorCallbacks,
+    isCompleted: Boolean = false,
+) {
+    TaskEditorContent(
+        titleDraft = model.titleDraft,
+        onTitleChange = callbacks.onTitleChange,
+        isCompleted = isCompleted,
+        onCheckToggle = callbacks.onCheckToggle,
+        descriptionDraft = model.descriptionDraft,
+        onDescriptionChange = callbacks.onDescriptionChange,
+        priority = model.priority,
+        onPrioritySelect = callbacks.priority?.onChange ?: {},
+        onPriorityClear = callbacks.priority?.onClear,
+        dueDate = model.dueDate,
+        dueTime = model.dueTime,
+        onDueDateSelect = callbacks.dueDate?.onChangeDate ?: {},
+        onDueDateClear = callbacks.dueDate?.onClear,
+        onDueTimeSelect = callbacks.dueDate?.onChangeTime ?: {},
+        showDueDate = true,
+        onPriorityClick = callbacks.priority?.onClick,
+        onDueDateClick = callbacks.dueDate?.onClick,
+        dependsOn = model.dependsOn,
+        availableTasks = model.availableTasks,
+        extraSections = null,
+        onSetDependencies = callbacks.dependencies?.onChange,
+        bottomBar = callbacks.bottomBar,
+        menuItems = callbacks.menuItems,
+        onBack = callbacks.onBack,
+    )
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
