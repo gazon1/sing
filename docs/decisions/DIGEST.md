@@ -173,6 +173,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Existing `viewModelOf` calls in DI modules updated to `viewModel { Vm(...) }` form
 - Existing tests for note features verified passing with the new schema.
 - Expand-day-list (tap day in month view to show all tasks).
+- Explicit save correctly emits `SavedPulse` through the `onSaved()` hook
 - Exposed `events: Flow<UiEvent>` becomes `_events.receiveAsFlow()`.
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes)
 - Full filter panel with Project / Tags / Priority / Status.
@@ -270,6 +271,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно.
 - `DependencyValidatorImplTest` (13 cases) covers self-loop, linear chains, branching chains, branching with merges, deep chains, missing nodes.
 - `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope`
+- `DraftMviViewModel` framework is cleaner — dead code removed
 - `ExtractActions` output is only displayed as formatted text in the event notification — actual task creation from extracted actions (pre-filling `TaskCreateSheet`) is deferred to a follow-up that integrates with `CreateTaskFromDraftUseCase`.
 - `FakeAppDatabase` fakes updated for both new DAO methods
 - `FakeNotesRepository` and `FakeNoteDao` updated with all 6 new methods for test coverage.
@@ -281,6 +283,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
 - `NoteDao.getNotesLinkingToTask` — same pattern for `task://` scheme in notes
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
+- `NoteEditor` now fully integrates with `DraftMviViewModel` instead of bypassing it
 - `NoteEditor` now has two AI entry points: `improveNote()` (legacy) and `runAiAction()` (new).
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах
@@ -323,6 +326,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly).
 - `applyRoute` in `TasksViewModel` is dead code — zero callers confirmed; deleted.
 - `core/ui/state/StateFlowExt.kt::updateState` removed after all migrations complete (MR-4)
+- `createdAt` is preserved for existing notes via `cachedNote` in `persist()`
 - `deadlineDate` badge is rendered as a red flag + date for tasks due on the selected date.
 - `deadlineDate` badge rendering in month grid.
 - `delay(until-midnight)` means the flow never completes — collectors must be scoped
@@ -1383,12 +1387,14 @@ _2 entries need attention._
 - `2026-09-25-repository-architecture-gaps` — repository, technical-debt, sync, type-safety
 - `2026-09-25-task-backlinks-design` — _untagged_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
+- `2026-09-25-test-flaky-root-causes` — _untagged_
 - `2026-09-25-test-helper-stack` — testing, quality, kotlin, junit5
 - `2026-09-25-test-jvm-heap-default` — testing, gradle, kover, heap, koog
 - `2026-09-25-test-parallelization` — testing, junit, jupiter, parallel, epic2
 - `2026-09-25-test-standards-comprehensive` — testing, junit, jupiter, epic2
 - `2026-09-25-test-suite-tag-defaults` — testing, junit, gradle, detekt
 - `2026-09-25-testable-vm-dispatcher-clock` — testing, coroutines, viewmodel, koin, di
+- `2026-09-26-draft-mvi-bugfixes` — _untagged_
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
 
 ## Active entries
@@ -1605,11 +1611,13 @@ _2 entries need attention._
 - `2026-09-25-repository-architecture-gaps` — Repository architecture gaps — Tag userId types, dead ConflictResolver.merge, empty-string sentinels
 - `2026-09-25-task-backlinks-design` — _(no title)_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _(no title)_
+- `2026-09-25-test-flaky-root-causes` — _(no title)_
 - `2026-09-25-test-helper-stack` — Test helper stack — kotest assertions, @ParameterizedTest, hand-rolled fakes
 - `2026-09-25-test-jvm-heap-default` — OOM in TaskOutgoingLinksTest — Kover instrumentation + Koog-heavy classpath
 - `2026-09-25-test-parallelization` — Test Parallelization — Jupiter Concurrency + Thread Safety
 - `2026-09-25-test-standards-comprehensive` — Test Standards Comprehensive — JUnit Jupiter, Virtual Time, Fast/Slow Split
 - `2026-09-25-test-suite-tag-defaults` — Test suite tag defaults and Khorikov testing principles
 - `2026-09-25-testable-vm-dispatcher-clock` — Testable VMs — CoroutineDispatcher injection, Clock in DI, RecordingHttpClient
+- `2026-09-26-draft-mvi-bugfixes` — _(no title)_
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
 
