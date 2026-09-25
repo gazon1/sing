@@ -221,7 +221,7 @@ fun NoteEditorScreenContent(
                         EditorTitleAndBody(
                             session = editorSession,
                             onTitleChange = { newTitle ->
-                                editorSession.titleFieldValue = newTitle
+                                editorSession.updateTitleFieldValue(newTitle)
                                 onTitleChange(editorState.id, newTitle)
                             },
                         )
