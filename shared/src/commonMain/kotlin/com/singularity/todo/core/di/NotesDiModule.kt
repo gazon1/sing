@@ -13,6 +13,7 @@ import com.singularity.todo.feature.notes.domain.editor.summarizeNoteLambda
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.search.InternalLinkRepositoryImpl
 import org.koin.core.module.dsl.viewModel
@@ -65,6 +66,7 @@ fun notesModule(): org.koin.core.module.Module =
                     suggestTags = getOrNull<com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase>()?.let(::suggestTagsLambda),
                 ),
                 log = get<Logger>(),
+                currentUser = get<ProfileAwareCurrentUser>(),
                 // scope omitted — default AutoCloseableCoroutineScope() applies
             )
         }

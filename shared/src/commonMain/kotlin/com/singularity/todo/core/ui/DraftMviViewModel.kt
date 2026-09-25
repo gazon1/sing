@@ -79,7 +79,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     initialState = DraftUiState(draft = initialDraft),
     scope = scope,
 ) {
-    private val vmScope = scope
+    protected val vmScope: AutoCloseableCoroutineScope = scope
 
     private var baseline: D = initialDraft
     private val _draft = MutableStateFlow(initialDraft)
@@ -193,7 +193,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                 }
                 when (val result = persist(currentDraft)) {
                     is Either.Left -> _error.value = result.error.toMessage("Save failed")
-                    is Either.Right -> vmScope.launch { onSaved() }
+                    is Either.Right -> onSaved()
                 }
             } finally {
                 _isSaving.value = false
