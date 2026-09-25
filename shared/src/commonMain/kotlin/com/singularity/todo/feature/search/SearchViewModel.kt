@@ -12,6 +12,7 @@ import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SimpleFilterMapper
 import com.singularity.todo.feature.search.query.UnsupportedSimpleFilterException
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -96,6 +97,7 @@ sealed interface SearchIntent {
 class SearchViewModel(
     private val searchUseCase: SearchUseCase,
     private val savedSearchRepo: SavedSearchRepository,
+    private val taskRepo: TaskRepository,
     private val parseQuery: (String) -> Query,
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope,
@@ -107,10 +109,12 @@ class SearchViewModel(
     constructor(
         searchUseCase: SearchUseCase,
         savedSearchRepo: SavedSearchRepository,
+        taskRepo: TaskRepository,
         clock: Clock,
     ) : this(
         searchUseCase = searchUseCase,
         savedSearchRepo = savedSearchRepo,
+        taskRepo = taskRepo,
         parseQuery = { input -> com.singularity.todo.feature.search.query.SingularityQueryParser(input).parse() },
         clock = clock,
         scope = AutoCloseableCoroutineScope(),
@@ -348,9 +352,7 @@ class SearchViewModel(
                 _events.tryEmit(SearchUiEvent.Error("Pin failed: ${e.message ?: "unknown"}"))
             },
         ) {
-            // TaskRepository is not directly available; SearchUseCase.taskRepo is private.
-            // For now, emit an error — pin via task detail screen.
-            throw IllegalStateException("Toggle pin should go through TaskRepository directly")
+            taskRepo.togglePinned(taskId)
         }
     }
 }
