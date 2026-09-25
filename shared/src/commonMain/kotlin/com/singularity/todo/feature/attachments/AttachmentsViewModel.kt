@@ -34,9 +34,9 @@ class AttachmentsViewModel(
     private val repository: AttachmentRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AttachmentsUiState, AttachmentsIntent, AttachmentsUiEvent>(
-    initialState = AttachmentsUiState.Idle,
-    scope = scope,
-) {
+        initialState = AttachmentsUiState.Idle,
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)
@@ -56,8 +56,8 @@ class AttachmentsViewModel(
                 emit(
                     AttachmentsUiEvent.ShowError(
                         it.message
-                            ?: "Failed to add link"
-                    )
+                            ?: "Failed to add link",
+                    ),
                 )
             }
     }
@@ -68,8 +68,8 @@ class AttachmentsViewModel(
                 emit(
                     AttachmentsUiEvent.ShowError(
                         it.message
-                            ?: "Failed to save file"
-                    )
+                            ?: "Failed to save file",
+                    ),
                 )
             }
     }
@@ -80,8 +80,8 @@ class AttachmentsViewModel(
                 emit(
                     AttachmentsUiEvent.ShowError(
                         it.message
-                            ?: "Delete failed"
-                    )
+                            ?: "Delete failed",
+                    ),
                 )
             }
     }

@@ -32,11 +32,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
  * Rendered inside [TaskEditorContent] extraSections when backlinks exist.
  */
 @Composable
-fun LinkedBacklinksCard(
-    linkedNotes: List<Note>,
-    linkedTasks: List<Task>,
-    modifier: Modifier = Modifier,
-) {
+fun LinkedBacklinksCard(linkedNotes: List<Note>, linkedTasks: List<Task>, modifier: Modifier = Modifier) {
     Column(modifier = modifier) {
         if (linkedNotes.isNotEmpty()) {
             BacklinkSection(
@@ -56,12 +52,7 @@ fun LinkedBacklinksCard(
 }
 
 @Composable
-private fun BacklinkSection(
-    label: String,
-    items: List<String>,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun BacklinkSection(label: String, items: List<String>, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         color = TaskColors.Surface,
         shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),

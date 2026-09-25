@@ -33,9 +33,9 @@ class ProjectEditorViewModel(
     private val projectsRepo: ProjectsRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectEditorUiState, ProjectEditorIntent, ProjectEditorUiEvent>(
-    initialState = ProjectEditorUiState(projectId = projectId),
-    scope = scope,
-) {
+        initialState = ProjectEditorUiState(projectId = projectId),
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)
@@ -71,17 +71,11 @@ class ProjectEditorViewModel(
     override fun onIntent(intent: ProjectEditorIntent) {
         when (intent) {
             is ProjectEditorIntent.NameChanged -> __state.update { it.copy(name = intent.name, errorMessage = null) }
-
             is ProjectEditorIntent.ColorChanged -> __state.update { it.copy(color = intent.color) }
-
             is ProjectEditorIntent.IconChanged -> __state.update { it.copy(icon = intent.icon) }
-
             is ProjectEditorIntent.DescriptionChanged -> __state.update { it.copy(description = intent.description) }
-
             is ProjectEditorIntent.ParentChanged -> __state.update { it.copy(parentId = intent.parentId) }
-
             ProjectEditorIntent.ErrorShown -> __state.update { it.copy(errorMessage = null) }
-
             ProjectEditorIntent.Save -> scope.launch { save() }
         }
     }
@@ -141,10 +135,9 @@ class ProjectEditorViewModel(
         }
     }
 
-    private fun validateName(name: String): String? =
-        when {
-            name.isBlank() -> "Name cannot be blank"
-            name.length > 50 -> "Name too long (max 50 characters)"
-            else -> null
-        }
+    private fun validateName(name: String): String? = when {
+        name.isBlank() -> "Name cannot be blank"
+        name.length > 50 -> "Name too long (max 50 characters)"
+        else -> null
+    }
 }

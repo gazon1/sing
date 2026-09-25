@@ -87,12 +87,13 @@ class TaskDetailViewModelTest {
             taskRepo = fakeTaskRepo,
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
             createTask = CreateTaskUseCase(
-                fakeTaskRepo, Clock,
+                fakeTaskRepo,
+                Clock,
                 FakeProfileAwareCurrentUser(
                     FakeAuthRepository(
-                initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
-            )
-                )
+                        initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
+                    ),
+                ),
             ),
             projectsRepo = fakeProjectRepo,
             tagsRepo = fakeTagsRepo,
@@ -144,10 +145,10 @@ class TaskDetailViewModelTest {
     fun `TitleChanged debounce saves after delay`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100) // Let initial subscription establish
+        delay(100) // Let initial subscription establish (stateIn WhileSubscribed(5000) needs real time)
 
         vm.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited title"))
-        delay(400) // debounce(300ms) needs real time to advance past 300ms
+        delay(400) // debounce(300ms) needs real time
 
         assertEquals("Edited title", fakeTaskRepo.tasks.value["t1"]?.title)
     }
@@ -159,7 +160,7 @@ class TaskDetailViewModelTest {
     fun `ToggleComplete sets completedAt in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100) // Allow subscription to establish before acting
+        delay(100) // Allow subscription to establish before acting (stateIn WhileSubscribed(5000))
         assertNull(fakeTaskRepo.tasks.value["t1"]?.completedAt)
 
         vm.onIntent(TaskDetailIntent.Domain.ToggleComplete)

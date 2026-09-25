@@ -22,10 +22,7 @@ sealed class CycleError : Exception() {
      * @property path The nodes on the path from `node` to (but not including) the repeated visit.
      * @property edge The node that caused the revisit (completes the cycle back to the first node in [path]).
      */
-    data class Cycle(
-        val path: List<String>,
-        val edge: String,
-    ) : CycleError()
+    data class Cycle(val path: List<String>, val edge: String) : CycleError()
 
     /** The [node] does not exist in the graph. */
     data class MissingNode(val node: String) : CycleError()
@@ -86,11 +83,7 @@ object CycleDetector {
      *
      * @return [Result.success] if the edge is safe; [Result.failure] with [CycleError] otherwise.
      */
-    fun detect(
-        node: String,
-        newParent: String,
-        edges: (String) -> Iterable<String>,
-    ): Result<Unit> {
+    fun detect(node: String, newParent: String, edges: (String) -> Iterable<String>): Result<Unit> {
         if (node == newParent) {
             return Result.failure(CycleError.SelfLoop(node))
         }

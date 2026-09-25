@@ -16,15 +16,6 @@ import com.singularity.todo.feature.ai.tools.ExtractActionsTool
 import com.singularity.todo.feature.ai.tools.GenerateChecklistInput
 import com.singularity.todo.feature.ai.tools.GenerateChecklistOutput
 import com.singularity.todo.feature.ai.tools.GenerateChecklistTool
-import com.singularity.todo.feature.ai.tools.RewriteNoteInput
-import com.singularity.todo.feature.ai.tools.RewriteNoteOutput
-import com.singularity.todo.feature.ai.tools.RewriteNoteTool
-import com.singularity.todo.feature.ai.tools.SuggestTagsInput
-import com.singularity.todo.feature.ai.tools.SuggestTagsOutput
-import com.singularity.todo.feature.ai.tools.SuggestTagsTool
-import com.singularity.todo.feature.ai.tools.SummarizeNoteInput
-import com.singularity.todo.feature.ai.tools.SummarizeNoteOutput
-import com.singularity.todo.feature.ai.tools.SummarizeNoteTool
 import com.singularity.todo.feature.ai.tools.GenerateDescriptionInput
 import com.singularity.todo.feature.ai.tools.GenerateDescriptionOutput
 import com.singularity.todo.feature.ai.tools.GenerateDescriptionTool
@@ -34,9 +25,18 @@ import com.singularity.todo.feature.ai.tools.PickTimeTool
 import com.singularity.todo.feature.ai.tools.RefineTaskInput
 import com.singularity.todo.feature.ai.tools.RefineTaskOutput
 import com.singularity.todo.feature.ai.tools.RefineTaskTool
+import com.singularity.todo.feature.ai.tools.RewriteNoteInput
+import com.singularity.todo.feature.ai.tools.RewriteNoteOutput
+import com.singularity.todo.feature.ai.tools.RewriteNoteTool
 import com.singularity.todo.feature.ai.tools.SmartRewriteInput
 import com.singularity.todo.feature.ai.tools.SmartRewriteOutput
 import com.singularity.todo.feature.ai.tools.SmartRewriteTool
+import com.singularity.todo.feature.ai.tools.SuggestTagsInput
+import com.singularity.todo.feature.ai.tools.SuggestTagsOutput
+import com.singularity.todo.feature.ai.tools.SuggestTagsTool
+import com.singularity.todo.feature.ai.tools.SummarizeNoteInput
+import com.singularity.todo.feature.ai.tools.SummarizeNoteOutput
+import com.singularity.todo.feature.ai.tools.SummarizeNoteTool
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 

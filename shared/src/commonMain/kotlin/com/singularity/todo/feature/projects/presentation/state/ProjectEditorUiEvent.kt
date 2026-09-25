@@ -10,5 +10,4 @@ sealed interface ProjectEditorUiEvent : MviEvent {
     data object NavigateBack : ProjectEditorUiEvent
 }
 
-fun ProjectEditorUiEvent.toNotification(): Notification =
-    Notification.None
+fun ProjectEditorUiEvent.toNotification(): Notification = Notification.None

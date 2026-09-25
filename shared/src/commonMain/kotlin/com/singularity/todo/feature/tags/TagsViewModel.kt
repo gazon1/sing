@@ -44,9 +44,9 @@ class TagsViewModel(
     private val tagRepo: TagsRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
-    initialState = TagsUiState.Loading,
-    scope = scope,
-) {
+        initialState = TagsUiState.Loading,
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)
@@ -59,7 +59,7 @@ class TagsViewModel(
                     updateState {
                         TagsUiState.Error(
                             e.message
-                                ?: "Error"
+                                ?: "Error",
                         )
                     }
                 }
@@ -77,16 +77,15 @@ class TagsViewModel(
      * Fire-and-forget delete. Errors are emitted as [TagsUiEvent.ShowError].
      * Exposed as a method reference for Compose UI callbacks (see [SettingsScreen]).
      */
-    fun delete(id: TagId) =
-        scope.launch {
-            tagRepo.delete(id)
-                .onFailure {
-                    emit(
-                        TagsUiEvent.ShowError(
-                            it.message
-                                ?: "Error"
-                        )
-                    )
-                }
-        }
+    fun delete(id: TagId) = scope.launch {
+        tagRepo.delete(id)
+            .onFailure {
+                emit(
+                    TagsUiEvent.ShowError(
+                        it.message
+                            ?: "Error",
+                    ),
+                )
+            }
+    }
 }

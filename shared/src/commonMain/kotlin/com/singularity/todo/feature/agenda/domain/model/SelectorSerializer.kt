@@ -156,7 +156,9 @@ private class RegistryHolder {
                     JsonObject(
                         mapOf(
                             "_type" to JsonPrimitive("Priorities"),
-                            "priorities" to JsonArray((s as Selector.Priorities).priorities.map { JsonPrimitive(it.name) }),
+                            "priorities" to JsonArray(
+                                (s as Selector.Priorities).priorities.map { JsonPrimitive(it.name) },
+                            ),
                             "atMost" to JsonPrimitive(s.atMost),
                         ),
                     )

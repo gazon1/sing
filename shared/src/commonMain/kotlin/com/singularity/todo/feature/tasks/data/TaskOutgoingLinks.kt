@@ -35,6 +35,7 @@ fun extractOutgoingLinks(text: String): List<String> {
 /** Serialises a list of link URLs to a JSON array string for DB storage. */
 fun List<String>.toLinksJson(): String = when {
     isEmpty() -> "[]"
+
     else -> buildString {
         append('[')
         forEachIndexed { i, link ->

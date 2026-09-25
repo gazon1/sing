@@ -12,9 +12,7 @@ import java.time.format.DateTimeFormatter
  * A daily note is identified by a `dateKey` — an ISO date string (YYYY-MM-DD)
  * used as both the note's title and its identity anchor.
  */
-class DailyNoteFactory(
-    private val notesRepository: NotesRepository,
-) {
+class DailyNoteFactory(private val notesRepository: NotesRepository) {
     private val formatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
     /**

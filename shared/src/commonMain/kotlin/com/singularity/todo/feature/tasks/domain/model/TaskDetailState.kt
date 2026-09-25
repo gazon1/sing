@@ -10,9 +10,9 @@ import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
+import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase

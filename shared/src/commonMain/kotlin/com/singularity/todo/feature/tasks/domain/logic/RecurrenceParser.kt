@@ -75,22 +75,22 @@ object RecurrenceParser {
             val c = input[i]
             when {
                 c == '!' -> {
-                    tokens.add(Token.Bang(i));
+                    tokens.add(Token.Bang(i))
                     i++
                 }
 
                 c == '.' -> {
-                    tokens.add(Token.Dot(i));
+                    tokens.add(Token.Dot(i))
                     i++
                 }
 
                 c == ',' -> {
-                    tokens.add(Token.Comma(i));
+                    tokens.add(Token.Comma(i))
                     i++
                 }
 
                 c == '+' -> {
-                    tokens.add(Token.Word("+", i));
+                    tokens.add(Token.Word("+", i))
                     i++
                 }
 
@@ -165,15 +165,15 @@ object RecurrenceParser {
         if (p >= tokens.size || tokens[p] !is Token.Word || (tokens[p] as Token.Word).value != "+") return null
         var plusCount = 0
         while (p < tokens.size && tokens[p] is Token.Word && (tokens[p] as Token.Word).value == "+") {
-            plusCount++;
+            plusCount++
             p++
         }
         if (plusCount == 0) return null
         if (p >= tokens.size || tokens[p] !is Token.Number) return null
-        val num = (tokens[p] as Token.Number).value;
+        val num = (tokens[p] as Token.Number).value
         p++
         if (p >= tokens.size || tokens[p] !is Token.Word) return null
-        val unit = (tokens[p] as Token.Word).value;
+        val unit = (tokens[p] as Token.Word).value
         p++
         val dateUnit = timeUnit(unit) ?: return null
         return Pair(Interval(RecurrenceBase.CATCH_UP, num, dateUnit), p)
@@ -184,8 +184,8 @@ object RecurrenceParser {
         if (pos >= tokens.size || tokens[pos] !is Token.Word ||
             (tokens[pos] as Token.Word).value != "every"
         ) {
-                return null
-            }
+            return null
+        }
         var p = pos + 1
         if (p >= tokens.size || tokens[p] !is Token.Word) return null
         val monthWord = (tokens[p] as Token.Word).value
@@ -202,8 +202,8 @@ object RecurrenceParser {
         if (pos >= tokens.size || tokens[pos] !is Token.Word ||
             (tokens[pos] as Token.Word).value != "every"
         ) {
-                return null
-            }
+            return null
+        }
         var p = pos + 1
         if (p >= tokens.size || tokens[p] !is Token.Word) return null
         val firstWord = (tokens[p] as Token.Word).value
@@ -215,7 +215,7 @@ object RecurrenceParser {
             if (p >= tokens.size || tokens[p] !is Token.Word) return null
             val dayWord = (tokens[p] as Token.Word).value
             val day = weekdayValue(dayWord) ?: return null
-            days.add(day);
+            days.add(day)
             p++
         }
         return Pair(Weekly(RecurrenceBase.FROM_DUE, days), p)
@@ -226,16 +226,16 @@ object RecurrenceParser {
         if (pos >= tokens.size || tokens[pos] !is Token.Word ||
             (tokens[pos] as Token.Word).value != "every"
         ) {
-                return null
-            }
+            return null
+        }
         var p = pos + 1
         val num = if (p < tokens.size &&
             tokens[p] is Token.Number
         ) {
-                (tokens[p] as Token.Number).value.also { p++ }
-            } else {
-                1
-            }
+            (tokens[p] as Token.Number).value.also { p++ }
+        } else {
+            1
+        }
         if (p >= tokens.size || tokens[p] !is Token.Word) return null
         val unitWord = (tokens[p] as Token.Word).value
         val unit = timeUnit(unitWord) ?: return null
@@ -250,17 +250,17 @@ object RecurrenceParser {
         var p = pos
         val numStr = StringBuilder()
         while (p < tokens.size && tokens[p] is Token.Number) {
-            numStr.append((tokens[p] as Token.Number).value);
+            numStr.append((tokens[p] as Token.Number).value)
             p++
         }
         if (numStr.isEmpty()) return null
         if (p >= tokens.size || tokens[p] !is Token.Word) return null
         val suffix = (tokens[p] as Token.Word).value
-        if (!ordinalSuffix(suffix)) return null;
+        if (!ordinalSuffix(suffix)) return null
         p++
-        if (p >= tokens.size || tokens[p] !is Token.Word || (tokens[p] as Token.Word).value != "of") return null;
+        if (p >= tokens.size || tokens[p] !is Token.Word || (tokens[p] as Token.Word).value != "of") return null
         p++
-        if (p >= tokens.size || tokens[p] !is Token.Word || (tokens[p] as Token.Word).value != "month") return null;
+        if (p >= tokens.size || tokens[p] !is Token.Word || (tokens[p] as Token.Word).value != "month") return null
         p++
         return Pair(Monthly(RecurrenceBase.FROM_DUE, numStr.toString().toInt()), p)
     }
@@ -268,17 +268,17 @@ object RecurrenceParser {
     // shortForm: ['.'] '+'+ digit [dwm]
     private fun parseShortForm(tokens: List<Token>, pos: Int): Pair<RecurrenceSpec, Int>? {
         var p = pos
-        val hasDot = p < tokens.size && tokens[p] is Token.Dot;
+        val hasDot = p < tokens.size && tokens[p] is Token.Dot
         if (hasDot) p++
         if (p >= tokens.size || tokens[p] !is Token.Word || (tokens[p] as Token.Word).value != "+") return null
         var plusCount = 0
         while (p < tokens.size && tokens[p] is Token.Word && (tokens[p] as Token.Word).value == "+") {
-            plusCount++;
+            plusCount++
             p++
         }
         if (plusCount == 0) return null
         if (p >= tokens.size || tokens[p] !is Token.Number) return null
-        val num = (tokens[p] as Token.Number).value;
+        val num = (tokens[p] as Token.Number).value
         p++
         if (p < tokens.size && tokens[p] is Token.Word) {
             val unit = (tokens[p] as Token.Word).value

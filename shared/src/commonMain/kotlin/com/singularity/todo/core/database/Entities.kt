@@ -106,7 +106,10 @@ data class NoteEntity(
     @ColumnInfo("body_html") val bodyHtml: String?,
     @ColumnInfo("is_folder") val isFolder: Boolean = false,
     /** Note type: Plain, Daily, or Template. Stored as enum string. */
-    @ColumnInfo("kind", defaultValue = "'Plain'") val kind: com.singularity.todo.feature.notes.NoteKind = com.singularity.todo.feature.notes.NoteKind.Plain,
+    @ColumnInfo(
+        "kind",
+        defaultValue = "'Plain'",
+    ) val kind: com.singularity.todo.feature.notes.NoteKind = com.singularity.todo.feature.notes.NoteKind.Plain,
     @ColumnInfo("parent_note_id") val parentNoteId: String?,
     @ColumnInfo("is_pinned", defaultValue = "0") val isPinned: Boolean = false,
     @ColumnInfo("pinned_at") val pinnedAt: Long? = null,

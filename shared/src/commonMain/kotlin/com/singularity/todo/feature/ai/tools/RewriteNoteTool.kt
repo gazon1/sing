@@ -25,10 +25,8 @@ data class RewriteNoteInput(val title: String, val body: String, val tone: Strin
 @Serializable
 data class RewriteNoteOutput(val title: String, val body: String)
 
-class RewriteNoteTool(
-    private val promptExecutor: PromptExecutor,
-    private val model: LLModel,
-) : SimpleTool<RewriteNoteInput>(TypeToken.of(RewriteNoteInput::class.java), NAME, DESCRIPTION) {
+class RewriteNoteTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
+    SimpleTool<RewriteNoteInput>(TypeToken.of(RewriteNoteInput::class.java), NAME, DESCRIPTION) {
 
     private val logger = Logger.withTag("RewriteNote")
 
@@ -40,10 +38,12 @@ class RewriteNoteTool(
                 a short, punchy summary with the most important takeaways. Return a JSON object
                 with 'title' and 'body' fields.
             """.trimIndent()
+
             "Structured" -> """
                 You are an expert writing assistant. Rewrite the following note with clear structure —
                 headings, bullet points, and sections. Return a JSON object with 'title' and 'body' fields.
             """.trimIndent()
+
             else -> Prompts.rewriteNoteSystem + " Style: one concise paragraph."
         }
         val p = prompt(Prompt.Empty, KoogClock.System) {

@@ -311,8 +311,10 @@ internal class InMemoryTaskDao : TaskDao {
         // no-op: FakeTaskRepository calls TaskDao directly, not this path
     }
 
-    override suspend fun getBacklinkTasks(taskId: String, userId: String): List<com.singularity.todo.core.database.TaskEntity> =
-        error("not implemented")
+    override suspend fun getBacklinkTasks(
+        taskId: String,
+        userId: String,
+    ): List<com.singularity.todo.core.database.TaskEntity> = error("not implemented")
 
     // ── Remaining DAO methods (unused by FakeTaskRepository) ──────────────────
 
@@ -404,8 +406,7 @@ internal class InMemoryTaskDao : TaskDao {
         "not implemented",
     )
 
-    override suspend fun listAllDependenciesForUser(userId: String): List<TaskDependencyCrossRef> =
-        _deps.value
+    override suspend fun listAllDependenciesForUser(userId: String): List<TaskDependencyCrossRef> = _deps.value
 
     override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> = error("not implemented")
 
@@ -1335,7 +1336,8 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
                 list.values.filter {
-                    it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Template && it.deletedAt == null
+                    it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Template &&
+                        it.deletedAt == null
                 }
             }
         }
@@ -1343,23 +1345,23 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
     override fun watchDailyNotesInRange(
         from: String,
         to: String,
-    ): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.map { list ->
-                list.values.filter {
-                    it.userId == uid &&
-                        it.kind == com.singularity.todo.feature.notes.NoteKind.Daily &&
-                        it.deletedAt == null &&
-                        it.title >= from &&
-                        it.title <= to
-                }
+    ): Flow<List<com.singularity.todo.feature.notes.Note>> = currentUser.observeForCurrentUser { uid ->
+        store.state.map { list ->
+            list.values.filter {
+                it.userId == uid &&
+                    it.kind == com.singularity.todo.feature.notes.NoteKind.Daily &&
+                    it.deletedAt == null &&
+                    it.title >= from &&
+                    it.title <= to
             }
         }
+    }
 
     override suspend fun getDailyNote(dateKey: String): com.singularity.todo.feature.notes.Note? {
         val uid = currentUser.scopedUserId.value
         return store.state.value.values.firstOrNull {
-            it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey && it.deletedAt == null
+            it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey &&
+                it.deletedAt == null
         }
     }
 
@@ -1379,7 +1381,13 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
             title = finalTitle,
             bodyMarkdown = template.bodyMarkdown,
             bodyHtml = template.bodyHtml,
-            kind = if (targetDateKey != null) com.singularity.todo.feature.notes.NoteKind.Daily else com.singularity.todo.feature.notes.NoteKind.Plain,
+            kind = if (targetDateKey !=
+                null
+            ) {
+                    com.singularity.todo.feature.notes.NoteKind.Daily
+                } else {
+                    com.singularity.todo.feature.notes.NoteKind.Plain
+                },
             color = template.color,
             wordCount = template.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
             charCount = template.bodyMarkdown?.length ?: 0,
@@ -1402,12 +1410,15 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
     ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
         val uid = currentUser.scopedUserId.value
         val existing = store.state.value.values.firstOrNull {
-            it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey && it.deletedAt == null
+            it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey &&
+                it.deletedAt == null
         }
         if (existing != null) return@runCatching existing.id
         val now = Clock.now()
         val newId = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
-        val template = fromTemplateId?.let { store.state.value.values.firstOrNull { n -> n.id == it && n.userId == uid } }
+        val template = fromTemplateId?.let {
+            store.state.value.values.firstOrNull { n -> n.id == it && n.userId == uid }
+        }
         val note = com.singularity.todo.feature.notes.Note(
             id = newId,
             userId = uid,

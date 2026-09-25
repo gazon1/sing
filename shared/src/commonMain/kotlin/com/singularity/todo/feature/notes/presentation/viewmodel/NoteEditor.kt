@@ -13,16 +13,16 @@ import com.singularity.todo.feature.notes.NoteAiResult
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.NotesUiEvent
-import com.singularity.todo.feature.notes.SummarizeResult
 import com.singularity.todo.feature.notes.SuggestTagsResult
+import com.singularity.todo.feature.notes.SummarizeResult
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
 import com.singularity.todo.feature.notes.domain.editor.NoteEditorState
 import com.singularity.todo.feature.notes.domain.editor.NoteSaver
 import com.singularity.todo.feature.notes.formatExtractActionsResult
 import com.singularity.todo.feature.notes.formatNoteAiResult
-import com.singularity.todo.feature.notes.formatSummarizeResult
 import com.singularity.todo.feature.notes.formatSuggestTagsResult
+import com.singularity.todo.feature.notes.formatSummarizeResult
 import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -182,12 +182,15 @@ class NoteEditor(
                             state.applyImprove(success.title, success.body)
                             _events.trySend(NotesUiEvent.AiResult(formatNoteAiResult(success)))
                         }
+
                         success is SummarizeResult -> {
                             _events.trySend(NotesUiEvent.AiResult(formatSummarizeResult(success)))
                         }
+
                         success is ExtractActionsResult -> {
                             _events.trySend(NotesUiEvent.AiResult(formatExtractActionsResult(success)))
                         }
+
                         success is SuggestTagsResult -> {
                             _events.trySend(NotesUiEvent.AiResult(formatSuggestTagsResult(success)))
                         }

@@ -37,21 +37,19 @@ class Debouncer(private val scope: CoroutineScope, private val duration: Duratio
      * @return A [Job] that can be cancelled to stop the debounced collector.
      */
     @OptIn(FlowPreview::class)
-    fun <T> debounce(flow: Flow<T>, action: (T) -> Unit): Job =
-        scope.launch {
-            flow.debounce(duration)
-                .distinctUntilChanged()
-                .collect { value ->
-                    action(value)
-                }
-        }
+    fun <T> debounce(flow: Flow<T>, action: (T) -> Unit): Job = scope.launch {
+        flow.debounce(duration)
+            .distinctUntilChanged()
+            .collect { value ->
+                action(value)
+            }
+    }
 }
 
 /**
  * Creates a [Debouncer] with a [Long] delay in milliseconds.
  */
-fun Debouncer(scope: CoroutineScope, delayMs: Long): Debouncer =
-    Debouncer(scope, delayMs.milliseconds)
+fun Debouncer(scope: CoroutineScope, delayMs: Long): Debouncer = Debouncer(scope, delayMs.milliseconds)
 
 /**
  * Convenience extension to debounce a [Flow] using a [Debouncer].
@@ -62,5 +60,4 @@ fun Debouncer(scope: CoroutineScope, delayMs: Long): Debouncer =
  *     .debounced(debouncer) { name -> ... }
  * ```
  */
-fun <T> Flow<T>.debounced(debouncer: Debouncer, action: (T) -> Unit): Job =
-    debouncer.debounce(this, action)
+fun <T> Flow<T>.debounced(debouncer: Debouncer, action: (T) -> Unit): Job = debouncer.debounce(this, action)

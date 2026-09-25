@@ -39,9 +39,9 @@ class AiUsageViewModel(
     profileRepository: ProfileRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AiUsageUiState, AiUsageIntent, Nothing>(
-    initialState = AiUsageUiState(),
-    scope = scope,
-) {
+        initialState = AiUsageUiState(),
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)

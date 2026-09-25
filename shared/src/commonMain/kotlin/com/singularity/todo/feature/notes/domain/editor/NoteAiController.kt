@@ -1,11 +1,11 @@
 package com.singularity.todo.feature.notes.domain.editor
 
+import com.singularity.todo.feature.ai.tools.RewriteTone
 import com.singularity.todo.feature.notes.ExtractActionsResult
 import com.singularity.todo.feature.notes.NoteAiAction
 import com.singularity.todo.feature.notes.NoteAiResult
-import com.singularity.todo.feature.notes.SummarizeResult
 import com.singularity.todo.feature.notes.SuggestTagsResult
-import com.singularity.todo.feature.ai.tools.RewriteTone
+import com.singularity.todo.feature.notes.SummarizeResult
 
 /**
  * Wraps note AI use cases with availability check + Result→sealed-result mapping.
@@ -15,7 +15,13 @@ class NoteAiController(
     private val improveNote: (suspend (title: String, html: String) -> Result<NoteAiResult.Improved>)? = null,
     private val summarizeNote: (suspend (title: String, html: String) -> Result<String>)? = null,
     private val extractActions: (suspend (title: String, html: String) -> Result<List<String>>)? = null,
-    private val rewriteNote: (suspend (title: String, html: String, tone: String) -> Result<NoteAiResult.Improved>)? = null,
+    private val rewriteNote: (
+        suspend (
+        title: String,
+        html: String,
+        tone: String,
+    ) -> Result<NoteAiResult.Improved>
+    )? = null,
     private val suggestTags: (suspend (title: String, html: String) -> Result<List<String>>)? = null,
 ) {
     val isAvailable: Boolean get() = improveNote != null
@@ -44,6 +50,7 @@ class NoteAiController(
                 onFailure = { Result.failure(it) },
             )
         }
+
         NoteAiAction.Summarize -> {
             val fn = summarizeNote ?: return Result.failure(IllegalStateException("SummarizeNoteUseCase not available"))
             fn(title, html).fold(
@@ -51,13 +58,17 @@ class NoteAiController(
                 onFailure = { Result.failure(it) },
             )
         }
+
         NoteAiAction.ExtractActions -> {
-            val fn = extractActions ?: return Result.failure(IllegalStateException("ExtractActionsUseCase not available"))
+            val fn = extractActions ?: return Result.failure(
+                IllegalStateException("ExtractActionsUseCase not available"),
+            )
             fn(title, html).fold(
                 onSuccess = { Result.success(ExtractActionsResult.Ok(it) as Any) },
                 onFailure = { Result.failure(it) },
             )
         }
+
         NoteAiAction.RewriteOneLiner, NoteAiAction.RewriteTldr, NoteAiAction.RewriteStructured -> {
             val fn = rewriteNote ?: return Result.failure(IllegalStateException("RewriteNoteUseCase not available"))
             val tone = when (action) {
@@ -71,6 +82,7 @@ class NoteAiController(
                 onFailure = { Result.failure(it) },
             )
         }
+
         NoteAiAction.SuggestTags -> {
             val fn = suggestTags ?: return Result.failure(IllegalStateException("SuggestTagsUseCase not available"))
             fn(title, html).fold(

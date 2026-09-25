@@ -62,20 +62,20 @@ class TaskCreateViewModel(
     initialDueDate: kotlinx.datetime.LocalDate?,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<TaskCreateUiState, TaskCreateIntent, TaskCreateUiEvent>(
-    initialState = TaskCreateUiState(
-        draft = TaskDraft(
-            dueDate = initialDueDate?.let {
-                DueDateOption.Custom(it, it.toString())
-            }
-                ?: DueDateOption.None,
+        initialState = TaskCreateUiState(
+            draft = TaskDraft(
+                dueDate = initialDueDate?.let {
+                    DueDateOption.Custom(it, it.toString())
+                }
+                    ?: DueDateOption.None,
+            ),
+            isSaveEnabled = false,
+            error = null,
+            isDirty = false,
+            isSaving = false,
         ),
-        isSaveEnabled = false,
-        error = null,
-        isDirty = false,
-        isSaving = false,
-    ),
-    scope = scope,
-) {
+        scope = scope,
+    ) {
 
     private val initial: TaskDraft = TaskDraft(
         dueDate = initialDueDate?.let {
@@ -101,11 +101,11 @@ class TaskCreateViewModel(
         // Key is bare (no userId prefix) — UserScopedDraftStore handles isolation.
         scope.launch {
             runCatching { deps.draftStore.load(TaskCreateDeps.DRAFT_KEY, TaskDraft.serializer()) }.onFailure {
-                    deps.logger.e(
-                        it,
-                        tag = "TaskCreate"
-                    ) { "draft restore failed: ${it.message}" }
-                }
+                deps.logger.e(
+                    it,
+                    tag = "TaskCreate",
+                ) { "draft restore failed: ${it.message}" }
+            }
                 .getOrNull()
                 ?.let { restored ->
                     if (_draft.value == initial) _draft.value = restored
@@ -248,11 +248,11 @@ class TaskCreateViewModel(
                     _saved.emit(Unit)
                     emit(TaskCreateUiEvent.Saved)
                     runCatching { deps.draftStore.clear(TaskCreateDeps.DRAFT_KEY) }.onFailure {
-                            deps.logger.e(
-                                it,
-                                tag = "TaskCreate"
-                            ) { "draft clear failed: ${it.message}" }
-                        }
+                        deps.logger.e(
+                            it,
+                            tag = "TaskCreate",
+                        ) { "draft clear failed: ${it.message}" }
+                    }
                 }
             }
         } finally {
@@ -260,6 +260,5 @@ class TaskCreateViewModel(
         }
     }
 
-    private fun validateForSave(draft: TaskDraft): String? =
-        if (draft.title.isBlank()) "Title is required" else null
+    private fun validateForSave(draft: TaskDraft): String? = if (draft.title.isBlank()) "Title is required" else null
 }

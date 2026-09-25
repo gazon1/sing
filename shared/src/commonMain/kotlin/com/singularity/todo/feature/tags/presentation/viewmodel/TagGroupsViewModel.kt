@@ -31,9 +31,9 @@ class TagGroupsViewModel(
     private val deleteTagGroup: DeleteTagGroupUseCase,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<TagGroupsUiState, TagGroupsIntent, Nothing>(
-    initialState = TagGroupsUiState.Loading,
-    scope = scope,
-) {
+        initialState = TagGroupsUiState.Loading,
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)
@@ -53,8 +53,8 @@ class TagGroupsViewModel(
                     emit(
                         TagGroupsUiState.Error(
                             it.message
-                                ?: "Error"
-                        )
+                                ?: "Error",
+                        ),
                     )
                 }
                 .collect { __state.value = it }

@@ -57,9 +57,9 @@ class SavedAgendaListViewModel(
     private val deps: SavedAgendaListDeps,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<SavedAgendaListState, SavedAgendaListIntent, SavedAgendaListEvent>(
-    initialState = SavedAgendaListState.Loading,
-    scope = scope,
-) {
+        initialState = SavedAgendaListState.Loading,
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)
@@ -82,8 +82,8 @@ class SavedAgendaListViewModel(
                             emit(
                                 SavedAgendaListEvent.ShowError(
                                     it.message
-                                        ?: "Delete failed"
-                                )
+                                        ?: "Delete failed",
+                                ),
                             )
                         }
                 }
@@ -121,8 +121,8 @@ class SavedAgendaListViewModel(
                             emit(
                                 SavedAgendaListEvent.ShowError(
                                     it.message
-                                        ?: "Copy failed"
-                                )
+                                        ?: "Copy failed",
+                                ),
                             )
                         }
                 }

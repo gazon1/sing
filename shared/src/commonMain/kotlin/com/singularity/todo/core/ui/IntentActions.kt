@@ -25,6 +25,5 @@ package com.singularity.todo.core.ui
 @JvmInline
 value class IntentActions<I : MviIntent>(private val dispatch: (I) -> Unit) {
     /** Dispatches [intent] to the ViewModel. */
-    operator fun invoke(intent: I) =
-        dispatch(intent)
+    operator fun invoke(intent: I) = dispatch(intent)
 }

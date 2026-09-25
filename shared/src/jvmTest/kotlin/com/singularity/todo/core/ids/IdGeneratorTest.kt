@@ -2,7 +2,6 @@ package com.singularity.todo.core.ids
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class IdGeneratorTest {
 

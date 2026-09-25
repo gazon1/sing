@@ -33,32 +33,27 @@ class SavedAgendaDraftState : DraftState<Draft>(Draft.empty()) {
         reset(draft)
     }
 
-    fun setName(name: String) =
-        update { it.copy(name = name) }
+    fun setName(name: String) = update { it.copy(name = name) }
 
-    fun reorderSections(sections: List<Section>) =
-        update { it.copy(sections = sections) }
+    fun reorderSections(sections: List<Section>) = update { it.copy(sections = sections) }
 
-    fun addSection(template: Section, position: Int) =
-        update { draft ->
-            val sections = draft.sections.toMutableList()
-                .apply {
-                    add(position.coerceIn(0, size), template)
-                }
-            draft.copy(sections = sections)
-        }
+    fun addSection(template: Section, position: Int) = update { draft ->
+        val sections = draft.sections.toMutableList()
+            .apply {
+                add(position.coerceIn(0, size), template)
+            }
+        draft.copy(sections = sections)
+    }
 
-    fun removeSection(index: Int) =
-        update { draft ->
-            if (index < 0 || index >= draft.sections.size) return@update draft
-            val sections = draft.sections.toMutableList()
-                .apply { removeAt(index) }
-            draft.copy(sections = sections)
-        }
+    fun removeSection(index: Int) = update { draft ->
+        if (index < 0 || index >= draft.sections.size) return@update draft
+        val sections = draft.sections.toMutableList()
+            .apply { removeAt(index) }
+        draft.copy(sections = sections)
+    }
 
     /** Marks the current draft as saved — resets originalName/originalSections so isDirty becomes false. */
-    fun markSaved() =
-        update { it.copy(originalName = it.name, originalSections = it.sections) }
+    fun markSaved() = update { it.copy(originalName = it.name, originalSections = it.sections) }
 }
 
 data class Draft(
@@ -71,8 +66,7 @@ data class Draft(
     val isDirty: Boolean get() = name != originalName || sections != originalSections
 
     companion object {
-        fun empty() =
-            Draft("", emptyList(), "", emptyList(), false)
+        fun empty() = Draft("", emptyList(), "", emptyList(), false)
     }
 }
 
@@ -85,7 +79,8 @@ sealed interface SavedAgendaViewState {
         val isSaving: Boolean = false,
         val decodeError: Boolean = false,
     ) : SavedAgendaViewState {
-        val canSave: Boolean get() = draft.initialized && !isSaving && draft.name.isNotBlank() && draft.isDirty && !decodeError
+        val canSave: Boolean get() = draft.initialized && !isSaving && draft.name.isNotBlank() && draft.isDirty &&
+            !decodeError
     }
 
     data object NotFound : SavedAgendaViewState
@@ -122,9 +117,9 @@ class SavedAgendaViewModel(
     private val seedStore: SavedAgendaSeedStore,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<SavedAgendaViewState, SavedAgendaIntent, SavedAgendaEvent>(
-    initialState = SavedAgendaViewState.Loading,
-    scope = scope,
-) {
+        initialState = SavedAgendaViewState.Loading,
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)
@@ -156,7 +151,7 @@ class SavedAgendaViewModel(
             view.name,
             sections
                 ?: emptyList(),
-            true
+            true,
         )
         draftState.seed(draft)
         __state.value = SavedAgendaViewState.Editing(
@@ -237,8 +232,8 @@ class SavedAgendaViewModel(
                                 emit(
                                     SavedAgendaEvent.ShowError(
                                         it.message
-                                            ?: "Save failed"
-                                    )
+                                            ?: "Save failed",
+                                    ),
                                 )
                             },
                         )
@@ -254,8 +249,8 @@ class SavedAgendaViewModel(
                                 emit(
                                     SavedAgendaEvent.ShowError(
                                         it.message
-                                            ?: "Save failed"
-                                    )
+                                            ?: "Save failed",
+                                    ),
                                 )
                             },
                         )
@@ -275,19 +270,22 @@ class SavedAgendaViewModel(
                         emit(
                             SavedAgendaEvent.ShowError(
                                 it.message
-                                    ?: "Delete failed"
-                            )
+                                    ?: "Delete failed",
+                            ),
                         )
                     },
                 )
         }
     }
 
-    private fun decodeSections(json: String?): List<Section>? =
-        if (json == null) {
-            null
-        } else {
-            runCatching { StableJson.decodeFromString<AgendaDefinition>(json).sections }.onFailure { e -> deps.log.w("agenda decode failed: ${e.message}") }
-                .getOrNull()
-        }
+    private fun decodeSections(json: String?): List<Section>? = if (json == null) {
+        null
+    } else {
+        runCatching {
+            StableJson.decodeFromString<AgendaDefinition>(
+                json,
+            ).sections
+        }.onFailure { e -> deps.log.w("agenda decode failed: ${e.message}") }
+            .getOrNull()
+    }
 }

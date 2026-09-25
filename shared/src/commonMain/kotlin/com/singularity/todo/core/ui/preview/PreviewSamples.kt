@@ -85,19 +85,18 @@ internal object PreviewSamples {
         pinned: Boolean = false,
         dueDate: LocalDate? = today,
         kind: TaskKind = TaskKind.Task,
-    ): Task =
-        Task(
-            id = TaskId(id),
-            title = title,
-            priority = priority,
-            kind = kind,
-            dueDate = dueDate,
-            completedAt = if (completed) now else null,
-            isPinned = pinned,
-            createdAt = now,
-            updatedAt = now,
-            userId = userId,
-        )
+    ): Task = Task(
+        id = TaskId(id),
+        title = title,
+        priority = priority,
+        kind = kind,
+        dueDate = dueDate,
+        completedAt = if (completed) now else null,
+        isPinned = pinned,
+        createdAt = now,
+        updatedAt = now,
+        userId = userId,
+    )
 
     fun project(
         id: String = "p1",
@@ -106,53 +105,49 @@ internal object PreviewSamples {
         description: String? = null,
         icon: String? = null,
         parentId: ProjectId? = null,
-    ): Project =
-        Project(
-            id = ProjectId(id),
-            name = name,
-            color = color,
-            description = description,
-            icon = icon,
-            parentId = parentId,
-            createdAt = now,
-            updatedAt = now,
-            userId = UserId(projectUserId),
-        )
+    ): Project = Project(
+        id = ProjectId(id),
+        name = name,
+        color = color,
+        description = description,
+        icon = icon,
+        parentId = parentId,
+        createdAt = now,
+        updatedAt = now,
+        userId = UserId(projectUserId),
+    )
 
-    fun tag(id: String = "tg1", name: String = "work", color: Int = 0xFFE91E63.toInt()): Tag =
-        Tag(
-            id = TagId(id),
-            name = name,
-            color = color,
-            createdAt = now,
-            updatedAt = now,
-            userId = projectUserId,
-        )
+    fun tag(id: String = "tg1", name: String = "work", color: Int = 0xFFE91E63.toInt()): Tag = Tag(
+        id = TagId(id),
+        name = name,
+        color = color,
+        createdAt = now,
+        updatedAt = now,
+        userId = projectUserId,
+    )
 
-    fun note(id: String = "n1", title: String = "Ideas", body: String = "Hello **markdown**"): Note =
-        Note(
-            id = NoteId(id),
-            userId = userId,
-            title = title,
-            bodyMarkdown = body,
-            bodyHtml = "<p>Hello <strong>markdown</strong></p>",
-            createdAt = now,
-            updatedAt = now,
-        )
+    fun note(id: String = "n1", title: String = "Ideas", body: String = "Hello **markdown**"): Note = Note(
+        id = NoteId(id),
+        userId = userId,
+        title = title,
+        bodyMarkdown = body,
+        bodyHtml = "<p>Hello <strong>markdown</strong></p>",
+        createdAt = now,
+        updatedAt = now,
+    )
 
     /** Note in a folder (non-leaf). */
-    fun folderNote(id: String = "n2", title: String = "Work"): Note =
-        Note(
-            id = NoteId(id),
-            userId = userId,
-            title = title,
-            bodyMarkdown = null,
-            bodyHtml = null,
-            isFolder = true,
-            parentNoteId = null,
-            createdAt = now,
-            updatedAt = now,
-        )
+    fun folderNote(id: String = "n2", title: String = "Work"): Note = Note(
+        id = NoteId(id),
+        userId = userId,
+        title = title,
+        bodyMarkdown = null,
+        bodyHtml = null,
+        isFolder = true,
+        parentNoteId = null,
+        createdAt = now,
+        updatedAt = now,
+    )
 
     /** Archived note (soft-deleted, visible in archive). */
     fun archivedNote(id: String = "n3", title: String = "Old Note", body: String = "This note was archived."): Note =
@@ -167,51 +162,47 @@ internal object PreviewSamples {
             archivedAt = now,
         )
 
-    fun reminder(offsetMinutes: Int = 15): Reminder =
-        Reminder(
-            id = ReminderId.generate(),
-            taskId = TaskId("t1"),
-            userId = userId,
-            type = ReminderType.Gentle,
-            offsetMinutes = offsetMinutes,
-            fireAt = 0L,
-            recurringPattern = null,
-        )
+    fun reminder(offsetMinutes: Int = 15): Reminder = Reminder(
+        id = ReminderId.generate(),
+        taskId = TaskId("t1"),
+        userId = userId,
+        type = ReminderType.Gentle,
+        offsetMinutes = offsetMinutes,
+        fireAt = 0L,
+        recurringPattern = null,
+    )
 
-    fun attachment(type: AttachmentType = AttachmentType.File, title: String = "report.pdf"): Attachment =
-        Attachment(
-            id = AttachmentId.generate(),
-            taskId = TaskId("t1"),
-            userId = userId,
-            type = type,
-            title = title,
-            fileSizeBytes = 12_345L,
-            mimeType = "application/pdf",
-            createdAt = now,
-            updatedAt = now,
-        )
+    fun attachment(type: AttachmentType = AttachmentType.File, title: String = "report.pdf"): Attachment = Attachment(
+        id = AttachmentId.generate(),
+        taskId = TaskId("t1"),
+        userId = userId,
+        type = type,
+        title = title,
+        fileSizeBytes = 12_345L,
+        mimeType = "application/pdf",
+        createdAt = now,
+        updatedAt = now,
+    )
 
-    fun checklistItem(title: String = "Sub-task", done: Boolean = false): ChecklistItem =
-        ChecklistItem(
-            id = ChecklistItemId.generate(),
-            taskId = "t1",
-            title = title,
-            isCompleted = done,
-        )
+    fun checklistItem(title: String = "Sub-task", done: Boolean = false): ChecklistItem = ChecklistItem(
+        id = ChecklistItemId.generate(),
+        taskId = "t1",
+        title = title,
+        isCompleted = done,
+    )
 
     fun savedAgendaView(
         id: String = "v1",
         name: String = "My Agenda",
         sectionsJson: String = """{"title":"My Agenda","sections":[]}""",
-    ): SavedAgendaView =
-        SavedAgendaView(
-            id = SavedAgendaViewId.fromString(id),
-            userId = projectUserId,
-            name = name,
-            sectionsJson = sectionsJson,
-            createdAt = now,
-            updatedAt = now,
-        )
+    ): SavedAgendaView = SavedAgendaView(
+        id = SavedAgendaViewId.fromString(id),
+        userId = projectUserId,
+        name = name,
+        sectionsJson = sectionsJson,
+        createdAt = now,
+        updatedAt = now,
+    )
 
     fun taskDetailUi(
         task: Task = task(),
@@ -221,16 +212,15 @@ internal object PreviewSamples {
         reminders: List<Reminder> = emptyList(),
         attachments: List<Attachment> = emptyList(),
         subtasks: List<Task> = emptyList(),
-    ): TaskDetailUi =
-        TaskDetailUi(
-            task = task,
-            project = project,
-            tags = tags,
-            checklist = checklist,
-            reminders = reminders,
-            attachments = attachments,
-            subtasks = subtasks,
-        )
+    ): TaskDetailUi = TaskDetailUi(
+        task = task,
+        project = project,
+        tags = tags,
+        checklist = checklist,
+        reminders = reminders,
+        attachments = attachments,
+        subtasks = subtasks,
+    )
 }
 
 // ===== PreviewParameterProvider for enum types =====

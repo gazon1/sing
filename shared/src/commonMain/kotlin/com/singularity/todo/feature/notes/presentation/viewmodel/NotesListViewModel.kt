@@ -40,9 +40,9 @@ class NotesListViewModel(
     private val idGen: IdGenerator,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<NotesUiState, NotesIntent, NotesUiEvent>(
-    initialState = NotesUiState.Loading,
-    scope = scope,
-) {
+        initialState = NotesUiState.Loading,
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)
@@ -91,13 +91,12 @@ class NotesListViewModel(
         }
     }
 
-    private fun sortNotes(notes: List<Note>, order: NoteSortOrder): List<Note> =
-        when (order) {
-            NoteSortOrder.UpdatedDesc -> notes.sortedByDescending { it.updatedAt }
-            NoteSortOrder.UpdatedAsc -> notes.sortedBy { it.updatedAt }
-            NoteSortOrder.TitleAsc -> notes.sortedBy { it.title.lowercase() }
-            NoteSortOrder.TitleDesc -> notes.sortedByDescending { it.title.lowercase() }
-        }
+    private fun sortNotes(notes: List<Note>, order: NoteSortOrder): List<Note> = when (order) {
+        NoteSortOrder.UpdatedDesc -> notes.sortedByDescending { it.updatedAt }
+        NoteSortOrder.UpdatedAsc -> notes.sortedBy { it.updatedAt }
+        NoteSortOrder.TitleAsc -> notes.sortedBy { it.title.lowercase() }
+        NoteSortOrder.TitleDesc -> notes.sortedByDescending { it.title.lowercase() }
+    }
 
     override fun onIntent(intent: NotesIntent) {
         when (intent) {

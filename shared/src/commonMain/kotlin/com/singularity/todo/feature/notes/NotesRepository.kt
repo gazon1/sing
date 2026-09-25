@@ -342,40 +342,39 @@ class RoomNotesRepository(
         noteDao.setKind(id.value, NoteKind.Template.name, clock.now().toEpochMilliseconds())
     }
 
-    override suspend fun getOrCreateDailyNote(dateKey: String, fromTemplateId: NoteId?): Result<NoteId> =
-        runCatching {
-            val uid = currentUser.scopedUserId.value
-            val existing = noteDao.getDailyNote(uid.value, dateKey)
-            if (existing != null) {
-                return@runCatching NoteId.fromString(existing.id)
-            }
-            val now = clock.now().toEpochMilliseconds()
-            val newId = NoteId(com.singularity.todo.core.ids.nextId())
-            val template = fromTemplateId?.let { noteDao.getByIdForUser(it.value, uid.value) }
-            noteDao.upsert(
-                NoteEntity(
-                    id = newId.value,
-                    userId = uid.value,
-                    title = dateKey,
-                    bodyMarkdown = template?.bodyMarkdown,
-                    bodyHtml = template?.bodyHtml,
-                    isFolder = false,
-                    kind = NoteKind.Daily,
-                    parentNoteId = null,
-                    isPinned = false,
-                    pinnedAt = null,
-                    color = template?.color,
-                    sortOrder = 0,
-                    wordCount = template?.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
-                    charCount = template?.bodyMarkdown?.length ?: 0,
-                    createdAt = now,
-                    updatedAt = now,
-                    deletedAt = null,
-                    archivedAt = null,
-                ),
-            )
-            newId
+    override suspend fun getOrCreateDailyNote(dateKey: String, fromTemplateId: NoteId?): Result<NoteId> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        val existing = noteDao.getDailyNote(uid.value, dateKey)
+        if (existing != null) {
+            return@runCatching NoteId.fromString(existing.id)
         }
+        val now = clock.now().toEpochMilliseconds()
+        val newId = NoteId(com.singularity.todo.core.ids.nextId())
+        val template = fromTemplateId?.let { noteDao.getByIdForUser(it.value, uid.value) }
+        noteDao.upsert(
+            NoteEntity(
+                id = newId.value,
+                userId = uid.value,
+                title = dateKey,
+                bodyMarkdown = template?.bodyMarkdown,
+                bodyHtml = template?.bodyHtml,
+                isFolder = false,
+                kind = NoteKind.Daily,
+                parentNoteId = null,
+                isPinned = false,
+                pinnedAt = null,
+                color = template?.color,
+                sortOrder = 0,
+                wordCount = template?.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
+                charCount = template?.bodyMarkdown?.length ?: 0,
+                createdAt = now,
+                updatedAt = now,
+                deletedAt = null,
+                archivedAt = null,
+            ),
+        )
+        newId
+    }
 }
 
 internal fun NoteEntity.toNote(): Note = Note(

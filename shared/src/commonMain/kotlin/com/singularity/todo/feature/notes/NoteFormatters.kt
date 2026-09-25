@@ -19,6 +19,7 @@ fun formatExtractActionsResult(result: ExtractActionsResult): String = when (res
     } else {
         "Actions (${result.actions.size}):\n${result.actions.joinToString("\n") { "- $it" }}"
     }
+
     is ExtractActionsResult.Error -> "Extract actions failed: ${result.message}"
 }
 
@@ -28,6 +29,7 @@ fun formatSuggestTagsResult(result: SuggestTagsResult): String = when (result) {
     } else {
         "Suggested tags:\n${result.tags.joinToString(", ") { "#$it" }}"
     }
+
     is SuggestTagsResult.Error -> "Suggest tags failed: ${result.message}"
 }
 

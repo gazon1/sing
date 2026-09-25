@@ -37,6 +37,7 @@ class EditorSession(
     fun updateTitleFieldValue(newTitle: String) {
         titleFieldValue = newTitle
     }
+
     /**
      * All links inserted in this session, mapped to their character ranges.
      * Used by [findLinkAt] to resolve link taps to URLs.
