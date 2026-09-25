@@ -79,6 +79,35 @@ interface NotesRepository :
 
     /** Updates the outgoing links column for a note. Called after each save. */
     suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit>
+
+    // ─── Templates ───────────────────────────────────────────────────────────────
+
+    /** Watches all template notes (kind = Template) for the current user. */
+    fun watchTemplates(): Flow<List<Note>>
+
+    /** Watches all daily notes within a date range (for calendar navigation). */
+    fun watchDailyNotesInRange(from: String, to: String): Flow<List<Note>>
+
+    /** Returns the daily note for [dateKey] (ISO date string), or null if none exists. */
+    suspend fun getDailyNote(dateKey: String): Note?
+
+    /**
+     * Creates a new note from a template.
+     * Copies the template's title, bodyMarkdown, bodyHtml, and color.
+     * @return the newly created note's id.
+     */
+    suspend fun createFromTemplate(templateId: NoteId, targetTitle: String, targetDateKey: String?): Result<NoteId>
+
+    /**
+     * Saves a note as a template (changes kind to Template).
+     */
+    suspend fun saveAsTemplate(id: NoteId): Result<Unit>
+
+    /**
+     * Creates a daily note for [dateKey], optionally seeded from [fromTemplateId].
+     * If a daily note for that date already exists, returns its id.
+     */
+    suspend fun getOrCreateDailyNote(dateKey: String, fromTemplateId: NoteId?): Result<NoteId>
 }
 
 /**
@@ -166,6 +195,7 @@ class RoomNotesRepository(
                 title = title,
                 bodyMarkdown = bodyMarkdown,
                 bodyHtml = bodyHtml,
+                kind = NoteKind.Plain,
                 parentNoteId = null,
                 isPinned = false,
                 pinnedAt = null,
@@ -193,6 +223,7 @@ class RoomNotesRepository(
                 title = title,
                 bodyMarkdown = null,
                 bodyHtml = null,
+                kind = NoteKind.Plain,
                 parentNoteId = null,
                 isPinned = false,
                 pinnedAt = null,
@@ -251,6 +282,97 @@ class RoomNotesRepository(
     override suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit> = runCatching {
         noteDao.setOutgoingLinks(id.value, links.toLinksJson(), clock.now().toEpochMilliseconds())
     }
+
+    // ─── Templates and daily notes ────────────────────────────────────────────────
+
+    override fun watchTemplates(): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
+        noteDao.watchTemplates(uid.value).map { list -> list.map { it.toNote() } }
+    }
+
+    override fun watchDailyNotesInRange(from: String, to: String): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchDailyNotesInRange(uid.value, from, to).map { list -> list.map { it.toNote() } }
+        }
+
+    override suspend fun getDailyNote(dateKey: String): Note? {
+        val uid = currentUser.scopedUserId.value
+        return noteDao.getDailyNote(uid.value, dateKey)?.toNote()
+    }
+
+    override suspend fun createFromTemplate(
+        templateId: NoteId,
+        targetTitle: String,
+        targetDateKey: String?,
+    ): Result<NoteId> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        val template = noteDao.getByIdForUser(templateId.value, uid.value)
+            ?: throw IllegalArgumentException("Template not found: $templateId")
+        val now = clock.now().toEpochMilliseconds()
+        val newId = NoteId(com.singularity.todo.core.ids.nextId())
+        val finalTitle = targetDateKey?.let { "$it — $targetTitle" } ?: targetTitle
+        noteDao.upsert(
+            NoteEntity(
+                id = newId.value,
+                userId = uid.value,
+                title = finalTitle,
+                bodyMarkdown = template.bodyMarkdown,
+                bodyHtml = template.bodyHtml,
+                isFolder = false,
+                kind = if (targetDateKey != null) NoteKind.Daily else NoteKind.Plain,
+                parentNoteId = null,
+                isPinned = false,
+                pinnedAt = null,
+                color = template.color,
+                sortOrder = 0,
+                wordCount = template.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
+                charCount = template.bodyMarkdown?.length ?: 0,
+                createdAt = now,
+                updatedAt = now,
+                deletedAt = null,
+                archivedAt = null,
+            ),
+        )
+        newId
+    }
+
+    override suspend fun saveAsTemplate(id: NoteId): Result<Unit> = runCatching {
+        noteDao.setKind(id.value, NoteKind.Template.name, clock.now().toEpochMilliseconds())
+    }
+
+    override suspend fun getOrCreateDailyNote(dateKey: String, fromTemplateId: NoteId?): Result<NoteId> =
+        runCatching {
+            val uid = currentUser.scopedUserId.value
+            val existing = noteDao.getDailyNote(uid.value, dateKey)
+            if (existing != null) {
+                return@runCatching NoteId.fromString(existing.id)
+            }
+            val now = clock.now().toEpochMilliseconds()
+            val newId = NoteId(com.singularity.todo.core.ids.nextId())
+            val template = fromTemplateId?.let { noteDao.getByIdForUser(it.value, uid.value) }
+            noteDao.upsert(
+                NoteEntity(
+                    id = newId.value,
+                    userId = uid.value,
+                    title = dateKey,
+                    bodyMarkdown = template?.bodyMarkdown,
+                    bodyHtml = template?.bodyHtml,
+                    isFolder = false,
+                    kind = NoteKind.Daily,
+                    parentNoteId = null,
+                    isPinned = false,
+                    pinnedAt = null,
+                    color = template?.color,
+                    sortOrder = 0,
+                    wordCount = template?.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
+                    charCount = template?.bodyMarkdown?.length ?: 0,
+                    createdAt = now,
+                    updatedAt = now,
+                    deletedAt = null,
+                    archivedAt = null,
+                ),
+            )
+            newId
+        }
 }
 
 internal fun NoteEntity.toNote(): Note = Note(
@@ -260,6 +382,7 @@ internal fun NoteEntity.toNote(): Note = Note(
     bodyMarkdown = bodyMarkdown,
     bodyHtml = bodyHtml,
     isFolder = isFolder,
+    kind = kind,
     parentNoteId = parentNoteId?.let { NoteId.fromString(it) },
     isPinned = isPinned,
     pinnedAt = pinnedAt.toInstantOrNull(),
@@ -283,6 +406,7 @@ fun Note.toEntity(): NoteEntity = NoteEntity(
     bodyMarkdown = bodyMarkdown,
     bodyHtml = bodyHtml,
     isFolder = isFolder,
+    kind = kind,
     parentNoteId = parentNoteId?.value,
     isPinned = isPinned,
     pinnedAt = pinnedAt?.toEpochMillis(),

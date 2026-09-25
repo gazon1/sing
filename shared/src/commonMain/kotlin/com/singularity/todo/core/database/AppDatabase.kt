@@ -42,7 +42,7 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         TagGroupEntity::class,
         ProjectInheritedTagGroupCrossRef::class,
     ],
-    version = 21,
+    version = 22,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -60,6 +60,7 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         AutoMigration(from = 18, to = 19, spec = Migration18To19::class),
         AutoMigration(from = 19, to = 20, spec = Migration19To20::class),
         AutoMigration(from = 20, to = 21, spec = Migration20To21::class),
+        AutoMigration(from = 21, to = 22, spec = Migration21To22::class),
     ],
     exportSchema = true,
 )

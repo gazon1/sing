@@ -1219,6 +1219,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
                 title = title,
                 bodyMarkdown = bodyMarkdown,
                 bodyHtml = bodyHtml,
+                kind = com.singularity.todo.feature.notes.NoteKind.Plain,
                 wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
                 charCount = bodyMarkdown.length,
                 createdAt = now,
@@ -1241,6 +1242,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
                 title = title,
                 bodyMarkdown = null,
                 bodyHtml = null,
+                kind = com.singularity.todo.feature.notes.NoteKind.Plain,
                 wordCount = 0,
                 charCount = 0,
                 createdAt = now,
@@ -1335,6 +1337,102 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
                 store.upsert(existing.copy(outgoingLinks = links))
             }
         }
+    }
+
+    // ─── Templates and daily notes ────────────────────────────────────────────────
+
+    override fun watchTemplates(): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter {
+                    it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Template && it.deletedAt == null
+                }
+            }
+        }
+
+    override fun watchDailyNotesInRange(
+        from: String,
+        to: String,
+    ): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter {
+                    it.userId == uid &&
+                        it.kind == com.singularity.todo.feature.notes.NoteKind.Daily &&
+                        it.deletedAt == null &&
+                        it.title >= from &&
+                        it.title <= to
+                }
+            }
+        }
+
+    override suspend fun getDailyNote(dateKey: String): com.singularity.todo.feature.notes.Note? {
+        val uid = currentUser.scopedUserId.value
+        return store.state.value.values.firstOrNull {
+            it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey && it.deletedAt == null
+        }
+    }
+
+    override suspend fun createFromTemplate(
+        templateId: com.singularity.todo.feature.notes.NoteId,
+        targetTitle: String,
+        targetDateKey: String?,
+    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        val template = store.state.value.values.firstOrNull { it.id == templateId && it.userId == uid }
+            ?: throw IllegalArgumentException("Template not found: $templateId")
+        val newId = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
+        val now = Clock.now()
+        val finalTitle = targetDateKey?.let { "$it — $targetTitle" } ?: targetTitle
+        val note = template.copy(
+            id = newId,
+            title = finalTitle,
+            bodyMarkdown = template.bodyMarkdown,
+            bodyHtml = template.bodyHtml,
+            kind = if (targetDateKey != null) com.singularity.todo.feature.notes.NoteKind.Daily else com.singularity.todo.feature.notes.NoteKind.Plain,
+            color = template.color,
+            wordCount = template.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
+            charCount = template.bodyMarkdown?.length ?: 0,
+            createdAt = now,
+            updatedAt = now,
+        )
+        store.upsert(note)
+        newId
+    }
+
+    override suspend fun saveAsTemplate(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
+        store[id.value]?.let { existing ->
+            store.upsert(existing.copy(kind = com.singularity.todo.feature.notes.NoteKind.Template))
+        }
+    }
+
+    override suspend fun getOrCreateDailyNote(
+        dateKey: String,
+        fromTemplateId: com.singularity.todo.feature.notes.NoteId?,
+    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        val existing = store.state.value.values.firstOrNull {
+            it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey && it.deletedAt == null
+        }
+        if (existing != null) return@runCatching existing.id
+        val now = Clock.now()
+        val newId = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
+        val template = fromTemplateId?.let { store.state.value.values.firstOrNull { n -> n.id == it && n.userId == uid } }
+        val note = com.singularity.todo.feature.notes.Note(
+            id = newId,
+            userId = uid,
+            title = dateKey,
+            bodyMarkdown = template?.bodyMarkdown,
+            bodyHtml = template?.bodyHtml,
+            kind = com.singularity.todo.feature.notes.NoteKind.Daily,
+            color = template?.color,
+            wordCount = template?.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
+            charCount = template?.bodyMarkdown?.length ?: 0,
+            createdAt = now,
+            updatedAt = now,
+        )
+        store.upsert(note)
+        newId
     }
 }
 

@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -63,35 +64,46 @@ class NotesListViewModel(
     val events: Flow<NotesUiEvent> = _events.receiveAsFlow()
 
     init {
+        // Combine three streams: filtered notes + templates + daily notes for current month.
         scope.launch {
-            // Watch notes based on current filter, then split into pinned/unpinned.
-            _filter.flatMapLatest { f ->
-                val flow = when (f) {
-                    NoteFilter.All -> repo.observeAll()
-                    NoteFilter.Pinned -> repo.watchPinned()
-                    NoteFilter.Archived -> repo.watchArchived()
-                }
-                flow.map { notes -> f to notes }
-            }.catch { emit(NoteFilter.All to emptyList()) }
-                .collect { (filter, allNotes) ->
-                    if (allNotes.isEmpty() && filter == NoteFilter.All) {
-                        _notes.value = NotesUiState.Empty
-                    } else {
-                        val sorted = sortNotes(allNotes, _sortOrder.value)
-                        val pinned = sorted.filter { it.isPinned }
-                        val unpinned = sorted.filter { !it.isPinned }
-                        _notes.value = NotesUiState.Content(
-                            NotesListState(
-                                pinned = pinned,
-                                unpinned = unpinned,
-                                filter = filter,
-                                sortOrder = _sortOrder.value,
-                                selectedIds = _selectedIds.value,
-                                isSelectionMode = _isSelectionMode.value,
-                            ),
-                        )
+            kotlinx.coroutines.flow.combine(
+                _filter.flatMapLatest { f ->
+                    val flow = when (f) {
+                        NoteFilter.All -> repo.observeAll()
+                        NoteFilter.Pinned -> repo.watchPinned()
+                        NoteFilter.Archived -> repo.watchArchived()
                     }
+                    flow.map { notes -> f to notes }
+                }.catch { emit(NoteFilter.All to emptyList()) },
+                repo.watchTemplates().catch { emit(emptyList()) },
+                repo.watchDailyNotesInRange(
+                    java.time.LocalDate.now().withDayOfMonth(1).toString(),
+                    java.time.LocalDate.now().withDayOfMonth(java.time.LocalDate.now().lengthOfMonth()).toString(),
+                ).catch { emit(emptyList()) },
+            ) { (filter, allNotes), templates, dailyNotes ->
+                Triple(filter, allNotes, templates to dailyNotes)
+            }.collect { (filter, allNotes, templatesToDailies) ->
+                val (templates, dailyNotes) = templatesToDailies
+                if (allNotes.isEmpty() && filter == NoteFilter.All) {
+                    _notes.value = NotesUiState.Empty
+                } else {
+                    val sorted = sortNotes(allNotes, _sortOrder.value)
+                    val pinned = sorted.filter { it.isPinned }
+                    val unpinned = sorted.filter { !it.isPinned }
+                    _notes.value = NotesUiState.Content(
+                        NotesListState(
+                            pinned = pinned,
+                            unpinned = unpinned,
+                            templates = templates,
+                            dailyNotes = dailyNotes,
+                            filter = filter,
+                            sortOrder = _sortOrder.value,
+                            selectedIds = _selectedIds.value,
+                            isSelectionMode = _isSelectionMode.value,
+                        ),
+                    )
                 }
+            }
         }
     }
 
@@ -117,7 +129,11 @@ class NotesListViewModel(
             val pinned = sorted.filter { it.isPinned }
             val unpinned = sorted.filter { !it.isPinned }
             _notes.value = current.copy(
-                list = current.list.copy(pinned = pinned, unpinned = unpinned, sortOrder = order),
+                list = current.list.copy(
+                    pinned = pinned,
+                    unpinned = unpinned,
+                    sortOrder = order,
+                ),
             )
         }
     }

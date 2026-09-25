@@ -37,6 +37,25 @@ value class NoteColor(val value: Int) {
     }
 }
 
+/**
+ * Discriminator for note type.
+ *
+ * - [Plain]: regular user notes
+ * - [Daily]: one note per day, keyed by date (journal/daily-log)
+ * - [Template]: note used as a template for creating other notes
+ */
+@Serializable
+enum class NoteKind {
+    /** Regular note. */
+    Plain,
+
+    /** Daily journal note, one per day. */
+    Daily,
+
+    /** Template note used to create new notes from. */
+    Template,
+}
+
 data class Note(
     val id: NoteId,
     val userId: UserId,
@@ -44,6 +63,8 @@ data class Note(
     val bodyMarkdown: String? = null,
     val bodyHtml: String? = null,
     val isFolder: Boolean = false,
+    /** Note type: Plain, Daily, or Template. */
+    val kind: NoteKind = NoteKind.Plain,
     val parentNoteId: NoteId? = null,
     val isPinned: Boolean = false,
     val pinnedAt: Instant? = null,
@@ -127,6 +148,8 @@ enum class NoteSortOrder {
 data class NotesListState(
     val pinned: List<Note> = emptyList(),
     val unpinned: List<Note> = emptyList(),
+    val templates: List<Note> = emptyList(),
+    val dailyNotes: List<Note> = emptyList(),
     val filter: NoteFilter = NoteFilter.All,
     val sortOrder: NoteSortOrder = NoteSortOrder.UpdatedDesc,
     val selectedIds: Set<NoteId> = emptySet(),

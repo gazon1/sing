@@ -309,6 +309,61 @@ interface NoteDao {
         """,
     )
     suspend fun getNotesLinkingToTask(taskId: String, userId: String): List<NoteEntity>
+
+    // ── Templates and daily notes ───────────────────────────────────────────────
+
+    /**
+     * All templates (kind = TEMPLATE) for the user, ordered by title.
+     */
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE user_id = :userId
+        AND kind = 'Template'
+        AND deleted_at IS NULL
+        ORDER BY title ASC
+        """,
+    )
+    fun watchTemplates(userId: String): Flow<List<NoteEntity>>
+
+    /**
+     * Daily note for a specific date.
+     * Daily notes are identified by kind = DAILY and title matching the ISO date string.
+     */
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE user_id = :userId
+        AND kind = 'Daily'
+        AND title = :dateKey
+        AND deleted_at IS NULL
+        LIMIT 1
+        """,
+    )
+    suspend fun getDailyNote(userId: String, dateKey: String): NoteEntity?
+
+    /**
+     * Daily notes for a month (for calendar navigation).
+     * Matches notes where title is a date string between from..to.
+     */
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE user_id = :userId
+        AND kind = 'Daily'
+        AND title >= :from
+        AND title <= :to
+        AND deleted_at IS NULL
+        ORDER BY title ASC
+        """,
+    )
+    fun watchDailyNotesInRange(userId: String, from: String, to: String): Flow<List<NoteEntity>>
+
+    /**
+     * Update the kind of a note.
+     */
+    @Query("UPDATE notes SET kind = :kind, updated_at = :ts WHERE id = :id")
+    suspend fun setKind(id: String, kind: String, ts: Long)
 }
 
 @Dao

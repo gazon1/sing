@@ -470,6 +470,27 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         n.userId == userId && n.deletedAt == null && n.outgoingLinks.contains("task://$taskId")
     }.take(20)
 
+    // ── Templates and daily notes ─────────────────────────────────────────────
+
+    override fun watchTemplates(userId: String): Flow<List<NoteEntity>> = store.map { map ->
+        map.values.filter { n ->
+            n.userId == userId && n.kind.name == "Template" && n.deletedAt == null
+        }.sortedBy { it.title }
+    }
+
+    override suspend fun getDailyNote(userId: String, dateKey: String): NoteEntity? = store.value.values.find {
+        it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.deletedAt == null
+    }
+
+    override fun watchDailyNotesInRange(userId: String, from: String, to: String): Flow<List<NoteEntity>> = store.map { map ->
+        map.values.filter { n ->
+            n.userId == userId && n.kind.name == "Daily" && n.deletedAt == null && n.title >= from && n.title <= to
+        }.sortedBy { it.title }
+    }
+
+    override suspend fun setKind(id: String, kind: String, ts: Long) =
+        mutate(id) { it.copy(kind = com.singularity.todo.feature.notes.NoteKind.valueOf(kind), updatedAt = ts) }
+
     private fun mutate(id: String, fn: (NoteEntity) -> NoteEntity) {
         store.update { current ->
             val existing = current[id] ?: return@update current

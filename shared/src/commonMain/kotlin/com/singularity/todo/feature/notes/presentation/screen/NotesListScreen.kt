@@ -221,6 +221,8 @@ fun NotesScreenContent(
                     allNotes = allNotes,
                     pinned = listState?.pinned ?: emptyList(),
                     unpinned = listState?.unpinned ?: emptyList(),
+                    templates = listState?.templates ?: emptyList(),
+                    dailyNotes = listState?.dailyNotes ?: emptyList(),
                     isSelectionMode = isSelectionMode,
                     selectedIds = listState?.selectedIds ?: emptySet(),
                     navigator = navigator,
@@ -333,6 +335,8 @@ private fun NoteList(
     allNotes: List<Note>,
     pinned: List<Note>,
     unpinned: List<Note>,
+    templates: List<Note>,
+    dailyNotes: List<Note>,
     isSelectionMode: Boolean,
     selectedIds: Set<NoteId>,
     navigator: NotesNavigator,
@@ -343,6 +347,54 @@ private fun NoteList(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // Daily notes section (shown first, above all other notes)
+        if (dailyNotes.isNotEmpty()) {
+            stickyHeader(key = "daily_header") {
+                Text(
+                    text = "Daily Notes",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+            items(dailyNotes, key = { "daily_${it.id.value}" }) { note ->
+                SwipeableNoteCard(
+                    note = note,
+                    isSelected = note.id in selectedIds,
+                    isSelectionMode = isSelectionMode,
+                    navigator = navigator,
+                    onLongClick = { actions.onEnterSelection(note.id) },
+                    onDelete = { actions.onDelete(note.id) },
+                    onTogglePin = { actions.onTogglePin(note.id) },
+                    onToggleSelection = { actions.onToggleSelection(note.id) },
+                )
+            }
+        }
+
+        // Templates section
+        if (templates.isNotEmpty()) {
+            stickyHeader(key = "templates_header") {
+                Text(
+                    text = "Templates",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+            items(templates, key = { "template_${it.id.value}" }) { note ->
+                SwipeableNoteCard(
+                    note = note,
+                    isSelected = note.id in selectedIds,
+                    isSelectionMode = isSelectionMode,
+                    navigator = navigator,
+                    onLongClick = { actions.onEnterSelection(note.id) },
+                    onDelete = { actions.onDelete(note.id) },
+                    onTogglePin = { actions.onTogglePin(note.id) },
+                    onToggleSelection = { actions.onToggleSelection(note.id) },
+                )
+            }
+        }
+
         // Pinned section header
         if (pinned.isNotEmpty()) {
             stickyHeader(key = "pinned_header") {

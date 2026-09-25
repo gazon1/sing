@@ -81,6 +81,7 @@ data class NoteDto(
     val bodyMarkdown: String? = null,
     val bodyHtml: String? = null,
     val isFolder: Boolean = false,
+    val kind: String = "Plain",
     val parentNoteId: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
@@ -91,14 +92,17 @@ data class NoteDto(
 fun NoteEntity.toDto(): NoteDto = NoteDto(
     id = id, title = title, bodyMarkdown = bodyMarkdown,
     bodyHtml = bodyHtml, isFolder = isFolder,
-    parentNoteId = parentNoteId, createdAt = createdAt,
-    updatedAt = updatedAt, deletedAt = deletedAt, archivedAt = archivedAt,
+    kind = kind.name, parentNoteId = parentNoteId,
+    createdAt = createdAt, updatedAt = updatedAt,
+    deletedAt = deletedAt, archivedAt = archivedAt,
 )
 
 fun NoteDto.toEntity(userId: String): NoteEntity = NoteEntity(
     id = id, userId = userId, title = title,
     bodyMarkdown = bodyMarkdown, bodyHtml = bodyHtml,
-    isFolder = isFolder, parentNoteId = parentNoteId,
+    isFolder = isFolder,
+    kind = com.singularity.todo.feature.notes.NoteKind.valueOf(kind),
+    parentNoteId = parentNoteId,
     createdAt = createdAt, updatedAt = updatedAt,
     deletedAt = deletedAt, archivedAt = archivedAt,
     sync = SyncColumns(),
