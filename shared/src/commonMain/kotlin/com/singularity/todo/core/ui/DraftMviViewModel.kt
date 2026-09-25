@@ -145,7 +145,6 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      */
     public open fun open(newDraft: D) {
         if (sameEntity(_draft.value, newDraft)) return
-        cancelPendingAutosave()
         baseline = newDraft
         _draft.value = newDraft
         _isSaving.value = false
@@ -242,13 +241,6 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
 
     private fun cancelEffect(key: Any) {
         effectJobs.remove(key)?.cancel()
-    }
-
-    private var pendingAutosaveJob: Job? = null
-
-    private fun cancelPendingAutosave() {
-        pendingAutosaveJob?.cancel()
-        pendingAutosaveJob = null
     }
 }
 

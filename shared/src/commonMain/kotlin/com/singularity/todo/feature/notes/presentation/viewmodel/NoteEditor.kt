@@ -60,9 +60,10 @@ class NoteEditor(
 ) : DraftMviViewModel<Editing, NotesEditorIntent, NotesUiEvent>(
     initialDraft = Editing(id = "", title = "", html = "", isDirty = false, isNew = true),
     autosave = { draft ->
-        // Inline Note conversion to avoid capturing 'this' in the autosave lambda.
-        // For autosave (readExisting=false), createdAt is already persisted in DB.
+        // Autosave reads from DB to preserve createdAt. Debounced to 500ms, so the
+        // extra round-trip on every keystroke is acceptable.
         val noteId = NoteId.fromString(draft.id)
+        val existing = repo.get(noteId)
         val now: Instant = Clock.now()
         repo.upsert(Note(
             id = noteId,
@@ -70,7 +71,7 @@ class NoteEditor(
             title = draft.title,
             bodyHtml = draft.html,
             bodyMarkdown = null,
-            createdAt = now,
+            createdAt = existing?.createdAt ?: now,
             updatedAt = now,
             isFolder = false,
         ))
@@ -81,10 +82,13 @@ class NoteEditor(
     scope = scope,
 ) {
 
-    /** Converts an Editing draft to Note, re-reading existing to preserve createdAt. */
-    private suspend fun editingAsNote(draft: Editing, readExisting: Boolean): Note {
+    /** Caches the existing note when opening to preserve createdAt across saves. */
+    private var cachedNote: Note? = null
+
+    /** Converts an Editing draft to Note using the cached note to preserve createdAt. */
+    private fun editingAsNote(draft: Editing): Note {
         val noteId = NoteId.fromString(draft.id)
-        val existing = if (readExisting) repo.get(noteId) else null
+        val existing = cachedNote
         val now: Instant = Clock.now()
         return Note(
             id = noteId,
@@ -102,6 +106,7 @@ class NoteEditor(
     fun openEditor(noteId: String) {
         vmScope.launch {
             val note = repo.get(NoteId.fromString(noteId)) ?: return@launch
+            cachedNote = note  // cache for autosave to preserve createdAt
             val html = note.bodyHtml ?: note.bodyMarkdown?.let { NoteContentMapper.toHtml(it) } ?: ""
             val draft = Editing(
                 id = note.id.value,
@@ -117,6 +122,7 @@ class NoteEditor(
 
     /** Creates a new note and returns the generated ID. */
     fun createNote(): String {
+        cachedNote = null  // no existing note for new notes
         val id = NoteId.fromString(idGen.next())
         val draft = Editing(
             id = id.value,
@@ -136,31 +142,13 @@ class NoteEditor(
 
     override fun validate(draft: Editing): String? = null
 
-    /**
-     * Explicit save: validates, persists via [repo.upsert], emits [NotesUiEvent.SavedPulse].
-     * The autosave lambda uses [repo.upsert] directly (no markdown/link extraction);
-     * explicit save also uses [repo.upsert] for consistency.
-     */
-    override fun save() {
-        val currentDraft = draft
-        val validationError = validate(currentDraft)
-        if (validationError != null) {
-            vmScope.launch { emit(NotesUiEvent.SaveFailed(validationError)) }
-            return
-        }
-        vmScope.launch {
-            try {
-                repo.upsert(editingAsNote(currentDraft, readExisting = true))
-                emit(NotesUiEvent.SavedPulse)
-            } catch (e: Exception) {
-                emit(NotesUiEvent.SaveFailed(e.message ?: "Save failed"))
-            }
-        }
+    override suspend fun onSaved() {
+        emit(NotesUiEvent.SavedPulse)
     }
 
     override suspend fun persist(draft: Editing): Either<AppError, Unit> {
         return try {
-            repo.upsert(editingAsNote(draft, readExisting = true))
+            repo.upsert(editingAsNote(draft))
             Either.Right(Unit)
         } catch (e: Exception) {
             Either.Left(AppError.Persistence(e))
