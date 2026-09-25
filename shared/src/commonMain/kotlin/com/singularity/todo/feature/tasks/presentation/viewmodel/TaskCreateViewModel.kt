@@ -4,7 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.Either
-import com.singularity.todo.core.ui.mvi.MviViewModel
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
@@ -62,24 +62,26 @@ class TaskCreateViewModel(
     initialDueDate: kotlinx.datetime.LocalDate?,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<TaskCreateUiState, TaskCreateIntent, TaskCreateUiEvent>(
-        initialState = TaskCreateUiState(
-            draft = TaskDraft(
-                dueDate = initialDueDate?.let {
-                    DueDateOption.Custom(it, it.toString())
-                } ?: DueDateOption.None,
-            ),
-            isSaveEnabled = false,
-            error = null,
-            isDirty = false,
-            isSaving = false,
+    initialState = TaskCreateUiState(
+        draft = TaskDraft(
+            dueDate = initialDueDate?.let {
+                DueDateOption.Custom(it, it.toString())
+            }
+                ?: DueDateOption.None,
         ),
-        scope = scope,
-    ) {
+        isSaveEnabled = false,
+        error = null,
+        isDirty = false,
+        isSaving = false,
+    ),
+    scope = scope,
+) {
 
     private val initial: TaskDraft = TaskDraft(
         dueDate = initialDueDate?.let {
             DueDateOption.Custom(it, it.toString())
-        } ?: DueDateOption.None,
+        }
+            ?: DueDateOption.None,
     )
 
     private val _draft = MutableStateFlow(initial)
@@ -98,8 +100,12 @@ class TaskCreateViewModel(
         // 1. Restore draft from DataStore — seed-if-empty pattern.
         // Key is bare (no userId prefix) — UserScopedDraftStore handles isolation.
         scope.launch {
-            runCatching { deps.draftStore.load(TaskCreateDeps.DRAFT_KEY, TaskDraft.serializer()) }
-                .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft restore failed: ${it.message}" } }
+            runCatching { deps.draftStore.load(TaskCreateDeps.DRAFT_KEY, TaskDraft.serializer()) }.onFailure {
+                    deps.logger.e(
+                        it,
+                        tag = "TaskCreate"
+                    ) { "draft restore failed: ${it.message}" }
+                }
                 .getOrNull()
                 ?.let { restored ->
                     if (_draft.value == initial) _draft.value = restored
@@ -153,7 +159,8 @@ class TaskCreateViewModel(
             is TaskCreateIntent.SetDueDate -> with(intent) {
                 val option = intent.date?.let {
                     DueDateOption.Custom(it, it.toString())
-                } ?: DueDateOption.None
+                }
+                    ?: DueDateOption.None
                 _draft.update { it.copy(dueDate = option) }
             }
 
@@ -168,7 +175,8 @@ class TaskCreateViewModel(
             is TaskCreateIntent.SetStartDate -> with(intent) {
                 val option = intent.date?.let {
                     DueDateOption.Custom(it, it.toString())
-                } ?: DueDateOption.None
+                }
+                    ?: DueDateOption.None
                 _draft.update { it.copy(startDate = option) }
             }
 
@@ -179,7 +187,8 @@ class TaskCreateViewModel(
             is TaskCreateIntent.SetEndDate -> with(intent) {
                 val option = intent.date?.let {
                     DueDateOption.Custom(it, it.toString())
-                } ?: DueDateOption.None
+                }
+                    ?: DueDateOption.None
                 _draft.update { it.copy(endDate = option) }
             }
 
@@ -231,14 +240,19 @@ class TaskCreateViewModel(
             when (val result = deps.createFromDraft(draftSnapshot)) {
                 is Either.Left -> {
                     deps.logger.e(tag = "TaskCreateViewModel") { "save failed: ${result.error.message}" }
-                    _error.value = result.error.message ?: "Could not create task"
+                    _error.value = result.error.message
+                        ?: "Could not create task"
                 }
 
                 is Either.Right -> {
                     _saved.emit(Unit)
                     emit(TaskCreateUiEvent.Saved)
-                    runCatching { deps.draftStore.clear(TaskCreateDeps.DRAFT_KEY) }
-                        .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft clear failed: ${it.message}" } }
+                    runCatching { deps.draftStore.clear(TaskCreateDeps.DRAFT_KEY) }.onFailure {
+                            deps.logger.e(
+                                it,
+                                tag = "TaskCreate"
+                            ) { "draft clear failed: ${it.message}" }
+                        }
                 }
             }
         } finally {
@@ -246,5 +260,6 @@ class TaskCreateViewModel(
         }
     }
 
-    private fun validateForSave(draft: TaskDraft): String? = if (draft.title.isBlank()) "Title is required" else null
+    private fun validateForSave(draft: TaskDraft): String? =
+        if (draft.title.isBlank()) "Title is required" else null
 }

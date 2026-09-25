@@ -2,8 +2,8 @@ package com.singularity.todo.feature.statistics
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.mvi.MviIntent
-import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,16 +31,17 @@ class StatisticsViewModel(
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<StatisticsUiState, StatisticsIntent, Nothing>(
-        initialState = StatisticsUiState(),
-        scope = scope,
-    ) {
+    initialState = StatisticsUiState(),
+    scope = scope,
+) {
 
     init {
         addCloseable(scope)
         scope.launch {
             taskRepository.observeByFilter(TaskFilter.All)
                 .map { tasks ->
-                    val nowMs = clock.now().toEpochMilliseconds()
+                    val nowMs = clock.now()
+                        .toEpochMilliseconds()
                     val completed = tasks.filter { it.completedAt != null }
                         .map { it.id.value to it.completedAt!!.toEpochMilliseconds() }
                     val overdue = tasks.filter { it.dueDate != null && it.completedAt == null }

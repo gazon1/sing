@@ -2,8 +2,7 @@ package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.todayFlow
-import com.singularity.todo.core.ui.mvi.MviIntent
-import com.singularity.todo.core.ui.mvi.MviViewModel
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
@@ -45,8 +44,7 @@ class AgendaViewModel(
     init {
         addCloseable(scope)
         scope.launch {
-            todayFlow()
-                .flatMapLatest { today ->
+            todayFlow().flatMapLatest { today ->
                     deps.taskRepo.observeByFilter(TaskFilter.All)
                         .map { tasks ->
                             val sections = AgendaEvaluator.evaluate(tasks, definition, today)

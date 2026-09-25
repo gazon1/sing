@@ -1,4 +1,4 @@
-package com.singularity.todo.core.ui.mvi
+package com.singularity.todo.core.ui
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update

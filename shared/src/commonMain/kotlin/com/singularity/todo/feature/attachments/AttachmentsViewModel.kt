@@ -3,8 +3,8 @@ package com.singularity.todo.feature.attachments
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.mvi.MviIntent
-import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.launch
 
@@ -34,9 +34,9 @@ class AttachmentsViewModel(
     private val repository: AttachmentRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AttachmentsUiState, AttachmentsIntent, AttachmentsUiEvent>(
-        initialState = AttachmentsUiState.Idle,
-        scope = scope,
-    ) {
+    initialState = AttachmentsUiState.Idle,
+    scope = scope,
+) {
 
     init {
         addCloseable(scope)
@@ -52,16 +52,37 @@ class AttachmentsViewModel(
 
     private suspend fun addUrl(intent: AttachmentsIntent.AddUrl) {
         repository.addUrlAttachment(intent.taskId, intent.url, intent.title)
-            .onFailure { emit(AttachmentsUiEvent.ShowError(it.message ?: "Failed to add link")) }
+            .onFailure {
+                emit(
+                    AttachmentsUiEvent.ShowError(
+                        it.message
+                            ?: "Failed to add link"
+                    )
+                )
+            }
     }
 
     private suspend fun saveFile(intent: AttachmentsIntent.SaveFile) {
         repository.saveFileAttachment(intent.taskId, intent.sourcePath, intent.mimeType)
-            .onFailure { emit(AttachmentsUiEvent.ShowError(it.message ?: "Failed to save file")) }
+            .onFailure {
+                emit(
+                    AttachmentsUiEvent.ShowError(
+                        it.message
+                            ?: "Failed to save file"
+                    )
+                )
+            }
     }
 
     private suspend fun delete(intent: AttachmentsIntent.Delete) {
         repository.delete(intent.attachmentId)
-            .onFailure { emit(AttachmentsUiEvent.ShowError(it.message ?: "Delete failed")) }
+            .onFailure {
+                emit(
+                    AttachmentsUiEvent.ShowError(
+                        it.message
+                            ?: "Delete failed"
+                    )
+                )
+            }
     }
 }

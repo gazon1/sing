@@ -1,6 +1,8 @@
-package com.singularity.todo.core.ui.mvi
+package com.singularity.todo.core.ui
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ui.mvi.MviEvent
+import com.singularity.todo.core.ui.mvi.MviIntent
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 
@@ -53,19 +55,21 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     val events: Flow<E> get() = _events.flow
 
     /** Emits a one-shot event. Suspends until the channel accepts it. */
-    protected suspend fun emit(event: E) = _events.emit(event)
+    protected suspend fun emit(event: E) =
+        _events.emit(event)
 
     /**
      * Tries to emit a one-shot event without suspending.
      * Returns `true` if the event was sent, `false` if the buffer is full.
      */
-    protected fun tryEmit(event: E): Boolean = _events.tryEmit(event)
+    protected fun tryEmit(event: E): Boolean =
+        _events.tryEmit(event)
 
     /**
      * Updates state by applying [transform] to the current value.
      *
      * Delegates to [kotlinx.coroutines.flow.MutableStateFlow.update].
-     * For VMs requiring atomic read-modify-write, use [StateStrategy.Atomic] —
+     * For VMs requiring atomic read-modify-write, use [com.singularity.todo.core.ui.mvi.StateStrategy.Atomic] —
      * available from MR-3 onwards.
      *
      * For simple direct assignment, use `_state.value = newValue` instead.

@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.tags
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.mvi.MviEvent
 import com.singularity.todo.core.ui.mvi.MviIntent
-import com.singularity.todo.core.ui.mvi.MviViewModel
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -44,9 +44,9 @@ class TagsViewModel(
     private val tagRepo: TagsRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
-        initialState = TagsUiState.Loading,
-        scope = scope,
-    ) {
+    initialState = TagsUiState.Loading,
+    scope = scope,
+) {
 
     init {
         addCloseable(scope)
@@ -55,7 +55,14 @@ class TagsViewModel(
                 .map { tags ->
                     if (tags.isEmpty()) TagsUiState.Empty("") else TagsUiState.Content(tags)
                 }
-                .catch { e -> updateState { TagsUiState.Error(e.message ?: "Error") } }
+                .catch { e ->
+                    updateState {
+                        TagsUiState.Error(
+                            e.message
+                                ?: "Error"
+                        )
+                    }
+                }
                 .collect { newState -> update { newState } }
         }
     }
@@ -70,8 +77,16 @@ class TagsViewModel(
      * Fire-and-forget delete. Errors are emitted as [TagsUiEvent.ShowError].
      * Exposed as a method reference for Compose UI callbacks (see [SettingsScreen]).
      */
-    fun delete(id: TagId) = scope.launch {
-        tagRepo.delete(id)
-            .onFailure { emit(TagsUiEvent.ShowError(it.message ?: "Error")) }
-    }
+    fun delete(id: TagId) =
+        scope.launch {
+            tagRepo.delete(id)
+                .onFailure {
+                    emit(
+                        TagsUiEvent.ShowError(
+                            it.message
+                                ?: "Error"
+                        )
+                    )
+                }
+        }
 }

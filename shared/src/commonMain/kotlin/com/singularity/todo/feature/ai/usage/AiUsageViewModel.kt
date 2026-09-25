@@ -5,8 +5,8 @@ import com.singularity.todo.core.observability.DailyUsage
 import com.singularity.todo.core.observability.ModelUsage
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.ToolUsage
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.mvi.MviIntent
-import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.profile.ProfileRepository
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -39,9 +39,9 @@ class AiUsageViewModel(
     profileRepository: ProfileRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AiUsageUiState, AiUsageIntent, Nothing>(
-        initialState = AiUsageUiState(),
-        scope = scope,
-    ) {
+    initialState = AiUsageUiState(),
+    scope = scope,
+) {
 
     init {
         addCloseable(scope)
@@ -59,7 +59,9 @@ class AiUsageViewModel(
                 },
             ) { profile, (daily, tools, models) ->
                 val totalTokens = tools.sumOf { it.totalTokens }
-                val totalCost = tools.mapNotNull { it.totalCostUsdMicros }.takeIf { it.isNotEmpty() }?.sum()
+                val totalCost = tools.mapNotNull { it.totalCostUsdMicros }
+                    .takeIf { it.isNotEmpty() }
+                    ?.sum()
                 AiUsageUiState(
                     isLoading = false,
                     profileName = profile.name,

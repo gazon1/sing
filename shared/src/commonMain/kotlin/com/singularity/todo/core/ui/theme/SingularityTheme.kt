@@ -18,16 +18,17 @@ enum class SingularityAccents(val displayName: String, val color: Color) {
     Orange("Orange", Color(0xFFFF9800)),
     Yellow("Yellow", Color(0xFFFFEB3B)),
     Green("Green", Color(0xFF4CAF50)),
-    Teal("Teal", Color(0xFF009688)),
-    ;
+    Teal("Teal", Color(0xFF009688)), ;
 
     companion object {
-        fun fromString(name: String): SingularityAccents = entries.find {
-            it.name.equals(
-                name,
-                ignoreCase = true,
-            )
-        } ?: Blue
+        fun fromString(name: String): SingularityAccents =
+            entries.find {
+                it.name.equals(
+                    name,
+                    ignoreCase = true,
+                )
+            }
+                ?: Blue
     }
 }
 

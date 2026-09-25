@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui.debounce
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.debounce
@@ -35,20 +36,22 @@ class Debouncer(private val scope: CoroutineScope, private val duration: Duratio
      *
      * @return A [Job] that can be cancelled to stop the debounced collector.
      */
-    fun <T> debounce(flow: Flow<T>, action: (T) -> Unit): Job = scope.launch {
-        flow
-            .debounce(duration)
-            .distinctUntilChanged()
-            .collect { value ->
-                action(value)
-            }
-    }
+    @OptIn(FlowPreview::class)
+    fun <T> debounce(flow: Flow<T>, action: (T) -> Unit): Job =
+        scope.launch {
+            flow.debounce(duration)
+                .distinctUntilChanged()
+                .collect { value ->
+                    action(value)
+                }
+        }
 }
 
 /**
  * Creates a [Debouncer] with a [Long] delay in milliseconds.
  */
-fun Debouncer(scope: CoroutineScope, delayMs: Long): Debouncer = Debouncer(scope, delayMs.milliseconds)
+fun Debouncer(scope: CoroutineScope, delayMs: Long): Debouncer =
+    Debouncer(scope, delayMs.milliseconds)
 
 /**
  * Convenience extension to debounce a [Flow] using a [Debouncer].
@@ -59,4 +62,5 @@ fun Debouncer(scope: CoroutineScope, delayMs: Long): Debouncer = Debouncer(scope
  *     .debounced(debouncer) { name -> ... }
  * ```
  */
-fun <T> Flow<T>.debounced(debouncer: Debouncer, action: (T) -> Unit): Job = debouncer.debounce(this, action)
+fun <T> Flow<T>.debounced(debouncer: Debouncer, action: (T) -> Unit): Job =
+    debouncer.debounce(this, action)

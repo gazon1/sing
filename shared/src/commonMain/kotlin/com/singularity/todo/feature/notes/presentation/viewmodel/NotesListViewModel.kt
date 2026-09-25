@@ -3,7 +3,7 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.ids.IdGenerator
-import com.singularity.todo.core.ui.mvi.MviViewModel
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteFilter
 import com.singularity.todo.feature.notes.NoteId
@@ -40,9 +40,9 @@ class NotesListViewModel(
     private val idGen: IdGenerator,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<NotesUiState, NotesIntent, NotesUiEvent>(
-        initialState = NotesUiState.Loading,
-        scope = scope,
-    ) {
+    initialState = NotesUiState.Loading,
+    scope = scope,
+) {
 
     init {
         addCloseable(scope)
@@ -67,7 +67,8 @@ class NotesListViewModel(
                     NoteFilter.Archived -> repo.watchArchived()
                 }
                 flow.map { notes -> f to notes }
-            }.catch { emit(NoteFilter.All to emptyList()) }
+            }
+                .catch { emit(NoteFilter.All to emptyList()) }
                 .collect { (filter, allNotes) ->
                     if (allNotes.isEmpty() && filter == NoteFilter.All) {
                         __state.value = NotesUiState.Empty
@@ -90,12 +91,13 @@ class NotesListViewModel(
         }
     }
 
-    private fun sortNotes(notes: List<Note>, order: NoteSortOrder): List<Note> = when (order) {
-        NoteSortOrder.UpdatedDesc -> notes.sortedByDescending { it.updatedAt }
-        NoteSortOrder.UpdatedAsc -> notes.sortedBy { it.updatedAt }
-        NoteSortOrder.TitleAsc -> notes.sortedBy { it.title.lowercase() }
-        NoteSortOrder.TitleDesc -> notes.sortedByDescending { it.title.lowercase() }
-    }
+    private fun sortNotes(notes: List<Note>, order: NoteSortOrder): List<Note> =
+        when (order) {
+            NoteSortOrder.UpdatedDesc -> notes.sortedByDescending { it.updatedAt }
+            NoteSortOrder.UpdatedAsc -> notes.sortedBy { it.updatedAt }
+            NoteSortOrder.TitleAsc -> notes.sortedBy { it.title.lowercase() }
+            NoteSortOrder.TitleDesc -> notes.sortedByDescending { it.title.lowercase() }
+        }
 
     override fun onIntent(intent: NotesIntent) {
         when (intent) {
@@ -135,7 +137,8 @@ class NotesListViewModel(
     // ─── Pin ───────────────────────────────────────────────────────────────
 
     private fun togglePin(id: NoteId) {
-        val current = __state.value as? NotesUiState.Content ?: return
+        val current = __state.value as? NotesUiState.Content
+            ?: return
         val note = (current.list.pinned + current.list.unpinned).firstOrNull { it.id == id }
             ?: return
         scope.fireAndForget(

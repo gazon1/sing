@@ -1,4 +1,4 @@
-package com.singularity.todo.core.ui.mvi
+package com.singularity.todo.core.ui
 
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
@@ -52,7 +52,7 @@ abstract class StatefulViewModel<S>(
      * For simple non-suspend updates (e.g. `update { newState }`), assign directly:
      * `__state.value = newState`.
      */
-    protected suspend fun update(transform: (S) -> S) {
+    protected fun update(transform: (S) -> S) {
         __state.update(transform)
     }
 }

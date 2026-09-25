@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.ui.mvi.MviViewModel
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -33,9 +33,9 @@ class ProjectEditorViewModel(
     private val projectsRepo: ProjectsRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectEditorUiState, ProjectEditorIntent, ProjectEditorUiEvent>(
-        initialState = ProjectEditorUiState(projectId = projectId),
-        scope = scope,
-    ) {
+    initialState = ProjectEditorUiState(projectId = projectId),
+    scope = scope,
+) {
 
     init {
         addCloseable(scope)
@@ -49,13 +49,15 @@ class ProjectEditorViewModel(
 
     private suspend fun loadProject(id: ProjectId) {
         __state.update { it.copy(loading = true) }
-        val project = projectsRepo.observe(id).firstOrNull()
+        val project = projectsRepo.observe(id)
+            .firstOrNull()
         if (project != null) {
             __state.update {
                 it.copy(
                     loading = false,
                     name = project.name,
-                    description = project.description ?: "",
+                    description = project.description
+                        ?: "",
                     color = project.color,
                     icon = project.icon,
                     parentId = project.parentId,
@@ -68,23 +70,17 @@ class ProjectEditorViewModel(
 
     override fun onIntent(intent: ProjectEditorIntent) {
         when (intent) {
-            is ProjectEditorIntent.NameChanged ->
-                __state.update { it.copy(name = intent.name, errorMessage = null) }
+            is ProjectEditorIntent.NameChanged -> __state.update { it.copy(name = intent.name, errorMessage = null) }
 
-            is ProjectEditorIntent.ColorChanged ->
-                __state.update { it.copy(color = intent.color) }
+            is ProjectEditorIntent.ColorChanged -> __state.update { it.copy(color = intent.color) }
 
-            is ProjectEditorIntent.IconChanged ->
-                __state.update { it.copy(icon = intent.icon) }
+            is ProjectEditorIntent.IconChanged -> __state.update { it.copy(icon = intent.icon) }
 
-            is ProjectEditorIntent.DescriptionChanged ->
-                __state.update { it.copy(description = intent.description) }
+            is ProjectEditorIntent.DescriptionChanged -> __state.update { it.copy(description = intent.description) }
 
-            is ProjectEditorIntent.ParentChanged ->
-                __state.update { it.copy(parentId = intent.parentId) }
+            is ProjectEditorIntent.ParentChanged -> __state.update { it.copy(parentId = intent.parentId) }
 
-            ProjectEditorIntent.ErrorShown ->
-                __state.update { it.copy(errorMessage = null) }
+            ProjectEditorIntent.ErrorShown -> __state.update { it.copy(errorMessage = null) }
 
             ProjectEditorIntent.Save -> scope.launch { save() }
         }
@@ -114,7 +110,8 @@ class ProjectEditorViewModel(
                     __state.update {
                         it.copy(
                             saving = false,
-                            errorMessage = err.message ?: "Failed to create project",
+                            errorMessage = err.message
+                                ?: "Failed to create project",
                         )
                     }
                 },
@@ -135,7 +132,8 @@ class ProjectEditorViewModel(
                     __state.update {
                         it.copy(
                             saving = false,
-                            errorMessage = err.message ?: "Failed to update project",
+                            errorMessage = err.message
+                                ?: "Failed to update project",
                         )
                     }
                 },
@@ -143,9 +141,10 @@ class ProjectEditorViewModel(
         }
     }
 
-    private fun validateName(name: String): String? = when {
-        name.isBlank() -> "Name cannot be blank"
-        name.length > 50 -> "Name too long (max 50 characters)"
-        else -> null
-    }
+    private fun validateName(name: String): String? =
+        when {
+            name.isBlank() -> "Name cannot be blank"
+            name.length > 50 -> "Name too long (max 50 characters)"
+            else -> null
+        }
 }

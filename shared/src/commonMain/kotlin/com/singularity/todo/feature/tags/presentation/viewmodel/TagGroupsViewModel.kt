@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.tags.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.mvi.MviIntent
-import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.tags.domain.model.CreateTagGroupInput
 import com.singularity.todo.feature.tags.domain.model.TagGroup
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
@@ -35,7 +35,9 @@ class TagGroupsViewModel(
     scope = scope,
 ) {
 
-    init { addCloseable(scope) }
+    init {
+        addCloseable(scope)
+    }
 
     init {
         scope.launch {
@@ -47,7 +49,14 @@ class TagGroupsViewModel(
                         TagGroupsUiState.Content(groups)
                     }
                 }
-                .catch { emit(TagGroupsUiState.Error(it.message ?: "Error")) }
+                .catch {
+                    emit(
+                        TagGroupsUiState.Error(
+                            it.message
+                                ?: "Error"
+                        )
+                    )
+                }
                 .collect { __state.value = it }
         }
     }
@@ -57,6 +66,7 @@ class TagGroupsViewModel(
             is TagGroupsIntent.Create -> scope.launch {
                 createTagGroup(CreateTagGroupInput(name = intent.name, color = intent.color))
             }
+
             is TagGroupsIntent.Delete -> scope.launch {
                 deleteTagGroup(intent.id)
             }

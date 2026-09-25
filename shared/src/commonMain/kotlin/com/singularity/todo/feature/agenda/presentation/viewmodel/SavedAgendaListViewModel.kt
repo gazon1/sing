@@ -1,11 +1,10 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
-import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.mvi.MviEvent
 import com.singularity.todo.core.ui.mvi.MviIntent
-import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
@@ -13,8 +12,6 @@ import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepositor
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.ProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -64,7 +61,9 @@ class SavedAgendaListViewModel(
     scope = scope,
 ) {
 
-    init { addCloseable(scope) }
+    init {
+        addCloseable(scope)
+    }
 
     init {
         scope.launch {
@@ -79,13 +78,21 @@ class SavedAgendaListViewModel(
             is SavedAgendaListIntent.Delete -> with(intent) {
                 scope.launch {
                     deps.repo.delete(viewId)
-                        .onFailure { emit(SavedAgendaListEvent.ShowError(it.message ?: "Delete failed")) }
+                        .onFailure {
+                            emit(
+                                SavedAgendaListEvent.ShowError(
+                                    it.message
+                                        ?: "Delete failed"
+                                )
+                            )
+                        }
                 }
             }
 
             is SavedAgendaListIntent.CopyToProfile -> with(intent) {
                 scope.launch {
-                    val sourceView = deps.repo.observe(viewId).first()
+                    val sourceView = deps.repo.observe(viewId)
+                        .first()
                     if (sourceView == null) {
                         emit(SavedAgendaListEvent.ShowError("View not found"))
                         return@launch
@@ -111,7 +118,12 @@ class SavedAgendaListViewModel(
                             )
                         }
                         .onFailure {
-                            emit(SavedAgendaListEvent.ShowError(it.message ?: "Copy failed"))
+                            emit(
+                                SavedAgendaListEvent.ShowError(
+                                    it.message
+                                        ?: "Copy failed"
+                                )
+                            )
                         }
                 }
             }

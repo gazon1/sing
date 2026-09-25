@@ -1,5 +1,6 @@
-package com.singularity.todo.core.ui.mvi
+package com.singularity.todo.core.ui
 
+import com.singularity.todo.core.ui.mvi.MviEvent
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,14 +18,17 @@ import kotlinx.coroutines.flow.receiveAsFlow
  * For multi-subscriber broadcast scenarios, use [SharedEventBus] instead.
  *
  * @param capacity Buffer capacity. Defaults to [Channel.BUFFERED].
- * @see MviEvent
+ * @see com.singularity.todo.core.ui.mvi.MviEvent
  */
 class EventBus<E : MviEvent>(capacity: Int = Channel.BUFFERED) {
     private val _channel = Channel<E>(capacity)
     val flow: Flow<E> = _channel.receiveAsFlow()
 
-    suspend fun emit(event: E) = _channel.send(event)
-    fun tryEmit(event: E): Boolean = _channel.trySend(event).isSuccess
+    suspend fun emit(event: E) =
+        _channel.send(event)
+
+    fun tryEmit(event: E): Boolean =
+        _channel.trySend(event).isSuccess
 }
 
 /**
@@ -41,6 +45,9 @@ class SharedEventBus<E : MviEvent>(extraBufferCapacity: Int = 4) {
     private val _flow = MutableSharedFlow<E>(extraBufferCapacity = extraBufferCapacity)
     val flow: Flow<E> = _flow.asSharedFlow()
 
-    suspend fun emit(event: E) = _flow.emit(event)
-    fun tryEmit(event: E): Boolean = _flow.tryEmit(event)
+    suspend fun emit(event: E) =
+        _flow.emit(event)
+
+    fun tryEmit(event: E): Boolean =
+        _flow.tryEmit(event)
 }

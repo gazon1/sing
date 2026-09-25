@@ -27,8 +27,8 @@ interface MviIntent
  * }
  * ```
  *
- * Use [EventBus] for Channel-backed emission or [SharedEventBus] for SharedFlow-backed.
- * @see EventBus
- * @see SharedEventBus
+ * Use [com.singularity.todo.core.ui.EventBus] for Channel-backed emission or [com.singularity.todo.core.ui.SharedEventBus] for SharedFlow-backed.
+ * @see com.singularity.todo.core.ui.EventBus
+ * @see com.singularity.todo.core.ui.SharedEventBus
  */
 interface MviEvent

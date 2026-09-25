@@ -28,10 +28,15 @@ object TestTags {
     const val DESKTOP_SIDEBAR = "desktop_sidebar"
 
     /** Dynamic: nav_tab_<lowercase title> */
-    fun navTab(title: String) = "nav_tab_${title.lowercase()}"
+    fun navTab(title: String) =
+        "nav_tab_${title.lowercase()}"
 
     /** Dynamic: menu_<lowercase title with underscores> */
-    fun menuItem(title: String) = "menu_${title.lowercase().replace(" ", "_")}"
+    fun menuItem(title: String) =
+        "menu_${
+            title.lowercase()
+                .replace(" ", "_")
+        }"
 
     // ─── Tasks ───────────────────────────────────────────────────────────────
     const val TASKS_LIST = "tasks_list"
@@ -40,10 +45,12 @@ object TestTags {
     const val TASKS_SEARCH_BAR = "tasks_search_bar"
 
     /** Dynamic: task_item_<title> */
-    fun taskItem(title: String) = "task_item_$title"
+    fun taskItem(title: String) =
+        "task_item_$title"
 
     /** Dynamic: task_checkbox_<title> */
-    fun taskCheckbox(title: String) = "task_checkbox_$title"
+    fun taskCheckbox(title: String) =
+        "task_checkbox_$title"
 
     // ─── Task Editor ─────────────────────────────────────────────────────────
     const val TASK_EDITOR_TITLE_INPUT = "task_editor_title_input"
@@ -76,7 +83,8 @@ object TestTags {
     const val BACKUP_TOP_BAR_BACK = "backup_top_bar_back"
 
     /** Dynamic: note_item_<title> */
-    fun noteItem(title: String) = "note_item_$title"
+    fun noteItem(title: String) =
+        "note_item_$title"
 
     // ─── Note Editor ────────────────────────────────────────────────────────
     const val NOTE_EDITOR_TITLE_INPUT = "note_editor_title_input"
@@ -91,10 +99,15 @@ object TestTags {
     // ─── Projects ───────────────────────────────────────────────────────────
 
     /** Dynamic: project_card_<name> */
-    fun projectCard(name: String) = "project_card_${name.lowercase().replace(" ", "_")}"
+    fun projectCard(name: String) =
+        "project_card_${
+            name.lowercase()
+                .replace(" ", "_")
+        }"
 
     // ─── AI ─────────────────────────────────────────────────────────────────
 
     /** Dynamic: genui_<name> */
-    fun genUi(name: String) = "genui_$name"
+    fun genUi(name: String) =
+        "genui_$name"
 }

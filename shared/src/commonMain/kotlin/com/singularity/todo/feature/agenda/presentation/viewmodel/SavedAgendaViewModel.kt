@@ -5,10 +5,10 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.serialization.StableJson
-import com.singularity.todo.core.ui.mvi.DraftState
+import com.singularity.todo.core.ui.DraftState
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.mvi.MviEvent
 import com.singularity.todo.core.ui.mvi.MviIntent
-import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
@@ -33,25 +33,32 @@ class SavedAgendaDraftState : DraftState<Draft>(Draft.empty()) {
         reset(draft)
     }
 
-    fun setName(name: String) = update { it.copy(name = name) }
+    fun setName(name: String) =
+        update { it.copy(name = name) }
 
-    fun reorderSections(sections: List<Section>) = update { it.copy(sections = sections) }
+    fun reorderSections(sections: List<Section>) =
+        update { it.copy(sections = sections) }
 
-    fun addSection(template: Section, position: Int) = update { draft ->
-        val sections = draft.sections.toMutableList().apply {
-            add(position.coerceIn(0, size), template)
+    fun addSection(template: Section, position: Int) =
+        update { draft ->
+            val sections = draft.sections.toMutableList()
+                .apply {
+                    add(position.coerceIn(0, size), template)
+                }
+            draft.copy(sections = sections)
         }
-        draft.copy(sections = sections)
-    }
 
-    fun removeSection(index: Int) = update { draft ->
-        if (index < 0 || index >= draft.sections.size) return@update draft
-        val sections = draft.sections.toMutableList().apply { removeAt(index) }
-        draft.copy(sections = sections)
-    }
+    fun removeSection(index: Int) =
+        update { draft ->
+            if (index < 0 || index >= draft.sections.size) return@update draft
+            val sections = draft.sections.toMutableList()
+                .apply { removeAt(index) }
+            draft.copy(sections = sections)
+        }
 
     /** Marks the current draft as saved — resets originalName/originalSections so isDirty becomes false. */
-    fun markSaved() = update { it.copy(originalName = it.name, originalSections = it.sections) }
+    fun markSaved() =
+        update { it.copy(originalName = it.name, originalSections = it.sections) }
 }
 
 data class Draft(
@@ -62,8 +69,10 @@ data class Draft(
     val initialized: Boolean = false,
 ) {
     val isDirty: Boolean get() = name != originalName || sections != originalSections
+
     companion object {
-        fun empty() = Draft("", emptyList(), "", emptyList(), false)
+        fun empty() =
+            Draft("", emptyList(), "", emptyList(), false)
     }
 }
 
@@ -76,9 +85,9 @@ sealed interface SavedAgendaViewState {
         val isSaving: Boolean = false,
         val decodeError: Boolean = false,
     ) : SavedAgendaViewState {
-        val canSave: Boolean get() = draft.initialized && !isSaving && draft.name.isNotBlank() && draft.isDirty &&
-            !decodeError
+        val canSave: Boolean get() = draft.initialized && !isSaving && draft.name.isNotBlank() && draft.isDirty && !decodeError
     }
+
     data object NotFound : SavedAgendaViewState
 }
 
@@ -117,7 +126,9 @@ class SavedAgendaViewModel(
     scope = scope,
 ) {
 
-    init { addCloseable(scope) }
+    init {
+        addCloseable(scope)
+    }
 
     val draftState = SavedAgendaDraftState()
 
@@ -131,13 +142,22 @@ class SavedAgendaViewModel(
     }
 
     private suspend fun initEditMode(mode: SavedAgendaScreenMode.Edit) {
-        val view = deps.repo.observe(mode.viewId).first()
+        val view = deps.repo.observe(mode.viewId)
+            .first()
         if (view == null) {
             __state.value = SavedAgendaViewState.NotFound
             return
         }
         val sections = decodeSections(view.sectionsJson)
-        val draft = Draft(view.name, sections ?: emptyList(), view.name, sections ?: emptyList(), true)
+        val draft = Draft(
+            view.name,
+            sections
+                ?: emptyList(),
+            view.name,
+            sections
+                ?: emptyList(),
+            true
+        )
         draftState.seed(draft)
         __state.value = SavedAgendaViewState.Editing(
             view,
@@ -148,7 +168,8 @@ class SavedAgendaViewModel(
     }
 
     private fun initCreateMode(mode: SavedAgendaScreenMode.Create) {
-        val seed = seedStore.consumeSeed() ?: mode.seed
+        val seed = seedStore.consumeSeed()
+            ?: mode.seed
         val draft = Draft(seed.title, seed.sections, seed.title, seed.sections, true)
         draftState.seed(draft)
         __state.value = SavedAgendaViewState.Editing(null, draftState.state, seed.sections.size)
@@ -206,42 +227,67 @@ class SavedAgendaViewModel(
             when (mode) {
                 is SavedAgendaScreenMode.Edit -> {
                     val updated = SavedAgendaViewFactory.update(current.view!!, nameToSave, sectionsJson, now)
-                    deps.repo.upsert(updated).fold(
-                        onSuccess = {
-                            draftState.markSaved()
-                            emit(SavedAgendaEvent.SaveSuccess)
-                        },
-                        onFailure = { emit(SavedAgendaEvent.ShowError(it.message ?: "Save failed")) },
-                    )
+                    deps.repo.upsert(updated)
+                        .fold(
+                            onSuccess = {
+                                draftState.markSaved()
+                                emit(SavedAgendaEvent.SaveSuccess)
+                            },
+                            onFailure = {
+                                emit(
+                                    SavedAgendaEvent.ShowError(
+                                        it.message
+                                            ?: "Save failed"
+                                    )
+                                )
+                            },
+                        )
                 }
 
                 is SavedAgendaScreenMode.Create -> {
                     // "" is the sentinel — repo stamps ambient userId on insert
                     val newView = SavedAgendaViewFactory.create("", nameToSave, sectionsJson, now)
-                    deps.repo.upsert(newView).fold(
-                        onSuccess = { emit(SavedAgendaEvent.SaveSuccess) },
-                        onFailure = { emit(SavedAgendaEvent.ShowError(it.message ?: "Save failed")) },
-                    )
+                    deps.repo.upsert(newView)
+                        .fold(
+                            onSuccess = { emit(SavedAgendaEvent.SaveSuccess) },
+                            onFailure = {
+                                emit(
+                                    SavedAgendaEvent.ShowError(
+                                        it.message
+                                            ?: "Save failed"
+                                    )
+                                )
+                            },
+                        )
                 }
             }
         }
     }
 
     private fun onDelete() {
-        val viewId = (mode as? SavedAgendaScreenMode.Edit)?.viewId ?: return
+        val viewId = (mode as? SavedAgendaScreenMode.Edit)?.viewId
+            ?: return
         scope.launch {
-            deps.repo.delete(viewId).fold(
-                onSuccess = { emit(SavedAgendaEvent.DeleteSuccess) },
-                onFailure = { emit(SavedAgendaEvent.ShowError(it.message ?: "Delete failed")) },
-            )
+            deps.repo.delete(viewId)
+                .fold(
+                    onSuccess = { emit(SavedAgendaEvent.DeleteSuccess) },
+                    onFailure = {
+                        emit(
+                            SavedAgendaEvent.ShowError(
+                                it.message
+                                    ?: "Delete failed"
+                            )
+                        )
+                    },
+                )
         }
     }
 
-    private fun decodeSections(json: String?): List<Section>? = if (json == null) {
-        null
-    } else {
-        runCatching { StableJson.decodeFromString<AgendaDefinition>(json).sections }
-            .onFailure { e -> deps.log.w("agenda decode failed: ${e.message}") }
-            .getOrNull()
-    }
+    private fun decodeSections(json: String?): List<Section>? =
+        if (json == null) {
+            null
+        } else {
+            runCatching { StableJson.decodeFromString<AgendaDefinition>(json).sections }.onFailure { e -> deps.log.w("agenda decode failed: ${e.message}") }
+                .getOrNull()
+        }
 }
