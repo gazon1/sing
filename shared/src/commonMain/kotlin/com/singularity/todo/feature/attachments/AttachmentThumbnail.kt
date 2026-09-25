@@ -22,8 +22,10 @@ fun AttachmentThumbnail(
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
 ) {
+    // Pass localPath as a String rather than java.io.File, since this is commonMain
+    // and java.io.File is JVM-only. Coil3's AsyncImage handles String URLs natively.
     val imageModel: Any? = when {
-        localPath != null -> java.io.File(localPath)
+        localPath != null -> localPath
         remoteUrl != null -> remoteUrl
         else -> null
     }
