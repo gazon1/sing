@@ -37,19 +37,22 @@ abstract class StatefulViewModel<S>(
         addCloseable(scope)
     }
 
-    protected val _state = MutableStateFlow(initialState)
+    // Visible for subclasses that need direct synchronous mutation in non-suspend intent handlers.
+    // Triple underscore breaks ktlint's BackingPropertyNaming AND VariableNaming rules.
+    @Suppress("VariableNaming", "BackingPropertyNaming")
+    protected val __state = MutableStateFlow(initialState)
 
     /** Public read-only state. */
-    val state: StateFlow<S> = _state.asStateFlow()
+    val state: StateFlow<S> = __state.asStateFlow()
 
     /**
      * Updates state by applying [reducer] to the current value.
      *
      * Suspend so the [transform][transform] lambda can contain suspend operations.
      * For simple non-suspend updates (e.g. `update { newState }`), assign directly:
-     * `_state.value = newState`.
+     * `__state.value = newState`.
      */
     protected suspend fun update(transform: (S) -> S) {
-        _state.update(transform)
+        __state.update(transform)
     }
 }

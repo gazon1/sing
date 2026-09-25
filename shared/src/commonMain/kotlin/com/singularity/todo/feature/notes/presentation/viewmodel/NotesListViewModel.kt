@@ -72,12 +72,12 @@ class NotesListViewModel(
             }.catch { emit(NoteFilter.All to emptyList()) }
                 .collect { (filter, allNotes) ->
                     if (allNotes.isEmpty() && filter == NoteFilter.All) {
-                        _state.value = NotesUiState.Empty
+                        __state.value = NotesUiState.Empty
                     } else {
                         val sorted = sortNotes(allNotes, _sortOrder.value)
                         val pinned = sorted.filter { it.isPinned }
                         val unpinned = sorted.filter { !it.isPinned }
-                        _state.value = NotesUiState.Content(
+                        __state.value = NotesUiState.Content(
                             NotesListState(
                                 pinned = pinned,
                                 unpinned = unpinned,
@@ -123,12 +123,12 @@ class NotesListViewModel(
     private fun setSortOrder(order: NoteSortOrder) {
         _sortOrder.value = order
         // Re-sort current content if already loaded.
-        val current = _state.value
+        val current = __state.value
         if (current is NotesUiState.Content) {
             val sorted = sortNotes(current.list.pinned + current.list.unpinned, order)
             val pinned = sorted.filter { it.isPinned }
             val unpinned = sorted.filter { !it.isPinned }
-            _state.value = current.copy(
+            __state.value = current.copy(
                 list = current.list.copy(pinned = pinned, unpinned = unpinned, sortOrder = order),
             )
         }
@@ -137,7 +137,7 @@ class NotesListViewModel(
     // ─── Pin ───────────────────────────────────────────────────────────────
 
     private fun togglePin(id: NoteId) {
-        val current = _state.value as? NotesUiState.Content ?: return
+        val current = __state.value as? NotesUiState.Content ?: return
         val note = (current.list.pinned + current.list.unpinned).firstOrNull { it.id == id }
             ?: return
         scope.fireAndForget(

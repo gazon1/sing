@@ -49,10 +49,10 @@ class ProjectEditorViewModel(
     }
 
     private suspend fun loadProject(id: ProjectId) {
-        _state.update { it.copy(loading = true) }
+        __state.update { it.copy(loading = true) }
         val project = projectsRepo.observe(id).firstOrNull()
         if (project != null) {
-            _state.update {
+            __state.update {
                 it.copy(
                     loading = false,
                     name = project.name,
@@ -63,29 +63,29 @@ class ProjectEditorViewModel(
                 )
             }
         } else {
-            _state.update { it.copy(loading = false, errorMessage = "Project not found") }
+            __state.update { it.copy(loading = false, errorMessage = "Project not found") }
         }
     }
 
     override fun onIntent(intent: ProjectEditorIntent) {
         when (intent) {
             is ProjectEditorIntent.NameChanged ->
-                _state.update { it.copy(name = intent.name, errorMessage = null) }
+                __state.update { it.copy(name = intent.name, errorMessage = null) }
 
             is ProjectEditorIntent.ColorChanged ->
-                _state.update { it.copy(color = intent.color) }
+                __state.update { it.copy(color = intent.color) }
 
             is ProjectEditorIntent.IconChanged ->
-                _state.update { it.copy(icon = intent.icon) }
+                __state.update { it.copy(icon = intent.icon) }
 
             is ProjectEditorIntent.DescriptionChanged ->
-                _state.update { it.copy(description = intent.description) }
+                __state.update { it.copy(description = intent.description) }
 
             is ProjectEditorIntent.ParentChanged ->
-                _state.update { it.copy(parentId = intent.parentId) }
+                __state.update { it.copy(parentId = intent.parentId) }
 
             ProjectEditorIntent.ErrorShown ->
-                _state.update { it.copy(errorMessage = null) }
+                __state.update { it.copy(errorMessage = null) }
 
             ProjectEditorIntent.Save -> scope.launch { save() }
         }
@@ -95,11 +95,11 @@ class ProjectEditorViewModel(
         val current = state.value
         val validationError = validateName(current.name)
         if (validationError != null) {
-            _state.update { it.copy(errorMessage = validationError) }
+            __state.update { it.copy(errorMessage = validationError) }
             return
         }
 
-        _state.update { it.copy(saving = true, errorMessage = null) }
+        __state.update { it.copy(saving = true, errorMessage = null) }
         if (current.projectId == null) {
             // Create mode
             val input = CreateProjectInput(
@@ -112,7 +112,7 @@ class ProjectEditorViewModel(
             createProject(input).fold(
                 onSuccess = { emit(ProjectEditorUiEvent.NavigateBack) },
                 onFailure = { err ->
-                    _state.update {
+                    __state.update {
                         it.copy(
                             saving = false,
                             errorMessage = err.message ?: "Failed to create project",
@@ -133,7 +133,7 @@ class ProjectEditorViewModel(
             }.fold(
                 onSuccess = { emit(ProjectEditorUiEvent.NavigateBack) },
                 onFailure = { err ->
-                    _state.update {
+                    __state.update {
                         it.copy(
                             saving = false,
                             errorMessage = err.message ?: "Failed to update project",

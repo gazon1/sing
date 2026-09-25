@@ -131,7 +131,7 @@ class TaskCreateViewModel(
                     isDirty = draft != initial,
                     isSaving = saving,
                 )
-            }.collect { newState -> _state.value = newState }
+            }.collect { newState -> __state.value = newState }
         }
     }
 
