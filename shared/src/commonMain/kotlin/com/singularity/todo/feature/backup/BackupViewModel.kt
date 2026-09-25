@@ -170,9 +170,9 @@ class BackupViewModel(
                     _state.update { it.copy(isWorking = false) }
                     _events.emit(
                         Error(
-                        "Settings snapshot is from an older app version (v${result.snapshotVersion}). " +
-                            "Please update the app first.",
-                    )
+                            "Settings snapshot is from an older app version (v${result.snapshotVersion}). " +
+                                "Please update the app first.",
+                        ),
                     )
                 }
 

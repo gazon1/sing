@@ -4,11 +4,11 @@ import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.feature.reminders.ReminderId
+import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.reminders.ReminderId
-import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
@@ -62,11 +62,15 @@ class TaskDetailViewModelTest {
     private val fakeReminderScheduler = object : ReminderScheduler {
         override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) {}
         override suspend fun cancel(id: ReminderId, userId: UserId) {}
-        override suspend fun cancelByTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId, userId: UserId) {}
+        override suspend fun cancelByTask(
+            taskId: com.singularity.todo.feature.tasks.domain.model.TaskId,
+            userId: UserId,
+        ) {}
     }
     private val fakeProjectRepo = FakeProjectsRepository()
     private val fakeTagsRepo = FakeTagsRepository()
     private val fakeAttachmentsRepo = FakeAttachmentRepository()
+
     /** Stub for [CompleteRecurringTaskUseCase] — existing tests don't cover recurring completion. */
     private val stubCompleteRecurring = object : CompleteRecurringTaskUseCase(
         repo = fakeTaskRepo,
@@ -82,9 +86,14 @@ class TaskDetailViewModelTest {
         val deps = TaskDetailDeps(
             taskRepo = fakeTaskRepo,
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
-            createTask = CreateTaskUseCase(fakeTaskRepo, Clock, FakeProfileAwareCurrentUser(FakeAuthRepository(
+            createTask = CreateTaskUseCase(
+                fakeTaskRepo, Clock,
+                FakeProfileAwareCurrentUser(
+                    FakeAuthRepository(
                 initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
-            ))),
+            )
+                )
+            ),
             projectsRepo = fakeProjectRepo,
             tagsRepo = fakeTagsRepo,
             checklistRepository = fakeChecklistRepo,

@@ -70,7 +70,7 @@ data class OAuthTokenData(
 
     companion object {
         private val json = Json {
-            ignoreUnknownKeys = true;
+            ignoreUnknownKeys = true
             encodeDefaults = true
         }
 

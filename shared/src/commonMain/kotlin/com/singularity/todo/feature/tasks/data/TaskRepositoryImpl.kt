@@ -37,10 +37,7 @@ import kotlinx.datetime.LocalDate
 /**
  * Bundled extras for batch-loading [Task.tags] and [Task.dependsOn].
  */
-private data class TaskExtras(
-    val tagsByTask: Map<String, List<String>>,
-    val depsByTask: Map<String, Set<String>>,
-)
+private data class TaskExtras(val tagsByTask: Map<String, List<String>>, val depsByTask: Map<String, Set<String>>)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskRepositoryImpl(
@@ -87,91 +84,100 @@ class TaskRepositoryImpl(
 
     // ── GenericUserScopedRepository ───────────────────────────────────────────
 
-    override suspend fun currentUserId(): com.singularity.todo.core.ids.UserId =
-        currentUser.scopedUserId.value
+    override suspend fun currentUserId(): com.singularity.todo.core.ids.UserId = currentUser.scopedUserId.value
 
-    override fun observeAll(): Flow<List<Task>> =
-        currentUser.observeForCurrentUser { uid ->
-            userTasksWithExtras(uid, taskDao.watchActive(uid.value))
-        }
+    override fun observeAll(): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
+        userTasksWithExtras(uid, taskDao.watchActive(uid.value))
+    }
 
-    override fun observe(id: TaskId): Flow<Task?> =
-        currentUser.observeForCurrentUser { uid ->
-            combine(
-                taskDao.watchById(id.value),
-                taskDao.getDependencyIdsForTask(id.value),
-                taskDao.getTagIdsForTask(id.value),
-            ) { entity, depIds, tagIds ->
-                if (entity?.userId == uid.value) {
-                    entity.toTask(
-                        dependsOn = depIds.map { TaskId.fromString(it) }.toSet(),
-                        tags = tagIds.map { TagId.fromString(it) },
-                    )
-                } else {
-                    null
-                }
+    override fun observe(id: TaskId): Flow<Task?> = currentUser.observeForCurrentUser { uid ->
+        combine(
+            taskDao.watchById(id.value),
+            taskDao.getDependencyIdsForTask(id.value),
+            taskDao.getTagIdsForTask(id.value),
+        ) { entity, depIds, tagIds ->
+            if (entity?.userId == uid.value) {
+                entity.toTask(
+                    dependsOn = depIds.map { TaskId.fromString(it) }.toSet(),
+                    tags = tagIds.map { TagId.fromString(it) },
+                )
+            } else {
+                null
             }
         }
+    }
 
-    override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> =
-        currentUser.observeForCurrentUser { uid ->
-            val today = LocalDate.fromEpochDays(
-                clock.now().toEpochMilliseconds() / (24 * 60 * 60 * 1000),
-            ).toString()
+    override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
+        val today = LocalDate.fromEpochDays(
+            clock.now().toEpochMilliseconds() / (24 * 60 * 60 * 1000),
+        ).toString()
 
-            val entityFlow: Flow<List<TaskEntity>> = when (filter) {
-                is TaskFilter.Today -> taskDao.watchByDate(uid.value, today)
-                is TaskFilter.Upcoming -> taskDao.watchUpcoming(uid.value, today, today)
-                is TaskFilter.Someday -> taskDao.watchSomeday(uid.value)
-                is TaskFilter.Inbox -> taskDao.watchActive(uid.value)
-                is TaskFilter.Trash -> taskDao.watchTrash(uid.value)
-                is TaskFilter.All -> taskDao.watchActive(uid.value)
-                is TaskFilter.ByProject -> taskDao.watchByProject(uid.value, filter.id.value)
-                is TaskFilter.Pinned -> taskDao.watchPinned(uid.value)
-                is TaskFilter.ByTag -> taskDao.watchByTag(uid.value, filter.id.value)
-                is TaskFilter.Search -> taskDao.watchSearchResults(uid.value, filter.query)
-                is TaskFilter.ByDateRange -> taskDao.watchByDateRange(
-                    uid.value,
-                    filter.from.toString(),
-                    filter.to.toString(),
-                )
-                is TaskFilter.ByStatuses -> flowOf(emptyList())
-                is TaskFilter.ByTags -> {
-                    val tagIds = filter.ids.map { it.value }
-                    if (filter.matchAll) {
-                        taskDao.watchByAllTags(uid.value, tagIds, tagIds.size)
-                    } else {
-                        taskDao.watchByAnyTag(uid.value, tagIds)
-                    }
-                }
-                is TaskFilter.ByPriorities -> taskDao.watchByPriorities(
-                    uid.value,
-                    filter.priorities.map { it.name },
-                )
-                is TaskFilter.ByRegexp -> taskDao.watchByRegexp(uid.value, filter.pattern)
-                is TaskFilter.ByDateBucket -> {
-                    val range = filter.bucket.toDateRange(filter.today)
-                    taskDao.watchByDateRange(uid.value, range.from.toString(), range.to.toString())
-                }
-            }
+        val entityFlow: Flow<List<TaskEntity>> = when (filter) {
+            is TaskFilter.Today -> taskDao.watchByDate(uid.value, today)
 
-            userTasksWithExtras(uid, entityFlow)
-        }
+            is TaskFilter.Upcoming -> taskDao.watchUpcoming(uid.value, today, today)
 
-    override fun observeByDate(date: LocalDate): Flow<List<Task>> =
-        currentUser.observeForCurrentUser { uid ->
-            userTasksWithExtras(uid, taskDao.watchByDate(uid.value, date.toString()))
-        }
+            is TaskFilter.Someday -> taskDao.watchSomeday(uid.value)
 
-    override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> =
-        currentUser.observeForCurrentUser { uid ->
-            userTasksWithExtras(
-                uid,
-                taskDao.watchActive(uid.value).map { rows ->
-                    rows.filter { it.parentTaskId == parentId.value }
-                },
+            is TaskFilter.Inbox -> taskDao.watchActive(uid.value)
+
+            is TaskFilter.Trash -> taskDao.watchTrash(uid.value)
+
+            is TaskFilter.All -> taskDao.watchActive(uid.value)
+
+            is TaskFilter.ByProject -> taskDao.watchByProject(uid.value, filter.id.value)
+
+            is TaskFilter.Pinned -> taskDao.watchPinned(uid.value)
+
+            is TaskFilter.ByTag -> taskDao.watchByTag(uid.value, filter.id.value)
+
+            is TaskFilter.Search -> taskDao.watchSearchResults(uid.value, filter.query)
+
+            is TaskFilter.ByDateRange -> taskDao.watchByDateRange(
+                uid.value,
+                filter.from.toString(),
+                filter.to.toString(),
             )
+
+            is TaskFilter.ByStatuses -> flowOf(emptyList())
+
+            is TaskFilter.ByTags -> {
+                val tagIds = filter.ids.map { it.value }
+                if (filter.matchAll) {
+                    taskDao.watchByAllTags(uid.value, tagIds, tagIds.size)
+                } else {
+                    taskDao.watchByAnyTag(uid.value, tagIds)
+                }
+            }
+
+            is TaskFilter.ByPriorities -> taskDao.watchByPriorities(
+                uid.value,
+                filter.priorities.map { it.name },
+            )
+
+            is TaskFilter.ByRegexp -> taskDao.watchByRegexp(uid.value, filter.pattern)
+
+            is TaskFilter.ByDateBucket -> {
+                val range = filter.bucket.toDateRange(filter.today)
+                taskDao.watchByDateRange(uid.value, range.from.toString(), range.to.toString())
+            }
         }
+
+        userTasksWithExtras(uid, entityFlow)
+    }
+
+    override fun observeByDate(date: LocalDate): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
+        userTasksWithExtras(uid, taskDao.watchByDate(uid.value, date.toString()))
+    }
+
+    override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
+        userTasksWithExtras(
+            uid,
+            taskDao.watchActive(uid.value).map { rows ->
+                rows.filter { it.parentTaskId == parentId.value }
+            },
+        )
+    }
 
     override fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>> =
         taskDao.getDependencyIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }

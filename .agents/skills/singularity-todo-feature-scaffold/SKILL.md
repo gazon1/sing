@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-feature-scaffold
-description: Feature scaffold pattern for the Singularity Todo KMP app. Use when adding a new CRUD feature (tasks, notes, projects, tags, reminders, etc.) or when extending an existing feature with a sub-repository (e.g. NoteTagRepository). Documents the 7-file template (Ids.kt, *Domain.kt, *Repository.kt, *UseCase.kt, *ViewModel.kt, *Screen.kt), DI registration in Modules.kt, navigation in AppDestination, and co-located Fake + ViewModel test. Follows the canonical flow: pure domain validation → repository (Result<T>) → use case (only real logic) → ViewModel (StateFlow + sealed Intent) → Screen. Also covers the Subinterface pattern for feature extensions.
+description: Feature scaffold pattern for the Singularity Todo KMP app. Use when adding a new CRUD feature (tasks, notes, projects, tags, reminders, etc.) or when extending an existing feature with a sub-repository (e.g. NoteTagRepository). Documents the 7-file template (Ids.kt, *Domain.kt, *Repository.kt, *UseCase.kt, *ViewModel.kt, *Screen.kt), DI registration in Modules.kt, navigation in AppDestination, and co-located Fake + ViewModel test. Follows the canonical flow: pure domain validation → repository (Result<T>) → use case (only real logic) → ViewModel (MviViewModel base + sealed Intent + sealed Event) → Screen. Also covers the Subinterface pattern for feature extensions.
 ---
 
 # Feature Scaffold — Adding a New CRUD Feature
@@ -225,11 +225,16 @@ class Create<Feature>UseCase(private val repo: <Feature>Repository, private val 
 - `Delete<Feature>UseCase` → VM calls `repo.delete(id).getOrThrow()`
 - `Update<Feature>UseCase` → VM calls `repo.update(entity).getOrThrow()`
 
-## 4. ViewModel — State + Intent
+## 4. ViewModel — MviViewModel base
 
-**This is the default, canonical shape — extend `MviViewModel`.** MviViewModel provides `state`, `events`, `emit()`, `updateState()`, and the `onIntent()` dispatcher out of the box. See `singularity-todo-mvi-framework` for the full API reference and `singularity-todo-testable-vm` for rationale.
+**All VMs extend [MviViewModel](core/ui/mvi/MviViewModel.kt)** (`core/ui/mvi/`). This unifies state management (`MutableStateFlow`), event emission (`EventBus`), and intent dispatch (`onIntent`) in one base class. See `singularity-todo-testable-vm` for the full pattern and rationale.
 
 ```kotlin
+import com.singularity.todo.core.ui.mvi.MviViewModel
+import com.singularity.todo.core.ui.mvi.MviIntent
+import com.singularity.todo.core.ui.mvi.MviEvent
+
+// State, Intent, Event are explicit sealed interfaces extending MVI markers
 sealed interface <Feature>UiState {
     data object Loading : <Feature>UiState
     data class Content(val items: List<<Feature>>) : <Feature>UiState
@@ -248,16 +253,15 @@ sealed interface <Feature>UiEvent : MviEvent {
 class <Feature>ViewModel(
     private val repo: <Feature>Repository,
     private val create<Feature>: Create<Feature>UseCase,
-    private val settings: SettingsRepository,  // for userId
+    private val settings: SettingsRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<<Feature>UiState, <Feature>Intent, <Feature>UiEvent>(
     initialState = <Feature>UiState.Loading,
     scope = scope,
 ) {
 
-    init { addCloseable(scope) }
-
     init {
+        addCloseable(scope)
         scope.launch {
             val userId = UserId.fromString(settings.userId.first())
             repo.watchAll(userId)
@@ -268,13 +272,17 @@ class <Feature>ViewModel(
 
     override fun onIntent(intent: <Feature>Intent) {
         when (intent) {
-            is <Feature>Intent.Delete -> scope.launch {
-                repo.delete(intent.id).getOrThrow()
-            }
-            is <Feature>Intent.Update -> scope.launch {
-                repo.update(intent.<feature>).getOrThrow()
-            }
+            is <Feature>Intent.Delete -> scope.launch { delete(intent.id) }
+            is <Feature>Intent.Update -> scope.launch { update(intent.<feature>) }
         }
+    }
+
+    private suspend fun delete(id: <Feature>Id) {
+        repo.delete(id).onFailure { emit(<Feature>UiEvent.ShowError(it.message ?: "Error")) }
+    }
+
+    private suspend fun update(<feature>: <Feature>) {
+        repo.update(<feature>).onFailure { emit(<Feature>UiEvent.ShowError(it.message ?: "Error")) }
     }
 }
 ```
@@ -309,7 +317,7 @@ class <Feature>ViewModel(
 }
 ```
 
-**Default to the `MutableStateFlow` + `init` shape above unless you've confirmed your VM fits the read-through exception.** When in doubt, use the default — it's strictly more testable and costs nothing extra for simple CRUD.
+**Default to `MviViewModel` above unless you've confirmed your VM fits the read-through exception.** When in doubt, use the default — it's strictly more testable and costs nothing extra for simple CRUD.
 
 ## 5. Screen — Compose UI
 
@@ -376,7 +384,7 @@ class FooViewModelTest {
     fun setName_isDirty() = runTest {
         val vm = createVm(param, this)
         advanceUntilIdle()
-        vm.onIntent(FooIntent.SetName("Edited"))
+        vm.processIntent(FooIntent.SetName("Edited"))
         assertTrue((vm.state.value as? FooUiState.Editing)?.draft?.isDirty == true)
     }
 }
@@ -572,7 +580,7 @@ class <Feature>ViewModelTest {
 
     @Test fun `deletes item`() = runTest {
         val vm = createVm()
-        vm.onIntent(<Feature>Intent.Delete(id))
+        vm.processIntent(<Feature>Intent.Delete(id))
     }
 }
 ```
@@ -802,9 +810,10 @@ suspend fun run(...): ProfileBootstrapResult { ... }
 
 ## Related Skills
 
+- `singularity-todo-mvi-framework` — `MviViewModel`, `EventBus`, `StateStrategy`, `IntentActions<I>` API reference + migration guide
+- `singularity-todo-testable-vm` — Canonical VM test pattern
 - `singularity-todo-domain-logic-pattern` — pure functions in `domain/logic/`: calculators, parsers, validators
 - `singularity-todo-repository-architecture` — DAO `*ForUser`, atomic bootstrap, no static `ProfileAwareCurrentUser`
-- `singularity-todo-testable-vm` — Canonical VM test pattern
 - `singularity-todo-clean-architecture-audit` — Layer-boundary grep checks
 - `singularity-todo-coroutine-scopes` — `createBackgroundScope()` placement
 - `singularity-todo-feature-scaffold` (this file)

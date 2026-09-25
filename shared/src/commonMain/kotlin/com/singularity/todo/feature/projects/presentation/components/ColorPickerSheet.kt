@@ -30,11 +30,7 @@ import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPale
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ColorPickerSheet(
-    currentColor: Int,
-    onPick: (Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun ColorPickerSheet(currentColor: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
     Column(modifier = Modifier.padding(24.dp)) {
         Text("Color", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(16.dp))

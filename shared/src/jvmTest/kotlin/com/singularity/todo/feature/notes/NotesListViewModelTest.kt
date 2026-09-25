@@ -2,6 +2,7 @@ package com.singularity.todo.feature.notes
 
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.SequenceIdGenerator
+import com.singularity.todo.feature.notes.presentation.NotesIntent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -43,7 +44,7 @@ class NotesListViewModelTest {
     fun `setFilter updates filter state`() = runTest {
         val vm = createVm()
         advanceUntilIdle()
-        vm.setFilter(NoteFilter.Pinned)
+        vm.onIntent(NotesIntent.SetFilter(NoteFilter.Pinned))
         assertEquals(NoteFilter.Pinned, vm.filter.value)
     }
 }

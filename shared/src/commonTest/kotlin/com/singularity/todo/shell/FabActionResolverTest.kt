@@ -60,7 +60,10 @@ class FabActionResolverTest {
 
     @Test
     fun projectsGraph_editor_returnsAddProject() {
-        val result = fabActionForNav3(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()), navigate)
+        val result = fabActionForNav3(
+            AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()),
+            navigate,
+        )
         assertEquals("Add project", result.label())
     }
 

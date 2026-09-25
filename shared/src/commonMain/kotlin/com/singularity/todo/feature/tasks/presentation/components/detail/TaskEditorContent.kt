@@ -17,8 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,8 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.core.ui.components.DatePickerSheet
-import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -167,7 +166,8 @@ fun TaskEditorContent(
                 modifier = Modifier.fillMaxWidth()
                     .clickable(
                         onClick = onPriorityClick
-                            ?: { sheets.show(TaskEditorSheet.Priority) })
+                            ?: { sheets.show(TaskEditorSheet.Priority) },
+                    )
                     .then(
                         Modifier.padding(
                             horizontal = TaskSpacing.cardPaddingHorizontal,
@@ -210,7 +210,8 @@ fun TaskEditorContent(
                     modifier = Modifier.fillMaxWidth()
                         .clickable(
                             onClick = onDueDateClick
-                                ?: { sheets.show(TaskEditorSheet.Date) })
+                                ?: { sheets.show(TaskEditorSheet.Date) },
+                        )
                         .padding(
                             horizontal = TaskSpacing.cardPaddingHorizontal,
                             vertical = TaskSpacing.cardPaddingVertical,
@@ -249,12 +250,23 @@ fun TaskEditorContent(
         }
     }
 
-    // Overflow menu — delegated to TaskEditorMenuHost for consistent styling
-    TaskEditorMenuHost(
-        menuItems = menuItems,
-        showMenu = showMenu,
-        onDismiss = { showMenu = false },
-    )
+    // Dropdown menu
+    if (menuItems.isNotEmpty()) {
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
+        ) {
+            menuItems.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text(item.label) },
+                    onClick = {
+                        showMenu = false
+                        item.onClick()
+                    },
+                )
+            }
+        }
+    }
 
     // Sheets — delegate to TaskEditorSheetsHost which handles all 12 variants
     TaskEditorSheetsHost(
@@ -322,22 +334,7 @@ fun TaskEditorContent(
  * explicit-parameter overload.
  */
 @Composable
-fun TaskEditorContent(
-    model: TaskEditorModel,
-    callbacks: TaskEditorCallbacks,
-    isCompleted: Boolean = false,
-) {
-    val backlinksSections: (@Composable () -> Unit)? = if (
-        model.linkedNotes.isNotEmpty() || model.linkedTasks.isNotEmpty()
-    ) {
-        {
-            LinkedBacklinksCard(
-                linkedNotes = model.linkedNotes,
-                linkedTasks = model.linkedTasks,
-            )
-        }
-    } else null
-
+fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, isCompleted: Boolean = false) {
     TaskEditorContent(
         titleDraft = model.titleDraft,
         onTitleChange = callbacks.onTitleChange,
@@ -358,7 +355,7 @@ fun TaskEditorContent(
         onDueDateClick = callbacks.dueDate?.onClick,
         dependsOn = model.dependsOn,
         availableTasks = model.availableTasks,
-        extraSections = backlinksSections,
+        extraSections = null,
         onSetDependencies = callbacks.dependencies?.onChange,
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,
@@ -368,118 +365,118 @@ fun TaskEditorContent(
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-private fun priorityLabel(priority: TaskPriority): String =
-    when (priority) {
-        TaskPriority.None -> "No priority"
-        TaskPriority.Low -> "Low priority"
-        TaskPriority.Medium -> "Medium priority"
-        TaskPriority.High -> "High priority"
-        TaskPriority.Urgent -> "Urgent"
-    }
+private fun priorityLabel(priority: TaskPriority): String = when (priority) {
+    TaskPriority.None -> "No priority"
+    TaskPriority.Low -> "Low priority"
+    TaskPriority.Medium -> "Medium priority"
+    TaskPriority.High -> "High priority"
+    TaskPriority.Urgent -> "Urgent"
+}
 
 private fun dueDateLabel(date: LocalDate?, time: LocalTime?): String {
     if (date == null) return "Добавить дату"
     val dateStr = date.toString()
-    return if (time != null) "$dateStr ${
+    return if (time != null) {
+        "$dateStr ${
         time.toString()
             .take(5)
-    }" else dateStr
+    }"
+    } else {
+        dateStr
+    }
 }
 
 // ===== Preview =====
 
 @Preview
 @Composable
-private fun TaskEditorContentEmptyPreview() =
-    PreviewThemed(darkTheme = false, useSurface = false) {
-        TaskEditorContent(
-            titleDraft = "",
-            onTitleChange = {},
-            isCompleted = false,
-            onCheckToggle = {},
-            descriptionDraft = "",
-            onDescriptionChange = {},
-            priority = TaskPriority.None,
-            onPrioritySelect = {},
-            onPriorityClear = null,
-            dueDate = null,
-            dueTime = null,
-            onDueDateSelect = {},
-            onDueDateClear = null,
-            onDueTimeSelect = {},
-            dependsOn = emptySet(),
-            availableTasks = emptyList(),
-            extraSections = null,
-            onSetDependencies = null,
-            bottomBar = null,
-            menuItems = emptyList(),
-            onBack = {},
-        )
-    }
+private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    TaskEditorContent(
+        titleDraft = "",
+        onTitleChange = {},
+        isCompleted = false,
+        onCheckToggle = {},
+        descriptionDraft = "",
+        onDescriptionChange = {},
+        priority = TaskPriority.None,
+        onPrioritySelect = {},
+        onPriorityClear = null,
+        dueDate = null,
+        dueTime = null,
+        onDueDateSelect = {},
+        onDueDateClear = null,
+        onDueTimeSelect = {},
+        dependsOn = emptySet(),
+        availableTasks = emptyList(),
+        extraSections = null,
+        onSetDependencies = null,
+        bottomBar = null,
+        menuItems = emptyList(),
+        onBack = {},
+    )
+}
 
 @Preview
 @Composable
-private fun TaskEditorContentFilledPreview() =
-    PreviewThemed(darkTheme = false, useSurface = false) {
-        val today = PreviewSamples.today
-        TaskEditorContent(
-            titleDraft = "Buy groceries",
-            onTitleChange = {},
-            isCompleted = false,
-            onCheckToggle = {},
-            descriptionDraft = "Milk, eggs, bread",
-            onDescriptionChange = {},
-            priority = TaskPriority.High,
-            onPrioritySelect = {},
-            onPriorityClear = {},
-            dueDate = today,
-            dueTime = LocalTime(14, 30),
-            onDueDateSelect = {},
-            onDueDateClear = {},
-            onDueTimeSelect = {},
-            dependsOn = emptySet(),
-            availableTasks = emptyList(),
-            extraSections = null,
-            onSetDependencies = null,
-            bottomBar = null,
-            menuItems = listOf(
-                TaskEditorMenuItem("Archive") {},
-                TaskEditorMenuItem("Delete") {},
-            ),
-            onBack = {},
-        )
-    }
+private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    val today = PreviewSamples.today
+    TaskEditorContent(
+        titleDraft = "Buy groceries",
+        onTitleChange = {},
+        isCompleted = false,
+        onCheckToggle = {},
+        descriptionDraft = "Milk, eggs, bread",
+        onDescriptionChange = {},
+        priority = TaskPriority.High,
+        onPrioritySelect = {},
+        onPriorityClear = {},
+        dueDate = today,
+        dueTime = LocalTime(14, 30),
+        onDueDateSelect = {},
+        onDueDateClear = {},
+        onDueTimeSelect = {},
+        dependsOn = emptySet(),
+        availableTasks = emptyList(),
+        extraSections = null,
+        onSetDependencies = null,
+        bottomBar = null,
+        menuItems = listOf(
+            TaskEditorMenuItem("Archive") {},
+            TaskEditorMenuItem("Delete") {},
+        ),
+        onBack = {},
+    )
+}
 
 @Preview
 @Composable
-private fun TaskEditorContentDarkPreview() =
-    PreviewThemed(darkTheme = true, useSurface = false) {
-        val today = PreviewSamples.today
-        val sampleTask = PreviewSamples.task(id = "t2", title = "Review PR")
-        TaskEditorContent(
-            titleDraft = "Review PR",
-            onTitleChange = {},
-            isCompleted = false,
-            onCheckToggle = {},
-            descriptionDraft = "",
-            onDescriptionChange = {},
-            priority = TaskPriority.Urgent,
-            onPrioritySelect = {},
-            onPriorityClear = {},
-            dueDate = today,
-            dueTime = null,
-            onDueDateSelect = {},
-            onDueDateClear = {},
-            onDueTimeSelect = {},
-            dependsOn = setOf(sampleTask.id),
-            availableTasks = listOf(sampleTask),
-            extraSections = null,
-            onSetDependencies = {},
-            bottomBar = null,
-            menuItems = listOf(
-                TaskEditorMenuItem("Archive") {},
-                TaskEditorMenuItem("Delete") {},
-            ),
-            onBack = {},
-        )
-    }
+private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    val today = PreviewSamples.today
+    val sampleTask = PreviewSamples.task(id = "t2", title = "Review PR")
+    TaskEditorContent(
+        titleDraft = "Review PR",
+        onTitleChange = {},
+        isCompleted = false,
+        onCheckToggle = {},
+        descriptionDraft = "",
+        onDescriptionChange = {},
+        priority = TaskPriority.Urgent,
+        onPrioritySelect = {},
+        onPriorityClear = {},
+        dueDate = today,
+        dueTime = null,
+        onDueDateSelect = {},
+        onDueDateClear = {},
+        onDueTimeSelect = {},
+        dependsOn = setOf(sampleTask.id),
+        availableTasks = listOf(sampleTask),
+        extraSections = null,
+        onSetDependencies = {},
+        bottomBar = null,
+        menuItems = listOf(
+            TaskEditorMenuItem("Archive") {},
+            TaskEditorMenuItem("Delete") {},
+        ),
+        onBack = {},
+    )
+}

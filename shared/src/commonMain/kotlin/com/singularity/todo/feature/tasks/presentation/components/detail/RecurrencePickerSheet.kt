@@ -33,9 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
-import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters
@@ -46,13 +46,19 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 
 private val WEEKDAY_NAMES = listOf(
-    "Mon" to 1, "Tue" to 2, "Wed" to 3, "Thu" to 4, "Fri" to 5, "Sat" to 6, "Sun" to 7
+    "Mon" to 1,
+    "Tue" to 2,
+    "Wed" to 3,
+    "Thu" to 4,
+    "Fri" to 5,
+    "Sat" to 6,
+    "Sun" to 7,
 )
 
 private val MONTH_NAMES = listOf(
     1 to "Jan", 2 to "Feb", 3 to "Mar", 4 to "Apr",
     5 to "May", 6 to "Jun", 7 to "Jul", 8 to "Aug",
-    9 to "Sep", 10 to "Oct", 11 to "Nov", 12 to "Dec"
+    9 to "Sep", 10 to "Oct", 11 to "Nov", 12 to "Dec",
 )
 
 /**
@@ -78,24 +84,35 @@ fun RecurrencePickerSheet(
     var selectedType by remember { mutableStateOf(currentSpec?.specType() ?: SpecType.INTERVAL_DAY) }
     var intervalAmount by remember { mutableIntStateOf(currentSpec?.intervalAmount() ?: 1) }
     var selectedUnit by remember { mutableStateOf(currentSpec?.intervalUnit() ?: DateTimeUnit.WEEK) }
-    var selectedWeekdays by remember { mutableStateOf((currentSpec as? Weekly)?.weekdays ?: setOf(anchorDate.dayOfWeek.ordinal + 1)) }
+    var selectedWeekdays by remember {
+        mutableStateOf(
+            (currentSpec as? Weekly)?.weekdays ?: setOf(anchorDate.dayOfWeek.ordinal + 1),
+        )
+    }
     var monthlyDay by remember { mutableIntStateOf((currentSpec as? Monthly)?.dayOfMonth ?: anchorDate.dayOfMonth) }
     var yearlyMonth by remember { mutableStateOf((currentSpec as? Yearly)?.month ?: anchorDate.monthNumber) }
     var yearlyDay by remember { mutableIntStateOf((currentSpec as? Yearly)?.day ?: anchorDate.dayOfMonth) }
 
-    fun buildSpec(): RecurrenceSpec {
-        return when (selectedType) {
-            SpecType.INTERVAL_DAY -> Interval(selectedBase, intervalAmount, DateTimeUnit.DAY)
-            SpecType.INTERVAL_WEEK -> Interval(selectedBase, intervalAmount, DateTimeUnit.WEEK)
-            SpecType.INTERVAL_MONTH -> Interval(selectedBase, intervalAmount, DateTimeUnit.MONTH)
-            SpecType.INTERVAL_YEAR -> Interval(selectedBase, intervalAmount, DateTimeUnit.YEAR)
-            SpecType.WEEKLY -> Weekly(selectedBase, selectedWeekdays)
-            SpecType.MONTHLY -> Monthly(selectedBase, monthlyDay)
-            SpecType.YEARLY -> Yearly(selectedBase, yearlyMonth, yearlyDay)
-        }
+    fun buildSpec(): RecurrenceSpec = when (selectedType) {
+        SpecType.INTERVAL_DAY -> Interval(selectedBase, intervalAmount, DateTimeUnit.DAY)
+        SpecType.INTERVAL_WEEK -> Interval(selectedBase, intervalAmount, DateTimeUnit.WEEK)
+        SpecType.INTERVAL_MONTH -> Interval(selectedBase, intervalAmount, DateTimeUnit.MONTH)
+        SpecType.INTERVAL_YEAR -> Interval(selectedBase, intervalAmount, DateTimeUnit.YEAR)
+        SpecType.WEEKLY -> Weekly(selectedBase, selectedWeekdays)
+        SpecType.MONTHLY -> Monthly(selectedBase, monthlyDay)
+        SpecType.YEARLY -> Yearly(selectedBase, yearlyMonth, yearlyDay)
     }
 
-    val spec = remember(selectedBase, selectedType, intervalAmount, selectedUnit, selectedWeekdays, monthlyDay, yearlyMonth, yearlyDay) { buildSpec() }
+    val spec = remember(
+        selectedBase,
+        selectedType,
+        intervalAmount,
+        selectedUnit,
+        selectedWeekdays,
+        monthlyDay,
+        yearlyMonth,
+        yearlyDay,
+    ) { buildSpec() }
 
     TaskEditorSheetHost(
         title = "Repeat",
@@ -185,7 +202,8 @@ fun RecurrencePickerSheet(
             // ── Interval amount + unit ──────────────────────────────────────
             when (selectedType) {
                 SpecType.INTERVAL_DAY, SpecType.INTERVAL_WEEK,
-                SpecType.INTERVAL_MONTH, SpecType.INTERVAL_YEAR -> {
+                SpecType.INTERVAL_MONTH, SpecType.INTERVAL_YEAR,
+                -> {
                     IntervalEditor(
                         amount = intervalAmount,
                         unit = selectedUnit,
@@ -194,18 +212,21 @@ fun RecurrencePickerSheet(
                         onUnitChange = { selectedUnit = it },
                     )
                 }
+
                 SpecType.WEEKLY -> {
                     WeekdayEditor(
                         selected = selectedWeekdays,
                         onChange = { selectedWeekdays = it },
                     )
                 }
+
                 SpecType.MONTHLY -> {
                     DayOfMonthEditor(
                         day = monthlyDay,
                         onChange = { monthlyDay = it },
                     )
                 }
+
                 SpecType.YEARLY -> {
                     YearlyEditor(
                         month = yearlyMonth,
@@ -284,7 +305,11 @@ private fun IntervalEditor(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     RadioButton(selected = unit == u, onClick = null)
-                    Text(text = label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
                 }
             }
         }
@@ -293,10 +318,7 @@ private fun IntervalEditor(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WeekdayEditor(
-    selected: Set<Int>,
-    onChange: (Set<Int>) -> Unit,
-) {
+private fun WeekdayEditor(selected: Set<Int>, onChange: (Set<Int>) -> Unit) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -316,10 +338,7 @@ private fun WeekdayEditor(
 }
 
 @Composable
-private fun DayOfMonthEditor(
-    day: Int,
-    onChange: (Int) -> Unit,
-) {
+private fun DayOfMonthEditor(day: Int, onChange: (Int) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -341,12 +360,7 @@ private fun DayOfMonthEditor(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun YearlyEditor(
-    month: Int,
-    day: Int,
-    onMonthChange: (Int) -> Unit,
-    onDayChange: (Int) -> Unit,
-) {
+private fun YearlyEditor(month: Int, day: Int, onMonthChange: (Int) -> Unit, onDayChange: (Int) -> Unit) {
     Column {
         Text(
             text = "Month",
@@ -392,8 +406,11 @@ private fun RecurrenceSpec.specType(): SpecType = when (this) {
         DateTimeUnit.YEAR -> SpecType.INTERVAL_YEAR
         else -> SpecType.INTERVAL_DAY
     }
+
     is Weekly -> SpecType.WEEKLY
+
     is Monthly -> SpecType.MONTHLY
+
     is Yearly -> SpecType.YEARLY
 }
 

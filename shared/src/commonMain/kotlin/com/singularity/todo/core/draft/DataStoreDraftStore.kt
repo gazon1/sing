@@ -9,8 +9,6 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.serialization.StableJson
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.first
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationStrategy
 import java.io.IOException

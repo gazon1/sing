@@ -3,7 +3,6 @@ package com.singularity.todo.feature.projects.presentation.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -28,11 +27,7 @@ import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegis
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun IconPickerSheet(
-    currentIcon: String?,
-    onPick: (String?) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun IconPickerSheet(currentIcon: String?, onPick: (String?) -> Unit, onDismiss: () -> Unit) {
     Column(modifier = Modifier.padding(24.dp)) {
         Text("Icon", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(16.dp))

@@ -22,10 +22,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
  * @param stateAccessor Lambda that extracts the [StateFlow] from the VM (e.g. `::{state}`).
  * @param factory Called with [this] (the [TestScope]) as the VM's `scope` argument.
  */
-fun <VM, S> TestScope.testVm(
-    stateAccessor: (VM) -> StateFlow<S>,
-    factory: TestScope.() -> VM,
-): TestVmContext<VM, S> {
+fun <VM, S> TestScope.testVm(stateAccessor: (VM) -> StateFlow<S>, factory: TestScope.() -> VM): TestVmContext<VM, S> {
     val vm = factory()
     advanceUntilIdle()
     return testVmContext(vm, stateAccessor, this)

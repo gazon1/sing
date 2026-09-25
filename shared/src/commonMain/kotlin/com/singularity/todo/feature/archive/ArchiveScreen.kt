@@ -40,7 +40,7 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel()) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             val refreshing = state.let { it is ArchiveUiState.Content && it.refreshing }
             Button(
-                onClick = { viewModel.refresh() },
+                onClick = { viewModel.onIntent(ArchiveIntent.Refresh) },
                 enabled = !refreshing,
                 modifier = Modifier.fillMaxWidth(),
             ) {

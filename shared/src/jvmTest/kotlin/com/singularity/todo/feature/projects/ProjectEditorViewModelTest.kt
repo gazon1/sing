@@ -48,7 +48,7 @@ class ProjectEditorViewModelTest {
     @Test
     fun `NameChanged updates state`() = runTest {
         val vm = createVm(backgroundScope)
-        vm.processIntent(ProjectEditorIntent.NameChanged("My project"))
+        vm.onIntent(ProjectEditorIntent.NameChanged("My project"))
         assertEquals("My project", vm.state.value.name)
     }
 }

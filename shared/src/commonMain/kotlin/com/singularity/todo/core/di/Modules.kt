@@ -21,11 +21,10 @@ import org.koin.dsl.module
 /**
  * Logging module — Kermit + KOIN integration.
  */
-fun coreLoggingModule(): Module =
-    module {
-        factory { Logger.withTag("App") }
-        singleOf(::LoggerHolder)
-    }
+fun coreLoggingModule(): Module = module {
+    factory { Logger.withTag("App") }
+    singleOf(::LoggerHolder)
+}
 
 /**
  * Returns all domain-level bindings as a flat list of KOIN [Module]s.
@@ -39,32 +38,31 @@ fun coreLoggingModule(): Module =
  * as direct `single {}` calls rather than via a separate `profileModule()` to
  * ensure they are registered at root scope.
  */
-fun domainModule(): List<Module> =
-    buildList {
-        add(tasksModule())
-        add(projectsModule())
-        add(notesModule())
-        add(tagsModule())
-        add(calendarModule())
-        add(agendaModule())
-        add(calendarSyncModule())
-        // Profile bindings — inlined here (NOT via profileModule()) so they land at root scope.
-        // profileModule() wrapped its bindings in module {} which created a child scope.
-        add(
-            module {
-                single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get(), createBackgroundScope()) }
-                single { ProfileAwareCurrentUser(get(), get(), createBackgroundScope()) }
-                factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
-                viewModel { AccountSettingsViewModel(profileRepository = get()) }
-            },
-        )
-        add(coreModule())
-        add(aiToolsModule())
-        add(aiSettingsModule())
-        add(settingsContributorsModule())
-        add(appearanceSettingsModule())
-        add(whatsNewModule())
-    }
+fun domainModule(): List<Module> = buildList {
+    add(tasksModule())
+    add(projectsModule())
+    add(notesModule())
+    add(tagsModule())
+    add(calendarModule())
+    add(agendaModule())
+    add(calendarSyncModule())
+    // Profile bindings — inlined here (NOT via profileModule()) so they land at root scope.
+    // profileModule() wrapped its bindings in module {} which created a child scope.
+    add(
+        module {
+            single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get(), createBackgroundScope()) }
+            single { ProfileAwareCurrentUser(get(), get(), createBackgroundScope()) }
+            factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
+            viewModel { AccountSettingsViewModel(profileRepository = get()) }
+        },
+    )
+    add(coreModule())
+    add(aiToolsModule())
+    add(aiSettingsModule())
+    add(settingsContributorsModule())
+    add(appearanceSettingsModule())
+    add(whatsNewModule())
+}
 
 /**
  * AI tools, GenUI, and AI use cases — platform-specific.

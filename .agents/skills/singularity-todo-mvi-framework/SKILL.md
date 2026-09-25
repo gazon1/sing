@@ -76,7 +76,7 @@ class TagsViewModel(
         }
     }
 
-    private suspend fun delete(id: TagId) {
+    fun delete(id: TagId) = scope.launch {
         tagRepo.delete(id).onFailure { emit(TagsUiEvent.ShowError(it.message ?: "Error")) }
     }
 }
@@ -108,72 +108,24 @@ Parameters:
 ```
 
 **Properties:**
-- `state: StateFlow<S>` — public read-only state (inherited from StatefulViewModel)
+- `state: StateFlow<S>` — public read-only state
 - `events: Flow<E>` — one-shot event flow (collect to handle events)
 
 **Methods:**
-- `emit(event: E)` — suspend emit a one-shot event (protected)
+- `emit(event: E)` — suspend emit a one-shot event
 - `tryEmit(event: E): Boolean` — non-suspend emit (returns false if buffer full)
-- `updateState(transform: (S) → S)` — suspend state update
+- `updateState(transform: (S) → S)` — update state with transform function
 - `onIntent(intent: I)` — abstract; override to dispatch intents
-
-**Important: `scope` must be `private val` constructor parameter.** The MviViewModel init block calls `addCloseable(scope)`, so `scope` must be accessible as a class property. Always place `scope` last in the constructor.
-
-```kotlin
-// ✅ Correct — scope is private val, accessible in init
-class MyViewModel(
-    private val deps: MyDeps,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : MviViewModel<MyState, MyIntent, MyEvent>(initialState = MyState.Loading, scope = scope) {
-    init { addCloseable(scope) }
-    // scope is accessible here
-}
-
-// ❌ Wrong — scope as bare parameter without storage
-class MyViewModel(
-    private val deps: MyDeps,
-    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),  // no private val!
-) : MviViewModel<MyState, MyIntent, MyEvent>(initialState = MyState.Loading, scope = scope) {
-    // ERROR: scope not accessible in init block
-}
-```
-
-### `emit()` from non-suspend context
-
-`emit()` is `protected suspend fun`. If you need to emit from a non-suspend callback (e.g. inside `fireAndForget`'s `onError` lambda), wrap it:
-
-```kotlin
-// ✅ Correct
-is ProjectDetailIntent.Domain.ToggleTaskPin ->
-    scope.fireAndForget(
-        errorLabel = "Pin failed",
-        onError = { e ->
-            scope.launch { emit(ProjectDetailUiEvent.ShowError(...)) }
-        },
-    ) { taskRepo.togglePinned(intent.taskId) }
-
-// ❌ Wrong — emit() called from non-coroutine context
-is ProjectDetailIntent.Domain.ToggleTaskPin ->
-    scope.fireAndForget(
-        errorLabel = "Pin failed",
-        onError = { e ->
-            emit(ProjectDetailUiEvent.ShowError(...))  // COMPILE ERROR: emit is suspend
-        },
-    ) { taskRepo.togglePinned(intent.taskId) }
-```
 
 ### `IntentActions<I>`
 
 Replaces per-feature `@JvmInline value class XxxActions` with a single generic type:
 
 ```kotlin
-// Before (per-feature Actions)
-@JvmInline value class TagsActions(private val dispatch: (TagsIntent) -> Unit) {
-    operator fun invoke(intent: TagsIntent) = dispatch(intent)
-}
-val actions = TagsActions(viewModel::processIntent)
+// Before
+@JvmInline value class TagsActions(private val dispatch: (TagsIntent) -> Unit) { ... }
 
-// After (generic IntentActions)
+// After
 val actions = IntentActions<TagsIntent>(viewModel::onIntent)
 actions(TagsIntent.Delete(id))
 ```
@@ -211,8 +163,7 @@ fun processIntent(intent: TagsIntent) { ... }
 
 ## See Also
 
-- `singularity-todo-testable-vm` — VM test patterns with MviViewModel
+- `singularity-todo-testable-vm` — VM test patterns
 - `singularity-todo-feature-scaffold` — new VM scaffold template
 - `singularity-todo-vm-migration-playbook` — step-by-step migration checklist
-- `singularity-todo-vm-intent-pattern` — sealed Intent hierarchy pattern
 - `docs/decisions/2026-09-25-local-mvi-framework.md` — ADR

@@ -20,14 +20,11 @@ import kotlin.test.fail
  * @param timeoutMs Maximum virtual time to wait (default 5 s).
  * @param predicate Called with the current state each time the virtual clock advances.
  */
-fun TestScope.awaitState(
-    timeoutMs: Long = 5_000L,
-    predicate: () -> Boolean,
-) {
+fun TestScope.awaitState(timeoutMs: Long = 5_000L, predicate: () -> Boolean) {
     val deadline = currentTime + timeoutMs
     while (!predicate()) {
         if (currentTime > deadline) {
-            fail("Timeout after ${timeoutMs} ms; virtualTime = $currentTime")
+            fail("Timeout after $timeoutMs ms; virtualTime = $currentTime")
         }
         advanceUntilIdle()
     }

@@ -100,19 +100,19 @@ class FileLogWriter(
         private const val MAX_TAG_LENGTH = 23
 
         private val TIMESTAMP_FORMAT = kotlinx.datetime.LocalDateTime.Format {
-            year();
-            char('-');
-            monthNumber();
-            char('-');
+            year()
+            char('-')
+            monthNumber()
+            char('-')
             day()
-            char('T');
-            hour();
-            char(':');
-            minute();
-            char(':');
-            second();
+            char('T')
+            hour()
+            char(':')
+            minute()
+            char(':')
+            second()
             char('.')
-            secondFraction(3);
+            secondFraction(3)
             char('Z')
         }
 

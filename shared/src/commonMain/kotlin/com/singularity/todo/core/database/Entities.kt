@@ -295,4 +295,3 @@ data class TagGroupEntity(
     @ColumnInfo("deleted_at") val deletedAt: Long? = null,
     @Embedded val sync: SyncColumns = SyncColumns(),
 )
-

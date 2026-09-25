@@ -62,7 +62,7 @@ fun tasksModule(): org.koin.core.module.Module =
             )
         }
 
-        single<DependencyValidator> { DependencyValidatorImpl(get(), get()) }
+        single<DependencyValidator> { DependencyValidatorImpl(get()) }
 
         single { RecurrenceCalculator }
 

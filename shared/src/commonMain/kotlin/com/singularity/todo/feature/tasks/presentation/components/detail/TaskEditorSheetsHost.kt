@@ -6,12 +6,11 @@ import com.singularity.todo.core.ui.components.DatePickerSheet
 import com.singularity.todo.core.ui.components.TimePickerSheet
 import com.singularity.todo.feature.attachments.components.AttachmentsSheet
 import com.singularity.todo.feature.checklist.components.ChecklistEditorSheet
+import com.singularity.todo.feature.tags.components.TagsPickerSheet
 import com.singularity.todo.feature.tasks.presentation.components.ProjectPickerSheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
-import com.singularity.todo.feature.tags.components.TagsPickerSheet
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import kotlinx.datetime.Clock
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -121,7 +120,9 @@ fun TaskEditorSheetsHost(
         ) {
             RecurrencePickerSheet(
                 currentSpec = model.recurrence,
-                anchorDate = model.dueDate ?: kotlin.time.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()).date,
+                anchorDate = model.dueDate ?: kotlin.time.Clock.System.now().toLocalDateTime(
+                    kotlinx.datetime.TimeZone.currentSystemDefault(),
+                ).date,
                 onApply = { spec ->
                     callbacks.recurrence?.onChange?.invoke(spec)
                     onSheetDismiss()

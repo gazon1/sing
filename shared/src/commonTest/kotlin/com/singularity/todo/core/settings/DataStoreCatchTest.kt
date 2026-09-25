@@ -10,9 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import java.io.IOException
@@ -73,27 +71,22 @@ class DataStoreCatchTest {
  * A [DataStore] whose [data][DataStore.data] flow throws [IOException] on the first
  * subscription. Simulates a corrupted on-disk preferences file.
  */
-private fun ioExceptionThrowingDataStore(): DataStore<Preferences> =
-    object : DataStore<Preferences> {
-        override val data: Flow<Preferences> = flow {
-            throw IOException("Simulated DataStore corruption")
-        }
-
-        override suspend fun updateData(
-            transform: suspend (Preferences) -> Preferences,
-        ): Preferences = transform(emptyPreferences())
+private fun ioExceptionThrowingDataStore(): DataStore<Preferences> = object : DataStore<Preferences> {
+    override val data: Flow<Preferences> = flow {
+        throw IOException("Simulated DataStore corruption")
     }
+
+    override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
+        transform(emptyPreferences())
+}
 
 /**
  * Creates a [PrefSpec] for testing. [PrefSpec] is internal, so we construct it via
  * the internal constructor and pass the corrupted store directly.
  */
-private fun <T : Any> prefSpecOf(
-    key: Preferences.Key<T>,
-    default: T,
-    store: DataStore<Preferences>,
-): PrefSpec<T> = PrefSpec(
-    dataStore = store,
-    key = key,
-    default = default,
-)
+private fun <T : Any> prefSpecOf(key: Preferences.Key<T>, default: T, store: DataStore<Preferences>): PrefSpec<T> =
+    PrefSpec(
+        dataStore = store,
+        key = key,
+        default = default,
+    )

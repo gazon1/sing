@@ -82,23 +82,23 @@ class CalendarSyncSettingsRepository(private val dataStore: DataStore<Preference
     override fun observeStatus(): Flow<CalendarSyncStatus> = dataStore.data
         .catchIOExceptionEmitEmpty()
         .map { prefs ->
-        val statusName = prefs[CALENDAR_SYNC_STATUS]
-        when (statusName) {
-            "Disabled" -> CalendarSyncStatus.Disabled
+            val statusName = prefs[CALENDAR_SYNC_STATUS]
+            when (statusName) {
+                "Disabled" -> CalendarSyncStatus.Disabled
 
-            "Syncing" -> CalendarSyncStatus.Syncing
+                "Syncing" -> CalendarSyncStatus.Syncing
 
-            else -> {
-                val reason = statusName?.removePrefix("Failed:")
-                if (reason != null) {
-                    CalendarSyncStatus.Failed(reason)
-                } else {
-                    val lastAt = prefs[CALENDAR_SYNC_LAST_AT]
-                    CalendarSyncStatus.Idle(lastAt)
+                else -> {
+                    val reason = statusName?.removePrefix("Failed:")
+                    if (reason != null) {
+                        CalendarSyncStatus.Failed(reason)
+                    } else {
+                        val lastAt = prefs[CALENDAR_SYNC_LAST_AT]
+                        CalendarSyncStatus.Idle(lastAt)
+                    }
                 }
             }
         }
-    }
 
     override suspend fun setStatus(status: CalendarSyncStatus) {
         dataStore.edit { prefs ->

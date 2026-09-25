@@ -1,13 +1,23 @@
 package com.singularity.todo.feature.attachments
 
-import androidx.lifecycle.ViewModel
+import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ui.mvi.MviIntent
+import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+
+/** Placeholder state — AttachmentsViewModel only emits events. */
+sealed interface AttachmentsUiState {
+    data object Idle : AttachmentsUiState
+}
+
+sealed interface AttachmentsIntent : MviIntent {
+    data class AddUrl(val taskId: TaskId, val url: String, val title: String?) : AttachmentsIntent
+    data class SaveFile(val taskId: TaskId, val sourcePath: String, val mimeType: String?) : AttachmentsIntent
+    data class Delete(val attachmentId: AttachmentId) : AttachmentsIntent
+}
 
 /**
  * Attachments sheet ViewModel (per task).
@@ -17,36 +27,41 @@ import kotlinx.coroutines.launch
  * One-shot events: [AttachmentsUiEvent.ShowError].
  *
  * @see AttachmentsUiState
+ * @see AttachmentsIntent
+ * @see AttachmentsUiEvent
  */
 class AttachmentsViewModel(
     private val repository: AttachmentRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
+) : MviViewModel<AttachmentsUiState, AttachmentsIntent, AttachmentsUiEvent>(
+        initialState = AttachmentsUiState.Idle,
+        scope = scope,
+    ) {
+
     init {
         addCloseable(scope)
     }
 
-    private val _events = MutableSharedFlow<AttachmentsUiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<AttachmentsUiEvent> = _events.asSharedFlow()
-
-    fun addUrlAttachment(taskId: TaskId, url: String, title: String?) {
-        scope.launch {
-            repository.addUrlAttachment(taskId, url, title)
-                .onFailure { e -> _events.emit(AttachmentsUiEvent.Error(e.message ?: "Failed to add link")) }
+    override fun onIntent(intent: AttachmentsIntent) {
+        when (intent) {
+            is AttachmentsIntent.AddUrl -> scope.launch { addUrl(intent) }
+            is AttachmentsIntent.SaveFile -> scope.launch { saveFile(intent) }
+            is AttachmentsIntent.Delete -> scope.launch { delete(intent) }
         }
     }
 
-    fun saveFileAttachment(taskId: TaskId, sourcePath: String, mimeType: String?) {
-        scope.launch {
-            repository.saveFileAttachment(taskId, sourcePath, mimeType)
-                .onFailure { e -> _events.emit(AttachmentsUiEvent.Error(e.message ?: "Failed to save file")) }
-        }
+    private suspend fun addUrl(intent: AttachmentsIntent.AddUrl) {
+        repository.addUrlAttachment(intent.taskId, intent.url, intent.title)
+            .onFailure { emit(AttachmentsUiEvent.ShowError(it.message ?: "Failed to add link")) }
     }
 
-    fun delete(attachmentId: com.singularity.todo.core.attachments.AttachmentId) {
-        scope.launch {
-            repository.delete(attachmentId)
-                .onFailure { e -> _events.emit(AttachmentsUiEvent.Error(e.message ?: "Delete failed")) }
-        }
+    private suspend fun saveFile(intent: AttachmentsIntent.SaveFile) {
+        repository.saveFileAttachment(intent.taskId, intent.sourcePath, intent.mimeType)
+            .onFailure { emit(AttachmentsUiEvent.ShowError(it.message ?: "Failed to save file")) }
+    }
+
+    private suspend fun delete(intent: AttachmentsIntent.Delete) {
+        repository.delete(intent.attachmentId)
+            .onFailure { emit(AttachmentsUiEvent.ShowError(it.message ?: "Delete failed")) }
     }
 }

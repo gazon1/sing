@@ -29,7 +29,8 @@ sealed interface ProjectDetailIntent {
         data object OpenArchiveSheet : Routing
         data object OpenReminderSheet : Routing
         data object OpenAttachmentSheet : Routing
-        data class NavigateToChild(val projectId: com.singularity.todo.feature.projects.domain.model.ProjectId) : Routing
+        data class NavigateToChild(val projectId: com.singularity.todo.feature.projects.domain.model.ProjectId) :
+            Routing
     }
 
     // ── Domain: owned by ViewModel ──────────────────────────────────────────

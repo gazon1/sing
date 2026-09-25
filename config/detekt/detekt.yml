@@ -252,6 +252,15 @@ ktlint:
 
 # ---------------------------------------------------------------------------
 # custom rule sets (via :detekt-rules plugin / ServiceLoader)
-# All new rules start in warn-only mode; promoted to error in PR #8.
-# NOTE: Rule-specific config (severity, active) added in PR #8 after baseline.
+# All new rules start in warn-only mode; promoted to error in MR-4.
+# NOTE: Rule-specific config (severity, active) added in MR-4 after baseline.
 # ---------------------------------------------------------------------------
+mvi-viewmodel:
+  MviViewModelExt:
+    active: true
+  IntentMethodName:
+    active: true
+  VmScopePosition:
+    active: true
+  VmCloseable:
+    active: true

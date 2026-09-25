@@ -1,19 +1,20 @@
 package com.singularity.todo.feature.statistics
 
-import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.ui.mvi.MviIntent
+import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 data class StatisticsUiState(val snapshot: StatisticsSnapshot? = null, val loading: Boolean = true)
+
+sealed interface StatisticsIntent : MviIntent
+// Currently no user-triggered intents — purely observational
 
 /**
  * Statistics screen ViewModel.
@@ -29,7 +30,10 @@ class StatisticsViewModel(
     private val taskRepository: TaskRepository,
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
+) : MviViewModel<StatisticsUiState, StatisticsIntent, Nothing>(
+        initialState = StatisticsUiState(),
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)
@@ -49,11 +53,12 @@ class StatisticsViewModel(
                         loading = false,
                     )
                 }
-                .catch { emit(StatisticsUiState(loading = false)) }
-                .collect { _state.value = it }
+                .catch { updateState { StatisticsUiState(loading = false) } }
+                .collect { newState -> updateState { newState } }
         }
     }
 
-    private val _state = MutableStateFlow(StatisticsUiState(loading = true))
-    val state: StateFlow<StatisticsUiState> = _state.asStateFlow()
+    override fun onIntent(intent: StatisticsIntent) {
+        // No intents yet — purely observational
+    }
 }

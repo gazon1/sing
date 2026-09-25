@@ -116,7 +116,7 @@ internal class SyncEngine(
                     is Session.Anonymous,
                     is Session.SignedOut,
                     is Session.Loading,
-                        -> scheduler.cancelPush()
+                    -> scheduler.cancelPush()
                 }
             }
         }

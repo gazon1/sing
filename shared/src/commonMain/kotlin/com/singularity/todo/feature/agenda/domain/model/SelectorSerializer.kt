@@ -72,172 +72,172 @@ private class RegistryHolder {
         put(
             "DateBucket",
             SelectorEntry(
-            encode = { s ->
-                JsonObject(
-                    mapOf(
-                    "_type" to JsonPrimitive("DateBucket"),
-                    "bucket" to JsonPrimitive((s as Selector.DateBucket).bucket.name),
-                )
-                )
-            },
-            decode = { obj ->
-                Selector.DateBucket(
-                    bucket = Json.decodeFromJsonElement(serializer(), obj.getValue("bucket")),
-                )
-            },
-        )
+                encode = { s ->
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("DateBucket"),
+                            "bucket" to JsonPrimitive((s as Selector.DateBucket).bucket.name),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.DateBucket(
+                        bucket = Json.decodeFromJsonElement(serializer(), obj.getValue("bucket")),
+                    )
+                },
+            ),
         )
 
         put(
             "DateRange",
             SelectorEntry(
-            encode = { s ->
-                JsonObject(
-                    mapOf(
-                    "_type" to JsonPrimitive("DateRange"),
-                    "from" to JsonPrimitive((s as Selector.DateRange).from.toString()),
-                    "to" to JsonPrimitive(s.to.toString()),
-                )
-                )
-            },
-            decode = { obj ->
-                Selector.DateRange(
-                    from = Json.decodeFromJsonElement(serializer(), obj.getValue("from")),
-                    to = Json.decodeFromJsonElement(serializer(), obj.getValue("to")),
-                )
-            },
-        )
+                encode = { s ->
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("DateRange"),
+                            "from" to JsonPrimitive((s as Selector.DateRange).from.toString()),
+                            "to" to JsonPrimitive(s.to.toString()),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.DateRange(
+                        from = Json.decodeFromJsonElement(serializer(), obj.getValue("from")),
+                        to = Json.decodeFromJsonElement(serializer(), obj.getValue("to")),
+                    )
+                },
+            ),
         )
 
         put(
             "Tags",
             SelectorEntry(
-            encode = { s ->
-                JsonObject(
-                    mapOf(
-                    "_type" to JsonPrimitive("Tags"),
-                    "ids" to JsonArray((s as Selector.Tags).ids.map { JsonPrimitive(it.value) }),
-                    "matchAll" to JsonPrimitive(s.matchAll),
-                )
-                )
-            },
-            decode = { obj ->
-                Selector.Tags(
-                    ids = Json.decodeFromJsonElement(serializer(), obj.getValue("ids")),
-                    matchAll = obj["matchAll"]?.let { Json.decodeFromJsonElement(serializer(), it) } ?: false,
-                )
-            },
-        )
+                encode = { s ->
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("Tags"),
+                            "ids" to JsonArray((s as Selector.Tags).ids.map { JsonPrimitive(it.value) }),
+                            "matchAll" to JsonPrimitive(s.matchAll),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.Tags(
+                        ids = Json.decodeFromJsonElement(serializer(), obj.getValue("ids")),
+                        matchAll = obj["matchAll"]?.let { Json.decodeFromJsonElement(serializer(), it) } ?: false,
+                    )
+                },
+            ),
         )
 
         put(
             "Statuses",
             SelectorEntry(
-            encode = { s ->
-                JsonObject(
-                    mapOf(
-                    "_type" to JsonPrimitive("Statuses"),
-                    "statuses" to JsonArray((s as Selector.Statuses).statuses.map { JsonPrimitive(it.name) }),
-                )
-                )
-            },
-            decode = { obj ->
-                Selector.Statuses(
-                    statuses = Json.decodeFromJsonElement(serializer(), obj.getValue("statuses")),
-                )
-            },
-        )
+                encode = { s ->
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("Statuses"),
+                            "statuses" to JsonArray((s as Selector.Statuses).statuses.map { JsonPrimitive(it.name) }),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.Statuses(
+                        statuses = Json.decodeFromJsonElement(serializer(), obj.getValue("statuses")),
+                    )
+                },
+            ),
         )
 
         put(
             "Priorities",
             SelectorEntry(
-            encode = { s ->
-                JsonObject(
-                    mapOf(
-                    "_type" to JsonPrimitive("Priorities"),
-                    "priorities" to JsonArray((s as Selector.Priorities).priorities.map { JsonPrimitive(it.name) }),
-                    "atMost" to JsonPrimitive(s.atMost),
-                )
-                )
-            },
-            decode = { obj ->
-                Selector.Priorities(
-                    priorities = Json.decodeFromJsonElement(serializer(), obj.getValue("priorities")),
-                    atMost = obj["atMost"]?.let { Json.decodeFromJsonElement(serializer(), it) } ?: true,
-                )
-            },
-        )
+                encode = { s ->
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("Priorities"),
+                            "priorities" to JsonArray((s as Selector.Priorities).priorities.map { JsonPrimitive(it.name) }),
+                            "atMost" to JsonPrimitive(s.atMost),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.Priorities(
+                        priorities = Json.decodeFromJsonElement(serializer(), obj.getValue("priorities")),
+                        atMost = obj["atMost"]?.let { Json.decodeFromJsonElement(serializer(), it) } ?: true,
+                    )
+                },
+            ),
         )
 
         put(
             "Projects",
             SelectorEntry(
-            encode = { s ->
-                JsonObject(
-                    mapOf(
-                    "_type" to JsonPrimitive("Projects"),
-                    "ids" to JsonArray((s as Selector.Projects).ids.map { JsonPrimitive(it.value) }),
-                )
-                )
-            },
-            decode = { obj ->
-                Selector.Projects(
-                    ids = Json.decodeFromJsonElement(serializer(), obj.getValue("ids")),
-                )
-            },
-        )
+                encode = { s ->
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("Projects"),
+                            "ids" to JsonArray((s as Selector.Projects).ids.map { JsonPrimitive(it.value) }),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.Projects(
+                        ids = Json.decodeFromJsonElement(serializer(), obj.getValue("ids")),
+                    )
+                },
+            ),
         )
 
         put(
             "Pinned",
             SelectorEntry(
-            encode = { JsonObject(mapOf("_type" to JsonPrimitive("Pinned"))) },
-            decode = { Selector.Pinned },
-        )
+                encode = { JsonObject(mapOf("_type" to JsonPrimitive("Pinned"))) },
+                decode = { Selector.Pinned },
+            ),
         )
 
         put(
             "Completed",
             SelectorEntry(
-            encode = { JsonObject(mapOf("_type" to JsonPrimitive("Completed"))) },
-            decode = { Selector.Completed },
-        )
+                encode = { JsonObject(mapOf("_type" to JsonPrimitive("Completed"))) },
+                decode = { Selector.Completed },
+            ),
         )
 
         put(
             "Overdue",
             SelectorEntry(
-            encode = { JsonObject(mapOf("_type" to JsonPrimitive("Overdue"))) },
-            decode = { Selector.Overdue },
-        )
+                encode = { JsonObject(mapOf("_type" to JsonPrimitive("Overdue"))) },
+                decode = { Selector.Overdue },
+            ),
         )
 
         put(
             "Regexp",
             SelectorEntry(
-            encode = { s ->
-                JsonObject(
-                    mapOf(
-                    "_type" to JsonPrimitive("Regexp"),
-                    "query" to JsonPrimitive((s as Selector.Regexp).query),
-                )
-                )
-            },
-            decode = { obj ->
-                Selector.Regexp(
-                    query = obj.getValue("query").jsonPrimitive.content,
-                )
-            },
-        )
+                encode = { s ->
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("Regexp"),
+                            "query" to JsonPrimitive((s as Selector.Regexp).query),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.Regexp(
+                        query = obj.getValue("query").jsonPrimitive.content,
+                    )
+                },
+            ),
         )
 
         put(
             "Anything",
             SelectorEntry(
-            encode = { JsonObject(mapOf("_type" to JsonPrimitive("Anything"))) },
-            decode = { Selector.Anything },
-        )
+                encode = { JsonObject(mapOf("_type" to JsonPrimitive("Anything"))) },
+                decode = { Selector.Anything },
+            ),
         )
     }.also { require(it.size == 11) { "Expected 11 leaf entries, got ${it.size}" } }
 
@@ -249,69 +249,69 @@ private class RegistryHolder {
         put(
             "AllOf",
             SelectorEntry(
-            encode = { s ->
-                val allOf = s as Selector.AllOf
-                JsonObject(
-                    mapOf(
-                    "_type" to JsonPrimitive("AllOf"),
-                    "children" to JsonArray(
-                        allOf.children.map { child ->
-                        allEntries.getValue(child.typeTag).encode(child)
-                    }
-                    ),
-                )
-                )
-            },
-            decode = { obj ->
-                Selector.AllOf(
-                    children = Json.decodeFromJsonElement(serializer(), obj.getValue("children")),
-                )
-            },
-        )
+                encode = { s ->
+                    val allOf = s as Selector.AllOf
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("AllOf"),
+                            "children" to JsonArray(
+                                allOf.children.map { child ->
+                                    allEntries.getValue(child.typeTag).encode(child)
+                                },
+                            ),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.AllOf(
+                        children = Json.decodeFromJsonElement(serializer(), obj.getValue("children")),
+                    )
+                },
+            ),
         )
 
         put(
             "AnyOf",
             SelectorEntry(
-            encode = { s ->
-                val anyOf = s as Selector.AnyOf
-                JsonObject(
-                    mapOf(
-                    "_type" to JsonPrimitive("AnyOf"),
-                    "children" to JsonArray(
-                        anyOf.children.map { child ->
-                        allEntries.getValue(child.typeTag).encode(child)
-                    }
-                    ),
-                )
-                )
-            },
-            decode = { obj ->
-                Selector.AnyOf(
-                    children = Json.decodeFromJsonElement(serializer(), obj.getValue("children")),
-                )
-            },
-        )
+                encode = { s ->
+                    val anyOf = s as Selector.AnyOf
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("AnyOf"),
+                            "children" to JsonArray(
+                                anyOf.children.map { child ->
+                                    allEntries.getValue(child.typeTag).encode(child)
+                                },
+                            ),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.AnyOf(
+                        children = Json.decodeFromJsonElement(serializer(), obj.getValue("children")),
+                    )
+                },
+            ),
         )
 
         put(
             "Not",
             SelectorEntry(
-            encode = { s ->
-                val not = s as Selector.Not
-                JsonObject(
-                    mapOf(
-                    "_type" to JsonPrimitive("Not"),
-                    "child" to allEntries.getValue(not.child.typeTag).encode(not.child),
-                )
-                )
-            },
-            decode = { obj ->
-                Selector.Not(
-                    child = Json.decodeFromJsonElement(serializer(), obj.getValue("child")),
-                )
-            },
-        )
+                encode = { s ->
+                    val not = s as Selector.Not
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("Not"),
+                            "child" to allEntries.getValue(not.child.typeTag).encode(not.child),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.Not(
+                        child = Json.decodeFromJsonElement(serializer(), obj.getValue("child")),
+                    )
+                },
+            ),
         )
     }.also { require(it.size == 3) { "Expected 3 composite entries, got ${it.size}" } }
 

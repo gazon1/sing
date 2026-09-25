@@ -8,8 +8,8 @@ import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
-import kotlin.test.Test
 import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Smoke-test the DI graph on JVM.

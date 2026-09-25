@@ -51,10 +51,10 @@ internal fun nextPhase(current: PomodoroState, config: PomodoroConfig): Pomodoro
             val phase = if (newCycles >=
                 config.cyclesBeforeLongBreak
             ) {
-                    PomodoroPhase.LongBreak
-                } else {
-                    PomodoroPhase.ShortBreak
-                }
+                PomodoroPhase.LongBreak
+            } else {
+                PomodoroPhase.ShortBreak
+            }
             phase to newCycles
         }
 

@@ -23,27 +23,20 @@ class CreateTagGroupUseCase(
     }
 }
 
-class UpdateTagGroupUseCase(
-    private val repo: TagGroupRepository,
-    private val clock: Clock,
-) {
+class UpdateTagGroupUseCase(private val repo: TagGroupRepository, private val clock: Clock) {
     suspend operator fun invoke(input: UpdateTagGroupInput): Result<Unit> = runCatchingResult {
         require(input.name.isNotBlank()) { AppError.Validation("Name cannot be blank") }
         repo.update(input).getOrThrow()
     }
 }
 
-class DeleteTagGroupUseCase(
-    private val repo: TagGroupRepository,
-) {
+class DeleteTagGroupUseCase(private val repo: TagGroupRepository) {
     suspend operator fun invoke(id: TagGroupId): Result<Unit> = runCatchingResult {
         repo.delete(id).getOrThrow()
     }
 }
 
-class SetProjectInheritedGroupsUseCase(
-    private val repo: TagGroupRepository,
-) {
+class SetProjectInheritedGroupsUseCase(private val repo: TagGroupRepository) {
     suspend operator fun invoke(projectId: ProjectId, groupIds: Set<TagGroupId>): Result<Unit> =
         repo.setInheritedForProject(projectId, groupIds)
 }

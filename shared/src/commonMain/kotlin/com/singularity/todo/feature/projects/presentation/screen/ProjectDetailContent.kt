@@ -76,14 +76,12 @@ import com.singularity.todo.feature.projects.presentation.components.ActiveSheet
 import com.singularity.todo.feature.projects.presentation.components.CurrentProjectContent
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailSheetsHost
-import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
-import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -98,10 +96,7 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalTime::class)
 @Composable
-fun ProjectDetailContent(
-    viewModel: ProjectDetailViewModel,
-    modifier: Modifier = Modifier,
-) {
+fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier = Modifier) {
     val nav = LocalProjectsNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
@@ -118,15 +113,27 @@ fun ProjectDetailContent(
         ProjectDetailActions { intent ->
             when (intent) {
                 is ProjectDetailIntent.Routing.OpenColorSheet -> sheets.show(ActiveSheet.PickColor)
+
                 is ProjectDetailIntent.Routing.OpenIconSheet -> sheets.show(ActiveSheet.PickIcon)
-                is ProjectDetailIntent.Routing.OpenParentSheet -> sheets.show(ActiveSheet.PickParent(intent.currentParentId))
+
+                is ProjectDetailIntent.Routing.OpenParentSheet -> sheets.show(
+                    ActiveSheet.PickParent(intent.currentParentId),
+                )
+
                 is ProjectDetailIntent.Routing.OpenDueDateSheet -> sheets.show(ActiveSheet.PickDueDate)
+
                 is ProjectDetailIntent.Routing.OpenChildrenSheet -> sheets.show(ActiveSheet.ShowChildren)
+
                 is ProjectDetailIntent.Routing.OpenDeleteSheet -> sheets.show(ActiveSheet.ConfirmDelete)
+
                 is ProjectDetailIntent.Routing.OpenArchiveSheet -> sheets.show(ActiveSheet.ConfirmArchive)
+
                 is ProjectDetailIntent.Routing.OpenReminderSheet -> sheets.show(ActiveSheet.PickReminder)
+
                 is ProjectDetailIntent.Routing.OpenAttachmentSheet -> sheets.show(ActiveSheet.AddAttachment)
+
                 is ProjectDetailIntent.Routing.NavigateToChild -> nav.openDetail(intent.projectId)
+
                 is ProjectDetailIntent.Domain -> viewModel.onIntent(intent)
             }
         }
@@ -161,14 +168,21 @@ fun ProjectDetailContent(
                             expanded = overflowMenuOpen,
                             onDismissRequest = { overflowMenuOpen = false },
                         ) {
-                            val isArchived = (contentState as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true
+                            val isArchived =
+                                (contentState as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true
                             DropdownMenuItem(
                                 text = { Text(if (isArchived) "Unarchive" else "Archive") },
-                                onClick = { overflowMenuOpen = false; actions.onOpenArchiveSheet() },
+                                onClick = {
+                                    overflowMenuOpen = false;
+                                    actions.onOpenArchiveSheet()
+                                },
                             )
                             DropdownMenuItem(
                                 text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                                onClick = { overflowMenuOpen = false; actions.onOpenDeleteSheet() },
+                                onClick = {
+                                    overflowMenuOpen = false;
+                                    actions.onOpenDeleteSheet()
+                                },
                             )
                         }
                     }
@@ -184,7 +198,12 @@ fun ProjectDetailContent(
     ) { padding ->
         when (val s = state) {
             ProjectDetailUiState.Loading -> LoadingIndicator(Modifier.padding(padding))
-            ProjectDetailUiState.NotFound -> EmptyState(title = "Project not found", modifier = Modifier.padding(padding))
+
+            ProjectDetailUiState.NotFound -> EmptyState(
+                title = "Project not found",
+                modifier = Modifier.padding(padding),
+            )
+
             is ProjectDetailUiState.Content -> Column(
                 modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
             ) {
@@ -197,7 +216,13 @@ fun ProjectDetailContent(
                     actions = actions,
                 )
                 ProjectMetaChipsRow(ui = s.ui, actions = actions)
-                ProjectBodySection(ui = s.ui, hideCompleted = hideCompleted, availableTasks = availableTasks, actions = actions, nav = nav)
+                ProjectBodySection(
+                    ui = s.ui,
+                    hideCompleted = hideCompleted,
+                    availableTasks = availableTasks,
+                    actions = actions,
+                    nav = nav,
+                )
             }
         }
     }
@@ -259,7 +284,9 @@ private fun ProjectHeroSection(
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier.size(56.dp).clip(CircleShape).background(Color(ui.project.color)).clickable(onClick = actions::onOpenColorSheet),
+                modifier = Modifier.size(
+                    56.dp,
+                ).clip(CircleShape).background(Color(ui.project.color)).clickable(onClick = actions::onOpenColorSheet),
                 contentAlignment = Alignment.Center,
             ) {
                 val icon = ProjectIconRegistry.iconByKey(ui.project.icon) ?: Icons.Filled.Folder
@@ -270,7 +297,9 @@ private fun ProjectHeroSection(
                 BasicTextField(
                     value = nameDraft,
                     onValueChange = { actions.onUpdateName(it) },
-                    textStyle = MaterialTheme.typography.headlineSmall.copy(color = MaterialTheme.colorScheme.onSurface),
+                    textStyle = MaterialTheme.typography.headlineSmall.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                    ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -293,7 +322,11 @@ private fun ProjectHeroSection(
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("${ui.completedCount}/${ui.totalCount}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "${ui.completedCount}/${ui.totalCount}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Spacer(Modifier.height(12.dp))
         }
@@ -312,28 +345,72 @@ private fun ProjectHeroSection(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ProjectMetaChipsRow(ui: ProjectDetailUi, actions: ProjectDetailActions) {
-    FlowRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         ui.project.dueDate?.let { date ->
-            FilterChip(selected = false, onClick = actions::onOpenDueDateSheet, label = { Text(date.toString()) }, leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) })
+            FilterChip(
+                selected = false,
+                onClick = actions::onOpenDueDateSheet,
+                label = { Text(date.toString()) },
+                leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) },
+            )
         }
         ui.parent?.let { parent ->
-            FilterChip(selected = false, onClick = { actions.onOpenParentSheet(parent.id) }, label = { Text(parent.name) }, leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) }, trailingIcon = { Icon(Icons.Filled.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp)) })
+            FilterChip(
+                selected = false,
+                onClick = { actions.onOpenParentSheet(parent.id) },
+                label = { Text(parent.name) },
+                leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                trailingIcon = {
+                    Icon(
+                        Icons.Filled.ChevronRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                },
+            )
         }
         if (ui.childProjects.isNotEmpty()) {
-            FilterChip(selected = false, onClick = actions::onOpenChildrenSheet, label = { Text("${ui.childProjects.size} sub-projects") }, leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) })
+            FilterChip(
+                selected = false,
+                onClick = actions::onOpenChildrenSheet,
+                label = { Text("${ui.childProjects.size} sub-projects") },
+                leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) },
+            )
         }
     }
 }
 
 @Composable
-private fun ProjectBodySection(ui: ProjectDetailUi, hideCompleted: Boolean, availableTasks: List<Task>, actions: ProjectDetailActions, nav: ProjectsNavigator) {
+private fun ProjectBodySection(
+    ui: ProjectDetailUi,
+    hideCompleted: Boolean,
+    availableTasks: List<Task>,
+    actions: ProjectDetailActions,
+    nav: ProjectsNavigator,
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        ProjectDetailQuickAddInput(availableTasks = availableTasks, actions = actions, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        ProjectDetailQuickAddInput(
+            availableTasks = availableTasks,
+            actions = actions,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text("Tasks", style = MaterialTheme.typography.titleMedium)
             if (ui.totalCount > 0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (hideCompleted) "Show completed" else "Hide completed", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = actions::onToggleHideCompleted))
+                    Text(
+                        if (hideCompleted) "Show completed" else "Hide completed",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable(onClick = actions::onToggleHideCompleted),
+                    )
                 }
             }
         }
@@ -342,7 +419,15 @@ private fun ProjectBodySection(ui: ProjectDetailUi, hideCompleted: Boolean, avai
         } else {
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 items(ui.tasks, key = { it.id.value }) { task ->
-                    TaskCard(task = task, onClick = { nav.openTask(task.id) }, actions = TaskCardActions(onPin = { actions.onPin(task.id) }, onDelete = { actions.onDeleteTask(task.id) }), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                    TaskCard(
+                        task = task,
+                        onClick = { nav.openTask(task.id) },
+                        actions = TaskCardActions(
+                            onPin = { actions.onPin(task.id) },
+                            onDelete = { actions.onDeleteTask(task.id) },
+                        ),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
                 }
             }
         }
@@ -361,7 +446,11 @@ private fun ProjectBottomActionBar(isArchived: Boolean, actions: ProjectDetailAc
         IconButton(onClick = actions::onOpenReminderSheet) { Icon(Icons.Filled.Notifications, "Remind") }
         IconButton(onClick = actions::onOpenAttachmentSheet) { Icon(Icons.Filled.Folder, "Attach") }
         Spacer(Modifier.weight(1f))
-        if (isArchived) { IconButton(onClick = { actions.onToggleArchive() }) { Icon(Icons.Filled.PushPin, "Unarchive") } }
+        if (isArchived) {
+            IconButton(
+            onClick = { actions.onToggleArchive() },
+        ) { Icon(Icons.Filled.PushPin, "Unarchive") }
+        }
         IconButton(onClick = actions::onOpenIconSheet) { Icon(Icons.Filled.MoreVert, "More") }
     }
 }
@@ -369,7 +458,11 @@ private fun ProjectBottomActionBar(isArchived: Boolean, actions: ProjectDetailAc
 // ─── Quick Add ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun ProjectDetailQuickAddInput(availableTasks: List<Task>, actions: ProjectDetailActions, modifier: Modifier = Modifier) {
+private fun ProjectDetailQuickAddInput(
+    availableTasks: List<Task>,
+    actions: ProjectDetailActions,
+    modifier: Modifier = Modifier,
+) {
     var text by rememberSaveable { mutableStateOf("") }
     val popup = rememberOverlayState<QuickAddSheet>()
     var query by rememberSaveable { mutableStateOf("") }
@@ -388,7 +481,15 @@ private fun ProjectDetailQuickAddInput(availableTasks: List<Task>, actions: Proj
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { if (text.isNotBlank()) { actions.onCreateTask(text); text = ""; focus.clearFocus() } }),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        if (text.isNotBlank()) {
+                        actions.onCreateTask(text);
+                        text = "";
+                        focus.clearFocus()
+                    }
+                    },
+                ),
             )
         }
         if (popup.sheet == QuickAddSheet.Picker) {
@@ -396,18 +497,33 @@ private fun ProjectDetailQuickAddInput(availableTasks: List<Task>, actions: Proj
                 tasks = availableTasks,
                 query = query,
                 onQueryChange = { query = it },
-                onPick = { taskId -> actions.onMoveTaskToProject(taskId); popup.dismissAll(); query = "" },
-                onDismiss = { popup.dismissAll(); query = "" },
+                onPick = { taskId ->
+                    actions.onMoveTaskToProject(taskId);
+                    popup.dismissAll();
+                    query = ""
+                },
+                onDismiss = {
+                    popup.dismissAll();
+                    query = ""
+                },
             )
         }
     }
 }
 
-private sealed class QuickAddSheet { data object Picker : QuickAddSheet() }
+private sealed class QuickAddSheet {
+    data object Picker : QuickAddSheet()
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddExistingTaskPopup(tasks: List<Task>, query: String, onQueryChange: (String) -> Unit, onPick: (TaskId) -> Unit, onDismiss: () -> Unit) {
+private fun AddExistingTaskPopup(
+    tasks: List<Task>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onPick: (TaskId) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val filtered = remember(tasks, query) {
         if (query.isBlank()) tasks.take(10) else tasks.filter { it.title.contains(query, ignoreCase = true) }.take(10)
     }
@@ -415,14 +531,28 @@ private fun AddExistingTaskPopup(tasks: List<Task>, query: String, onQueryChange
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
             Text("Add existing task", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(value = query, onValueChange = onQueryChange, placeholder = { Text("Search tasks...") }, modifier = Modifier.fillMaxWidth(), singleLine = true, leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) })
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                placeholder = { Text("Search tasks...") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            )
             Spacer(Modifier.height(8.dp))
             if (filtered.isEmpty()) {
-                Text("No tasks found", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "No tasks found",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             } else {
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
                     items(filtered, key = { it.id.value }) { task ->
-                        ListItem(headlineContent = { Text(task.title, maxLines = 1, overflow = TextOverflow.Ellipsis) }, modifier = Modifier.clickable { onPick(task.id) })
+                        ListItem(
+                            headlineContent = { Text(task.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            modifier = Modifier.clickable { onPick(task.id) },
+                        )
                     }
                 }
             }

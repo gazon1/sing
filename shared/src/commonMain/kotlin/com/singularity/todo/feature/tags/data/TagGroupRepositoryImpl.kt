@@ -32,15 +32,13 @@ class TagGroupRepositoryImpl(
 
     // ─── Observation ────────────────────────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<TagGroup>> =
-        currentUser.observeForCurrentUser { uid ->
-            tagGroupDao.watchAll(uid.value).map { list ->
-                list.map { it.toTagGroup() }
-            }
+    override fun observeAll(): Flow<List<TagGroup>> = currentUser.observeForCurrentUser { uid ->
+        tagGroupDao.watchAll(uid.value).map { list ->
+            list.map { it.toTagGroup() }
         }
+    }
 
-    override fun observe(id: TagGroupId): Flow<TagGroup?> =
-        tagGroupDao.watchById(id.value).map { it?.toTagGroup() }
+    override fun observe(id: TagGroupId): Flow<TagGroup?> = tagGroupDao.watchById(id.value).map { it?.toTagGroup() }
 
     override suspend fun get(id: TagGroupId): TagGroup? {
         val uid = currentUser.scopedUserId.value
@@ -93,7 +91,7 @@ class TagGroupRepositoryImpl(
                 updatedAt = clock.now(),
                 userId = uid.value,
                 deletedAt = clock.now(),
-            )
+            ),
         )
     }
 
@@ -104,13 +102,11 @@ class TagGroupRepositoryImpl(
             list.mapTo(LinkedHashSet()) { TagGroupId.fromString(it) }
         }
 
-    override suspend fun setInheritedForProject(
-        projectId: ProjectId,
-        groupIds: Set<TagGroupId>,
-    ): Result<Unit> = runCatching {
-        inheritedTagGroupDao.deleteAllForProject(projectId.value)
-        // Note: individual inserts not needed — upsert via raw SQL handled by sync worker
-    }
+    override suspend fun setInheritedForProject(projectId: ProjectId, groupIds: Set<TagGroupId>): Result<Unit> =
+        runCatching {
+            inheritedTagGroupDao.deleteAllForProject(projectId.value)
+            // Note: individual inserts not needed — upsert via raw SQL handled by sync worker
+        }
 
     // ─── Sync ───────────────────────────────────────────────────────────────────
 

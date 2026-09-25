@@ -39,7 +39,9 @@ object ContentStateMapper {
         is TagsUiState.Content -> ContentState.Ready(state.tags)
     }
 
-    fun tagGroups(state: TagGroupsUiState): ContentState<List<com.singularity.todo.feature.tags.domain.model.TagGroup>> = when (state) {
+    fun tagGroups(
+        state: TagGroupsUiState,
+    ): ContentState<List<com.singularity.todo.feature.tags.domain.model.TagGroup>> = when (state) {
         is TagGroupsUiState.Loading -> ContentState.Loading
         is TagGroupsUiState.Empty -> ContentState.Empty
         is TagGroupsUiState.Error -> ContentState.Error(state.message)

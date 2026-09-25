@@ -48,9 +48,9 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProfileRepository
+import org.junit.jupiter.api.Tag
 import org.koin.dsl.module
 import kotlin.test.Test
-import org.junit.jupiter.api.Tag
 
 /**
  * Smoke-test that the JVM-side AI graph wires up correctly.

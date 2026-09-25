@@ -2,20 +2,19 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import kotlin.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * Verifies that [Task.tags] and [Task.dependsOn] are correctly populated

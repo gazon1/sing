@@ -13,25 +13,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
-import com.singularity.todo.core.ui.components.formatTimestampsRelative
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
-import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
+import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
-import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
@@ -40,7 +34,6 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-import kotlin.time.Clock
 
 /**
  * Task detail screen (View mode) for the tasks nested navigation graph.
@@ -77,7 +70,6 @@ fun TaskDetailViewScreen(taskId: TaskId) {
 
             is TaskDetailUiState.Loaded -> {
                 val ui = s.ui
-                var showAiSheet by remember { mutableStateOf(false) }
                 val model = TaskEditorModel(
                     taskId = taskId,
                     titleDraft = ui.titleDraft,
@@ -95,8 +87,6 @@ fun TaskDetailViewScreen(taskId: TaskId) {
                     isPinned = ui.task.isPinned,
                     dependsOn = ui.dependsOn,
                     availableTasks = ui.availableTasks,
-                    linkedNotes = ui.linkedNotes,
-                    linkedTasks = ui.linkedTasks,
                 )
 
                 val callbacks = TaskEditorCallbacks(
@@ -137,7 +127,6 @@ fun TaskDetailViewScreen(taskId: TaskId) {
                             onClick = { vm.onIntent(TaskDetailIntent.Domain.Delete) },
                         ),
                     ),
-                    onAiClick = if (!showAiSheet) {{ showAiSheet = true }} else null,
                 )
 
                 TaskEditorContent(
@@ -145,17 +134,6 @@ fun TaskDetailViewScreen(taskId: TaskId) {
                     callbacks = callbacks,
                     isCompleted = ui.task.isCompleted,
                 )
-
-                if (showAiSheet) {
-                    TaskAiBottomSheet(
-                        task = ui.task,
-                        onAction = { action ->
-                            showAiSheet = false
-                            vm.onIntent(TaskDetailIntent.Domain.RunAiAction(action))
-                        },
-                        onDismiss = { showAiSheet = false },
-                    )
-                }
             }
         }
     }

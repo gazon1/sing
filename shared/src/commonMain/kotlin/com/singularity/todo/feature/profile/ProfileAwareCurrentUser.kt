@@ -4,7 +4,6 @@ import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch

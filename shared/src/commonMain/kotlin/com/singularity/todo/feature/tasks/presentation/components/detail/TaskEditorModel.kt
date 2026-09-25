@@ -2,13 +2,11 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.feature.checklist.ChecklistItem
-import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -54,9 +52,5 @@ data class TaskEditorModel(
     val recurrence: RecurrenceSpec? = null,
     val isPinned: Boolean = false,
     val dependsOn: Set<TaskId> = emptySet(),
-    val availableTasks: List<Task> = emptyList(),
-    /** Notes that link TO this task via task:// URL scheme. */
-    val linkedNotes: List<Note> = emptyList(),
-    /** Tasks that link TO this task via task:// URL scheme. */
-    val linkedTasks: List<Task> = emptyList(),
+    val availableTasks: List<com.singularity.todo.feature.tasks.domain.model.Task> = emptyList(),
 )

@@ -14,5 +14,4 @@ import kotlinx.coroutines.runBlocking
  * and can later be replaced wholesale with Koin coroutine-aware factories
  * — one site change, one behavioural shift.
  */
-internal inline fun <T> koinBridge(crossinline block: suspend () -> T): T =
-    runBlocking { block() }
+internal inline fun <T> koinBridge(crossinline block: suspend () -> T): T = runBlocking { block() }

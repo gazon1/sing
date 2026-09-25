@@ -28,11 +28,7 @@ import com.singularity.todo.feature.reminders.ReminderPicker
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReminderPickerSheet(
-    currentOffset: ReminderOffset?,
-    onSelect: (ReminderOffset) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun ReminderPickerSheet(currentOffset: ReminderOffset?, onSelect: (ReminderOffset) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier

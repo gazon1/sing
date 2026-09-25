@@ -59,20 +59,23 @@ class MenuNodeFlattenTest {
     fun `flatten deep nesting`() {
         val nodes = buildMenuNodes {
             subMenu(
-                "l1", "Level 1",
+                "l1",
+                "Level 1",
                 children = buildMenuNodes {
-                subMenu(
-                    "l2", "Level 2",
-                    children = buildMenuNodes {
                     subMenu(
-                        "l3", "Level 3",
+                        "l2",
+                        "Level 2",
                         children = buildMenuNodes {
-                        item("deep", "Deepest") {}
-                    }
+                            subMenu(
+                                "l3",
+                                "Level 3",
+                                children = buildMenuNodes {
+                                    item("deep", "Deepest") {}
+                                },
+                            )
+                        },
                     )
-                }
-                )
-            }
+                },
             )
         }
         // 1 (l1) + 1 (l2) + 1 (l3) + 1 (deepest) = 4
@@ -83,17 +86,19 @@ class MenuNodeFlattenTest {
     fun `flatten with multiple submenus`() {
         val nodes = buildMenuNodes {
             subMenu(
-                "a", "A",
+                "a",
+                "A",
                 children = buildMenuNodes {
-                item("a1", "A1") {}
-                item("a2", "A2") {}
-            }
+                    item("a1", "A1") {}
+                    item("a2", "A2") {}
+                },
             )
             subMenu(
-                "b", "B",
+                "b",
+                "B",
                 children = buildMenuNodes {
-                item("b1", "B1") {}
-            }
+                    item("b1", "B1") {}
+                },
             )
         }
         // a + a1 + a2 + b + b1 = 5
