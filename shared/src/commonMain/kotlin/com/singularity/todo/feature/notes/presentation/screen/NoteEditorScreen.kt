@@ -212,13 +212,12 @@ fun NoteEditorScreenContent(
                 EditorTitleAndBody(
                     session = editorSession,
                     onTitleChange = { newTitle ->
-                        editorSession.titleFieldValue = newTitle
+                        editorSession.updateTitleFieldValue(newTitle)
                         onTitleChange(newTitle)
                     },
                 )
             }
         }
-    }
     }
 
     if (linkOverlay.sheet == NoteLinkSheet.External) {

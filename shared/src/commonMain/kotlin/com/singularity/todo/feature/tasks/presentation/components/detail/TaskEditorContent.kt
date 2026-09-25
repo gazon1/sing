@@ -295,13 +295,15 @@ fun TaskEditorContent(
             onDescriptionChange = onDescriptionChange,
             priority = RowCallbacks(
                 onChange = onPrioritySelect,
-                onClick = onPriorityClick ?: {},
+                onClick = onPriorityClick
+                    ?: {},
                 onClear = onPriorityClear,
             ),
             dueDate = DateRowCallbacks(
                 onChangeDate = onDueDateSelect,
                 onChangeTime = onDueTimeSelect,
-                onClick = onDueDateClick ?: {},
+                onClick = onDueDateClick
+                    ?: {},
                 onClear = onDueDateClear,
             ),
             startDate = null,
@@ -343,13 +345,16 @@ fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, is
         descriptionDraft = model.descriptionDraft,
         onDescriptionChange = callbacks.onDescriptionChange,
         priority = model.priority,
-        onPrioritySelect = callbacks.priority?.onChange ?: {},
+        onPrioritySelect = callbacks.priority?.onChange
+            ?: {},
         onPriorityClear = callbacks.priority?.onClear,
         dueDate = model.dueDate,
         dueTime = model.dueTime,
-        onDueDateSelect = callbacks.dueDate?.onChangeDate ?: {},
+        onDueDateSelect = callbacks.dueDate?.onChangeDate
+            ?: {},
         onDueDateClear = callbacks.dueDate?.onClear,
-        onDueTimeSelect = callbacks.dueDate?.onChangeTime ?: {},
+        onDueTimeSelect = callbacks.dueDate?.onChangeTime
+            ?: {},
         showDueDate = true,
         onPriorityClick = callbacks.priority?.onClick,
         onDueDateClick = callbacks.dueDate?.onClick,
