@@ -15,8 +15,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -31,7 +31,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun AiUsageScreen(modifier: Modifier = Modifier) {
     val viewModel: AiUsageViewModel = koinViewModel()
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     if (state.isLoading) {
         LoadingIndicator(modifier = modifier)
