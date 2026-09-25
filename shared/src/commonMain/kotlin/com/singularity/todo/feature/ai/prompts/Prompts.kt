@@ -69,6 +69,27 @@ object Prompts {
         You help users manage tasks, notes, and projects. Be direct and actionable.
     """.trimIndent()
 
+    val summarizeNoteSystem = """
+        You are an expert writing assistant. Summarize the following note in exactly one sentence.
+        Preserve all key information. Return a JSON object with a 'summary' field.
+    """.trimIndent()
+
+    val extractActionsSystem = """
+        You are an expert productivity assistant. From the following note, extract all actionable
+        tasks as a JSON array of strings. Each string should be a single, concrete action.
+        If no actions are found, return an empty array.
+    """.trimIndent()
+
+    val rewriteNoteSystem = """
+        You are an expert writing assistant. Rewrite the following note in the requested style.
+        Return a JSON object with 'title' and 'body' fields.
+    """.trimIndent()
+
+    val suggestTagsSystem = """
+        You are an expert productivity assistant. Given a note title and body, suggest 3-8
+        relevant tags. Return a JSON array of tag strings (lowercase, no # prefix).
+    """.trimIndent()
+
     // ─── User prompt templates ─────────────────────────────────────────────────
 
     fun refineUser(currentTitle: String, description: String?): String =
@@ -95,4 +116,13 @@ object Prompts {
 
     fun projectReviewUser(projectName: String, tasks: List<String>): String =
         "Project: $projectName\nTasks:\n${tasks.joinToString("\n") { "- $it" }}"
+
+    fun summarizeNoteUser(title: String, body: String): String = "Title: $title\n\n$body"
+
+    fun extractActionsUser(title: String, body: String): String = "Title: $title\n\n$body"
+
+    fun rewriteNoteUser(title: String, body: String, tone: String): String =
+        "Title: $title\n\n$body\n\nRequested style: $tone"
+
+    fun suggestTagsUser(title: String, body: String): String = "Title: $title\n\n$body"
 }

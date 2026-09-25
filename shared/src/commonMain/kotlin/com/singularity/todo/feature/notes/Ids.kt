@@ -127,6 +127,35 @@ sealed interface NoteAiResult {
     data class Error(val message: String) : NoteAiResult
 }
 
+/** AI actions available in the note editor. */
+enum class NoteAiAction {
+    Improve,
+    Summarize,
+    ExtractActions,
+    RewriteOneLiner,
+    RewriteTldr,
+    RewriteStructured,
+    SuggestTags,
+}
+
+/** Result of a summarize action. */
+sealed interface SummarizeResult {
+    data class Ok(val summary: String) : SummarizeResult
+    data class Error(val message: String) : SummarizeResult
+}
+
+/** Result of an extract-actions action. */
+sealed interface ExtractActionsResult {
+    data class Ok(val actions: List<String>) : ExtractActionsResult
+    data class Error(val message: String) : ExtractActionsResult
+}
+
+/** Result of a suggest-tags action. */
+sealed interface SuggestTagsResult {
+    data class Ok(val tags: List<String>) : SuggestTagsResult
+    data class Error(val message: String) : SuggestTagsResult
+}
+
 // ─── List state ────────────────────────────────────────────────────────────
 
 /** Filter for the notes list. */

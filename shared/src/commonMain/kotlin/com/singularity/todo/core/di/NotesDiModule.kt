@@ -5,7 +5,11 @@ import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.RoomNotesRepository
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
+import com.singularity.todo.feature.notes.domain.editor.extractActionsLambda
 import com.singularity.todo.feature.notes.domain.editor.improveNoteLambda
+import com.singularity.todo.feature.notes.domain.editor.rewriteNoteLambda
+import com.singularity.todo.feature.notes.domain.editor.suggestTagsLambda
+import com.singularity.todo.feature.notes.domain.editor.summarizeNoteLambda
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
@@ -55,6 +59,10 @@ fun notesModule(): org.koin.core.module.Module =
                 idGen = get(),
                 ai = NoteAiController(
                     improveNote = getOrNull<ImproveNoteUseCase>()?.let(::improveNoteLambda),
+                    summarizeNote = getOrNull<com.singularity.todo.feature.ai.use_cases.SummarizeNoteUseCase>()?.let(::summarizeNoteLambda),
+                    extractActions = getOrNull<com.singularity.todo.feature.ai.use_cases.ExtractActionsUseCase>()?.let(::extractActionsLambda),
+                    rewriteNote = getOrNull<com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase>()?.let(::rewriteNoteLambda),
+                    suggestTags = getOrNull<com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase>()?.let(::suggestTagsLambda),
                 ),
                 log = get<Logger>(),
                 // scope omitted — default AutoCloseableCoroutineScope() applies

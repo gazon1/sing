@@ -10,9 +10,21 @@ import com.singularity.todo.feature.ai.tools.ClusterTasksTool
 import com.singularity.todo.feature.ai.tools.DecomposeTaskInput
 import com.singularity.todo.feature.ai.tools.DecomposeTaskOutput
 import com.singularity.todo.feature.ai.tools.DecomposeTaskTool
+import com.singularity.todo.feature.ai.tools.ExtractActionsInput
+import com.singularity.todo.feature.ai.tools.ExtractActionsOutput
+import com.singularity.todo.feature.ai.tools.ExtractActionsTool
 import com.singularity.todo.feature.ai.tools.GenerateChecklistInput
 import com.singularity.todo.feature.ai.tools.GenerateChecklistOutput
 import com.singularity.todo.feature.ai.tools.GenerateChecklistTool
+import com.singularity.todo.feature.ai.tools.RewriteNoteInput
+import com.singularity.todo.feature.ai.tools.RewriteNoteOutput
+import com.singularity.todo.feature.ai.tools.RewriteNoteTool
+import com.singularity.todo.feature.ai.tools.SuggestTagsInput
+import com.singularity.todo.feature.ai.tools.SuggestTagsOutput
+import com.singularity.todo.feature.ai.tools.SuggestTagsTool
+import com.singularity.todo.feature.ai.tools.SummarizeNoteInput
+import com.singularity.todo.feature.ai.tools.SummarizeNoteOutput
+import com.singularity.todo.feature.ai.tools.SummarizeNoteTool
 import com.singularity.todo.feature.ai.tools.GenerateDescriptionInput
 import com.singularity.todo.feature.ai.tools.GenerateDescriptionOutput
 import com.singularity.todo.feature.ai.tools.GenerateDescriptionTool
@@ -127,6 +139,42 @@ class ImproveNoteUseCase(tool: SimpleTool<com.singularity.todo.feature.ai.tools.
         body: String,
     ): Result<com.singularity.todo.feature.ai.tools.ImproveNoteOutput> =
         execute(com.singularity.todo.feature.ai.tools.ImproveNoteInput(title, body))
+}
+
+class SummarizeNoteUseCase(tool: SummarizeNoteTool) :
+    LlmUseCase<SummarizeNoteInput, SummarizeNoteOutput>(
+        tool,
+        SummarizeNoteOutput.serializer(),
+    ) {
+    suspend operator fun invoke(title: String, body: String): Result<String> =
+        execute(SummarizeNoteInput(title, body)).map { it.summary }
+}
+
+class ExtractActionsUseCase(tool: ExtractActionsTool) :
+    LlmUseCase<ExtractActionsInput, ExtractActionsOutput>(
+        tool,
+        ExtractActionsOutput.serializer(),
+    ) {
+    suspend operator fun invoke(title: String, body: String): Result<List<String>> =
+        execute(ExtractActionsInput(title, body)).map { it.actions }
+}
+
+class RewriteNoteUseCase(tool: RewriteNoteTool) :
+    LlmUseCase<RewriteNoteInput, RewriteNoteOutput>(
+        tool,
+        RewriteNoteOutput.serializer(),
+    ) {
+    suspend operator fun invoke(title: String, body: String, tone: String = "OneLiner"): Result<RewriteNoteOutput> =
+        execute(RewriteNoteInput(title, body, tone))
+}
+
+class SuggestTagsUseCase(tool: SuggestTagsTool) :
+    LlmUseCase<SuggestTagsInput, SuggestTagsOutput>(
+        tool,
+        SuggestTagsOutput.serializer(),
+    ) {
+    suspend operator fun invoke(title: String, body: String): Result<List<String>> =
+        execute(SuggestTagsInput(title, body)).map { it.tags }
 }
 
 /** ProjectReviewTool returns raw text — special case, not using the generic factory */

@@ -22,6 +22,7 @@ import com.singularity.todo.feature.ai.tools.DeleteNoteTool
 import com.singularity.todo.feature.ai.tools.DeleteProjectTool
 import com.singularity.todo.feature.ai.tools.DeleteTagTool
 import com.singularity.todo.feature.ai.tools.DeleteTaskTool
+import com.singularity.todo.feature.ai.tools.ExtractActionsTool
 import com.singularity.todo.feature.ai.tools.GenerateChecklistTool
 import com.singularity.todo.feature.ai.tools.GenerateDescriptionTool
 import com.singularity.todo.feature.ai.tools.GetNoteTool
@@ -36,8 +37,11 @@ import com.singularity.todo.feature.ai.tools.PickTimeTool
 import com.singularity.todo.feature.ai.tools.ProjectReviewTool
 import com.singularity.todo.feature.ai.tools.ReadAdrTool
 import com.singularity.todo.feature.ai.tools.RefineTaskTool
+import com.singularity.todo.feature.ai.tools.RewriteNoteTool
 import com.singularity.todo.feature.ai.tools.SearchTasksTool
 import com.singularity.todo.feature.ai.tools.SmartRewriteTool
+import com.singularity.todo.feature.ai.tools.SuggestTagsTool
+import com.singularity.todo.feature.ai.tools.SummarizeNoteTool
 import com.singularity.todo.feature.ai.tools.UpdateNoteTool
 import com.singularity.todo.feature.ai.tools.UpdateProjectTool
 import com.singularity.todo.feature.ai.tools.UpdateTaskTool
@@ -47,13 +51,17 @@ import com.singularity.todo.feature.ai.usage.AiUsageViewModel
 import com.singularity.todo.feature.ai.use_cases.ClusterNotesUseCase
 import com.singularity.todo.feature.ai.use_cases.ClusterTasksUseCase
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
+import com.singularity.todo.feature.ai.use_cases.ExtractActionsUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
+import com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase
 import com.singularity.todo.feature.ai.use_cases.SmartRewriteUseCase
+import com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase
+import com.singularity.todo.feature.ai.use_cases.SummarizeNoteUseCase
 import com.singularity.todo.feature.genui.GenuiEngine
 import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.surface.SurfaceController
@@ -129,6 +137,10 @@ actual fun aiToolsModule(): Module = module {
     factory { ClusterTasksUseCase(get()) }
     factory { ClusterNotesUseCase(get()) }
     factory { ImproveNoteUseCase(tool = get<ImproveNoteTool>()) }
+    factory { SummarizeNoteUseCase(get()) }
+    factory { ExtractActionsUseCase(get()) }
+    factory { RewriteNoteUseCase(get()) }
+    factory { SuggestTagsUseCase(get()) }
     factory { ProjectReviewUseCase(get()) }
 
     // ─── AI Tools ───
@@ -145,6 +157,10 @@ actual fun aiToolsModule(): Module = module {
     factory { ProjectReviewTool(get(), get()) }
     factory { WeeklyPlanTool(get(), get()) }
     factory { ImproveNoteTool(get(), get()) }
+    factory { SummarizeNoteTool(get(), get()) }
+    factory { ExtractActionsTool(get(), get()) }
+    factory { RewriteNoteTool(get(), get()) }
+    factory { SuggestTagsTool(get(), get()) }
     factory { GetNoteTool(get()) }
     factory { GetProjectTool(get()) }
     factory { GetTaskTool(get()) }
@@ -182,6 +198,10 @@ actual fun aiToolsModule(): Module = module {
             get<ProjectReviewTool>(),
             get<WeeklyPlanTool>(),
             get<ImproveNoteTool>(),
+            get<SummarizeNoteTool>(),
+            get<ExtractActionsTool>(),
+            get<RewriteNoteTool>(),
+            get<SuggestTagsTool>(),
             get<GetNoteTool>(),
             get<GetProjectTool>(),
             get<GetTaskTool>(),

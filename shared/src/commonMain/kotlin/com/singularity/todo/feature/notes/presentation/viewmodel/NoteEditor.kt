@@ -5,17 +5,24 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.feature.notes.EditorState
+import com.singularity.todo.feature.notes.ExtractActionsResult
 import com.singularity.todo.feature.notes.LinkKind
 import com.singularity.todo.feature.notes.LinkResult
+import com.singularity.todo.feature.notes.NoteAiAction
 import com.singularity.todo.feature.notes.NoteAiResult
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.NotesUiEvent
+import com.singularity.todo.feature.notes.SummarizeResult
+import com.singularity.todo.feature.notes.SuggestTagsResult
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
 import com.singularity.todo.feature.notes.domain.editor.NoteEditorState
 import com.singularity.todo.feature.notes.domain.editor.NoteSaver
+import com.singularity.todo.feature.notes.formatExtractActionsResult
 import com.singularity.todo.feature.notes.formatNoteAiResult
+import com.singularity.todo.feature.notes.formatSummarizeResult
+import com.singularity.todo.feature.notes.formatSuggestTagsResult
 import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -156,6 +163,40 @@ class NoteEditor(
                 state.applyImprove(result.title, result.body)
             }
             _events.trySend(NotesUiEvent.AiResult(formatNoteAiResult(result)))
+        }
+    }
+
+    /**
+     * Runs the specified [action] and applies the result.
+     * Improve and Rewrite apply title+body changes; Summarize, ExtractActions, SuggestTags emit a result event.
+     */
+    fun runAiAction(action: NoteAiAction) {
+        if (!ai.isActionAvailable(action)) return
+        scope.launch {
+            val c = state.current ?: return@launch
+            val result = ai.run(action, c.title, c.html)
+            result.fold(
+                onSuccess = { success ->
+                    when {
+                        success is NoteAiResult.Improved -> {
+                            state.applyImprove(success.title, success.body)
+                            _events.trySend(NotesUiEvent.AiResult(formatNoteAiResult(success)))
+                        }
+                        success is SummarizeResult -> {
+                            _events.trySend(NotesUiEvent.AiResult(formatSummarizeResult(success)))
+                        }
+                        success is ExtractActionsResult -> {
+                            _events.trySend(NotesUiEvent.AiResult(formatExtractActionsResult(success)))
+                        }
+                        success is SuggestTagsResult -> {
+                            _events.trySend(NotesUiEvent.AiResult(formatSuggestTagsResult(success)))
+                        }
+                    }
+                },
+                onFailure = { error ->
+                    _events.trySend(NotesUiEvent.AiResult("Action failed: ${error.message ?: "unknown"}"))
+                },
+            )
         }
     }
 
