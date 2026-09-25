@@ -50,7 +50,7 @@ abstract class StatefulViewModel<S>(
      * Directly replaces the current state with [newState].
      * Prefer [update] for reducer-style mutations.
      */
-    protected fun setState(newState: S) {
+    protected open fun setState(newState: S) {
         _state.value = newState
     }
 

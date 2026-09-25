@@ -34,7 +34,9 @@ class ProfileSwitcherViewModel(
     scope = scope,
 ) {
     private val log = Logger.withTag("ProfileSwitcherViewModel")
-    private val vmScope = scope
+    override val vmScope = scope
+
+    private val _errorMessage = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     init {
         // Observe profiles and active profile ID — no addCloseable(scope) needed (MviViewModel handles it)
@@ -53,8 +55,6 @@ class ProfileSwitcherViewModel(
             }.collect { updateState { it } }
         }
     }
-
-    private val _errorMessage = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     override fun onIntent(intent: ProfileSwitcherIntent) {
         when (intent) {

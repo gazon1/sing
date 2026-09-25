@@ -30,7 +30,7 @@ class NotePreview(
     scope = scope,
 ) {
     private val logger = Logger.withTag("NotePreview")
-    private val vmScope = scope
+    override val vmScope = scope
     private var loadNoteJob: Job? = null
 
     override fun onIntent(intent: NotePreviewIntent) {

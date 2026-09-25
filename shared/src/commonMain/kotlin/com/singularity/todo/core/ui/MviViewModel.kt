@@ -47,6 +47,9 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : StatefulViewModel<S>(initialState, scope) {
 
+    /** Exposed scope for subclasses launching coroutines in intent handlers. */
+    protected open val vmScope: AutoCloseableCoroutineScope = scope
+
     private val _events = EventBus<E>(extraEventCapacity)
 
     /** Flow of one-shot UI events. Collect in your screen's effect layer. */
@@ -67,12 +70,24 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      * Non-suspending — delegates to [kotlinx.coroutines.flow.MutableStateFlow.update].
      * Override [onStateChanged] to react to state transitions (logging, analytics, etc.).
      *
-     * For simple direct replacement, use [StatefulViewModel.setState] instead.
+     * For simple direct replacement (when you already have the full new state),
+     * use [setState] instead.
      */
     protected fun updateState(transform: (S) -> S) {
         val old = currentState
         update(transform)
         onStateChanged(old, currentState)
+    }
+
+    /**
+     * Directly replaces the current state with [newState].
+     * Prefer [updateState] for reducer-style mutations.
+     * @see updateState
+     */
+    protected open override fun setState(newState: S) {
+        val old = currentState
+        super.setState(newState)
+        onStateChanged(old, newState)
     }
 
     /**
