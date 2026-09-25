@@ -189,15 +189,13 @@ class ProjectDetailViewModel(
     private val debouncer = Debouncer(scope, 300.milliseconds)
 
     init {
-        // Name debounce — reads _latestProject to avoid TOCTOU.
+        // Name debounce — mutate reads _latestProject inside fireAndForget to avoid TOCTOU.
         debouncer.debounce(draftState.state.map { it.name }) { name ->
-            val current = _latestProject.value ?: return@debounce
-            mutate(current) { copy(name = name) }
+            mutate { copy(name = name) }
         }
         // Description debounce — same pattern.
         debouncer.debounce(draftState.state.map { it.description }) { desc ->
-            val current = _latestProject.value ?: return@debounce
-            mutate(current) { copy(description = desc) }
+            mutate { copy(description = desc) }
         }
     }
 
@@ -233,29 +231,24 @@ class ProjectDetailViewModel(
 
             // ── Pickers ─────────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.UpdateColor -> {
-                val current = _latestProject.value ?: return
-                mutate(current) { copy(color = intent.color) }
+                mutate { copy(color = intent.color) }
             }
 
             is ProjectDetailIntent.Domain.UpdateIcon -> {
-                val current = _latestProject.value ?: return
-                mutate(current) { copy(icon = intent.icon) }
+                mutate { copy(icon = intent.icon) }
             }
 
             is ProjectDetailIntent.Domain.UpdateParent -> {
-                val current = _latestProject.value ?: return
-                mutate(current) { copy(parentId = intent.parentId) }
+                mutate { copy(parentId = intent.parentId) }
             }
 
             is ProjectDetailIntent.Domain.UpdateDueDate -> {
-                val current = _latestProject.value ?: return
-                mutate(current) { copy(dueDate = intent.dueDate) }
+                mutate { copy(dueDate = intent.dueDate) }
             }
 
             // ── Lifecycle ──────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.ToggleArchive -> {
-                val current = _latestProject.value ?: return
-                mutate(current) { copy(isDeleted = !isDeleted) }
+                mutate { copy(isDeleted = !isDeleted) }
             }
 
             is ProjectDetailIntent.Domain.Delete ->
@@ -335,10 +328,10 @@ class ProjectDetailViewModel(
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
     /**
-     * Applies a mutation to [current] via [transform] and persists via [updateProject].
-     * Uses [_latestProject] as the source of truth to avoid TOCTOU.
+     * Applies a mutation to the current project and persists via [updateProject].
+     * Reads from [_latestProject] inside the fireAndForget block to avoid TOCTOU.
      */
-    private fun mutate(current: Project, transform: Project.() -> Project) {
+    private fun mutate(transform: Project.() -> Project) {
         scope.fireAndForget(
             errorLabel = "Update project failed",
             onError = { e -> _events.trySend(ProjectDetailUiEvent.ShowError(e.toMessage())) },

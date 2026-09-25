@@ -215,15 +215,16 @@ class TaskDetailViewModel(
                 if (completed && current.recurrence != null) {
                     // Recurring task: use CompleteRecurringTaskUseCase to roll forward
                     scope.launch {
-                        deps.completeRecurring(current.id)
-                            .onSuccess { updated ->
+                        val task = _latestTask.value ?: return@launch
+                        deps.completeRecurring(task.id)
+                            .onSuccess {
                                 _events.trySend(TaskDetailUiEvent.Saved("Repeating: next occurrence set"))
                             }
                             .onFailure { emitError("Failed to complete recurring task") }
                     }
                 } else {
                     val completedAt = if (completed) deps.clock.now() else null
-                    mutate(current) { copy(completedAt = completedAt) }
+                    mutate { copy(completedAt = completedAt) }
                 }
             }
 
@@ -238,49 +239,51 @@ class TaskDetailViewModel(
             }
 
             is TaskDetailIntent.Domain.SetDueDate ->
-                mutate(current) { copy(dueDate = intent.date) }
+                mutate { copy(dueDate = intent.date) }
 
             is TaskDetailIntent.Domain.SetDueTime ->
-                mutate(current) { copy(dueTime = intent.time) }
+                mutate { copy(dueTime = intent.time) }
 
             is TaskDetailIntent.Domain.SetPriority ->
-                mutate(current) { copy(priority = intent.priority) }
+                mutate { copy(priority = intent.priority) }
 
             is TaskDetailIntent.Domain.SetProject ->
-                mutate(current) { copy(projectId = intent.projectId) }
+                mutate { copy(projectId = intent.projectId) }
 
             is TaskDetailIntent.Domain.SetTags ->
-                mutate(current) { copy(tags = intent.tagIds) }
+                mutate { copy(tags = intent.tagIds) }
 
             is TaskDetailIntent.Domain.RemoveTag ->
-                mutate(current) { copy(tags = current.tags - intent.tagId) }
+                mutate { copy(tags = tags - intent.tagId) }
 
             is TaskDetailIntent.Domain.SetKind ->
-                mutate(current, error = "Failed to set kind") { copy(kind = intent.kind) }
+                mutate(error = "Failed to set kind") { copy(kind = intent.kind) }
 
             is TaskDetailIntent.Domain.ToggleSomeday ->
-                mutate(current, error = "Failed to set someday") { copy(someday = !someday) }
+                mutate(error = "Failed to set someday") { copy(someday = !someday) }
 
             is TaskDetailIntent.Domain.TogglePinned ->
-                mutate(current) { copy(isPinned = !isPinned) }
+                mutate { copy(isPinned = !isPinned) }
 
             is TaskDetailIntent.Domain.SetDependencies -> {
                 scope.launch {
-                    deps.taskRepo.setDependencies(current.id, intent.dependsOn)
+                    val task = _latestTask.value ?: return@launch
+                    deps.taskRepo.setDependencies(task.id, intent.dependsOn)
                         .onSuccess { _events.trySend(TaskDetailUiEvent.Saved("Dependencies updated")) }
                         .onFailure { emitError("Failed to set dependencies") }
                 }
             }
 
             is TaskDetailIntent.Domain.SetRecurrence -> {
-                mutate(current, error = "Failed to set recurrence") {
+                mutate(error = "Failed to set recurrence") {
                     copy(recurrence = intent.spec)
                 }
             }
 
             is TaskDetailIntent.Domain.ToggleChecklistItem -> {
                 scope.launch {
-                    deps.checklistRepository.toggleItem(current.id.value, intent.item.id)
+                    val task = _latestTask.value ?: return@launch
+                    deps.checklistRepository.toggleItem(task.id.value, intent.item.id)
                         .onFailure { emitError("Toggle failed") }
                 }
             }
@@ -295,7 +298,8 @@ class TaskDetailViewModel(
             is TaskDetailIntent.Domain.AddChecklistItem -> {
                 scope.launch {
                     if (intent.title.isBlank()) return@launch
-                    deps.checklistRepository.addItem(current.id.value, intent.title.trim())
+                    val task = _latestTask.value ?: return@launch
+                    deps.checklistRepository.addItem(task.id.value, intent.title.trim())
                         .onSuccess { _events.trySend(TaskDetailUiEvent.Saved("Item added")) }
                         .onFailure { emitError("Add failed") }
                 }
@@ -496,8 +500,15 @@ class TaskDetailViewModel(
         _retryVersion.value++
     }
 
-    private fun mutate(current: Task, error: String = "Save failed", transform: Task.() -> Task) = scope.launch {
+    private fun mutate(error: String = "Save failed", transform: Task.() -> Task) = scope.launch {
+        val current = _latestTask.value ?: return@launch
         deps.updateTask(current.transform())
+            .onFailure { emitError(error) }
+    }
+
+    /** Overload for when we already have a Task reference (e.g., ToggleSubtask with intent.task) */
+    private fun mutate(task: Task, error: String = "Save failed", transform: Task.() -> Task) = scope.launch {
+        deps.updateTask(task.transform())
             .onFailure { emitError(error) }
     }
 
