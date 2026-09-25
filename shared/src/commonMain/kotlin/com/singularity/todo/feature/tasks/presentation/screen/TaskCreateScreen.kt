@@ -48,9 +48,11 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
     val sheets = rememberDialogState<TaskEditorSheet>()
 
     LaunchedEffect(vm) {
-        vm.saved.collect {
-            isNavigatingBack = true
-            navigator.back()
+        vm.events.collect { event ->
+            if (event is com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent.Saved) {
+                isNavigatingBack = true
+                navigator.back()
+            }
         }
     }
 
