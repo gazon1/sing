@@ -156,6 +156,37 @@ grep -rn "FakeTaskRepository.*watchTasks\|\.watchTasksByDate\b\|\.watchSubtasks\
 # Expected: empty (or only docstrings/comments)
 ```
 
+### 6. Write pipeline: `assertCanWrite` → `dao.upsert` → `syncRepository.enqueue`
+
+Every `create`/`update`/`restore` follows this exact sequence. See `singularity-todo-write-pipeline` skill for full details.
+
+```kotlin
+// ✅ Right
+override suspend fun create(item: Task): Result<Task> = runCatching {
+    currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+    val toInsert = item.copy(userId = currentUser.scopedUserId.value)
+    taskDao.upsert(toInsert.toEntity())
+    syncRepository.enqueue(toInsert)
+    toInsert
+}
+
+// ❌ Wrong — missing enqueue (sync is silently dropped)
+override suspend fun create(item: Task): Result<Task> = runCatching {
+    currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+    taskDao.upsert(item.toEntity())
+    // syncRepository.enqueue missing!
+}
+
+// ❌ Wrong — guard after upsert (race window)
+override suspend fun create(item: Task): Result<Task> = runCatching {
+    taskDao.upsert(item.toEntity())              // ← upsert before guard
+    currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+    syncRepository.enqueue(item)
+}
+```
+
+**Note on `assertCanWrite` vs DAO guards:** Both are required. `assertCanWrite` is authorization (business logic layer). DAO `*ForUser` methods are data isolation (SQL layer). The guard throws `CrossUserWriteException`; the DAO returns `Int` for ownership enforcement.
+
 ## Repository template
 
 A canonical repository impl has **4 layers**:
@@ -212,10 +243,13 @@ Before merging any PR that touches a repository:
 - [ ] No new `taskDao.watchById(id).first()` calls (use `getById`)
 - [ ] No new `ProfileAwareCurrentUser.scopedUserId` static reads (detekt will catch this)
 - [ ] Fake DAO has stub implementations of any new `*ForUser` methods
+- [ ] `create`/`update`/`restore` follow `assertCanWrite` → `dao.upsert` → `syncRepository.enqueue`
+- [ ] `assertCanWrite` throws `CrossUserWriteException` (explicit `if/throw`, NOT `require()`)
 - [ ] Detekt 0 new findings (run `./gradlew :shared:detekt`)
 
 ## Related Skills
 
+- `singularity-todo-write-pipeline` — the write pipeline pattern (assertCanWrite → upsert → enqueue)
 - `singularity-todo-feature-scaffold` — 7-file feature template
 - `singularity-todo-clean-architecture-audit` — layer-boundary grep checks
 - `singularity-todo-coroutine-scopes` — `createBackgroundScope()` placement
@@ -224,3 +258,5 @@ Before merging any PR that touches a repository:
 - ADR: `docs/decisions/2026-09-23-mcp-bootstrap-result-pattern.md`
 - ADR: `docs/decisions/2026-09-24-dao-userid-guards.md`
 - ADR: `docs/decisions/2026-09-24-profile-aware-current-user-di.md`
+- ADR: `docs/decisions/2026-09-25-no-store-library-local-first-pattern.md`
+- ADR: `docs/decisions/2026-09-25-repository-architecture-gaps.md`

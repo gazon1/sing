@@ -4,7 +4,9 @@ import com.singularity.todo.core.database.AgendaViewDao
 import com.singularity.todo.core.database.AgendaViewEntity
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toInstant
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -42,13 +44,11 @@ class RoomSavedAgendaViewsRepository(
 
     override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatching {
         val uid = currentUser.scopedUserId.value
-        val toInsert = if (view.userId == uid.value || view.userId == "") {
-            view.copy(userId = uid.value)
-        } else {
-            throw IllegalStateException(
-                "Cross-user SavedAgendaView upsert: view.userId=${view.userId}, current=${uid.value}",
-            )
-        }
+        // Empty-string userId is the legacy anonymous sentinel; normalise to UserId.anonymous
+        // so that assertCanWrite handles both consistently with other repositories.
+        val entityUserId = if (view.userId == "") UserId.anonymous else UserId(view.userId)
+        currentUser.assertCanWrite(entityId = view.id.raw, entityUserId = entityUserId)
+        val toInsert = view.copy(userId = uid.value)
         agendaViewDao.upsert(toInsert.toEntity())
         toInsert
     }

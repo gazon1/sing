@@ -6,7 +6,9 @@ import com.singularity.todo.core.database.TagGroupEntity
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -67,6 +69,12 @@ class TagGroupRepositoryImpl(
         val uid = currentUser.scopedUserId.value
         val existing = tagGroupDao.getByIdForUser(input.id.value, uid.value)
             ?: throw NoSuchElementException("TagGroup not found: ${input.id}")
+        // DAO-level filter above is the first guard; explicit assertCanWrite is the second.
+        // TagGroup.userId is stored as String, so wrap with UserId() for the guard.
+        currentUser.assertCanWrite(
+            entityId = existing.id,
+            entityUserId = UserId(existing.userId),
+        )
         val updated = existing.toTagGroup().copy(
             name = input.name.trim(),
             color = input.color,

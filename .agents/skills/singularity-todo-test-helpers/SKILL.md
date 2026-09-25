@@ -9,6 +9,7 @@ This skill documents the standardized helpers for writing ViewModel tests. Use t
 
 **For the canonical VM constructor shape**, see `singularity-todo-testable-vm`.
 **For migration from the old `scopeOverride` pattern**, see `singularity-todo-vm-migration-playbook`.
+**For testing `assertCanWrite` (repository write guard)**, see the section below.
 
 ---
 
@@ -356,6 +357,43 @@ FakeTextGen(output = "some text")                    // success
 FakeTextGen(failureMessage = "error")               // failure
 FakeTextGen(output = "output", failureMessage = "err") // success unless overridden
 ```
+
+---
+
+## Testing `assertCanWrite` (Repository Write Guard)
+
+`UserScopedWriteExtTest` lives in `shared/src/commonTest/kotlin/com/singularity/todo/core/repository/`.
+
+```kotlin
+class UserScopedWriteExtTest {
+    @Test
+    fun matchesCurrentUser_doesNotThrow() {
+        // Use initialUserId to seed the scoped userId
+        val cu = FakeProfileAwareCurrentUser(initialUserId = UserId("u-1"))
+        cu.assertCanWrite(entityId = "task-1", entityUserId = UserId("u-1"))
+    }
+
+    @Test
+    fun anonymousUser_isAccepted() {
+        val cu = FakeProfileAwareCurrentUser(initialUserId = UserId("u-1"))
+        // UserId.anonymous is always allowed (legacy anonymous entity stamp)
+        cu.assertCanWrite(entityId = "task-1", entityUserId = UserId.anonymous)
+    }
+
+    @Test
+    fun differentUser_throws() {
+        val cu = FakeProfileAwareCurrentUser(initialUserId = UserId("u-1"))
+        assertFailsWith<CrossUserWriteException> {
+            cu.assertCanWrite(entityId = "task-1", entityUserId = UserId("u-2"))
+        }
+    }
+}
+```
+
+**Key points:**
+- `FakeProfileAwareCurrentUser(initialUserId = ...)` seeds the scoped userId directly
+- `assertFailsWith<CrossUserWriteException>` (not `IllegalArgumentException`) — the extension throws `CrossUserWriteException` explicitly, not `require()`
+- No `runTest { }` wrapper needed — these are synchronous tests
 
 ---
 

@@ -10,6 +10,7 @@ import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.database.toLocalDateOrNull
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -45,17 +46,9 @@ class ProjectsRepositoryImpl(
     }
 
     override suspend fun create(item: Project): Result<Project> = runCatching {
-        val currentUid = currentUser.scopedUserId.value
-        // Cross-user guard: fail loud rather than silently write to the wrong user.
-        val toInsert = if (item.userId == currentUid) {
-            item
-        } else {
-            throw IllegalStateException(
-                "Cross-user create attempted: entity.userId=${item.userId}, current=$currentUid",
-            )
-        }
-        projectDao.upsert(toInsert.toEntity())
-        toInsert.also { syncRepository.enqueue(it) }
+        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+        projectDao.upsert(item.toEntity())
+        item.also { syncRepository.enqueue(it) }
     }
 
     override suspend fun update(item: Project): Result<Project> = runCatching {

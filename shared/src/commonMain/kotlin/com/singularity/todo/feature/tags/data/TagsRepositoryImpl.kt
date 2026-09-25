@@ -5,7 +5,9 @@ import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncRepository
@@ -42,11 +44,13 @@ class TagsRepositoryImpl(
     }
 
     override suspend fun create(item: Tag): Result<Tag> = runCatching {
+        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = UserId(item.userId))
         tagDao.upsert(item.toEntity())
         item.also { syncRepository.enqueue(it) }
     }
 
     override suspend fun update(item: Tag): Result<Tag> = runCatching {
+        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = UserId(item.userId))
         tagDao.upsert(item.toEntity())
         item.also { syncRepository.enqueue(it) }
     }

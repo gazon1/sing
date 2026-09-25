@@ -11,6 +11,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.SoftDeletable
+import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncRepository
@@ -136,11 +137,13 @@ class RoomNotesRepository(
     }
 
     override suspend fun create(item: Note): Result<Note> = runCatching {
+        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         noteDao.upsert(item.toEntity())
         item.also { syncRepository.enqueue(it) }
     }
 
     override suspend fun update(item: Note): Result<Note> = runCatching {
+        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         noteDao.upsert(item.toEntity())
         item.also { syncRepository.enqueue(it) }
     }

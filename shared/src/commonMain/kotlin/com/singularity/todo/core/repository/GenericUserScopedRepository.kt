@@ -7,6 +7,22 @@ import kotlinx.coroutines.flow.Flow
  * ambient [ProfileAwareCurrentUser][com.singularity.todo.feature.profile.ProfileAwareCurrentUser];
  * do NOT pass userId explicitly.
  *
+ * ## Canonical write pipeline
+ *
+ * Every `create` / `update` implementation follows this exact sequence:
+ *
+ * ```
+ * 1. currentUser.assertCanWrite(entitySyncId, entity.userId)  // cross-user guard
+ * 2. dao.upsert(item.toEntity())                             // local write (Room = SoT)
+ * 3. syncRepository.enqueue(item)                           // schedules remote push
+ * ```
+ *
+ * Domain-specific side effects (outgoing links, cross-refs, counter updates) are
+ * applied **between step 2 and step 3**. `restore` follows the same pattern.
+ *
+ * The `assertCanWrite` extension is defined in [assertCanWrite]
+ * ([com.singularity.todo.core.repository.assertCanWrite]).
+ *
  * ## Contract
  *
  * - **Observations** are scoped to `ProfileAwareCurrentUser.scopedUserId`.

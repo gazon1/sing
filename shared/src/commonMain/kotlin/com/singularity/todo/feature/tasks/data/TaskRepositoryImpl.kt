@@ -11,6 +11,7 @@ import com.singularity.todo.core.database.toIsoOrNull
 import com.singularity.todo.core.database.toLocalTimeIsoOrNull
 import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.SyncRepository
@@ -25,9 +26,6 @@ import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -47,9 +45,6 @@ class TaskRepositoryImpl(
     private val syncRepository: SyncRepository,
     private val dependencyValidator: DependencyValidator,
 ) : TaskRepository {
-
-    private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
-    override val changes: SharedFlow<Task> = _changes.asSharedFlow()
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -187,19 +182,13 @@ class TaskRepositoryImpl(
 
     override suspend fun create(item: Task): Result<Task> = runCatching {
         val currentUid = currentUser.scopedUserId.value
-        val toInsert = if (item.userId == currentUid || item.userId == com.singularity.todo.core.ids.UserId.anonymous) {
-            item.copy(userId = currentUid)
-        } else {
-            throw IllegalStateException(
-                "Cross-user create attempted: entity.userId=${item.userId}, current=$currentUid",
-            )
-        }
+        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+        val toInsert = item.copy(userId = currentUid)
         taskDao.upsert(toInsert.toEntity())
         saveOutgoingLinks(toInsert.id, toInsert.description)
         toInsert.tags.forEach { tagId ->
             taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = toInsert.id.value, tagId = tagId.value))
         }
-        _changes.tryEmit(toInsert)
         syncRepository.enqueue(toInsert)
         toInsert
     }
@@ -207,7 +196,6 @@ class TaskRepositoryImpl(
     override suspend fun update(item: Task): Result<Task> = runCatching {
         taskDao.upsert(item.toEntity())
         saveOutgoingLinks(item.id, item.description)
-        _changes.tryEmit(item)
         syncRepository.enqueue(item)
         item
     }
