@@ -339,6 +339,19 @@ dependencies {
 // kover — code coverage for all KMP source sets
 // ---------------------------------------------------------------------------
 kover {
+    currentProject {
+        instrumentation {
+            // Kover instruments every class loaded by the test JVM. For
+            // `:shared:jvmTest`, the heavy Koog/classpath causes the IntelliJ
+            // coverage runtime to accumulate 3000+ ClassData + 59000+ LineData
+            // entries (42% of heap) — exhausting 3-5 GB and OOMing in
+            // TaskOutgoingLinksTest.
+            // Coverage is still collected for jvmTest via the
+            // `koverXmlReport` / `koverHtmlReport` tasks when explicitly
+            // requested. See ADR-1 for heap-dump analysis.
+            disabledForTestTasks.add("jvmTest")
+        }
+    }
     reports {
         total {
             html { onCheck = true }

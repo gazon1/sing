@@ -1032,14 +1032,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - MockK is used **only** for verifying outgoing command interactions (DB writes, analytics, network).
 - No breaking change — these methods were never called externally.
 - No test flakiness observed in 10× repeated fast test runs
-- OOM in `TaskOutgoingLinksTest` remains unfixed
 - Parallel execution is dynamic — Jupiter adjusts thread pool based on CPU cores
 - Pre-existing failures (9 tests) remain unchanged
 - SharedFlow emission tests in this project always use `launch { flow.take(1).collect { ... } }` on `this@runTest`, not `backgroundScope`, with `runCurrent()` before the suspending call that emits.
-- Tag hygiene improvements (ADR-2) make slow tests explicit and skippable, reducing
 - Test parallelization: Jupiter method-level concurrency enabled
-- Test suite runs in CI may still fail on this test class
-- The 2.4 GB heap dump indicates a deeper issue (likely heap fragmentation or a
 - `:shared:jvmTest` fast tests now run in ~7s (was ~90s with `delay`)
 - `:shared:jvmTest` fast tests: ~7s wall-clock (was ~90s sequential with real `delay`)
 - `AndroidPomodoroTimerTest` is excluded from the default suite, reducing fast-suite heap pressure
@@ -1366,7 +1362,7 @@ _2 entries need attention._
 - `2026-09-25-remaining-test-debt` — testing, junit, detekt, epic2
 - `2026-09-25-task-backlinks-design` — _untagged_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
-- `2026-09-25-test-jvm-heap-default` — testing, gradle, heap, investigation
+- `2026-09-25-test-jvm-heap-default` — testing, gradle, kover, heap, koog
 - `2026-09-25-test-parallelization` — testing, junit, jupiter, parallel, epic2
 - `2026-09-25-test-standards-comprehensive` — testing, junit, jupiter, epic2
 - `2026-09-25-test-suite-tag-defaults` — testing, junit, gradle, detekt
@@ -1584,7 +1580,7 @@ _2 entries need attention._
 - `2026-09-25-remaining-test-debt` — Remaining Test Debt — post JUnit/suite-acceleration audit
 - `2026-09-25-task-backlinks-design` — _(no title)_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _(no title)_
-- `2026-09-25-test-jvm-heap-default` — OOM in TaskOutgoingLinksTest — pre-existing environment issue (unresolved)
+- `2026-09-25-test-jvm-heap-default` — OOM in TaskOutgoingLinksTest — Kover instrumentation + Koog-heavy classpath
 - `2026-09-25-test-parallelization` — Test Parallelization — Jupiter Concurrency + Thread Safety
 - `2026-09-25-test-standards-comprehensive` — Test Standards Comprehensive — JUnit Jupiter, Virtual Time, Fast/Slow Split
 - `2026-09-25-test-suite-tag-defaults` — Test suite tag defaults and Khorikov testing principles
