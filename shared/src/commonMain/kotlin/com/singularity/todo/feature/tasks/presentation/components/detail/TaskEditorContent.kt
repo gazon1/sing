@@ -18,8 +18,6 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.CalendarToday
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -250,23 +248,12 @@ fun TaskEditorContent(
         }
     }
 
-    // Dropdown menu
-    if (menuItems.isNotEmpty()) {
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false },
-        ) {
-            menuItems.forEach { item ->
-                DropdownMenuItem(
-                    text = { Text(item.label) },
-                    onClick = {
-                        showMenu = false
-                        item.onClick()
-                    },
-                )
-            }
-        }
-    }
+    // Overflow menu — delegated to TaskEditorMenuHost for consistent styling
+    TaskEditorMenuHost(
+        menuItems = menuItems,
+        showMenu = showMenu,
+        onDismiss = { showMenu = false },
+    )
 
     // Sheets — delegate to TaskEditorSheetsHost which handles all 12 variants
     TaskEditorSheetsHost(
