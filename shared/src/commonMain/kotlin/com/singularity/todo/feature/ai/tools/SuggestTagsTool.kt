@@ -19,10 +19,8 @@ data class SuggestTagsInput(val title: String, val body: String)
 @Serializable
 data class SuggestTagsOutput(val tags: List<String>)
 
-class SuggestTagsTool(
-    private val promptExecutor: PromptExecutor,
-    private val model: LLModel,
-) : SimpleTool<SuggestTagsInput>(TypeToken.of(SuggestTagsInput::class.java), NAME, DESCRIPTION) {
+class SuggestTagsTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
+    SimpleTool<SuggestTagsInput>(TypeToken.of(SuggestTagsInput::class.java), NAME, DESCRIPTION) {
 
     private val logger = Logger.withTag("SuggestTags")
 

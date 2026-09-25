@@ -377,12 +377,48 @@ All VMs in the project extend `MviViewModel` as of 2026-09-25:
 
 ---
 
+## `advanceUntilIdle()` vs `delay()` — The Real Story
+
+The canonical test pattern uses `advanceUntilIdle()` from `kotlinx.coroutines.test`. This works **only when the test dispatcher controls all coroutines in the chain**. In practice:
+
+**`advanceUntilIdle()` works when:**
+- The VM uses `FakeProfileAwareCurrentUser(dispatcher = testDispatcher)` — the user's internal `combine` collector is on the test dispatcher
+- All `Fake*Repository` instances share the same `ProfileAwareCurrentUser` (Rule 1 of `singularity-todo-test-flaky-prevention`)
+- No `Dispatchers.Default` is in the chain
+
+**`delay(ms)` is still needed when:**
+- The VM creates `CreateTaskUseCase` which internally uses `FakeProfileAwareCurrentUser` with `Dispatchers.Default` (the dispatcher is not propagated through the use case constructor)
+- External I/O (HTTP, filesystem) is involved
+- The test uses a stub `CompleteRecurringTaskUseCase` that runs on `Dispatchers.Default`
+
+```kotlin
+// In TaskDetailViewModelTest — CreateTaskUseCase creates its own FakeProfileAwareCurrentUser
+// on Dispatchers.Default internally. This is why delay() is still used:
+@Test
+fun `ToggleComplete sets completedAt in repository`() = runTest {
+    val vm = createVm(backgroundScope, task.id)
+    delay(100) // Let initial subscription establish
+
+    vm.onIntent(TaskDetailIntent.Domain.ToggleComplete)
+    delay(50) // scope.launch { mutate(...) } executes immediately
+
+    assertNotNull(fakeTaskRepo.tasks.value["t1"]?.completedAt)
+}
+```
+
+**The PR-3.1 fix** (`FakeProfileAwareCurrentUser` accepts `CoroutineDispatcher`) enables `advanceUntilIdle()` for VMs that explicitly pass the dispatcher. For VMs that create use cases internally, `delay()` remains necessary until the use case constructors also accept a dispatcher.
+
+**Decision rule:** If `advanceUntilIdle()` doesn't drain the VM's state to completion, use `delay()` with a comment explaining why. Do NOT increase the delay arbitrarily — if you need more than 500ms, the test architecture needs fixing.
+
+---
+
 ## See Also
 
 - **`singularity-todo-mvi-framework`** — full framework reference (MviViewModel, EventBus, IntentActions, DraftState)
 - **`singularity-todo-vm-pattern-overview`** — router: index to all VM skills
 - `singularity-todo-vm-migration-playbook` — migrating old `stateIn` VMs to MviViewModel
-- `singularity-todo-test-helpers` — `testScope(...)` helper, three test shapes, `awaitState`
+- `singularity-todo-test-helpers` — `testScope(...)` helper, three test shapes, `awaitState`, `@ParameterizedTest`
+- `singularity-todo-test-flaky-prevention` — 3 rules to prevent flaky VM tests
 - `singularity-todo-koin-dsl` — canonical Koin 4.x DSL: `viewModelOf` vs `viewModel {}`, `koinViewModel` vs `koinInject`
 - `singularity-todo-feature-scaffold` — canonical 7-file feature template
 - `docs/decisions/2026-09-25-local-mvi-framework.md` — ADR

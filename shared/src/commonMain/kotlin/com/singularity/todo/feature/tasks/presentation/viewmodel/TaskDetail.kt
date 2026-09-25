@@ -426,7 +426,8 @@ class TaskDetailViewModel(
                 scope.launch {
                     _aiRunning.value = true
                     val result = when (intent.action) {
-                        TaskAiAction.RefineTitle -> deps.refineTask
+                        TaskAiAction.RefineTitle ->
+                            deps.refineTask
                             ?.invoke(current.title, current.description)
                             ?.map { newTitle ->
                                 deps.updateTask(current.copy(title = newTitle))
@@ -434,7 +435,8 @@ class TaskDetailViewModel(
                             }
                             ?: Result.failure(IllegalStateException("RefineTaskUseCase not available"))
 
-                        TaskAiAction.GenerateDescription -> deps.generateDescription
+                        TaskAiAction.GenerateDescription ->
+                            deps.generateDescription
                             ?.invoke(current.title)
                             ?.map { desc ->
                                 deps.updateTask(current.copy(description = desc))
@@ -442,7 +444,8 @@ class TaskDetailViewModel(
                             }
                             ?: Result.failure(IllegalStateException("GenerateDescriptionUseCase not available"))
 
-                        TaskAiAction.GenerateChecklist -> deps.generateChecklist
+                        TaskAiAction.GenerateChecklist ->
+                            deps.generateChecklist
                             ?.invoke(current.title, current.description)
                             ?.map { steps ->
                                 steps.forEach { step ->
@@ -457,7 +460,8 @@ class TaskDetailViewModel(
                             }
                             ?: Result.failure(IllegalStateException("GenerateChecklistUseCase not available"))
 
-                        TaskAiAction.Decompose -> deps.decomposeTask
+                        TaskAiAction.Decompose ->
+                            deps.decomposeTask
                             ?.invoke(current.title, current.description)
                             ?.map { subTasks ->
                                 subTasks.forEach { title ->
@@ -472,7 +476,8 @@ class TaskDetailViewModel(
                             }
                             ?: Result.failure(IllegalStateException("DecomposeTaskUseCase not available"))
 
-                        TaskAiAction.SuggestTime -> deps.pickTime
+                        TaskAiAction.SuggestTime ->
+                            deps.pickTime
                             ?.invoke(current.title, current.description)
                             ?.map { suggestedTime ->
                                 _events.trySend(TaskDetailUiEvent.Saved("Suggested: $suggestedTime"))

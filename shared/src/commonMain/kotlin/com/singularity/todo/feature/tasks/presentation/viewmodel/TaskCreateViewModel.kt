@@ -5,16 +5,13 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
-import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ui.DraftMviViewModel
-import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.update
 
 /**
  * Dependencies for [TaskCreateViewModel].

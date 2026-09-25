@@ -27,9 +27,9 @@ class AccountSettingsViewModel(
     profileRepository: ProfileRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AccountSettingsUiState, AccountSettingsIntent, Nothing>(
-    initialState = AccountSettingsUiState.Idle,
-    scope = scope,
-) {
+        initialState = AccountSettingsUiState.Idle,
+        scope = scope,
+    ) {
 
 
 

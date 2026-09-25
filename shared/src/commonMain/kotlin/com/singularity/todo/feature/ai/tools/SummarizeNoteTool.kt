@@ -19,10 +19,8 @@ data class SummarizeNoteInput(val title: String, val body: String)
 @Serializable
 data class SummarizeNoteOutput(val summary: String)
 
-class SummarizeNoteTool(
-    private val promptExecutor: PromptExecutor,
-    private val model: LLModel,
-) : SimpleTool<SummarizeNoteInput>(TypeToken.of(SummarizeNoteInput::class.java), NAME, DESCRIPTION) {
+class SummarizeNoteTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
+    SimpleTool<SummarizeNoteInput>(TypeToken.of(SummarizeNoteInput::class.java), NAME, DESCRIPTION) {
 
     private val logger = Logger.withTag("SummarizeNote")
 

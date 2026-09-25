@@ -378,9 +378,9 @@ private fun dueDateLabel(date: LocalDate?, time: LocalTime?): String {
     val dateStr = date.toString()
     return if (time != null) {
         "$dateStr ${
-        time.toString()
-            .take(5)
-    }"
+            time.toString()
+                .take(5)
+        }"
     } else {
         dateStr
     }

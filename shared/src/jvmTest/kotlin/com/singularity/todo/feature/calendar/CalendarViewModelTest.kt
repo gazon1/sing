@@ -46,12 +46,14 @@ class CalendarViewModelTest {
     private val anchor = LocalDate(2026, Month.SEPTEMBER, 1)
 
     private val fakeTaskRepo = FakeTaskRepository()
-    private val fakeReminderRepo = FakeReminderRepository()
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(
         FakeAuthRepository(
             initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
         ),
     )
+    // Must share the same ProfileAwareCurrentUser so that all internal collectors
+    // run on the test dispatcher — advanceUntilIdle() can then drive them to completion.
+    private val fakeReminderRepo = FakeReminderRepository(fakeCurrentUser)
 
     private fun createVm(
         initialDate: LocalDate = anchor,

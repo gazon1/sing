@@ -229,6 +229,9 @@ kotlin {
             implementation(libs.junit.jupiter.params)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
+            // Kotest assertions — matchers only (shouldBe, shouldNotThrowAny, shouldContain).
+            // Does NOT replace kotlin.test.Test — use alongside it in any test file.
+            implementation(libs.kotest.assertions.core)
         }
 
         jvmTest.dependencies {

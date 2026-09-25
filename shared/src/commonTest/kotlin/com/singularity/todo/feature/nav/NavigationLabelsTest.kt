@@ -18,6 +18,9 @@ class NavigationLabelsTest {
         allDestinations.forEach { dest ->
             assertTrue(dest.title.isNotBlank(), "Destination $dest must have a non-blank title")
         }
+        // Regression: verify we actually enumerated tabs and menu entries (not empty lists)
+        assertTrue(DestinationKind.tabs.isNotEmpty())
+        assertTrue(DestinationKind.menuEntries.isNotEmpty())
     }
 
     @Test

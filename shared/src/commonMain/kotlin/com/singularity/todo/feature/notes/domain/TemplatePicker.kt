@@ -7,9 +7,7 @@ import com.singularity.todo.feature.notes.NotesRepository
 /**
  * Pure logic for selecting and applying a note template.
  */
-class TemplatePicker(
-    private val notesRepository: NotesRepository,
-) {
+class TemplatePicker(private val notesRepository: NotesRepository) {
     /**
      * Returns all available templates, ordered by title.
      */

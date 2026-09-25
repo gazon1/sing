@@ -36,9 +36,9 @@ class AppVersionGateViewModel(
     private val playStoreUrl: String,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AppVersionGateState, AppVersionGateIntent, Nothing>(
-    initialState = AppVersionGateState.Checking,
-    scope = scope,
-) {
+        initialState = AppVersionGateState.Checking,
+        scope = scope,
+    ) {
 
 
 

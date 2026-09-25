@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.notes.domain
 
-import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NoteKind
 import com.singularity.todo.test.fakes.FakeNotesRepository
@@ -10,7 +9,6 @@ import kotlinx.coroutines.test.runTest
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue

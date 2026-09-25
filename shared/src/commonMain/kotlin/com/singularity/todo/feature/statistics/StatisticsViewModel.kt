@@ -31,9 +31,9 @@ class StatisticsViewModel(
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<StatisticsUiState, StatisticsIntent, Nothing>(
-    initialState = StatisticsUiState(),
-    scope = scope,
-) {
+        initialState = StatisticsUiState(),
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)

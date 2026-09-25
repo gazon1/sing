@@ -33,9 +33,9 @@ class ProjectEditorViewModel(
     private val projectsRepo: ProjectsRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectEditorUiState, ProjectEditorIntent, ProjectEditorUiEvent>(
-    initialState = ProjectEditorUiState(projectId = projectId),
-    scope = scope,
-) {
+        initialState = ProjectEditorUiState(projectId = projectId),
+        scope = scope,
+    ) {
 
 
 
@@ -79,6 +79,7 @@ class ProjectEditorViewModel(
             is ProjectEditorIntent.ParentChanged -> updateState { it.copy(parentId = intent.parentId) }
 
             ProjectEditorIntent.ErrorShown -> updateState { it.copy(errorMessage = null) }
+
 
             ProjectEditorIntent.Save -> scope.launch { save() }
         }
@@ -137,10 +138,9 @@ class ProjectEditorViewModel(
         }
     }
 
-    private fun validateName(name: String): String? =
-        when {
-            name.isBlank() -> "Name cannot be blank"
-            name.length > 50 -> "Name too long (max 50 characters)"
-            else -> null
-        }
+    private fun validateName(name: String): String? = when {
+        name.isBlank() -> "Name cannot be blank"
+        name.length > 50 -> "Name too long (max 50 characters)"
+        else -> null
+    }
 }

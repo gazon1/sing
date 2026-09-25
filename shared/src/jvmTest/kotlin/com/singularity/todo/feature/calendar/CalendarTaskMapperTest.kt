@@ -9,6 +9,12 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.NullAndEmptySource
+import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -60,41 +66,14 @@ class CalendarTaskMapperTest {
 
     // ─── status mapping ─────────────────────────────────────────────────────
 
-    @Test
-    fun `done task maps to DONE status`() {
-        val task = makeTask(
-            id = "t1",
-            title = "Done Task",
-            completedAt = Instant.fromEpochMilliseconds(1),
-        )
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertEquals(CalendarTaskStatus.DONE, result.status)
+    @ParameterizedTest(name = "completedAt={0}, dueDate={1} → {2}")
+    @MethodSource
+    fun `status mapping`(completedAt: Instant?, dueDate: LocalDate, expectedStatus: CalendarTaskStatus) {
+        val task = makeTask(completedAt = completedAt, dueDate = dueDate)
+        assertEquals(expectedStatus, CalendarTaskMapper.toCalendarTaskUi(task, today).status)
     }
 
-    @Test
-    fun `pending task with past due date maps to OVERDUE status`() {
-        val pastDate = LocalDate(2026, Month.SEPTEMBER, 10) // before today (Sept 16)
-        val task = makeTask(dueDate = pastDate, completedAt = null)
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertEquals(CalendarTaskStatus.OVERDUE, result.status)
-    }
-
-    @Test
-    fun `pending task with today's date maps to PENDING status`() {
-        val task = makeTask(dueDate = today, completedAt = null)
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertEquals(CalendarTaskStatus.PENDING, result.status)
-    }
-
-    @Test
-    fun `pending task with future due date maps to PENDING status`() {
-        val futureDate = LocalDate(2026, Month.SEPTEMBER, 20) // after today
-        val task = makeTask(dueDate = futureDate, completedAt = null)
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertEquals(CalendarTaskStatus.PENDING, result.status)
-    }
-
-    // ─── field mapping ──────────────────────────────────────────────────────
+    // ─── field mapping ─────────────────────────────────────────────────────
 
     @Test
     fun `maps id and title correctly`() {
@@ -108,102 +87,88 @@ class CalendarTaskMapperTest {
     fun `maps dueDate to date field`() {
         val dueDate = LocalDate(2026, Month.OCTOBER, 5)
         val task = makeTask(dueDate = dueDate)
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertEquals(dueDate, result.date)
+        assertEquals(dueDate, CalendarTaskMapper.toCalendarTaskUi(task, today).date)
     }
 
     @Test
     fun `null dueDate falls back to today for date field`() {
         val task = makeTask(dueDate = null)
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertEquals(today, result.date)
+        assertEquals(today, CalendarTaskMapper.toCalendarTaskUi(task, today).date)
     }
 
-    @Test
-    fun `isAllDay false when task has dueTime`() {
-        val task = makeTask(dueTime = LocalTime(9, 0))
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertFalse(result.isAllDay)
-    }
-
-    @Test
-    fun `isAllDay true when task has no dueTime`() {
-        val task = makeTask(dueTime = null)
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertTrue(result.isAllDay)
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `isAllDay reflects presence of dueTime`(hasDueTime: Boolean) {
+        val dueTime = if (hasDueTime) LocalTime(9, 0) else null
+        val result = CalendarTaskMapper.toCalendarTaskUi(makeTask(dueTime = dueTime), today)
+        assertEquals(!hasDueTime, result.isAllDay)
     }
 
     @Test
     fun `startTime is mapped from dueTime`() {
         val task = makeTask(dueTime = LocalTime(10, 30))
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertEquals(LocalTime(10, 30), result.startTime)
+        assertEquals(LocalTime(10, 30), CalendarTaskMapper.toCalendarTaskUi(task, today).startTime)
     }
 
     @Test
     fun `endTime is always null in current mapping`() {
         val task = makeTask(dueTime = LocalTime(10, 30))
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertNull(result.endTime)
+        assertNull(CalendarTaskMapper.toCalendarTaskUi(task, today).endTime)
     }
 
     // ─── isRecurring ───────────────────────────────────────────────────────
 
-    @Test
-    fun `isRecurring true when isRecurring parameter is true`() {
-        val task = makeTask()
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today, isRecurring = true)
-        assertTrue(result.isRecurring)
-    }
-
-    @Test
-    fun `isRecurring false by default`() {
-        val task = makeTask()
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertFalse(result.isRecurring)
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `isRecurring reflects parameter`(isRecurring: Boolean) {
+        val result = CalendarTaskMapper.toCalendarTaskUi(makeTask(), today, isRecurring = isRecurring)
+        assertEquals(isRecurring, result.isRecurring)
     }
 
     // ─── isLink ────────────────────────────────────────────────────────────
 
     @Test
-    fun `isLink true for Note kind`() {
-        val task = makeTask(
-            title = "My Note",
-            dueDate = LocalDate(2026, Month.SEPTEMBER, 16),
-        )
-        // Task kind defaults to Task — we can't create a Note here directly
-        // without importing TaskKind. Let me just verify the default.
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
+    fun `isLink is false for Task kind`() {
+        // Task kind defaults to Task — isLink reflects TaskKind.Note which we can't
+        // create without importing TaskKind directly; verify current behaviour.
+        val result = CalendarTaskMapper.toCalendarTaskUi(makeTask(), today)
         assertFalse(result.isLink)
     }
 
     // ─── emoji and accentColor ───────────────────────────────────────────────
 
-    @Test
-    fun `emoji is passed through from task`() {
-        val task = makeTask(emoji = "🌟")
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertEquals("🌟", result.emoji)
-    }
-
-    @Test
-    fun `emoji is null when task has no emoji`() {
-        val task = makeTask(emoji = null)
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertNull(result.emoji)
-    }
-
-    @Test
-    fun `accentColor is passed through from task`() {
-        val task = makeTask(accentColor = 0xFF5500)
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertEquals(0xFF5500L, result.accentColor)
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = ["🌟", "🔥", "📌"])
+    fun `emoji passes through when present`(emoji: String?) {
+        val result = CalendarTaskMapper.toCalendarTaskUi(makeTask(emoji = emoji), today)
+        assertEquals(emoji, result.emoji)
     }
 
     @Test
     fun `accentColor is null when task has no accentColor`() {
         val task = makeTask(accentColor = null)
-        val result = CalendarTaskMapper.toCalendarTaskUi(task, today)
-        assertNull(result.accentColor)
+        assertNull(CalendarTaskMapper.toCalendarTaskUi(task, today).accentColor)
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = [0xFF5500L, 0x000000L, 0xFFFFFFFFL])
+    fun `accentColor passes through when present`(accentColor: Long) {
+        val result = CalendarTaskMapper.toCalendarTaskUi(makeTask(accentColor = accentColor), today)
+        assertEquals(accentColor, result.accentColor)
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // companion object — all @MethodSource providers in one place
+    // ═══════════════════════════════════════════════════════════════════════════
+    companion object {
+        @JvmStatic
+        fun `status mapping`(): List<Arguments> = listOf(
+            // today = Sept 16, 2026
+            Arguments.of(Instant.fromEpochMilliseconds(1), LocalDate(2026, Month.SEPTEMBER, 10), CalendarTaskStatus.DONE),
+            Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 10), CalendarTaskStatus.OVERDUE),
+            Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 16), CalendarTaskStatus.PENDING),
+            Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 20), CalendarTaskStatus.PENDING),
+        )
     }
 }

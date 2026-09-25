@@ -38,9 +38,9 @@ class ArchiveViewModel(
     taskRepo: TaskRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ArchiveUiState, ArchiveIntent, ArchiveUiEvent>(
-    initialState = ArchiveUiState.Loading,
-    scope = scope,
-) {
+        initialState = ArchiveUiState.Loading,
+        scope = scope,
+    ) {
 
     private val refreshing = MutableStateFlow(false)
 
@@ -56,7 +56,7 @@ class ArchiveViewModel(
                 updateState {
                     ArchiveUiState.Error(
                         e.message
-                            ?: "Error"
+                            ?: "Error",
                     )
                 }
             }
@@ -81,8 +81,8 @@ class ArchiveViewModel(
                 emit(
                     ArchiveUiEvent.Error(
                         e.message
-                            ?: "Archive failed"
-                    )
+                            ?: "Archive failed",
+                    ),
                 )
             }
     }

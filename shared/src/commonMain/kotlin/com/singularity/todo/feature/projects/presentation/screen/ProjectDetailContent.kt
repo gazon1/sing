@@ -173,14 +173,14 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                             DropdownMenuItem(
                                 text = { Text(if (isArchived) "Unarchive" else "Archive") },
                                 onClick = {
-                                    overflowMenuOpen = false;
+                                    overflowMenuOpen = false
                                     actions.onOpenArchiveSheet()
                                 },
                             )
                             DropdownMenuItem(
                                 text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                                 onClick = {
-                                    overflowMenuOpen = false;
+                                    overflowMenuOpen = false
                                     actions.onOpenDeleteSheet()
                                 },
                             )
@@ -448,8 +448,8 @@ private fun ProjectBottomActionBar(isArchived: Boolean, actions: ProjectDetailAc
         Spacer(Modifier.weight(1f))
         if (isArchived) {
             IconButton(
-            onClick = { actions.onToggleArchive() },
-        ) { Icon(Icons.Filled.PushPin, "Unarchive") }
+                onClick = { actions.onToggleArchive() },
+            ) { Icon(Icons.Filled.PushPin, "Unarchive") }
         }
         IconButton(onClick = actions::onOpenIconSheet) { Icon(Icons.Filled.MoreVert, "More") }
     }
@@ -484,10 +484,10 @@ private fun ProjectDetailQuickAddInput(
                 keyboardActions = KeyboardActions(
                     onDone = {
                         if (text.isNotBlank()) {
-                        actions.onCreateTask(text);
-                        text = "";
-                        focus.clearFocus()
-                    }
+                            actions.onCreateTask(text)
+                            text = ""
+                            focus.clearFocus()
+                        }
                     },
                 ),
             )
@@ -498,12 +498,12 @@ private fun ProjectDetailQuickAddInput(
                 query = query,
                 onQueryChange = { query = it },
                 onPick = { taskId ->
-                    actions.onMoveTaskToProject(taskId);
-                    popup.dismissAll();
+                    actions.onMoveTaskToProject(taskId)
+                    popup.dismissAll()
                     query = ""
                 },
                 onDismiss = {
-                    popup.dismissAll();
+                    popup.dismissAll()
                     query = ""
                 },
             )

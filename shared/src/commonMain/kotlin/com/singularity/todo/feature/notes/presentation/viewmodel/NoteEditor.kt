@@ -20,15 +20,15 @@ import com.singularity.todo.feature.notes.NoteAiResult.Improved
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.NotesUiEvent
-import com.singularity.todo.feature.notes.SummarizeResult
 import com.singularity.todo.feature.notes.SuggestTagsResult
+import com.singularity.todo.feature.notes.SummarizeResult
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
 import com.singularity.todo.feature.notes.formatExtractActionsResult
 import com.singularity.todo.feature.notes.formatNoteAiResult
-import com.singularity.todo.feature.notes.formatSummarizeResult
 import com.singularity.todo.feature.notes.formatSuggestTagsResult
+import com.singularity.todo.feature.notes.formatSummarizeResult
 import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant

@@ -264,7 +264,7 @@ private class FakeTaskDao(
             t.userId == userId && t.archivedAt == null &&
                 (
                     t.title.contains(q, ignoreCase = true) ||
-                    (t.description?.contains(q, ignoreCase = true) == true)
+                        (t.description?.contains(q, ignoreCase = true) == true)
                 )
         }
     }
@@ -464,15 +464,16 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         mutate(id) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
 
     override suspend fun getBacklinkNotes(noteId: String, userId: String): List<NoteEntity> =
-        store.value.values.filter {
-            n,
-            ->
+        store.value.values.filter { n ->
             n.userId == userId && n.deletedAt == null && n.outgoingLinks.contains("note://$noteId")
         }.take(20)
 
-    override suspend fun getNotesLinkingToTask(taskId: String, userId: String): List<NoteEntity> = store.value.values.filter { n ->
-        n.userId == userId && n.deletedAt == null && n.outgoingLinks.contains("task://$taskId")
-    }.take(20)
+    override suspend fun getNotesLinkingToTask(taskId: String, userId: String): List<NoteEntity> =
+        store.value.values.filter {
+            n,
+            ->
+            n.userId == userId && n.deletedAt == null && n.outgoingLinks.contains("task://$taskId")
+        }.take(20)
 
     // ── Templates and daily notes ─────────────────────────────────────────────
 
@@ -486,7 +487,9 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.deletedAt == null
     }
 
-    override fun watchDailyNotesInRange(userId: String, from: String, to: String): Flow<List<NoteEntity>> = store.map { map ->
+    override fun watchDailyNotesInRange(userId: String, from: String, to: String): Flow<List<NoteEntity>> = store.map {
+        map,
+        ->
         map.values.filter { n ->
             n.userId == userId && n.kind.name == "Daily" && n.deletedAt == null && n.title >= from && n.title <= to
         }.sortedBy { it.title }

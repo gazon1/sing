@@ -40,7 +40,7 @@ fun ChildProjectsSheet(children: List<Project>, onShowChildren: (Project) -> Uni
                         FilterChip(
                             selected = false,
                             onClick = {
-                                onShowChildren(child);
+                                onShowChildren(child)
                                 onDismiss()
                             },
                             label = { Text(child.name) },

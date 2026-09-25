@@ -27,9 +27,8 @@ import org.koin.dsl.module
  * - [NoteEditor] — editing session, autosave, AI improve
  * - [NotePreview] — read-only view of a single note and its backlinks
  */
-fun notesModule(): org.koin.core.module.Module =
-    module {
-        // ─── Repository ─────────────────────────────────────────────────────
+fun notesModule(): org.koin.core.module.Module = module {
+    // ─── Repository ─────────────────────────────────────────────────────
 
         single<NotesRepository> {
             RoomNotesRepository(
@@ -60,10 +59,18 @@ fun notesModule(): org.koin.core.module.Module =
                 idGen = get(),
                 ai = NoteAiController(
                     improveNote = getOrNull<ImproveNoteUseCase>()?.let(::improveNoteLambda),
-                    summarizeNote = getOrNull<com.singularity.todo.feature.ai.use_cases.SummarizeNoteUseCase>()?.let(::summarizeNoteLambda),
-                    extractActions = getOrNull<com.singularity.todo.feature.ai.use_cases.ExtractActionsUseCase>()?.let(::extractActionsLambda),
-                    rewriteNote = getOrNull<com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase>()?.let(::rewriteNoteLambda),
-                    suggestTags = getOrNull<com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase>()?.let(::suggestTagsLambda),
+                    summarizeNote = getOrNull<com.singularity.todo.feature.ai.use_cases.SummarizeNoteUseCase>()?.let(
+                        ::summarizeNoteLambda,
+                    ),
+                    extractActions = getOrNull<com.singularity.todo.feature.ai.use_cases.ExtractActionsUseCase>()?.let(
+                        ::extractActionsLambda,
+                    ),
+                    rewriteNote = getOrNull<com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase>()?.let(
+                        ::rewriteNoteLambda,
+                    ),
+                    suggestTags = getOrNull<com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase>()?.let(
+                        ::suggestTagsLambda,
+                    ),
                 ),
                 log = get<Logger>(),
                 currentUser = get<ProfileAwareCurrentUser>(),
@@ -77,4 +84,4 @@ fun notesModule(): org.koin.core.module.Module =
                 linkRepo = get(),
             )
         }
-    }
+}

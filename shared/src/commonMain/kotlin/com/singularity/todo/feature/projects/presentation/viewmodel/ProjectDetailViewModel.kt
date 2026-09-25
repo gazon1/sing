@@ -138,8 +138,8 @@ class ProjectDetailViewModel(
                 projectRepo.observe(projectId).onStart { emit(null) }.flatMapLatest { project ->
                     if (project == null) {
                         flowOf(
-                        emptyList(),
-                    )
+                            emptyList(),
+                        )
                     } else {
                         taskRepo.observeByFilter(TaskFilter.ByProject(projectId))
                     }

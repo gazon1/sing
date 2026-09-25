@@ -19,10 +19,8 @@ data class ExtractActionsInput(val title: String, val body: String)
 @Serializable
 data class ExtractActionsOutput(val actions: List<String>)
 
-class ExtractActionsTool(
-    private val promptExecutor: PromptExecutor,
-    private val model: LLModel,
-) : SimpleTool<ExtractActionsInput>(TypeToken.of(ExtractActionsInput::class.java), NAME, DESCRIPTION) {
+class ExtractActionsTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
+    SimpleTool<ExtractActionsInput>(TypeToken.of(ExtractActionsInput::class.java), NAME, DESCRIPTION) {
 
     private val logger = Logger.withTag("ExtractActions")
 

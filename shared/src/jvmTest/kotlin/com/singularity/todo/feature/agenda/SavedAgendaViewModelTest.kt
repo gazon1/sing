@@ -10,8 +10,8 @@ import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.presentation.viewmodel.Draft
-import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaDraftState
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaDeps
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaDraftState
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaIntent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaSeedStore

@@ -221,6 +221,33 @@ detekt-rules/src/main/kotlin/com/singularity/todo/detekt/
 
 **Do NOT put custom rules in `shared/src/`** — they belong in the dedicated `detekt-rules` module so they can be tested in isolation and applied to any module that uses detekt.
 
+## `NoRealDelayInTestRule` — Threshold Guidance
+
+The rule bans `delay(N > 1)` in test sources. The threshold is **500ms**:
+
+| Delay value | Action |
+|---|---|
+| `delay(0)` | Always allowed — yield point, not real time |
+| `delay(1..499)` | Allowed — review if necessary |
+| `delay(500+)` | **Reports** — use `advanceUntilIdle()` or `advanceTimeBy()` |
+
+**Why 500ms?** `stateIn(WhileSubscribed(5000))` uses a 5000ms debounce. Any test needing `delay(500+)` to wait for a collector is not using virtual time correctly.
+
+**Legitimate exception (document with a comment):**
+```kotlin
+// Fan-out: FakeTextGen dispatches on Default
+delay(50)
+```
+
+**Fix (no comment needed):**
+```kotlin
+// Before: delay(100)
+// After:
+advanceUntilIdle()  // drains all pending coroutines
+// or for debounce:
+advanceTimeBy(300L)  // advances virtual time by 300ms
+```
+
 ## Existing Rules (as of 2026-09-25)
 
 | Rule | File | RuleSet ID | What it checks |

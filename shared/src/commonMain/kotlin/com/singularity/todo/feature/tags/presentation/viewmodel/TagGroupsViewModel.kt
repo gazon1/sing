@@ -32,9 +32,9 @@ class TagGroupsViewModel(
     private val deleteTagGroup: DeleteTagGroupUseCase,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<TagGroupsUiState, TagGroupsIntent, Nothing>(
-    initialState = TagGroupsUiState.Loading,
-    scope = scope,
-) {
+        initialState = TagGroupsUiState.Loading,
+        scope = scope,
+    ) {
 
 
 

@@ -42,10 +42,13 @@ private val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
 /**
  * Unit tests for [TaskDetailViewModel] verifying behavioral contracts.
  *
- * Timing note: stateIn with WhileSubscribed(5000) delays the flatMapLatest chain
- * until a subscriber exists. The createVm() calls vm.state.launchIn(scope) to
- * ensure the chain is active. Tests use real 100ms delays (not advanceUntilIdle)
- * for action steps — these are for ensuring coroutine completion, not virtual time.
+ * Timing note: FakeProfileAwareCurrentUser (used inside CreateTaskUseCase) runs
+ * on Dispatchers.Default — not on the test's StandardTestDispatcher. This means
+ * real wall-clock delays (50–100ms) are needed to ensure coroutine completion
+ * after each action. advanceUntilIdle() cannot virtualize Dispatchers.Default.
+ *
+ * See ADR-2026-09-25-testable-vm-dispatcher-clock for the dispatcher-injection
+ * fix that would enable advanceUntilIdle() here.
  *
  * Covered:
  * 1. TOCTOU fix: _latestTask cache prevents losing concurrent remote edits
@@ -87,12 +90,13 @@ class TaskDetailViewModelTest {
             taskRepo = fakeTaskRepo,
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
             createTask = CreateTaskUseCase(
-                fakeTaskRepo, Clock,
+                fakeTaskRepo,
+                Clock,
                 FakeProfileAwareCurrentUser(
                     FakeAuthRepository(
-                initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
-            )
-                )
+                        initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
+                    ),
+                ),
             ),
             projectsRepo = fakeProjectRepo,
             tagsRepo = fakeTagsRepo,
@@ -144,10 +148,10 @@ class TaskDetailViewModelTest {
     fun `TitleChanged debounce saves after delay`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100) // Let initial subscription establish
+        delay(100) // Let initial subscription establish (stateIn WhileSubscribed(5000) needs real time)
 
         vm.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited title"))
-        delay(400) // debounce(300ms) needs real time to advance past 300ms
+        delay(400) // debounce(300ms) needs real time
 
         assertEquals("Edited title", fakeTaskRepo.tasks.value["t1"]?.title)
     }
@@ -159,7 +163,7 @@ class TaskDetailViewModelTest {
     fun `ToggleComplete sets completedAt in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100) // Allow subscription to establish before acting
+        delay(100) // Allow subscription to establish before acting (stateIn WhileSubscribed(5000))
         assertNull(fakeTaskRepo.tasks.value["t1"]?.completedAt)
 
         vm.onIntent(TaskDetailIntent.Domain.ToggleComplete)

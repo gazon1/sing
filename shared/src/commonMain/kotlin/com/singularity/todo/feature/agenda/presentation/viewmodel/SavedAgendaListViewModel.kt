@@ -58,9 +58,9 @@ class SavedAgendaListViewModel(
     private val deps: SavedAgendaListDeps,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<SavedAgendaListState, SavedAgendaListIntent, SavedAgendaListEvent>(
-    initialState = SavedAgendaListState.Loading,
-    scope = scope,
-) {
+        initialState = SavedAgendaListState.Loading,
+        scope = scope,
+    ) {
 
 
 

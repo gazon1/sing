@@ -24,12 +24,20 @@ import com.mohamedrejeb.richeditor.model.RichTextState
 @Stable
 class EditorSession(
     val richTextState: RichTextState,
-    var titleFieldValue: String,
+    titleFieldValue: String,
     private var lastDispatchedHtml: String,
     private var firstLoadSkipped: Boolean,
     private val onBodyChange: (id: String, html: String) -> Unit,
     private val id: String,
 ) {
+    /** Encapsulated title — exposed for reading, mutated only via [updateTitleFieldValue]. */
+    var titleFieldValue: String = titleFieldValue
+        private set
+
+    fun updateTitleFieldValue(newTitle: String) {
+        titleFieldValue = newTitle
+    }
+
     /**
      * All links inserted in this session, mapped to their character ranges.
      * Used by [findLinkAt] to resolve link taps to URLs.
@@ -107,7 +115,7 @@ fun rememberEditorSession(
 
     // Sync title from external state changes (e.g. AI improve replacing the title)
     LaunchedEffect(state.title) {
-        session.titleFieldValue = state.title
+        session.updateTitleFieldValue(state.title)
     }
 
     // Dispatch HTML to ViewModel on every mutation.

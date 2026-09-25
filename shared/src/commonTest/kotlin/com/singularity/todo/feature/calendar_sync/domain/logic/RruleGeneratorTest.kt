@@ -1,73 +1,51 @@
 package com.singularity.todo.feature.calendar_sync.domain.logic
 
 import com.singularity.todo.feature.calendar_sync.domain.model.RecurrenceRule
-import kotlin.test.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertEquals
 
 class RruleGeneratorTest {
 
     private fun generate(rule: RecurrenceRule): String? = RruleGenerator.generate(rule)
 
-    @Test
-    fun daily_generates_freq_daily() {
-        assertEquals("FREQ=DAILY", generate(RecurrenceRule.Daily))
-    }
+    companion object {
+        @JvmStatic
+        fun happyCases(): List<Arguments> = listOf(
+            Arguments.of(RecurrenceRule.Daily, "FREQ=DAILY"),
+            Arguments.of(RecurrenceRule.Weekly(listOf(1)), "FREQ=WEEKLY;BYDAY=MO"),
+            Arguments.of(RecurrenceRule.Weekly(listOf(1, 3, 5)), "FREQ=WEEKLY;BYDAY=MO,WE,FR"),
+            Arguments.of(RecurrenceRule.Monthly(15), "FREQ=MONTHLY;BYMONTHDAY=15"),
+            Arguments.of(RecurrenceRule.Yearly, "FREQ=YEARLY"),
+            Arguments.of(RecurrenceRule.Custom("FREQ=DAILY;INTERVAL=2"), "FREQ=DAILY;INTERVAL=2"),
+        )
 
-    @Test
-    fun weekly_single_day_generates_freq_weekly_byday() {
-        assertEquals("FREQ=WEEKLY;BYDAY=MO", generate(RecurrenceRule.Weekly(listOf(1))))
-    }
-
-    @Test
-    fun weekly_multi_day_generates_freq_weekly_byday_multi() {
-        assertEquals(
-            "FREQ=WEEKLY;BYDAY=MO,WE,FR",
-            generate(RecurrenceRule.Weekly(listOf(1, 3, 5))),
+        // Pass raw List<Int> instead of RecurrenceRule.Weekly — constructing
+        // RecurrenceRule.Weekly(invalidList) throws before the test runs.
+        @JvmStatic
+        fun throwsCases(): List<Arguments> = listOf(
+            Arguments.of(listOf(8)),
+            Arguments.of(emptyList<Int>()),
         )
     }
 
-    @Test
-    fun weekly_invalid_day_throws() {
-        // Weekday 8 is outside 1..7 range → Weekly init require throws IllegalArgumentException
-        var thrown = false
-        try {
-            generate(RecurrenceRule.Weekly(listOf(8)))
-        } catch (_: IllegalArgumentException) {
-            thrown = true
+    @ParameterizedTest(name = "{0} → \"{1}\"")
+    @MethodSource("happyCases")
+    fun `generate produces expected rrule`(rule: RecurrenceRule, expected: String) {
+        assertEquals(expected, generate(rule))
+    }
+
+    @ParameterizedTest(name = "weekdays={0} throws IllegalArgumentException")
+    @MethodSource("throwsCases")
+    fun `invalid weekly weekdays throw`(weekdays: List<Int>) {
+        org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+            generate(RecurrenceRule.Weekly(weekdays))
         }
-        assertEquals(true, thrown)
     }
 
-    @Test
-    fun weekly_empty_list_throws() {
-        // Empty weekday list is rejected by Weekly init require
-        var thrown = false
-        try {
-            generate(RecurrenceRule.Weekly(emptyList()))
-        } catch (_: IllegalArgumentException) {
-            thrown = true
-        }
-        assertEquals(true, thrown)
-    }
-
-    @Test
-    fun monthly_generates_freq_monthly_bymonthday() {
-        assertEquals("FREQ=MONTHLY;BYMONTHDAY=15", generate(RecurrenceRule.Monthly(15)))
-    }
-
-    @Test
-    fun yearly_generates_freq_yearly() {
-        assertEquals("FREQ=YEARLY", generate(RecurrenceRule.Yearly))
-    }
-
-    @Test
-    fun custom_valid_passes_through() {
-        val rrule = "FREQ=DAILY;INTERVAL=2"
-        assertEquals(rrule, generate(RecurrenceRule.Custom(rrule)))
-    }
-
-    @Test
-    fun custom_empty_returns_null() {
+    @org.junit.jupiter.api.Test
+    fun `custom empty returns null`() {
         assertEquals(null, generate(RecurrenceRule.Custom("")))
     }
 }

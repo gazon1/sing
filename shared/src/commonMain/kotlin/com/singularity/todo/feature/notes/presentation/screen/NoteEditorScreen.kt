@@ -219,6 +219,7 @@ fun NoteEditorScreenContent(
             }
         }
     }
+    }
 
     if (linkOverlay.sheet == NoteLinkSheet.External) {
         LinkUrlDialog(

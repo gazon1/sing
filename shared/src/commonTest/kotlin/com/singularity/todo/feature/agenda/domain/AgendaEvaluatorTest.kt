@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.agenda.domain
 
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
-import com.singularity.todo.feature.agenda.domain.logic.todayInSystemZone
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Section
@@ -12,10 +11,10 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
-import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.Month
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlin.test.Test
@@ -25,8 +24,8 @@ import kotlin.test.assertTrue
 
 class AgendaEvaluatorTest {
 
-    private val today: LocalDate get() = todayInSystemZone()
-    private val clock = Clock
+    // Fixed date so tests are deterministic regardless of the machine's system date.
+    private val today: LocalDate = LocalDate(2026, Month.SEPTEMBER, 16)
 
     private fun makeTask(
         id: String,

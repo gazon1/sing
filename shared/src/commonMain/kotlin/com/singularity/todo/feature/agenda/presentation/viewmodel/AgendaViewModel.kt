@@ -37,9 +37,9 @@ class AgendaViewModel(
     definition: AgendaDefinition,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AgendaUiState, AgendaIntent, AgendaUiEvent>(
-    initialState = AgendaUiState.Loading,
-    scope = scope,
-) {
+        initialState = AgendaUiState.Loading,
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)
