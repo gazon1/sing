@@ -25,9 +25,6 @@ import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -47,9 +44,6 @@ class TaskRepositoryImpl(
     private val syncRepository: SyncRepository,
     private val dependencyValidator: DependencyValidator,
 ) : TaskRepository {
-
-    private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
-    override val changes: SharedFlow<Task> = _changes.asSharedFlow()
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -199,7 +193,6 @@ class TaskRepositoryImpl(
         toInsert.tags.forEach { tagId ->
             taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = toInsert.id.value, tagId = tagId.value))
         }
-        _changes.tryEmit(toInsert)
         syncRepository.enqueue(toInsert)
         toInsert
     }
@@ -207,7 +200,6 @@ class TaskRepositoryImpl(
     override suspend fun update(item: Task): Result<Task> = runCatching {
         taskDao.upsert(item.toEntity())
         saveOutgoingLinks(item.id, item.description)
-        _changes.tryEmit(item)
         syncRepository.enqueue(item)
         item
     }

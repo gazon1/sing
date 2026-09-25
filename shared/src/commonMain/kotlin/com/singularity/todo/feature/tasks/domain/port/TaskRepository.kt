@@ -7,7 +7,6 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.datetime.LocalDate
 
 /**
@@ -17,9 +16,6 @@ import kotlinx.datetime.LocalDate
  * All observation variants automatically re-subscribe when the active user changes.
  */
 interface TaskRepository : SoftDeletable<Task, TaskId> {
-
-    /** Emits every task after it's created or updated — for SyncEngine observer */
-    val changes: SharedFlow<Task>
 
     // ── GenericUserScopedRepository contract ─────────────────────────────────────
 

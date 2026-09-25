@@ -55,11 +55,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
@@ -419,8 +416,6 @@ open class FakeTaskRepository(
     private val explicitCurrentUser: ProfileAwareCurrentUser? = null,
 ) : TaskRepository {
     private val store = InMemoryStore<Task>(keyOf = { it.id.value })
-    private val _changes = MutableSharedFlow<Task>(extraBufferCapacity = 64)
-    override val changes: SharedFlow<Task> = _changes.asSharedFlow()
 
     // The effective currentUser — injected for tests, or a default fake for backward compatibility.
     private val currentUser: ProfileAwareCurrentUser
@@ -463,7 +458,6 @@ open class FakeTaskRepository(
         createOverride?.let { return it }
         return runCatching {
             store.upsert(item)
-            _changes.emit(item)
             item
         }
     }
@@ -472,7 +466,6 @@ open class FakeTaskRepository(
         updateOverride?.let { return it }
         return runCatching {
             store.upsert(item)
-            _changes.emit(item)
             item
         }
     }
@@ -542,7 +535,6 @@ open class FakeTaskRepository(
             store[id.value]?.let { task ->
                 val deleted = task.copy(archivedAt = Clock.now())
                 store.upsert(deleted)
-                _changes.emit(deleted)
             }
         }
     }
@@ -557,7 +549,6 @@ open class FakeTaskRepository(
             store[id.value]?.let { task ->
                 val restored = task.copy(archivedAt = null)
                 store.upsert(restored)
-                _changes.emit(restored)
             }
         }
     }
@@ -572,7 +563,6 @@ open class FakeTaskRepository(
                     task.copy(completedAt = Clock.now())
                 }
                 store.upsert(toggled)
-                _changes.emit(toggled)
             }
         }
     }
@@ -583,7 +573,6 @@ open class FakeTaskRepository(
             store[id.value]?.let { task ->
                 val toggled = task.copy(isPinned = !task.isPinned)
                 store.upsert(toggled)
-                _changes.emit(toggled)
             }
         }
     }
