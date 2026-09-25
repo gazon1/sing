@@ -3,6 +3,9 @@ package com.singularity.todo.feature.agenda.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.ui.mvi.MviEvent
+import com.singularity.todo.core.ui.mvi.MviIntent
+import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
@@ -10,12 +13,10 @@ import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepositor
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.ProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -34,7 +35,7 @@ sealed interface SavedAgendaListState {
 /**
  * User intents on the saved agenda views list screen.
  */
-sealed interface SavedAgendaListIntent {
+sealed interface SavedAgendaListIntent : MviIntent {
     data class Delete(val viewId: SavedAgendaViewId) : SavedAgendaListIntent
     data class CopyToProfile(val viewId: SavedAgendaViewId, val targetProfileId: ProfileId) : SavedAgendaListIntent
 }
@@ -43,7 +44,7 @@ sealed interface SavedAgendaListIntent {
  * One-shot events from [SavedAgendaListViewModel].
  * Only Delete failure needs VM involvement; routing is screen-side.
  */
-sealed interface SavedAgendaListEvent {
+sealed interface SavedAgendaListEvent : MviEvent {
     data class ShowError(val message: String) : SavedAgendaListEvent
     data class CopySuccess(val viewName: String, val targetProfileName: String) : SavedAgendaListEvent
 }
@@ -58,33 +59,27 @@ sealed interface SavedAgendaListEvent {
 class SavedAgendaListViewModel(
     private val deps: SavedAgendaListDeps,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
+) : MviViewModel<SavedAgendaListState, SavedAgendaListIntent, SavedAgendaListEvent>(
+    initialState = SavedAgendaListState.Loading,
+    scope = scope,
+) {
 
-    init {
-        addCloseable(scope)
-    }
-
-    /** Delete failure events — routing (ViewSelected, CreateNew) is screen-side. */
-    private val _events = Channel<SavedAgendaListEvent>(Channel.BUFFERED)
-    val events = _events.receiveAsFlow()
-
-    private val _state = MutableStateFlow<SavedAgendaListState>(SavedAgendaListState.Loading)
-    val state: StateFlow<SavedAgendaListState> = _state
+    init { addCloseable(scope) }
 
     init {
         scope.launch {
             deps.repo.observeAll()
                 .map { views -> SavedAgendaListState.Loaded(views) }
-                .collect { _state.value = it }
+                .collect { __state.value = it }
         }
     }
 
-    fun onIntent(intent: SavedAgendaListIntent) {
+    override fun onIntent(intent: SavedAgendaListIntent) {
         when (intent) {
             is SavedAgendaListIntent.Delete -> with(intent) {
                 scope.launch {
                     deps.repo.delete(viewId)
-                        .onFailure { _events.trySend(SavedAgendaListEvent.ShowError(it.message ?: "Delete failed")) }
+                        .onFailure { emit(SavedAgendaListEvent.ShowError(it.message ?: "Delete failed")) }
                 }
             }
 
@@ -92,12 +87,12 @@ class SavedAgendaListViewModel(
                 scope.launch {
                     val sourceView = deps.repo.observe(viewId).first()
                     if (sourceView == null) {
-                        _events.trySend(SavedAgendaListEvent.ShowError("View not found"))
+                        emit(SavedAgendaListEvent.ShowError("View not found"))
                         return@launch
                     }
                     val targetProfile = deps.profileRepo.get(targetProfileId)
                     if (targetProfile == null) {
-                        _events.trySend(SavedAgendaListEvent.ShowError("Profile not found"))
+                        emit(SavedAgendaListEvent.ShowError("Profile not found"))
                         return@launch
                     }
                     val now = Clock.now()
@@ -108,7 +103,7 @@ class SavedAgendaListViewModel(
                     )
                     deps.repo.upsert(copy)
                         .onSuccess {
-                            _events.trySend(
+                            emit(
                                 SavedAgendaListEvent.CopySuccess(
                                     sourceView.name.ifBlank { "Untitled" },
                                     targetProfile.name,
@@ -116,7 +111,7 @@ class SavedAgendaListViewModel(
                             )
                         }
                         .onFailure {
-                            _events.trySend(SavedAgendaListEvent.ShowError(it.message ?: "Copy failed"))
+                            emit(SavedAgendaListEvent.ShowError(it.message ?: "Copy failed"))
                         }
                 }
             }

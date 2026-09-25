@@ -1,8 +1,6 @@
 package com.singularity.todo.feature.gate
 
 import com.singularity.todo.core.config.RemoteConfigPort
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.gate.presentation.viewmodel.AppVersionGateViewModel
 import org.koin.core.module.Module
@@ -17,7 +15,8 @@ import org.koin.dsl.module
  * - Desktop: `https://github.com/singularity-todo/singularity/releases`
  *
  * Screen composables use [org.koin.compose.viewmodel.koinViewModel] without parameters
- * (Koin resolves all four constructor arguments via `get()`).
+ * (Koin resolves all three constructor arguments via `get()`).
+ * The [scope][AppVersionGateViewModel] defaults to [AutoCloseableCoroutineScope].
  */
 fun gateModule(playStoreUrl: String): Module = module {
     viewModel {
@@ -25,7 +24,6 @@ fun gateModule(playStoreUrl: String): Module = module {
             remoteConfigPort = get<RemoteConfigPort>(),
             appVersion = appVersion(),
             playStoreUrl = playStoreUrl,
-            scope = AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext),
         )
     }
 }

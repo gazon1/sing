@@ -10,7 +10,7 @@ import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.presentation.viewmodel.Draft
-import com.singularity.todo.feature.agenda.presentation.viewmodel.DraftState
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaDraftState
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaDeps
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaIntent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Tag
  * Pattern (simple by design):
  * - Test passes `backgroundScope` to VM's 4-arg constructor as its [CoroutineScope].
  * - VM uses a plain [MutableStateFlow] for state — read `.state.value` directly.
- * - [DraftState] is tested as a pure class.
+ * - [SavedAgendaDraftState] is tested as a pure class.
  *
  * No `combine`, no `stateIn`, no Turbine, no `expectMostRecentItem`.
  */
@@ -67,43 +67,43 @@ class SavedAgendaViewModelTest {
 
     @Test
     fun draftStateSeedingIsIdempotent() {
-        val draft = DraftState()
-        assertFalse(draft.current.initialized)
+        val draft = SavedAgendaDraftState()
+        assertFalse(draft.state.initialized)
 
         val first = Draft("A", emptyList(), "A", emptyList(), initialized = true)
         draft.seed(first)
-        assertTrue(draft.current.initialized)
-        assertEquals("A", draft.current.name)
+        assertTrue(draft.state.initialized)
+        assertEquals("A", draft.state.name)
 
         // Second seed is ignored
         val second = Draft("B", emptyList(), "B", emptyList(), initialized = true)
         draft.seed(second)
-        assertEquals("A", draft.current.name)
+        assertEquals("A", draft.state.name)
     }
 
     @Test
     fun draftStateSetNameUpdatesNameAndSetsDirty() {
-        val draft = DraftState()
+        val draft = SavedAgendaDraftState()
         draft.seed(Draft("Original", emptyList(), "Original", emptyList(), initialized = true))
-        assertFalse(draft.current.isDirty)
+        assertFalse(draft.state.isDirty)
 
         draft.setName("Modified")
-        assertEquals("Modified", draft.current.name)
-        assertTrue(draft.current.isDirty)
-        assertEquals("Original", draft.current.originalName)
+        assertEquals("Modified", draft.state.name)
+        assertTrue(draft.state.isDirty)
+        assertEquals("Original", draft.state.originalName)
     }
 
     @Test
     fun draftStateReorderSectionsSetsDirty() {
         val original = listOf(Section("A", order = 0, selector = Selector.DateBucket(RelativeBucket.Today)))
-        val draft = DraftState()
+        val draft = SavedAgendaDraftState()
         draft.seed(Draft("Test", original, "Test", original, initialized = true))
-        assertFalse(draft.current.isDirty)
+        assertFalse(draft.state.isDirty)
 
         val reordered = listOf(Section("A", order = 1, selector = Selector.DateBucket(RelativeBucket.Today)))
         draft.reorderSections(reordered)
-        assertTrue(draft.current.isDirty)
-        assertEquals(reordered, draft.current.sections)
+        assertTrue(draft.state.isDirty)
+        assertEquals(reordered, draft.state.sections)
     }
 
     // ─── Edit mode ────────────────────────────────────────────────────────────────
@@ -327,33 +327,33 @@ class SavedAgendaViewModelTest {
     @Test
     fun markSavedResetsIsDirtyToFalse() {
         val sections = listOf(Section("Today", 0, Selector.DateBucket(RelativeBucket.Today)))
-        val draft = DraftState()
+        val draft = SavedAgendaDraftState()
         draft.seed(Draft("Name", sections, "Name", sections, initialized = true))
-        assertFalse(draft.current.isDirty)
+        assertFalse(draft.state.isDirty)
 
         // Modify name → isDirty
         draft.setName("Modified")
-        assertTrue(draft.current.isDirty)
+        assertTrue(draft.state.isDirty)
 
         // markSaved → isDirty cleared
         draft.markSaved()
-        assertFalse(draft.current.isDirty)
-        assertEquals("Modified", draft.current.name)
-        assertEquals("Modified", draft.current.originalName)
+        assertFalse(draft.state.isDirty)
+        assertEquals("Modified", draft.state.name)
+        assertEquals("Modified", draft.state.originalName)
     }
 
     @Test
     fun markSavedClearsDirtyAfterSectionChange() {
         val sections = listOf(Section("Today", 0, Selector.DateBucket(RelativeBucket.Today)))
-        val draft = DraftState()
+        val draft = SavedAgendaDraftState()
         draft.seed(Draft("Name", sections, "Name", sections, initialized = true))
-        assertFalse(draft.current.isDirty)
+        assertFalse(draft.state.isDirty)
 
         draft.reorderSections(listOf(Section("Today", 1, Selector.DateBucket(RelativeBucket.Today))))
-        assertTrue(draft.current.isDirty)
+        assertTrue(draft.state.isDirty)
 
         draft.markSaved()
-        assertFalse(draft.current.isDirty)
+        assertFalse(draft.state.isDirty)
     }
 
     // ─── SavedAgendaViewFactory ──────────────────────────────────────────────

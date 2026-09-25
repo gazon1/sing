@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.feature.gate.presentation.state.AppVersionGateState
+import com.singularity.todo.feature.gate.presentation.viewmodel.AppVersionGateIntent
 import com.singularity.todo.feature.gate.presentation.viewmodel.AppVersionGateViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -57,7 +58,7 @@ fun AppVersionGateScreen(
 
     AppVersionGateContent(
         state = state,
-        onCheckAgain = vm::onCheckAgain,
+        onCheckAgain = { vm.onIntent(AppVersionGateIntent.CheckAgain) },
         onOpenStore = onOpenStore,
         modifier = modifier,
         content = content,

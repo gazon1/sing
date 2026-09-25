@@ -61,6 +61,7 @@ import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncSettingsScreen
 import com.singularity.todo.feature.tags.presentation.screen.TagGroupsScreen
+import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsIntent
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsViewModel
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import org.koin.compose.koinInject
@@ -175,7 +176,7 @@ private fun SettingsContent(
                     val tagGroupsState by tagGroupsVm.state.collectAsState()
                     TagGroupsScreen(
                         state = tagGroupsState,
-                        onDelete = tagGroupsVm::delete,
+                        onDelete = { id -> tagGroupsVm.onIntent(TagGroupsIntent.Delete(id)) },
                     )
                 }
 

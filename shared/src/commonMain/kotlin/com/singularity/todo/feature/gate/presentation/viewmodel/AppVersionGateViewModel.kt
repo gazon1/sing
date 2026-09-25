@@ -1,15 +1,13 @@
 package com.singularity.todo.feature.gate.presentation.viewmodel
 
-import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.config.RemoteConfigSnapshot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ui.mvi.MviIntent
+import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.core.version.AppVersion
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.gate.presentation.state.AppVersionGateState
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -28,33 +26,22 @@ import kotlinx.coroutines.launch
  *   releases page on Desktop). Used in the [AppVersionGateState.Blocked] state.
  * @param scope Coroutine scope for collecting [RemoteConfigPort.observe].
  */
+sealed interface AppVersionGateIntent : MviIntent {
+    data object CheckAgain : AppVersionGateIntent
+}
+
 class AppVersionGateViewModel(
     private val remoteConfigPort: RemoteConfigPort,
     private val appVersion: AppVersion,
     private val playStoreUrl: String,
-    private val scope: AutoCloseableCoroutineScope,
-) : ViewModel() {
+    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+) : MviViewModel<AppVersionGateState, AppVersionGateIntent, Nothing>(
+    initialState = AppVersionGateState.Checking,
+    scope = scope,
+) {
 
-    init {
-        addCloseable(scope)
-        check()
-    }
-
-    private val _state = MutableStateFlow<AppVersionGateState>(AppVersionGateState.Checking)
-    val state: StateFlow<AppVersionGateState> = _state.asStateFlow()
-
-    /**
-     * Re-check the gate using a fresh [RemoteConfigPort.refresh] call.
-     * Called by the "Check Again" button on the blocked screen.
-     */
-    fun onCheckAgain() {
-        scope.launch {
-            _state.value = AppVersionGateState.Checking
-            val result = remoteConfigPort.refresh()
-            val snapshot = result.getOrElse { RemoteConfigSnapshot.defaults() }
-            evaluate(snapshot)
-        }
-    }
+    init { addCloseable(scope) }
+    init { check() }
 
     private fun check() {
         scope.launch {
@@ -63,9 +50,22 @@ class AppVersionGateViewModel(
         }
     }
 
+    override fun onIntent(intent: AppVersionGateIntent) {
+        when (intent) {
+            is AppVersionGateIntent.CheckAgain -> {
+                __state.value = AppVersionGateState.Checking
+                scope.launch {
+                    val result = remoteConfigPort.refresh()
+                    val snapshot = result.getOrElse { RemoteConfigSnapshot.defaults() }
+                    evaluate(snapshot)
+                }
+            }
+        }
+    }
+
     private fun evaluate(snapshot: RemoteConfigSnapshot) {
         val min = snapshot.minSupportedVersion
-        _state.value = if (min != null && appVersion < min) {
+        __state.value = if (min != null && appVersion < min) {
             AppVersionGateState.Blocked(
                 minSupportedVersion = min,
                 currentVersion = appVersion,
