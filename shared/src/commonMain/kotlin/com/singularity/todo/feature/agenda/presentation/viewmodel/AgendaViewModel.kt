@@ -42,15 +42,8 @@ class AgendaViewModel(
     scope = scope,
 ) {
 
-    init { addCloseable(scope) }
-
-    /** The definition being evaluated — stable reference. */
-    val definition: AgendaDefinition = definition
-
-    /** Title derived from the definition, for the Slot API. */
-    val title: String get() = definition.title
-
     init {
+        addCloseable(scope)
         scope.launch {
             todayFlow()
                 .flatMapLatest { today ->
@@ -66,6 +59,12 @@ class AgendaViewModel(
                 .collect { __state.value = it }
         }
     }
+
+    /** The definition being evaluated — stable reference. */
+    val definition: AgendaDefinition = definition
+
+    /** Title derived from the definition, for the Slot API. */
+    val title: String get() = definition.title
 
     /**
      * Processes a user [AgendaIntent].
