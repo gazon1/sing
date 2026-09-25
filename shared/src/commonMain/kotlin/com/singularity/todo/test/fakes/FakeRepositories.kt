@@ -54,6 +54,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -1519,20 +1520,24 @@ class FakeProfileRepository : ProfileRepository {
  * `scopedUserId.value` would otherwise be `UserId.anonymous` before the combine
  * produces its first emission.
  *
- * @param scope CoroutineScope passed through to both [CurrentUser] and
- *   [ProfileAwareCurrentUser]. Pass `backgroundScope` in jvmTest (auto-cancelled).
- *   Pass `createBackgroundScope()` in commonTest direct constructor calls —
- *   safe only when the consumer reads `.value` synchronously.
+ * @param initialUserId Starting user ID for the fake session.
+ * @param profileRepository Fake profile repository.
+ * @param dispatcher CoroutineDispatcher for the internal scope. Pass
+ *   `StandardTestDispatcher(testScheduler)` in tests so `advanceUntilIdle()` drives
+ *   all collectors. Defaults to [Dispatchers.Default].
  */
 fun FakeProfileAwareCurrentUser(
     initialUserId: UserId = UserId("test-user"),
     profileRepository: ProfileRepository = FakeProfileRepository(),
-    scope: kotlinx.coroutines.CoroutineScope = com.singularity.todo.core.coroutines.createBackgroundScope(),
-): ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(
-    authRepository = FakeAuthRepository(Session.Anonymous(initialUserId)),
-    profileRepository = profileRepository,
-    scope = scope,
-)
+    dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Default,
+): ProfileAwareCurrentUser {
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + dispatcher)
+    return fakeProfileAwareCurrentUserImpl(
+        authRepository = FakeAuthRepository(Session.Anonymous(initialUserId)),
+        profileRepository = profileRepository,
+        scope = scope,
+    )
+}
 
 /**
  * Overload that accepts an existing [AuthRepository] — for call sites that already
@@ -1545,19 +1550,44 @@ fun FakeProfileAwareCurrentUser(
  * upstream change, but its first emission can be lost if `stateIn` subscribes
  * before all upstreams have emitted. Using `currentUser.userId` directly is
  * correct for all test scenarios that exercise auth-session-driven user switches.
+ *
+ * @param dispatcher CoroutineDispatcher for the internal scope. Pass
+ *   `StandardTestDispatcher(testScheduler)` in tests so `advanceUntilIdle()` drives
+ *   all collectors. Defaults to [Dispatchers.Default].
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 fun FakeProfileAwareCurrentUser(
     authRepository: AuthRepository,
     profileRepository: ProfileRepository = FakeProfileRepository(),
-    scope: kotlinx.coroutines.CoroutineScope = com.singularity.todo.core.coroutines.createBackgroundScope(),
+    dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Default,
+): ProfileAwareCurrentUser {
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + dispatcher)
+    return fakeProfileAwareCurrentUserImpl(authRepository, profileRepository, scope)
+}
+
+/**
+ * Backward-compatible overload that accepts a pre-built [CoroutineScope].
+ * Prefer [FakeProfileAwareCurrentUser] with a [dispatcher] parameter in new tests —
+ * this overload exists only for call sites that pass `backgroundScope`.
+ */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+fun FakeProfileAwareCurrentUser(
+    authRepository: AuthRepository,
+    profileRepository: ProfileRepository = FakeProfileRepository(),
+    scope: kotlinx.coroutines.CoroutineScope,
+): ProfileAwareCurrentUser = fakeProfileAwareCurrentUserImpl(authRepository, profileRepository, scope)
+
+/**
+ * Internal factory — shared logic for all [FakeProfileAwareCurrentUser] overloads.
+ */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+private fun fakeProfileAwareCurrentUserImpl(
+    authRepository: AuthRepository,
+    profileRepository: ProfileRepository,
+    scope: kotlinx.coroutines.CoroutineScope,
 ): ProfileAwareCurrentUser {
     val currentUser = CurrentUser(authRepository, scope)
 
-    // Build scopedUserId as a simple MutableStateFlow, seeded with the current
-    // effective userId from the session. We monitor session changes in the scope
-    // and update it reactively. This avoids the combine+stateIn synchronous
-    // double-emission problem entirely.
     val initialUid = (
         authRepository.currentSession.value.let {
             when (it) {
