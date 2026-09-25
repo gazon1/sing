@@ -14,8 +14,6 @@ import kotlin.time.Instant
 class TaskDomainMatchesFilterTest {
 
     private val today = LocalDate(2026, 9, 16)
-    private val tomorrow = LocalDate(2026, 9, 17)
-    private val yesterday = LocalDate(2026, 9, 15)
 
     private fun makeTask(
         id: String = "t1",
