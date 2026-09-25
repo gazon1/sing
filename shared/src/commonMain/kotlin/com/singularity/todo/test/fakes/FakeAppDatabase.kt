@@ -352,6 +352,14 @@ private class FakeTaskDao(
             it.userId == userId && it.archivedAt == null && it.title.contains(q, ignoreCase = true)
         }.sortedByDescending { it.updatedAt }.take(20)
 
+    override suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long) =
+        mutateTask(id) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
+
+    override suspend fun getBacklinkTasks(taskId: String, userId: String): List<TaskEntity> =
+        store.value.values.filter { t ->
+            t.userId == userId && t.archivedAt == null && t.outgoingLinks.contains("task://$taskId")
+        }.take(20)
+
     private fun mutateTask(id: String, fn: (TaskEntity) -> TaskEntity) {
         store.update { current ->
             val existing = current[id] ?: return@update current
@@ -456,6 +464,10 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
 
     override suspend fun getBacklinkNotes(noteId: String, userId: String): List<NoteEntity> = store.value.values.filter { n ->
         n.userId == userId && n.deletedAt == null && n.outgoingLinks.contains("note://$noteId")
+    }.take(20)
+
+    override suspend fun getNotesLinkingToTask(taskId: String, userId: String): List<NoteEntity> = store.value.values.filter { n ->
+        n.userId == userId && n.deletedAt == null && n.outgoingLinks.contains("task://$taskId")
     }.take(20)
 
     private fun mutate(id: String, fn: (NoteEntity) -> NoteEntity) {

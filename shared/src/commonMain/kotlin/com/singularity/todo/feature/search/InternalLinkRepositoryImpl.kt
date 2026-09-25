@@ -29,4 +29,14 @@ class InternalLinkRepositoryImpl(
         val userId = currentUser.scopedUserId.value.value
         return noteDao.getBacklinkNotes(noteId, userId).map { it.toNote() }
     }
+
+    override suspend fun getBacklinkTasks(taskId: String): List<Task> {
+        val userId = currentUser.scopedUserId.value.value
+        return taskDao.getBacklinkTasks(taskId, userId).map { it.toTask() }
+    }
+
+    override suspend fun getNotesLinkingToTask(taskId: String): List<Note> {
+        val userId = currentUser.scopedUserId.value.value
+        return noteDao.getNotesLinkingToTask(taskId, userId).map { it.toNote() }
+    }
 }

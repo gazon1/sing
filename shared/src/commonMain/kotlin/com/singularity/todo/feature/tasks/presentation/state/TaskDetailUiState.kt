@@ -5,6 +5,7 @@ import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.tags.Tag
+import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
@@ -28,6 +29,10 @@ data class TaskDetailUi(
     val dependsOn: Set<TaskId> = emptySet(),
     /** Tasks available for dependency selection (not trashed, not self). */
     val availableTasks: List<Task> = emptyList(),
+    /** Notes that link TO this task via task:// URL scheme. */
+    val linkedNotes: List<Note> = emptyList(),
+    /** Tasks that link TO this task via task:// URL scheme. */
+    val linkedTasks: List<Task> = emptyList(),
 )
 
 /**

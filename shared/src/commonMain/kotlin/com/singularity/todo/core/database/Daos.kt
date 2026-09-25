@@ -146,6 +146,26 @@ interface TaskDao {
     @Query("DELETE FROM task_dependencies WHERE task_id = :taskId")
     suspend fun clearDependencies(taskId: String)
 
+    // ── Outgoing links ─────────────────────────────────────────────────────────
+
+    @Query("UPDATE tasks SET outgoing_links = :linksJson, updated_at = :updatedAt WHERE id = :id")
+    suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long)
+
+    /**
+     * Returns tasks that link TO [taskId] via `task://<id>` URL scheme, for the current user.
+     * Uses a LIKE substring match on the JSON-encoded `outgoing_links` column.
+     */
+    @Query(
+        """
+        SELECT * FROM tasks
+        WHERE user_id = :userId
+        AND archived_at IS NULL
+        AND outgoing_links LIKE '%task://' || :taskId || '%'
+        LIMIT 20
+        """,
+    )
+    suspend fun getBacklinkTasks(taskId: String, userId: String): List<TaskEntity>
+
     @Query("SELECT * FROM tasks WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TaskEntity>
 
@@ -275,6 +295,20 @@ interface NoteDao {
     """,
     )
     suspend fun getBacklinkNotes(noteId: String, userId: String): List<NoteEntity>
+
+    /**
+     * Returns notes that link TO the given taskId via `task://<id>` URL scheme, for the current user.
+     */
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE user_id = :userId
+        AND deleted_at IS NULL
+        AND outgoing_links LIKE '%task://' || :taskId || '%'
+        LIMIT 20
+        """,
+    )
+    suspend fun getNotesLinkingToTask(taskId: String, userId: String): List<NoteEntity>
 }
 
 @Dao

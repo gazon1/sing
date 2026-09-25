@@ -10,6 +10,7 @@ import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -39,6 +40,8 @@ data class TaskDetailDeps(
     val generateChecklist: GenerateChecklistUseCase? = null,
     val decomposeTask: DecomposeTaskUseCase? = null,
     val pickTime: PickTimeUseCase? = null,
+    /** Backlink queries — nullable so tests can omit them. */
+    val linkRepo: InternalLinkRepository? = null,
     /** Debounce duration for title/description edits. Exposed for tests to use short durations. */
     val debounceMs: Long = 300L,
 )

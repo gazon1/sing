@@ -16,4 +16,10 @@ interface InternalLinkRepository {
 
     /** Returns notes that link TO the given noteId via note:// URL scheme, for the active user. */
     suspend fun getBacklinkNotes(noteId: String): List<Note>
+
+    /** Returns tasks that link TO the given taskId via task:// URL scheme, for the active user. */
+    suspend fun getBacklinkTasks(taskId: String): List<Task>
+
+    /** Returns notes that link TO the given taskId via task:// URL scheme, for the active user. */
+    suspend fun getNotesLinkingToTask(taskId: String): List<Note>
 }

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -326,6 +327,17 @@ fun TaskEditorContent(
     callbacks: TaskEditorCallbacks,
     isCompleted: Boolean = false,
 ) {
+    val backlinksSections: (@Composable () -> Unit)? = if (
+        model.linkedNotes.isNotEmpty() || model.linkedTasks.isNotEmpty()
+    ) {
+        {
+            LinkedBacklinksCard(
+                linkedNotes = model.linkedNotes,
+                linkedTasks = model.linkedTasks,
+            )
+        }
+    } else null
+
     TaskEditorContent(
         titleDraft = model.titleDraft,
         onTitleChange = callbacks.onTitleChange,
@@ -346,7 +358,7 @@ fun TaskEditorContent(
         onDueDateClick = callbacks.dueDate?.onClick,
         dependsOn = model.dependsOn,
         availableTasks = model.availableTasks,
-        extraSections = null,
+        extraSections = backlinksSections,
         onSetDependencies = callbacks.dependencies?.onChange,
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,

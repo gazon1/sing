@@ -49,6 +49,7 @@ data class TaskEntity(
     @ColumnInfo("archived_at") val archivedAt: Long?, // epoch millis
     @ColumnInfo("is_pinned") val isPinned: Boolean = false,
     @ColumnInfo("recurrence_rule") val recurrenceRule: String? = null, // JSON of RecurrenceSpec
+    @ColumnInfo("outgoing_links", defaultValue = "[]") val outgoingLinks: String = "[]", // wikilink backlinks
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("user_id") val userId: String,

@@ -86,6 +86,10 @@ class TaskDetailViewModel(
     private val _recentlyDeleted = MutableStateFlow<Task?>(null)
     private val _aiRunning = MutableStateFlow(false)
 
+    /** Backlinks — loaded when task changes. */
+    private val _linkedNotes = MutableStateFlow<List<com.singularity.todo.feature.notes.Note>>(emptyList())
+    private val _linkedTasks = MutableStateFlow<List<Task>>(emptyList())
+
     /** Incremented on each retry() call to restart the watchTask subscription. */
     private val _retryVersion = MutableStateFlow(0)
 
@@ -111,6 +115,16 @@ class TaskDetailViewModel(
                     deps.updateTask(task.copy(description = desc.ifBlank { null }))
                         .onFailure { emitError("Save failed") }
                 }
+        }
+        // Load backlinks when the observed task changes.
+        scope.launch {
+            _latestTask.filterNotNull().collect { task ->
+                val linkRepo = deps.linkRepo ?: return@collect
+                val notes = linkRepo.getNotesLinkingToTask(task.id.value)
+                val tasks = linkRepo.getBacklinkTasks(task.id.value)
+                _linkedNotes.value = notes
+                _linkedTasks.value = tasks
+            }
         }
     }
 
@@ -182,6 +196,8 @@ class TaskDetailViewModel(
                                     subtasks = all.content.subtasks,
                                     dependsOn = t.dependsOn,
                                     availableTasks = all.content.available,
+                                    linkedNotes = _linkedNotes.value,
+                                    linkedTasks = _linkedTasks.value,
                                 ),
                             )
                         }

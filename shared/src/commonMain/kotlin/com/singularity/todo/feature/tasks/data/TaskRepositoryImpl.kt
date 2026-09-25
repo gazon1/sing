@@ -189,6 +189,7 @@ class TaskRepositoryImpl(
             )
         }
         taskDao.upsert(toInsert.toEntity())
+        saveOutgoingLinks(toInsert.id, toInsert.description)
         toInsert.tags.forEach { tagId ->
             taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = toInsert.id.value, tagId = tagId.value))
         }
@@ -199,9 +200,15 @@ class TaskRepositoryImpl(
 
     override suspend fun update(item: Task): Result<Task> = runCatching {
         taskDao.upsert(item.toEntity())
+        saveOutgoingLinks(item.id, item.description)
         _changes.tryEmit(item)
         syncRepository.enqueue(item)
         item
+    }
+
+    private suspend fun saveOutgoingLinks(id: TaskId, description: String?) {
+        val links = description?.let { extractOutgoingLinks(it) }.orEmpty()
+        taskDao.setOutgoingLinks(id.value, links.toLinksJson(), clock.now().toEpochMilliseconds())
     }
 
     override suspend fun delete(id: TaskId): Result<Unit> = softDelete(id)

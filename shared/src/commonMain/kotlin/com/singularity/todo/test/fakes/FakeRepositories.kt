@@ -307,6 +307,15 @@ internal class InMemoryTaskDao : TaskDao {
 
     override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> = _deps
 
+    // ── Outgoing links (stub — not used by FakeTaskRepository) ───────────────
+
+    override suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long) {
+        // no-op: FakeTaskRepository calls TaskDao directly, not this path
+    }
+
+    override suspend fun getBacklinkTasks(taskId: String, userId: String): List<com.singularity.todo.core.database.TaskEntity> =
+        error("not implemented")
+
     // ── Remaining DAO methods (unused by FakeTaskRepository) ──────────────────
 
     override fun watchActive(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =

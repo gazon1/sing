@@ -95,6 +95,8 @@ fun TaskDetailViewScreen(taskId: TaskId) {
                     isPinned = ui.task.isPinned,
                     dependsOn = ui.dependsOn,
                     availableTasks = ui.availableTasks,
+                    linkedNotes = ui.linkedNotes,
+                    linkedTasks = ui.linkedTasks,
                 )
 
                 val callbacks = TaskEditorCallbacks(

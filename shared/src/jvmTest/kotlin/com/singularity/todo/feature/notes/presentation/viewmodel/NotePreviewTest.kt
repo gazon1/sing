@@ -39,6 +39,8 @@ class NotePreviewTest {
         override suspend fun searchNotes(query: String): List<Note> = emptyList()
         override suspend fun searchTasks(query: String): List<Task> = emptyList()
         override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
+        override suspend fun getBacklinkTasks(taskId: String): List<Task> = emptyList()
+        override suspend fun getNotesLinkingToTask(taskId: String): List<Note> = emptyList()
     }
 
     private fun createVm(notesRepo: FakeNotesRepository = FakeNotesRepository(), scope: CoroutineScope): NotePreview =
