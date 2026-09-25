@@ -23,13 +23,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * Unit tests for [ProjectDetailViewModel] verifying behavioral contracts.
@@ -99,7 +99,6 @@ class ProjectDetailViewModelTest {
         vm.onIntent(ProjectDetailIntent.Domain.ToggleHideCompleted)
         assertFalse(vm.hideCompleted.value)
     }
-
 
     @Test
     fun `UpdateColor persists new color to repository`() = runTest {

@@ -89,7 +89,13 @@ class CalendarViewModel(
                 deps.taskRepo.observeByFilter(TaskFilter.ByDateRange(from, to))
                     .map { tasks ->
                         val tasksByDate = tasks
-                            .map { task -> CalendarTaskMapper.toCalendarTaskUi(task, today, recurringIds.contains(task.id)) }
+                            .map { task ->
+                                CalendarTaskMapper.toCalendarTaskUi(
+                                    task,
+                                    today,
+                                    recurringIds.contains(task.id),
+                                )
+                            }
                             .groupBy { it.date }
                         cal.toLoadedState(tasksByDate, today)
                     }

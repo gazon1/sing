@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -50,12 +49,9 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
-import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.components.EditorParentPickerSheet
 import com.singularity.todo.feature.projects.presentation.components.IconPickerSheet
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
-import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiEvent
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
@@ -86,11 +82,7 @@ fun ProjectEditorScreen(projectId: ProjectId?, modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ProjectEditorContent(
-    viewModel: ProjectEditorViewModel,
-    modifier: Modifier = Modifier,
-    onBack: () -> Unit,
-) {
+fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier = Modifier, onBack: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showIconPicker by remember { mutableStateOf(false) }
     var showParentPicker by remember { mutableStateOf(false) }

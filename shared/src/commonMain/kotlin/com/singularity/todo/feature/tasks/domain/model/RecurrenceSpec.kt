@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.domain.model
 
-import com.singularity.todo.core.serialization.StableJson
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.serialization.Serializable
 
@@ -44,8 +43,10 @@ sealed class RecurrenceSpec {
     enum class RecurrenceBase {
         /** Next occurrence is relative to the task's due date. */
         FROM_DUE,
+
         /** Next occurrence is relative to when the current occurrence was completed. */
         FROM_COMPLETION,
+
         /** Like FROM_COMPLETION but generates catch-up copies for missed occurrences. */
         CATCH_UP,
     }
@@ -57,11 +58,8 @@ sealed class RecurrenceSpec {
      * @param amount The multiplier for [unit] (e.g. 2 means "every 2 [unit]").
      * @param unit   The time unit. Must be a date-based unit (DAY, WEEK, MONTH, YEAR).
      */
-    data class Interval(
-        override val base: RecurrenceBase,
-        val amount: Int,
-        val unit: DateTimeUnit.DateBased,
-    ) : RecurrenceSpec()
+    data class Interval(override val base: RecurrenceBase, val amount: Int, val unit: DateTimeUnit.DateBased) :
+        RecurrenceSpec()
 
     /**
      * Weekly recurrence on specific weekdays.
@@ -70,10 +68,7 @@ sealed class RecurrenceSpec {
      * @param weekdays ISO-8601 weekday numbers: 1=Monday … 7=Sunday.
      *                  At least one must be provided.
      */
-    data class Weekly(
-        override val base: RecurrenceBase,
-        val weekdays: Set<Int>,
-    ) : RecurrenceSpec() {
+    data class Weekly(override val base: RecurrenceBase, val weekdays: Set<Int>) : RecurrenceSpec() {
         init {
             require(weekdays.isNotEmpty()) { "weekdays must not be empty" }
             require(weekdays.all { it in 1..7 }) { "weekday must be in 1..7 (ISO-8601)" }
@@ -87,10 +82,7 @@ sealed class RecurrenceSpec {
      * @param dayOfMonth Day of month (1..31). If the month has fewer days,
      *                   the last day of that month is used.
      */
-    data class Monthly(
-        override val base: RecurrenceBase,
-        val dayOfMonth: Int,
-    ) : RecurrenceSpec() {
+    data class Monthly(override val base: RecurrenceBase, val dayOfMonth: Int) : RecurrenceSpec() {
         init {
             require(dayOfMonth in 1..31) { "dayOfMonth must be in 1..31" }
         }
@@ -103,11 +95,7 @@ sealed class RecurrenceSpec {
      * @param month Month of year (1..12).
      * @param day  Day of month (1..31).
      */
-    data class Yearly(
-        override val base: RecurrenceBase,
-        val month: Int,
-        val day: Int,
-    ) : RecurrenceSpec() {
+    data class Yearly(override val base: RecurrenceBase, val month: Int, val day: Int) : RecurrenceSpec() {
         init {
             require(month in 1..12) { "month must be in 1..12" }
             require(day in 1..31) { "day must be in 1..31" }

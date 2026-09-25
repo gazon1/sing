@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.ui.mvi.MviIntent
 import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -34,9 +33,9 @@ class ProjectEditorViewModel(
     private val projectsRepo: ProjectsRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectEditorUiState, ProjectEditorIntent, ProjectEditorUiEvent>(
-    initialState = ProjectEditorUiState(projectId = projectId),
-    scope = scope,
-) {
+        initialState = ProjectEditorUiState(projectId = projectId),
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)

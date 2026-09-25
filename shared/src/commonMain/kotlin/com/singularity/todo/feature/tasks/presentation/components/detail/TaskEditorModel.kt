@@ -4,9 +4,9 @@ import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 

@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.domain.port
 
-import com.singularity.todo.core.error.AppError
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
@@ -21,8 +20,5 @@ interface DependencyValidator {
      *
      * @return [kotlin.Result] with [Unit] on success, or [IllegalArgumentException] on self-loop.
      */
-    suspend fun assertNoCycles(
-        taskId: TaskId,
-        newDeps: Set<TaskId>,
-    ): Result<Unit>
+    suspend fun assertNoCycles(taskId: TaskId, newDeps: Set<TaskId>): Result<Unit>
 }

@@ -10,10 +10,7 @@ import com.singularity.todo.feature.nav.AppDestination
  * @param label user-visible text label (used for content description and/or FAB text)
  * @param onClick navigation action to perform when FAB is clicked
  */
-data class FabAction(
-    val label: String,
-    val onClick: () -> Unit,
-)
+data class FabAction(val label: String, val onClick: () -> Unit)
 
 /**
  * Returns the [FabAction] for the current navigation destination, or `null` if no FAB should be shown.
@@ -26,11 +23,8 @@ data class FabAction(
  * without compiler warnings, since those routes are still the primary navigation targets on Android.
  */
 @Suppress("DEPRECATION")
-internal fun fabActionForNav3(
-    current: AppDestination,
-    navigate: (AppDestination) -> Unit,
-): FabAction? {
-    return when (current) {
+internal fun fabActionForNav3(current: AppDestination, navigate: (AppDestination) -> Unit): FabAction? =
+    when (current) {
         // ── Modern routes (Desktop / future Android) ───────────────────────────
         is AppDestination.AgendaGraph -> {
             if (current.start == AgendaStartRoute.Inbox || current.start == AgendaStartRoute.Today) {
@@ -66,4 +60,3 @@ internal fun fabActionForNav3(
         // NotesNavGraph has its own note creation button — no shell FAB needed here.
         else -> null
     }
-}

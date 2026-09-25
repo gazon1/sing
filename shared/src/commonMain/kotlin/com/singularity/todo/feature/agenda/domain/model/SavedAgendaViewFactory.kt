@@ -56,11 +56,10 @@ object SavedAgendaViewFactory {
      * Duplicates a [SavedAgendaView] into a different user profile.
      * Generates a fresh [id], sets [userId] to [targetUserId], resets timestamps.
      */
-    fun duplicateForProfile(source: SavedAgendaView, targetUserId: String, now: Instant): SavedAgendaView =
-        source.copy(
-            id = SavedAgendaViewId.generate(),
-            userId = targetUserId,
-            createdAt = now,
-            updatedAt = now,
-        )
+    fun duplicateForProfile(source: SavedAgendaView, targetUserId: String, now: Instant): SavedAgendaView = source.copy(
+        id = SavedAgendaViewId.generate(),
+        userId = targetUserId,
+        createdAt = now,
+        updatedAt = now,
+    )
 }

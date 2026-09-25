@@ -30,16 +30,19 @@ class QueryTokenizer(private val input: String) {
 
             when (input[pos]) {
                 '(' -> {
-                    result.add(Token.LParen);
+                    result.add(Token.LParen)
                     pos++
                 }
+
                 ')' -> {
-                    result.add(Token.RParen);
+                    result.add(Token.RParen)
                     pos++
                 }
+
                 '"' -> {
                     pos = scanQuoted(pos, result)
                 }
+
                 else -> {
                     pos = scanWord(pos, result)
                 }

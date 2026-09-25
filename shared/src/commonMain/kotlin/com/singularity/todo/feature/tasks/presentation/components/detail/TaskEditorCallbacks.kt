@@ -5,9 +5,9 @@ import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -18,11 +18,7 @@ import kotlinx.datetime.LocalTime
  * @param onChange called when the value changes (e.g. priority selected, project set)
  * @param onClear called when the X/clear button is tapped. Null means no clear button shown.
  */
-data class RowCallbacks<T>(
-    val onChange: (T) -> Unit,
-    val onClick: () -> Unit = {},
-    val onClear: (() -> Unit)? = null,
-)
+data class RowCallbacks<T>(val onChange: (T) -> Unit, val onClick: () -> Unit = {}, val onClear: (() -> Unit)? = null)
 
 /**
  * Callback bundle for date+time rows (Due Date, Start Date).
@@ -36,9 +32,7 @@ data class DateRowCallbacks(
 )
 
 /** Callback bundle for a toggle (checkbox) attribute. */
-data class ToggleCallbacks(
-    val onToggle: () -> Unit,
-)
+data class ToggleCallbacks(val onToggle: () -> Unit)
 
 /** Callback bundle for the checklist section. `null` means checklist row is hidden. */
 data class ChecklistCallbacks(

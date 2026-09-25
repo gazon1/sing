@@ -8,7 +8,6 @@ import com.singularity.todo.core.observability.ToolUsage
 import com.singularity.todo.core.ui.mvi.MviIntent
 import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.profile.ProfileRepository
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
@@ -40,9 +39,9 @@ class AiUsageViewModel(
     profileRepository: ProfileRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AiUsageUiState, AiUsageIntent, Nothing>(
-    initialState = AiUsageUiState(),
-    scope = scope,
-) {
+        initialState = AiUsageUiState(),
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)

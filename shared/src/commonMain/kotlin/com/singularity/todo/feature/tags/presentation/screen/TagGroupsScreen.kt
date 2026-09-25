@@ -20,19 +20,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.StatefulContent
-import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.feature.tags.domain.model.TagGroup
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
 
 @Composable
-fun TagGroupsScreen(
-    state: TagGroupsUiState,
-    onDelete: (TagGroupId) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun TagGroupsScreen(state: TagGroupsUiState, onDelete: (TagGroupId) -> Unit, modifier: Modifier = Modifier) {
     StatefulContent(
         state = state.toContentState(),
         emptyTitle = "No tag groups yet",
@@ -42,14 +38,10 @@ fun TagGroupsScreen(
     }
 }
 
-private fun TagGroupsUiState.toContentState(): ContentState<List<TagGroup>> =
-    ContentStateMapper.tagGroups(this)
+private fun TagGroupsUiState.toContentState(): ContentState<List<TagGroup>> = ContentStateMapper.tagGroups(this)
 
 @Composable
-private fun TagGroupList(
-    groups: List<TagGroup>,
-    onDelete: (TagGroupId) -> Unit,
-) {
+private fun TagGroupList(groups: List<TagGroup>, onDelete: (TagGroupId) -> Unit) {
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),

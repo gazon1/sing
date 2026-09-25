@@ -61,10 +61,7 @@ internal fun String?.toProjectIdOrNull(): ProjectId? =
  * Tags and dependsOn are populated from the bundled [TaskExtras] when loading lists.
  * For single-task observes use [TaskRepository.observeDependencies] separately.
  */
-internal fun TaskEntity.toTask(
-    tags: List<TagId> = emptyList(),
-    dependsOn: Set<TaskId> = emptySet(),
-): Task = Task(
+internal fun TaskEntity.toTask(tags: List<TagId> = emptyList(), dependsOn: Set<TaskId> = emptySet()): Task = Task(
     id = id.toId(),
     title = title,
     description = description,

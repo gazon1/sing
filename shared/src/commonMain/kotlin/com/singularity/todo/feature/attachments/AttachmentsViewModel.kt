@@ -3,7 +3,6 @@ package com.singularity.todo.feature.attachments
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.ui.mvi.MviEvent
 import com.singularity.todo.core.ui.mvi.MviIntent
 import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -35,9 +34,9 @@ class AttachmentsViewModel(
     private val repository: AttachmentRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AttachmentsUiState, AttachmentsIntent, AttachmentsUiEvent>(
-    initialState = AttachmentsUiState.Idle,
-    scope = scope,
-) {
+        initialState = AttachmentsUiState.Idle,
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)

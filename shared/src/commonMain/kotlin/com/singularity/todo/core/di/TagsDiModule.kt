@@ -21,46 +21,42 @@ import org.koin.dsl.module
 /**
  * Tags feature DI: repositories, use cases, ViewModels.
  */
-fun tagsModule(): org.koin.core.module.Module =
-    module {
-        // ─── Repository ─────────────────────────────────────────────────────
+fun tagsModule(): org.koin.core.module.Module = module {
+    // ─── Repository ─────────────────────────────────────────────────────
 
-        single<TagsRepository> {
-
-            TagsRepositoryImpl(
-                get(),
-                get(),
-                get(),
-                get(),
-            )
-        }
-
-
-        single<TagGroupRepository> {
-            TagGroupRepositoryImpl(
-                get(),
-                get(),
-                get(),
-                get(),
-                get(),
-            )
-        }
-
-
-        // ─── Use Cases ───────────────────────────────────── // ────────────────
-
-        factoryOf(
-            ::CreateTagUseCase
+    single<TagsRepository> {
+        TagsRepositoryImpl(
+            get(),
+            get(),
+            get(),
+            get(),
         )
-        factoryOf(::UpdateTagUseCase)
-        factoryOf(::CreateTagGroupUseCase)
-        factoryOf(::UpdateTagGroupUseCase)
-        factoryOf(::DeleteTagGroupUseCase)
-        factoryOf(::SetProjectInheritedGroupsUseCase)
-        factoryOf(::EffectiveTagsResolver)
-
-        // ─── ViewModels ─────────────────────────────────────────────────────
-
-        viewModel { TagsViewModel(tagRepo = get()) }
-        viewModelOf(::TagGroupsViewModel)
     }
+
+    single<TagGroupRepository> {
+        TagGroupRepositoryImpl(
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+        )
+    }
+
+    // ─── Use Cases ───────────────────────────────────── // ────────────────
+
+    factoryOf(
+        ::CreateTagUseCase,
+    )
+    factoryOf(::UpdateTagUseCase)
+    factoryOf(::CreateTagGroupUseCase)
+    factoryOf(::UpdateTagGroupUseCase)
+    factoryOf(::DeleteTagGroupUseCase)
+    factoryOf(::SetProjectInheritedGroupsUseCase)
+    factoryOf(::EffectiveTagsResolver)
+
+    // ─── ViewModels ─────────────────────────────────────────────────────
+
+    viewModel { TagsViewModel(tagRepo = get()) }
+    viewModelOf(::TagGroupsViewModel)
+}

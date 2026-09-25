@@ -12,7 +12,9 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-@Deprecated("Use kotlinx.datetime.Clock directly. This expect/actual pair is preserved for backward compatibility and will be removed in a future release.")
+@Deprecated(
+    "Use kotlinx.datetime.Clock directly. This expect/actual pair is preserved for backward compatibility and will be removed in a future release.",
+)
 expect object Clock {
     fun now(): Instant
 }

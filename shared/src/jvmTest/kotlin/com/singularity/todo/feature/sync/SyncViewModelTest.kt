@@ -8,15 +8,15 @@ import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.core.sync.SyncEngineStatus
 import com.singularity.todo.feature.sync.presentation.SyncIntent
 import com.singularity.todo.feature.sync.presentation.SyncViewModel
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * Tests for [SyncViewModel].

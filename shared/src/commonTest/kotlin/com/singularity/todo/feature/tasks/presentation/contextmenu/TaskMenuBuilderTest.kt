@@ -28,17 +28,16 @@ class TaskMenuBuilderTest {
         isPinned = isPinned,
     )
 
-    private fun makeTaskUi(task: Task? = makeTask(), completed: Boolean = false, isRecurring: Boolean = false) =
-        TaskUi(
-            id = task?.id ?: TaskId("t1"),
-            title = task?.title ?: "Test",
-            project = null,
-            dueLabel = null,
-            isCompleted = completed,
-            isRecurring = isRecurring,
-            isPinned = task?.isPinned ?: false,
-            priority = TaskPriority.None,
-        )
+    private fun makeTaskUi(task: Task? = makeTask(), completed: Boolean = false, isRecurring: Boolean = false) = TaskUi(
+        id = task?.id ?: TaskId("t1"),
+        title = task?.title ?: "Test",
+        project = null,
+        dueLabel = null,
+        isCompleted = completed,
+        isRecurring = isRecurring,
+        isPinned = task?.isPinned ?: false,
+        priority = TaskPriority.None,
+    )
 
     private fun flatten(nodes: List<MenuNode>): List<MenuNode> = buildList {
         for (node in nodes) {

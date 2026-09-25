@@ -73,8 +73,4 @@ data class CreateTagGroupInput(
 /**
  * Input for updating an existing tag group.
  */
-data class UpdateTagGroupInput(
-    val id: TagGroupId,
-    val name: String,
-    val color: Int,
-)
+data class UpdateTagGroupInput(val id: TagGroupId, val name: String, val color: Int)

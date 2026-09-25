@@ -86,7 +86,9 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
         }
         buildMenuNodes {
             subMenu(
-                "file", "File", children = buildMenuNodes {
+                "file",
+                "File",
+                children = buildMenuNodes {
                     item("new_task", "New Task", shortcut = "Ctrl+N") {
                         navigator.navigate(AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create))
                     }
@@ -97,26 +99,33 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                     item("quit", "Quit", shortcut = "Ctrl+Q") {
                         exitProcess(0)
                     }
-                })
+                },
+            )
             subMenu(
-                "edit", "Edit", children = buildMenuNodes {
+                "edit",
+                "Edit",
+                children = buildMenuNodes {
                     item("undo", "Undo", enabled = false, shortcut = "Ctrl+Z") {}
                     item("redo", "Redo", enabled = false, shortcut = "Ctrl+Y") {}
                     divider()
                     item("find", "Find", shortcut = "Ctrl+F") {
                         navigator.navigate(AppDestination.Search)
                     }
-                })
+                },
+            )
             subMenu("view", "View", children = viewItems)
             subMenu(
-                "help", "Help", children = buildMenuNodes {
+                "help",
+                "Help",
+                children = buildMenuNodes {
                     item("about", "About Singularity Todo") {
                         showAbout = true
                     }
                     item("github", "Open GitHub…") {
                         openGitHub()
                     }
-                })
+                },
+            )
         }
     }
 

@@ -65,14 +65,14 @@ class ProfileSwitcherViewModel(
             val now = com.singularity.todo.core.platform.Clock.now()
             profileRepository.create(
                 Profile(
-                id = ProfileId.generate(),
-                name = name,
-                emoji = emoji,
-                colorIdx = colorIdx,
-                isDefault = false,
-                createdAt = now,
-                updatedAt = now,
-            )
+                    id = ProfileId.generate(),
+                    name = name,
+                    emoji = emoji,
+                    colorIdx = colorIdx,
+                    isDefault = false,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
             )
         }
     }

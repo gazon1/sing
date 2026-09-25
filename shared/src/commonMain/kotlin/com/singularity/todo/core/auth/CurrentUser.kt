@@ -3,10 +3,9 @@ package com.singularity.todo.core.auth
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 /**
  * Reactive, single source of truth for the current userId.

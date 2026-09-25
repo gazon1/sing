@@ -44,9 +44,9 @@ class TagsViewModel(
     private val tagRepo: TagsRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
-    initialState = TagsUiState.Loading,
-    scope = scope,
-) {
+        initialState = TagsUiState.Loading,
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)

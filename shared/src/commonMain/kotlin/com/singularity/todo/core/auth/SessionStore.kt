@@ -39,6 +39,7 @@ interface SessionStore {
  * No [runBlocking] at construction — the ID is loaded asynchronously on first access.
  * [deviceId] returns an empty string until initialized.
  */
+
 /**
  * Emits [emptyPreferences] when [java.io.IOException] is thrown (e.g. corrupted DataStore file),
  * re-throwing all other exceptions.

@@ -20,10 +20,7 @@ import androidx.compose.runtime.Composable
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TaskDetailTopBar(
-    onBackClick: () -> Unit,
-    onMoreClick: (() -> Unit)? = null,
-) {
+fun TaskDetailTopBar(onBackClick: () -> Unit, onMoreClick: (() -> Unit)? = null) {
     TopAppBar(
         title = {},
         navigationIcon = {

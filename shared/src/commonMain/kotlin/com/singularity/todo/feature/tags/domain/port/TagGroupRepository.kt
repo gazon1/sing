@@ -34,12 +34,17 @@ interface TagGroupRepository {
     /**
      * Returns the set of tag group IDs inherited by a project.
      */
-    fun observeInheritedByProject(projectId: com.singularity.todo.feature.projects.domain.model.ProjectId): Flow<Set<TagGroupId>>
+    fun observeInheritedByProject(
+        projectId: com.singularity.todo.feature.projects.domain.model.ProjectId,
+    ): Flow<Set<TagGroupId>>
 
     /**
      * Replaces the set of tag groups inherited by a project.
      */
-    suspend fun setInheritedForProject(projectId: com.singularity.todo.feature.projects.domain.model.ProjectId, groupIds: Set<TagGroupId>): Result<Unit>
+    suspend fun setInheritedForProject(
+        projectId: com.singularity.todo.feature.projects.domain.model.ProjectId,
+        groupIds: Set<TagGroupId>,
+    ): Result<Unit>
 
     /**
      * Upserts a tag group from a remote sync event.

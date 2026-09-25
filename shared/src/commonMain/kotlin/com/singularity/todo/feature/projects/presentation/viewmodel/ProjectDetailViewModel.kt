@@ -137,7 +137,13 @@ class ProjectDetailViewModel(
             combine(
                 projectRepo.observe(projectId).onStart { emit(null) },
                 projectRepo.observe(projectId).onStart { emit(null) }.flatMapLatest { project ->
-                    if (project == null) flowOf(emptyList()) else taskRepo.observeByFilter(TaskFilter.ByProject(projectId))
+                    if (project == null) {
+                        flowOf(
+                        emptyList(),
+                    )
+                    } else {
+                        taskRepo.observeByFilter(TaskFilter.ByProject(projectId))
+                    }
                 },
                 projectRepo.observe(projectId).onStart { emit(null) }.flatMapLatest { project ->
                     if (project == null) flowOf(emptyList()) else projectRepo.observeChildrenOf(projectId)
@@ -150,7 +156,9 @@ class ProjectDetailViewModel(
                 _latestProject.value = project
                 when {
                     project == null -> ProjectDetailUiState.Loading
+
                     project.isDeleted -> ProjectDetailUiState.NotFound
+
                     else -> {
                         draftState.seed(project.name, project.description ?: "")
                         val visibleTasks = if (hideCompleted) tasks.filter { it.completedAt == null } else tasks

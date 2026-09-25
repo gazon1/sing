@@ -33,7 +33,7 @@ fun Selector.matches(task: Task, today: LocalDate): Boolean = when (this) {
 
     is Selector.DateRange ->
         task.dueDate != null &&
-        task.dueDate >= from && task.dueDate <= to
+            task.dueDate >= from && task.dueDate <= to
 
     is Selector.Statuses -> when {
         statuses.isEmpty() -> false
@@ -72,7 +72,7 @@ fun Selector.matches(task: Task, today: LocalDate): Boolean = when (this) {
 
     is Selector.Overdue ->
         task.dueDate != null &&
-        task.dueDate < today && !task.isCompleted
+            task.dueDate < today && !task.isCompleted
 
     is Selector.Regexp -> query.toRegex(RegexOption.IGNORE_CASE).containsMatchIn(task.title)
 

@@ -8,10 +8,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import org.junit.jupiter.api.Tag
 
 @Tag("slow")
 class AnalyticsTest {
@@ -51,8 +51,8 @@ class AnalyticsTest {
         val analytics = NoopAnalytics()
         val dataStore = testDataStore(
             mutablePreferencesOf(
-            longPreferencesKey("last_logged_event1:default") to today(),
-        )
+                longPreferencesKey("last_logged_event1:default") to today(),
+            ),
         )
         val key = longPreferencesKey("last_logged_event1:default")
 
@@ -67,8 +67,8 @@ class AnalyticsTest {
         val analytics = NoopAnalytics()
         val dataStore = testDataStore(
             mutablePreferencesOf(
-            longPreferencesKey("last_logged_event2:default") to today(),
-        )
+                longPreferencesKey("last_logged_event2:default") to today(),
+            ),
         )
         val key = longPreferencesKey("last_logged_event2:default")
 

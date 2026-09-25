@@ -103,8 +103,7 @@ private data class MenuItem(
      * slot, or `null` if the item has no icon. Returning `null` hides the
      * icon slot — same as Compose's own nullable-content convention.
      */
-    fun iconContent(): (@Composable () -> Unit)? =
-        icon?.let { icon -> { Icon(icon, contentDescription = null) } }
+    fun iconContent(): (@Composable () -> Unit)? = icon?.let { icon -> { Icon(icon, contentDescription = null) } }
 }
 
 /** Static menu structure — Account/Search are placeholder sections for now. */

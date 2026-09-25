@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.Either
-import com.singularity.todo.core.ui.mvi.MviIntent
 import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
@@ -11,7 +11,6 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiState
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
-import co.touchlab.kermit.Logger
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,19 +62,19 @@ class TaskCreateViewModel(
     initialDueDate: kotlinx.datetime.LocalDate?,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<TaskCreateUiState, TaskCreateIntent, TaskCreateUiEvent>(
-    initialState = TaskCreateUiState(
-        draft = TaskDraft(
-            dueDate = initialDueDate?.let {
-                DueDateOption.Custom(it, it.toString())
-            } ?: DueDateOption.None,
+        initialState = TaskCreateUiState(
+            draft = TaskDraft(
+                dueDate = initialDueDate?.let {
+                    DueDateOption.Custom(it, it.toString())
+                } ?: DueDateOption.None,
+            ),
+            isSaveEnabled = false,
+            error = null,
+            isDirty = false,
+            isSaving = false,
         ),
-        isSaveEnabled = false,
-        error = null,
-        isDirty = false,
-        isSaving = false,
-    ),
-    scope = scope,
-) {
+        scope = scope,
+    ) {
 
     private val initial: TaskDraft = TaskDraft(
         dueDate = initialDueDate?.let {

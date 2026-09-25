@@ -23,11 +23,7 @@ import com.singularity.todo.feature.projects.domain.model.Project
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChildProjectsSheet(
-    children: List<Project>,
-    onShowChildren: (Project) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun ChildProjectsSheet(children: List<Project>, onShowChildren: (Project) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text("Sub-projects", style = MaterialTheme.typography.titleMedium)
@@ -43,7 +39,10 @@ fun ChildProjectsSheet(
                     items(children) { child ->
                         FilterChip(
                             selected = false,
-                            onClick = { onShowChildren(child); onDismiss() },
+                            onClick = {
+                                onShowChildren(child);
+                                onDismiss()
+                            },
                             label = { Text(child.name) },
                             modifier = Modifier.fillMaxWidth(),
                         )

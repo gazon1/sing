@@ -19,13 +19,11 @@ class KoogPromptExecutorPort(override val executor: ai.koog.prompt.executor.mode
         prompt: ai.koog.prompt.Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>,
-    ): Message.Assistant =
-        executor.execute(prompt, model, tools)
+    ): Message.Assistant = executor.execute(prompt, model, tools)
 
     override fun executeStreaming(
         prompt: ai.koog.prompt.Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>,
-    ): Flow<StreamFrame> =
-        executor.executeStreaming(prompt, model, tools)
+    ): Flow<StreamFrame> = executor.executeStreaming(prompt, model, tools)
 }

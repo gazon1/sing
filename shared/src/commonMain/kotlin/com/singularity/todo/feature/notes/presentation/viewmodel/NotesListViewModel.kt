@@ -3,7 +3,6 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.ids.IdGenerator
-import com.singularity.todo.core.ui.mvi.MviIntent
 import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteFilter
@@ -20,7 +19,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -42,9 +40,9 @@ class NotesListViewModel(
     private val idGen: IdGenerator,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<NotesUiState, NotesIntent, NotesUiEvent>(
-    initialState = NotesUiState.Loading,
-    scope = scope,
-) {
+        initialState = NotesUiState.Loading,
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)

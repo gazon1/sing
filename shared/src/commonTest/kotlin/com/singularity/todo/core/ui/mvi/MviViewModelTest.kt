@@ -27,23 +27,24 @@ sealed interface VmEvent : MviEvent {
     data class Notify(val msg: String) : VmEvent
 }
 
-class VmUnderTest(
-    private val testScope: CoroutineScope,
-) : MviViewModel<TestState, TestIntent, VmEvent>(
-    initialState = TestState.Idle,
-    scope = AutoCloseableCoroutineScope(testScope.coroutineContext),
-) {
+class VmUnderTest(private val testScope: CoroutineScope) :
+    MviViewModel<TestState, TestIntent, VmEvent>(
+        initialState = TestState.Idle,
+        scope = AutoCloseableCoroutineScope(testScope.coroutineContext),
+    ) {
     override fun onIntent(intent: TestIntent) {
         when (intent) {
             TestIntent.Start -> testScope.launch {
                 updateState { TestState.Working(0) }
                 emit(VmEvent.Notify("started"))
             }
+
             is TestIntent.UpdateProgress -> testScope.launch {
                 updateState { current ->
                     if (current is TestState.Working) TestState.Working(intent.value) else current
                 }
             }
+
             TestIntent.Fail -> testScope.launch {
                 updateState { TestState.Error("boom") }
                 emit(VmEvent.Notify("failed"))

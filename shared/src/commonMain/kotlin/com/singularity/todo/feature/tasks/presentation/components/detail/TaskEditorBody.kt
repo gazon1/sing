@@ -355,10 +355,7 @@ private fun priorityColor(priority: TaskPriority): Color = when (priority) {
     TaskPriority.Urgent -> TaskColors.PriorityUrgent
 }
 
-private fun dateTimeLabel(
-    date: kotlinx.datetime.LocalDate?,
-    time: kotlinx.datetime.LocalTime?,
-): String {
+private fun dateTimeLabel(date: kotlinx.datetime.LocalDate?, time: kotlinx.datetime.LocalTime?): String {
     if (date == null) return "Add date"
     val dateStr = date.toString()
     return if (time != null) "$dateStr ${time.toString().take(5)}" else dateStr

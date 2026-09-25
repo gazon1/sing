@@ -273,7 +273,7 @@ internal class InMemoryTaskDao : TaskDao {
             current.filter {
                 !(
                     it.taskId == ref.taskId &&
-                    it.dependsOnTaskId == ref.dependsOnTaskId
+                        it.dependsOnTaskId == ref.dependsOnTaskId
                 )
             } +
                 ref
@@ -1465,12 +1465,12 @@ fun FakeProfileAwareCurrentUser(
     // double-emission problem entirely.
     val initialUid = (
         authRepository.currentSession.value.let {
-        when (it) {
-            is Session.SignedIn -> it.userId
-            is Session.Anonymous -> it.userId
-            else -> UserId.anonymous
+            when (it) {
+                is Session.SignedIn -> it.userId
+                is Session.Anonymous -> it.userId
+                else -> UserId.anonymous
+            }
         }
-    }
     )
 
     // Build scopedUserId from session changes via plain collect. The collector

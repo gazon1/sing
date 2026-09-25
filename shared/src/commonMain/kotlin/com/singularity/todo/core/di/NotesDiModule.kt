@@ -22,49 +22,48 @@ import org.koin.dsl.module
  * - [NoteEditor] — editing session, autosave, AI improve
  * - [NotePreview] — read-only view of a single note and its backlinks
  */
-fun notesModule(): org.koin.core.module.Module =
-    module {
-        // ─── Repository ─────────────────────────────────────────────────────
+fun notesModule(): org.koin.core.module.Module = module {
+    // ─── Repository ─────────────────────────────────────────────────────
 
-        single<NotesRepository> {
-            RoomNotesRepository(
-                get(),
-                get(),
-                get(),
-                get(),
-            )
-        }
-        single<InternalLinkRepository> {
-            InternalLinkRepositoryImpl(
-                get(),
-                get(),
-                get(),
-            )
-        }
-
-        // ─── ViewModels ─────────────────────────────────────────────────────
-
-        viewModel { NotesListViewModel(repo = get(), idGen = get()) }
-
-        // NoteEditor: ai is optional — improveNote is null when AI is not configured
-        // (the AI button will be hidden in UI when NoteAiController.isAvailable == false).
-        viewModel {
-            NoteEditor(
-                repo = get(),
-                linkRepo = get(),
-                idGen = get(),
-                ai = NoteAiController(
-                    improveNote = getOrNull<ImproveNoteUseCase>()?.let(::improveNoteLambda),
-                ),
-                log = get<Logger>(),
-                // scope omitted — default AutoCloseableCoroutineScope() applies
-            )
-        }
-
-        viewModel {
-            NotePreview(
-                repo = get(),
-                linkRepo = get(),
-            )
-        }
+    single<NotesRepository> {
+        RoomNotesRepository(
+            get(),
+            get(),
+            get(),
+            get(),
+        )
     }
+    single<InternalLinkRepository> {
+        InternalLinkRepositoryImpl(
+            get(),
+            get(),
+            get(),
+        )
+    }
+
+    // ─── ViewModels ─────────────────────────────────────────────────────
+
+    viewModel { NotesListViewModel(repo = get(), idGen = get()) }
+
+    // NoteEditor: ai is optional — improveNote is null when AI is not configured
+    // (the AI button will be hidden in UI when NoteAiController.isAvailable == false).
+    viewModel {
+        NoteEditor(
+            repo = get(),
+            linkRepo = get(),
+            idGen = get(),
+            ai = NoteAiController(
+                improveNote = getOrNull<ImproveNoteUseCase>()?.let(::improveNoteLambda),
+            ),
+            log = get<Logger>(),
+            // scope omitted — default AutoCloseableCoroutineScope() applies
+        )
+    }
+
+    viewModel {
+        NotePreview(
+            repo = get(),
+            linkRepo = get(),
+        )
+    }
+}

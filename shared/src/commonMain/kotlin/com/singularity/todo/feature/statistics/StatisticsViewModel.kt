@@ -11,10 +11,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-data class StatisticsUiState(
-    val snapshot: StatisticsSnapshot? = null,
-    val loading: Boolean = true,
-)
+data class StatisticsUiState(val snapshot: StatisticsSnapshot? = null, val loading: Boolean = true)
 
 sealed interface StatisticsIntent : MviIntent
 // Currently no user-triggered intents — purely observational
@@ -34,9 +31,9 @@ class StatisticsViewModel(
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<StatisticsUiState, StatisticsIntent, Nothing>(
-    initialState = StatisticsUiState(),
-    scope = scope,
-) {
+        initialState = StatisticsUiState(),
+        scope = scope,
+    ) {
 
     init {
         addCloseable(scope)

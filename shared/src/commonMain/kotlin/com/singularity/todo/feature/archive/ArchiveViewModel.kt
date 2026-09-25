@@ -38,9 +38,9 @@ class ArchiveViewModel(
     taskRepo: TaskRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ArchiveUiState, ArchiveIntent, ArchiveUiEvent>(
-    initialState = ArchiveUiState.Loading,
-    scope = scope,
-) {
+        initialState = ArchiveUiState.Loading,
+        scope = scope,
+    ) {
 
     private val refreshing = MutableStateFlow(false)
 

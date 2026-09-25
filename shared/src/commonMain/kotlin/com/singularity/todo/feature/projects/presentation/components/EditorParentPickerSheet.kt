@@ -21,10 +21,7 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditorParentPickerSheet(
-    onPick: (ProjectId?) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun EditorParentPickerSheet(onPick: (ProjectId?) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text("Parent project", style = MaterialTheme.typography.titleMedium)

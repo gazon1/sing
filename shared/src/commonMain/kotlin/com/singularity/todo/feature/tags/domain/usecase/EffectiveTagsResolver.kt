@@ -19,20 +19,14 @@ import kotlinx.coroutines.flow.map
  * Tags from groups are appended after own tags, so own tags take priority
  * when the same tag ID appears in both.
  */
-class EffectiveTagsResolver(
-    private val tagRepo: TagsRepository,
-    private val tagGroupRepo: TagGroupRepository,
-) {
+class EffectiveTagsResolver(private val tagRepo: TagsRepository, private val tagGroupRepo: TagGroupRepository) {
     /**
      * Returns a flow of all effective tags for a task.
      *
      * @param taskOwnTagIds Tags the task has been assigned directly.
      * @param projectId The project the task belongs to (used to resolve inherited groups).
      */
-    fun resolveEffectiveTags(
-        taskOwnTagIds: Set<TagId>,
-        projectId: ProjectId?,
-    ): Flow<List<Tag>> {
+    fun resolveEffectiveTags(taskOwnTagIds: Set<TagId>, projectId: ProjectId?): Flow<List<Tag>> {
         if (projectId == null) {
             return tagRepo.observeAll().map { allTags ->
                 filterAndPreserveOrder(taskOwnTagIds, allTags)

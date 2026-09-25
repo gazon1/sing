@@ -28,13 +28,11 @@ object RecurrenceCalculator {
      * @param anchor The date to compute the next occurrence relative to.
      * @return The next occurrence date.
      */
-    fun nextOccurrence(spec: RecurrenceSpec, anchor: LocalDate): LocalDate {
-        return when (spec) {
-            is RecurrenceSpec.Interval -> nextInterval(anchor, spec.amount, spec.unit)
-            is RecurrenceSpec.Weekly   -> nextWeekly(anchor, spec.weekdays)
-            is RecurrenceSpec.Monthly  -> nextMonthly(anchor, spec.dayOfMonth)
-            is RecurrenceSpec.Yearly   -> nextYearly(anchor, spec.month, spec.day)
-        }
+    fun nextOccurrence(spec: RecurrenceSpec, anchor: LocalDate): LocalDate = when (spec) {
+        is RecurrenceSpec.Interval -> nextInterval(anchor, spec.amount, spec.unit)
+        is RecurrenceSpec.Weekly -> nextWeekly(anchor, spec.weekdays)
+        is RecurrenceSpec.Monthly -> nextMonthly(anchor, spec.dayOfMonth)
+        is RecurrenceSpec.Yearly -> nextYearly(anchor, spec.month, spec.day)
     }
 
     /**
@@ -52,9 +50,9 @@ object RecurrenceCalculator {
         if (today <= anchor) return 0
         val count = when (spec) {
             is RecurrenceSpec.Interval -> countIntervalMissed(anchor, today, spec.amount, spec.unit)
-            is RecurrenceSpec.Weekly   -> countWeeklyMissed(anchor, today, spec.weekdays)
-            is RecurrenceSpec.Monthly  -> countMonthlyMissed(anchor, today, spec.dayOfMonth)
-            is RecurrenceSpec.Yearly   -> countYearlyMissed(anchor, today, spec.month, spec.day)
+            is RecurrenceSpec.Weekly -> countWeeklyMissed(anchor, today, spec.weekdays)
+            is RecurrenceSpec.Monthly -> countMonthlyMissed(anchor, today, spec.dayOfMonth)
+            is RecurrenceSpec.Yearly -> countYearlyMissed(anchor, today, spec.month, spec.day)
         }
         return count.coerceIn(0, RecurrenceSpec.MAX_MISSED)
     }
@@ -64,7 +62,12 @@ object RecurrenceCalculator {
     private fun nextInterval(anchor: LocalDate, amount: Int, unit: DateTimeUnit.DateBased): LocalDate =
         anchor.plus(amount, unit)
 
-    private fun countIntervalMissed(anchor: LocalDate, today: LocalDate, amount: Int, unit: DateTimeUnit.DateBased): Int {
+    private fun countIntervalMissed(
+        anchor: LocalDate,
+        today: LocalDate,
+        amount: Int,
+        unit: DateTimeUnit.DateBased,
+    ): Int {
         if (today <= anchor) return 0
         var count = 0
         var current = anchor

@@ -3,9 +3,9 @@ package com.singularity.todo.core.database
 import com.singularity.todo.core.database.contract.createSqlDriver
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import java.io.File
 import java.nio.file.Files
-import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test

@@ -3,12 +3,12 @@ package com.singularity.todo.test
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.singularity.todo.core.backup.BackupCodec
+import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
-import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSystem
@@ -22,6 +22,8 @@ import com.singularity.todo.core.sync.JvmSyncScheduler
 import com.singularity.todo.core.sync.SyncScheduler
 import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
+import com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries
+import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
@@ -35,8 +37,6 @@ import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.reminders.JvmReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
-import com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries
-import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
 import org.junit.jupiter.api.Test
 import org.koin.core.module.Module
 import org.koin.dsl.koinApplication

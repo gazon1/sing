@@ -19,14 +19,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
-import com.singularity.todo.core.ui.components.formatTimestampsRelative
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
-import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
@@ -35,7 +34,6 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-import kotlin.time.Clock
 
 /**
  * Task detail screen (View mode) for the tasks nested navigation graph.

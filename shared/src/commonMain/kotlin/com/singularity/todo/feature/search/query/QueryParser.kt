@@ -46,9 +46,9 @@ abstract class QueryParser(protected val tokens: List<QueryTokenizer.Token>) {
     private fun parseAtom(startPos: Int): Pair<Condition, Int> {
         if (startPos >= tokens.size) {
             throw QueryParseException(
-            "Unexpected end of input",
-            tokenPosition(startPos),
-        )
+                "Unexpected end of input",
+                tokenPosition(startPos),
+            )
         }
         val tok = tokens[startPos]
 
@@ -102,9 +102,9 @@ abstract class QueryParser(protected val tokens: List<QueryTokenizer.Token>) {
                 is QueryTokenizer.Token.And -> {
                     if (conditions.isEmpty()) {
                         throw QueryParseException(
-                        "Unexpected AND inside group",
-                        tokenPosition(pos),
-                    )
+                            "Unexpected AND inside group",
+                            tokenPosition(pos),
+                        )
                     }
                     pos++
                     lastWasCond = false
@@ -113,9 +113,9 @@ abstract class QueryParser(protected val tokens: List<QueryTokenizer.Token>) {
                 is QueryTokenizer.Token.Or -> {
                     if (conditions.size < 2) {
                         throw QueryParseException(
-                        "OR inside group requires at least two operands",
-                        tokenPosition(pos),
-                    )
+                            "OR inside group requires at least two operands",
+                            tokenPosition(pos),
+                        )
                     }
                     val left = flattenAnd(conditions)
                     conditions.clear()

@@ -1,6 +1,5 @@
 package com.singularity.todo.core.ui.menu
 
-import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.runtime.Composable
@@ -21,11 +20,7 @@ import kotlinx.coroutines.delay
  * @param onOpen called after [delayMs] of continuous hover when not already open
  */
 @Composable
-fun rememberHoverOpenState(
-    delayMs: Long,
-    isOpen: Boolean,
-    onOpen: () -> Unit,
-): HoverOpenState {
+fun rememberHoverOpenState(delayMs: Long, isOpen: Boolean, onOpen: () -> Unit): HoverOpenState {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
@@ -43,7 +38,4 @@ fun rememberHoverOpenState(
  * @param interactionSource pass to [.hoverable] modifier
  * @param isHovered current hover state for conditional styling
  */
-data class HoverOpenState(
-    val interactionSource: MutableInteractionSource,
-    val isHovered: Boolean,
-)
+data class HoverOpenState(val interactionSource: MutableInteractionSource, val isHovered: Boolean)

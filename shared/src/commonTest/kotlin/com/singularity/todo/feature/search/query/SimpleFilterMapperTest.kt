@@ -137,10 +137,10 @@ class SimpleFilterMapperTest {
         val query = Query(
             condition = Condition.Or(
                 listOf(
-            Condition.HasTag("work"),
-            Condition.HasTag("home"),
-        )
-            )
+                    Condition.HasTag("work"),
+                    Condition.HasTag("home"),
+                ),
+            ),
         )
         val result = mapper.fromQuery(query)
         assertTrue(result.isFailure)
@@ -178,9 +178,9 @@ class SimpleFilterMapperTest {
         val query = Query(
             condition = Condition.And(
                 listOf(
-                Condition.HasTag("work"),
-                Condition.IsArchived,
-            )
+                    Condition.HasTag("work"),
+                    Condition.IsArchived,
+                ),
             ),
         )
         val result = mapper.fromQuery(query)

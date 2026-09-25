@@ -1,6 +1,5 @@
 package com.singularity.todo.core.ui.mvi
 
-import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -81,9 +80,7 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      * Eliminates `?: return` guards in sealed state hierarchies.
      * @see updateState
      */
-    protected suspend inline fun <reified T : S> updateStateAs(
-        noinline transform: (T) -> S,
-    ) {
+    protected suspend inline fun <reified T : S> updateStateAs(noinline transform: (T) -> S) {
         val current = state.value
         if (current is T) {
             updateState { transform(current) }
