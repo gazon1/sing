@@ -1,8 +1,9 @@
 package com.singularity.todo.feature.calendar_sync.presentation
 
-import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.calendar_sync.data.CalendarAppInfo
 import com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
@@ -10,9 +11,6 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPo
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendar_sync.sync.SyncSource
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -36,7 +34,7 @@ data class CalendarSyncUiState(
 /**
  * User intents for the calendar sync settings screen.
  */
-sealed interface CalendarSyncIntent {
+sealed interface CalendarSyncIntent : MviIntent {
     data object LoadCalendars : CalendarSyncIntent
     data class SetEnabled(val enabled: Boolean) : CalendarSyncIntent
     data class SelectCalendar(val calendarId: String) : CalendarSyncIntent
@@ -66,14 +64,17 @@ class CalendarSyncViewModel(
     private val scheduler: com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler,
     private val appQueries: CalendarAppQueries,
     private val orchestrator: CalendarSyncOrchestrator,
-    private val scope: AutoCloseableCoroutineScope,
-) : ViewModel() {
-    private val _state = MutableStateFlow(CalendarSyncUiState())
-    val state: StateFlow<CalendarSyncUiState> = _state.asStateFlow()
+    scope: AutoCloseableCoroutineScope,
+) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
+    initialState = CalendarSyncUiState(),
+    scope = scope,
+) {
+    // MviViewModel handles addCloseable(scope) — no manual call needed
+
+    private val vmScope = scope
 
     init {
-        addCloseable(scope)
-        scope.launch {
+        vmScope.launch {
             combine(
                 syncRepo.observeEnabled(),
                 syncRepo.observeTargetCalendarId(),
@@ -81,23 +82,25 @@ class CalendarSyncViewModel(
                 syncRepo.observeLastSyncedAt(),
                 syncRepo.observeTargetAppPackage(),
             ) { enabled, calendarId, status, lastAt, appPkg ->
-                _state.value = _state.value.copy(
-                    isEnabled = enabled,
-                    selectedCalendarId = calendarId,
-                    status = status,
-                    lastSyncedAt = lastAt,
-                    selectedAppPackage = appPkg,
-                )
+                updateState {
+                    it.copy(
+                        isEnabled = enabled,
+                        selectedCalendarId = calendarId,
+                        status = status,
+                        lastSyncedAt = lastAt,
+                        selectedAppPackage = appPkg,
+                    )
+                }
             }.collect {}
         }
     }
 
-    fun processIntent(intent: CalendarSyncIntent) {
+    override fun onIntent(intent: CalendarSyncIntent) {
         when (intent) {
             is CalendarSyncIntent.LoadCalendars -> loadCalendars()
             is CalendarSyncIntent.SetEnabled -> setEnabled(intent.enabled)
             is CalendarSyncIntent.SelectCalendar -> selectCalendar(intent.calendarId)
-            is CalendarSyncIntent.SyncNow -> syncNow()
+            CalendarSyncIntent.SyncNow -> syncNow()
             is CalendarSyncIntent.RequestPermission -> { /* UI layer */ }
             is CalendarSyncIntent.SetPermission -> setPermission(intent.granted)
             is CalendarSyncIntent.SelectAppPackage -> selectAppPackage(intent.packageName)
@@ -105,8 +108,8 @@ class CalendarSyncViewModel(
     }
 
     private fun loadCalendars() {
-        scope.launch {
-            _state.value = _state.value.copy(isLoading = true)
+        vmScope.launch {
+            updateState { it.copy(isLoading = true) }
 
             // Load calendar apps and calendars in parallel
             val apps = try {
@@ -119,36 +122,42 @@ class CalendarSyncViewModel(
 
             calendarsResult
                 .onSuccess { calendars ->
-                    _state.value = _state.value.copy(
-                        availableCalendars = calendars,
-                        availableApps = apps,
-                        isLoading = false,
-                    )
+                    updateState {
+                        it.copy(
+                            availableCalendars = calendars,
+                            availableApps = apps,
+                            isLoading = false,
+                        )
+                    }
                 }
                 .onFailure {
-                    _state.value = _state.value.copy(
-                        availableApps = apps,
-                        isLoading = false,
-                    )
+                    updateState {
+                        it.copy(
+                            availableApps = apps,
+                            isLoading = false,
+                        )
+                    }
                 }
         }
     }
 
     private fun setEnabled(enabled: Boolean) {
-        scope.launch {
+        vmScope.launch {
             syncRepo.setEnabled(enabled)
             if (enabled) {
                 orchestrator.requestSync(SyncSource.ConfigChanged)
             } else {
                 scheduler.cancelSync()
             }
+            updateState { it.copy(isEnabled = enabled) }
         }
     }
 
     private fun selectCalendar(calendarId: String) {
-        scope.launch {
+        vmScope.launch {
             syncRepo.setTargetCalendarId(calendarId)
-            if (_state.value.isEnabled) {
+            updateState { it.copy(selectedCalendarId = calendarId) }
+            if (currentState.isEnabled) {
                 orchestrator.requestSync(SyncSource.ConfigChanged)
             }
         }
@@ -159,16 +168,17 @@ class CalendarSyncViewModel(
     }
 
     private fun setPermission(granted: Boolean) {
-        _state.value = _state.value.copy(hasPermission = granted)
+        updateState { it.copy(hasPermission = granted) }
         if (granted) {
             loadCalendars()
         }
     }
 
     private fun selectAppPackage(packageName: String?) {
-        scope.launch {
+        vmScope.launch {
             syncRepo.setTargetAppPackage(packageName)
-            if (_state.value.isEnabled) {
+            updateState { it.copy(selectedAppPackage = packageName) }
+            if (currentState.isEnabled) {
                 orchestrator.requestSync(SyncSource.ConfigChanged)
             }
         }

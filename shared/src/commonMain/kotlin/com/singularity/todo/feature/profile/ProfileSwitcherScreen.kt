@@ -66,7 +66,7 @@ fun ProfileSwitcherScreen(modifier: Modifier = Modifier) {
 
 @Composable
 private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier: Modifier = Modifier) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.state.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var profileToDelete by remember { mutableStateOf<Profile?>(null) }
 
@@ -106,7 +106,7 @@ private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier
                 ProfileCard(
                     profile = profile,
                     isActive = profile.id == state.activeProfileId,
-                    onSelect = { viewModel.switchTo(profile.id) },
+                    onSelect = { viewModel.onIntent(ProfileSwitcherIntent.SwitchTo(profile.id)) },
                     onDelete = if (!profile.isDefault && state.profiles.size > 1) {
                         { profileToDelete = profile }
                     } else {
@@ -122,7 +122,7 @@ private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier
         CreateProfileDialog(
             onDismiss = { showCreateDialog = false },
             onCreate = { name, emoji, colorIdx ->
-                viewModel.create(name, emoji, colorIdx)
+                viewModel.onIntent(ProfileSwitcherIntent.Create(name, emoji, colorIdx))
                 showCreateDialog = false
             },
         )
@@ -137,7 +137,7 @@ private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.delete(profile.id)
+                        viewModel.onIntent(ProfileSwitcherIntent.Delete(profile.id))
                         profileToDelete = null
                     },
                 ) {

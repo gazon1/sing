@@ -66,7 +66,7 @@ fun SyncConfigScreen(
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.process(SyncIntent.AcknowledgeError)
+            viewModel.onIntent(SyncIntent.AcknowledgeError)
         }
     }
 
@@ -78,7 +78,7 @@ fun SyncConfigScreen(
             is ConnectionTestResult.Failure -> "Connection failed: ${result.error.message ?: "Unknown error"}"
         }
         snackbarHostState.showSnackbar(message)
-        viewModel.process(SyncIntent.AcknowledgeError)
+        viewModel.onIntent(SyncIntent.AcknowledgeError)
     }
 
     Column(
@@ -133,7 +133,7 @@ fun SyncConfigScreen(
             }
             Switch(
                 checked = state.autoSyncEnabled,
-                onCheckedChange = { viewModel.process(SyncIntent.SetAutoSync(it)) },
+                onCheckedChange = { viewModel.onIntent(SyncIntent.SetAutoSync(it)) },
             )
         }
 
@@ -155,7 +155,7 @@ fun SyncConfigScreen(
                     onValueChangeFinished = {
                         // Explicit snap to nearest discrete value.
                         val snapped = SNAP_VALUES.minByOrNull { kotlin.math.abs(it - sliderValue.toInt()) } ?: 30
-                        viewModel.process(SyncIntent.SetInterval(snapped))
+                        viewModel.onIntent(SyncIntent.SetInterval(snapped))
                     },
                     valueRange = 15f..120f,
                     modifier = Modifier.fillMaxWidth(),
@@ -180,7 +180,7 @@ fun SyncConfigScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Button(
-                onClick = { viewModel.process(SyncIntent.SyncNow) },
+                onClick = { viewModel.onIntent(SyncIntent.SyncNow) },
                 enabled = isIdle && !state.isLoading,
                 modifier = Modifier.weight(1f),
             ) {
@@ -195,7 +195,7 @@ fun SyncConfigScreen(
             }
 
             OutlinedButton(
-                onClick = { viewModel.process(SyncIntent.TestConnection) },
+                onClick = { viewModel.onIntent(SyncIntent.TestConnection) },
                 enabled = !state.isTestingConnection,
                 modifier = Modifier.weight(1f),
             ) {
@@ -220,7 +220,7 @@ fun SyncConfigScreen(
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
             )
-            OutlinedButton(onClick = { viewModel.process(SyncIntent.AcknowledgeError) }) {
+            OutlinedButton(onClick = { viewModel.onIntent(SyncIntent.AcknowledgeError) }) {
                 Text("Dismiss")
             }
         }
