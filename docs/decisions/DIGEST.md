@@ -52,18 +52,28 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Never** allow a task with `parentTaskId != null` to become a parent — enforce in domain, not just UI. _(from `2026-09-08-task-1-level-subtasks`)_
 - **Never** leave `|| true` or other tautological conditions in UI conditionals. _(from `2026-09-08-task-detail-critical-fixes`)_
 - **Never** store more than one recently-deleted task in memory — the most recent overwrite. _(from `2026-09-08-task-restore-undo`)_
+- **Always** inject `CoroutineDispatcher` into fakes that own a `CoroutineScope`. Use `StandardTestDispatcher(testScheduler)` in tests. _(from `2026-09-25-testable-vm-dispatcher-clock`)_
 - **Always** keep `FakeClock` and `FakeIdGenerator` in `commonMain/test/fakes/` _(from `2026-09-18-testing-best-practices`)_
 - **Always** keep `TestVmContext` and `runAndWait` in `jvmTest/test/helpers/` _(from `2026-09-18-testing-best-practices`)_
+- **Always** parameterize repeating tests with `@ParameterizedTest @EnumSource/@MethodSource` when the SUT is the same. _(from `2026-09-25-test-helper-stack`)_
+- **Always** use `RecordingHttpClient` (or similar scripted-response pattern) for HTTP verification in tests without MockK. _(from `2026-09-25-testable-vm-dispatcher-clock`)_
+- **Always** use `get<Clock>()` in DI modules and UI code instead of `Clock.System.now()`. _(from `2026-09-25-testable-vm-dispatcher-clock`)_
+- **Always** use `kotest.assertions.shouldBe / shouldNotThrowAny / shouldContain` as matchers alongside `kotlin.test.*` assertions in new tests. _(from `2026-09-25-test-helper-stack`)_
 - **Always** use `kotlinx.coroutines.test.runTest` for VM tests _(from `2026-09-18-testing-best-practices`)_
 - **Always** use `testTask()`, `testNote()`, `testProject()` for fixtures _(from `2026-09-18-testing-best-practices`)_
+- **Never** add Burst or kotlin-faker to the project. _(from `2026-09-25-test-helper-stack`)_
+- **Never** expose public mutable properties on domain objects — use `private set` + mutation methods. _(from `2026-09-25-testable-vm-dispatcher-clock`)_
+- **Never** hardcode `Dispatchers.Default` or `Dispatchers.Unconfined` in production ViewModels. _(from `2026-09-25-testable-vm-dispatcher-clock`)_
 - **Never** use `Clock.System.now()` — inject `Clock` and use `FakeClock` in tests _(from `2026-09-18-testing-best-practices`)_
 - **Never** use `UUID.randomUUID()` or `nextId()` directly — inject `IdGenerator` and use `SequenceIdGenerator` in tests _(from `2026-09-18-testing-best-practices`)_
 - **Never** use `assertTrue(true)` placeholders — delete or write real assertions _(from `2026-09-18-testing-best-practices`)_
 - **Never** use `delay(N)` in tests — use `scope.advanceUntilIdle()` or `runAndWait { }` _(from `2026-09-18-testing-best-practices`)_
+- **Never** use `java.io.File` in `commonMain` — use `FileSystem` port or pass paths as `String`. _(from `2026-09-25-testable-vm-dispatcher-clock`)_
 - **Never** use `org.junit.*` — use `kotlin.test.*` _(from `2026-09-18-testing-best-practices`)_
 - **Never** use `runBlocking` in production code — use `MutableStateFlow` + `scope.launch { }` _(from `2026-09-18-testing-best-practices`)_
 - **Never** use `stateIn` in VMs — use `MutableStateFlow` for testability _(from `2026-09-18-testing-best-practices`)_
 - **Never** use `viewModelScope` in VM code — inject `CoroutineScope` instead _(from `2026-09-18-testing-best-practices`)_
+- **Never** use real `delay()` in test files — use `advanceUntilIdle()` after PR-3.1. _(from `2026-09-25-test-helper-stack`)_
 - **Never** write inline test doubles — add to `test/fakes/` _(from `2026-09-18-testing-best-practices`)_
 - **Never** migrate a sheet to `ListPickerSheet` if it uses `FilterChip`, `ListItem` with rich content, or custom item layouts. _(from `2026-09-18-picker-sheet-migration-mr13`)_
 - **Never** use `mutableStateOf<X?>` for sheet/dialog state — always use `rememberDialogState()`. _(from `2026-09-18-dialog-state-migration-mr12`)_
@@ -880,6 +890,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `AttachmentRepository.addUrlAttachment` and `saveFileAttachment` already resolved ambient `userId` internally — no change needed.
 - `ChecklistEditorViewModel` is constructed with `taskId` via Koin `parametersOf`. Any existing call site that used `bindToTask()` is broken by design — that method no longer exists. Verify no production call site calls `bindToTask()` before merging.
 - `ChecklistRepository` is the single source of truth for checklist mutations. All consumers (VMs, AI tools) must use `addItem` / `toggleItem` / `upsert` / `delete` on the repository.
+- `ConflictResolver` is leaner and accurately represents the LWW strategy.
 - `GenerateChecklistUseCase` (AI feature, `feature/ai/use_cases/`) is a separate class and is not affected by this deletion.
 - `InternalLinkRepositoryImpl` methods (`searchNotes`, `searchTasks`, `getBacklinkNotes`) already resolved ambient internally — no change needed.
 - `PomodoroRepository` has 0 production call sites. It is a candidate for deletion
@@ -887,9 +898,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `RoomNotesRepository.createWithContent` and `createNoteWithTitle` already resolved ambient `userId` internally — no change needed.
 - `RoomReminderRepository.deleteByTask` already resolved ambient internally — no change needed.
 - `RoomSavedAgendaViewsRepository.upsert` delegates to `create`/`update`; since `SavedAgendaView` is constructed by the VM with `userId` already on it (from the domain model), stamping happens inside the repository. The Create branch was already handled by the existing `userId` on the entity — no structural change needed.
+- `SavedAgendaView` follows the same `UserId` convention as all other entities.
 - `SyncEngine` and `SyncOutbox` are unaffected — they remain the canonical sync pipeline.
 - `TaskRepositoryImpl.create` and `ProjectsRepositoryImpl.create` now enforce user scoping. Any caller passing a mismatched `userId` will get a loud `IllegalStateException`.
 - `TaskRepositoryImpl` does **not** yet stamp `userId` on `create` — that is PR 2 (Repository infrastructure). Until that lands, callers must still pass `userId`-stamped entities to `TaskRepository.create`.
+- `assertCanWrite` can be applied uniformly across all user-scoped repositories with no type-wrapping workarounds.
 - `assertCanWrite` is the single entry point for cross-user write guards across all user-scoped repositories.
 
 ### `search`
@@ -1046,7 +1059,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `Clock` import may become unused in `FakeRepositories.kt` if not used elsewhere.
 - `FakeTaskRepository` is now ~30 lines shorter.
 - `McpServerEndToEndTest` runs on default `./gradlew :mcp-server:test`
+- `NotesListViewModel` has 3 `Dispatchers.Unconfined` usages that should be replaced with `scope.launch { ... }` — tracked separately in PR-3.
 - `SCHEME_FACTORIES` is the extension point for new link kinds in `OutgoingLinksExtractor` — add one entry, not one regex + one branch.
+- `detekt NoDelayInTests` baseline will be generated after PR-2 cleanup.
 
 ### `ui`
 
@@ -1362,14 +1377,239 @@ _2 entries need attention._
 - `2026-09-25-git-hooks-worktree-isolation` — git, hooks, worktree, devx, epic2
 - `2026-09-25-local-mvi-framework` — _untagged_
 - `2026-09-25-no-store-library-local-first-pattern` — repository, local-first, sync, architecture
+- `2026-09-25-note-ai-multi-op-design` — _untagged_
+- `2026-09-25-note-templates-daily-design` — _untagged_
+- `2026-09-25-remaining-test-debt` — testing, junit, detekt, epic2
+- `2026-09-25-repository-architecture-gaps` — repository, technical-debt, sync, type-safety
+- `2026-09-25-task-backlinks-design` — _untagged_
+- `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
+- `2026-09-25-test-helper-stack` — testing, quality, kotlin, junit5
+- `2026-09-25-test-jvm-heap-default` — testing, gradle, kover, heap, koog
+- `2026-09-25-test-parallelization` — testing, junit, jupiter, parallel, epic2
+- `2026-09-25-test-standards-comprehensive` — testing, junit, jupiter, epic2
+- `2026-09-25-test-suite-tag-defaults` — testing, junit, gradle, detekt
+- `2026-09-25-testable-vm-dispatcher-clock` — testing, coroutines, viewmodel, koin, di
+- `2026-09-26-internal-link-repo-currentuser` — _untagged_
+
+## Active entries
+
+- `2026-09-05-android-bottom-nav-followups` — Android Bottom Navigation — known issues and refactoring backlog
+- `2026-09-05-android-bottom-nav` — Android bottom navigation bar via AppShell + NavHost (no separate ViewModels)
+- `2026-09-05-koin-suspend-bridge` — Bridge suspend code into Koin factories via koinBridge { ... }
+- `2026-09-05-koog-both-platforms` — Wire Koog AI agent for both JVM desktop and Android
+- `2026-09-05-koog-test-workarounds` — Avoid OpenAIModels.Chat.* — use KnownModels; explicit get<>() for SimpleTool<T>
+- `2026-09-05-llm-provider-settings` — LLM provider settings: pure-Kotlin config object + sealed test result
+- `2026-09-05-refactoring-summary` — _(no title)_
+- `2026-09-05-robolectric-widget-tests` — Widget tests via Robolectric androidHostTest — no Koin, direct ViewModel construction
+- `2026-09-05-secret-storage-split` — API key lives in SecureStorage only — never in DataStore, never in UI state
+- `2026-09-05-task-editor-refactor` — _(no title)_
+- `2026-09-05-ui-decomposition` — _(no title)_
+- `2026-09-05-ui-event-per-feature` — Per-feature UiEvent — маршрутизация событий без глобальной утечки типов
+- `2026-09-05-ui-tests-ultron` — UI testing strategy with Ultron + minimal DI seams
+- `2026-09-05-uiautomator-compose-discovery` — _(no title)_
+- `2026-09-06-compose-multiplatform-1.12.0-bump` — Bump Compose Multiplatform plugin and libs to 1.12.0
+- `2026-09-06-compose-previews` — Add @Preview to all screens and widgets via shared PreviewSamples
+- `2026-09-06-desktop-sidebar-replaces-permanent-drawer` — Desktop: replace PermanentNavigationDrawer with explicit Row+Sidebar rail
+- `2026-09-06-desktop-smoke-test-with-koin` — Desktop smoke test: Koin initialization pattern for Compose Multiplatform UI tests
+- `2026-09-06-di-module-split` — DI module split: one monolith → 7 feature modules
+- `2026-09-06-kermit-logging-setup` — Kermit logging: Koin-injected Logger, per-class tags, ANSI colors on JVM
+- `2026-09-06-koin-bridge-audit` — Koin bridge audit: all usages correct, no raw runBlocking in module blocks
+- `2026-09-06-koin-vm-viewmodelof-koinviewmodel` — ViewModel DI: viewModelOf + koinViewModel() instead of factory + koinInject()
+- `2026-09-06-modular-justfile` — Modular justfile with .just/ submodules
+- `2026-09-07-backup-directory-via-koin-string` — Delete throwing backupDirectoryPath; resolve backup directory via Koin get<String>()
+- `2026-09-07-dogfooding-followups` — Dogfooding follow-ups — observed during implementation
+- `2026-09-07-dogfooding-mcp-server` — Dogfooding MCP Server — ZCode Agent управляет задачами через stdio
+- `2026-09-07-fab-chrome-level` — FAB at chrome level — single source of truth in shells
+- `2026-09-07-mcp-stdio-blocking-lifecycle` — MCP stdio server blocking lifecycle — session.onClose + Job.join
+- `2026-09-07-mcp-tool-error-model` — MCP Tool Error Model — two-tier, JSON-RPC compatible
+- `2026-09-07-multi-profile-and-usage-tracking` — Multi-Profile and LLM Usage Tracking
+- `2026-09-07-note-editor-body-load` — NoteEditor body load — store HTML directly, fix RichTextState init
+- `2026-09-07-notes-internal-links-backlinks` — _(no title)_
+- `2026-09-07-settings-fixes` — Settings layout fixes, reactive dark theme, LLM providers
+- `2026-09-07-settings-ux-improvements` — Settings UX improvements: swatches, time picker, connection badge, debounce, confirm dialogs
+- `2026-09-07-task-detail-archive-overflow` — _(no title)_
+- `2026-09-07-task-detail-document-style` — _(no title)_
+- `2026-09-07-write-tools-in-koog-registry` — Write Tools — idempotent контракт, dryRun, error model
+- `2026-09-08-instant-migration` — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
+- `2026-09-08-mcp-dogfooding-round-2` — MCP dogfooding — round 2 plan index
+- `2026-09-08-mcp-plan-tracking-via-mcp` — MCP plan tracking end-to-end
+- `2026-09-08-mcp-schema-and-profile-userid-fixes` — MCP schema dialect bug + profile-aware userId defaults
+- `2026-09-08-mcp-server-health-audit` — MCP server health audit — dead code, missing tests, contract hazards
+- `2026-09-08-projects-ux-rework` — _(no title)_
+- `2026-09-08-roboazzi-snapshot-tests` — Snapshot tests via Roborazzi for all detail screen sections
+- `2026-09-08-task-1-level-subtasks` — Sub-task 1-level hierarchy (like projects)
+- `2026-09-08-task-archive-restore-contract` — Task archive vs delete: separate contracts via archiveAt
+- `2026-09-08-task-detail-critical-fixes` — TaskDetail critical fixes: TOCTOU race, Saved-spam, dead condition
+- `2026-09-08-task-restore-undo` — TaskRepository.restore + UndoDelete via SnackbarHost
+- `2026-09-09-content-slot-pattern` — Content slot API design rules
+- `2026-09-09-di-factory-viewmodel-fix` — DI bugfix: factory → viewModel for 4 VM registrations with runtime parameters
+- `2026-09-09-feature-tasks-clean-architecture` — Feature/tasks Clean Architecture: domain/data/presentation layers
+- `2026-09-09-internal-link-picker-generic` — Notes — generic InternalLinkPickerSheet with merged Notes+Tasks results
+- `2026-09-09-notes-outgoing-links-extraction` — Notes — wikilink extraction via HTML parsing + setOutgoingLinks wired to persist()
+- `2026-09-09-notes-quick-add` — Notes — quick-add inline input on the notes list screen
+- `2026-09-09-notes-view-edit-split` — Notes — split NoteDetail into NoteView (read-only) and NoteEditor (edit)
+- `2026-09-09-notes-vm-split` — Notes — split god-class NotesViewModel into 3 focused ViewModels
+- `2026-09-09-parent-picker-contract` — ParentPickerSheet receives ParentOption DTO, not Project entity
+- `2026-09-09-preview-with-koin-helper` — Preview with VM-as-parameter, not Koin-in-preview
+- `2026-09-09-project-detail-intent-refactor` — ProjectDetailViewModel/Screen: sealed Intent + onIntent dispatcher pattern
+- `2026-09-09-project-detail-rework-15-fixes` — ProjectDetailScreen — 15-fixes rework (2026-09-09)
+- `2026-09-09-projectdetail-write-through-fix` — ProjectDetailViewModel: write-through + _latestProject TOCTOU guard
+- `2026-09-09-task-detail-intent-refactor` — TaskDetailViewModel: sealed Intent + single onIntent dispatcher
+- `2026-09-10-simplified-settings-vm` — _(no title)_
+- `2026-09-11-nav3-kmp-migration` — _(no title)_
+- `2026-09-14-nav3-tasks-navigator` — Nav3: TasksNavigator replaces callback-passing in task screens
+- `2026-09-14-nav3-vm-store-decorator-fix` — _(no title)_
+- `2026-09-14-tasks-feature-nested-nav3` — _(no title)_
+- `2026-09-15-desktop-menus` — Desktop context menu + window MenuBar via generic MenuNode sealed class
+- `2026-09-15-detekt-ktlint-kover-setup` — Integrate detekt, ktlint, and kotlinx-kover for code quality and coverage
+- `2026-09-15-nav3-notes-navigator` — _(no title)_
+- `2026-09-15-noteeditor-udf-link-search` — NoteEditor UDF fix — delegate link search to ViewModel
+- `2026-09-15-projects-clean-architecture` — _(no title)_
+- `2026-09-15-projects-nested-nav3` — Projects feature: nested Nav3 graph with ProjectsNavigator
+- `2026-09-15-projects-settings-profile-udf-fixes` — PR 5 UDF fixes — ProjectDetail, ProjectPicker, AccountSettings, TagPicker
+- `2026-09-15-task-detail-drafts-undo-fix` — TaskDetail drafts seed-from-task; TaskListScreen koinViewModel; undo snackbar wired
+- `2026-09-15-task-editor-unification` — Task Editor State Restoration + UI Unification
+- `2026-09-15-viewmodel-state-ownership` — ViewModel owns all domain state; Composable owns only routing and animation
+- `2026-09-16-agenda-engine` — AgendaEngine: единый DSL-движок для list-вью задач (org-agenda style)
+- `2026-09-16-agenda-mr3-saved-views-ui` — AgendaEngine MR3 — Saved Views UI: routes, reducer, events, top-bar entry
+- `2026-09-16-agenda-mr4-saved-views-create-reorder` — _(no title)_
+- `2026-09-16-agendaengine-post-mr1-nav-cleanup` — AgendaEngine MR1 post-cleanup: remove dead TasksRoute variants and deprecated AppDestination branches
+- `2026-09-16-android-shell-fab-fix` — AndroidShellNav3 FAB — wire to real navigation
+- `2026-09-16-calendar-feature` — _(no title)_
+- `2026-09-16-calendar-post-merge-fixes` — _(no title)_
+- `2026-09-16-desktop-menus-bugfixes` — Desktop menus: MenuBar AWT, right-click fix, agenda wiring
+- `2026-09-16-nav3-desktop-in-memory-no-savedstate` — Nav3 Desktop uses in-memory NavBackStack; SavedStateConfiguration is Android-only
+- `2026-09-16-nav3-feature-graph-extensions` — NotesNavGraph start parameter, TasksStartRoute.Detail, AppDestination additions
+- `2026-09-16-nav3-post-migration-fixes` — Nav3 post-migration fixes — NotesNavGraph start, preview wrappers, FAB cleanup
+- `2026-09-16-nav3-savedstate-serializers-required` — Nav3 SavedStateConfiguration must register all NavKey subtypes polymorphically
+- `2026-09-16-nav3-settings-and-search-nested-graphs` — SettingsNavGraph and SearchNavGraph — single-route nested graphs
+- `2026-09-16-nav3-type-asymmetry-adr` — Nav3 type asymmetry: rememberInMemoryNavBackStack returns NavBackStack<T>, Android rememberNavBackStack returns NavBackStack<NavKey>
+- `2026-09-16-reactive-today-flow` — _(no title)_
+- `2026-09-16-saved-agenda-views` — _(no title)_
+- `2026-09-16-task-filter-set-variants` — TaskFilter and Selector set variants: ByTags/ByPriorities/ByRegexp SQL-backed filters
+- `2026-09-16-task-list-filter-to-task-status` — Rename TaskListFilter → TaskStatus: domain-level completion status enum
+- `2026-09-16-tasks-upcoming-screen` — _(no title)_
+- `2026-09-17-agenda-mr5-pure-infra-ux-polish` — Agenda MR5: Pure Infrastructure + Selector Cohesion + UX Polish
+- `2026-09-17-orgmode-architectural-lessons` — Org-mode architectural lessons: cascade, visitor, computed, super-agenda
+- `2026-09-17-orgmode-functional-patterns` — Org-mode functional patterns: pure composition extensions
+- `2026-09-17-selector-serializer-plain-kserializer` — SelectorSerializer: plain KSerializer instead of JsonContentPolymorphicSerializer
+- `2026-09-17-vm-testability-audit` — _(no title)_
+- `2026-09-18-agenda-nav-route-mapping` — MR7: AgendaNavContent shared route mapping
+- `2026-09-18-agenda-selector-composer-dsl` — Agenda — selector composer DSL + universal section() overload
+- `2026-09-18-agenda-ui-shared-adoption` — Agenda UI — shared BackTopAppBar, DiscardChangesDialog, SettingsRadioRow adoption
+- `2026-09-18-backup-format` — Backup format: zip + MANIFEST + payload + SHA-256 checksum
+- `2026-09-18-dialog-state-dsl` — MR8: DialogState<T> — state hoisting for dialog overlays
+- `2026-09-18-dialog-state-migration-mr12` — TaskEditorSheet and ProjectDetailScreen migrate to DialogState<T>
+- `2026-09-18-mcp-tool-catalog` — MCP tool catalog: 32 Koog SimpleTools registered via Koin
+- `2026-09-18-mutation-result-handling` — _(no title)_
+- `2026-09-18-no-pass-through-usecases` — Eliminate pass-through UseCases + machine enforcement via custom detekt rule
+- `2026-09-18-picker-dsl-slots-mr11` — ListPickerDsl gains header/footer slots; T bound relaxed to Any?
+- `2026-09-18-picker-sheet-dsl` — MR6: ListPickerSheet<T> + DSL for agenda pickers
+- `2026-09-18-picker-sheet-migration-mr13` — TaskAiBottomSheet migrates to ListPickerSheet; KindSheet and BacklinksSheet deferred
+- `2026-09-18-profile-subsystem` — Profile subsystem: isolation, ProfileRepository, ProfileAwareCurrentUser
+- `2026-09-18-saved-view-factory` — SavedAgendaView — DraftState.markSaved(), inline copy() in VMs
+- `2026-09-18-selector-serializer-registry` — SelectorSerializer — Map-based registry + typeTag extension
+- `2026-09-18-settings-intent-with-mr10` — SettingsViewModel processIntent uses with(intent) stdlib receiver
+- `2026-09-18-shared-ui-adoption-mr5` — MR5: ConfirmActionDialog + DragHandleRow shared components
+- `2026-09-18-stable-json-config` — StableJson: centralized Kotlinx Serialization Json config
+- `2026-09-18-sync-engine-architecture` — Sync engine: HLC + SyncEngine + ConflictResolver
+- `2026-09-18-task-dependencies` — Task Dependencies (MR-1): schema, domain, UI badge, MCP tool
+- `2026-09-18-testing-best-practices` — Testing best practices — Tier 1 infrastructure, canonical VM pattern, Fake over mocks
+- `2026-09-18-version-catalog-cleanup` — Version catalog cleanup — kebab-case, bundles, single resolutionStrategy
+- `2026-09-18-vm-intent-with-receiver` — MR9: with(intent) stdlib receiver pattern for VM intent dispatch
+- `2026-09-18-vm-migration-scope-injection` — _(no title)_
+- `2026-09-18-vm-scope-cancellation-oncleared` — _(no title)_
+- `2026-09-21-auto-closeable-coroutine-scope` — _(no title)_
+- `2026-09-21-generic-user-scoped-repository` — GenericUserScopedRepository<E, ID> — unified CRUD base for all user-scoped repositories
+- `2026-09-21-kotlin-auto-closeable-vs-java-closeable` — _(no title)_
+- `2026-09-21-out-of-scope-after-phase-5-5` — _(no title)_
+- `2026-09-21-profile-repository-migration` — _(no title)_
+- `2026-09-21-state-hoisting-audit` — _(no title)_
+- `2026-09-21-state-hoisting-p3-dispatchers-overlay` — _(no title)_
+- `2026-09-21-tier1-interface-cleanup` — Tier 1 interface cleanup — remove single-implementation contracts
+- `2026-09-21-user-scoped-repository` — _(no title)_
+- `2026-09-22-alarmmanager-reminders` — AlarmManager + BootReceiver для reminders ( Orgzly pattern)
+- `2026-09-22-bottomsheet-host-mr22` — BottomSheetHost centralises LaunchedEffect sheet state boilerplate
+- `2026-09-22-calendar-click-to-create` — Calendar — click-to-create task on long-press + ReminderRepository enrichment
+- `2026-09-22-calendar-horizontal-pager` — _(no title)_
+- `2026-09-22-calendar-reminder-repo` — _(no title)_
+- `2026-09-22-calendar-sync-tasks-org-patterns` — _(no title)_
+- `2026-09-22-canonical-vm-scope-pattern` — Canonical ViewModel constructor: scope as AutoCloseableCoroutineScope
+- `2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup` — Delete ChecklistUseCase; drop unused ProfileAwareCurrentUser from AgendaDeps/CalendarDeps; inject taskId via ChecklistEditorViewModel constructor
+- `2026-09-22-contributor-process-rename-mr24` — SettingsContributor.apply renamed to process — clarity win
+- `2026-09-22-dead-sheets-removal-mr23` — Delete orphaned sheets and picker VMs — 700 lines dead code removed
+- `2026-09-22-explicit-overload-removal` — _(no title)_
+- `2026-09-22-fake-overrides-link-schemes-savedpulse-tests` — Fake repository override pattern, LinkSchemes helper, and SavedPulse emission tests
+- `2026-09-22-flat-settings-api-removal` — SettingsRepository: remove dead flat API, keep AI and account
+- `2026-09-22-koin-annotations-4x-skill-correction` — Koin Annotations 4.x skill correction — removed aspirational @IntoSet/@Single references
+- `2026-09-22-marker-contributor-interfaces` — Settings contributors: marker interfaces to defeat type erasure
+- `2026-09-22-noteeditor-refactor` — NoteEditor — extract state holders, save controller, AI controller
+- `2026-09-22-outbox-workmanager-refactor` — _(no title)_
+- `2026-09-22-pomodoro-hybrid-timer` — Hybrid Pomodoro Timer — in-app ticker + AlarmManager.setAlarmClock
+- `2026-09-22-preference-wrappers` — DataStore preference wrappers: inline class + BaseSettingsRepository
+- `2026-09-22-reminder-lastfiredat-schema` — _(no title)_
+- `2026-09-22-reminder-scheduler-critical-fixes` — _(no title)_
+- `2026-09-22-repository-user-stamping-and-usercase-currentuser-removal` — Repository stamps ambient userId on create; drop userId params from input classes and use cases
+- `2026-09-22-settings-section-ai-ephemeral-fields` — Keep ephemeral state inside SettingsSection.Ai, not in EphemeralState
+- `2026-09-22-system-calendar-sync` — _(no title)_
+- `2026-09-22-task-rich-dates` — _(no title)_
+- `2026-09-22-task-ui-rich-dates` — _(no title)_
+- `2026-09-23-ai-tools-currentuser-singleton` — _(no title)_
+- `2026-09-23-analytics-port` — Analytics port: interface + Noop + GDPR-compliant opt-in default
+- `2026-09-23-billing-abstractions` — Billing abstractions: SubscriptionProvider port + Noop implementation
+- `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _(no title)_
+- `2026-09-23-deprecation-tech-debt` — Accumulated deprecation warnings and pre-existing test failures
+- `2026-09-23-file-logging-and-exporter` — FileLogWriter + LogExporter: persistent rolling logs and user-facing export
+- `2026-09-23-genui-server-driven-ui` — _(no title)_
+- `2026-09-23-ksp-missing-type-main-branch` — _(no title)_
+- `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
+- `2026-09-23-oauth-pkce-refresh-helpers` — OAuth building blocks: PKCE, OAuthTokenRefresh, IdToken (no-op SupabaseAuthRepository)
+- `2026-09-23-ota-deferred-items` — _(no title)_
+- `2026-09-23-ota-update-strategy` — _(no title)_
+- `2026-09-23-pomodoro-alarm-refactor` — Drop ViewModel in AndroidPomodoroTimer; extract PomodoroScheduler port; use kotlinx.datetime.Clock
+- `2026-09-23-profile-deprecated-alias-removal` — Remove deprecated Profile convenience-alias overloads
+- `2026-09-23-recurring-parser-review-notes` — Recurring tasks — post-review findings, no-blocker
+- `2026-09-23-recurring-tasks-dsl` — Recurring tasks — Orgzly/Tasks.org DSL, rolling completion, CATCH_UP
+- `2026-09-23-reminder-savedagenda-repo-stamping` — _(no title)_
+- `2026-09-23-search-query-language` — Search query language: AST, SimpleFilter, SavedSearch, canonical SearchViewModel
+- `2026-09-23-sync-pull-application` — _(no title)_
+- `2026-09-23-sync-pull-handlers-and-ui` — _(no title)_
+- `2026-09-23-sync-scheduling-abstraction` — Sync scheduling abstraction: SyncScheduler + DataStoreSyncPrefs + RemoteConfig + SecureStorage
+- `2026-09-23-sync-state-model` — Sync state model: public API, Result<T>, SyncRepository facade, AppError
+- `2026-09-23-sync-tier3-fixes` — _(no title)_
+- `2026-09-23-tag-groups-inheritance` — Tag Groups — Orgzly :name: pattern, project inheritance, merge semantics
+- `2026-09-23-task-dependencies-completion` — _(no title)_
+- `2026-09-23-tech-debt-audit` — Tech debt audit — post vm-event-guard-cleanup
+- `2026-09-23-versioning-and-runtime-gates` — Single source of truth for app version, typed schema versioning, and runtime version gates
+- `2026-09-23-vm-event-guard-cleanup` — VM event/guard cleanup — compareAndSet, typed combine, SendChannel, dead code
+- `2026-09-24-combine-statein-policy` — _(no title)_
+- `2026-09-24-dao-userid-guards` — ProjectDao mutation methods require userId in WHERE clause
+- `2026-09-24-datastore-catch-fix-together` — _(no title)_
+- `2026-09-24-deferred-backlog` — _(no title)_
+- `2026-09-24-pr1-tech-debt-audit-resolution` — PR 1.1 resolution — Tech Debt Audit findings
+- `2026-09-24-pre-existing-issues` — _(no title)_
+- `2026-09-24-profile-aware-current-user-di` — ProfileAwareCurrentUser — pure DI, no static singleton
+- `2026-09-24-sync-debouncer-and-tasks-comparison` — _(no title)_
+- `2026-09-24-taskeditor-refactor-remaining-debt` — TaskEditor + ProjectDetail refactor remaining debt
+- `2026-09-24-tech-debt-mini-prs` — _(no title)_
+- `2026-09-25-ai-action-registry-design` — _(no title)_
+- `2026-09-25-cycle-detector-design` — _(no title)_
+- `2026-09-25-detekt-test-rules` — Detekt Rules for Tests — NoRealDelay, NoViewModelScope
+- `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
+- `2026-09-25-git-hooks-worktree-isolation` — Git Hooks — Worktree Isolation + Shared Hooks Path
+- `2026-09-25-local-mvi-framework` — _(no title)_
+- `2026-09-25-no-store-library-local-first-pattern` — Do not adopt MobileNativeFoundation/Store — local-first repository pattern
 - `2026-09-25-note-ai-multi-op-design` — _(no title)_
 - `2026-09-25-note-templates-daily-design` — _(no title)_
 - `2026-09-25-remaining-test-debt` — Remaining Test Debt — post JUnit/suite-acceleration audit
+- `2026-09-25-repository-architecture-gaps` — Repository architecture gaps — Tag userId types, dead ConflictResolver.merge, empty-string sentinels
 - `2026-09-25-task-backlinks-design` — _(no title)_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _(no title)_
+- `2026-09-25-test-helper-stack` — Test helper stack — kotest assertions, @ParameterizedTest, hand-rolled fakes
 - `2026-09-25-test-jvm-heap-default` — OOM in TaskOutgoingLinksTest — Kover instrumentation + Koog-heavy classpath
 - `2026-09-25-test-parallelization` — Test Parallelization — Jupiter Concurrency + Thread Safety
 - `2026-09-25-test-standards-comprehensive` — Test Standards Comprehensive — JUnit Jupiter, Virtual Time, Fast/Slow Split
 - `2026-09-25-test-suite-tag-defaults` — Test suite tag defaults and Khorikov testing principles
+- `2026-09-25-testable-vm-dispatcher-clock` — Testable VMs — CoroutineDispatcher injection, Clock in DI, RecordingHttpClient
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
 
