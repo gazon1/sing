@@ -4,6 +4,7 @@ import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -37,13 +38,8 @@ class RoomReminderRepository(
 
     override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatching {
         val uid = currentUser.scopedUserId.value
-        val toInsert = if (reminder.userId == uid || reminder.userId == UserId.anonymous) {
-            reminder.copy(userId = uid)
-        } else {
-            throw IllegalStateException(
-                "Cross-user reminder upsert: reminder.userId=${reminder.userId}, current=$uid",
-            )
-        }
+        currentUser.assertCanWrite(entityId = reminder.id.value, entityUserId = reminder.userId)
+        val toInsert = reminder.copy(userId = uid)
         dao.upsert(toInsert.toEntity(clock.now().toEpochMillis()))
     }
 

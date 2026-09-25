@@ -11,6 +11,7 @@ import com.singularity.todo.core.database.toIsoOrNull
 import com.singularity.todo.core.database.toLocalTimeIsoOrNull
 import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.SyncRepository
@@ -181,13 +182,8 @@ class TaskRepositoryImpl(
 
     override suspend fun create(item: Task): Result<Task> = runCatching {
         val currentUid = currentUser.scopedUserId.value
-        val toInsert = if (item.userId == currentUid || item.userId == com.singularity.todo.core.ids.UserId.anonymous) {
-            item.copy(userId = currentUid)
-        } else {
-            throw IllegalStateException(
-                "Cross-user create attempted: entity.userId=${item.userId}, current=$currentUid",
-            )
-        }
+        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+        val toInsert = item.copy(userId = currentUid)
         taskDao.upsert(toInsert.toEntity())
         saveOutgoingLinks(toInsert.id, toInsert.description)
         toInsert.tags.forEach { tagId ->
