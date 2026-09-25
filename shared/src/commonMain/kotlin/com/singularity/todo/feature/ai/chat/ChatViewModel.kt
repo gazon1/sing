@@ -28,9 +28,7 @@ class ChatViewModel(
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     data class State(
         val messages: List<ChatMessage> = emptyList(),

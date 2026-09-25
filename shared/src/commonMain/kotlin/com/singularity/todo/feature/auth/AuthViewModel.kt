@@ -25,9 +25,7 @@ class AuthViewModel(
     private val authRepository: AuthRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
-    init {
-        addCloseable(scope)
-    }
+
 
     private val _state = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val state: StateFlow<AuthUiState> = _state.asStateFlow()

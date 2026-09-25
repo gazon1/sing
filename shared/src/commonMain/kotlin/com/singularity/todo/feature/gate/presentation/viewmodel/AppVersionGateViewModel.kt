@@ -40,9 +40,7 @@ class AppVersionGateViewModel(
     scope = scope,
 ) {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     init {
         check()
@@ -58,7 +56,7 @@ class AppVersionGateViewModel(
     override fun onIntent(intent: AppVersionGateIntent) {
         when (intent) {
             is AppVersionGateIntent.CheckAgain -> {
-                __state.value = AppVersionGateState.Checking
+                setState(AppVersionGateState.Checking)
                 scope.launch {
                     val result = remoteConfigPort.refresh()
                     val snapshot = result.getOrElse { RemoteConfigSnapshot.defaults() }
@@ -70,14 +68,16 @@ class AppVersionGateViewModel(
 
     private fun evaluate(snapshot: RemoteConfigSnapshot) {
         val min = snapshot.minSupportedVersion
-        __state.value = if (min != null && appVersion < min) {
-            AppVersionGateState.Blocked(
-                minSupportedVersion = min,
-                currentVersion = appVersion,
-                updateUrl = playStoreUrl,
-            )
-        } else {
-            AppVersionGateState.Allowed(snapshot)
-        }
+        setState(
+            if (min != null && appVersion < min) {
+                AppVersionGateState.Blocked(
+                    minSupportedVersion = min,
+                    currentVersion = appVersion,
+                    updateUrl = playStoreUrl,
+                )
+            } else {
+                AppVersionGateState.Allowed(snapshot)
+            },
+        )
     }
 }

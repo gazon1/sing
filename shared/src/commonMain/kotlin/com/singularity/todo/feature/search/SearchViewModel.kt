@@ -101,9 +101,7 @@ class SearchViewModel(
     private val scope: AutoCloseableCoroutineScope,
 ) : ViewModel() {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     /** Secondary constructor used by Koin — creates its own [AutoCloseableCoroutineScope]. */
     constructor(

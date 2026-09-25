@@ -44,9 +44,7 @@ class SettingsViewModel(
     private val fileRevealer: FileRevealer,
 ) : ViewModel() {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     // ─── Per-section state flows ──────────────────────────────────────────────
     // Each section feeds its own MutableStateFlow so combine doesn't block on

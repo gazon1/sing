@@ -32,9 +32,7 @@ class NotePreview(
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     private val _state = MutableStateFlow<NotePreviewState>(NotePreviewState.Loading)
     val state: StateFlow<NotePreviewState> = _state.asStateFlow()

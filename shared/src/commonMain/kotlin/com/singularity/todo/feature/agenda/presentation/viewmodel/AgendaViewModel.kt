@@ -54,7 +54,7 @@ class AgendaViewModel(
                             )
                         }
                 }
-                .collect { __state.value = it }
+                .collect { updateState { it } }
         }
     }
 

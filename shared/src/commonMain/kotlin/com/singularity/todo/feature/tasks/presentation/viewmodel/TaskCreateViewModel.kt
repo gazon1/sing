@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.Either
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
@@ -92,9 +93,7 @@ class TaskCreateViewModel(
     private val _saved = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val saved: SharedFlow<Unit> = _saved.asSharedFlow()
 
-    init {
-        addCloseable(scope)
-    }
+
 
     init {
         // 1. Restore draft from DataStore — seed-if-empty pattern.
@@ -136,7 +135,7 @@ class TaskCreateViewModel(
                     isDirty = draft != initial,
                     isSaving = saving,
                 )
-            }.collect { newState -> __state.value = newState }
+            }.collect { newState -> updateState { newState } }
         }
     }
 
@@ -240,8 +239,7 @@ class TaskCreateViewModel(
             when (val result = deps.createFromDraft(draftSnapshot)) {
                 is Either.Left -> {
                     deps.logger.e(tag = "TaskCreateViewModel") { "save failed: ${result.error.message}" }
-                    _error.value = result.error.message
-                        ?: "Could not create task"
+                    _error.value = result.error.toMessage("Could not create task")
                 }
 
                 is Either.Right -> {

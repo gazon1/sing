@@ -10,8 +10,9 @@ import kotlinx.coroutines.flow.update
 /**
  * Read-only base for ViewModels that own a [MutableStateFlow] of state.
  *
- * Provides [state] (public read-only [StateFlow]) and [update] (protected reducer).
- * Subclasses must call [addCloseable] in their [init][kotlinx.coroutines.CoroutineScope] block.
+ * Provides [state] (public read-only [StateFlow]), [currentState] (synchronous snapshot),
+ * [setState] (direct replacement), and [update] (protected reducer).
+ * Subclasses must NOT call [addCloseable] — [StatefulViewModel] does it in its own init.
  *
  * Example:
  * ```
@@ -19,7 +20,7 @@ import kotlinx.coroutines.flow.update
  *     private val tagRepo: TagsRepository,
  *     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
  * ) : StatefulViewModel<TagsUiState>(TagsUiState.Loading, scope) {
- *     init { addCloseable(scope) }
+ *     // no addCloseable(scope) needed here — parent handles it
  *     // ...
  * }
  * ```
@@ -37,22 +38,29 @@ abstract class StatefulViewModel<S>(
         addCloseable(scope)
     }
 
-    // Visible for subclasses that need direct synchronous mutation in non-suspend intent handlers.
-    // Triple underscore breaks ktlint's BackingPropertyNaming AND VariableNaming rules.
-    @Suppress("VariableNaming", "BackingPropertyNaming")
-    protected val __state = MutableStateFlow(initialState)
+    private val _state = MutableStateFlow(initialState)
 
     /** Public read-only state. */
-    val state: StateFlow<S> = __state.asStateFlow()
+    val state: StateFlow<S> = _state.asStateFlow()
+
+    /** Synchronous snapshot of the current state. Use inside reducers and intent handlers. */
+    protected val currentState: S get() = _state.value
+
+    /**
+     * Directly replaces the current state with [newState].
+     * Prefer [update] for reducer-style mutations.
+     */
+    protected fun setState(newState: S) {
+        _state.value = newState
+    }
 
     /**
      * Updates state by applying [reducer] to the current value.
      *
-     * Suspend so the [transform][transform] lambda can contain suspend operations.
-     * For simple non-suspend updates (e.g. `update { newState }`), assign directly:
-     * `__state.value = newState`.
+     * Uses [kotlinx.coroutines.flow.MutableStateFlow.update] internally (CAS loop).
+     * For simple direct assignment, use [setState] instead.
      */
-    protected fun update(transform: (S) -> S) {
-        __state.update(transform)
+    protected fun update(reducer: (S) -> S) {
+        _state.update(reducer)
     }
 }

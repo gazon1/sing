@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.Flow
  *     initialState = TagsUiState.Loading,
  *     scope = scope,
  * ) {
- *     init { addCloseable(scope) }
+ *     // no addCloseable(scope) needed here — parent handles it
  *
  *     override fun onIntent(intent: TagsIntent) {
  *         when (intent) {
@@ -29,7 +29,7 @@ import kotlinx.coroutines.flow.Flow
  *     }
  *
  *     private suspend fun delete(id: TagId) {
- *         tagRepo.delete(id).onFailure { emit(TagsUiEvent.ShowError(it.message ?: "Error")) }
+ *         tagRepo.delete(id).onFailure { emit(TagsUiEvent.ShowError(it.toMessage())) }
  *     }
  * }
  * ```
@@ -66,14 +66,15 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     /**
      * Updates state by applying [transform] to the current value.
      *
-     * Delegates to [kotlinx.coroutines.flow.MutableStateFlow.update].
-     * For VMs requiring atomic read-modify-write, use [StateStrategy.Atomic] —
-     * available from MR-3 onwards.
+     * Non-suspending — delegates to [kotlinx.coroutines.flow.MutableStateFlow.update].
+     * Override [onStateChanged] to react to state transitions (logging, analytics, etc.).
      *
-     * For simple direct assignment, use `_state.value = newValue` instead.
+     * For simple direct replacement, use [StatefulViewModel.setState] instead.
      */
-    protected suspend fun updateState(transform: (S) -> S) {
+    protected fun updateState(transform: (S) -> S) {
+        val old = currentState
         update(transform)
+        onStateChanged(old, currentState)
     }
 
     /**
@@ -82,12 +83,22 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      * Eliminates `?: return` guards in sealed state hierarchies.
      * @see updateState
      */
-    protected suspend inline fun <reified T : S> updateStateAs(noinline transform: (T) -> S) {
-        val current = state.value
+    protected inline fun <reified T : S> updateStateAs(noinline transform: (T) -> S) {
+        val current = currentState
         if (current is T) {
-            updateState { transform(current) }
+            val old = currentState
+            update { transform(current) }
+            @Suppress("UNCHECKED_CAST")
+            onStateChanged(old, currentState)
         }
     }
+
+    /**
+     * Called after every state mutation via [updateState] or [updateStateAs].
+     * Override to log state transitions, fire analytics, etc.
+     * Default implementation is a no-op.
+     */
+    protected open fun onStateChanged(old: S, new: S) {}
 
     /**
      * Called by the screen layer to dispatch an intent into the MVI loop.

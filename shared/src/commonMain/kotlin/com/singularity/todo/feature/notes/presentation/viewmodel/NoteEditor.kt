@@ -64,9 +64,7 @@ class NoteEditor(
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     // ─── State ─────────────────────────────────────────────────────────────
 

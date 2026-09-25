@@ -38,9 +38,7 @@ class AttachmentsViewModel(
     scope = scope,
 ) {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     override fun onIntent(intent: AttachmentsIntent) {
         when (intent) {

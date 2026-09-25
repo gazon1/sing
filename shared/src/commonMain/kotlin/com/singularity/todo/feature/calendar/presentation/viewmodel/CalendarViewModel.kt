@@ -52,9 +52,7 @@ class CalendarViewModel(
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     /** Today's date, stable for the lifetime of this VM (captured at construction). */
     private val today: LocalDate = deps.today

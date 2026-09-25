@@ -343,12 +343,12 @@ private fun SettingsContentPreview(
                 SettingsTab.Calendar -> CalendarSyncSettingsScreen()
 
                 SettingsTab.Tags -> TagsScreen(
-                    state = TagsUiState.Empty(""),
+                    state = TagsUiState.Empty,
                     onDelete = {},
                 )
 
                 SettingsTab.TagGroups -> TagGroupsScreen(
-                    state = com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState.Empty(""),
+                    state = com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState.Empty,
                     onDelete = {},
                 )
 

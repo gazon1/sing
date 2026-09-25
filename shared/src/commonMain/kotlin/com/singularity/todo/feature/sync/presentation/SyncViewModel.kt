@@ -60,9 +60,7 @@ class SyncViewModel(
     /** Exposed for tests — cancel to terminate infinite collectors before test scope cleanup. */
     val vmScope: AutoCloseableCoroutineScope = scope
 
-    init {
-        addCloseable(scope)
-    }
+
 
     private val syncMutex = Mutex()
 

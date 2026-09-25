@@ -5,6 +5,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.debounce.Debouncer
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -62,9 +63,7 @@ class ProjectDetailViewModel(
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     // ─── UI State ───────────────────────────────────────────────────────────────
 
@@ -266,7 +265,7 @@ class ProjectDetailViewModel(
                         .onFailure { e ->
                             _events.trySend(
                                 ProjectDetailUiEvent.ShowError(
-                                    (e as? AppError)?.message ?: e.message ?: "Delete failed",
+                                    e.toMessage("Delete failed"),
                                 ),
                             )
                         }
@@ -286,7 +285,7 @@ class ProjectDetailViewModel(
                     ).onFailure { e ->
                         _events.trySend(
                             ProjectDetailUiEvent.ShowError(
-                                (e as? AppError)?.message ?: e.message ?: "Create task failed",
+                                e.toMessage("Create task failed"),
                             ),
                         )
                     }
@@ -299,7 +298,7 @@ class ProjectDetailViewModel(
                         .onFailure { e ->
                             _events.trySend(
                                 ProjectDetailUiEvent.ShowError(
-                                    (e as? AppError)?.message ?: e.message ?: "Move task failed",
+                                    e.toMessage("Move task failed"),
                                 ),
                             )
                         }
@@ -311,7 +310,7 @@ class ProjectDetailViewModel(
                     onError = { e ->
                         _events.trySend(
                             ProjectDetailUiEvent.ShowError(
-                                (e as? AppError)?.message ?: e.message ?: "Pin failed",
+                                e.toMessage("Pin failed"),
                             ),
                         )
                     },
@@ -325,7 +324,7 @@ class ProjectDetailViewModel(
                         .onFailure { e ->
                             _events.trySend(
                                 ProjectDetailUiEvent.ShowError(
-                                    (e as? AppError)?.message ?: e.message ?: "Delete task failed",
+                                    e.toMessage("Delete task failed"),
                                 ),
                             )
                         }
@@ -342,7 +341,7 @@ class ProjectDetailViewModel(
     private fun mutate(current: Project, transform: Project.() -> Project) {
         scope.fireAndForget(
             errorLabel = "Update project failed",
-            onError = { e -> _events.trySend(ProjectDetailUiEvent.ShowError(e.message ?: "Update failed")) },
+            onError = { e -> _events.trySend(ProjectDetailUiEvent.ShowError(e.toMessage())) },
         ) {
             updateProject(projectId, transform).also {
                 if (it.isSuccess) _lastEditedAt.value = clock.now()

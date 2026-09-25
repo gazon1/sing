@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.database.toProject
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
@@ -85,7 +86,7 @@ class ProjectsViewModel(
                     }
                 }
                 .catch { cause ->
-                    emit(ProjectsUiState.Error(cause.message ?: "Error"))
+                    emit(ProjectsUiState.Error(cause.toMessage()))
                 }
                 .collect { _state.value = it }
         }
@@ -108,7 +109,7 @@ class ProjectsViewModel(
             onError = { e ->
                 scope.launch {
                     _events.trySend(
-                        ProjectsUiEvent.Error("Delete project failed: ${e.message ?: "unknown"}"),
+                        ProjectsUiEvent.Error("Delete project failed: ${e.toMessage()}"),
                     )
                 }
             },
@@ -122,7 +123,7 @@ class ProjectsViewModel(
         val result = projectReview?.invoke(project.name, tasks.map { it.title })
             ?.fold(
                 onSuccess = { it },
-                onFailure = { "Error: ${it.message ?: "Failed"}" },
+                onFailure = { "Error: ${it.toMessage()}" },
             )
             ?: "AI not available on Android"
         _events.trySend(ProjectsUiEvent.ProjectReviewResult(result))

@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
@@ -45,9 +46,7 @@ class TaskDetailViewModel(
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     private val _events = Channel<TaskDetailUiEvent>(Channel.BUFFERED)
     val events: kotlinx.coroutines.flow.Flow<TaskDetailUiEvent> = _events.receiveAsFlow()
@@ -202,7 +201,7 @@ class TaskDetailViewModel(
                         }
                     }
                 }
-                .catch { _state.value = TaskDetailUiState.Error(it.message ?: "Error") }
+                .catch { _state.value = TaskDetailUiState.Error(it.toMessage()) }
                 .collect { _state.value = it }
         }
     }
