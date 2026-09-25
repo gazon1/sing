@@ -32,6 +32,7 @@ import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavig
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsIntent
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -50,8 +51,8 @@ fun ProjectsScreen() {
             modifier = Modifier.padding(padding),
             onNavigateToProject = { id -> nav.openDetail(ProjectId.fromString(id)) },
             onCreateProject = { nav.openEditor(null) },
-            onDelete = viewModel::delete,
-            onReviewClick = viewModel::reviewProject,
+            onDelete = { id -> viewModel.onIntent(ProjectsIntent.Delete(id)) },
+            onReviewClick = { project -> viewModel.onIntent(ProjectsIntent.ReviewProject(project)) },
         )
     }
 

@@ -1,11 +1,12 @@
 package com.singularity.todo.feature.projects.presentation.state
 
+import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.components.Notification
 
 /**
  * One-shot events emitted by [com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel].
  */
-sealed interface ProjectsUiEvent {
+sealed interface ProjectsUiEvent : MviEvent {
     /** AI project review returned a result. */
     data class ProjectReviewResult(val text: String) : ProjectsUiEvent
 

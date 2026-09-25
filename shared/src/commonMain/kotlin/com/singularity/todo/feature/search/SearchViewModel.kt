@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.ui.MviEvent
+import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
@@ -15,12 +18,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -58,7 +56,7 @@ data class SearchUiState(
 /**
  * One-shot events emitted by [SearchViewModel].
  */
-sealed interface SearchUiEvent {
+sealed interface SearchUiEvent : MviEvent {
     /** The query string failed to parse. */
     data class QueryParseError(val message: String, val position: Int) : SearchUiEvent
 
@@ -72,7 +70,7 @@ sealed interface SearchUiEvent {
 /**
  * User intents for the search screen.
  */
-sealed interface SearchIntent {
+sealed interface SearchIntent : MviIntent {
     data class OnQueryChange(val query: String) : SearchIntent
     data class OnApplyFilter(val filter: SimpleFilter?) : SearchIntent
     data class OnSaveCurrentSearch(val name: String) : SearchIntent
@@ -101,9 +99,10 @@ class SearchViewModel(
     private val parseQuery: (String) -> Query,
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope,
-) : ViewModel() {
-
-
+) : MviViewModel<SearchUiState, SearchIntent, SearchUiEvent>(
+    initialState = SearchUiState(),
+    scope = scope,
+) {
 
     /** Secondary constructor used by Koin — creates its own [AutoCloseableCoroutineScope]. */
     constructor(
@@ -127,24 +126,18 @@ class SearchViewModel(
     private val _activeSavedSearchId = MutableStateFlow<SavedSearchId?>(null)
     private val _activeFilter = MutableStateFlow<SimpleFilter?>(null)
 
-    private val _events = MutableSharedFlow<SearchUiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<SearchUiEvent> = _events.asSharedFlow()
-
-    private val _state = MutableStateFlow(SearchUiState())
-    val state: StateFlow<SearchUiState> = _state.asStateFlow()
-
     // ─── Observations ──────────────────────────────────────────────────────────
 
     init {
         // Observe saved searches
-        scope.launch {
+        vmScope.launch {
             savedSearchRepo.observeAll().collect { saved ->
-                _state.value = _state.value.copy(savedSearches = saved)
+                updateState { it.copy(savedSearches = saved) }
             }
         }
 
         // Execute search whenever parsedQuery or queryString changes
-        scope.launch {
+        vmScope.launch {
             combine(_queryString, _parsedQuery) { qs, pq -> qs to pq }
                 .debounce(300.milliseconds)
                 .flatMapLatest { (qs, pq) ->
@@ -159,34 +152,33 @@ class SearchViewModel(
                     }
                 }
                 .collect { results ->
-                    _state.value = _state.value.copy(
-                        results = results,
-                        isSearching = false,
-                    )
+                    updateState {
+                        it.copy(results = results, isSearching = false)
+                    }
                 }
         }
 
-        // Keep _state.query and _state.parsedQuery in sync
-        scope.launch {
+        // Keep query and parsedQuery in sync
+        vmScope.launch {
             combine(_queryString, _parsedQuery, _activeFilter, _activeSavedSearchId) { qs, pq, af, asid ->
-                SearchUiState(
-                    query = qs,
-                    parsedQuery = pq,
-                    activeFilter = af,
-                    activeSavedSearchId = asid,
-                    savedSearches = _state.value.savedSearches,
-                    results = _state.value.results,
-                    isSearching = _state.value.isSearching,
-                )
-            }.collect { newState ->
-                _state.value = newState
+                listOf(qs, pq, af, asid)
+            }.collect { parts ->
+                @Suppress("UNCHECKED_CAST")
+                updateState {
+                    it.copy(
+                        query = parts[0] as String,
+                        parsedQuery = parts[1] as Query?,
+                        activeFilter = parts[2] as SimpleFilter?,
+                        activeSavedSearchId = parts[3] as SavedSearchId?,
+                    )
+                }
             }
         }
     }
 
     // ─── Intent processing ──────────────────────────────────────────────────────
 
-    fun processIntent(intent: SearchIntent) {
+    override fun onIntent(intent: SearchIntent) {
         when (intent) {
             is SearchIntent.OnQueryChange -> onQueryChange(intent.query)
             is SearchIntent.OnApplyFilter -> onApplyFilter(intent.filter)
@@ -205,10 +197,12 @@ class SearchViewModel(
         if (query.isBlank()) {
             _parsedQuery.value = null
             _activeFilter.value = null
-            _state.value = _state.value.copy(
-                isSearching = false,
-                results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
-            )
+            updateState {
+                it.copy(
+                    isSearching = false,
+                    results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
+                )
+            }
             return
         }
 
@@ -220,7 +214,7 @@ class SearchViewModel(
         } catch (e: com.singularity.todo.feature.search.query.QueryParseException) {
             _parsedQuery.value = null
             _activeFilter.value = null
-            _events.tryEmit(SearchUiEvent.QueryParseError(e.message ?: "Parse error", e.position))
+            vmScope.launch { emit(SearchUiEvent.QueryParseError(e.message ?: "Parse error", e.position)) }
         } catch (e: com.singularity.todo.feature.search.query.UnsupportedSimpleFilterException) {
             // Expected: query cannot be expressed as SimpleFilter — activeFilter = null signals this
             _parsedQuery.value = null
@@ -228,9 +222,9 @@ class SearchViewModel(
         } catch (e: Exception) {
             _parsedQuery.value = null
             _activeFilter.value = null
-            _events.tryEmit(SearchUiEvent.Error("Search error: ${e.message ?: "unknown"}"))
+            vmScope.launch { emit(SearchUiEvent.Error("Search error: ${e.message ?: "unknown"}")) }
         }
-        _state.value = _state.value.copy(isSearching = true)
+        updateState { it.copy(isSearching = true) }
     }
 
     private fun onApplyFilter(filter: SimpleFilter?) {
@@ -240,10 +234,12 @@ class SearchViewModel(
         if (filter == null) {
             // Keep _queryString — it may hold a loaded saved search's raw query.
             // Keep _parsedQuery — it remains valid for the raw query.
-            _state.value = _state.value.copy(
-                isSearching = false,
-                results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
-            )
+            updateState {
+                it.copy(
+                    isSearching = false,
+                    results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
+                )
+            }
             return
         }
 
@@ -253,19 +249,19 @@ class SearchViewModel(
             onSuccess = { query ->
                 // Keep _queryString as-is; raw text + filter coexist in state
                 _parsedQuery.value = query
-                _state.value = _state.value.copy(isSearching = true)
+                updateState { it.copy(isSearching = true) }
             },
             onFailure = { e ->
-                _events.tryEmit(SearchUiEvent.Error("Cannot apply filter: ${e.message}"))
+                vmScope.launch { emit(SearchUiEvent.Error("Cannot apply filter: ${e.message}")) }
             },
         )
     }
 
     private fun onLoadSavedSearch(id: SavedSearchId) {
-        scope.launch {
+        vmScope.launch {
             val saved = savedSearchRepo.get(id)
             if (saved == null) {
-                _events.tryEmit(SearchUiEvent.Error("Saved search not found"))
+                emit(SearchUiEvent.Error("Saved search not found"))
                 return@launch
             }
             _activeSavedSearchId.value = id
@@ -278,14 +274,14 @@ class SearchViewModel(
             } catch (e: com.singularity.todo.feature.search.query.QueryParseException) {
                 _parsedQuery.value = null
                 _activeFilter.value = null
-                _events.tryEmit(SearchUiEvent.QueryParseError(e.message ?: "Parse error", e.position))
+                emit(SearchUiEvent.QueryParseError(e.message ?: "Parse error", e.position))
             }
-            _state.value = _state.value.copy(isSearching = true)
+            updateState { it.copy(isSearching = true) }
         }
     }
 
     private fun onSaveCurrentSearch(name: String) {
-        scope.launch {
+        vmScope.launch {
             val queryString = _queryString.value.ifBlank { "" }
             val existingId = _activeSavedSearchId.value
             val now = clock.now()
@@ -305,17 +301,17 @@ class SearchViewModel(
             savedSearchRepo.upsert(savedSearch).fold(
                 onSuccess = { updated ->
                     _activeSavedSearchId.value = updated.id
-                    _events.tryEmit(SearchUiEvent.SavedSuccessfully)
+                    emit(SearchUiEvent.SavedSuccessfully)
                 },
                 onFailure = { e ->
-                    _events.tryEmit(SearchUiEvent.Error("Save failed: ${e.message ?: "unknown"}"))
+                    emit(SearchUiEvent.Error("Save failed: ${e.message ?: "unknown"}"))
                 },
             )
         }
     }
 
     private fun onDeleteSavedSearch(id: SavedSearchId) {
-        scope.launch {
+        vmScope.launch {
             savedSearchRepo.delete(id).fold(
                 onSuccess = {
                     if (_activeSavedSearchId.value == id) {
@@ -323,33 +319,33 @@ class SearchViewModel(
                     }
                 },
                 onFailure = { e ->
-                    _events.tryEmit(SearchUiEvent.Error("Delete failed: ${e.message ?: "unknown"}"))
+                    emit(SearchUiEvent.Error("Delete failed: ${e.message ?: "unknown"}"))
                 },
             )
         }
     }
 
     private fun onRenameSavedSearch(id: SavedSearchId, newName: String) {
-        scope.launch {
+        vmScope.launch {
             val existing = savedSearchRepo.get(id) ?: run {
-                _events.tryEmit(SearchUiEvent.Error("Saved search not found"))
+                emit(SearchUiEvent.Error("Saved search not found"))
                 return@launch
             }
             val updated = existing.copy(name = newName, updatedAt = clock.now())
             savedSearchRepo.upsert(updated).fold(
                 onSuccess = {},
                 onFailure = { e ->
-                    _events.tryEmit(SearchUiEvent.Error("Rename failed: ${e.message ?: "unknown"}"))
+                    emit(SearchUiEvent.Error("Rename failed: ${e.message ?: "unknown"}"))
                 },
             )
         }
     }
 
     private fun onTogglePin(taskId: TaskId) {
-        scope.fireAndForget(
+        vmScope.fireAndForget(
             errorLabel = "Pin failed",
             onError = { e ->
-                _events.tryEmit(SearchUiEvent.Error("Pin failed: ${e.message ?: "unknown"}"))
+                vmScope.launch { emit(SearchUiEvent.Error("Pin failed: ${e.message ?: "unknown"}")) }
             },
         ) {
             taskRepo.togglePinned(taskId)
