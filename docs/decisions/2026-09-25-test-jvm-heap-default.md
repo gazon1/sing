@@ -32,36 +32,42 @@ issue, not caused by any specific commit.
 Each fix was tried in isolation; **none resolved the OOM**. The OOM recurs with the same
 stack trace every time.
 
-**Important caveat:** all runs were executed with `--no-daemon --no-configuration-cache`
-flags for diagnostic reproducibility. In this mode, Gradle launcher JVM orchestrates test
+**Important caveat:** initial runs were executed with `--no-daemon --no-configuration-cache`
+flags for diagnostic reproducibility. In that mode, Gradle launcher JVM orchestrates test
 forks **directly** (no daemon process). The launcher JVM's heap is set by the `JAVA_OPTS`
 environment variable or the `gradlew` wrapper, NOT by `org.gradle.jvmargs` in
 `gradle.properties` (that property only configures the Gradle daemon, which is bypassed
 by `--no-daemon`).
 
-This means:
-- VERIFY runs that used `gradle.properties`'s `org.gradle.jvmargs` did NOT increase
-  launcher heap — they only affected daemon (which wasn't running)
-- VERIFY runs that used `-Dorg.gradle.jvmargs="-Xmx6g"` as a CLI `-D` flag DID increase
-  launcher heap (because `-D` is interpreted by the JVM as a system property, applied to
-  whatever process started, regardless of what the key name means to Gradle)
-- The "successful" run early in this investigation that suggested daemon heap was the
-  root cause was actually measuring the **launcher JVM** heap effect, not the daemon
+**Definitive verification in daemon mode** (after `--stop`):
+```
+$ ./gradlew --stop                       # 1 Daemon stopped
+$ ./gradlew :shared:jvmTest --tests "*TaskOutgoingLinksTest*"
+> Task :shared:jvmTest
+java.lang.OutOfMemoryError: Java heap space
+Dumping heap to build/test-heap-dumps ...
+Heap dump file created [2443675514 bytes in 1.748 secs]   # 2.4 GB
+```
 
-A clean re-investigation should be done with regular daemon mode (no `--no-daemon`) to
-isolate the daemon heap variable properly.
+Confirmed in regular daemon mode: daemon process received `-Xmx6g` (verified via
+`ps aux` showing the GradleDaemon command line), yet OOM still occurs inside
+`StringBuilder.append` at `TaskOutgoingLinks.kt:43`. Heap dump is 2.4 GB.
 
-| Attempt | Configuration | Result |
-|---|---|---|
-| `maxHeapSize = "3g"` on test fork | `:shared` `jvmTest` | FAILED — OOM |
-| `maxHeapSize = "1g"` on test fork | smaller heap | FAILED — OOM |
-| `org.gradle.jvmargs = -Xmx6g` daemon heap | `gradle.properties` | FAILED — OOM (note: in `--no-daemon` mode, this does not affect launcher heap) |
-| `parallel.classes.default = same_thread` | all 3 modules | FAILED — OOM |
-| `parallel.enabled = false` | all 3 modules | FAILED — OOM |
-| `maxParallelForks = 1` on test | `:shared` `jvmTest` | FAILED — OOM |
-| `kover { disabledForTestTasks.add("jvmTest") }` | skip Kover instrumentation | FAILED — OOM |
-| `-Dorg.gradle.workers.max=1` | Gradle worker pool = 1 | FAILED — OOM |
-| Temurin 21.0.10 JDK instead of Azul Zulu 21 | `-Dorg.gradle.java.home` | FAILED — OOM |
+**This eliminates daemon heap size as a root cause.** The OOM is in the test fork JVM
+itself, not in the orchestrating daemon.
+
+| Attempt | Configuration | Mode | Result |
+|---|---|---|---|
+| `maxHeapSize = "3g"` on test fork | `:shared` `jvmTest` | `--no-daemon` | FAILED — OOM |
+| `maxHeapSize = "1g"` on test fork | smaller heap | `--no-daemon` | FAILED — OOM |
+| `org.gradle.jvmargs = -Xmx6g` daemon heap | `gradle.properties` | `--no-daemon` (note: doesn't apply) | FAILED — OOM |
+| `parallel.classes.default = same_thread` | all 3 modules | `--no-daemon` | FAILED — OOM |
+| `parallel.enabled = false` | all 3 modules | `--no-daemon` | FAILED — OOM |
+| `maxParallelForks = 1` on test | `:shared` `jvmTest` | `--no-daemon` | FAILED — OOM |
+| `kover { disabledForTestTasks.add("jvmTest") }` | skip Kover instrumentation | `--no-daemon` | FAILED — OOM |
+| `-Dorg.gradle.workers.max=1` | Gradle worker pool = 1 | `--no-daemon` | FAILED — OOM |
+| Temurin 21.0.10 JDK instead of Azul Zulu 21 | `-Dorg.gradle.java.home` | `--no-daemon` | FAILED — OOM |
+| **`org.gradle.jvmargs = -Xmx6g` daemon heap** | `gradle.properties` | **regular daemon** | **FAILED — OOM (heap dump 2.4 GB)** |
 
 Heap dump captured during one run was **2.4 GB** with `maxHeapSize = 3g`. The JVM held
 near-maximum heap at the OOM point, but the live-set content was not analyzed (dump file
