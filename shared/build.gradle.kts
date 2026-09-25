@@ -278,6 +278,14 @@ tasks.withType<Test>().configureEach {
             excludeTags("slow")
         }
     }
+    // Bumped from default ~512 MB to 3 GB. Forked test JVMs do NOT inherit
+    // org.gradle.jvmargs (that's the daemon only). HeapDumpPath is module-local so
+    // parallel test runs don't overwrite each other's dumps.
+    maxHeapSize = "3g"
+    jvmArgs(
+        "-XX:+HeapDumpOnOutOfMemoryError",
+        "-XX:HeapDumpPath=build/test-heap-dumps",
+    )
 }
 
 // Force jvmTest to fork a new JVM for each test class.
@@ -285,6 +293,9 @@ tasks.withType<Test>().configureEach {
 // call startKoin()/stopKoin() vs koinApplication().
 tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     forkEvery = 1
+    // Apply heap directly to the jvmTest fork — the global configureEach above
+    // also sets this, but being explicit avoids ordering ambiguity.
+    maxHeapSize = "3g"
 }
 
 dependencies {

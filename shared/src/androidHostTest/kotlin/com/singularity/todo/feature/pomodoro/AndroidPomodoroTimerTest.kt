@@ -14,6 +14,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.jupiter.api.Tag
 import kotlin.time.Duration.Companion.seconds
 
 private fun interface FakeTaskListProvider : PomodoroTaskListProvider
@@ -24,6 +25,7 @@ private fun fakeTaskListProvider(tasks: List<Task> = emptyList()): FakeTaskListP
         override fun tasks(): StateFlow<List<Task>> = _tasks
     }
 
+@Tag("slow")
 class AndroidPomodoroTimerTest {
 
     private fun testTimer(

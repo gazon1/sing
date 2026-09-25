@@ -111,6 +111,14 @@ tasks.withType<Test>().configureEach {
             excludeTags("slow")
         }
     }
+    // Bumped from default ~512 MB to 3 GB. Forked test JVMs do NOT inherit
+    // org.gradle.jvmargs (that's the daemon only). HeapDumpPath is module-local so
+    // parallel test runs don't overwrite each other's dumps.
+    maxHeapSize = "3g"
+    jvmArgs(
+        "-XX:+HeapDumpOnOutOfMemoryError",
+        "-XX:HeapDumpPath=build/test-heap-dumps",
+    )
 }
 
 dependencies {

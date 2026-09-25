@@ -65,9 +65,18 @@ tasks.withType<Test>().configureEach {
         if (tags.isNotEmpty()) {
             includeTags(*tags.toTypedArray())
         } else {
-            includeTags("fast")
+            // Default: run everything EXCEPT @Tag("slow") — slow requires -Ptest.tags=slow
+            excludeTags("slow")
         }
     }
+    // Bumped from default ~512 MB to 3 GB. Forked test JVMs do NOT inherit
+    // org.gradle.jvmargs (that's the daemon only). HeapDumpPath is module-local so
+    // parallel test runs don't overwrite each other's dumps.
+    maxHeapSize = "3g"
+    jvmArgs(
+        "-XX:+HeapDumpOnOutOfMemoryError",
+        "-XX:HeapDumpPath=build/test-heap-dumps",
+    )
 }
 
 // Produce a fat JAR with all runtime deps merged

@@ -121,18 +121,22 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - 4 test files updated (removed `fakeCurrentUser` args where no longer needed)
 - 8 экранов мигрированы: Tasks, Notes, TaskDetail, TaskEditor, Projects, ProjectEditor, Chat, Archive
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches.
+- AI actions do **not** appear in `TaskEditorMenuBuilder` menu — they remain accessible only from `TaskAiBottomSheet` (accessed via FAB icon on `TaskDetail`).
 - AI tools (11 Koog `SimpleTool` implementations) drop `currentUser` from
 - Agenda always shows correct bucket labels across midnight.
 - All 13 migrated VMs are now testable with `backgroundScope` injection
 - All 593 existing tests continue to pass.
 - All 6 repositories now extend `GenericUserScopedRepository`: Tasks, Notes, Projects, Tags, SavedAgendaViews, Profile.
+- All 7 actions require AI to be configured — if no AI is available, `isActionAvailable()` returns false and `runAiAction()` is a no-op.
 - All `FakeRepositories` updated to match
+- All existing `NoteEntity` construction sites (`createWithContent`, `createNoteWithTitle`) updated to pass explicit `kind = NoteKind.Plain`.
 - All four entity types can be synced (previously only `Task` had `SyncableEntity`)
 - All migrations use `scope: AutoCloseableCoroutineScope` as last constructor parameter with secondary no-arg Koin constructor
 - All notes screens now navigationally self-contained
 - All skills now reference verified Koin 4.x API surface (jar inspection as the ground truth).
 - Archive доступен с любого TaskDetailScreen через ⋮ menu
 - Autosave вынесен из `delay()` в VM в отдельный port — теперь тестируем без `advanceTimeBy`
+- Backlink display: `LinkedBacklinksCard` composable rendered via `extraSections` in `TaskEditorContent` model-based overload
 - Backlinks queryable via SQL without HTML parsing
 - Backup/restore roundtrip must include new fields (done via `TaskDto` update)
 - Before using `singleOf`/`factoryOf`, deduplicate existing `single<X> { ... }` bindings for the same type — Koin throws `BeanOverrideException` on duplicates.
@@ -157,6 +161,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Every `_events.emit(x)` in VM code becomes `_events.trySend(x).isSuccess` (fire-and-forget) or `_events.send(x)` (back-pressure when needed).
 - Existing `AgendaDeps` binding must add `clock: Clock` parameter (no breaking change
 - Existing `viewModelOf` calls in DI modules updated to `viewModel { Vm(...) }` form
+- Existing tests for note features verified passing with the new schema.
 - Expand-day-list (tap day in month view to show all tasks).
 - Exposed `events: Flow<UiEvent>` becomes `_events.receiveAsFlow()`.
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes)
@@ -253,13 +258,20 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `ContentStateMapper` — добавлен object с двумя методами
 - `CreateTaskFromDraftUseCase` now takes a dependency on `DueDateOption` resolution
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно.
+- `DependencyValidatorImplTest` (13 cases) covers self-loop, linear chains, branching chains, branching with merges, deep chains, missing nodes.
 - `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope`
+- `ExtractActions` output is only displayed as formatted text in the event notification — actual task creation from extracted actions (pre-filling `TaskCreateSheet`) is deferred to a follow-up that integrates with `CreateTaskFromDraftUseCase`.
+- `FakeAppDatabase` fakes updated for both new DAO methods
+- `FakeNotesRepository` and `FakeNoteDao` updated with all 6 new methods for test coverage.
 - `FakeProfileRepository` implements both new generic methods and deprecated legacy overloads for test compatibility.
 - `FakeReminderDao` implements `watchRecurringTaskIds` for `FakeAppDatabase`.
 - `FakeReminderRepository` implements `observeRecurringTaskIds` using in-memory filtering.
+- `FakeRepositories.InMemoryTaskDao.listAllDependenciesForUser` stub implemented for tests.
 - `InternalLinkRepositoryImpl` now fully owns the user resolution — consistent with `TagsRepository`, `TaskRepository`, etc.
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
+- `NoteDao.getNotesLinkingToTask` — same pattern for `task://` scheme in notes
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
+- `NoteEditor` now has two AI entry points: `improveNote()` (legacy) and `runAiAction()` (new).
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах
 - `ProfileAwareCurrentUser` moves **inside** repositories; the DI graph registers
@@ -278,7 +290,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `SyncableEntity.toJson()` uses `StableJson` — no new serialization surface
 - `TagsViewModel`, `AccountSettingsViewModel`, `StatisticsViewModel`, `ArchiveViewModel`, `AttachmentsViewModel`, `AiUsageViewModel` in MR-1
 - `Task.tags` and `Task.dependsOn` are now correctly populated in all list views (`observeAll`, `observeByFilter`, `observeByDate`, `observeSubtasks`).
+- `TaskDao.getBacklinkTasks` — LIKE query on the JSON column: `outgoing_links LIKE '%task://' || :taskId || '%'`
+- `TaskDetail.RunAiAction` is a one-shot action returning via `_events` SharedFlow.
+- `TaskDetailDeps.linkRepo: InternalLinkRepository? = null` — nullable so existing tests pass without a fake link repo
 - `TaskDetailScreen` stays as a read-only viewer until a future PR consolidates
+- `TaskDetailViewModelTest` removed 5 broken `StubRefineTaskUseCase` etc. class definitions — tests use nullable defaults instead.
 - `TaskDetailViewModel` no longer injects `ProfileAwareCurrentUser`.
 - `TaskDetailViewModel`, `SavedAgendaViewModel`, `CalendarViewModel`, `SearchViewModel`, `ProfileSwitcherViewModel`, `AuthViewModel`, `BackupViewModel` in MR-3
 - `TaskDraft` serialization format changes — old drafts opened after upgrade will
@@ -286,11 +302,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `TaskEditorReducerTest` must add test cases for new intents.
 - `TaskEditorViewModelTest` and `TaskEditorIntegrationTest` must add edit-mode scenarios.
 - `TaskEditorViewModel` constructor signature unchanged; DI registration unchanged.
+- `TaskEntity` has new `outgoingLinks: String = "[]"` field with default
 - `TaskEntity` is now 6 columns wider — acceptable storage cost
 - `TaskFilter` remains untouched — Search feature is unaffected.
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика
 - `TaskRepository.delete()` now calls `taskDao.softDelete()` directly instead of delegating to `softDelete()`
 - `TasksStartRoute.Create` now accepts `initialDueDate` — backward compatible since it's nullable.
+- `TreeVisitor` remains unchanged for other use cases (non-cycle-detection tree traversal).
 - `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly).
 - `applyRoute` in `TasksViewModel` is dead code — zero callers confirmed; deleted.
@@ -1004,20 +1022,30 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly.
 - 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill.
 - All 593 existing tests continue to pass
+- All future tests that boot a platform (Robolectric, Android instrumented, screenshot) must be
 - All link-related string literals in the notes feature must use `LinkSchemes.NOTE_PREFIX` / `LinkSchemes.TASK_PREFIX`. No raw `"note://"` in `feature/notes/`.
 - All new tests that need to verify failure paths use `XxxOverride = Result.failure(...)` on the appropriate fake.
+- All unit tests follow AAA structure, use `sut` naming, and use fakes for state assertions
 - Baseline images stored in `shared/src/commonTest/resources/roborazzi/`.
+- Do not use Turbine `awaitItem()` for VM state testing; use `MutableStateFlow.value` assertions
 - Every future PR touching UI components must run snapshot tests and update baselines when changes are intentional.
+- Forked test JVMs now get 2 GB heap instead of ~512 MB default
+- Heap dumps will appear in `<module>/build/test-heap-dumps/` after an OOM
+- If OOM recurs on CI, the trade-off to consider is reducing
+- MockK is used **only** for verifying outgoing command interactions (DB writes, analytics, network).
 - No breaking change — these methods were never called externally.
 - No test flakiness observed in 10× repeated fast test runs
 - Parallel execution is dynamic — Jupiter adjusts thread pool based on CPU cores
+- Peak RSS on a 4-worker CI run: ~8 GB (acceptable on 7 GB runner with swap)
 - Pre-existing failures (9 tests) remain unchanged
 - SharedFlow emission tests in this project always use `launch { flow.take(1).collect { ... } }` on `this@runTest`, not `backgroundScope`, with `runCurrent()` before the suspending call that emits.
 - Test parallelization: Jupiter method-level concurrency enabled
 - `:shared:jvmTest` fast tests now run in ~7s (was ~90s with `delay`)
 - `:shared:jvmTest` fast tests: ~7s wall-clock (was ~90s sequential with real `delay`)
+- `AndroidPomodoroTimerTest` is excluded from the default suite, reducing fast-suite heap pressure
 - `Clock` import may become unused in `FakeRepositories.kt` if not used elsewhere.
 - `FakeTaskRepository` is now ~30 lines shorter.
+- `McpServerEndToEndTest` runs on default `./gradlew :mcp-server:test`
 - `SCHEME_FACTORIES` is the extension point for new link kinds in `OutgoingLinksExtractor` — add one entry, not one regex + one branch.
 
 ### `ui`
@@ -1122,6 +1150,7 @@ _2 entries need attention._
 
 ## Recently superseded
 
+- `2026-09-26-production-readiness-findings` — Production Readiness Findings — 2026-09-26
 - `2026-09-23-test-standards-enforcement` — Test Standards — Enforcement, Gap Filling, and Architecture Cleanup
 - `2026-09-16-nav3-shared-state-factory-and-local-app-navigator` — LocalAppNavigator + shared rememberNav3State factory
 
@@ -1326,16 +1355,22 @@ _2 entries need attention._
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _untagged_
 - `2026-09-24-taskeditor-refactor-remaining-debt` — refactor, taskeditor, projectdetail, sheets
 - `2026-09-24-tech-debt-mini-prs` — tech-debt, deprecation, android
+- `2026-09-25-ai-action-registry-design` — _untagged_
+- `2026-09-25-cycle-detector-design` — _untagged_
 - `2026-09-25-detekt-test-rules` — detekt, testing, lint, epic2
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
 - `2026-09-25-git-hooks-worktree-isolation` — git, hooks, worktree, devx, epic2
 - `2026-09-25-local-mvi-framework` — _untagged_
+- `2026-09-25-note-ai-multi-op-design` — _untagged_
+- `2026-09-25-note-templates-daily-design` — _untagged_
 - `2026-09-25-remaining-test-debt` — testing, junit, detekt, epic2
+- `2026-09-25-task-backlinks-design` — _untagged_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
+- `2026-09-25-test-jvm-heap-default` — testing, gradle, heap, junit
 - `2026-09-25-test-parallelization` — testing, junit, jupiter, parallel, epic2
 - `2026-09-25-test-standards-comprehensive` — testing, junit, jupiter, epic2
+- `2026-09-25-test-suite-tag-defaults` — testing, junit, gradle, detekt
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
-- `2026-09-26-production-readiness-findings` — _untagged_
 
 ## Active entries
 
@@ -1538,14 +1573,20 @@ _2 entries need attention._
 - `2026-09-24-sync-debouncer-and-tasks-comparison` — _(no title)_
 - `2026-09-24-taskeditor-refactor-remaining-debt` — TaskEditor + ProjectDetail refactor remaining debt
 - `2026-09-24-tech-debt-mini-prs` — _(no title)_
+- `2026-09-25-ai-action-registry-design` — _(no title)_
+- `2026-09-25-cycle-detector-design` — _(no title)_
 - `2026-09-25-detekt-test-rules` — Detekt Rules for Tests — NoRealDelay, NoViewModelScope
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
 - `2026-09-25-git-hooks-worktree-isolation` — Git Hooks — Worktree Isolation + Shared Hooks Path
 - `2026-09-25-local-mvi-framework` — _(no title)_
+- `2026-09-25-note-ai-multi-op-design` — _(no title)_
+- `2026-09-25-note-templates-daily-design` — _(no title)_
 - `2026-09-25-remaining-test-debt` — Remaining Test Debt — post JUnit/suite-acceleration audit
+- `2026-09-25-task-backlinks-design` — _(no title)_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _(no title)_
+- `2026-09-25-test-jvm-heap-default` — Test JVM heap defaults and HeapDumpOnOutOfMemoryError
 - `2026-09-25-test-parallelization` — Test Parallelization — Jupiter Concurrency + Thread Safety
 - `2026-09-25-test-standards-comprehensive` — Test Standards Comprehensive — JUnit Jupiter, Virtual Time, Fast/Slow Split
+- `2026-09-25-test-suite-tag-defaults` — Test suite tag defaults and Khorikov testing principles
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
-- `2026-09-26-production-readiness-findings` — Production Readiness Findings — 2026-09-26
 
