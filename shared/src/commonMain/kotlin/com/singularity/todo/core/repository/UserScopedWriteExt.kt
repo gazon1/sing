@@ -28,8 +28,10 @@ fun ProfileAwareCurrentUser.assertCanWrite(
     entityUserId: UserId,
 ) {
     val currentUid = scopedUserId.value
-    require(entityUserId == currentUid || entityUserId == UserId.anonymous) {
-        "Cross-user write attempted for $entityId: " +
-            "entity.userId=$entityUserId, current=$currentUid"
+    if (entityUserId != currentUid && entityUserId != UserId.anonymous) {
+        throw CrossUserWriteException(
+            "Cross-user write attempted for $entityId: " +
+                "entity.userId=$entityUserId, current=$currentUid"
+        )
     }
 }
