@@ -4,11 +4,11 @@ import androidx.compose.runtime.Stable
 import com.singularity.todo.feature.notes.NoteFilter
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NoteSortOrder
+import com.singularity.todo.feature.notes.presentation.NotesIntent
 
 /**
  * All callback actions available in the [NotesScreen][com.singularity.todo.feature.notes.NotesScreen].
- * Packed into a single [JvmInline value class][value class] so the screen composable
- * receives exactly one `actions` parameter instead of 10+ individual lambdas.
+ * Screen composable receives exactly one `actions` parameter instead of 10+ individual lambdas.
  *
  * 8 callbacks grouped as:
  * - **Mutations**: delete, toggle pin
@@ -17,40 +17,23 @@ import com.singularity.todo.feature.notes.NoteSortOrder
  */
 @Stable
 @JvmInline
-value class NotesActions(val block: (Action) -> Unit) {
-    /** Sealed action hierarchy — enables exhaustive `when` with smart-cast. */
-    sealed class Action {
-        // ── Mutations ──────────────────────────────────────────────────────────
-        data class Delete(val id: NoteId) : Action()
-        data class TogglePin(val id: NoteId) : Action()
-
-        // ── List control ──────────────────────────────────────────────────────
-        data class SetFilter(val filter: NoteFilter) : Action()
-        data class SetSortOrder(val order: NoteSortOrder) : Action()
-
-        // ── Selection mode ─────────────────────────────────────────────────────
-        data class EnterSelection(val id: NoteId) : Action()
-        data class ToggleSelection(val id: NoteId) : Action()
-        data object ExitSelection : Action()
-        data object DeleteSelected : Action()
-    }
-
+value class NotesActions(private val dispatch: (NotesIntent) -> Unit) {
     // ── Mutations ──────────────────────────────────────────────────────────────
 
-    fun onDelete(id: NoteId) = block(Action.Delete(id))
-    fun onTogglePin(id: NoteId) = block(Action.TogglePin(id))
+    fun onDelete(id: NoteId) = dispatch(NotesIntent.Delete(id))
+    fun onTogglePin(id: NoteId) = dispatch(NotesIntent.TogglePin(id))
 
     // ── List control ──────────────────────────────────────────────────────────
 
-    fun onSetFilter(filter: NoteFilter) = block(Action.SetFilter(filter))
-    fun onSetSortOrder(order: NoteSortOrder) = block(Action.SetSortOrder(order))
+    fun onSetFilter(filter: NoteFilter) = dispatch(NotesIntent.SetFilter(filter))
+    fun onSetSortOrder(order: NoteSortOrder) = dispatch(NotesIntent.SetSortOrder(order))
 
     // ── Selection mode ─────────────────────────────────────────────────────────
 
-    fun onEnterSelection(id: NoteId) = block(Action.EnterSelection(id))
-    fun onToggleSelection(id: NoteId) = block(Action.ToggleSelection(id))
-    fun onExitSelection() = block(Action.ExitSelection)
-    fun onDeleteSelected() = block(Action.DeleteSelected)
+    fun onEnterSelection(id: NoteId) = dispatch(NotesIntent.EnterSelection(id))
+    fun onToggleSelection(id: NoteId) = dispatch(NotesIntent.ToggleSelection(id))
+    fun onExitSelection() = dispatch(NotesIntent.ExitSelection)
+    fun onDeleteSelected() = dispatch(NotesIntent.DeleteSelected)
 
     companion object {
         /** No-op actions — useful for previews and test stubs. */

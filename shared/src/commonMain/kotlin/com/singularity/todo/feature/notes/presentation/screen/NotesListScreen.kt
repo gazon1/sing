@@ -84,19 +84,8 @@ fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koin
     val navigator = LocalNotesNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    val actions = remember(navigator) {
-        NotesActions { action ->
-            when (action) {
-                is NotesActions.Action.Delete -> viewModel.delete(action.id)
-                is NotesActions.Action.TogglePin -> viewModel.togglePin(action.id)
-                is NotesActions.Action.SetFilter -> viewModel.setFilter(action.filter)
-                is NotesActions.Action.SetSortOrder -> viewModel.setSortOrder(action.order)
-                is NotesActions.Action.EnterSelection -> viewModel.enterSelectionMode(action.id)
-                is NotesActions.Action.ToggleSelection -> viewModel.toggleSelection(action.id)
-                is NotesActions.Action.ExitSelection -> viewModel.exitSelectionMode()
-                is NotesActions.Action.DeleteSelected -> viewModel.deleteSelected()
-            }
-        }
+    val actions = remember(viewModel) {
+        NotesActions(viewModel::onIntent)
     }
 
     NotesScreenContent(

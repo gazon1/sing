@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.state
 
+import com.singularity.todo.core.ui.mvi.MviIntent
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 
 /**
@@ -25,7 +26,7 @@ data class ProjectEditorUiState(
     val isEditMode: Boolean get() = projectId != null
 }
 
-sealed interface ProjectEditorIntent {
+sealed interface ProjectEditorIntent : MviIntent {
     data class NameChanged(val name: String) : ProjectEditorIntent
     data class ColorChanged(val color: Int) : ProjectEditorIntent
     data class IconChanged(val icon: String?) : ProjectEditorIntent

@@ -1,26 +1,26 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
-import androidx.lifecycle.ViewModel
-import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.Either
-import com.singularity.todo.core.ui.state.updateState
+import com.singularity.todo.core.ui.mvi.MviIntent
+import com.singularity.todo.core.ui.mvi.MviViewModel
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
+import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiState
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -46,8 +46,7 @@ data class TaskCreateDeps(
  * Owns: new task draft with kind, title, description, due date, reminders, linked project.
  * Triggers: kind/title/description/due date changes, AI actions (describe, checklist, pick time,
  *   decompose), save (explicit or auto-save on navigate-away).
- * One-shot events: [TaskCreateUiEvent.NavigateBack], [TaskCreateUiEvent.ShowAiResult],
- *   [TaskCreateUiEvent.ShowError].
+ * One-shot events: [TaskCreateUiEvent.Saved], [TaskCreateUiEvent.Error].
  *
  * Draft shaping + validation + persistence are delegated to [CreateTaskFromDraftUseCase]
  * so this VM stays a thin orchestrator: it owns the editor state flow, debounced draft
@@ -63,7 +62,20 @@ class TaskCreateViewModel(
     private val deps: TaskCreateDeps,
     initialDueDate: kotlinx.datetime.LocalDate?,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
+) : MviViewModel<TaskCreateUiState, TaskCreateIntent, TaskCreateUiEvent>(
+    initialState = TaskCreateUiState(
+        draft = TaskDraft(
+            dueDate = initialDueDate?.let {
+                DueDateOption.Custom(it, it.toString())
+            } ?: DueDateOption.None,
+        ),
+        isSaveEnabled = false,
+        error = null,
+        isDirty = false,
+        isSaving = false,
+    ),
+    scope = scope,
+) {
 
     private val initial: TaskDraft = TaskDraft(
         dueDate = initialDueDate?.let {
@@ -75,8 +87,13 @@ class TaskCreateViewModel(
     private val _isSaving = MutableStateFlow(false)
     private val _error = MutableStateFlow<String?>(null)
 
-    private val _saved = Channel<Unit>(Channel.BUFFERED)
-    val saved: Flow<Unit> = _saved.receiveAsFlow()
+    /** One-shot "Saved" pulse — triggers navigation back in the screen. */
+    private val _saved = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val saved: SharedFlow<Unit> = _saved.asSharedFlow()
+
+    init {
+        addCloseable(scope)
+    }
 
     init {
         // 1. Restore draft from DataStore — seed-if-empty pattern.
@@ -102,13 +119,8 @@ class TaskCreateViewModel(
         }
     }
 
-    private val _state = MutableStateFlow(
-        TaskCreateUiState(initial, false, null, false, isSaving = false),
-    )
-    val state: StateFlow<TaskCreateUiState> = _state.asStateFlow()
-
     init {
-        addCloseable(scope)
+        // 3. Combine draft + saving + error into framework's _state
         scope.launch {
             combine(_draft, _isSaving, _error) { draft, saving, error ->
                 val validationError: String? = validateForSave(draft)
@@ -119,38 +131,38 @@ class TaskCreateViewModel(
                     isDirty = draft != initial,
                     isSaving = saving,
                 )
-            }.collect { _state.value = it }
+            }.collect { newState -> _state.value = newState }
         }
     }
 
-    fun onIntent(intent: TaskCreateIntent) {
+    override fun onIntent(intent: TaskCreateIntent) {
         when (intent) {
             is TaskCreateIntent.TitleChanged -> with(intent) {
-                _draft.updateState { it.copy(title = title) }
+                _draft.update { it.copy(title = title) }
                 // Clear stale validation error as soon as the user reacts to it.
                 if (validateForSave(_draft.value) == null) _error.value = null
             }
 
             is TaskCreateIntent.DescriptionChanged -> with(intent) {
-                _draft.updateState { it.copy(description = description) }
+                _draft.update { it.copy(description = description) }
             }
 
             is TaskCreateIntent.SetPriority -> with(intent) {
-                _draft.updateState { it.copy(priority = priority) }
+                _draft.update { it.copy(priority = priority) }
             }
 
             is TaskCreateIntent.SetDueDate -> with(intent) {
                 val option = intent.date?.let {
                     DueDateOption.Custom(it, it.toString())
                 } ?: DueDateOption.None
-                _draft.updateState { it.copy(dueDate = option) }
+                _draft.update { it.copy(dueDate = option) }
             }
 
             is TaskCreateIntent.SetDueTime -> with(intent) {
-                _draft.updateState { it.copy(dueTime = intent.time) }
+                _draft.update { it.copy(dueTime = intent.time) }
             }
 
-            TaskCreateIntent.DueDateCleared -> _draft.updateState {
+            TaskCreateIntent.DueDateCleared -> _draft.update {
                 it.copy(dueDate = DueDateOption.None, dueTime = null)
             }
 
@@ -158,30 +170,30 @@ class TaskCreateViewModel(
                 val option = intent.date?.let {
                     DueDateOption.Custom(it, it.toString())
                 } ?: DueDateOption.None
-                _draft.updateState { it.copy(startDate = option) }
+                _draft.update { it.copy(startDate = option) }
             }
 
             is TaskCreateIntent.SetStartTime -> with(intent) {
-                _draft.updateState { it.copy(startTime = intent.time) }
+                _draft.update { it.copy(startTime = intent.time) }
             }
 
             is TaskCreateIntent.SetEndDate -> with(intent) {
                 val option = intent.date?.let {
                     DueDateOption.Custom(it, it.toString())
                 } ?: DueDateOption.None
-                _draft.updateState { it.copy(endDate = option) }
+                _draft.update { it.copy(endDate = option) }
             }
 
             is TaskCreateIntent.SetEndTime -> with(intent) {
-                _draft.updateState { it.copy(endTime = intent.time) }
+                _draft.update { it.copy(endTime = intent.time) }
             }
 
             is TaskCreateIntent.SetAccentColor -> with(intent) {
-                _draft.updateState { it.copy(accentColor = intent.color) }
+                _draft.update { it.copy(accentColor = intent.color) }
             }
 
             is TaskCreateIntent.SetEmoji -> with(intent) {
-                _draft.updateState { it.copy(emoji = intent.emoji) }
+                _draft.update { it.copy(emoji = intent.emoji) }
             }
 
             TaskCreateIntent.SaveClicked -> {
@@ -212,6 +224,7 @@ class TaskCreateViewModel(
         val preset: String? = validateForSave(draftSnapshot)
         if (preset != null) {
             _error.value = preset
+            _isSaving.value = false
             return
         }
 
@@ -223,7 +236,8 @@ class TaskCreateViewModel(
                 }
 
                 is Either.Right -> {
-                    _saved.trySend(Unit)
+                    _saved.emit(Unit)
+                    emit(TaskCreateUiEvent.Saved)
                     runCatching { deps.draftStore.clear(TaskCreateDeps.DRAFT_KEY) }
                         .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft clear failed: ${it.message}" } }
                 }

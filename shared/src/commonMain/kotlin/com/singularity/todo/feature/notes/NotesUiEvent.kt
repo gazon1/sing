@@ -1,9 +1,11 @@
 package com.singularity.todo.feature.notes
 
+import com.singularity.todo.core.ui.mvi.MviEvent
+
 /**
  * One-shot events emitted by [NotesViewModel].
  */
-sealed interface NotesUiEvent {
+sealed interface NotesUiEvent : MviEvent {
     /** AI action returned a result to show the user. */
     data class AiResult(val text: String) : NotesUiEvent
 

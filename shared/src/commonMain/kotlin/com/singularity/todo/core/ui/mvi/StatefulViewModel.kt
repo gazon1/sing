@@ -37,7 +37,7 @@ abstract class StatefulViewModel<S>(
         addCloseable(scope)
     }
 
-    private val _state = MutableStateFlow(initialState)
+    protected val _state = MutableStateFlow(initialState)
 
     /** Public read-only state. */
     val state: StateFlow<S> = _state.asStateFlow()

@@ -119,7 +119,7 @@ fun ProjectEditorContent(
                 },
                 actions = {
                     IconButton(
-                        onClick = { viewModel.processIntent(ProjectEditorIntent.Save) },
+                        onClick = { viewModel.onIntent(ProjectEditorIntent.Save) },
                         enabled = state.name.isNotBlank() && !state.saving,
                     ) {
                         Icon(Icons.Filled.Check, contentDescription = "Save")
@@ -139,7 +139,7 @@ fun ProjectEditorContent(
             // ── Identity: name + description ──────────────────────────────
             OutlinedTextField(
                 value = state.name,
-                onValueChange = { viewModel.processIntent(ProjectEditorIntent.NameChanged(it)) },
+                onValueChange = { viewModel.onIntent(ProjectEditorIntent.NameChanged(it)) },
                 label = { Text("Project name") },
                 isError = state.errorMessage != null,
                 supportingText = state.errorMessage?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
@@ -149,7 +149,7 @@ fun ProjectEditorContent(
 
             OutlinedTextField(
                 value = state.description,
-                onValueChange = { viewModel.processIntent(ProjectEditorIntent.DescriptionChanged(it)) },
+                onValueChange = { viewModel.onIntent(ProjectEditorIntent.DescriptionChanged(it)) },
                 label = { Text("Description (optional)") },
                 minLines = 3,
                 modifier = Modifier.fillMaxWidth(),
@@ -180,7 +180,7 @@ fun ProjectEditorContent(
                                         Modifier
                                     },
                                 )
-                                .clickable { viewModel.processIntent(ProjectEditorIntent.ColorChanged(color)) },
+                                .clickable { viewModel.onIntent(ProjectEditorIntent.ColorChanged(color)) },
                         ) {
                             if (state.color == color) {
                                 Icon(
@@ -228,7 +228,7 @@ fun ProjectEditorContent(
         ResultDialog(
             title = "Error",
             text = state.errorMessage ?: "",
-            onDismiss = { viewModel.processIntent(ProjectEditorIntent.ErrorShown) },
+            onDismiss = { viewModel.onIntent(ProjectEditorIntent.ErrorShown) },
         )
     }
 
@@ -238,7 +238,7 @@ fun ProjectEditorContent(
             IconPickerSheet(
                 currentIcon = state.icon,
                 onPick = { icon ->
-                    viewModel.processIntent(ProjectEditorIntent.IconChanged(icon))
+                    viewModel.onIntent(ProjectEditorIntent.IconChanged(icon))
                     showIconPicker = false
                 },
                 onDismiss = { showIconPicker = false },
@@ -251,7 +251,7 @@ fun ProjectEditorContent(
         BottomSheetHost(onDismiss = { showParentPicker = false }) {
             EditorParentPickerSheet(
                 onPick = { parentId ->
-                    viewModel.processIntent(ProjectEditorIntent.ParentChanged(parentId))
+                    viewModel.onIntent(ProjectEditorIntent.ParentChanged(parentId))
                     showParentPicker = false
                 },
                 onDismiss = { showParentPicker = false },
