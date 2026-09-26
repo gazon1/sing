@@ -1,0 +1,51 @@
+# Minimal detekt configuration for androidApp and mcp-server.
+# These modules do NOT apply the :detekt-rules plugin, so custom rule sets
+# (no-runblocking, no-viewmodel-scope, mvi-viewmodel, etc.) are not available.
+# This file excludes custom rule-set sections entirely.
+
+config:
+  validation: true
+  warningsAsErrors: false
+  checkExhaustiveness: false
+  excludes: []
+
+processors:
+  active: true
+  exclude:
+    - 'KtFileCountProcessor'
+    - 'ClassCountProcessor'
+    - 'FunctionCountProcessor'
+    - 'PropertyCountProcessor'
+
+console-reports:
+  active: true
+  exclude:
+    - 'LiteIssuesReport'
+
+comments:
+  active: true
+  UndocumentedPublicClass:
+    active: false
+  UndocumentedPublicFunction:
+    active: false
+
+complexity:
+  active: true
+
+empty-blocks:
+  active: true
+
+exceptions:
+  active: true
+
+naming:
+  active: true
+
+performance:
+  active: true
+
+potential-bugs:
+  active: true
+
+style:
+  active: true
