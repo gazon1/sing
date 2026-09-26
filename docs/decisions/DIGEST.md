@@ -134,6 +134,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches.
 - AI actions do **not** appear in `TaskEditorMenuBuilder` menu — they remain accessible only from `TaskAiBottomSheet` (accessed via FAB icon on `TaskDetail`).
 - AI tools (11 Koog `SimpleTool` implementations) drop `currentUser` from
+- Adding a new string: add to `strings.xml`, not inline
 - After PR-0.3 KDoc batch, regenerate baselines with `./gradlew :shared:detektBaseline :desktopApp:detektBaseline` to capture the cleaner state.
 - After PR-0.3, all production ViewModels and Repositories will have KDoc. New additions without KDoc will fail CI.
 - Agenda always shows correct bucket labels across midnight.
@@ -165,6 +166,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Crash reporting via Crashlytics is the primary stability metric
 - DI bindings for canonical types: `singleOf(::Class)` for simple ctors (≤3 args, singleton scope), `factoryOf(::Class)` for per-injection scope. No `bind<Interface>()`.
 - DI-граф упрощён: 5 factory → 1
+- Date/number formatting: always use locale-aware APIs
 - Dead Nav2 code removed from Android
 - Dead dependency removed from `CalendarDeps` — DI graph is now consistent
 - Deadline indicator rendering in `UpcomingBadges`.
@@ -204,6 +206,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - No immediate change to test infrastructure or CI.
 - No migration needed for this fix.
 - No more write storms from rapid task edits
+- No new critical/warnings bullets from these ADRs
 - No new critical/warnings bullets from this PR
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - No repository contract overloads are needed for this interface (it has no non-Koin callers).
@@ -216,6 +219,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - PRs without ADR for architectural changes should be blocked by reviewer
 - Per-collection 3-way merge (needs attachments/tags bidirectional)
 - Per-feature events устранили конфликты имён (до: `ShowDialog` everywhere; после: `TasksUiEvent.AiResult`, `NotesUiEvent.SaveFailed`)
+- Performance issues should be measured before being fixed — no "feel" optimizations
 - Performance: one extra `StateFlow.distinctUntilChanged().flatMapLatest()` per
 - Phase 8 (test rewrites) and Phase 9 (verification) follow from this migration
 - Picker sheets визуально согласованы с остальными sheets (drag-handle, chrome)
@@ -226,6 +230,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Pull handler for `DELETED` events is a stub — entities are not soft-deleted from remote events yet
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
+- RTL: plan for it when adding the first RTL language
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`).
 - Retro ADRs reference their PROGRESS.md entry (bidirectional link)
 - Reviewers are not required to review Phase 1 PRs — only Phase 2+
@@ -391,6 +396,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model
 - `startAt`/`endAt`/`allDay`/`recurrence` in `Task` (Room migration).
 - `status: deferred` ADRs are not required to have a `date` field
+- `ux-a11y-review` skill covers non-functional requirements beyond performance
 - `weight` modifier requires careful structuring inside `Row { Column(weight) }`.
 - cTag/ETag two-way diff (needs CalDAV server)
 - detekt: 0 new findings | jvmTest: green
@@ -1451,13 +1457,16 @@ _2 entries need attention._
 - `2026-09-26-domain-glossary-policy` — _untagged_
 - `2026-09-26-four-phases-gate` — _untagged_
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
+- `2026-09-26-internationalization` — _untagged_
 - `2026-09-26-kdoc-enforcement-rules` — _untagged_
 - `2026-09-26-observability-production` — _untagged_
+- `2026-09-26-performance-profiling` — _untagged_
 - `2026-09-26-post-p0-retro` — _untagged_
 - `2026-09-26-post-pr-1.1-retro` — _untagged_
 - `2026-09-26-post-pr-1.2-retro` — _untagged_
 - `2026-09-26-post-pr-1.3-retro` — _untagged_
 - `2026-09-26-post-pr-1.4-retro` — _untagged_
+- `2026-09-26-post-pr-2.1-retro` — _untagged_
 - `2026-09-26-pr-0-1-retro` — _untagged_
 - `2026-09-26-pr-0-2-retro` — _untagged_
 - `2026-09-26-pr-0-3-retro` — _untagged_
@@ -1697,13 +1706,16 @@ _2 entries need attention._
 - `2026-09-26-domain-glossary-policy` — _(no title)_
 - `2026-09-26-four-phases-gate` — _(no title)_
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
+- `2026-09-26-internationalization` — _(no title)_
 - `2026-09-26-kdoc-enforcement-rules` — _(no title)_
 - `2026-09-26-observability-production` — _(no title)_
+- `2026-09-26-performance-profiling` — _(no title)_
 - `2026-09-26-post-p0-retro` — _(no title)_
 - `2026-09-26-post-pr-1.1-retro` — _(no title)_
 - `2026-09-26-post-pr-1.2-retro` — _(no title)_
 - `2026-09-26-post-pr-1.3-retro` — _(no title)_
 - `2026-09-26-post-pr-1.4-retro` — _(no title)_
+- `2026-09-26-post-pr-2.1-retro` — _(no title)_
 - `2026-09-26-pr-0-1-retro` — _(no title)_
 - `2026-09-26-pr-0-2-retro` — _(no title)_
 - `2026-09-26-pr-0-3-retro` — _(no title)_
