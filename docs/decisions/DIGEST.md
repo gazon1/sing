@@ -130,13 +130,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - 4 detekt rules promoted from warn to error in MR-4
 - 4 test files updated (removed `fakeCurrentUser` args where no longer needed)
 - 8 экранов мигрированы: Tasks, Notes, TaskDetail, TaskEditor, Projects, ProjectEditor, Chat, Archive
+- ADRs with `status: proposed` must not be cited in `DIGEST.md` critical/warnings sections
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches.
 - AI actions do **not** appear in `TaskEditorMenuBuilder` menu — they remain accessible only from `TaskAiBottomSheet` (accessed via FAB icon on `TaskDetail`).
 - AI tools (11 Koog `SimpleTool` implementations) drop `currentUser` from
 - After PR-0.3 KDoc batch, regenerate baselines with `./gradlew :shared:detektBaseline :desktopApp:detektBaseline` to capture the cleaner state.
-- After PR-0.3 KDoc batch, regenerate baselines with `./gradlew :shared:detektBaseline :desktopApp:detektBaseline` to capture the cleaner state.
 - After PR-0.3, all production ViewModels and Repositories will have KDoc. New additions without KDoc will fail CI.
 - Agenda always shows correct bucket labels across midnight.
+- Aliases reduce confusion when older code uses the old term — AGENTS.md will reference canonical names
 - All 13 migrated VMs are now testable with `backgroundScope` injection
 - All 593 existing tests continue to pass.
 - All 6 repositories now extend `GenericUserScopedRepository`: Tasks, Notes, Projects, Tags, SavedAgendaViews, Profile.
@@ -158,6 +159,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - CI may later call `just tests::check` instead of `./check.sh` — the behavior is identical.
 - Cannot filter by `name` in SQL without parsing JSON — acceptable; user-facing
 - Code migration to Koin Annotations is explicitly **deferred** — see ADR `2026-09-22-koin-annotations-4x-skill-correction` for the analysis.
+- Completed epics keep their PROGRESS.md entry as an audit trail
 - Compose UI for setting these new fields is not yet built — that's MR-3's scope.
 - Coverage target: 100% for `StatefulViewModel`, `MviViewModel`, `EventBus`, `StateStrategy`, `DraftState`
 - DI bindings for canonical types: `singleOf(::Class)` for simple ctors (≤3 args, singleton scope), `factoryOf(::Class)` for per-injection scope. No `bind<Interface>()`.
@@ -165,6 +167,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Dead Nav2 code removed from Android
 - Dead dependency removed from `CalendarDeps` — DI graph is now consistent
 - Deadline indicator rendering in `UpcomingBadges`.
+- Deprecated skills are still loaded by the agent but emit a warning
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed.
 - Detekt `ParameterNaming` rule suppressed in two places (`TagsRepository.kt:54,59`) because `create(item: Tag)` vs `create(item: E)` parameter naming follows the domain convention — not a bug.
 - Developers must run `just detekt-fix` before committing new code to auto-fix style violations.
@@ -204,6 +207,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - None
 - PR-0.3 adds KDoc to the 4 currently flagged ViewModels (AppVersionGateViewModel, TagGroupsViewModel) and 2 Repositories (SavedAgendaViewsRepository, ChecklistRepository).
 - PR-0.3 will add KDoc to the 4 flagged files (AppVersionGateViewModel, TagGroupsViewModel, SavedAgendaViewsRepository, ChecklistRepository).
+- PR-0.4 (production BAN fixes) will address remaining technical debt: TODO/FIXME cleanup, stateIn removal, runBlocking fixes.
 - Per-collection 3-way merge (needs attachments/tags bidirectional)
 - Per-feature events устранили конфликты имён (до: `ShowDialog` everywhere; после: `TasksUiEvent.AiResult`, `NotesUiEvent.SaveFailed`)
 - Performance: one extra `StateFlow.distinctUntilChanged().flatMapLatest()` per
@@ -217,6 +221,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`).
+- Retro ADRs reference their PROGRESS.md entry (bidirectional link)
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов
 - Room schema unchanged (tables `task_tags` and `task_dependencies` already existed).
 - RuStore / Galaxy Store support requires ~1 day of work when distribution to those stores is planned.
@@ -227,6 +232,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Simple schema, no migration complexity beyond bumping SCHEMA_VERSION.
 - Single narrow Room query (`watchByDate`) reused for the new use case.
 - Single-impl interface with no test fake is YAGNI — inline the concrete class as canonical.
+- Skills are referenced in ADRs by slug: `skill \`singularity-todo-vm-migration-playbook\``
+- Skills exceeding 20 KB fail CI (hard cap enforced by `wc -c` check in CI)
+- Skills without `name` + `description` fail CI
+- Skills without `name` + `description` frontmatter fail the `check-skill-frontmatter.sh` CI check
 - Slot-API (`CalendarContent` separate from `CalendarScreen`) enables preview without Koin.
 - StableJson round-trip test verifies no data loss.
 - Stale KDoc references `[OldInterface]` are dangling after inlining — always grep the whole repo and replace with `[CanonicalType]`.
@@ -234,9 +243,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Test factories for those VMs use `testScope(backgroundScope)` (or `testScope(this)` in `runTest`).
 - Tests that construct `TaskEntity` directly must include all 6 new nullable parameters
 - The 2 side-effects-in-combine anti-patterns remain in `TaskDetailViewModel`
+- The 20+ `TODO:` comments in production code remain as future work — tracked in per-feature ADRs, not blocking.
 - The 4 untested VMs (`TaskCreateViewModel`, `ProjectEditorViewModel`,
 - The GenUI `whatsNewPayload` is entirely server-controlled content rendered via LLM; it is **not** validated against a schema beyond `A2uiParser` parsing. Trust comes from the authenticated Supabase session.
 - The `WhatsNew` screen is the first production surface using GenUI, rendered at startup when a new `RemoteConfigSnapshot.whatsNewPayload` is present.
+- The `four-phases-gate` ADR (PR-1.3) will enforce supersede-chain audits during PR review
 - The `koin-gradle-plugin` is already wired in `shared/build.gradle.kts` (commit `1eb272a`) but no annotations are in use. If a future agent wants to adopt annotations, they can reapply the pattern shown in commit `1eb272a`'s setup; the plugin doesn't break anything.
 - The `pageCount = 240` is fixed at compile time. Users navigating beyond ±10 years from today
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
@@ -268,6 +279,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `AppNavHost.kt`, `AppNavigator.kt`, `DesktopShell.kt` (old Nav2 files) are deleted
 - `AutoCloseable` ContentResolver cleanup
 - `ByDateBucket` requires `today` in SQL query dispatch — the filter is not purely
+- `CONTEXT.md` must be updated whenever a new domain term is introduced in a feature ADR
 - `CalendarDeps` is constructed in `CalendarDiModule` via `get<ReminderRepository>()`.
 - `CalendarDeps` matches the `AgendaDeps` pattern (project convention)
 - `CalendarNavigator` gets two `onExitGraph` callers: `openTask` and `openCreateTask`.
@@ -294,6 +306,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `NoteEditor` now has two AI entry points: `improveNote()` (legacy) and `runAiAction()` (new).
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах
+- `PlatformModule.android.kt` still has two `runBlocking` calls — these are at module initialization time (startup), not inside VMs or repositories. Acceptable for now.
 - `ProfileAwareCurrentUser` moves **inside** repositories; the DI graph registers
 - `ProjectEditorViewModel`, `TaskCreateViewModel`, `NotesListViewModel` in MR-2
 - `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`.
@@ -334,6 +347,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `androidHostTest` configuration (Robolectric) exists in `shared/build.gradle.kts` but runs 0 tests — no harm in leaving it.
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly).
 - `applyRoute` in `TasksViewModel` is dead code — zero callers confirmed; deleted.
+- `check-skill-frontmatter.sh` validates all skills in `.agents/skills/`
 - `core/ui/state/StateFlowExt.kt::updateState` removed after all migrations complete (MR-4)
 - `deadlineDate` badge is rendered as a red flag + date for tasks due on the selected date.
 - `deadlineDate` badge rendering in month grid.
@@ -345,15 +359,21 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `isActive` is a behavioral change from previous inline logic — tested thoroughly.
 - `isBlocked` badge will appear on task cards when dependencies are unfinished.
 - `isRecurring` is always `false` in `CalendarTaskUi` — requires per-task
+- `just docs-audit` checks skill size limits
 - `just docs-audit` should be run before every PR to catch DIGEST drift early.
+- `just docs-audit` validates PROGRESS.md exists if `docs/decisions/` contains retro ADRs from the last 30 days
+- `just docs-audit` validates that no `superseded-by` points to a non-existent file
 - `just` must be installed (`just 1.57.0` is present in this environment).
 - `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
+- `refresh-decisions-digest.sh` must handle `superseded-by` by not duplicating superseded ADR bullets into DIGEST Critical section
 - `scopeOverride` добавлен в `ProjectsViewModel`
 - `serverVersion`/`hlc` survive the full round-trip: domain → entity → DAO → DB → entity → domain
 - `single<Interface>(::Impl)` does NOT work — Koin can't resolve `Impl`'s constructor params from DI when called through `single<T>(::Impl)`. Use `single { Impl(get(), ...) }` for interface bindings.
 - `singleOf` fails for classes with function-type constructor parameters (Koin tries to resolve `Function1` from DI) — use explicit lambda in those cases.
+- `singularity-todo-domain-glossary` skill provides a decision tree for "should this be a term?"
 - `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model
 - `startAt`/`endAt`/`allDay`/`recurrence` in `Task` (Room migration).
+- `status: deferred` ADRs are not required to have a `date` field
 - `weight` modifier requires careful structuring inside `Row { Column(weight) }`.
 - cTag/ETag two-way diff (needs CalDAV server)
 - detekt: 0 new findings | jvmTest: green
@@ -1406,12 +1426,20 @@ _2 entries need attention._
 - `2026-09-25-test-standards-comprehensive` — testing, junit, jupiter, epic2
 - `2026-09-25-test-suite-tag-defaults` — testing, junit, gradle, detekt
 - `2026-09-25-testable-vm-dispatcher-clock` — testing, coroutines, viewmodel, koin, di
+- `2026-09-26-adr-supersede-process` — _untagged_
 - `2026-09-26-detekt-baseline-established` — _untagged_
 - `2026-09-26-detekt-rules-activation-audit` — detekt, quality, kotlin
+- `2026-09-26-docs-lifecycle` — _untagged_
+- `2026-09-26-domain-glossary-policy` — _untagged_
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
 - `2026-09-26-kdoc-enforcement-rules` — _untagged_
+- `2026-09-26-post-p0-retro` — _untagged_
 - `2026-09-26-pr-0-1-retro` — _untagged_
 - `2026-09-26-pr-0-2-retro` — _untagged_
+- `2026-09-26-pr-0-3-retro` — _untagged_
+- `2026-09-26-pr-0-4-retro` — _untagged_
+- `2026-09-26-progress-journal-policy` — _untagged_
+- `2026-09-26-skill-authoring-policy` — _untagged_
 - `2026-09-26-ui-testing-deferred` — _untagged_
 
 ## Active entries
@@ -1635,11 +1663,19 @@ _2 entries need attention._
 - `2026-09-25-test-standards-comprehensive` — Test Standards Comprehensive — JUnit Jupiter, Virtual Time, Fast/Slow Split
 - `2026-09-25-test-suite-tag-defaults` — Test suite tag defaults and Khorikov testing principles
 - `2026-09-25-testable-vm-dispatcher-clock` — Testable VMs — CoroutineDispatcher injection, Clock in DI, RecordingHttpClient
+- `2026-09-26-adr-supersede-process` — _(no title)_
 - `2026-09-26-detekt-baseline-established` — _(no title)_
 - `2026-09-26-detekt-rules-activation-audit` — Detekt custom rules — activate unregistered rule sets and clean up orphan rules
+- `2026-09-26-docs-lifecycle` — _(no title)_
+- `2026-09-26-domain-glossary-policy` — _(no title)_
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
 - `2026-09-26-kdoc-enforcement-rules` — _(no title)_
+- `2026-09-26-post-p0-retro` — _(no title)_
 - `2026-09-26-pr-0-1-retro` — _(no title)_
 - `2026-09-26-pr-0-2-retro` — _(no title)_
+- `2026-09-26-pr-0-3-retro` — _(no title)_
+- `2026-09-26-pr-0-4-retro` — _(no title)_
+- `2026-09-26-progress-journal-policy` — _(no title)_
+- `2026-09-26-skill-authoring-policy` — _(no title)_
 - `2026-09-26-ui-testing-deferred` — UI testing deferred — androidHostTest + UiAutomator postponed
 

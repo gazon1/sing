@@ -348,7 +348,7 @@ private fun SettingsContentPreview(
                 )
 
                 SettingsTab.TagGroups -> TagGroupsScreen(
-                    state = com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState.Empty(""),
+                    state = com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState.Empty,
                     onDelete = {},
                 )
 
