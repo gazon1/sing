@@ -122,6 +122,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **~14 изменённых файлов**: Screen.kt + testTag, VM constructors, DI module
 - **~25 новых файлов**: 4 порта, 7 Page Objects, test infrastructure, integration tests
 - 1 orphan VM deleted
+- 15/21 VMs are on the MVI framework
 - 2 UI state classes simplified (`data object` instead of `data class` with dead field)
 - 2 screen preview functions updated
 - 23 Tier-1 VMs lose their `onCleared()` override — the scope is now auto-cancelled via `addCloseable(scope)`.
@@ -139,6 +140,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All 6 repositories now extend `GenericUserScopedRepository`: Tasks, Notes, Projects, Tags, SavedAgendaViews, Profile.
 - All 7 actions require AI to be configured — if no AI is available, `isActionAvailable()` returns false and `runAiAction()` is a no-op.
 - All `FakeRepositories` updated to match
+- All critical bugs are fixed
 - All existing `NoteEntity` construction sites (`createWithContent`, `createNoteWithTitle`) updated to pass explicit `kind = NoteKind.Plain`.
 - All four entity types can be synced (previously only `Task` had `SyncableEntity`)
 - All migrations use `scope: AutoCloseableCoroutineScope` as last constructor parameter with secondary no-arg Koin constructor
@@ -149,6 +151,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Backlink display: `LinkedBacklinksCard` composable rendered via `extraSections` in `TaskEditorContent` model-based overload
 - Backlinks queryable via SQL without HTML parsing
 - Backup/restore roundtrip must include new fields (done via `TaskDto` update)
+- BackupViewModel и SearchViewModel остаются на legacy MVI pattern до своих MR
 - Before using `singleOf`/`factoryOf`, deduplicate existing `single<X> { ... }` bindings for the same type — Koin throws `BeanOverrideException` on duplicates.
 - Both Android and Desktop now use the same Nav3 architecture (multi-back-stack, `Navigator`, `NavDisplay`)
 - Bulk-операции fail-fast при отсутствующих ID
@@ -176,6 +179,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Explicit save correctly emits `SavedPulse` through the `onSaved()` hook
 - Exposed `events: Flow<UiEvent>` becomes `_events.receiveAsFlow()`.
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes)
+- Framework API is stable (vmScope open, setState overridable)
 - Full filter panel with Project / Tags / Priority / Status.
 - Future agents reading these skills will not waste time on `koin-annotations-compiler` setup that doesn't exist.
 - Future developers understand which fields are stubbed vs. populated
@@ -211,10 +215,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`).
+- Remaining VMs are either: (a) complex migrations requiring screen API changes, (b) core module changes, or (c) planned for later MRs
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов
 - Room schema unchanged (tables `task_tags` and `task_dependencies` already existed).
 - RuStore / Galaxy Store support requires ~1 day of work when distribution to those stores is planned.
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill)
+- SearchViewModel больше не крашнется при закреплении задачи из поиска
 - Self-loop dependency is rejected at `setDependencies()` call site; cycle detection (A→B→C→A) is deferred.
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed.
 - Settings screen can show specific recovery actions per failure type
@@ -224,6 +230,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Slot-API (`CalendarContent` separate from `CalendarScreen`) enables preview without Koin.
 - StableJson round-trip test verifies no data loss.
 - Stale KDoc references `[OldInterface]` are dangling after inlining — always grep the whole repo and replace with `[CanonicalType]`.
+- StateFlowExt deleted — no deprecated API remaining
+- StateFlowExt deprecated, но не удаляется пока все VM не мигрированы
+- Technical debt: 4 VM с MutableSharedFlow, 1 с TOCTOU
 - Test classes updated: `createVm()` now takes `scope = backgroundScope` via `TestScope.createVm()`
 - Test factories for those VMs use `testScope(backgroundScope)` (or `testScope(this)` in `runTest`).
 - Tests that construct `TaskEntity` directly must include all 6 new nullable parameters
@@ -351,10 +360,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - detekt: 60 warnings (pre-existing, non-blocking) | jvmTest: green.
 - kizitonwose remains available for future exploration if AndroidX/JB compatibility is resolved.
 - ~12 MRs total, ~6–9 weeks.
+- Все VMs на MviViewModel/DraftMviViewModel кроме: BackupVM, SearchVM, TaskDetailVM, SettingsVM, ProjectsVM, ProjectDetailVM, CalendarSyncVM, SyncVM
 - Все ViewModel'ы с `scopeOverride` — консистентны в тестах
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear()
 - Все импорты в 30+ файлах обновлены на новые FQN (`.domain.model`, `.domain.port`, `.domain.usecase`, `.data`, `.presentation.state`, `.presentation.viewmodel`).
 - Для UI-тестов на реальном устройстве: Kaspresso или `contentDescription` + `By.desc()`.
+- Критических багов после MR-7 нет
 - Оставшиеся `androidHostTest`: только `AppNavigatorTest` (nav contract, без Espresso),
 - ✅ Multi-profile isolation
 - ✅ No `SCHEDULE_EXACT_ALARM` permission
@@ -1380,9 +1391,14 @@ _2 entries need attention._
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
 - `2026-09-25-git-hooks-worktree-isolation` — git, hooks, worktree, devx, epic2
 - `2026-09-25-local-mvi-framework` — _untagged_
+- `2026-09-25-mr-6a-audit-findings` — _untagged_
+- `2026-09-25-mr-6b-findings` — _untagged_
+- `2026-09-25-mvi-framework-post-mr-6c` — _untagged_
+- `2026-09-25-mvi-framework-status` — _untagged_
 - `2026-09-25-no-store-library-local-first-pattern` — repository, local-first, sync, architecture
 - `2026-09-25-note-ai-multi-op-design` — _untagged_
 - `2026-09-25-note-templates-daily-design` — _untagged_
+- `2026-09-25-post-mr-7-audit` — _untagged_
 - `2026-09-25-remaining-test-debt` — testing, junit, detekt, epic2
 - `2026-09-25-repository-architecture-gaps` — repository, technical-debt, sync, type-safety
 - `2026-09-25-task-backlinks-design` — _untagged_
@@ -1604,9 +1620,14 @@ _2 entries need attention._
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
 - `2026-09-25-git-hooks-worktree-isolation` — Git Hooks — Worktree Isolation + Shared Hooks Path
 - `2026-09-25-local-mvi-framework` — _(no title)_
+- `2026-09-25-mr-6a-audit-findings` — _(no title)_
+- `2026-09-25-mr-6b-findings` — _(no title)_
+- `2026-09-25-mvi-framework-post-mr-6c` — _(no title)_
+- `2026-09-25-mvi-framework-status` — _(no title)_
 - `2026-09-25-no-store-library-local-first-pattern` — Do not adopt MobileNativeFoundation/Store — local-first repository pattern
 - `2026-09-25-note-ai-multi-op-design` — _(no title)_
 - `2026-09-25-note-templates-daily-design` — _(no title)_
+- `2026-09-25-post-mr-7-audit` — _(no title)_
 - `2026-09-25-remaining-test-debt` — Remaining Test Debt — post JUnit/suite-acceleration audit
 - `2026-09-25-repository-architecture-gaps` — Repository architecture gaps — Tag userId types, dead ConflictResolver.merge, empty-string sentinels
 - `2026-09-25-task-backlinks-design` — _(no title)_
