@@ -104,6 +104,7 @@ junit-vintage-engine = "5.11.4"
 robolectric = "4.17-beta-4"
 roborazzi = "1.74.0"
 kotest-assertions = "5.9.1"
+konsist = "0.17.3"
 
 # Lint / Quality tools
 detekt = "2.0.0-alpha.3"
@@ -222,6 +223,9 @@ functions-kt = { module = "io.github.jan-tennert.supabase:functions-kt", version
 # Utils
 ulid = { module = "com.github.f4b6a3:ulid-creator", version.ref = "ulid" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+
+# Architecture tests (Konsist — source-level structural assertions, runs in :shared:jvmTest)
+konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-testExt" }

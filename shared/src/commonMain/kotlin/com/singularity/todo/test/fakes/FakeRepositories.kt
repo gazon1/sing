@@ -30,9 +30,9 @@ import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewKey
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
-import com.singularity.todo.feature.calendar_sync.data.CalendarAppInfo
-import com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries
+import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
+import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
@@ -1384,10 +1384,10 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
             kind = if (targetDateKey !=
                 null
             ) {
-                    com.singularity.todo.feature.notes.NoteKind.Daily
-                } else {
-                    com.singularity.todo.feature.notes.NoteKind.Plain
-                },
+                com.singularity.todo.feature.notes.NoteKind.Daily
+            } else {
+                com.singularity.todo.feature.notes.NoteKind.Plain
+            },
             color = template.color,
             wordCount = template.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
             charCount = template.bodyMarkdown?.length ?: 0,

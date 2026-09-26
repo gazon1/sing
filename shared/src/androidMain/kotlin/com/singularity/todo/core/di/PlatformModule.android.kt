@@ -207,7 +207,7 @@ actual fun platformModule(): Module = module {
     }
 
     // Calendar app picker — queries PackageManager for installed calendar apps
-    single<com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries> {
+    single<com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries> {
         AndroidCalendarAppQueries(get())
     }
 

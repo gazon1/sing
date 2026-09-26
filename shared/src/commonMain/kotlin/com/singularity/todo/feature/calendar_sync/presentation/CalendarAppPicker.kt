@@ -14,7 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
-import com.singularity.todo.feature.calendar_sync.data.CalendarAppInfo
+import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
 
 /**
  * Calendar app picker — lets the user choose which calendar app to sync to.

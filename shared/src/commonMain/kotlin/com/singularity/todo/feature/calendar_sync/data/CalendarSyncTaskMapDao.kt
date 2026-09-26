@@ -13,8 +13,9 @@ import kotlinx.coroutines.flow.Flow
  * Stores the mapping from a local task ID to its corresponding system-calendar event ID.
  * One row per task. The [calendarId] field stores which Android calendar the event lives in.
  *
- * Used by [CalendarSyncRepositoryImpl] and [SyncDiffMerge] to determine whether a task
- * is already synced and which system event ID to update/delete.
+ * Mapped to [com.singularity.todo.feature.calendar_sync.domain.model.SyncedEventRef] for the
+ * pure [com.singularity.todo.feature.calendar_sync.domain.logic.SyncDiffMerge] diff, which uses it
+ * to determine whether a task is already synced and which system event ID to update/delete.
  */
 @Entity(tableName = "calendar_sync_task_map")
 data class CalendarSyncTaskMapEntity(

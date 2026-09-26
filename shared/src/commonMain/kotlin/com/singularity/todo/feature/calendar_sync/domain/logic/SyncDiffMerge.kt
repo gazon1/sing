@@ -1,16 +1,16 @@
 package com.singularity.todo.feature.calendar_sync.domain.logic
 
-import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
 import com.singularity.todo.feature.calendar_sync.domain.model.SyncPlan
+import com.singularity.todo.feature.calendar_sync.domain.model.SyncedEventRef
 
 /**
- * Pure diff: compares a map of existing (taskId → CalendarSyncTaskMapEntity) against
+ * Pure diff: compares a map of existing (taskId → SyncedEventRef) against
  * the current desired state (List<CalendarSyncEvent>) and produces a list of [SyncPlan] operations.
  *
  * One-way merge: Task → system calendar only. No reverse sync.
  *
- * @param existingMap Map of taskId.value → [CalendarSyncTaskMapEntity] (includes eventId, calendarId, checksum).
+ * @param existingMap Map of taskId.value → [SyncedEventRef] (includes eventId, calendarId, checksum).
  *                    Entries without a system event ID are treated as "not synced yet".
  * @param desiredEvents The events we want reflected in the system calendar.
  */
@@ -29,10 +29,7 @@ object SyncDiffMerge {
      *    - Has eventId → Delete
      *    - No eventId → NoOp (already absent)
      */
-    fun diff(
-        existingMap: Map<String, CalendarSyncTaskMapEntity>,
-        desiredEvents: List<CalendarSyncEvent>,
-    ): List<SyncPlan> {
+    fun diff(existingMap: Map<String, SyncedEventRef>, desiredEvents: List<CalendarSyncEvent>): List<SyncPlan> {
         val ops = mutableListOf<SyncPlan>()
         val seenTaskIds = mutableSetOf<String>()
 

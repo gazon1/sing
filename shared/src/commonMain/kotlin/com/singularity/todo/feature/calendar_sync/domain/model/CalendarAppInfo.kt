@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.calendar_sync.data
+package com.singularity.todo.feature.calendar_sync.domain.model
 
 /**
  * Represents a calendar app that can receive event intents.

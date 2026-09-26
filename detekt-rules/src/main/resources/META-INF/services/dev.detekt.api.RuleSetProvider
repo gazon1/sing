@@ -2,7 +2,10 @@ com.singularity.todo.detekt.NoRunBlockingProvider
 com.singularity.todo.detekt.NoViewModelScopeInProductionProvider
 com.singularity.todo.detekt.NoRealDelayInTestRuleProvider
 com.singularity.todo.detekt.MviViewModelRulesProvider
+com.singularity.todo.detekt.NoFactoryViewModelProvider
 com.singularity.todo.detekt.NoStateInRuleProvider
+com.singularity.todo.detekt.NoCombineSideEffectRuleProvider
+com.singularity.todo.detekt.NoGlobalScopeLaunchRuleProvider
 com.singularity.todo.detekt.NoStaticProfileAwareCurrentUserProvider
 com.singularity.todo.detekt.PassThroughUseCaseProvider
 com.singularity.todo.detekt.KDocEnforcementRulesProvider

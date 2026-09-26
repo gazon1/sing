@@ -4,9 +4,9 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.feature.calendar_sync.data.CalendarAppInfo
-import com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries
+import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
+import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
@@ -66,9 +66,9 @@ class CalendarSyncViewModel(
     private val orchestrator: CalendarSyncOrchestrator,
     scope: AutoCloseableCoroutineScope,
 ) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
-    initialState = CalendarSyncUiState(),
-    scope = scope,
-) {
+        initialState = CalendarSyncUiState(),
+        scope = scope,
+    ) {
     // MviViewModel handles addCloseable(scope) — no manual call needed
 
     override val vmScope = scope
