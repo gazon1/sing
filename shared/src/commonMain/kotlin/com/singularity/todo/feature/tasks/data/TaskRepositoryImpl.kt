@@ -194,6 +194,10 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun update(item: Task): Result<Task> = runCatching {
+        // Read-before-write guard: reject updates to non-existent entities.
+        // Prevents silent data loss from upsert-on-missing.
+        taskDao.getById(item.id.value)
+            ?: throw IllegalArgumentException("Task not found: ${item.id.value}")
         taskDao.upsert(item.toEntity())
         saveOutgoingLinks(item.id, item.description)
         syncRepository.enqueue(item)

@@ -64,6 +64,7 @@ class BackupViewModel(
         get() = AuthDomain.effectiveUserId(authRepository.currentSession.value)
 
     init {
+        addCloseable(scope)
         scope.launch {
             repository.observeAll().collect { backups ->
                 _state.update { it.copy(backups = backups) }

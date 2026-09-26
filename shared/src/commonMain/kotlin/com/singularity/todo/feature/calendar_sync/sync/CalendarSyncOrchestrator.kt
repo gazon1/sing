@@ -45,10 +45,11 @@ class CalendarSyncOrchestrator(
 ) {
 
     /**
-     * Incoming trigger channel. Unbounded so callers never block.
-     * Collected by [start].
+     * Incoming trigger channel. CONFLATED: callers never block and only the
+     * strongest pending trigger survives a paused consumer (bounded memory —
+     * see 2026-09-23-tech-debt-audit item 7). Collected by [start].
      */
-    private val channel = Channel<SyncSource>(Channel.UNLIMITED)
+    private val channel = Channel<SyncSource>(Channel.CONFLATED)
 
     /**
      * The strongest pending source accumulated since the last handoff.

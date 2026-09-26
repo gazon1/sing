@@ -68,6 +68,7 @@ class SettingsViewModel(
     val state: StateFlow<SettingsUiState> get() = _state
 
     init {
+        addCloseable(scope)
         // Seed state with all defaults immediately (before any flow emits).
         _state.value = SettingsUiState.Content(
             appearance = appearanceFlow.value,

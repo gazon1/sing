@@ -111,9 +111,9 @@ class TaskDetailViewModelTest {
             debounceMs = 300L,
         )
         val vm = TaskDetailViewModel(deps = deps, taskId = taskId, scope = testScope(scope))
-        // Activate the stateIn chain (WhileSubscribed requires an initial subscriber).
-        // Use launchIn so the upstream starts immediately in tests without waiting
-        // for the 5-second WhileSubscribed timeout.
+        // Keep a subscriber so the VM's state flow behaves identically with and
+        // without UI attached (MviViewModel uses a plain MutableStateFlow; the
+        // subscriber is a no-op safety net for assertions).
         vm.state.launchIn(scope)
         return vm
     }
@@ -148,7 +148,7 @@ class TaskDetailViewModelTest {
     fun `TitleChanged debounce saves after delay`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100) // Let initial subscription establish (stateIn WhileSubscribed(5000) needs real time)
+        delay(100) // Allow FakeProfileAwareCurrentUser's Default-dispatcher collectors to settle
 
         vm.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited title"))
         delay(400) // debounce(300ms) needs real time
@@ -163,7 +163,7 @@ class TaskDetailViewModelTest {
     fun `ToggleComplete sets completedAt in repository`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100) // Allow subscription to establish before acting (stateIn WhileSubscribed(5000))
+        delay(100) // Allow initial collectors to settle before acting
         assertNull(fakeTaskRepo.tasks.value["t1"]?.completedAt)
 
         vm.onIntent(TaskDetailIntent.Domain.ToggleComplete)
