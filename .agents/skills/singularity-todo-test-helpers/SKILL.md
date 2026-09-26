@@ -480,3 +480,21 @@ This is needed because `runTest` is experimental in older coroutines versions, a
 - `singularity-todo-vm-intent-pattern` — sealed Intent + onIntent pattern
 - `singularity-todo-feature-scaffold` — canonical 7-file feature template with test patterns
 - `docs/decisions/2026-09-23-test-standards-enforcement.md` — full ADR documenting all v3 findings
+
+
+## VM scope wiring in tests (coroutines 1.11 semantics)
+
+`backgroundScope` coroutines do NOT execute under `advanceUntilIdle()`/`runCurrent()` —
+they execute only while the test body is suspended (`delay`) or when virtual time
+advances (`advanceTimeBy`). `advanceTimeBy` also skips tasks scheduled exactly at the
+current instant — follow it with `runCurrent()`. Pick wiring by VM type:
+
+| VM launches | Scope wiring | Pump |
+|---|---|---|
+| Completing work only | `AutoCloseableCoroutineScope(scope.coroutineContext)` — direct, no child Job | `advanceUntilIdle()` |
+| Infinite collectors | `AutoCloseableCoroutineScope(backgroundScope.coroutineContext)` — direct background child | `advanceTimeBy(N); runCurrent()` after each intent |
+| Infinite collectors + per-test teardown | child-Job `testScope(scope)` + explicit `vmScope.job?.cancel()` | `advanceTimeBy(N); runCurrent()` |
+
+Never wrap with `testScope(this)` for completing-only VMs: the wrapper's child Job
+never completes and fails the test body with `UncompletedCoroutinesError`
+(SavedAgendaViewModelTest root cause, fixed 2026-09-26).

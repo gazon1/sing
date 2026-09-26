@@ -299,3 +299,10 @@ Rules are instantiated once and reused across many files. Do not store mutable s
 
 - `singularity-todo-quality-tools` — how to run detekt, auto-fix, and generate baselines
 - `docs/decisions/2026-09-25-detekt-test-rules.md` — ADR for the first two test rules
+
+### Gradle daemon caches detekt plugin classloaders
+
+After editing a rule, a live Gradle daemon may keep executing the OLD rule classes —
+detekt reports stale findings and debug code never runs. Always run
+`./gradlew --stop` (or `--no-daemon`) after rebuilding `detekt-rules`, then rerun.
+Symptom: jar contains new logic (verify with `strings`), report unchanged.

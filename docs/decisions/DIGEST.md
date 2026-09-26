@@ -1415,6 +1415,7 @@ _2 entries need attention._
 - `2026-09-25-test-suite-tag-defaults` — testing, junit, gradle, detekt
 - `2026-09-25-testable-vm-dispatcher-clock` — testing, coroutines, viewmodel, koin, di
 - `2026-09-26-draft-mvi-bugfixes` — _untagged_
+- `2026-09-26-epic2-retro-findings` — retro, tech-debt, epic2, detekt, testing
 - `2026-09-26-epic2-roadmap` — tech-debt, roadmap, epic2, testing, vm
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
 - `2026-09-26-preflight-quick-wins` — tech-debt, detekt, sync, auth, preflight
@@ -1647,6 +1648,7 @@ _2 entries need attention._
 - `2026-09-25-test-suite-tag-defaults` — Test suite tag defaults and Khorikov testing principles
 - `2026-09-25-testable-vm-dispatcher-clock` — Testable VMs — CoroutineDispatcher injection, Clock in DI, RecordingHttpClient
 - `2026-09-26-draft-mvi-bugfixes` — _(no title)_
+- `2026-09-26-epic2-retro-findings` — Epic 2 retro findings — architecture phase retrospective
 - `2026-09-26-epic2-roadmap` — Epic 2 roadmap — architecture phase of the tech-debt sprint
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
 - `2026-09-26-preflight-quick-wins` — Pre-flight Quick Wins — techdebt roadmap phase 0
