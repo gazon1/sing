@@ -106,6 +106,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                 .debounce(autosaveDebounceMs.milliseconds)
                 .collect { current ->
                     runCatching { autosave(current) }
+                        .onSuccess { onAutosaved(current) }
                         .onFailure { onAutosaveError(it) }
                 }
         }
@@ -175,6 +176,13 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     protected open fun onAutosaveError(e: Throwable) {
         logger.e(e) { "autosave failed: ${e.toMessage()}" }
     }
+
+    /**
+     * Called after a successful autosave. [baseline] is intentionally NOT advanced:
+     * [discard] must keep reverting to the last opened state. Override to clear
+     * draft-local dirty/new flags (e.g. NoteEditor's `Editing.isDirty` field).
+     */
+    protected open fun onAutosaved(current: D) {}
 
     /**
      * Explicit save: validates, persists, clears draft storage, calls [onSaved].

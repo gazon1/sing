@@ -123,8 +123,13 @@ class SyncViewModel(
 
     private fun syncNow() {
         vmScope.launch {
+            // Debounce BEFORE acquiring the mutex: a second SyncNow dispatched while
+            // the first sync is suspended must return immediately. Checking only inside
+            // the lock is too late — by the time the second call acquires the mutex,
+            // the first has already cleared isLoading in its finally block.
+            if (currentState.isLoading || currentState.status.isRunning()) return@launch
             syncMutex.withLock {
-                // Debounce: ignore if already syncing
+                // Re-check under the lock to guard against concurrent acquisition.
                 if (currentState.isLoading || currentState.status.isRunning()) return@launch
                 updateState { it.copy(isLoading = true, errorMessage = null, connectionTestResult = null) }
                 try {

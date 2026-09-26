@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.agenda
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
@@ -21,8 +21,8 @@ import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,13 +37,13 @@ import kotlin.time.Instant
  * Unit tests for [SavedAgendaViewModel].
  *
  * Pattern (simple by design):
- * - Test passes `backgroundScope` to VM's 4-arg constructor as its [CoroutineScope].
+ * - VM scope wraps the TestScope context directly (AutoCloseableCoroutineScope(scope.coroutineContext)) —
+ *   no child Job wrapper: the VM's init coroutine completes on its own, so nothing hangs.
  * - VM uses a plain [MutableStateFlow] for state — read `.state.value` directly.
  * - [SavedAgendaDraftState] is tested as a pure class.
  *
  * No `combine`, no `stateIn`, no Turbine, no `expectMostRecentItem`.
  */
-@Tag("slow")
 @OptIn(ExperimentalCoroutinesApi::class)
 class SavedAgendaViewModelTest {
 
@@ -54,7 +54,7 @@ class SavedAgendaViewModelTest {
         deps = SavedAgendaDeps(repo = fakeRepo, clock = Clock, log = Logger),
         mode = mode,
         seedStore = seedStore,
-        scope = testScope(scope),
+        scope = AutoCloseableCoroutineScope(scope.coroutineContext),
     )
 
     @AfterTest

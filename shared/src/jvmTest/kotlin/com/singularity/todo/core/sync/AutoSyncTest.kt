@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -13,7 +12,6 @@ import kotlin.test.assertTrue
 /**
  * Tests for [AutoSync] trigger fan-out logic.
  */
-@Tag("slow")
 class AutoSyncTest {
 
     private fun fakePrefs(): FakeSyncPrefs = FakeSyncPrefs()
@@ -22,7 +20,7 @@ class AutoSyncTest {
 
     @Test
     fun `trigger ignores when autoSyncEnabled is false`() = runTest {
-        val prefs = fakePrefs().also { runTest { it.setAutoSyncEnabled(false) } }
+        val prefs = fakePrefs().also { it.setAutoSyncEnabled(false) }
         val repo = FakeSyncRepository()
         val underTest = autoSync(prefs, repo, this)
 
@@ -35,10 +33,8 @@ class AutoSyncTest {
     @Test
     fun `trigger ignores when trigger is not in enabledTriggers`() = runTest {
         val prefs = fakePrefs().also {
-            runTest {
-                it.setAutoSyncEnabled(true)
-                it.setEnabledTriggers(emptySet())
-            }
+            it.setAutoSyncEnabled(true)
+            it.setEnabledTriggers(emptySet())
         }
         val repo = FakeSyncRepository()
         val underTest = autoSync(prefs, repo, this)
@@ -52,10 +48,8 @@ class AutoSyncTest {
     @Test
     fun `trigger fires syncOnce when enabled and trigger is allowed`() = runTest {
         val prefs = fakePrefs().also {
-            runTest {
-                it.setAutoSyncEnabled(true)
-                it.setEnabledTriggers(setOf(SyncTrigger.Created, SyncTrigger.Scheduled))
-            }
+            it.setAutoSyncEnabled(true)
+            it.setEnabledTriggers(setOf(SyncTrigger.Created, SyncTrigger.Scheduled))
         }
         val repo = FakeSyncRepository()
         val underTest = autoSync(prefs, repo, this)
@@ -69,10 +63,8 @@ class AutoSyncTest {
     @Test
     fun `trigger respects per-trigger toggles`() = runTest {
         val prefs = fakePrefs().also {
-            runTest {
-                it.setAutoSyncEnabled(true)
-                it.setEnabledTriggers(setOf(SyncTrigger.AppResumed, SyncTrigger.AppSuspended))
-            }
+            it.setAutoSyncEnabled(true)
+            it.setEnabledTriggers(setOf(SyncTrigger.AppResumed, SyncTrigger.AppSuspended))
         }
         val repo = FakeSyncRepository()
         val underTest = autoSync(prefs, repo, this)

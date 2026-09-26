@@ -1,11 +1,10 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.ids.UserId
-import org.junit.jupiter.api.Tag
+import com.singularity.todo.core.version.appVersion
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-@Tag("slow")
 class BackupOptionsTest {
 
     @Test
@@ -23,13 +22,13 @@ class BackupOptionsTest {
     }
 
     @Test
-    fun `exportOptions defaults includeAttachments to true`() {
+    fun `exportOptions defaults includeAttachments and appVersion from runtime`() {
         val opts = exportOptions {
             userId = UserId.anonymous
             destPath = "/tmp/backup.zip"
         }
         assertEquals(true, opts.includeAttachments)
-        assertEquals("0.0.11", opts.appVersion)
+        assertEquals(appVersion().name, opts.appVersion)
     }
 
     @Test

@@ -1,10 +1,8 @@
 package com.singularity.todo.core.sync
 
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -22,7 +20,6 @@ import kotlin.test.assertIs
  *
  * We test the core behavior using FakeSyncRepository directly.
  */
-@Tag("slow")
 class SyncRepositoryCoalescingTest {
 
     private fun createRepo(): FakeSyncRepository = FakeSyncRepository()
@@ -45,11 +42,11 @@ class SyncRepositoryCoalescingTest {
     fun `syncOnce while status is Running returns Skipped`() = runTest {
         val repo = FakeSyncRepository().apply { syncOnceYields = true }
 
-        // Launch first call — it suspends 10 ms with status = Pushing
+        // Launch first call — it suspends in delay(1) with status = Pushing.
+        // runCurrent() starts it but must NOT flush the delay: the whole point is
+        // to freeze the first call mid-flight while the second call observes Pushing.
         val firstCall = launch { repo.syncOnce() }
-        // Advance virtual time so the first call starts and sets status = Pushing
         runCurrent()
-        advanceUntilIdle()
 
         // Second call while status is Pushing → should return Skipped immediately
         val secondOutcome = repo.syncOnce()
@@ -66,12 +63,13 @@ class SyncRepositoryCoalescingTest {
     fun `concurrent syncOnce calls — second coalesced, callCount is 1`() = runTest {
         val repo = FakeSyncRepository().apply { syncOnceYields = true }
 
-        // Fire two syncOnce() calls concurrently
+        // Fire two syncOnce() calls concurrently.
+        // runCurrent() starts the first call and freezes it in delay(1) with
+        // status = Pushing, so the second call hits the coalescing guard.
         val first = launch { repo.syncOnce() }
-        // Advance to let the first call start and set status = Pushing
         runCurrent()
-        advanceUntilIdle()
         val second = launch { repo.syncOnce() }
+        runCurrent()
 
         first.join()
         second.join()

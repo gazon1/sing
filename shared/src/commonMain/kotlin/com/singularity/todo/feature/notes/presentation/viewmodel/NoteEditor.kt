@@ -115,8 +115,12 @@ class NoteEditor(
                 isDirty = false,
                 isNew = false,
             )
-            updateDraft { draft }
+            // open() FIRST: it advances baseline to the opened note. Calling
+            // updateDraft first would make open() a no-op (sameEntity early-return),
+            // leaving baseline at the empty initial draft — closeEditor (discard)
+            // would then revert to an empty editor instead of the opened note.
             open(draft)
+            updateDraft { draft }
         }
     }
 
@@ -131,8 +135,8 @@ class NoteEditor(
             isDirty = false,
             isNew = true,
         )
-        updateDraft { draft }
         open(draft)
+        updateDraft { draft }
         return id.value
     }
 
@@ -143,6 +147,9 @@ class NoteEditor(
     override fun validate(draft: Editing): String? = null
 
     override suspend fun onSaved() {
+        // Explicit save persists the note: it is no longer "new" — a subsequent
+        // save must go through update, not create.
+        updateDraft { it.copy(isNew = false) }
         emit(NotesUiEvent.SavedPulse)
     }
 
@@ -158,6 +165,14 @@ class NoteEditor(
     override fun onAutosaveError(e: Throwable) {
         log.e(e) { "autosave failed: ${e.message}" }
         vmScope.launch { emit(NotesUiEvent.SaveFailed(e.message ?: "Autosave failed")) }
+    }
+
+    override fun onAutosaved(current: Editing) {
+        // The autosaved content is persisted: clear the draft-local dirty flag
+        // (mirroring the derived DraftUiState.isDirty which the base clears via
+        // baseline) and the isNew flag — the note now exists in the repo, so a
+        // subsequent save is an update, not a create.
+        updateDraft { it.copy(isDirty = false, isNew = false) }
     }
 
     override fun onIntent(intent: NotesEditorIntent) {
