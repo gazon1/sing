@@ -133,6 +133,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - AGENTS.md remains unchanged — its inline `adb`/`sqlite3` commands are still valid escape hatches.
 - AI actions do **not** appear in `TaskEditorMenuBuilder` menu — they remain accessible only from `TaskAiBottomSheet` (accessed via FAB icon on `TaskDetail`).
 - AI tools (11 Koog `SimpleTool` implementations) drop `currentUser` from
+- After PR-0.3 KDoc batch, regenerate baselines with `./gradlew :shared:detektBaseline :desktopApp:detektBaseline` to capture the cleaner state.
 - Agenda always shows correct bucket labels across midnight.
 - All 13 migrated VMs are now testable with `backgroundScope` injection
 - All 593 existing tests continue to pass.
@@ -164,6 +165,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Deadline indicator rendering in `UpcomingBadges`.
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed.
 - Detekt `ParameterNaming` rule suppressed in two places (`TagsRepository.kt:54,59`) because `create(item: Tag)` vs `create(item: E)` parameter naming follows the domain convention — not a bug.
+- Developers must run `just detekt-fix` before committing new code to auto-fix style violations.
 - Developers should prefer `kotlinx.datetime.Instant` in new code.
 - Domain models gain `serverVersion` and `hlc` fields — existing call sites unaffected (defaults)
 - Domain/repo/data layers are fully isolated.
@@ -235,6 +237,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
 - The default `viewModelScope` is still created by the ViewModel but is unused in Tier-1 VMs (negligible memory cost: one empty `SupervisorJob`).
 - The four layers of the OTA strategy (gate, in-app update, flags, GenUI) are production-ready for Google Play distribution.
+- The ~930 baseline violations are **technical debt**. A dedicated cleanup campaign (PR-0.3 or follow-up) should address the top categories: FunctionNaming, BackingPropertyNaming, LongMethod, PackageNaming.
 - The ⟳ icon on calendar task chips will now work once MR-3b (Click-to-create)
 - Theme switching now correctly recomposes the calendar palette
 - Throttling prevents SQLite spam from polling.
@@ -250,6 +253,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Week navigation via swipe on `DaySwitcherRow`.
 - Week-start locale handling is isolated and can be made configurable later.
 - When converting a strategy class (`BackupFileNamer`-like), prefer `class(c: (T) -> R)` lambda strategy over `open class`. Composition beats inheritance for testability.
+- `./check.sh` will fail if a PR introduces a **new** detekt violation (not in baseline) in shared or desktopApp.
 - `AgendaViewModel` and `ChatViewModel` excluded — use `combine + stateIn(WhileSubscribed)` pattern already validated; detekt skip by name
 - `AgendaViewModel` binding is unchanged — does not consume saved views.
 - `AiSettingsContributor` remains as the sole `SettingsContributor` implementation — used only for AI test/fetch ephemeral state.
@@ -575,13 +579,16 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging.
 - **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. **TODO: tracked in issue tracker — promote after baselines are clean (est. post-format PR).**
 - **detekt 2.0.0-alpha.3 vs Kotlin 2.3.21**: this version was chosen because stable 1.23.8 was compiled against Kotlin 2.0.21 and throws "detekt was compiled with Kotlin 2.0.21 but is currently running with 2.3.21". Upgrade to stable 2.x once released.
+- All 7 custom rule sets now produce findings when violations exist
 - Both rules are in **warning mode** — they do not fail the build
 - Promotion to error: after baseline is reduced in a follow-up PR
 - `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline`
 - `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport`
 - `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline`
 - `:shared:koverXmlReport` / `:shared:koverHtmlReport`
+- `NoCombineSideEffectRule` and `NoGlobalScopeLaunchRule` are removed — if needed later, they must be rewritten with tests and proper registration
 - `NoRealDelayInTestRule` fires on all 44 pre-existing `delay(N>1)` occurrences
+- `NoRunBlocking`, `NoViewModelScopeInProduction`, `NoStateIn`, `NoStaticProfileAwareCurrentUser`, `PassThroughUseCase` are active in `shared` and `desktopApp` modules
 - `NoViewModelScopeInProductionRule` fires on 7 pre-existing `viewModelScope.launch` occurrences
 
 ### `di`
@@ -1383,12 +1390,15 @@ _2 entries need attention._
 - `2026-09-25-repository-architecture-gaps` — repository, technical-debt, sync, type-safety
 - `2026-09-25-task-backlinks-design` — _untagged_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
+- `2026-09-25-test-flaky-root-causes` — _untagged_
 - `2026-09-25-test-helper-stack` — testing, quality, kotlin, junit5
 - `2026-09-25-test-jvm-heap-default` — testing, gradle, kover, heap, koog
 - `2026-09-25-test-parallelization` — testing, junit, jupiter, parallel, epic2
 - `2026-09-25-test-standards-comprehensive` — testing, junit, jupiter, epic2
 - `2026-09-25-test-suite-tag-defaults` — testing, junit, gradle, detekt
 - `2026-09-25-testable-vm-dispatcher-clock` — testing, coroutines, viewmodel, koin, di
+- `2026-09-26-detekt-baseline-established` — _untagged_
+- `2026-09-26-detekt-rules-activation-audit` — detekt, quality, kotlin
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
 
 ## Active entries
@@ -1605,11 +1615,14 @@ _2 entries need attention._
 - `2026-09-25-repository-architecture-gaps` — Repository architecture gaps — Tag userId types, dead ConflictResolver.merge, empty-string sentinels
 - `2026-09-25-task-backlinks-design` — _(no title)_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _(no title)_
+- `2026-09-25-test-flaky-root-causes` — _(no title)_
 - `2026-09-25-test-helper-stack` — Test helper stack — kotest assertions, @ParameterizedTest, hand-rolled fakes
 - `2026-09-25-test-jvm-heap-default` — OOM in TaskOutgoingLinksTest — Kover instrumentation + Koog-heavy classpath
 - `2026-09-25-test-parallelization` — Test Parallelization — Jupiter Concurrency + Thread Safety
 - `2026-09-25-test-standards-comprehensive` — Test Standards Comprehensive — JUnit Jupiter, Virtual Time, Fast/Slow Split
 - `2026-09-25-test-suite-tag-defaults` — Test suite tag defaults and Khorikov testing principles
 - `2026-09-25-testable-vm-dispatcher-clock` — Testable VMs — CoroutineDispatcher injection, Clock in DI, RecordingHttpClient
+- `2026-09-26-detekt-baseline-established` — _(no title)_
+- `2026-09-26-detekt-rules-activation-audit` — Detekt custom rules — activate unregistered rule sets and clean up orphan rules
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
 
