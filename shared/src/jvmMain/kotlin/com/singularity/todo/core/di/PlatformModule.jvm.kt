@@ -88,13 +88,9 @@ actual fun platformModule(): Module = module {
 
     // One-shot migration: v0 flat-key settings → v1 split + namespaced.
     // Idempotent: skips if state.preferences_pb already has settings_schema_version.
-<<<<<<< HEAD
     koinBridge {
         SettingsDataStoreMigration(settingsLegacyDs, userSettingsDs, stateDs).run()
     }
-=======
-    koinBridge { SettingsDataStoreMigration(settingsLegacyDs, userSettingsDs, stateDs).run() }
->>>>>>> 3c08f497 (chore(preflight): quick wins — activate detekt rules, koinBridge refactor, dead code, clock injection)
 
     // Named DataStore bindings — used by SettingsRepository and migration.
     single(qualifier = named("user_settings")) { userSettingsDs }
