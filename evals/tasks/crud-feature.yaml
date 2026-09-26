@@ -1,0 +1,26 @@
+name: crud-feature
+description: Scaffold a new CRUD feature following the canonical 7-file pattern.
+
+task: |
+  Add a new feature `Checklist` to the project.
+  A checklist is a flat list of items attached to a task.
+
+  Create these files following the canonical pattern:
+  - `Ids.kt` — `ChecklistItemId` @JvmInline value class
+  - `ChecklistDomain.kt` — `ChecklistItem` domain model, `CreateChecklistItemInput` validation
+  - `ChecklistRepository.kt` — interface with `create(item)`, `delete(id)`, `observeByTask(taskId)`, `update(item)`
+  - `ChecklistRepositoryImpl.kt` — Room implementation
+  - `ChecklistUseCase.kt` — `CreateChecklistItemUseCase` (validation + build), `DeleteChecklistItemUseCase`
+  - `ChecklistViewModel.kt` — `ChecklistUiState` (Loading, Content, Error), `ChecklistIntent` (AddItem, DeleteItem), extends MviViewModel
+  - `ChecklistScreen.kt` — Compose UI
+
+constraints:
+  - Use the flat layout (all files in `feature/checklist/`)
+  - Repository returns `Result<ChecklistItem>`, not `Result<Unit>`
+  - ViewModel uses `scope.launch { }` with injected scope
+  - All IDs are `@JvmInline value class` wrappers over String
+
+expected:
+  - 7 files created in `feature/checklist/`
+  - DI registration in `Modules.kt` using `factory { }` for use cases
+  - No `runBlocking` in production code

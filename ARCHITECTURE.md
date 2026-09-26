@@ -467,6 +467,7 @@ when (val result = repo.create(task)) {
 | R11 | `require { throw }` bug исправлен | CreateProjectUseCase |
 | R12 | Custom detekt rule `PassThroughUseCase` | `ChecklistUseCase.kt` |
 | R16 | FakeReminderRepository централизован | `commonMain/test/fakes/FakeRepositories.kt` |
+| R23 | GenUI subsystem ADR | `feature/genui/` — catalog, parser, render, schema |
 
 ### ❌ Отменено
 
@@ -481,14 +482,15 @@ when (val result = repo.create(task)) {
 |---|---|---|
 | R21 | Notes Clean Architecture | domain/data/presentation split для `feature/notes` |
 | R22 | Agenda Clean Architecture | domain/data/presentation split для `feature/agenda` |
-| R23 | GenUI subsystem ADR | `feature/genui/` — catalog, parser, render, schema |
-| R24 | Profile subsystem ADR | `ProfileAwareCurrentUser` refactor (блокирует VM testability) |
-| R25 | Nav3 type asymmetry | `rememberInMemoryNavBackStack` returns `NavBackStack<T>` — open ADR |
+| R21 | Notes Clean Architecture | domain/data/presentation split — deferred |
+| R22 | Agenda Clean Architecture | domain/data/presentation split — deferred |
+| R24 | Profile subsystem ADR | `ProfileAwareCurrentUser` refactor — deferred |
+| R25 | Nav3 type asymmetry | `rememberInMemoryNavBackStack` — deferred |
 | R26 | Instant migration | `kotlin.time.Instant` → `kotlinx.datetime.Instant` — deferred |
-| R27 | Collapsed UiState variants | Loading/Empty payload → data class |
-| R28 | Generic `ListViewModel<T,F>` | 3 похожих VM → базовый класс |
-| R29 | SettingsSnapshot | 19 DataStore-полей → typed data class |
-| R30 | Snapshot testing deferred | Roborazzi отложен, ADR зафиксирован |
+| R27 | Collapsed UiState variants | `Loading/Empty` payload → data class — deferred |
+| R28 | Generic `ListViewModel<T,F>` | 3 похожих VM → базовый класс — deferred |
+| R29 | SettingsSnapshot | 19 DataStore-полей → typed data class — deferred |
+| R30 | Snapshot testing | Roborazzi отложен — deferred |
 
 ---
 
