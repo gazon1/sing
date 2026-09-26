@@ -48,6 +48,8 @@ class PlatformPragmasTest {
         val first = PlatformPragmas.Commands
         val second = PlatformPragmas.Commands
         assertEquals(first, second)
-        assertTrue(first.contains("journal_mode"))
+        // List.contains(x) checks element equality — the elements are full PRAGMA
+        // statements, so substring presence needs any { } instead.
+        assertTrue(first.any { it.contains("journal_mode") })
     }
 }

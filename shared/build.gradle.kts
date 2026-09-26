@@ -238,6 +238,9 @@ kotlin {
             implementation(libs.androidx.sqlite.bundled)
             implementation(libs.androidx.room3.testing)
             implementation(libs.koin.test)
+            // Architecture boundary tests (ArchitectureTest) — structural assertions
+            // over commonMain sources, enforced as part of the regular test run.
+            implementation(libs.konsist)
         }
 
         getByName("androidHostTest").dependencies {
@@ -299,6 +302,13 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // Apply heap directly to the jvmTest fork — the global configureEach above
     // also sets this, but being explicit avoids ordering ambiguity.
     maxHeapSize = "3g"
+    // Absolute path to commonMain sources for ArchitectureTest (Konsist scope).
+    // Passed as a system property instead of relying on the test JVM working dir,
+    // which is not guaranteed to be the project directory.
+    systemProperty(
+        "commonMain.root",
+        layout.projectDirectory.dir("src/commonMain/kotlin").asFile.absolutePath,
+    )
 }
 
 dependencies {

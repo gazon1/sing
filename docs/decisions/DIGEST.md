@@ -7,7 +7,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Always** keep the auto-fill rule in `OpenAiConfig.resolveBaseUrl(storedUrl, provider)` only. The UI delegates to it — changing both is a bug. _(from `2026-09-05-llm-provider-settings`)_
 - `AiTestResult` is part of `SettingsUiState.Content.aiTestResult` with default `Idle`. **Never** make it a `UiEvent`. _(from `2026-09-05-llm-provider-settings`)_
 - `FakeTextGen` is parametrised: `(success, failureMessage, trackGenerateCalls)`. **Always** use `trackGenerateCalls = true` in VM tests that assert the no-key short-circuit. _(from `2026-09-05-llm-provider-settings`)_
+- **Always** extend `LAYER_ALLOWLIST` in `ArchitectureTest` together with a debt entry _(from `2026-09-26-konsist-architecture-tests`)_
 - **Always** keep `Selector` a pure predicate; badge/transform logic belongs to `SelectorTransformer` attached to `AgendaDefinition`, not embedded in evaluator. _(from `2026-09-17-orgmode-architectural-lessons`)_
+- **Always** keep new Koog imports inside the five sanctioned packages. _(from `2026-09-26-konsist-architecture-tests`)_
 - **Always** make new sealed hierarchies for DSL predicates (filter, selector, transformer, predicate) simultaneously `@Serializable` AND pure predicate — no parallel DTOs. _(from `2026-09-17-orgmode-functional-patterns`)_
 - **Always** return empty collection (not `Result.Left(Empty)`) for no-match cases in pure-domain pipelines like `AgendaEvaluator`. `Result.Left` is reserved for validation/business-rule failures only. _(from `2026-09-17-orgmode-functional-patterns`)_
 - **Always** route derived predicates (`isOverdue`, `isReady`, `isBlocked`) through `feature/tasks/domain/logic/Computed.kt`. Never duplicate inline in `AgendaEvaluator`, `Selector`, or `TaskDomain.matchesFilter`. _(from `2026-09-17-orgmode-architectural-lessons`)_
@@ -15,6 +17,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Always** use `core/tree/Cascade.kt` `cascadeUp` for inheritance queries; never walk ancestors ad-hoc with `find { it.parentId == ... }` chains. _(from `2026-09-17-orgmode-architectural-lessons`)_
 - **Always** use `core/tree/TreeVisitor.kt` `traverseDepthFirst` for recursive tree operations; never write recursive `.filter { … }.map { … }` chains. _(from `2026-09-17-orgmode-architectural-lessons`)_
 - **Always** use `data class.copy()` for Task/Project/Tag/AgendaDefinition mutations in pure-domain code — never add setters. Mutations go through `TaskRepository.update(...)`. _(from `2026-09-17-orgmode-functional-patterns`)_
+- **Never** add `*Blocking` methods to `*Repository` interfaces. _(from `2026-09-26-konsist-architecture-tests`)_
+- **Never** import `*RepositoryImpl` outside `core/di` — DI composition root only. _(from `2026-09-26-konsist-architecture-tests`)_
 - **Never** introduce `Map<String, Any>` plist-style containers in Kotlin domain code — use `data class` instead. _(from `2026-09-17-orgmode-functional-patterns`)_
 - **Never** migrate to plain-text file storage for tasks. Room remains the source of truth; markdown export (if added later) is a read-only projection. _(from `2026-09-17-orgmode-architectural-lessons`)_
 - **Never** relax `assertNoNesting` without a separate ADR. N-level outline requires Room `AutoMigration` (skill `singularity-todo-room-migration`). _(from `2026-09-17-orgmode-architectural-lessons`)_
@@ -455,7 +459,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **−100% UDF violations** in this category — the rule is now written and enforced via skill.
 - 4 new files: `AccountSettingsViewModel.kt`, `TagPickerViewModel.kt`, plus DI registrations.
 - 6 modified files: `ProjectDetailViewModel.kt`, `ProjectDetailScreen.kt`, `ProjectPickerSheet.kt`, `AccountSettingsScreen.kt`, `SettingsScreen.kt`, `Modules.kt`.
+- Boundary checks are now the first **hard** CI gate; detekt remains report-only until
 - Consistent API across all shared components
+- Debt: `calendar_sync` package name contains an underscore — every new file there adds
+- Debt: `feature/profile/ProfileRepositoryImpl.kt` and `feature/search/InternalLinkRepositoryImpl.kt`
 - Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`.
 - Each pure-infrastructure module ships with at least one `commonTest` covering empty list, single element, deep nesting, and cycle detection. _(from `2026-09-17-orgmode-architectural-lessons`)_
 - Easier to extend cards and editors without breaking call sites
@@ -467,6 +474,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Preview functions in `TaskDetailViewScreen` updated to pass `emptyFlow()` for `recentlyDeleted`.
 - Previews that don't use Koin continue to work since `searchNotesForLink`/`searchTasksForLink` are nullable.
 - Previews updated: `AccountSettingsScreenLightPreview` / `DarkPreview` now construct `AccountSettingsViewModel(FakeProfileRepository())`; `SettingsScreen` preview updated similarly.
+- Rule "core must not import feature" is **not gated** — 19 files violate it today
 - This ADR layers on top of `2026-09-17-orgmode-architectural-lessons.md` and supersedes nothing. Both ADRs are read together at sprint planning time. _(from `2026-09-17-orgmode-functional-patterns`)_
 - This ADR supersedes nothing; it layers new pure infrastructure over `2026-09-16-agenda-engine.md` and `2026-09-08-task-1-level-subtasks.md`. _(from `2026-09-17-orgmode-architectural-lessons`)_
 - Type-safe actions via `sealed class Action` with exhaustive `when`
@@ -1412,6 +1420,7 @@ _2 entries need attention._
 - `2026-09-25-testable-vm-dispatcher-clock` — testing, coroutines, viewmodel, koin, di
 - `2026-09-26-draft-mvi-bugfixes` — _untagged_
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
+- `2026-09-26-konsist-architecture-tests` — architecture, testing, konsist, ci
 
 ## Active entries
 
@@ -1641,4 +1650,5 @@ _2 entries need attention._
 - `2026-09-25-testable-vm-dispatcher-clock` — Testable VMs — CoroutineDispatcher injection, Clock in DI, RecordingHttpClient
 - `2026-09-26-draft-mvi-bugfixes` — _(no title)_
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
+- `2026-09-26-konsist-architecture-tests` — Konsist architecture tests — the first hard CI gate for layer boundaries
 

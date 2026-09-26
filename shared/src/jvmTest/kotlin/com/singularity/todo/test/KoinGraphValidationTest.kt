@@ -22,10 +22,10 @@ import com.singularity.todo.core.sync.JvmSyncScheduler
 import com.singularity.todo.core.sync.SyncScheduler
 import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
