@@ -16,6 +16,7 @@ value class ProjectCardActions(val block: (Action) -> Unit) {
     fun onReviewClick() = block(Action.Review)
 
     companion object {
-        val Empty = ProjectCardActions {}
+        /** No-op actions — previews/tests only. Internal so external callers must wire real dispatchers. */
+        internal val Empty = ProjectCardActions {}
     }
 }
