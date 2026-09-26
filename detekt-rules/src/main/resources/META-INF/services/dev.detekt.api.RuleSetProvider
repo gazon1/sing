@@ -5,3 +5,4 @@ com.singularity.todo.detekt.MviViewModelRulesProvider
 com.singularity.todo.detekt.NoStateInRuleProvider
 com.singularity.todo.detekt.NoStaticProfileAwareCurrentUserProvider
 com.singularity.todo.detekt.PassThroughUseCaseProvider
+com.singularity.todo.detekt.KDocEnforcementRulesProvider

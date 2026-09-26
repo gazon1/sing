@@ -819,6 +819,8 @@
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Red = "\u001B[31m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Reset = "\u001B[0m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Yellow = "\u001B[33m"</ID>
+    <ID>RepositoryInterfaceMustHaveKDoc:ChecklistRepository.kt:ChecklistRepository</ID>
+    <ID>RepositoryInterfaceMustHaveKDoc:SavedAgendaViewsRepository.kt:SavedAgendaViewsRepository : GenericUserScopedRepository</ID>
     <ID>RethrowCaughtException:FireAndForget.kt:throw e</ID>
     <ID>ReturnCount:A2uiParser.kt:A2uiParser$fun parseLine: UiEvent?</ID>
     <ID>ReturnCount:AgendaEvaluator.kt:AgendaEvaluator$private fun computeBadge: AgendaBadge?</ID>
@@ -928,6 +930,8 @@
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
     <ID>VariableNaming:TaskDetail.kt:TaskDetailViewModel$/** Visible for tests. TOCTOU: prefer to observe via state. */ internal val _latestTask = MutableStateFlow&lt;Task?&gt;(null)</ID>
+    <ID>ViewModelMustHaveKDoc:AppVersionGateViewModel.kt:AppVersionGateViewModel : MviViewModel</ID>
+    <ID>ViewModelMustHaveKDoc:TagGroupsViewModel.kt:TagGroupsViewModel : MviViewModel</ID>
     <ID>VmCloseable:MviViewModel.kt:MviViewModel&lt;S, I : MviIntent, E : MviEvent&gt; : StatefulViewModel</ID>
     <ID>VmScopePosition:SettingsViewModel.kt:SettingsViewModel$private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope()</ID>
   </CurrentIssues>
