@@ -182,6 +182,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Expand-day-list (tap day in month view to show all tasks).
 - Exposed `events: Flow<UiEvent>` becomes `_events.receiveAsFlow()`.
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes)
+- For the AI agent: it acts as a reviewer when PRs contain ADRs; it acts as a writer when it files ADRs for deferred findings
 - Full filter panel with Project / Tags / Priority / Status.
 - Future agents reading these skills will not waste time on `koin-annotations-compiler` setup that doesn't exist.
 - Future developers understand which fields are stubbed vs. populated
@@ -208,6 +209,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - PR-0.3 adds KDoc to the 4 currently flagged ViewModels (AppVersionGateViewModel, TagGroupsViewModel) and 2 Repositories (SavedAgendaViewsRepository, ChecklistRepository).
 - PR-0.3 will add KDoc to the 4 flagged files (AppVersionGateViewModel, TagGroupsViewModel, SavedAgendaViewsRepository, ChecklistRepository).
 - PR-0.4 (production BAN fixes) will address remaining technical debt: TODO/FIXME cleanup, stateIn removal, runBlocking fixes.
+- PRs with failing CI should be marked `draft` or closed
+- PRs without ADR for architectural changes should be blocked by reviewer
 - Per-collection 3-way merge (needs attachments/tags bidirectional)
 - Per-feature events устранили конфликты имён (до: `ShowDialog` everywhere; после: `TasksUiEvent.AiResult`, `NotesUiEvent.SaveFailed`)
 - Performance: one extra `StateFlow.distinctUntilChanged().flatMapLatest()` per
@@ -222,6 +225,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`).
 - Retro ADRs reference their PROGRESS.md entry (bidirectional link)
+- Reviewers are not required to review Phase 1 PRs — only Phase 2+
+- Reviewers should be assigned based on domain expertise — not all ADRs need the same reviewer
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов
 - Room schema unchanged (tables `task_tags` and `task_dependencies` already existed).
 - RuStore / Galaxy Store support requires ~1 day of work when distribution to those stores is planned.
@@ -248,9 +253,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - The GenUI `whatsNewPayload` is entirely server-controlled content rendered via LLM; it is **not** validated against a schema beyond `A2uiParser` parsing. Trust comes from the authenticated Supabase session.
 - The `WhatsNew` screen is the first production surface using GenUI, rendered at startup when a new `RemoteConfigSnapshot.whatsNewPayload` is present.
 - The `four-phases-gate` ADR (PR-1.3) will enforce supersede-chain audits during PR review
+- The `four-phases-gate` ADR defines the PR phases that require review
 - The `koin-gradle-plugin` is already wired in `shared/build.gradle.kts` (commit `1eb272a`) but no annotations are in use. If a future agent wants to adopt annotations, they can reapply the pattern shown in commit `1eb272a`'s setup; the plugin doesn't break anything.
 - The `pageCount = 240` is fixed at compile time. Users navigating beyond ±10 years from today
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
+- The `writer-reviewer-pattern` governs who is responsible for each phase transition
 - The default `viewModelScope` is still created by the ViewModel but is unused in Tier-1 VMs (negligible memory cost: one empty `SupervisorJob`).
 - The four layers of the OTA strategy (gate, in-app update, flags, GenUI) are production-ready for Google Play distribution.
 - The ~930 baseline violations are **technical debt**. A dedicated cleanup campaign (PR-0.3 or follow-up) should address the top categories: FunctionNaming, BackingPropertyNaming, LongMethod, PackageNaming.
@@ -362,7 +369,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `just docs-audit` checks skill size limits
 - `just docs-audit` should be run before every PR to catch DIGEST drift early.
 - `just docs-audit` validates PROGRESS.md exists if `docs/decisions/` contains retro ADRs from the last 30 days
+- `just docs-audit` validates that `status: proposed` ADRs are in open PRs (check via GitHub API)
 - `just docs-audit` validates that no `superseded-by` points to a non-existent file
+- `just tcheck` (full pipeline) is the authoritative check before merge
 - `just` must be installed (`just 1.57.0` is present in this environment).
 - `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
 - `refresh-decisions-digest.sh` must handle `superseded-by` by not duplicating superseded ADR bullets into DIGEST Critical section
@@ -1427,14 +1436,17 @@ _2 entries need attention._
 - `2026-09-25-test-suite-tag-defaults` — testing, junit, gradle, detekt
 - `2026-09-25-testable-vm-dispatcher-clock` — testing, coroutines, viewmodel, koin, di
 - `2026-09-26-adr-supersede-process` — _untagged_
+- `2026-09-26-code-review-process` — _untagged_
 - `2026-09-26-detekt-baseline-established` — _untagged_
 - `2026-09-26-detekt-rules-activation-audit` — detekt, quality, kotlin
 - `2026-09-26-docs-lifecycle` — _untagged_
 - `2026-09-26-domain-glossary-policy` — _untagged_
+- `2026-09-26-four-phases-gate` — _untagged_
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
 - `2026-09-26-kdoc-enforcement-rules` — _untagged_
 - `2026-09-26-post-p0-retro` — _untagged_
 - `2026-09-26-post-pr-1.1-retro` — _untagged_
+- `2026-09-26-post-pr-1.2-retro` — _untagged_
 - `2026-09-26-pr-0-1-retro` — _untagged_
 - `2026-09-26-pr-0-2-retro` — _untagged_
 - `2026-09-26-pr-0-3-retro` — _untagged_
@@ -1442,6 +1454,7 @@ _2 entries need attention._
 - `2026-09-26-progress-journal-policy` — _untagged_
 - `2026-09-26-skill-authoring-policy` — _untagged_
 - `2026-09-26-ui-testing-deferred` — _untagged_
+- `2026-09-26-writer-reviewer-pattern` — _untagged_
 
 ## Active entries
 
@@ -1665,14 +1678,17 @@ _2 entries need attention._
 - `2026-09-25-test-suite-tag-defaults` — Test suite tag defaults and Khorikov testing principles
 - `2026-09-25-testable-vm-dispatcher-clock` — Testable VMs — CoroutineDispatcher injection, Clock in DI, RecordingHttpClient
 - `2026-09-26-adr-supersede-process` — _(no title)_
+- `2026-09-26-code-review-process` — _(no title)_
 - `2026-09-26-detekt-baseline-established` — _(no title)_
 - `2026-09-26-detekt-rules-activation-audit` — Detekt custom rules — activate unregistered rule sets and clean up orphan rules
 - `2026-09-26-docs-lifecycle` — _(no title)_
 - `2026-09-26-domain-glossary-policy` — _(no title)_
+- `2026-09-26-four-phases-gate` — _(no title)_
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
 - `2026-09-26-kdoc-enforcement-rules` — _(no title)_
 - `2026-09-26-post-p0-retro` — _(no title)_
 - `2026-09-26-post-pr-1.1-retro` — _(no title)_
+- `2026-09-26-post-pr-1.2-retro` — _(no title)_
 - `2026-09-26-pr-0-1-retro` — _(no title)_
 - `2026-09-26-pr-0-2-retro` — _(no title)_
 - `2026-09-26-pr-0-3-retro` — _(no title)_
@@ -1680,4 +1696,5 @@ _2 entries need attention._
 - `2026-09-26-progress-journal-policy` — _(no title)_
 - `2026-09-26-skill-authoring-policy` — _(no title)_
 - `2026-09-26-ui-testing-deferred` — UI testing deferred — androidHostTest + UiAutomator postponed
+- `2026-09-26-writer-reviewer-pattern` — _(no title)_
 
