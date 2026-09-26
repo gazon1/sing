@@ -1,7 +1,8 @@
 ---
-title: Production Readiness Findings — 2026-09-26
-date: 2026-09-26
+title: Production Readiness Findings — 2026-09-25
+date: 2026-09-25
 status: accepted
+superseded-by: 2026-09-25-test-suite-tag-defaults
 ---
 
 ## Context
