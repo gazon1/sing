@@ -32,9 +32,9 @@ class AuthViewModel(
     private val authRepository: AuthRepository,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AuthUiState, AuthIntent, AuthUiEvent>(
-    initialState = AuthUiState.Idle,
-    scope = scope,
-) {
+        initialState = AuthUiState.Idle,
+        scope = scope,
+    ) {
     // Store scope for use in intent handlers (MviViewModel doesn't expose it publicly)
     override val vmScope = scope
 

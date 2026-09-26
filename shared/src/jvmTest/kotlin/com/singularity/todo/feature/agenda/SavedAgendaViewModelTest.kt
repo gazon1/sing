@@ -22,7 +22,6 @@ import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -362,7 +361,12 @@ class SavedAgendaViewModelTest {
     @Test
     fun factoryCreateGeneratesNewId() {
         val now = Instant.fromEpochMilliseconds(1_000_000)
-        val view = SavedAgendaViewFactory.create(UserId("user-1"), "My View", """{"title":"My View","sections":[]}""", now)
+        val view = SavedAgendaViewFactory.create(
+            UserId("user-1"),
+            "My View",
+            """{"title":"My View","sections":[]}""",
+            now,
+        )
 
         assertEquals(UserId("user-1"), view.userId)
         assertEquals("My View", view.name)

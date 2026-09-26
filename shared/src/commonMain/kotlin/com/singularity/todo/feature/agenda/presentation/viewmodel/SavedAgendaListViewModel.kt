@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.error.toMessage
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
@@ -63,8 +63,6 @@ class SavedAgendaListViewModel(
         scope = scope,
     ) {
 
-
-
     init {
         scope.launch {
             deps.repo.observeAll()
@@ -81,8 +79,8 @@ class SavedAgendaListViewModel(
                         .onFailure {
                             emit(
                                 SavedAgendaListEvent.ShowError(
-                                    it.toMessage("Delete failed")
-                                )
+                                    it.toMessage("Delete failed"),
+                                ),
                             )
                         }
                 }
@@ -119,8 +117,8 @@ class SavedAgendaListViewModel(
                         .onFailure {
                             emit(
                                 SavedAgendaListEvent.ShowError(
-                                    it.toMessage("Copy failed")
-                                )
+                                    it.toMessage("Copy failed"),
+                                ),
                             )
                         }
                 }

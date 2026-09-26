@@ -80,15 +80,18 @@ class ProjectsViewModelTest {
         // the VM emits Empty, which carries no searchQuery field
         seedProject("p1", "Work Project")
         val vm = createVm()
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals("", (vm.state.value as? ProjectsUiState.Content)?.searchQuery)
 
         vm.onIntent(ProjectsIntent.SetSearchQuery("Work"))
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals("Work", (vm.state.value as? ProjectsUiState.Content)?.searchQuery)
 
         vm.onIntent(ProjectsIntent.SetSearchQuery(""))
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals("", (vm.state.value as? ProjectsUiState.Content)?.searchQuery)
     }
 
@@ -96,15 +99,18 @@ class ProjectsViewModelTest {
     fun `sortOrder state updates immediately`() = runTest {
         val vm = createVm()
         seedProject("p1", "Project")
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals(ProjectSortOrder.Name, (vm.state.value as? ProjectsUiState.Content)?.sortOrder)
 
         vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Color))
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals(ProjectSortOrder.Color, (vm.state.value as? ProjectsUiState.Content)?.sortOrder)
 
         vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Name))
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals(ProjectSortOrder.Name, (vm.state.value as? ProjectsUiState.Content)?.sortOrder)
     }
 
@@ -114,14 +120,16 @@ class ProjectsViewModelTest {
     fun `delete soft-deletes project via use-case`() = runTest {
         seedProject("p1", "To Delete")
         val vm = createVm()
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Verify store has the project
         val before = fakeProjectRepo.store.values().filter { !it.isDeleted }
         assertEquals(1, before.size, "Store should have the seeded project")
 
         vm.onIntent(ProjectsIntent.Delete(ProjectId.fromString("p1")))
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Verify store reflects soft-delete
         val after = fakeProjectRepo.store.values().filter { !it.isDeleted }

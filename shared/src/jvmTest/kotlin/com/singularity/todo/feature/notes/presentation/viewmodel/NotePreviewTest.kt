@@ -62,7 +62,8 @@ class NotePreviewTest {
         val vm = createVm(notesRepo = notesRepo, scope = this)
 
         vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val state = vm.state.value
         assertIs<NotePreviewState.Loaded>(state)
@@ -77,13 +78,15 @@ class NotePreviewTest {
         val vm = createVm(notesRepo = notesRepo, scope = this)
 
         vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Update the note in the store — collect{} sees the new emission
         notesRepo.add(testNote.copy(title = "Updated Title"))
 
         vm.onIntent(NotePreviewIntent.Refresh)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val state = vm.state.value
         assertIs<NotePreviewState.Loaded>(state)
@@ -99,7 +102,8 @@ class NotePreviewTest {
         // Start two loads in rapid succession — second should cancel first
         vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
         vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Should not throw — second load cancelled the first
         assertIs<NotePreviewState.Loaded>(vm.state.value)
@@ -112,10 +116,12 @@ class NotePreviewTest {
         val vm = createVm(notesRepo = notesRepo, scope = this)
 
         vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         vm.onIntent(NotePreviewIntent.Delete)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Note should be soft-deleted (deletedAt set)
         val notes = notesRepo.notes
@@ -129,7 +135,8 @@ class NotePreviewTest {
         val vm = createVm(notesRepo = notesRepo, scope = this)
 
         vm.onIntent(NotePreviewIntent.Delete)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // No error, state unchanged
         assertIs<NotePreviewState.Loading>(vm.state.value)

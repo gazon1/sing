@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
-import com.singularity.todo.core.ids.UserId
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.ListPickerItem
 import com.singularity.todo.core.ui.components.ListPickerSheet

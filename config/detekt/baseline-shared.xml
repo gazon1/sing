@@ -2,17 +2,15 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>ArgumentListWrapping:CalendarDateMathTest.kt:CalendarDateMathTest.Companion$(2026, Month.SEPTEMBER, 30)</ID>
-    <ID>ArgumentListWrapping:CalendarDateMathTest.kt:CalendarDateMathTest.Companion$(LocalDate(2026, Month.SEPTEMBER, 30), CalendarViewMode.FOUR_DAYS, "September 30 – October 3, 2026")</ID>
-    <ID>ArgumentListWrapping:CalendarTaskMapperTest.kt:CalendarTaskMapperTest.Companion$(1)</ID>
-    <ID>ArgumentListWrapping:CalendarTaskMapperTest.kt:CalendarTaskMapperTest.Companion$(2026, Month.SEPTEMBER, 10)</ID>
-    <ID>ArgumentListWrapping:CalendarTaskMapperTest.kt:CalendarTaskMapperTest.Companion$(Instant.fromEpochMilliseconds(1), LocalDate(2026, Month.SEPTEMBER, 10), CalendarTaskStatus.DONE)</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _fetchModelsError = MutableStateFlow&lt;String?&gt;(null)</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _isFetchingModels = MutableStateFlow(false)</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _models = MutableStateFlow&lt;List&lt;String&gt;&gt;(emptyList())</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _testResult = MutableStateFlow&lt;AiTestResult&gt;(AiTestResult.Idle)</ID>
     <ID>BackingPropertyNaming:AndroidPomodoroTaskListProvider.kt:AndroidPomodoroTaskListProvider$private val _tasks = MutableStateFlow&lt;List&lt;Task&gt;&gt;(emptyList())</ID>
     <ID>BackingPropertyNaming:CalendarViewModel.kt:CalendarViewModel$/** Selection state — anchor date, view mode, mini panel open/closed. */ private val _calendarState = MutableStateFlow( CalendarState( anchor = initialDate, viewMode = initialMode, isMiniOpen = false, ), )</ID>
+    <ID>BackingPropertyNaming:DraftMviViewModel.kt:DraftMviViewModel$private val _draft = MutableStateFlow(initialDraft)</ID>
+    <ID>BackingPropertyNaming:DraftMviViewModel.kt:DraftMviViewModel$private val _error = MutableStateFlow&lt;String?&gt;(null)</ID>
+    <ID>BackingPropertyNaming:DraftMviViewModel.kt:DraftMviViewModel$private val _isSaving = MutableStateFlow(false)</ID>
     <ID>BackingPropertyNaming:EventBus.kt:EventBus$private val _channel = Channel&lt;E&gt;(capacity)</ID>
     <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _agendaViews = MutableStateFlow&lt;Map&lt;String, AgendaViewEntity&gt;&gt;(emptyMap())</ID>
     <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _attachments = MutableStateFlow&lt;Map&lt;String, AttachmentEntity&gt;&gt;(emptyMap())</ID>
@@ -50,18 +48,17 @@
     <ID>BackingPropertyNaming:KoogAgentService.kt:FakeTextGen$private val _generateCalls = mutableListOf&lt;Triple&lt;String, String?, String?&gt;&gt;()</ID>
     <ID>BackingPropertyNaming:NotesListViewModel.kt:NotesListViewModel$private val _isSelectionMode = MutableStateFlow(false)</ID>
     <ID>BackingPropertyNaming:NotesListViewModel.kt:NotesListViewModel$private val _selectedIds = MutableStateFlow&lt;Set&lt;NoteId&gt;&gt;(emptySet())</ID>
-    <ID>BackingPropertyNaming:ProfileSwitcherViewModel.kt:ProfileSwitcherViewModel$private val _errorMessage = MutableStateFlow&lt;String?&gt;(null)</ID>
+    <ID>BackingPropertyNaming:ProfileSwitcherViewModel.kt:ProfileSwitcherViewModel$private val _errorMessage = kotlinx.coroutines.flow.MutableStateFlow&lt;String?&gt;(null)</ID>
     <ID>BackingPropertyNaming:ProjectDetailViewModel.kt:ProjectDetailViewModel$/** Emits null on start (loading placeholder), then the project flow. */ private val _projectFlow = MutableStateFlow&lt;Project?&gt;(null)</ID>
     <ID>BackingPropertyNaming:ProjectDetailViewModel.kt:ProjectDetailViewModel$private val _latestProject = MutableStateFlow&lt;Project?&gt;(null)</ID>
+    <ID>BackingPropertyNaming:ProjectsViewModel.kt:ProjectsViewModel$private val _searchQuery = MutableStateFlow("")</ID>
+    <ID>BackingPropertyNaming:ProjectsViewModel.kt:ProjectsViewModel$private val _sortOrder = MutableStateFlow(ProjectSortOrder.Name)</ID>
     <ID>BackingPropertyNaming:RemoteConfigRepositoryImpl.kt:RemoteConfigRepositoryImpl$private val _snapshot: MutableStateFlow&lt;RemoteConfigSnapshot&gt; = MutableStateFlow(RemoteConfigSnapshot.defaults())</ID>
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _activeFilter = MutableStateFlow&lt;SimpleFilter?&gt;(null)</ID>
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _activeSavedSearchId = MutableStateFlow&lt;SavedSearchId?&gt;(null)</ID>
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _parsedQuery = MutableStateFlow&lt;Query?&gt;(null)</ID>
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _queryString = MutableStateFlow("")</ID>
     <ID>BackingPropertyNaming:SessionStore.kt:DataStoreSessionStore$private val _deviceIdFlow = MutableStateFlow("")</ID>
-    <ID>BackingPropertyNaming:TaskCreateViewModel.kt:TaskCreateViewModel$private val _draft = MutableStateFlow(initial)</ID>
-    <ID>BackingPropertyNaming:TaskCreateViewModel.kt:TaskCreateViewModel$private val _error = MutableStateFlow&lt;String?&gt;(null)</ID>
-    <ID>BackingPropertyNaming:TaskCreateViewModel.kt:TaskCreateViewModel$private val _isSaving = MutableStateFlow(false)</ID>
     <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$/** Backlinks — loaded when task changes. */ private val _linkedNotes = MutableStateFlow&lt;List&lt;com.singularity.todo.feature.notes.Note&gt;&gt;(emptyList())</ID>
     <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$/** Incremented on each retry() call to restart the watchTask subscription. */ private val _retryVersion = MutableStateFlow(0)</ID>
     <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$/** Visible for tests. TOCTOU: prefer to observe via state. */ internal val _latestTask = MutableStateFlow&lt;Task?&gt;(null)</ID>
@@ -79,7 +76,6 @@
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.isActive: Boolean</ID>
     <ID>CyclomaticComplexMethod:JvmNavEntries.kt:@Composable fun createJvmEntryProvider: (AppDestination) -&gt; NavEntry&lt;AppDestination&gt;</ID>
     <ID>CyclomaticComplexMethod:ProjectDetailContent.kt:@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalTime::class) @Composable fun ProjectDetailContent</ID>
-    <ID>CyclomaticComplexMethod:ProjectDetailViewModel.kt:ProjectDetailViewModel$fun onIntent</ID>
     <ID>CyclomaticComplexMethod:RecurrencePickerSheet.kt:@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun RecurrencePickerSheet</ID>
     <ID>CyclomaticComplexMethod:SearchQueryResolver.kt:DefaultSearchQueryResolver$private suspend fun resolveCondition</ID>
     <ID>CyclomaticComplexMethod:SelectorMatcher.kt:fun Selector.matches: Boolean</ID>
@@ -98,6 +94,8 @@
     <ID>EndOfSentenceFormat:Daos.kt:DailyUsageRow$ Row type returned by observeByDay </ID>
     <ID>EndOfSentenceFormat:Daos.kt:ModelUsageRow$ Row type returned by observeByModel </ID>
     <ID>EndOfSentenceFormat:Daos.kt:ToolUsageRow$ Row type returned by observeByTool </ID>
+    <ID>EndOfSentenceFormat:DraftMviViewModelTest.kt:TestDraft$ Minimal draft for testing </ID>
+    <ID>EndOfSentenceFormat:DraftMviViewModelTest.kt:TestDraftVm$ Concrete implementation under test </ID>
     <ID>EndOfSentenceFormat:LlmUseCase.kt:ProjectReviewUseCase$ ProjectReviewTool returns raw text — special case, not using the generic factory </ID>
     <ID>EndOfSentenceFormat:PlatformModule.kt:* Platform-specific bindings: * - Database DAOs (TaskDao, NoteDao, ProjectDao, TagDao, SyncOutboxDao, AttachmentDao, ReminderDao) * - [com.singularity.todo.core.security.SecureStoragePort] * - [com.singularity.todo.core.notifications.NotificationPort] * - [com.singularity.todo.core.files.FileSystem] * - [com.singularity.todo.core.backup.BackupCodec] * - [ai.koog.prompt.executor.model.PromptExecutor] * - [androidx.datastore.core.DataStore] — Android: Preferences DataStore; JVM: FileDataStore</ID>
     <ID>EndOfSentenceFormat:Relation.kt:Relation.EQ$ Equal to </ID>
@@ -157,6 +155,7 @@
     <ID>Filename:TaskDetail.kt:com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetail.kt</ID>
     <ID>Filename:TaskDetailState.kt:com.singularity.todo.feature.tasks.domain.model.TaskDetailState.kt</ID>
     <ID>Filename:TaskMutations.kt:com.singularity.todo.feature.tasks.domain.usecase.TaskMutations.kt</ID>
+    <ID>Filename:TaskToJsonProbeTest.kt:com.singularity.todo.core.sync.TaskToJsonProbeTest.kt</ID>
     <ID>Filename:TestFakes.kt:com.singularity.todo.feature.settings.TestFakes.kt</ID>
     <ID>Filename:TestVmInfrastructure.kt:com.singularity.todo.test.helpers.TestVmInfrastructure.kt</ID>
     <ID>Filename:UpdateProject.kt:com.singularity.todo.feature.projects.domain.usecase.UpdateProject.kt</ID>
@@ -186,7 +185,6 @@
     <ID>ForbiddenComment:TaskMenuBuilder.kt:// TODO: wire to PrintTaskUseCase</ID>
     <ID>ForbiddenComment:TaskMenuBuilder.kt:// TODO: wire to ReorderTaskUseCase</ID>
     <ID>ForbiddenComment:TaskMenuBuilder.kt:// TODO: wire to ShareTaskUseCase</ID>
-    <ID>FunctionLiteral:FakeAppDatabase.kt:FakeNoteDao$&lt;anonymous&gt;</ID>
     <ID>FunctionNaming:AccountSettingsScreen.kt:@Composable fun AccountSettingsScreen</ID>
     <ID>FunctionNaming:AccountSettingsScreen.kt:@Composable private fun AccountSettingsScreenPreviewContent</ID>
     <ID>FunctionNaming:AccountSettingsScreen.kt:@Preview @Composable private fun AccountSettingsScreenDarkPreview</ID>
@@ -628,14 +626,7 @@
     <ID>FunctionNaming:WorkScheduleSettingsScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun TimeSlider</ID>
     <ID>FunctionNaming:WorkScheduleSettingsScreen.kt:@androidx.compose.ui.tooling.preview.Preview @Composable private fun WorkScheduleSettingsScreenDarkPreview</ID>
     <ID>FunctionNaming:WorkScheduleSettingsScreen.kt:@androidx.compose.ui.tooling.preview.Preview @Composable private fun WorkScheduleSettingsScreenLightPreview</ID>
-    <ID>Indentation:FakeRepositories.kt:FakeNotesRepository$ </ID>
-    <ID>Indentation:NoteAiController.kt:NoteAiController$ </ID>
-    <ID>Indentation:TaskDetail.kt:TaskDetailViewModel$ </ID>
-    <ID>IntentMethodName:CalendarSyncViewModel.kt:CalendarSyncViewModel$fun processIntent</ID>
-    <ID>IntentMethodName:ProfileSwitcherViewModel.kt:ProfileSwitcherViewModel$fun processIntent</ID>
-    <ID>IntentMethodName:SearchViewModel.kt:SearchViewModel$fun processIntent</ID>
     <ID>IntentMethodName:SettingsViewModel.kt:SettingsViewModel$fun processIntent</ID>
-    <ID>IntentMethodName:SyncViewModel.kt:SyncViewModel$fun process</ID>
     <ID>InvalidPackageDeclaration:TagsRepository.kt:package com.singularity.todo.feature.tags</ID>
     <ID>InvalidPackageDeclaration:ToneColorTest.kt:package com.singularity.todo.feature.genui.render.material3.atoms</ID>
     <ID>Kdoc:BackupFormatters.kt:/** * Pure formatting helpers for backup UI. * Moved out of [BackupScreen] so they can be unit-tested without Compose * and used in JVM-only environments without [java.text.SimpleDateFormat]. */</ID>
@@ -674,7 +665,7 @@
     <ID>LongMethod:PomodoroScreen.kt:@Composable fun PomodoroScreen</ID>
     <ID>LongMethod:PomodoroScreen.kt:@Composable private fun PomodoroContentPreview</ID>
     <ID>LongMethod:ProjectDetailContent.kt:@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalTime::class) @Composable fun ProjectDetailContent</ID>
-    <ID>LongMethod:ProjectDetailViewModel.kt:ProjectDetailViewModel$fun onIntent</ID>
+    <ID>LongMethod:ProjectDetailViewModel.kt:ProjectDetailViewModel$override fun onIntent</ID>
     <ID>LongMethod:ProjectEditorScreen.kt:@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) @Composable fun ProjectEditorContent</ID>
     <ID>LongMethod:RecurrencePickerSheet.kt:@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun RecurrencePickerSheet</ID>
     <ID>LongMethod:ReorderableSectionList.kt:@Composable fun ReorderableSectionList</ID>
@@ -700,9 +691,7 @@
     <ID>MaximumLineLength:AccountSettingsScreen.kt:,</ID>
     <ID>MaximumLineLength:AgendaEvaluatorTest.kt:AgendaEvaluatorTest$// discard removes matched tasks</ID>
     <ID>MaximumLineLength:BackupCodecTest.kt:BackupCodecTest$)</ID>
-    <ID>MaximumLineLength:CalendarDateMathTest.kt:CalendarDateMathTest.Companion$,</ID>
     <ID>MaximumLineLength:CalendarSyncSettingsScreen.kt:,</ID>
-    <ID>MaximumLineLength:CalendarTaskMapperTest.kt:CalendarTaskMapperTest.Companion$,</ID>
     <ID>MaximumLineLength:Entities.kt:TaskReminderEntity$// epoch millis of last fire; guards against re-firing recurring reminders too soon</ID>
     <ID>MaximumLineLength:FakeRepositories.kt:FakeProjectsRepository$,</ID>
     <ID>MaximumLineLength:IdTokenTest.kt:IdTokenTest$"</ID>
@@ -712,25 +701,22 @@
     <ID>MaximumLineLength:ProfileSwitcherScreen.kt:// Preview pattern: construct VM with Fake* deps directly</ID>
     <ID>MaximumLineLength:ProjectDetailContent.kt:,</ID>
     <ID>MaximumLineLength:SavedAgendaViewModelTest.kt:SavedAgendaViewModelTest$,</ID>
+    <ID>MaximumLineLength:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$// other user — not returned by scoped query</ID>
     <ID>MaximumLineLength:SettingsImporter.kt:SettingsImporter$)</ID>
     <ID>MaximumLineLength:SyncSourceTest.kt:SyncSourceTest$// Periodic: immediate=false, AppResumed: immediate=false → first wins</ID>
     <ID>MaximumLineLength:TaskRowContent.kt:,</ID>
     <ID>MayBeConstant:AndroidSyncScheduler.kt:AndroidSyncScheduler.Companion$private val INTENT_ACTION = "com.singularity.todo.SYNC_ALARM"</ID>
+    <ID>MayBeConstant:OAuthTokenRefreshTest.kt:OAuthTokenRefreshTest.Companion$val NOW = 1_700_000_000_000L</ID>
     <ID>MayBeConstant:SettingsDefaults.kt:SettingsDefaults$// Not const: depends on UserId.anonymous.value (runtime property access). val USER_ID: String = "anonymous"</ID>
     <ID>MayBeConstant:SettingsDefaults.kt:SettingsDefaults$val SCHEMA_VERSION: Int = 1</ID>
     <ID>MayBeConstant:SettingsDefaults.kt:SettingsDefaults.Ai$// Not const: depends on enum entry property access at runtime. val PROVIDER: String = "openai"</ID>
     <ID>MayBeConstant:SettingsDefaults.kt:SettingsDefaults.Appearance$// Not const: depends on enum entry property access at runtime. val ACCENT_COLOR: String = "blue"</ID>
-    <ID>NoRunBlocking:FileLogWriter.kt:FileLogWriter$runBlocking { withTimeoutOrNull(DRAIN_TIMEOUT_MS) { flush() } }</ID>
-    <ID>NoRunBlocking:FileLogWriter.kt:FileLogWriter$runBlocking { writeJob.join() }</ID>
-    <ID>NoRunBlocking:KoinBridge.kt:runBlocking { block() }</ID>
-    <ID>NoRunBlocking:SettingsDataStoreMigration.kt:SettingsDataStoreMigration$runBlocking { run() }</ID>
-    <ID>NoUnusedImports:CalendarTaskMapperTest.kt:com.singularity.todo.feature.calendar.CalendarTaskMapperTest.kt</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
-    <ID>PackageName:CalendarAppInfo.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
+    <ID>PackageName:CalendarAppInfo.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageName:CalendarAppPicker.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
-    <ID>PackageName:CalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
+    <ID>PackageName:CalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.domain.port</ID>
     <ID>PackageName:CalendarEventMapper.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:CalendarEventMapperTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:CalendarPermissionRequester.kt:package com.singularity.todo.feature.calendar_sync.permission</ID>
@@ -745,6 +731,7 @@
     <ID>PackageName:CalendarSyncSettingsScreen.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageName:CalendarSyncStatus.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageName:CalendarSyncTaskMapDao.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
+    <ID>PackageName:CalendarSyncTaskMapMappers.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:CalendarSyncViewModel.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageName:CalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
     <ID>PackageName:CalendarSyncWorker.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -767,13 +754,14 @@
     <ID>PackageName:SyncPlan.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageName:SyncSource.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageName:SyncSourceTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
+    <ID>PackageName:SyncedEventRef.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageName:TranslateExceptions.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>PackageNaming:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageNaming:AndroidCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageNaming:AndroidCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
-    <ID>PackageNaming:CalendarAppInfo.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
+    <ID>PackageNaming:CalendarAppInfo.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:CalendarAppPicker.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
-    <ID>PackageNaming:CalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
+    <ID>PackageNaming:CalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.domain.port</ID>
     <ID>PackageNaming:CalendarEventMapper.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:CalendarEventMapperTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:CalendarPermissionRequester.kt:package com.singularity.todo.feature.calendar_sync.permission</ID>
@@ -788,6 +776,7 @@
     <ID>PackageNaming:CalendarSyncSettingsScreen.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageNaming:CalendarSyncStatus.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:CalendarSyncTaskMapDao.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
+    <ID>PackageNaming:CalendarSyncTaskMapMappers.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageNaming:CalendarSyncViewModel.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageNaming:CalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
     <ID>PackageNaming:CalendarSyncWorker.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -810,6 +799,7 @@
     <ID>PackageNaming:SyncPlan.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:SyncSource.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageNaming:SyncSourceTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
+    <ID>PackageNaming:SyncedEventRef.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:TranslateExceptions.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>PropertyName:AppDestination.kt:/** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */ const val MenuButtonTitle = "Menu"</ID>
     <ID>PropertyName:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
@@ -819,19 +809,15 @@
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Red = "\u001B[31m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Reset = "\u001B[0m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Yellow = "\u001B[33m"</ID>
-    <ID>RepositoryInterfaceMustHaveKDoc:ChecklistRepository.kt:ChecklistRepository</ID>
-    <ID>RepositoryInterfaceMustHaveKDoc:SavedAgendaViewsRepository.kt:SavedAgendaViewsRepository : GenericUserScopedRepository</ID>
     <ID>RethrowCaughtException:FireAndForget.kt:throw e</ID>
     <ID>ReturnCount:A2uiParser.kt:A2uiParser$fun parseLine: UiEvent?</ID>
     <ID>ReturnCount:AgendaEvaluator.kt:AgendaEvaluator$private fun computeBadge: AgendaBadge?</ID>
-    <ID>ReturnCount:ProjectDetailViewModel.kt:ProjectDetailViewModel$fun onIntent</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseCatchUp: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseEveryWeekday: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseMonthlyOrdinal: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseRule: Pair&lt;RecurrenceSpec, Int&gt;</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseShortForm: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseYearlyDate: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CalendarViewModelTest.kt:CalendarViewModelTest$// Must share the same ProfileAwareCurrentUser so that all internal collectors</ID>
     <ID>SwallowedException:AiToolFilters.kt:e: Throwable</ID>
     <ID>SwallowedException:ConditionExprParser.kt:ConditionExprParser$e: Exception</ID>
     <ID>SwallowedException:QueryParser.kt:QueryParser$e: Exception</ID>
@@ -851,6 +837,7 @@
     <ID>TooGenericExceptionCaught:FireAndForget.kt:e: Throwable</ID>
     <ID>TooGenericExceptionCaught:GenerateChecklistTool.kt:GenerateChecklistTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ImproveNoteTool.kt:ImproveNoteTool$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:NoteEditor.kt:NoteEditor$e: Exception</ID>
     <ID>TooGenericExceptionCaught:NotePreview.kt:NotePreview$e: Exception</ID>
     <ID>TooGenericExceptionCaught:OAuthTokenRefresh.kt:OAuthTokenRefresh$e: Exception</ID>
     <ID>TooGenericExceptionCaught:QueryParser.kt:QueryParser$e: Exception</ID>
@@ -872,7 +859,9 @@
     <ID>TooManyFunctions:Daos.kt:NoteDao</ID>
     <ID>TooManyFunctions:Daos.kt:ProjectDao</ID>
     <ID>TooManyFunctions:Daos.kt:TaskDao</ID>
+    <ID>TooManyFunctions:DraftMviViewModel.kt:DraftMviViewModel&lt;D : Any, I : MviIntent, E : MviEvent&gt; : MviViewModel</ID>
     <ID>TooManyFunctions:JvmSecureStorage.kt:JvmSecureStorage : SecureStoragePort</ID>
+    <ID>TooManyFunctions:NoteEditor.kt:NoteEditor : DraftMviViewModel</ID>
     <ID>TooManyFunctions:NotesListViewModel.kt:NotesListViewModel : MviViewModel</ID>
     <ID>TooManyFunctions:NotesRepository.kt:NotesRepository : GenericUserScopedRepositorySoftDeletable</ID>
     <ID>TooManyFunctions:NotesRepository.kt:RoomNotesRepository : NotesRepository</ID>
@@ -914,14 +903,12 @@
     <ID>UnusedParameter:NotesListScreen.kt:route: NotesRoute.List</ID>
     <ID>UnusedParameter:NotificationHost.kt:modifier: Modifier = Modifier</ID>
     <ID>UnusedParameter:ParentPickerSheet.kt:currentParentId: ProjectId?</ID>
-    <ID>UnusedParameter:ProjectDetailViewModel.kt:ProjectDetailViewModel$current: Project</ID>
     <ID>UnusedParameter:ProjectPickerSheet.kt:selectedId: ProjectId?</ID>
     <ID>UnusedParameter:ProjectsScreen.kt:onCreateProject: () -&gt; Unit</ID>
     <ID>UnusedParameter:RemoteBackupService.kt:StubRemoteBackupService$destPath: String</ID>
     <ID>UnusedParameter:RemoteBackupService.kt:StubRemoteBackupService$remoteRef: String</ID>
     <ID>UnusedParameter:RemoteBackupService.kt:StubRemoteBackupService$userId: UserId</ID>
     <ID>UnusedParameter:SavedAgendaListScreen.kt:viewId: SavedAgendaViewId</ID>
-    <ID>UnusedParameter:SearchViewModel.kt:SearchViewModel$taskId: TaskId</ID>
     <ID>UnusedParameter:SectionEditorCard.kt:index: Int</ID>
     <ID>UnusedParameter:TagGroupsScreen.kt:onDelete: () -&gt; Unit</ID>
     <ID>UnusedParameter:TagsPickerSheet.kt:onSelect: (List&lt;TagId&gt;) -&gt; Unit</ID>
@@ -932,7 +919,6 @@
     <ID>VariableNaming:TaskDetail.kt:TaskDetailViewModel$/** Visible for tests. TOCTOU: prefer to observe via state. */ internal val _latestTask = MutableStateFlow&lt;Task?&gt;(null)</ID>
     <ID>ViewModelMustHaveKDoc:AppVersionGateViewModel.kt:AppVersionGateViewModel : MviViewModel</ID>
     <ID>ViewModelMustHaveKDoc:TagGroupsViewModel.kt:TagGroupsViewModel : MviViewModel</ID>
-    <ID>VmCloseable:MviViewModel.kt:MviViewModel&lt;S, I : MviIntent, E : MviEvent&gt; : StatefulViewModel</ID>
     <ID>VmScopePosition:SettingsViewModel.kt:SettingsViewModel$private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope()</ID>
   </CurrentIssues>
 </SmellBaseline>

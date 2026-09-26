@@ -58,7 +58,7 @@ class TagsViewModel(
                 .catch { e ->
                     updateState {
                         TagsUiState.Error(
-                            e.toMessage()
+                            e.toMessage(),
                         )
                     }
                 }
@@ -76,15 +76,14 @@ class TagsViewModel(
      * Fire-and-forget delete. Errors are emitted as [TagsUiEvent.ShowError].
      * Exposed as a method reference for Compose UI callbacks (see [SettingsScreen]).
      */
-    fun delete(id: TagId) =
-        scope.launch {
-            tagRepo.delete(id)
-                .onFailure {
-                    emit(
-                        TagsUiEvent.ShowError(
-                            it.toMessage()
-                        )
-                    )
-                }
-        }
+    fun delete(id: TagId) = scope.launch {
+        tagRepo.delete(id)
+            .onFailure {
+                emit(
+                    TagsUiEvent.ShowError(
+                        it.toMessage(),
+                    ),
+                )
+            }
+    }
 }

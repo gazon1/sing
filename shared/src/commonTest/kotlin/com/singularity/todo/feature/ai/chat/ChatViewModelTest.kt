@@ -23,8 +23,12 @@ class ChatViewModelTest {
 
     private val testLog = Logger.withTag("ChatViewModelTest")
 
-    private fun newVm(scope: CoroutineScope, flow: Flow<String> = flowOf("Hi ", "there!")) =
-        ChatViewModel(testLog, ScriptedTextGen(flow), SequenceIdGenerator(), AutoCloseableCoroutineScope(scope.coroutineContext))
+    private fun newVm(scope: CoroutineScope, flow: Flow<String> = flowOf("Hi ", "there!")) = ChatViewModel(
+        testLog,
+        ScriptedTextGen(flow),
+        SequenceIdGenerator(),
+        AutoCloseableCoroutineScope(scope.coroutineContext),
+    )
 
     @Test
     fun sendAppendsUserAndAssistantPlaceholder() = runTest {

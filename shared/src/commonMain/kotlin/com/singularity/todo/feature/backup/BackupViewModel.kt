@@ -49,8 +49,6 @@ class BackupViewModel(
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
-
-
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
 

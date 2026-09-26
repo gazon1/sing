@@ -84,7 +84,12 @@ class FileLogWriterTest {
 
         val files = writer.logFiles()
         assertFalse(files.isEmpty())
-        assertTrue(files.all { val name = it.name; name.startsWith("log.") && name.endsWith(".txt") })
+        assertTrue(
+            files.all {
+                val name = it.name
+                name.startsWith("log.") && name.endsWith(".txt")
+            },
+        )
     }
 
     private fun readAll(path: Path): String {

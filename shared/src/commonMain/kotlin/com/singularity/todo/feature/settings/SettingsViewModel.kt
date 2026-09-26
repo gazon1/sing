@@ -9,9 +9,9 @@ import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.settings.EphemeralState
+import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
-import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.ai.AiContributor
@@ -129,12 +129,23 @@ class SettingsViewModel(
     fun processIntent(intent: SettingsIntent) {
         when (intent) {
             is SettingsIntent.Appearance -> dispatch(appearanceContributor, "Update appearance failed", intent)
+
             is SettingsIntent.Notifications -> dispatch(notificationsContributor, "Update notifications failed", intent)
+
             is SettingsIntent.WorkSchedule -> dispatch(workScheduleContributor, "Update work schedule failed", intent)
+
             is SettingsIntent.Greeting -> dispatch(greetingContributor, "Update greeting failed", intent)
+
             is SettingsIntent.Ai -> dispatch(aiContributor, "AI ${intent::class.simpleName} failed", intent)
-            is SettingsIntent.DefaultAgendaView -> dispatch(defaultAgendaViewContributor, "Update default agenda view failed", intent)
+
+            is SettingsIntent.DefaultAgendaView -> dispatch(
+                defaultAgendaViewContributor,
+                "Update default agenda view failed",
+                intent,
+            )
+
             SettingsIntent.DismissError -> { /* ephemeral; cleared on next emit */ }
+
             SettingsIntent.OpenAttachmentsFolder -> openAttachmentsFolder()
         }
     }
@@ -146,11 +157,7 @@ class SettingsViewModel(
      * intent belong to the same section (e.g. `NotificationsContributor` only
      * receives `SettingsIntent.Notifications`).
      */
-    private fun dispatch(
-        contributor: SettingsContributor<*, *>?,
-        errorLabel: String,
-        intent: SettingsIntent,
-    ) {
+    private fun dispatch(contributor: SettingsContributor<*, *>?, errorLabel: String, intent: SettingsIntent) {
         _state.value = _state.value.copy(errorMessage = null)
         scope.fireAndForget(
             errorLabel = errorLabel,

@@ -55,7 +55,8 @@ class SyncViewModelTest {
         vm.onIntent(SyncIntent.SyncNow)
         runCurrent() // first launch runs: sets isLoading, syncOnce suspends in delay(10)
         vm.onIntent(SyncIntent.SyncNow) // second launch sees isLoading=true → debounced
-        advanceTimeBy(1_000); runCurrent() // let the first (yielding) syncOnce() finish
+        advanceTimeBy(1_000)
+        runCurrent() // let the first (yielding) syncOnce() finish
 
         assertEquals(1, repo.syncOnceCallCount)
         vmScope.job?.cancel()
@@ -73,7 +74,8 @@ class SyncViewModelTest {
         val (vm, vmScope) = createVm(repo, prefs, this)
 
         vm.onIntent(SyncIntent.SyncNow)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         assertEquals(0, repo.syncOnceCallCount)
         vmScope.job?.cancel()
@@ -91,7 +93,8 @@ class SyncViewModelTest {
 
         // Trigger a successful sync so the VM's state is populated.
         vm.onIntent(SyncIntent.SyncNow)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Call AcknowledgeError — it should clear both fields unconditionally.
         vm.onIntent(SyncIntent.AcknowledgeError)
@@ -112,7 +115,8 @@ class SyncViewModelTest {
         val (vm, vmScope) = createVm(repo, prefs, this)
 
         vm.onIntent(SyncIntent.TestConnection)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         assertFalse(vm.state.value.isTestingConnection)
         assertEquals(ConnectionTestResult.Success, vm.state.value.connectionTestResult)
@@ -133,7 +137,8 @@ class SyncViewModelTest {
         val (vm, vmScope) = createVm(repo, prefs, this)
 
         vm.onIntent(SyncIntent.TestConnection)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         assertFalse(vm.state.value.isTestingConnection)
         val result = vm.state.value.connectionTestResult

@@ -61,9 +61,9 @@ class ProjectDetailViewModel(
     private val log: Logger,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectDetailUiState, ProjectDetailIntent.Domain, ProjectDetailUiEvent>(
-    initialState = ProjectDetailUiState.Loading,
-    scope = scope,
-) {
+        initialState = ProjectDetailUiState.Loading,
+        scope = scope,
+    ) {
     override val vmScope = scope
 
     // ─── UI State ───────────────────────────────────────────────────────────────

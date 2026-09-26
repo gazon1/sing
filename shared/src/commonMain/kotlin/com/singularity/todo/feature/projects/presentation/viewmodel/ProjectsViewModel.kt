@@ -53,9 +53,9 @@ class ProjectsViewModel(
     private val deleteProject: DeleteProjectUseCase,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectsUiState, ProjectsIntent, ProjectsUiEvent>(
-    initialState = ProjectsUiState.Loading,
-    scope = scope,
-) {
+        initialState = ProjectsUiState.Loading,
+        scope = scope,
+    ) {
     override val vmScope = scope
 
     private val _searchQuery = MutableStateFlow("")

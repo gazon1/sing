@@ -103,12 +103,14 @@ class ProjectDetailViewModelTest {
     fun `UpdateColor persists new color to repository`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertTrue(vm.state.value is ProjectDetailUiState.Content)
 
         val newColor = 0xFFE91E63.toInt()
         vm.onIntent(ProjectDetailIntent.Domain.UpdateColor(newColor))
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val updated = fakeProjectsRepo.store["p1"]
         assertNotNull(updated)
@@ -119,11 +121,13 @@ class ProjectDetailViewModelTest {
     fun `ToggleArchive sets isDeleted on project`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertTrue(vm.state.value is ProjectDetailUiState.Content)
 
         vm.onIntent(ProjectDetailIntent.Domain.ToggleArchive)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val updated = fakeProjectsRepo.store["p1"]
         assertNotNull(updated)
@@ -134,11 +138,13 @@ class ProjectDetailViewModelTest {
     fun `Delete emits NavigateBack on success`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertTrue(vm.state.value is ProjectDetailUiState.Content)
 
         vm.onIntent(ProjectDetailIntent.Domain.Delete)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Wait for NavigateBack event
         val event = vm.events.first()
@@ -149,12 +155,14 @@ class ProjectDetailViewModelTest {
     fun `CreateTask adds task to repository`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertTrue(vm.state.value is ProjectDetailUiState.Content)
         assertTrue(fakeTaskRepo.tasks.value.isEmpty())
 
         vm.onIntent(ProjectDetailIntent.Domain.CreateTask("New task"))
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val tasks = fakeTaskRepo.tasks.value.values.toList()
         assertEquals(1, tasks.size)

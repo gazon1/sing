@@ -45,8 +45,6 @@ class NotesListViewModel(
         scope = scope,
     ) {
 
-
-
     private val _filter = MutableStateFlow(NoteFilter.All)
     val filter: StateFlow<NoteFilter> = _filter.asStateFlow()
 

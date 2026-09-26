@@ -47,7 +47,11 @@ class TaskCreateDebounceTest {
             logger = Logger.withTag("TaskCreate"),
             draftStore = fakeDraftStore,
         )
-        return TaskCreateViewModel(deps = deps, initialDueDate = null, scope = AutoCloseableCoroutineScope(scope.coroutineContext))
+        return TaskCreateViewModel(
+            deps = deps,
+            initialDueDate = null,
+            scope = AutoCloseableCoroutineScope(scope.coroutineContext),
+        )
     }
 
     // FakeDraftStore stores bare keys (no user prefix), matching TaskCreateViewModel's bare key usage.
@@ -57,7 +61,8 @@ class TaskCreateDebounceTest {
     fun `draft saved after debounce delay elapses`() = runTest {
         val vm = createVm(backgroundScope)
         // Wait for init coroutines to settle (restore + debounce collector)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Type a title — triggers a new debounce window
         vm.onIntent(TaskCreateIntent.TitleChanged("Buy groceries"))
@@ -78,7 +83,8 @@ class TaskCreateDebounceTest {
     @Test
     fun `draft NOT saved before debounce delay elapses`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         vm.onIntent(TaskCreateIntent.TitleChanged("Quick note"))
         // Advance only 200ms — less than the 500ms debounce delay
@@ -93,7 +99,8 @@ class TaskCreateDebounceTest {
     @Test
     fun `draft cleared after successful save`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         vm.onIntent(TaskCreateIntent.TitleChanged("Task to create"))
         // Advance past debounce delay
@@ -104,7 +111,8 @@ class TaskCreateDebounceTest {
         // Trigger save (title is non-blank → createTask is called)
         vm.onIntent(TaskCreateIntent.SaveClicked)
         // Wait for save + clear to complete
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
     }

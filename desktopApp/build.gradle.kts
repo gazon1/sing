@@ -89,7 +89,7 @@ compose.desktop {
 detekt {
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
     baseline = rootProject.file("config/detekt/baseline-desktopApp.xml")
-    ignoreFailures = true               // report-only on day 1
+        ignoreFailures = false              // PR 3.3: enforcing — baseline covers accepted debt
     source.setFrom("src/main/kotlin", "src/jvmTest/kotlin")
 }
 

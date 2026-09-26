@@ -32,19 +32,21 @@ private class TestDraftVm(
     autosaveDebounceMs: Long = 10L,
     scope: AutoCloseableCoroutineScope,
 ) : DraftMviViewModel<TestDraft, TestIntent, TestEvent>(
-    initialDraft = initialDraft,
-    autosave = autosaveBlock ?: {},
-    restore = restoreBlock,
-    logger = testLogger,
-    autosaveDebounceMs = autosaveDebounceMs,
-    scope = scope,
-) {
+        initialDraft = initialDraft,
+        autosave = autosaveBlock ?: {},
+        restore = restoreBlock,
+        logger = testLogger,
+        autosaveDebounceMs = autosaveDebounceMs,
+        scope = scope,
+    ) {
     private val validateImpl: (TestDraft) -> String? = validateBlock ?: { null }
     private val persistImpl: suspend (TestDraft) -> Either<AppError, Unit> = persistBlock
     private val onSavedImpl: (suspend () -> Unit)? = onSavedBlock
     override fun validate(draft: TestDraft): String? = validateImpl(draft)
     override suspend fun persist(draft: TestDraft): Either<AppError, Unit> = persistImpl(draft)
-    override suspend fun onSaved() { onSavedImpl?.invoke() }
+    override suspend fun onSaved() {
+        onSavedImpl?.invoke()
+    }
     override fun onIntent(intent: TestIntent) { /* no-op for tests */ }
 }
 

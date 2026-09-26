@@ -1,7 +1,7 @@
 package com.singularity.todo.core.auth.oauth
 
-import kotlin.time.Clock
 import kotlinx.io.IOException
+import kotlin.time.Clock
 
 /**
  * Token refresh helpers following RFC 6749 §6.

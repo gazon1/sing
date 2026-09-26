@@ -38,8 +38,6 @@ class AttachmentsViewModel(
         scope = scope,
     ) {
 
-
-
     override fun onIntent(intent: AttachmentsIntent) {
         when (intent) {
             is AttachmentsIntent.AddUrl -> scope.launch { addUrl(intent) }

@@ -1,12 +1,11 @@
 package com.singularity.todo.feature.profile
 
-import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
+import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -30,9 +29,9 @@ class ProfileSwitcherViewModel(
     private val profileRepository: ProfileRepository,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProfileSwitcherUiState, ProfileSwitcherIntent, Nothing>(
-    initialState = ProfileSwitcherUiState(),
-    scope = scope,
-) {
+        initialState = ProfileSwitcherUiState(),
+        scope = scope,
+    ) {
     private val log = Logger.withTag("ProfileSwitcherViewModel")
     override val vmScope = scope
 

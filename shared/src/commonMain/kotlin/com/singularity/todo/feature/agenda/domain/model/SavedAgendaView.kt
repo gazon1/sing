@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.agenda.domain.model
 
 import com.singularity.todo.core.ids.UserId
-
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlin.time.Instant
 

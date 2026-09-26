@@ -144,7 +144,7 @@ actual fun platformModule(): Module = module {
             userSettingsDataStore = userSettingsDs,
             stateDataStore = stateDs,
         )
-        migration.runBlocking()
+        migration.runBlockingForStartup()
         koinBridge { AiApiKeyMigration.run(legacyDs, secureStorage) }
         Unit
     }

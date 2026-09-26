@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tags.domain.model
 import com.singularity.todo.core.ids.UserId
-
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc

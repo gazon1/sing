@@ -27,7 +27,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalFocusManager
@@ -40,16 +39,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
+import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.rememberOverlayState
-import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.notes.EditorSession
 import com.singularity.todo.feature.notes.EditorState
 import com.singularity.todo.feature.notes.LinkResult
-import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.components.EditorToolbar
 import com.singularity.todo.feature.notes.components.InternalLinkPickerSheet
@@ -58,6 +56,7 @@ import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
+import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.notes.rememberEditorSession
 import com.singularity.todo.feature.notes.urlFor
 import kotlinx.coroutines.flow.MutableStateFlow

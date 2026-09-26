@@ -313,7 +313,7 @@ detekt {
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
     baseline = rootProject.file("config/detekt/baseline-shared.xml")
     buildUponDefaultConfig = true
-    ignoreFailures = true               // report-only on day 1; tighten once baselines are clean
+    ignoreFailures = false              // PR 3.3: enforcing — baseline covers accepted debt
     source.setFrom(
         "src/commonMain/kotlin",
         "src/commonTest/kotlin",

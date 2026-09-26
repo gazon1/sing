@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
-import com.singularity.todo.core.ids.UserId
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +38,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.components.BackTopAppBar
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.DiscardChangesDialog

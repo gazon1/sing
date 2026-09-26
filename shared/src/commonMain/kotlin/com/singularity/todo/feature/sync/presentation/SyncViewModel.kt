@@ -8,7 +8,6 @@ import com.singularity.todo.core.sync.SyncPrefs
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -55,14 +54,14 @@ class SyncViewModel(
     private val prefs: SyncPrefs,
     scope: AutoCloseableCoroutineScope,
 ) : MviViewModel<SyncState, SyncIntent, Nothing>(
-    initialState = SyncState(
-        autoSyncEnabled = prefs.autoSyncEnabled,
-        intervalMinutes = prefs.scheduledInterval.inWholeMinutes.toInt(),
-        lastSyncedAt = prefs.lastSuccessfulSyncAt,
-        status = repository.status.value,
-    ),
-    scope = scope,
-) {
+        initialState = SyncState(
+            autoSyncEnabled = prefs.autoSyncEnabled,
+            intervalMinutes = prefs.scheduledInterval.inWholeMinutes.toInt(),
+            lastSyncedAt = prefs.lastSuccessfulSyncAt,
+            status = repository.status.value,
+        ),
+        scope = scope,
+    ) {
     override val vmScope = scope
     private val syncMutex = Mutex()
 

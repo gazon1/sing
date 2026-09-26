@@ -25,9 +25,9 @@ class ChatViewModel(
     private val idGen: IdGenerator,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ChatViewModel.State, ChatViewModel.Intent, ChatUiEvent>(
-    initialState = State(),
-    scope = scope,
-) {
+        initialState = State(),
+        scope = scope,
+    ) {
 
     data class State(
         val messages: List<ChatMessage> = emptyList(),

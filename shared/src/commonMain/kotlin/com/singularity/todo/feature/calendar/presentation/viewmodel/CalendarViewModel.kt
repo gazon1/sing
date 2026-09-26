@@ -1,9 +1,6 @@
 package com.singularity.todo.feature.calendar.presentation.viewmodel
 
-import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.ui.MviEvent
-import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
@@ -49,9 +46,9 @@ class CalendarViewModel(
     initialMode: CalendarViewMode = CalendarViewMode.MONTH,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<CalendarUiState, CalendarIntent, CalendarUiEvent>(
-    initialState = CalendarUiState.Loading,
-    scope = scope,
-) {
+        initialState = CalendarUiState.Loading,
+        scope = scope,
+    ) {
 
     /** Today's date, stable for the lifetime of this VM (captured at construction). */
     private val today: LocalDate = deps.today

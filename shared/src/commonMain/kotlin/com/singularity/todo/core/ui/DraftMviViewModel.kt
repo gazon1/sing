@@ -9,12 +9,12 @@ import com.singularity.todo.core.error.Either.Left
 import com.singularity.todo.core.error.Either.Right
 import com.singularity.todo.core.error.toMessage
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -77,9 +77,9 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     autosaveDebounceMs: Long = 500L,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<DraftUiState<D>, I, E>(
-    initialState = DraftUiState(draft = initialDraft),
-    scope = scope,
-) {
+        initialState = DraftUiState(draft = initialDraft),
+        scope = scope,
+    ) {
     override val vmScope: AutoCloseableCoroutineScope = scope
 
     private var baseline: D = initialDraft

@@ -1,10 +1,10 @@
 package com.singularity.todo.feature.search.data
 
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.database.SavedSearchDao
 import com.singularity.todo.core.database.SavedSearchEntity
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toInstant
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser

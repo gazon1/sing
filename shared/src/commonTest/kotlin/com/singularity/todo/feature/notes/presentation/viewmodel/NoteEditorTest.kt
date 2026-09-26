@@ -6,9 +6,9 @@ import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.notes.EditorState
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
+import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.test.fakes.FakeIdGenerator
@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -77,7 +76,8 @@ class NoteEditorTest {
         val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         vm.openEditor(testNote.id.value)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val state = vm.state.value.draft
         assertIs<EditorState.Editing>(state)
@@ -95,7 +95,8 @@ class NoteEditorTest {
         val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         vm.openEditor(testNote.id.value)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Edit body — dirty becomes true; the debounce (500ms) hasn't fired yet
         // because advanceTimeBy(400L) stays below the debounce threshold.
@@ -110,7 +111,8 @@ class NoteEditorTest {
         // saveNow persists immediately — clears dirty regardless of autosave
         vm.onIntent(NotesEditorIntent.SaveNow)
         runCurrent()
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val savedState = vm.state.value.draft
         assertIs<EditorState.Editing>(savedState)
@@ -125,7 +127,8 @@ class NoteEditorTest {
         val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         vm.openEditor(testNote.id.value)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Edit body — dirty becomes true; debounce (500ms) not yet reached
         vm.onIntent(NotesEditorIntent.EditBody("<p>Updated content</p>"))
@@ -152,7 +155,8 @@ class NoteEditorTest {
         val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         vm.openEditor(testNote.id.value)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // 1. Edit body — autosave scheduled but not yet fired
         vm.onIntent(NotesEditorIntent.EditBody("<p>Preliminary content</p>"))
@@ -194,7 +198,8 @@ class NoteEditorTest {
         val newId = vm.createNote()
         runCurrent()
 
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // isNew is true, note is not yet in the repo
         val state = vm.state.value.draft
@@ -225,7 +230,8 @@ class NoteEditorTest {
         val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         vm.openEditor(testNote.id.value)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         vm.onIntent(NotesEditorIntent.EditBody("<p>Unsaved changes</p>"))
 
@@ -256,7 +262,8 @@ class NoteEditorTest {
         val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         vm.openEditor(testNote.id.value)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val received = mutableListOf<Unit>()
         val job = launch { vm.events.filterIsInstance<NotesUiEvent.SavedPulse>().take(1).collect { received += Unit } }
@@ -266,7 +273,8 @@ class NoteEditorTest {
 
         runCurrent()
         vm.onIntent(NotesEditorIntent.SaveNow)
-        advanceTimeBy(1_000); runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         assertEquals(listOf(Unit), received)
     }
