@@ -44,11 +44,11 @@ class RoomSavedAgendaViewsRepository(
 
     override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatching {
         val uid = currentUser.scopedUserId.value
-        // Empty-string userId is the legacy anonymous sentinel; normalise to UserId.anonymous
-        // so that assertCanWrite handles both consistently with other repositories.
-        val entityUserId = if (view.userId == "") UserId.anonymous else UserId(view.userId)
+        // Legacy rows may hold the "" sentinel; normalise to UserId.anonymous so
+        // assertCanWrite treats both consistently with other repositories.
+        val entityUserId = if (view.userId.value == "") UserId.anonymous else view.userId
         currentUser.assertCanWrite(entityId = view.id.raw, entityUserId = entityUserId)
-        val toInsert = view.copy(userId = uid.value)
+        val toInsert = view.copy(userId = uid)
         agendaViewDao.upsert(toInsert.toEntity())
         toInsert
     }
@@ -57,7 +57,7 @@ class RoomSavedAgendaViewsRepository(
         val now = clock.now()
         val copy = view.copy(
             id = SavedAgendaViewId.generate(),
-            userId = targetUserId,
+            userId = UserId(targetUserId),
             createdAt = now,
             updatedAt = now,
         )
@@ -73,7 +73,7 @@ class RoomSavedAgendaViewsRepository(
 
     private fun AgendaViewEntity.toDomain(): SavedAgendaView = SavedAgendaView(
         id = SavedAgendaViewId.fromString(id),
-        userId = userId,
+        userId = UserId(userId),
         name = name,
         sectionsJson = sectionsJson,
         createdAt = createdAt.toInstant(),
@@ -82,7 +82,7 @@ class RoomSavedAgendaViewsRepository(
 
     private fun SavedAgendaView.toEntity(): AgendaViewEntity = AgendaViewEntity(
         id = id.raw,
-        userId = userId,
+        userId = userId.value,
         name = name,
         sectionsJson = sectionsJson,
         createdAt = createdAt.toEpochMillis(),

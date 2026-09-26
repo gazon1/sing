@@ -31,8 +31,6 @@ class AccountSettingsViewModel(
         scope = scope,
     ) {
 
-
-
     val activeProfile: Flow<Profile?> = profileRepository.activeProfile()
 
     override fun onIntent(intent: AccountSettingsIntent) {

@@ -94,6 +94,7 @@ sealed interface TaskFilter {
     data class ByDateBucket(val bucket: RelativeBucket, val today: kotlinx.datetime.LocalDate) : TaskFilter
 }
 
+@Serializable
 data class Task(
     val id: TaskId,
     val title: String,

@@ -40,8 +40,6 @@ class AppVersionGateViewModel(
         scope = scope,
     ) {
 
-
-
     init {
         check()
     }

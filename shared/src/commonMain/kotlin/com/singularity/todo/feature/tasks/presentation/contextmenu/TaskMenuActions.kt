@@ -31,6 +31,6 @@ data class TaskMenuActions(
 ) {
     companion object {
         /** All actions are no-ops — useful for previews and smoke tests. */
-        val Empty = TaskMenuActions(onDismiss = {})
+        internal val Empty = TaskMenuActions(onDismiss = {})
     }
 }

@@ -41,7 +41,6 @@ import com.singularity.todo.feature.reminders.AlarmManagerReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.settings.AiApiKeyMigration
 import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.runBlocking
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -145,8 +144,8 @@ actual fun platformModule(): Module = module {
             userSettingsDataStore = userSettingsDs,
             stateDataStore = stateDs,
         )
-        migration.runBlocking()
-        runBlocking { AiApiKeyMigration.run(legacyDs, secureStorage) }
+        migration.runBlockingForStartup()
+        koinBridge { AiApiKeyMigration.run(legacyDs, secureStorage) }
         Unit
     }
 

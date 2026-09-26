@@ -45,15 +45,15 @@ class AgendaViewModel(
         addCloseable(scope)
         scope.launch {
             todayFlow().flatMapLatest { today ->
-                    deps.taskRepo.observeByFilter(TaskFilter.All)
-                        .map { tasks ->
-                            val sections = AgendaEvaluator.evaluate(tasks, definition, today)
-                            AgendaUiState.Loaded(
-                                sections = sections,
-                                today = today,
-                            )
-                        }
-                }
+                deps.taskRepo.observeByFilter(TaskFilter.All)
+                    .map { tasks ->
+                        val sections = AgendaEvaluator.evaluate(tasks, definition, today)
+                        AgendaUiState.Loaded(
+                            sections = sections,
+                            today = today,
+                        )
+                    }
+            }
                 .collect { updateState { it } }
         }
     }

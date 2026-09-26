@@ -4,6 +4,7 @@ import com.singularity.todo.core.database.SavedSearchDao
 import com.singularity.todo.core.database.SavedSearchEntity
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toInstant
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -38,11 +39,11 @@ class RoomSavedSearchRepository(
 
     override suspend fun upsert(search: SavedSearch): Result<SavedSearch> = runCatching {
         val uid = currentUser.scopedUserId.value
-        val toInsert = if (search.userId == uid.value || search.userId == "") {
-            search.copy(userId = uid.value)
+        val toInsert = if (search.userId == uid || search.userId == UserId.anonymous) {
+            search.copy(userId = uid)
         } else {
             throw IllegalStateException(
-                "Cross-user SavedSearch upsert: search.userId=${search.userId}, current=${uid.value}",
+                "Cross-user SavedSearch upsert: search.userId=${search.userId.value}, current=${uid.value}",
             )
         }
         savedSearchDao.upsert(toInsert.toEntity())
@@ -61,7 +62,7 @@ class RoomSavedSearchRepository(
 
     private fun SavedSearchEntity.toDomain(): SavedSearch = SavedSearch(
         id = SavedSearchId.fromString(id),
-        userId = userId,
+        userId = UserId(userId),
         name = name,
         queryString = queryString,
         createdAt = createdAt.toInstant(),
@@ -70,7 +71,7 @@ class RoomSavedSearchRepository(
 
     private fun SavedSearch.toEntity(): SavedSearchEntity = SavedSearchEntity(
         id = id.raw,
-        userId = userId,
+        userId = userId.value,
         name = name,
         queryString = queryString,
         createdAt = createdAt.toEpochMillis(),

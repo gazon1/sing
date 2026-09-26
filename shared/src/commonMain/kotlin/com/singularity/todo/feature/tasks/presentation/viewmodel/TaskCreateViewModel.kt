@@ -11,7 +11,6 @@ import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
-import kotlinx.coroutines.launch
 
 /**
  * Dependencies for [TaskCreateViewModel].
@@ -51,33 +50,31 @@ class TaskCreateViewModel(
     initialDueDate: kotlinx.datetime.LocalDate?,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : DraftMviViewModel<TaskDraft, TaskCreateIntent, TaskCreateUiEvent>(
-    initialDraft = TaskDraft(
-        dueDate = initialDueDate?.let { DueDateOption.Custom(it, it.toString()) }
-            ?: DueDateOption.None,
-    ),
-    autosave = { draft ->
-        deps.draftStore.save(TaskCreateDeps.DRAFT_KEY, draft, TaskDraft.serializer())
-    },
-    restore = {
-        deps.draftStore.load(TaskCreateDeps.DRAFT_KEY, TaskDraft.serializer())
-    },
-    logger = deps.logger,
-    scope = scope,
-) {
+        initialDraft = TaskDraft(
+            dueDate = initialDueDate?.let { DueDateOption.Custom(it, it.toString()) }
+                ?: DueDateOption.None,
+        ),
+        autosave = { draft ->
+            deps.draftStore.save(TaskCreateDeps.DRAFT_KEY, draft, TaskDraft.serializer())
+        },
+        restore = {
+            deps.draftStore.load(TaskCreateDeps.DRAFT_KEY, TaskDraft.serializer())
+        },
+        logger = deps.logger,
+        scope = scope,
+    ) {
     private val initial: TaskDraft = TaskDraft(
         dueDate = initialDueDate?.let { DueDateOption.Custom(it, it.toString()) }
             ?: DueDateOption.None,
     )
 
-    override fun validate(draft: TaskDraft): String? =
-        if (draft.title.isBlank()) "Title is required" else null
+    override fun validate(draft: TaskDraft): String? = if (draft.title.isBlank()) "Title is required" else null
 
-    override suspend fun persist(draft: TaskDraft): Either<AppError, Unit> {
-        return when (val result = deps.createFromDraft(draft)) {
+    override suspend fun persist(draft: TaskDraft): Either<AppError, Unit> =
+        when (val result = deps.createFromDraft(draft)) {
             is Either.Left -> Either.Left(result.error)
             is Either.Right -> Either.Right(Unit)
         }
-    }
 
     override suspend fun onSaved() {
         deps.logger.i(tag = "TaskCreateViewModel") { "task created, clearing draft" }
@@ -93,28 +90,42 @@ class TaskCreateViewModel(
     override fun onIntent(intent: TaskCreateIntent) {
         when (intent) {
             is TaskCreateIntent.TitleChanged -> updateDraft { it.copy(title = intent.title) }
+
             is TaskCreateIntent.DescriptionChanged -> updateDraft { it.copy(description = intent.description) }
+
             is TaskCreateIntent.SetPriority -> updateDraft { it.copy(priority = intent.priority) }
+
             is TaskCreateIntent.SetDueDate -> updateDraft {
                 val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
                 it.copy(dueDate = option)
             }
+
             is TaskCreateIntent.SetDueTime -> updateDraft { it.copy(dueTime = intent.time) }
+
             TaskCreateIntent.DueDateCleared -> updateDraft { it.copy(dueDate = DueDateOption.None, dueTime = null) }
+
             is TaskCreateIntent.SetStartDate -> updateDraft {
                 val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
                 it.copy(startDate = option)
             }
+
             is TaskCreateIntent.SetStartTime -> updateDraft { it.copy(startTime = intent.time) }
+
             is TaskCreateIntent.SetEndDate -> updateDraft {
                 val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
                 it.copy(endDate = option)
             }
+
             is TaskCreateIntent.SetEndTime -> updateDraft { it.copy(endTime = intent.time) }
+
             is TaskCreateIntent.SetAccentColor -> updateDraft { it.copy(accentColor = intent.color) }
+
             is TaskCreateIntent.SetEmoji -> updateDraft { it.copy(emoji = intent.emoji) }
+
             TaskCreateIntent.SaveClicked -> save()
+
             TaskCreateIntent.DiscardChanges -> discard()
+
             TaskCreateIntent.DismissError -> dismissError()
         }
     }

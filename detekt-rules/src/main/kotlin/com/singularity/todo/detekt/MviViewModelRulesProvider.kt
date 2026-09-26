@@ -177,10 +177,14 @@ private class VmCloseableRule(config: Config) : Rule(config, "", null) {
         val hasScope = paramRefs.any { it.name == "scope" }
         if (!hasScope) return
 
-        // Skip StatefulViewModel/MviViewModel subclasses — they manage scope lifecycle internally
+        // Skip StatefulViewModel/MviViewModel/DraftMviViewModel subclasses — they
+        // manage scope lifecycle internally (addCloseable in the base init).
+        // Supertype text includes generic args (e.g. "MviViewModel<S, I, E>"), so
+        // compare the raw-name prefix, not the whole text.
+        val mviBaseNames = setOf("StatefulViewModel", "MviViewModel", "DraftMviViewModel")
         val extendsBase = clazz.superTypeListEntries.any { entry ->
-            val text = entry.typeReference?.text
-            text == "StatefulViewModel" || text == "MviViewModel"
+            val rawName = entry.typeReference?.text?.substringBefore('<')
+            rawName in mviBaseNames
         }
         if (extendsBase) return
 

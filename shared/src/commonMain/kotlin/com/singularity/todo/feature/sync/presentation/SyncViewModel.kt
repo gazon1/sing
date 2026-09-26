@@ -8,7 +8,6 @@ import com.singularity.todo.core.sync.SyncPrefs
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -55,14 +54,14 @@ class SyncViewModel(
     private val prefs: SyncPrefs,
     scope: AutoCloseableCoroutineScope,
 ) : MviViewModel<SyncState, SyncIntent, Nothing>(
-    initialState = SyncState(
-        autoSyncEnabled = prefs.autoSyncEnabled,
-        intervalMinutes = prefs.scheduledInterval.inWholeMinutes.toInt(),
-        lastSyncedAt = prefs.lastSuccessfulSyncAt,
-        status = repository.status.value,
-    ),
-    scope = scope,
-) {
+        initialState = SyncState(
+            autoSyncEnabled = prefs.autoSyncEnabled,
+            intervalMinutes = prefs.scheduledInterval.inWholeMinutes.toInt(),
+            lastSyncedAt = prefs.lastSuccessfulSyncAt,
+            status = repository.status.value,
+        ),
+        scope = scope,
+    ) {
     override val vmScope = scope
     private val syncMutex = Mutex()
 
@@ -123,8 +122,13 @@ class SyncViewModel(
 
     private fun syncNow() {
         vmScope.launch {
+            // Debounce BEFORE acquiring the mutex: a second SyncNow dispatched while
+            // the first sync is suspended must return immediately. Checking only inside
+            // the lock is too late — by the time the second call acquires the mutex,
+            // the first has already cleared isLoading in its finally block.
+            if (currentState.isLoading || currentState.status.isRunning()) return@launch
             syncMutex.withLock {
-                // Debounce: ignore if already syncing
+                // Re-check under the lock to guard against concurrent acquisition.
                 if (currentState.isLoading || currentState.status.isRunning()) return@launch
                 updateState { it.copy(isLoading = true, errorMessage = null, connectionTestResult = null) }
                 try {

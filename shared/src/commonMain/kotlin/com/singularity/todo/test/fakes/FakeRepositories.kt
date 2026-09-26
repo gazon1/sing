@@ -922,7 +922,7 @@ class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = Fake
         currentUser.observeForCurrentUser { uid ->
             store.state
                 .onStart { emit(store.state.value) }
-                .map { list -> list.values.filter { it.userId == uid.value } }
+                .map { list -> list.values.filter { it.userId == uid } }
         }
 
     override fun observe(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
@@ -1654,7 +1654,7 @@ class FakeSavedAgendaViewsRepository(
             val now = Clock.now()
             val copy = view.copy(
                 id = SavedAgendaViewId.generate(),
-                userId = targetUserId,
+                userId = UserId(targetUserId),
                 createdAt = now,
                 updatedAt = now,
             )
@@ -1664,7 +1664,7 @@ class FakeSavedAgendaViewsRepository(
 
     override fun observeAll(): Flow<List<SavedAgendaView>> = currentUser.observeForCurrentUser { uid ->
         store.map { map ->
-            map.values.filter { it.userId == uid.value }.sortedBy { it.name }
+            map.values.filter { it.userId == uid }.sortedBy { it.name }
         }
     }
 
@@ -1682,7 +1682,7 @@ class FakeSavedAgendaViewsRepository(
     override suspend fun update(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
 
     override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatching {
-        store.update { map -> map + (SavedAgendaViewKey.of(view.userId, view.id.raw) to view) }
+        store.update { map -> map + (SavedAgendaViewKey.of(view.userId.value, view.id.raw) to view) }
         view
     }
 
@@ -1693,7 +1693,7 @@ class FakeSavedAgendaViewsRepository(
 
     /** Synchronous upsert for tests. */
     fun upsertSync(view: SavedAgendaView) {
-        store.update { map -> map + (SavedAgendaViewKey.of(view.userId, view.id.raw) to view) }
+        store.update { map -> map + (SavedAgendaViewKey.of(view.userId.value, view.id.raw) to view) }
     }
 
     /** Get a view by raw ID string for tests. */

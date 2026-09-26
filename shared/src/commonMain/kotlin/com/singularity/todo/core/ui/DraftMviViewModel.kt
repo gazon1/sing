@@ -9,12 +9,13 @@ import com.singularity.todo.core.error.Either.Left
 import com.singularity.todo.core.error.Either.Right
 import com.singularity.todo.core.error.toMessage
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * MVI base for editor/draft screens. Encapsulates:
@@ -76,9 +77,9 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     autosaveDebounceMs: Long = 500L,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<DraftUiState<D>, I, E>(
-    initialState = DraftUiState(draft = initialDraft),
-    scope = scope,
-) {
+        initialState = DraftUiState(draft = initialDraft),
+        scope = scope,
+    ) {
     override val vmScope: AutoCloseableCoroutineScope = scope
 
     private var baseline: D = initialDraft
@@ -102,9 +103,10 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
         // 2. Debounced silent autosave loop
         vmScope.launch {
             _draft.drop(1)
-                .debounce { autosaveDebounceMs }
+                .debounce(autosaveDebounceMs.milliseconds)
                 .collect { current ->
                     runCatching { autosave(current) }
+                        .onSuccess { onAutosaved(current) }
                         .onFailure { onAutosaveError(it) }
                 }
         }
@@ -174,6 +176,13 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     protected open fun onAutosaveError(e: Throwable) {
         logger.e(e) { "autosave failed: ${e.toMessage()}" }
     }
+
+    /**
+     * Called after a successful autosave. [baseline] is intentionally NOT advanced:
+     * [discard] must keep reverting to the last opened state. Override to clear
+     * draft-local dirty/new flags (e.g. NoteEditor's `Editing.isDirty` field).
+     */
+    protected open fun onAutosaved(current: D) {}
 
     /**
      * Explicit save: validates, persists, clears draft storage, calls [onSaved].

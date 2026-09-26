@@ -1,14 +1,14 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.notes.EditorState
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
+import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.test.fakes.FakeIdGenerator
@@ -20,10 +20,8 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -36,7 +34,6 @@ import kotlin.test.assertTrue
  * Tests prove that openEditor / editBody / editTitle / saveNow / closeEditor
  * work correctly with the canonical VM shape.
  */
-@Tag("slow")
 @OptIn(ExperimentalCoroutinesApi::class)
 class NoteEditorTest {
 
@@ -69,17 +66,18 @@ class NoteEditorTest {
             ai = NoteAiController(improveNote = null),
             log = Logger.withTag("NoteEditor"),
             currentUser = FakeProfileAwareCurrentUser(),
-            scope = testScope(scope),
+            scope = AutoCloseableCoroutineScope(scope.coroutineContext),
         )
 
     @Test
     fun `openEditor loads Editing state`() = runTest {
         val notesRepo = FakeNotesRepository()
         notesRepo.seed(testNote)
-        val vm = createVm(notesRepo = notesRepo, scope = this)
+        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         vm.openEditor(testNote.id.value)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val state = vm.state.value.draft
         assertIs<EditorState.Editing>(state)
@@ -94,14 +92,16 @@ class NoteEditorTest {
     fun `saveNow persists and clears dirty`() = runTest {
         val notesRepo = FakeNotesRepository()
         notesRepo.seed(testNote)
-        val vm = createVm(notesRepo = notesRepo, scope = this)
+        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         vm.openEditor(testNote.id.value)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Edit body — dirty becomes true; the debounce (500ms) hasn't fired yet
         // because advanceTimeBy(400L) stays below the debounce threshold.
         vm.onIntent(NotesEditorIntent.EditBody("<p>Updated content</p>"))
+        runCurrent()
         advanceTimeBy(400L) // debounce not reached yet
 
         val dirtyState = vm.state.value.draft
@@ -110,7 +110,9 @@ class NoteEditorTest {
 
         // saveNow persists immediately — clears dirty regardless of autosave
         vm.onIntent(NotesEditorIntent.SaveNow)
-        advanceUntilIdle()
+        runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val savedState = vm.state.value.draft
         assertIs<EditorState.Editing>(savedState)
@@ -122,13 +124,15 @@ class NoteEditorTest {
     fun `editBody marks dirty then autosave clears it`() = runTest {
         val notesRepo = FakeNotesRepository()
         notesRepo.seed(testNote)
-        val vm = createVm(notesRepo = notesRepo, scope = this)
+        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         vm.openEditor(testNote.id.value)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Edit body — dirty becomes true; debounce (500ms) not yet reached
         vm.onIntent(NotesEditorIntent.EditBody("<p>Updated content</p>"))
+        runCurrent()
         advanceTimeBy(400L) // debounce not reached yet
 
         val dirtyState = vm.state.value.draft
@@ -148,13 +152,15 @@ class NoteEditorTest {
     fun `autosave debounce does not fire before 500ms`() = runTest {
         val notesRepo = FakeNotesRepository()
         notesRepo.seed(testNote)
-        val vm = createVm(notesRepo = notesRepo, scope = this)
+        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         vm.openEditor(testNote.id.value)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // 1. Edit body — autosave scheduled but not yet fired
         vm.onIntent(NotesEditorIntent.EditBody("<p>Preliminary content</p>"))
+        runCurrent()
         advanceTimeBy(499L)
         runCurrent()
 
@@ -165,6 +171,7 @@ class NoteEditorTest {
 
         // 2. Edit again — this restarts the debounce timer
         vm.onIntent(NotesEditorIntent.EditBody("<p>Final content</p>"))
+        runCurrent()
         advanceTimeBy(499L)
         runCurrent()
 
@@ -186,10 +193,13 @@ class NoteEditorTest {
     @Test
     fun `createNote marks isNew and first save calls createWithContent`() = runTest {
         val notesRepo = FakeNotesRepository()
-        val vm = createVm(notesRepo = notesRepo, scope = this)
+        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         val newId = vm.createNote()
-        advanceUntilIdle()
+        runCurrent()
+
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // isNew is true, note is not yet in the repo
         val state = vm.state.value.draft
@@ -200,6 +210,7 @@ class NoteEditorTest {
 
         // First save — should call createWithContent (isNew=true)
         vm.onIntent(NotesEditorIntent.EditBody("<p>Content</p>"))
+        runCurrent()
         advanceTimeBy(600L)
         runCurrent()
 
@@ -216,24 +227,31 @@ class NoteEditorTest {
     fun `closeEditor clears state without saving`() = runTest {
         val notesRepo = FakeNotesRepository()
         notesRepo.seed(testNote)
-        val vm = createVm(notesRepo = notesRepo, scope = this)
+        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         vm.openEditor(testNote.id.value)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         vm.onIntent(NotesEditorIntent.EditBody("<p>Unsaved changes</p>"))
+
+        runCurrent()
         advanceTimeBy(100L) // well under debounce
 
         val dirtyState = vm.state.value.draft
         assertIs<EditorState.Editing>(dirtyState)
         assertTrue(dirtyState.isDirty)
 
-        // Close without saving — note should NOT be updated in repo
+        // Close without saving — draft reverts to the last opened state (discard);
+        // the note in the repo must be untouched.
         vm.closeEditor()
+        runCurrent()
 
-        val emptyState = vm.state.value.draft
-        assertIs<EditorState.Empty>(emptyState)
-        // Original content unchanged
+        val restoredState = vm.state.value.draft
+        assertIs<EditorState.Editing>(restoredState)
+        assertEquals("<p>Hello world</p>", restoredState.html)
+        assertFalse(restoredState.isDirty)
+        // Original content unchanged in the repo
         assertEquals("<p>Hello world</p>", notesRepo.notes[testNote.id.value]?.bodyHtml)
     }
 
@@ -241,18 +259,22 @@ class NoteEditorTest {
     fun `saveNow emits savedPulse to UI`() = runTest {
         val notesRepo = FakeNotesRepository()
         notesRepo.seed(testNote)
-        val vm = createVm(notesRepo = notesRepo, scope = this)
+        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
         vm.openEditor(testNote.id.value)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val received = mutableListOf<Unit>()
         val job = launch { vm.events.filterIsInstance<NotesUiEvent.SavedPulse>().take(1).collect { received += Unit } }
         runCurrent() // ensure collector is subscribed before emit
 
         vm.onIntent(NotesEditorIntent.EditBody("<p>Updated content</p>"))
+
+        runCurrent()
         vm.onIntent(NotesEditorIntent.SaveNow)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         assertEquals(listOf(Unit), received)
     }

@@ -68,7 +68,7 @@ Platform bindings — в `PlatformModule.jvm.kt` / `PlatformModule.android.kt`.
 
 | Source set | Что | Как запустить |
 |---|---|---|
-| `commonTest` | pure Kotlin, без платформы | `./gradlew :shared:commonTest` |
+| `commonTest` | pure Kotlin, без платформы | выполняется внутри `./gradlew :shared:jvmTest` (отдельного таска нет) |
 | `jvmTest` | Room + SQLite + Konsist arch tests | `./gradlew :shared:jvmTest` |
 
 **Fake вместо моков** — все двойники в `test/fakes/FakeRepositories.kt`:

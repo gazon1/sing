@@ -53,6 +53,7 @@ class FileLogWriter(
         val entry = formatEntry(Clock.now(), severity, tag, message, throwable)
         val writeJob = scope.launch { write(entry) }
         if (shuttingDown) {
+            @Suppress("NoRunBlocking") // process-exit drain: no coroutine context available
             runBlocking { writeJob.join() }
         }
     }
@@ -60,6 +61,7 @@ class FileLogWriter(
     /** Blocks until all buffered entries are flushed to disk, up to [DRAIN_TIMEOUT_MS]. */
     fun beginShutdown() {
         shuttingDown = true
+        @Suppress("NoRunBlocking") // blocking close() contract — drain before stream teardown
         runBlocking { withTimeoutOrNull(DRAIN_TIMEOUT_MS) { flush() } }
     }
 

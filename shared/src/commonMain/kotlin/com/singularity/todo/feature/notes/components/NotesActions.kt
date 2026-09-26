@@ -36,7 +36,7 @@ value class NotesActions(private val dispatch: (NotesIntent) -> Unit) {
     fun onDeleteSelected() = dispatch(NotesIntent.DeleteSelected)
 
     companion object {
-        /** No-op actions — useful for previews and test stubs. */
-        val Empty = NotesActions {}
+        /** No-op actions — previews/tests only. Internal so external callers must wire real dispatchers. */
+        internal val Empty = NotesActions {}
     }
 }

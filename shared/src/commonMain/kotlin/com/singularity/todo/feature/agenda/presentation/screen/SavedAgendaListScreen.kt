@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.ListPickerItem
 import com.singularity.todo.core.ui.components.ListPickerSheet
@@ -222,7 +223,7 @@ private fun SavedAgendaListContentLoadedPreview() = PreviewAgendaNavigator {
                 listOf(
                     SavedAgendaView(
                         id = SavedAgendaViewId("v1"),
-                        userId = "u1",
+                        userId = UserId("u1"),
                         name = "Weekly Review",
                         sectionsJson = "{}",
                         createdAt = Instant.fromEpochSeconds(1784253600),
@@ -230,7 +231,7 @@ private fun SavedAgendaListContentLoadedPreview() = PreviewAgendaNavigator {
                     ),
                     SavedAgendaView(
                         id = SavedAgendaViewId("v2"),
-                        userId = "u1",
+                        userId = UserId("u1"),
                         name = "Focus Today",
                         sectionsJson = "{}",
                         createdAt = Instant.fromEpochSeconds(1784253600),

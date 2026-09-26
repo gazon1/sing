@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.ai.chat
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.SequenceIdGenerator
 import com.singularity.todo.feature.ai.FakeTextGen
 import com.singularity.todo.feature.ai.TextGenPort
@@ -13,20 +13,22 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-@Tag("slow")
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModelTest {
 
     private val testLog = Logger.withTag("ChatViewModelTest")
 
-    private fun newVm(scope: CoroutineScope, flow: Flow<String> = flowOf("Hi ", "there!")) =
-        ChatViewModel(testLog, ScriptedTextGen(flow), SequenceIdGenerator(), testScope(scope))
+    private fun newVm(scope: CoroutineScope, flow: Flow<String> = flowOf("Hi ", "there!")) = ChatViewModel(
+        testLog,
+        ScriptedTextGen(flow),
+        SequenceIdGenerator(),
+        AutoCloseableCoroutineScope(scope.coroutineContext),
+    )
 
     @Test
     fun sendAppendsUserAndAssistantPlaceholder() = runTest {

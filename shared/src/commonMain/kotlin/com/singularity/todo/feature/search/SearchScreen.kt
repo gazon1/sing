@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -232,7 +233,7 @@ private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
         savedSearches = listOf(
             SavedSearch(
                 id = SavedSearchId.generate(),
-                userId = "u1",
+                userId = UserId("u1"),
                 name = "High Priority",
                 queryString = "priority:high",
                 createdAt = Clock.now(),
@@ -240,7 +241,7 @@ private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
             ),
             SavedSearch(
                 id = SavedSearchId.generate(),
-                userId = "u1",
+                userId = UserId("u1"),
                 name = "Work Tasks",
                 queryString = "tag:work",
                 createdAt = Clock.now(),

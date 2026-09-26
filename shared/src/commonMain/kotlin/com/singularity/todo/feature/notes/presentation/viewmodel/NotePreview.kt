@@ -26,9 +26,9 @@ class NotePreview(
     private val linkRepo: InternalLinkRepository,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<NotePreviewState, NotePreviewIntent, NotesUiEvent>(
-    initialState = NotePreviewState.Loading,
-    scope = scope,
-) {
+        initialState = NotePreviewState.Loading,
+        scope = scope,
+    ) {
     private val logger = Logger.withTag("NotePreview")
     override val vmScope = scope
     private var loadNoteJob: Job? = null

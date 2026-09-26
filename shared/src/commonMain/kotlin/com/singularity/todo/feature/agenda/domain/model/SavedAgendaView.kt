@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.agenda.domain.model
 
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlin.time.Instant
 
@@ -19,7 +20,7 @@ import kotlin.time.Instant
  */
 data class SavedAgendaView(
     val id: SavedAgendaViewId,
-    val userId: String,
+    val userId: UserId,
     val name: String,
     val sectionsJson: String,
     val createdAt: Instant,

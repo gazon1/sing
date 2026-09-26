@@ -37,8 +37,6 @@ class ProjectEditorViewModel(
         scope = scope,
     ) {
 
-
-
     init {
         if (projectId != null) {
             scope.launch { loadProject(projectId) }
@@ -69,18 +67,11 @@ class ProjectEditorViewModel(
     override fun onIntent(intent: ProjectEditorIntent) {
         when (intent) {
             is ProjectEditorIntent.NameChanged -> updateState { it.copy(name = intent.name, errorMessage = null) }
-
             is ProjectEditorIntent.ColorChanged -> updateState { it.copy(color = intent.color) }
-
             is ProjectEditorIntent.IconChanged -> updateState { it.copy(icon = intent.icon) }
-
             is ProjectEditorIntent.DescriptionChanged -> updateState { it.copy(description = intent.description) }
-
             is ProjectEditorIntent.ParentChanged -> updateState { it.copy(parentId = intent.parentId) }
-
             ProjectEditorIntent.ErrorShown -> updateState { it.copy(errorMessage = null) }
-
-
             ProjectEditorIntent.Save -> scope.launch { save() }
         }
     }

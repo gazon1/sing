@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
-import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.notes.Note
@@ -10,15 +10,14 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 
-@Tag("slow")
 @OptIn(ExperimentalCoroutinesApi::class)
 class NotePreviewTest {
 
@@ -47,7 +46,7 @@ class NotePreviewTest {
         NotePreview(
             repo = notesRepo,
             linkRepo = emptyLinkRepo,
-            scope = testScope(scope),
+            scope = AutoCloseableCoroutineScope(scope.coroutineContext),
         )
 
     @Test
@@ -63,7 +62,8 @@ class NotePreviewTest {
         val vm = createVm(notesRepo = notesRepo, scope = this)
 
         vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val state = vm.state.value
         assertIs<NotePreviewState.Loaded>(state)
@@ -78,13 +78,15 @@ class NotePreviewTest {
         val vm = createVm(notesRepo = notesRepo, scope = this)
 
         vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Update the note in the store — collect{} sees the new emission
         notesRepo.add(testNote.copy(title = "Updated Title"))
 
         vm.onIntent(NotePreviewIntent.Refresh)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val state = vm.state.value
         assertIs<NotePreviewState.Loaded>(state)
@@ -100,7 +102,8 @@ class NotePreviewTest {
         // Start two loads in rapid succession — second should cancel first
         vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
         vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Should not throw — second load cancelled the first
         assertIs<NotePreviewState.Loaded>(vm.state.value)
@@ -113,10 +116,12 @@ class NotePreviewTest {
         val vm = createVm(notesRepo = notesRepo, scope = this)
 
         vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         vm.onIntent(NotePreviewIntent.Delete)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Note should be soft-deleted (deletedAt set)
         val notes = notesRepo.notes
@@ -130,7 +135,8 @@ class NotePreviewTest {
         val vm = createVm(notesRepo = notesRepo, scope = this)
 
         vm.onIntent(NotePreviewIntent.Delete)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // No error, state unchanged
         assertIs<NotePreviewState.Loading>(vm.state.value)

@@ -18,10 +18,8 @@ import kotlinx.coroutines.launch
  * @param scope CoroutineScope for collecting the task flow. In production this is
  *   the app-level scope provided by the Android lifecycle.
  */
-class AndroidPomodoroTaskListProvider(
-    private val taskRepository: TaskRepository,
-    private val scope: CoroutineScope,
-) : PomodoroTaskListProvider {
+class AndroidPomodoroTaskListProvider(private val taskRepository: TaskRepository, private val scope: CoroutineScope) :
+    PomodoroTaskListProvider {
     private val _tasks = MutableStateFlow<List<Task>>(emptyList())
     override fun tasks(): StateFlow<List<Task>> = _tasks
 

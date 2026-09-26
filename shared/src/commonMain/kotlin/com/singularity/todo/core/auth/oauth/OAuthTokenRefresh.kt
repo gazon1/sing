@@ -1,6 +1,7 @@
 package com.singularity.todo.core.auth.oauth
 
 import kotlinx.io.IOException
+import kotlin.time.Clock
 
 /**
  * Token refresh helpers following RFC 6749 §6.
@@ -8,6 +9,9 @@ import kotlinx.io.IOException
  * [EXPIRY_MARGIN_MS] applies a 60-second safety margin: a token is considered
  * expired this amount before its actual expiry time, so refresh is initiated
  * proactively rather than after the first request fails.
+ *
+ * Wall-clock time is taken from [Clock.System] by default; tests pass an
+ * explicit `nowMs` instead of relying on the real system clock.
  */
 object OAuthTokenRefresh {
     /** Refresh tokens are refreshed 60 s before expiry to avoid race conditions. */
@@ -19,10 +23,14 @@ object OAuthTokenRefresh {
      * If [data.expiresAt] is `0` (unknown expiry), returns [refreshWhenExpiryUnknown].
      * Otherwise returns `true` when `now > expiresAt - EXPIRY_MARGIN_MS`.
      */
-    fun isExpired(data: OAuthTokenData, refreshWhenExpiryUnknown: Boolean): Boolean = if (data.expiresAt <= 0) {
+    fun isExpired(
+        data: OAuthTokenData,
+        refreshWhenExpiryUnknown: Boolean,
+        nowMs: Long = Clock.System.now().toEpochMilliseconds(),
+    ): Boolean = if (data.expiresAt <= 0) {
         refreshWhenExpiryUnknown
     } else {
-        System.currentTimeMillis() > data.expiresAt - EXPIRY_MARGIN_MS
+        nowMs > data.expiresAt - EXPIRY_MARGIN_MS
     }
 
     /**
@@ -30,11 +38,14 @@ object OAuthTokenRefresh {
      * [result.expiresIn] is converted to an absolute expiry time.
      * The refresh token is only updated if [result] provides a new one.
      */
-    fun OAuthTokenData.withRefreshResult(result: TasksOAuthClient.RefreshResult): OAuthTokenData = copy(
+    fun OAuthTokenData.withRefreshResult(
+        result: TasksOAuthClient.RefreshResult,
+        nowMs: Long = Clock.System.now().toEpochMilliseconds(),
+    ): OAuthTokenData = copy(
         accessToken = result.accessToken,
         refreshToken = result.refreshToken ?: refreshToken,
         expiresAt = result.expiresIn
-            ?.let { System.currentTimeMillis() + it * 1000 }
+            ?.let { nowMs + it * 1000 }
             ?: 0L,
     )
 

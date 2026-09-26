@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.search
 
-import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
@@ -100,9 +100,9 @@ class SearchViewModel(
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope,
 ) : MviViewModel<SearchUiState, SearchIntent, SearchUiEvent>(
-    initialState = SearchUiState(),
-    scope = scope,
-) {
+        initialState = SearchUiState(),
+        scope = scope,
+    ) {
 
     /** Secondary constructor used by Koin — creates its own [AutoCloseableCoroutineScope]. */
     constructor(
@@ -291,7 +291,7 @@ class SearchViewModel(
 
             val savedSearch = SavedSearch(
                 id = existingEntity?.id ?: SavedSearchId.generate(),
-                userId = "",
+                userId = UserId.anonymous,
                 name = name,
                 queryString = queryString,
                 createdAt = existingEntity?.createdAt ?: now,

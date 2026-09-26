@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.components.BackTopAppBar
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
@@ -389,7 +390,7 @@ private fun SavedAgendaContentEditingPreview() = PreviewAgendaNavigator {
             state = SavedAgendaViewState.Editing(
                 view = SavedAgendaView(
                     id = SavedAgendaViewId("v1"),
-                    userId = "u1",
+                    userId = UserId("u1"),
                     name = "My Work Setup",
                     sectionsJson = """{"sections":[{"type":"tasks"},{"type":"notes"}]}""",
                     createdAt = kotlin.time.Instant.fromEpochSeconds(1784253600),
@@ -424,7 +425,7 @@ private fun SavedAgendaContentSavingPreview() = PreviewAgendaNavigator {
             state = SavedAgendaViewState.Editing(
                 view = SavedAgendaView(
                     id = SavedAgendaViewId("v1"),
-                    userId = "u1",
+                    userId = UserId("u1"),
                     name = "My Work Setup",
                     sectionsJson = """{"sections":[]}""",
                     createdAt = kotlin.time.Instant.fromEpochSeconds(1784253600),

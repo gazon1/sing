@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.tasks
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
@@ -16,11 +16,11 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
-import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -36,7 +36,6 @@ import kotlin.test.assertNull
  * since the VM uses `stateIn(scope, WhileSubscribed(5000), initial)`.
  * Those are verified via integration with the repository in the save tests.
  */
-@Tag("slow")
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskCreateViewModelTest {
 
@@ -55,7 +54,11 @@ class TaskCreateViewModelTest {
             logger = Logger.withTag("TaskCreateTest"),
             draftStore = fakeDraftStore,
         )
-        return TaskCreateViewModel(deps = deps, initialDueDate = null, scope = testScope(scope))
+        return TaskCreateViewModel(
+            deps = deps,
+            initialDueDate = null,
+            scope = AutoCloseableCoroutineScope(scope.coroutineContext),
+        )
     }
 
     // FakeDraftStore stores bare keys (no user prefix), matching TaskCreateViewModel's bare key usage.
@@ -68,11 +71,13 @@ class TaskCreateViewModelTest {
         // Pre-seed a draft
         fakeDraftStore.save(draftKey, TaskDraft(title = "Restored task"), TaskDraft.serializer())
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         // Draft was restored (seed-if-empty pattern: restore only if current is initial).
         // Verify by saving without typing — should create task with restored title.
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals(1, fakeTaskRepo.tasks.value.size)
         assertEquals("Restored task", fakeTaskRepo.tasks.value.values.first().title)
     }
@@ -82,10 +87,12 @@ class TaskCreateViewModelTest {
     @Test
     fun `SaveClicked with blank title does not create task`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals(0, fakeTaskRepo.tasks.value.size)
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals(0, fakeTaskRepo.tasks.value.size)
     }
 
@@ -94,12 +101,15 @@ class TaskCreateViewModelTest {
     @Test
     fun `SaveClicked with valid title creates task in repository`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.TitleChanged("New task"))
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.SaveClicked)
         // Wait for save coroutine to complete
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals(1, fakeTaskRepo.tasks.value.size)
         assertEquals("New task", fakeTaskRepo.tasks.value.values.first().title)
     }
@@ -107,12 +117,15 @@ class TaskCreateViewModelTest {
     @Test
     fun `SaveClicked with description creates task with description`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.TitleChanged("Task with desc"))
         vm.onIntent(TaskCreateIntent.DescriptionChanged("Some description"))
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals(1, fakeTaskRepo.tasks.value.size)
         assertEquals("Some description", fakeTaskRepo.tasks.value.values.first().description)
     }
@@ -120,12 +133,15 @@ class TaskCreateViewModelTest {
     @Test
     fun `SaveClicked with priority creates task with priority`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.TitleChanged("Important task"))
         vm.onIntent(TaskCreateIntent.SetPriority(TaskPriority.High))
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals(TaskPriority.High, fakeTaskRepo.tasks.value.values.first().priority)
     }
 
@@ -134,11 +150,14 @@ class TaskCreateViewModelTest {
     @Test
     fun `SaveClicked clears draft after successful save`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.TitleChanged("To be cleared"))
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         // Draft should be cleared from store
         assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
     }
@@ -149,12 +168,15 @@ class TaskCreateViewModelTest {
     fun `SetDueDate with valid date creates task with that date`() = runTest {
         val date = LocalDate(2026, Month.OCTOBER, 5)
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.TitleChanged("Dated task"))
         vm.onIntent(TaskCreateIntent.SetDueDate(date))
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertEquals(date, fakeTaskRepo.tasks.value.values.first().dueDate)
     }
 
@@ -162,14 +184,18 @@ class TaskCreateViewModelTest {
     fun `DueDateCleared removes dueDate from created task`() = runTest {
         val date = LocalDate(2026, Month.OCTOBER, 5)
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.TitleChanged("Date test"))
         vm.onIntent(TaskCreateIntent.SetDueDate(date))
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.DueDateCleared)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertNull(fakeTaskRepo.tasks.value.values.first().dueDate)
     }
 
@@ -178,14 +204,16 @@ class TaskCreateViewModelTest {
     @Test
     fun `parallel SaveClicked calls are guarded by compareAndSet — only one save`() = runTest {
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         vm.onIntent(TaskCreateIntent.TitleChanged("Raced task"))
 
         // Fire two saves synchronously — second is blocked by compareAndSet guard
         vm.onIntent(TaskCreateIntent.SaveClicked)
         vm.onIntent(TaskCreateIntent.SaveClicked)
 
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         // Exactly one task created — the guard prevented double-save
         assertEquals(1, fakeTaskRepo.tasks.value.size)
         assertEquals("Raced task", fakeTaskRepo.tasks.value.values.first().title)

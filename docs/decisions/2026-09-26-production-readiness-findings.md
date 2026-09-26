@@ -58,12 +58,9 @@ Tests without any tag run by default. Only `@Tag("slow")` tests are excluded.
 
 **Temporary fix:** All 17 failing test classes tagged `@Tag("slow")` so default `./gradlew :shared:jvmTest` passes with BUILD SUCCESSFUL.
 
-**Failing test classes (17):**
-- `AnalyticsTest` (commonTest)
+**Failing test classes (14):**
 - `OAuthTokenRefreshTest` (commonTest)
 - `BackupOptionsTest` (jvmTest)
-- `DiGraphTest` (jvmTest)
-- `JvmAiDiGraphTest` (jvmTest)
 - `AutoSyncTest` (jvmTest)
 - `SyncRepositoryCoalescingTest` (jvmTest)
 - `SavedAgendaViewModelTest` (jvmTest)
@@ -78,6 +75,16 @@ Tests without any tag run by default. Only `@Tag("slow")` tests are excluded.
 - `TaskDetailViewModelTest` (jvmTest)
 
 **Next step:** Root-cause analysis + fix in a dedicated PR (tracked separately).
+
+## Amendment 2026-09-26 (techdebt-preflight)
+
+The original list named 17 classes; counts (63 failures / 17 classes) were captured
+before commit `b6b426fe`. That commit deleted `AnalyticsTest`, `DiGraphTest`, and
+`JvmAiDiGraphTest` (replaced by `KoinGraphValidationTest`), so the live list is the
+14 classes above. The list has been updated in place; failure counts are historical.
+See also `2026-09-25-remaining-test-debt` (O4: the ServiceLoader-referenced
+`NoRunBlockingProvider` was missing — since created as an inner class of
+`NoRunBlockingRule.kt`).
 
 ## Skills Created
 

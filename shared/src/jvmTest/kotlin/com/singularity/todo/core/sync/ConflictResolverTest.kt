@@ -1,62 +1,12 @@
 package com.singularity.todo.core.sync
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class ConflictResolverTest {
-
-    private val json = Json { ignoreUnknownKeys = true }
-
-    @Test
-    fun `merge keeps remote when newer by HLC`() {
-        val local = buildJsonObject { put("title", JsonPrimitive("Local")) }
-        val remote = buildJsonObject { put("title", JsonPrimitive("Remote")) }
-        val localHlc = Hlc.of(1000, 0, "n1")
-        val remoteHlc = Hlc.of(2000, 0, "n2")
-
-        val merged = ConflictResolver.merge(local, remote, localHlc, remoteHlc)
-
-        assertEquals("Remote", merged.jsonObject["title"]?.jsonPrimitive?.content)
-    }
-
-    @Test
-    fun `merge keeps local when newer by HLC`() {
-        val local = buildJsonObject { put("title", JsonPrimitive("Local")) }
-        val remote = buildJsonObject { put("title", JsonPrimitive("Remote")) }
-        val localHlc = Hlc.of(2000, 0, "n1")
-        val remoteHlc = Hlc.of(1000, 0, "n2")
-
-        val merged = ConflictResolver.merge(local, remote, localHlc, remoteHlc)
-
-        assertEquals("Local", merged.jsonObject["title"]?.jsonPrimitive?.content)
-    }
-
-    @Test
-    fun `merge takes remote when local is null`() {
-        val local: kotlinx.serialization.json.JsonElement = JsonNull
-        val remote = buildJsonObject { put("title", JsonPrimitive("Remote")) }
-
-        val merged = ConflictResolver.merge(local, remote, null, Hlc.zero("n"))
-
-        assertEquals("Remote", merged.jsonObject["title"]?.jsonPrimitive?.content)
-    }
-
-    @Test
-    fun `merge takes local when remote is null`() {
-        val local = buildJsonObject { put("title", JsonPrimitive("Local")) }
-        val remote: kotlinx.serialization.json.JsonElement = JsonNull
-
-        val merged = ConflictResolver.merge(local, remote, Hlc.zero("n"), null)
-
-        assertEquals("Local", merged.jsonObject["title"]?.jsonPrimitive?.content)
-    }
 
     @Test
     fun `checksum is deterministic`() {

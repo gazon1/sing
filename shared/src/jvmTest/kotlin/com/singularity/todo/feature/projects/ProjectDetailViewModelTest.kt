@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.projects
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -21,9 +21,9 @@ import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,9 +34,8 @@ import kotlin.test.assertTrue
 /**
  * Unit tests for [ProjectDetailViewModel] verifying behavioral contracts.
  *
- * Timing: uses virtual time via advanceUntilIdle() — no real delays or spin-waiting.
+ * Timing: uses virtual time via advanceTimeBy(1_000); runCurrent() — no real delays or spin-waiting.
  */
-@Tag("slow")
 class ProjectDetailViewModelTest {
 
     private val testUserId = UserId("test-user")
@@ -59,7 +58,7 @@ class ProjectDetailViewModelTest {
             createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, Clock, fakeCurrentUser),
             clock = Clock,
             log = Logger,
-            scope = testScope(scope),
+            scope = AutoCloseableCoroutineScope(scope.coroutineContext),
         )
         return vm
     }
@@ -104,12 +103,14 @@ class ProjectDetailViewModelTest {
     fun `UpdateColor persists new color to repository`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertTrue(vm.state.value is ProjectDetailUiState.Content)
 
         val newColor = 0xFFE91E63.toInt()
         vm.onIntent(ProjectDetailIntent.Domain.UpdateColor(newColor))
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val updated = fakeProjectsRepo.store["p1"]
         assertNotNull(updated)
@@ -120,11 +121,13 @@ class ProjectDetailViewModelTest {
     fun `ToggleArchive sets isDeleted on project`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertTrue(vm.state.value is ProjectDetailUiState.Content)
 
         vm.onIntent(ProjectDetailIntent.Domain.ToggleArchive)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val updated = fakeProjectsRepo.store["p1"]
         assertNotNull(updated)
@@ -135,11 +138,13 @@ class ProjectDetailViewModelTest {
     fun `Delete emits NavigateBack on success`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertTrue(vm.state.value is ProjectDetailUiState.Content)
 
         vm.onIntent(ProjectDetailIntent.Domain.Delete)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         // Wait for NavigateBack event
         val event = vm.events.first()
@@ -150,12 +155,14 @@ class ProjectDetailViewModelTest {
     fun `CreateTask adds task to repository`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
         assertTrue(vm.state.value is ProjectDetailUiState.Content)
         assertTrue(fakeTaskRepo.tasks.value.isEmpty())
 
         vm.onIntent(ProjectDetailIntent.Domain.CreateTask("New task"))
-        advanceUntilIdle()
+        advanceTimeBy(1_000)
+        runCurrent()
 
         val tasks = fakeTaskRepo.tasks.value.values.toList()
         assertEquals(1, tasks.size)

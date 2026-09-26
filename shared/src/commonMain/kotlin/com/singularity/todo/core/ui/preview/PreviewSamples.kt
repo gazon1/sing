@@ -75,7 +75,7 @@ internal object PreviewSamples {
     private val now: Instant = Instant.fromEpochMilliseconds(0)
     val today: LocalDate = LocalDate(2026, 9, 6)
     val userId: UserId = UserId.anonymous
-    private val projectUserId: String = UserId.anonymous.value
+    private val projectUserId: UserId = UserId.anonymous
 
     fun task(
         id: String = "t1",
@@ -114,7 +114,7 @@ internal object PreviewSamples {
         parentId = parentId,
         createdAt = now,
         updatedAt = now,
-        userId = UserId(projectUserId),
+        userId = projectUserId,
     )
 
     fun tag(id: String = "tg1", name: String = "work", color: Int = 0xFFE91E63.toInt()): Tag = Tag(

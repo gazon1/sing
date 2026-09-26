@@ -35,7 +35,7 @@ class SavedAgendaViewsRepositoryImplTest {
 
     private fun makeView(
         id: String = "v1",
-        userId: String = "user_1",
+        userId: UserId = UserId("user_1"),
         name: String = "My Agenda",
         sectionsJson: String = """{"title":"Test","sections":[]}""",
     ): SavedAgendaView = SavedAgendaView(
@@ -57,9 +57,9 @@ class SavedAgendaViewsRepositoryImplTest {
     @Test
     fun watchAll_returnsViewsForUser() = runTest {
         val r = repo()
-        r.upsert(makeView(id = "v1", userId = "u1", name = "Alpha"))
-        r.upsert(makeView(id = "v2", userId = "u1", name = "Beta"))
-        r.upsert(makeView(id = "v3", userId = "u2", name = "Gamma")) // other user — not returned by scoped query
+        r.upsert(makeView(id = "v1", userId = UserId("u1"), name = "Alpha"))
+        r.upsert(makeView(id = "v2", userId = UserId("u1"), name = "Beta"))
+        r.upsert(makeView(id = "v3", userId = UserId("u2"), name = "Gamma")) // other user — not returned by scoped query
 
         val result = r.observeAll().first()
         assertEquals(2, result.size)
@@ -70,9 +70,9 @@ class SavedAgendaViewsRepositoryImplTest {
     @Test
     fun watchAll_sortsByName() = runTest {
         val r = repo()
-        r.upsert(makeView(id = "v1", userId = "u1", name = "Zeta"))
-        r.upsert(makeView(id = "v2", userId = "u1", name = "Alpha"))
-        r.upsert(makeView(id = "v3", userId = "u1", name = "Beta"))
+        r.upsert(makeView(id = "v1", userId = UserId("u1"), name = "Zeta"))
+        r.upsert(makeView(id = "v2", userId = UserId("u1"), name = "Alpha"))
+        r.upsert(makeView(id = "v3", userId = UserId("u1"), name = "Beta"))
 
         val result = r.observeAll().first()
         assertEquals(listOf("Alpha", "Beta", "Zeta"), result.map { it.name })
@@ -81,7 +81,7 @@ class SavedAgendaViewsRepositoryImplTest {
     @Test
     fun watchById_returnsView() = runTest {
         val r = repo()
-        val created = r.upsert(makeView(id = "v1", userId = "u1")).getOrThrow()
+        val created = r.upsert(makeView(id = "v1", userId = UserId("u1"))).getOrThrow()
 
         val result = r.observe(SavedAgendaViewId.fromString("v1")).first()
         assertNotNull(result)
@@ -99,7 +99,7 @@ class SavedAgendaViewsRepositoryImplTest {
     @Test
     fun upsert_createsView() = runTest {
         val r = repo()
-        val view = makeView(id = "v1", userId = "u1", name = "New View")
+        val view = makeView(id = "v1", userId = UserId("u1"), name = "New View")
 
         val result = r.upsert(view).getOrThrow()
         assertEquals("v1", result.id.raw)
@@ -109,9 +109,9 @@ class SavedAgendaViewsRepositoryImplTest {
     @Test
     fun upsert_updatesExistingView() = runTest {
         val r = repo()
-        r.upsert(makeView(id = "v1", userId = "u1", name = "Original"))
+        r.upsert(makeView(id = "v1", userId = UserId("u1"), name = "Original"))
 
-        val updated = r.upsert(makeView(id = "v1", userId = "u1", name = "Updated")).getOrThrow()
+        val updated = r.upsert(makeView(id = "v1", userId = UserId("u1"), name = "Updated")).getOrThrow()
         assertEquals("Updated", updated.name)
 
         val all = r.observeAll().first()
@@ -121,7 +121,7 @@ class SavedAgendaViewsRepositoryImplTest {
     @Test
     fun delete_removesView() = runTest {
         val r = repo()
-        r.upsert(makeView(id = "v1", userId = "u1"))
+        r.upsert(makeView(id = "v1", userId = UserId("u1")))
 
         r.delete(SavedAgendaViewId.fromString("v1"))
 
@@ -146,7 +146,7 @@ class SavedAgendaViewsRepositoryImplTest {
             ]}
         """.trimIndent()
 
-        val view = makeView(id = "v1", userId = "u1", sectionsJson = sectionsJson)
+        val view = makeView(id = "v1", userId = UserId("u1"), sectionsJson = sectionsJson)
         r.upsert(view).getOrThrow()
 
         val restored = r.observe(SavedAgendaViewId.fromString("v1")).first()

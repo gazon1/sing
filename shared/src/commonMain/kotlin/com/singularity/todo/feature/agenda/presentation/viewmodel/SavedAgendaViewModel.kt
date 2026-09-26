@@ -4,6 +4,7 @@ import androidx.compose.runtime.Stable
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.ui.DraftState
@@ -122,8 +123,6 @@ class SavedAgendaViewModel(
         scope = scope,
     ) {
 
-
-
     val draftState = SavedAgendaDraftState()
 
     init {
@@ -236,24 +235,24 @@ class SavedAgendaViewModel(
                             onFailure = {
                                 emit(
                                     SavedAgendaEvent.ShowError(
-                                        it.toMessage("Save failed")
-                                    )
+                                        it.toMessage("Save failed"),
+                                    ),
                                 )
                             },
                         )
                 }
 
                 is SavedAgendaScreenMode.Create -> {
-                    // "" is the sentinel — repo stamps ambient userId on insert
-                    val newView = SavedAgendaViewFactory.create("", nameToSave, sectionsJson, now)
+                    // Anonymous sentinel — repo stamps ambient userId on insert
+                    val newView = SavedAgendaViewFactory.create(UserId.anonymous, nameToSave, sectionsJson, now)
                     deps.repo.upsert(newView)
                         .fold(
                             onSuccess = { emit(SavedAgendaEvent.SaveSuccess) },
                             onFailure = {
                                 emit(
                                     SavedAgendaEvent.ShowError(
-                                        it.toMessage("Save failed")
-                                    )
+                                        it.toMessage("Save failed"),
+                                    ),
                                 )
                             },
                         )

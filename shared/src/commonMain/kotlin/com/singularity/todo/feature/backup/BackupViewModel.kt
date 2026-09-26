@@ -49,8 +49,6 @@ class BackupViewModel(
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
-
-
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
 
@@ -64,6 +62,7 @@ class BackupViewModel(
         get() = AuthDomain.effectiveUserId(authRepository.currentSession.value)
 
     init {
+        addCloseable(scope)
         scope.launch {
             repository.observeAll().collect { backups ->
                 _state.update { it.copy(backups = backups) }

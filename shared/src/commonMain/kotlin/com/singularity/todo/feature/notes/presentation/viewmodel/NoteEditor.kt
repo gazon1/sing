@@ -8,7 +8,6 @@ import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.core.ui.DraftUiState
-import com.singularity.todo.feature.notes.EditorState
 import com.singularity.todo.feature.notes.EditorState.Editing
 import com.singularity.todo.feature.notes.ExtractActionsResult
 import com.singularity.todo.feature.notes.LinkKind
@@ -23,12 +22,12 @@ import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.SuggestTagsResult
 import com.singularity.todo.feature.notes.SummarizeResult
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
 import com.singularity.todo.feature.notes.formatExtractActionsResult
 import com.singularity.todo.feature.notes.formatNoteAiResult
 import com.singularity.todo.feature.notes.formatSuggestTagsResult
 import com.singularity.todo.feature.notes.formatSummarizeResult
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
@@ -58,29 +57,31 @@ class NoteEditor(
     private val currentUser: ProfileAwareCurrentUser,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : DraftMviViewModel<Editing, NotesEditorIntent, NotesUiEvent>(
-    initialDraft = Editing(id = "", title = "", html = "", isDirty = false, isNew = true),
-    autosave = { draft ->
-        // Autosave reads from DB to preserve createdAt. Debounced to 500ms, so the
-        // extra round-trip on every keystroke is acceptable.
-        val noteId = NoteId.fromString(draft.id)
-        val existing = repo.get(noteId)
-        val now: Instant = Clock.now()
-        repo.upsert(Note(
-            id = noteId,
-            userId = currentUser.scopedUserId.value,
-            title = draft.title,
-            bodyHtml = draft.html,
-            bodyMarkdown = null,
-            createdAt = existing?.createdAt ?: now,
-            updatedAt = now,
-            isFolder = false,
-        ))
-    },
-    restore = { null },
-    logger = log,
-    autosaveDebounceMs = 500L,
-    scope = scope,
-) {
+        initialDraft = Editing(id = "", title = "", html = "", isDirty = false, isNew = true),
+        autosave = { draft ->
+            // Autosave reads from DB to preserve createdAt. Debounced to 500ms, so the
+            // extra round-trip on every keystroke is acceptable.
+            val noteId = NoteId.fromString(draft.id)
+            val existing = repo.get(noteId)
+            val now: Instant = Clock.now()
+            repo.upsert(
+                Note(
+                    id = noteId,
+                    userId = currentUser.scopedUserId.value,
+                    title = draft.title,
+                    bodyHtml = draft.html,
+                    bodyMarkdown = null,
+                    createdAt = existing?.createdAt ?: now,
+                    updatedAt = now,
+                    isFolder = false,
+                ),
+            )
+        },
+        restore = { null },
+        logger = log,
+        autosaveDebounceMs = 500L,
+        scope = scope,
+    ) {
 
     /** Caches the existing note when opening to preserve createdAt across saves. */
     private var cachedNote: Note? = null
@@ -106,7 +107,7 @@ class NoteEditor(
     fun openEditor(noteId: String) {
         vmScope.launch {
             val note = repo.get(NoteId.fromString(noteId)) ?: return@launch
-            cachedNote = note  // cache for autosave to preserve createdAt
+            cachedNote = note // cache for autosave to preserve createdAt
             val html = note.bodyHtml ?: note.bodyMarkdown?.let { NoteContentMapper.toHtml(it) } ?: ""
             val draft = Editing(
                 id = note.id.value,
@@ -115,14 +116,18 @@ class NoteEditor(
                 isDirty = false,
                 isNew = false,
             )
-            updateDraft { draft }
+            // open() FIRST: it advances baseline to the opened note. Calling
+            // updateDraft first would make open() a no-op (sameEntity early-return),
+            // leaving baseline at the empty initial draft — closeEditor (discard)
+            // would then revert to an empty editor instead of the opened note.
             open(draft)
+            updateDraft { draft }
         }
     }
 
     /** Creates a new note and returns the generated ID. */
     fun createNote(): String {
-        cachedNote = null  // no existing note for new notes
+        cachedNote = null // no existing note for new notes
         val id = NoteId.fromString(idGen.next())
         val draft = Editing(
             id = id.value,
@@ -131,8 +136,8 @@ class NoteEditor(
             isDirty = false,
             isNew = true,
         )
-        updateDraft { draft }
         open(draft)
+        updateDraft { draft }
         return id.value
     }
 
@@ -143,21 +148,30 @@ class NoteEditor(
     override fun validate(draft: Editing): String? = null
 
     override suspend fun onSaved() {
+        // Explicit save persists the note: it is no longer "new" — a subsequent
+        // save must go through update, not create.
+        updateDraft { it.copy(isNew = false) }
         emit(NotesUiEvent.SavedPulse)
     }
 
-    override suspend fun persist(draft: Editing): Either<AppError, Unit> {
-        return try {
-            repo.upsert(editingAsNote(draft))
-            Either.Right(Unit)
-        } catch (e: Exception) {
-            Either.Left(AppError.Persistence(e))
-        }
+    override suspend fun persist(draft: Editing): Either<AppError, Unit> = try {
+        repo.upsert(editingAsNote(draft))
+        Either.Right(Unit)
+    } catch (e: Exception) {
+        Either.Left(AppError.Persistence(e))
     }
 
     override fun onAutosaveError(e: Throwable) {
         log.e(e) { "autosave failed: ${e.message}" }
         vmScope.launch { emit(NotesUiEvent.SaveFailed(e.message ?: "Autosave failed")) }
+    }
+
+    override fun onAutosaved(current: Editing) {
+        // The autosaved content is persisted: clear the draft-local dirty flag
+        // (mirroring the derived DraftUiState.isDirty which the base clears via
+        // baseline) and the isNew flag — the note now exists in the repo, so a
+        // subsequent save is an update, not a create.
+        updateDraft { it.copy(isDirty = false, isNew = false) }
     }
 
     override fun onIntent(intent: NotesEditorIntent) {
@@ -184,7 +198,9 @@ class NoteEditor(
             onResult = { before, result ->
                 if (result is Improved) {
                     before.copy(title = result.title, html = result.body, isDirty = true)
-                } else null
+                } else {
+                    null
+                }
             },
             onEvent = { result ->
                 NotesUiEvent.AiResult(formatNoteAiResult(result))
