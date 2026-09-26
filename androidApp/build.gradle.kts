@@ -82,6 +82,7 @@ android {
 // detekt — static analysis
 // ---------------------------------------------------------------------------
 detekt {
+    config.setFrom(rootProject.file("config/detekt/detekt-minimal.yml"))
     buildUponDefaultConfig = true
     ignoreFailures = true
     source.setFrom(

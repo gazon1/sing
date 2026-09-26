@@ -48,7 +48,8 @@ dependencies {
     testImplementation(libs.koin.test)
     testImplementation(kotlin("reflect"))
 
-    detektPlugins(libs.detekt.formatting)
+    // detektPlugins(libs.detekt.formatting) — removed: mcp-server uses detekt-minimal.yml
+    // which does not include ktlint config. Formatting is handled by shared + desktopApp.
 }
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
@@ -99,6 +100,7 @@ tasks.named("build") { dependsOn("jar") }
 // detekt — static analysis
 // ---------------------------------------------------------------------------
 detekt {
+    config.setFrom(rootProject.file("config/detekt/detekt-minimal.yml"))
     buildUponDefaultConfig = true
     ignoreFailures = true
     source.setFrom(
