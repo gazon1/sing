@@ -162,6 +162,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Completed epics keep their PROGRESS.md entry as an audit trail
 - Compose UI for setting these new fields is not yet built — that's MR-3's scope.
 - Coverage target: 100% for `StatefulViewModel`, `MviViewModel`, `EventBus`, `StateStrategy`, `DraftState`
+- Crash reporting via Crashlytics is the primary stability metric
 - DI bindings for canonical types: `singleOf(::Class)` for simple ctors (≤3 args, singleton scope), `factoryOf(::Class)` for per-injection scope. No `bind<Interface>()`.
 - DI-граф упрощён: 5 factory → 1
 - Dead Nav2 code removed from Android
@@ -194,6 +195,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Link tap detection requires cursor placement (no visual link highlight tap) — acceptable tradeoff given library limitation
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP).
 - Locale-aware first day of week.
+- Log filtering by trace ID is the primary incident investigation tool
 - MR-2b (UI) will wire these fields into task create/edit screens
 - Minor UX polish (loading placeholder, TTL) can be added opportunistically when the screen is touched.
 - Month-grid cells are still hand-rolled (no kizitonwose `MonthView`). Week/Day remain unchanged.
@@ -202,6 +204,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - No immediate change to test infrastructure or CI.
 - No migration needed for this fix.
 - No more write storms from rapid task edits
+- No new critical/warnings bullets from this PR
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - No repository contract overloads are needed for this interface (it has no non-Koin callers).
 - No server-driven static content (Layer 4 from the article) — deferred until a concrete surface exists (e.g., in-app FAQ)
@@ -231,12 +234,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Room schema unchanged (tables `task_tags` and `task_dependencies` already existed).
 - RuStore / Galaxy Store support requires ~1 day of work when distribution to those stores is planned.
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill)
+- Security-sensitive changes are now explicitly flagged in PRs
 - Self-loop dependency is rejected at `setDependencies()` call site; cycle detection (A→B→C→A) is deferred.
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed.
 - Settings screen can show specific recovery actions per failure type
 - Simple schema, no migration complexity beyond bumping SCHEMA_VERSION.
 - Single narrow Room query (`watchByDate`) reused for the new use case.
 - Single-impl interface with no test fake is YAGNI — inline the concrete class as canonical.
+- Skill size check should be added to CI
 - Skills are referenced in ADRs by slug: `skill \`singularity-todo-vm-migration-playbook\``
 - Skills exceeding 20 KB fail CI (hard cap enforced by `wc -c` check in CI)
 - Skills without `name` + `description` fail CI
@@ -358,6 +363,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `core/ui/state/StateFlowExt.kt::updateState` removed after all migrations complete (MR-4)
 - `deadlineDate` badge is rendered as a red flag + date for tasks due on the selected date.
 - `deadlineDate` badge rendering in month grid.
+- `debugging-investigation` skill gives engineers a step-by-step diagnosis procedure
 - `delay(until-midnight)` means the flow never completes — collectors must be scoped
 - `endTime` / `accentColor` — blocked on Room migration for `startAt`/`endAt`/`accentColor` fields in `Task`
 - `expect object Clock` rename to `PlatformClock` — deferred until a broader cleanup window
@@ -376,10 +382,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
 - `refresh-decisions-digest.sh` must handle `superseded-by` by not duplicating superseded ADR bullets into DIGEST Critical section
 - `scopeOverride` добавлен в `ProjectsViewModel`
+- `security-review` skill gives a step-by-step security review checklist
 - `serverVersion`/`hlc` survive the full round-trip: domain → entity → DAO → DB → entity → domain
 - `single<Interface>(::Impl)` does NOT work — Koin can't resolve `Impl`'s constructor params from DI when called through `single<T>(::Impl)`. Use `single { Impl(get(), ...) }` for interface bindings.
 - `singleOf` fails for classes with function-type constructor parameters (Koin tries to resolve `Function1` from DI) — use explicit lambda in those cases.
 - `singularity-todo-domain-glossary` skill provides a decision tree for "should this be a term?"
+- `singularity-todo-secure-storage` skill governs credential storage decisions
 - `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model
 - `startAt`/`endAt`/`allDay`/`recurrence` in `Task` (Room migration).
 - `status: deferred` ADRs are not required to have a `date` field
@@ -1444,15 +1452,18 @@ _2 entries need attention._
 - `2026-09-26-four-phases-gate` — _untagged_
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
 - `2026-09-26-kdoc-enforcement-rules` — _untagged_
+- `2026-09-26-observability-production` — _untagged_
 - `2026-09-26-post-p0-retro` — _untagged_
 - `2026-09-26-post-pr-1.1-retro` — _untagged_
 - `2026-09-26-post-pr-1.2-retro` — _untagged_
 - `2026-09-26-post-pr-1.3-retro` — _untagged_
+- `2026-09-26-post-pr-1.4-retro` — _untagged_
 - `2026-09-26-pr-0-1-retro` — _untagged_
 - `2026-09-26-pr-0-2-retro` — _untagged_
 - `2026-09-26-pr-0-3-retro` — _untagged_
 - `2026-09-26-pr-0-4-retro` — _untagged_
 - `2026-09-26-progress-journal-policy` — _untagged_
+- `2026-09-26-security-review` — _untagged_
 - `2026-09-26-skill-authoring-policy` — _untagged_
 - `2026-09-26-ui-testing-deferred` — _untagged_
 - `2026-09-26-writer-reviewer-pattern` — _untagged_
@@ -1687,15 +1698,18 @@ _2 entries need attention._
 - `2026-09-26-four-phases-gate` — _(no title)_
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
 - `2026-09-26-kdoc-enforcement-rules` — _(no title)_
+- `2026-09-26-observability-production` — _(no title)_
 - `2026-09-26-post-p0-retro` — _(no title)_
 - `2026-09-26-post-pr-1.1-retro` — _(no title)_
 - `2026-09-26-post-pr-1.2-retro` — _(no title)_
 - `2026-09-26-post-pr-1.3-retro` — _(no title)_
+- `2026-09-26-post-pr-1.4-retro` — _(no title)_
 - `2026-09-26-pr-0-1-retro` — _(no title)_
 - `2026-09-26-pr-0-2-retro` — _(no title)_
 - `2026-09-26-pr-0-3-retro` — _(no title)_
 - `2026-09-26-pr-0-4-retro` — _(no title)_
 - `2026-09-26-progress-journal-policy` — _(no title)_
+- `2026-09-26-security-review` — _(no title)_
 - `2026-09-26-skill-authoring-policy` — _(no title)_
 - `2026-09-26-ui-testing-deferred` — UI testing deferred — androidHostTest + UiAutomator postponed
 - `2026-09-26-writer-reviewer-pattern` — _(no title)_
