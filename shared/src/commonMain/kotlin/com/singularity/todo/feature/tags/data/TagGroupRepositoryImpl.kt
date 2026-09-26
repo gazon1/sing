@@ -69,8 +69,8 @@ class TagGroupRepositoryImpl(
         val uid = currentUser.scopedUserId.value
         val existing = tagGroupDao.getByIdForUser(input.id.value, uid.value)
             ?: throw NoSuchElementException("TagGroup not found: ${input.id}")
-        // DAO-level filter above is the first guard; explicit assertCanWrite is the second.
-        // TagGroup.userId is stored as String, so wrap with UserId() for the guard.
+        // DAO-level filter above is the first guard; explicit assertCanWrite is the
+        // second (the entity stores the raw String column, hence the wrap).
         currentUser.assertCanWrite(
             entityId = existing.id,
             entityUserId = UserId(existing.userId),

@@ -2,17 +2,25 @@ package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.Month
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
-class TaskToJsonProbeTest {
+/**
+ * Regression: [SyncableEntity.toJson] uses `serializer<T>()` reflection, which
+ * requires the entity's @Serializable graph to resolve every property type.
+ * Task carries a [UserId] value class — this test locks in that the sync JSON
+ * serializes it as a plain string (wire format), not a wrapped object.
+ */
+class TaskSyncSerializationTest {
+
     @Test
-    fun probe() {
+    fun `toJson serializes userId as plain string`() {
         val task = Task(
-            id = com.singularity.todo.feature.tasks.domain.model.TaskId("t1"),
+            id = TaskId("t1"),
             title = "T",
             kind = TaskKind.Task,
             priority = TaskPriority.None,
@@ -20,11 +28,10 @@ class TaskToJsonProbeTest {
             updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
             userId = UserId("test-user"),
         )
-        try {
-            val json = task.toJson()
-            println("TASKTOJSON OK: ${json.toString().take(120)}")
-        } catch (e: Throwable) {
-            println("TASKTOJSON THROWS: ${e::class.simpleName}: ${e.message?.take(150)}")
-        }
+
+        val json = task.toJson()
+
+        assertEquals("test-user", json["userId"]?.toString()?.trim('"'))
+        assertTrue(json.containsKey("title"))
     }
 }
