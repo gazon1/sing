@@ -1,7 +1,7 @@
 ---
 title: "Test suite tag defaults and Khorikov testing principles"
 status: accepted
-date: 2026-09-25
+date: 2026-09-26
 authors: ZCode Agent
 deciders: Singularity Developer
 tags: [testing, junit, gradle, detekt]

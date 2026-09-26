@@ -134,6 +134,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - AI actions do **not** appear in `TaskEditorMenuBuilder` menu — they remain accessible only from `TaskAiBottomSheet` (accessed via FAB icon on `TaskDetail`).
 - AI tools (11 Koog `SimpleTool` implementations) drop `currentUser` from
 - After PR-0.3 KDoc batch, regenerate baselines with `./gradlew :shared:detektBaseline :desktopApp:detektBaseline` to capture the cleaner state.
+- After PR-0.3 KDoc batch, regenerate baselines with `./gradlew :shared:detektBaseline :desktopApp:detektBaseline` to capture the cleaner state.
+- After PR-0.3, all production ViewModels and Repositories will have KDoc. New additions without KDoc will fail CI.
 - Agenda always shows correct bucket labels across midnight.
 - All 13 migrated VMs are now testable with `backgroundScope` injection
 - All 593 existing tests continue to pass.
@@ -193,12 +195,15 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Month-grid cells are still hand-rolled (no kizitonwose `MonthView`). Week/Day remain unchanged.
 - Nested nav3 graph keeps task-click navigation encapsulated.
 - New component kinds require a new `UiNode` subtype + new renderer + `@SerialName` annotation + update to `BasicCatalog.systemPromptAppendix`. No schema migration needed.
+- No immediate change to test infrastructure or CI.
 - No migration needed for this fix.
 - No more write storms from rapid task edits
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - No repository contract overloads are needed for this interface (it has no non-Koin callers).
 - No server-driven static content (Layer 4 from the article) — deferred until a concrete surface exists (e.g., in-app FAQ)
 - None
+- PR-0.3 adds KDoc to the 4 currently flagged ViewModels (AppVersionGateViewModel, TagGroupsViewModel) and 2 Repositories (SavedAgendaViewsRepository, ChecklistRepository).
+- PR-0.3 will add KDoc to the 4 flagged files (AppVersionGateViewModel, TagGroupsViewModel, SavedAgendaViewsRepository, ChecklistRepository).
 - Per-collection 3-way merge (needs attachments/tags bidirectional)
 - Per-feature events устранили конфликты имён (до: `ShowDialog` everywhere; после: `TasksUiEvent.AiResult`, `NotesUiEvent.SaveFailed`)
 - Performance: one extra `StateFlow.distinctUntilChanged().flatMapLatest()` per
@@ -252,6 +257,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - VtodoCache local-edit guard (needs two-way sync)
 - Week navigation via swipe on `DaySwitcherRow`.
 - Week-start locale handling is isolated and can be made configurable later.
+- When a future epic resumes UI testing, the original ADRs serve as context for what was considered.
 - When converting a strategy class (`BackupFileNamer`-like), prefer `class(c: (T) -> R)` lambda strategy over `open class`. Composition beats inheritance for testability.
 - `./check.sh` will fail if a PR introduces a **new** detekt violation (not in baseline) in shared or desktopApp.
 - `AgendaViewModel` and `ChatViewModel` excluded — use `combine + stateIn(WhileSubscribed)` pattern already validated; detekt skip by name
@@ -324,6 +330,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `TasksStartRoute.Create` now accepts `initialDueDate` — backward compatible since it's nullable.
 - `TreeVisitor` remains unchanged for other use cases (non-cycle-detection tree traversal).
 - `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests
+- `ViewModelMustHaveKDoc` skips abstract and inner classes (documented via outer class).
+- `androidHostTest` configuration (Robolectric) exists in `shared/build.gradle.kts` but runs 0 tests — no harm in leaving it.
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly).
 - `applyRoute` in `TasksViewModel` is dead code — zero callers confirmed; deleted.
 - `core/ui/state/StateFlowExt.kt::updateState` removed after all migrations complete (MR-4)
@@ -337,6 +345,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `isActive` is a behavioral change from previous inline logic — tested thoroughly.
 - `isBlocked` badge will appear on task cards when dependencies are unfinished.
 - `isRecurring` is always `false` in `CalendarTaskUi` — requires per-task
+- `just docs-audit` should be run before every PR to catch DIGEST drift early.
 - `just` must be installed (`just 1.57.0` is present in this environment).
 - `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
 - `scopeOverride` добавлен в `ProjectsViewModel`
@@ -1172,7 +1181,7 @@ _2 entries need attention._
 
 ## Recently superseded
 
-- `2026-09-26-production-readiness-findings` — Production Readiness Findings — 2026-09-26
+- `2026-09-26-production-readiness-findings` — Production Readiness Findings — 2026-09-25
 - `2026-09-23-test-standards-enforcement` — Test Standards — Enforcement, Gap Filling, and Architecture Cleanup
 - `2026-09-16-nav3-shared-state-factory-and-local-app-navigator` — LocalAppNavigator + shared rememberNav3State factory
 
@@ -1400,6 +1409,10 @@ _2 entries need attention._
 - `2026-09-26-detekt-baseline-established` — _untagged_
 - `2026-09-26-detekt-rules-activation-audit` — detekt, quality, kotlin
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
+- `2026-09-26-kdoc-enforcement-rules` — _untagged_
+- `2026-09-26-pr-0-1-retro` — _untagged_
+- `2026-09-26-pr-0-2-retro` — _untagged_
+- `2026-09-26-ui-testing-deferred` — _untagged_
 
 ## Active entries
 
@@ -1625,4 +1638,8 @@ _2 entries need attention._
 - `2026-09-26-detekt-baseline-established` — _(no title)_
 - `2026-09-26-detekt-rules-activation-audit` — Detekt custom rules — activate unregistered rule sets and clean up orphan rules
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
+- `2026-09-26-kdoc-enforcement-rules` — _(no title)_
+- `2026-09-26-pr-0-1-retro` — _(no title)_
+- `2026-09-26-pr-0-2-retro` — _(no title)_
+- `2026-09-26-ui-testing-deferred` — UI testing deferred — androidHostTest + UiAutomator postponed
 

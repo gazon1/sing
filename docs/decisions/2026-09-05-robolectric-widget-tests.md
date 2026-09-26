@@ -3,6 +3,7 @@ title: "Widget tests via Robolectric androidHostTest — no Koin, direct ViewMod
 date: 2026-09-05
 tags: [testing, robolectric, koin, ui]
 status: accepted
+superseded-by: 2026-09-26-ui-testing-deferred
 ---
 
 ## Context
