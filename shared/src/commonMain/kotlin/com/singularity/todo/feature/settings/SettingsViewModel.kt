@@ -11,6 +11,7 @@ import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.ai.AiContributor
@@ -28,9 +29,10 @@ import kotlinx.coroutines.launch
  *   instances (injected via `filterIsInstance<Contributor>()` in Koin DI).
  * - Marker interfaces ([AppearanceContributor], [AiContributor], etc.) enable
  *   compile-safe lookup without Kotlin type erasure.
- * - Each contributor's [observe] feeds a dedicated [MutableStateFlow] independently.
- * - [combine] merges per-section flows + ephemeral state into [Content].
- * - [processIntent] dispatches via typed helpers with [fireAndForget] error handling.
+ * - Each contributor's [observe][SettingsContributor.observe] feeds a dedicated
+ *   [MutableStateFlow] via [bind]; any change rebuilds the merged [Content] state.
+ * - [processIntent] routes to the section's contributor through the single
+ *   [dispatch] helper with [fireAndForget] error handling.
  */
 class SettingsViewModel(
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
@@ -43,8 +45,6 @@ class SettingsViewModel(
     private val savedAgendaViewsRepo: SavedAgendaViewsRepository,
     private val fileRevealer: FileRevealer,
 ) : ViewModel() {
-
-
 
     // ─── Per-section state flows ──────────────────────────────────────────────
     // Each section feeds its own MutableStateFlow so combine doesn't block on
@@ -79,48 +79,12 @@ class SettingsViewModel(
             defaultAgendaView = defaultAgendaViewFlow.value,
         )
 
-        // Observe each contributor independently — each flow rebuilds _state on change.
-        appearanceContributor?.observe()
-            ?.onEach { section ->
-                appearanceFlow.value = section
-                rebuildState()
-            }
-            ?.launchIn(scope)
-
-        notificationsContributor?.observe()
-            ?.onEach { section ->
-                notificationsFlow.value = section
-                rebuildState()
-            }
-            ?.launchIn(scope)
-
-        workScheduleContributor?.observe()
-            ?.onEach { section ->
-                workScheduleFlow.value = section
-                rebuildState()
-            }
-            ?.launchIn(scope)
-
-        greetingContributor?.observe()
-            ?.onEach { section ->
-                greetingFlow.value = section
-                rebuildState()
-            }
-            ?.launchIn(scope)
-
-        aiContributor?.observe()
-            ?.onEach { section ->
-                aiFlow.value = section
-                rebuildState()
-            }
-            ?.launchIn(scope)
-
-        defaultAgendaViewContributor?.observe()
-            ?.onEach { section ->
-                defaultAgendaViewFlow.value = section
-                rebuildState()
-            }
-            ?.launchIn(scope)
+        bind(appearanceContributor, appearanceFlow)
+        bind(notificationsContributor, notificationsFlow)
+        bind(workScheduleContributor, workScheduleFlow)
+        bind(greetingContributor, greetingFlow)
+        bind(aiContributor, aiFlow)
+        bind(defaultAgendaViewContributor, defaultAgendaViewFlow)
 
         savedAgendaViewsRepo.observeAll()
             .onEach { views ->
@@ -134,6 +98,16 @@ class SettingsViewModel(
             ?.onEach { aiEph ->
                 aiEphemeral.value = aiEph
                 _state.value = _state.value.copy(aiEphemeral = aiEph)
+            }
+            ?.launchIn(scope)
+    }
+
+    /** Collects [contributor]'s section flow into [slot]; every change rebuilds the merged state. */
+    private fun <S : SettingsSection> bind(contributor: SettingsContributor<S, *>?, slot: MutableStateFlow<S>) {
+        contributor?.observe()
+            ?.onEach { section ->
+                slot.value = section
+                rebuildState()
             }
             ?.launchIn(scope)
     }
@@ -154,176 +128,37 @@ class SettingsViewModel(
 
     fun processIntent(intent: SettingsIntent) {
         when (intent) {
-            is SettingsIntent.Appearance -> dispatchAppearance(intent)
-            is SettingsIntent.Notifications -> dispatchNotifications(intent)
-            is SettingsIntent.WorkSchedule -> dispatchWorkSchedule(intent)
-            is SettingsIntent.Greeting -> dispatchGreeting(intent)
-            is SettingsIntent.Ai -> dispatchAi(intent)
-            is SettingsIntent.DefaultAgendaView -> dispatchDefaultAgendaView(intent)
+            is SettingsIntent.Appearance -> dispatch(appearanceContributor, "Update appearance failed", intent)
+            is SettingsIntent.Notifications -> dispatch(notificationsContributor, "Update notifications failed", intent)
+            is SettingsIntent.WorkSchedule -> dispatch(workScheduleContributor, "Update work schedule failed", intent)
+            is SettingsIntent.Greeting -> dispatch(greetingContributor, "Update greeting failed", intent)
+            is SettingsIntent.Ai -> dispatch(aiContributor, "AI ${intent::class.simpleName} failed", intent)
+            is SettingsIntent.DefaultAgendaView -> dispatch(defaultAgendaViewContributor, "Update default agenda view failed", intent)
             SettingsIntent.DismissError -> { /* ephemeral; cleared on next emit */ }
             SettingsIntent.OpenAttachmentsFolder -> openAttachmentsFolder()
         }
     }
 
-    // ─── Per-section dispatchers ──────────────────────────────────────────────
-
-    private fun dispatchAppearance(intent: SettingsIntent.Appearance) {
-        val contributor = appearanceContributor
-        when (intent) {
-            is SettingsIntent.Appearance.UpdateDarkTheme -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update dark theme failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-
-            is SettingsIntent.Appearance.UpdateAccentColor -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update accent color failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-
-            is SettingsIntent.Appearance.UpdateFontSizeScale -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update font size failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-        }
-    }
-
-    private fun dispatchNotifications(intent: SettingsIntent.Notifications) {
-        val contributor = notificationsContributor
-        when (intent) {
-            is SettingsIntent.Notifications.UpdateEnabled -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update notifications failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-
-            is SettingsIntent.Notifications.UpdateSound -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update notification sound failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-
-            is SettingsIntent.Notifications.UpdateVibration -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update vibration failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-
-            is SettingsIntent.Notifications.UpdateReminderDefault -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update reminder default failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-        }
-    }
-
-    private fun dispatchWorkSchedule(intent: SettingsIntent.WorkSchedule) {
-        val contributor = workScheduleContributor
-        when (intent) {
-            is SettingsIntent.WorkSchedule.UpdateWorkDayStart -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update work day start failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-
-            is SettingsIntent.WorkSchedule.UpdateWorkDayEnd -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update work day end failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-
-            is SettingsIntent.WorkSchedule.UpdateWorkLunchStart -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update lunch start failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-
-            is SettingsIntent.WorkSchedule.UpdateWorkLunchEnd -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update lunch end failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-
-            is SettingsIntent.WorkSchedule.UpdateWeekendSat -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update Saturday setting failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-
-            is SettingsIntent.WorkSchedule.UpdateWeekendSun -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update Sunday setting failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-        }
-    }
-
-    private fun dispatchGreeting(intent: SettingsIntent.Greeting) {
-        val contributor = greetingContributor
-        when (intent) {
-            is SettingsIntent.Greeting.UpdateMorningEnd -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update morning greeting end failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-
-            is SettingsIntent.Greeting.UpdateAfternoonEnd -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update afternoon greeting end failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
-            }
-        }
-    }
-
-    private fun dispatchAi(intent: SettingsIntent.Ai) {
+    /**
+     * Routes [intent] to [contributor] with fire-and-forget error handling.
+     *
+     * The cast is safe: [processIntent]'s `when` guarantees the contributor and
+     * intent belong to the same section (e.g. `NotificationsContributor` only
+     * receives `SettingsIntent.Notifications`).
+     */
+    private fun dispatch(
+        contributor: SettingsContributor<*, *>?,
+        errorLabel: String,
+        intent: SettingsIntent,
+    ) {
         _state.value = _state.value.copy(errorMessage = null)
         scope.fireAndForget(
-            errorLabel = "AI ${intent::class.simpleName} failed",
+            errorLabel = errorLabel,
             onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-        ) { runCatching { aiContributor?.process(intent) } }
-    }
-
-    private fun dispatchDefaultAgendaView(intent: SettingsIntent.DefaultAgendaView) {
-        val contributor = defaultAgendaViewContributor
-        when (intent) {
-            is SettingsIntent.DefaultAgendaView.Update -> {
-                _state.value = _state.value.copy(errorMessage = null)
-                scope.fireAndForget(
-                    errorLabel = "Update default agenda view failed",
-                    onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-                ) { runCatching { contributor?.process(intent) } }
+        ) {
+            runCatching {
+                @Suppress("UNCHECKED_CAST")
+                (contributor as SettingsContributor<SettingsSection, SettingsIntent>).process(intent)
             }
         }
     }

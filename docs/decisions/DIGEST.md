@@ -1103,8 +1103,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 - 0 raw production `runBlocking` outside suppressed boundaries; 2 fewer than
 - All three changes are additive-renames only
+- Both "god-VMs" are now honest coordinators; the audit's line-count smell is
 - Detekt now actually enforces runBlocking/vmScope bans in `:shared` (report-only
 - Detekt reports 21 pre-existing `VmCloseable` findings + ~340 mostly-formatting
+- Future feature work adds a section by declaring a contributor + one `bind`
+- If Settings grows actual cross-section coupling later, the split decision can
 - MR-2.2 note: `expect object Clock` remains for backward compatibility; production code should use `kotlinx.datetime.Clock` directly
 - No breaking changes to public API
 - `OAuthTokenRefreshTest` leaves the slow suite; 13 slow classes remain.
@@ -1523,6 +1526,7 @@ _6 entries need attention._
 - `2026-09-26-pr-0-2-retro` — _untagged_
 - `2026-09-26-pr-0-3-retro` — _untagged_
 - `2026-09-26-pr-0-4-retro` — _untagged_
+- `2026-09-26-pr24-rescope` — tech-debt, vm, settings, projects, epic2
 - `2026-09-26-preflight-quick-wins` — tech-debt, detekt, sync, auth, preflight
 - `2026-09-26-preflight-retro-findings` — retro, tech-debt, preflight, detekt, docs
 - `2026-09-26-progress-journal-policy` — _untagged_
@@ -1789,6 +1793,7 @@ _6 entries need attention._
 - `2026-09-26-pr-0-2-retro` — _(no title)_
 - `2026-09-26-pr-0-3-retro` — _(no title)_
 - `2026-09-26-pr-0-4-retro` — _(no title)_
+- `2026-09-26-pr24-rescope` — PR 2.4a/2.4b re-scoped — settings boilerplate collapse, project detail single-observer
 - `2026-09-26-preflight-quick-wins` — Pre-flight Quick Wins — techdebt roadmap phase 0
 - `2026-09-26-preflight-retro-findings` — Pre-flight retro findings — phase 0 retrospective
 - `2026-09-26-progress-journal-policy` — _(no title)_

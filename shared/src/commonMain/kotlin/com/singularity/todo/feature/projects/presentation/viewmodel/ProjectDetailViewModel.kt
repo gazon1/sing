@@ -39,7 +39,9 @@ import kotlin.time.Instant
 /**
  * ViewModel for [com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen].
  *
- * Combines the project, its tasks, and aggregate counts into a single [ProjectDetailUi].
+ * Subscribes to the project repository ONCE; the task/child/parent streams derive
+ * from [projectFlow] (one Room observer, not five). Combines the project, its
+ * tasks, and aggregate counts into a single [ProjectDetailUi].
  * Inline edits (name, description) use silent debounce — they update [_lastEditedAt]
  * but do NOT emit [ProjectDetailUiEvent.Saved].
  *
@@ -90,17 +92,25 @@ class ProjectDetailViewModel(
     val availableTasksFlow: StateFlow<List<Task>> = _availableTasksFlow
 
     init {
-        // Collect projectFlow
+        // Single project observer: feeds [projectFlow], seeds the editable draft,
+        // and updates the TOCTOU cache. All other streams derive from [projectFlow]
+        // instead of re-subscribing to the repository (one Room observer, not five).
         vmScope.launch {
             projectRepo.observe(projectId)
                 .onStart { emit(null) }
-                .collect { _projectFlow.value = it }
+                .collect { project ->
+                    _projectFlow.value = project
+                    _latestProject.value = project
+                    if (project != null && !project.isDeleted) {
+                        draftState.seed(project.name, project.description ?: "")
+                    }
+                }
         }
 
         // Collect parentOptionsFlow
         vmScope.launch {
             combine(
-                projectRepo.observe(projectId).onStart { emit(null) },
+                _projectFlow,
                 projectRepo.observeAll(),
             ) { project, allProjects ->
                 if (project == null) {
@@ -130,8 +140,8 @@ class ProjectDetailViewModel(
         // Collect state
         vmScope.launch {
             combine(
-                projectRepo.observe(projectId).onStart { emit(null) },
-                projectRepo.observe(projectId).onStart { emit(null) }.flatMapLatest { project ->
+                _projectFlow,
+                _projectFlow.flatMapLatest { project ->
                     if (project == null) {
                         flowOf(
                             emptyList(),
@@ -140,22 +150,20 @@ class ProjectDetailViewModel(
                         taskRepo.observeByFilter(TaskFilter.ByProject(projectId))
                     }
                 },
-                projectRepo.observe(projectId).onStart { emit(null) }.flatMapLatest { project ->
+                _projectFlow.flatMapLatest { project ->
                     if (project == null) flowOf(emptyList()) else projectRepo.observeChildrenOf(projectId)
                 },
-                projectRepo.observe(projectId).onStart { emit(null) }.flatMapLatest { p ->
+                _projectFlow.flatMapLatest { p ->
                     if (p == null || p.parentId == null) flowOf(null) else projectRepo.observe(p.parentId)
                 },
                 _hideCompleted,
             ) { project, tasks, childProjects, parent, hideCompleted ->
-                _latestProject.value = project
                 when {
                     project == null -> ProjectDetailUiState.Loading
 
                     project.isDeleted -> ProjectDetailUiState.NotFound
 
                     else -> {
-                        draftState.seed(project.name, project.description ?: "")
                         val visibleTasks = if (hideCompleted) tasks.filter { it.completedAt == null } else tasks
                         ProjectDetailUiState.Content(
                             ProjectDetailUi(
