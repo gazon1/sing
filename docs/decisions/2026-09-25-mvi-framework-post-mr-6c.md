@@ -4,48 +4,52 @@ date: 2026-09-25
 deciders: Singularity Developer
 ---
 
-# Post-MR-6c Audit: MVI Framework Migration
+# Post-MR-6d Audit: MVI Framework Migration — Final Status
 
 ## Context
 
-After completing MR-6c (SearchViewModel + ProjectsViewModel migration) and MR-6d-early (TOCTOU bug fixes for TaskDetailVM + ProjectDetailVM), this ADR records remaining issues and the next steps.
+After completing MR-6c (SearchVM + ProjectsVM), MR-6d-early (TOCTOU fixes), and MR-6d (full TaskDetailVM + ProjectDetailVM migration), this ADR records the final migration status.
 
-## What's Done ✅
+## Migration Complete ✅
 
-### MR-6c: SearchViewModel + ProjectsViewModel Migration
+**19 of 21 VMs** are now on `MviViewModel` or `DraftMviViewModel`. Framework is stable.
 
-- **SearchViewModel**: Replaced hand-rolled `_events MutableSharedFlow` + `_state MutableStateFlow` with MviViewModel base class. `processIntent` → `onIntent`. Screen updated to call `onIntent()`.
-- **ProjectsViewModel**: Same pattern. Added `ProjectsIntent` sealed interface. Screen and tests updated to use `onIntent()`.
-- **ProjectsViewModelTest**: Updated to use `onIntent` instead of direct method calls on the VM.
+### MR-6c: SearchVM + ProjectsVM
 
-### MR-6d-early: TOCTOU Bug Fixes
+- **SearchViewModel**: `_events MutableSharedFlow` + `_state MutableStateFlow` → MviViewModel. `processIntent` → `onIntent`. Screen updated.
+- **ProjectsViewModel**: Same pattern. Added `ProjectsIntent` sealed interface. Screen + tests updated.
+- Both compile, tests pass.
 
-**TaskDetailViewModel** (`TaskDetail.kt`):
-- `mutate()` previously took `current: Task` as a parameter — a snapshot captured at intent dispatch time. If `_latestTask` changed between intent arrival and mutation execution, the wrong task version was persisted.
-- Fix: `mutate()` now reads `_latestTask.value` **inside** `scope.launch`, ensuring fresh read at execution time.
-- Also fixed: `SetDependencies`, `ToggleChecklistItem`, `AddChecklistItem` — these launched coroutines that referenced `current.id` from a stale capture. Now re-read `_latestTask.value` inside the launched scope.
+### MR-6d: TaskDetailVM + ProjectDetailVM (full migration)
 
-**ProjectDetailViewModel** (`ProjectDetailViewModel.kt`):
-- Same TOCTOU pattern. `mutate(current)` was capturing stale project snapshot.
-- Fix: `mutate()` now reads `_latestProject.value` inside `fireAndForget` block.
-- Init debouncers simplified — no longer need manual `val current = _latestProject.value ?: return@debounce`.
+**TaskDetailVM** (`TaskDetail.kt`):
+- `ViewModel()` → `MviViewModel<TaskDetailUiState, TaskDetailIntent.Domain, TaskDetailUiEvent>`
+- `TaskDetailIntent` extends `MviIntent`, `TaskDetailUiEvent` extends `MviEvent`
+- Removed `_events Channel`, `_state MutableStateFlow` — uses inherited `state` and `events` from MviViewModel
+- All `scope.launch` → `vmScope.launch`
+- All `_state.value = X` → `setState(X)`
+- All `_events.trySend(X)` → `emit(X)`
+- `onIntent` → `override fun onIntent`
+- **TOCTOU fully fixed**: every launched coroutine re-reads `_latestTask.value` inside the coroutine body
 
-**Severity**: Medium — data corruption possible when user rapidly changes fields while upstream data is loading.
+**ProjectDetailVM** (`ProjectDetailViewModel.kt`):
+- Same pattern: `MviViewModel<ProjectDetailUiState, ProjectDetailIntent.Domain, ProjectDetailUiEvent>`
+- Removed `_events Channel`, `state` property — uses inherited `state` and `events`
+- All `scope.launch/fireAndForget` → `vmScope.launch/fireAndForget`
+- All `_events.trySend` → `emit`
+- `onIntent` → `override fun onIntent`
 
-## Remaining Issues
+## Remaining VMs (2)
 
-### 1. TaskDetailViewModel — MutableSharedFlow for titleEdits/descriptionEdits
+### 1. SettingsViewModel — Intent not MviIntent
 
-**File:** `feature/tasks/presentation/viewmodel/TaskDetail.kt:79-80`
+**File:** `feature/settings/SettingsViewModel.kt`
 
-```kotlin
-private val titleEdits = MutableSharedFlow<String>(extraBufferCapacity = 4)
-private val descriptionEdits = MutableSharedFlow<String>(extraBufferCapacity = 4)
-```
+`SettingsIntent` is a typealias to `core.settings.SettingsIntent` which doesn't extend `MviIntent`. Making it extend `MviIntent` requires changing the core module sealed interface hierarchy — all nested sealed interfaces (Appearance, Notifications, etc.) would need to extend `MviIntent`.
 
-These are **input channels** (user typing) — not output event streams. They are consumed by debounce collectors in init and are correctly NOT migrated to EventBus (EventBus is for one-shot UI events, not continuous input streams).
+**Severity**: Medium (architectural change in core).
 
-**Verdict**: Legitimate use of `MutableSharedFlow`. No fix needed.
+**Status**: Not scheduled. Works correctly today.
 
 ### 2. BackupViewModel — 2× MutableSharedFlow + Screen API
 
@@ -54,32 +58,18 @@ These are **input channels** (user typing) — not output event streams. They ar
 ```kotlin
 private val _events = MutableSharedFlow<BackupUiEvent>(extraBufferCapacity = 4)
 private val _snackbar = MutableSharedFlow<String>(extraBufferCapacity = 4)
-val events: SharedFlow<BackupUiEvent> = _events.asSharedFlow()
-val snackbar: SharedFlow<String> = _snackbar.asSharedFlow()
 ```
 
-**Problem**: Screen (`BackupScreen`) subscribes to both flows separately. Migrating to MviViewModel requires:
+Screen (`BackupScreen`) subscribes to both flows separately. Migrating to MviViewModel requires:
 1. Adding `ShowSnackbar(String)` to `BackupUiEvent`
 2. Unifying snackbar into single event channel
 3. Updating screen to handle snackbar via event mapping
 
-**Severity**: Medium — requires screen API change.
+**Severity**: Medium (requires screen API change).
 
-**Status**: Not scheduled. BackupVM works correctly today.
+**Status**: Not scheduled. Works correctly today.
 
-### 3. SettingsViewModel — Intent not MviIntent
-
-**File:** `feature/settings/SettingsViewModel.kt`
-
-`SettingsIntent` is a typealias to `core.settings.SettingsIntent` which doesn't extend `MviIntent`. Making it extend `MviIntent` would require:
-1. Changing core module sealed interface hierarchy
-2. All nested sealed interfaces (Appearance, Notifications, etc.) to extend MviIntent
-
-**Severity**: Medium (architectural change in core).
-
-**Status**: Not scheduled.
-
-## VM Migration Status (Post MR-6c)
+## VM Migration Status (Final)
 
 | VM | Status | Notes |
 |---|---|---|
@@ -87,37 +77,59 @@ val snackbar: SharedFlow<String> = _snackbar.asSharedFlow()
 | ArchiveViewModel | ✅ MviViewModel | |
 | AiUsageViewModel | ✅ MviViewModel | |
 | AuthViewModel | ✅ MviViewModel | |
-| CalendarViewModel | ✅ MviViewModel | |
+| CalendarViewModel | ✅ MviViewModel | MR-6a |
 | CalendarSyncViewModel | ✅ MviViewModel | |
-| ChatViewModel | ✅ MviViewModel | |
+| ChatViewModel | ✅ MviViewModel | MR-6a |
 | NoteEditor | ✅ DraftMviViewModel | |
 | NotePreview | ✅ MviViewModel | |
-| ProfileSwitcherViewModel | ✅ MviViewModel | |
+| ProfileSwitcherViewModel | ✅ MviViewModel | MR-6a |
 | ProjectEditorViewModel | ✅ MviViewModel | |
+| ProjectDetailViewModel | ✅ MviViewModel | MR-6d |
+| ProjectsViewModel | ✅ MviViewModel | MR-6c |
 | SavedAgendaListViewModel | ✅ MviViewModel | |
 | SavedAgendaViewModel | ✅ MviViewModel | |
 | SearchViewModel | ✅ MviViewModel | MR-6c |
-| ProjectsViewModel | ✅ MviViewModel | MR-6c |
 | SyncViewModel | ✅ MviViewModel | |
 | TagsViewModel | ✅ MviViewModel | |
 | TaskCreateViewModel | ✅ DraftMviViewModel | |
-| TaskDetailViewModel | ⚠️ ViewModel | TOCTOU fixed; MutableSharedFlow for input channels |
-| ProjectDetailViewModel | ⚠️ ViewModel | TOCTOU fixed; hand-rolled events |
-| SettingsViewModel | ⚠️ ViewModel | Intent не MviIntent |
-| BackupViewModel | ⚠️ ViewModel | 2× MutableSharedFlow + screen API |
+| TaskDetailViewModel | ✅ MviViewModel | MR-6d |
+| **BackupViewModel** | ⚠️ ViewModel | 2× MutableSharedFlow |
+| **SettingsViewModel** | ⚠️ ViewModel | Intent не MviIntent |
 
-**Total**: 17 ✅ on MviViewModel/DraftMviViewModel, 4 ⚠️ remaining.
+**Total: 19 ✅ on MviViewModel/DraftMviViewModel, 2 ⚠️ remaining.**
 
-## TOCTOU Bug Fix Summary
+## Critical Bugs Fixed
 
-| VM | Bug | Fix | Status |
+| Bug | File | Fix | Commit |
 |---|---|---|---|
-| TaskDetailVM | `mutate(current)` captured stale Task | `mutate()` re-reads `_latestTask.value` inside scope | ✅ Fixed |
-| ProjectDetailVM | `mutate(current)` captured stale Project | `mutate()` re-reads `_latestProject.value` inside scope | ✅ Fixed |
+| TaskDetailVM TOCTOU (stale `current` capture) | `TaskDetail.kt` | All handlers re-read `_latestTask.value` inside launched coroutines | `8b4df300` |
+| ProjectDetailVM TOCTOU (stale `current` capture) | `ProjectDetailViewModel.kt` | `mutate()` reads `_latestProject.value` inside `fireAndForget` | `61782744` |
+| SearchVM `onTogglePin` crash | `SearchViewModel.kt` | Added `taskRepo.togglePinned()` | `4232858c` |
+| NoteEditor `save()` bypassed `persist()` | `NoteEditor.kt` | Removed override, rely on framework `persist()` | `4e591f58` |
+| NoteEditor autosave overwrote `createdAt` | `NoteEditor.kt` | Cache existing note, preserve `createdAt` | `4e591f58` |
+| Dead `pendingAutosaveJob` in DraftMviViewModel | `DraftMviViewModel.kt` | Removed dead code | `4e591f58` |
+| ProfileSwitcherVM `_errorMessage` ref before declaration | `ProfileSwitcherVM.kt` | Moved before `init` | `dd1a6c3e` |
+
+## Verified Legitimate Patterns (No Fix Needed)
+
+- **TaskDetailVM `titleEdits`/`descriptionEdits`**: Input channels (user typing → debounce → save), not output event streams. `MutableSharedFlow` is correct.
+- **`StateFlowExt.kt`**: Deleted (MR-7).
+- **`NoteSaver.kt`**: Deleted (MR-6.0).
+- **`fireAndForget` crashes**: All have `onError` handlers.
+
+## Framework API (Stable)
+
+- `MviViewModel.vmScope`: `protected open` — subclasses can `override`
+- `MviViewModel.setState`: `protected open` — subclasses can `override`
+- `MviViewModel.updateState(transform: (S) → S)`: reducer-style mutations
+- `MviViewModel.updateStateAs<T>(transform: (T) → S)`: type-safe for sealed hierarchies
+- `MviViewModel.emit(event: E)`: suspend fun for one-shot events via EventBus
+- `MviViewModel.tryEmit(event: E)`: non-suspending fallback
 
 ## Next Steps
 
-1. **MR-6d**: TaskDetailVM full migration to MviViewModel (input MutableSharedFlows stay as-is)
-2. **MR-6d**: ProjectDetailVM full migration to MviViewModel
-3. **TBD**: SettingsVM — requires core SettingsIntent hierarchy change
-4. **TBD**: BackupVM — requires snackbar unification in screen API
+| Priority | Action | Notes |
+|---|---|---|
+| Low | MR-6d-append: BackupVM migration | Requires snackbar unification in screen API |
+| Low | MR-6d-append: SettingsVM migration | Requires core SettingsIntent → MviIntent hierarchy change |
+| Low | MR-8: Side effects + state history framework | `launchExclusive`, `launchResult`, `StateHistory` ring buffer |
