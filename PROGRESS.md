@@ -3,7 +3,7 @@
 ## Epic: docs-and-skills-hygiene
 
 **Start date:** 2026-09-26
-**Status:** in-progress
+**Status:** completed
 **Epic branch:** `docs-and-skills-hygiene` (git worktree at `~/worktrees/singularity-docs-hygiene/`)
 
 ---
