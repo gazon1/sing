@@ -25,6 +25,9 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 class NoRunBlockingRule(config: Config) : Rule(config, "", null) {
 
     override fun visitCallExpression(expression: KtCallExpression) {
+        // Without super the tree traversal stops at this node and runBlocking calls
+        // deeper in the file would never be visited.
+        super.visitCallExpression(expression)
         val callee = expression.calleeExpression as? KtNameReferenceExpression ?: return
         if (callee.text != "runBlocking") return
 

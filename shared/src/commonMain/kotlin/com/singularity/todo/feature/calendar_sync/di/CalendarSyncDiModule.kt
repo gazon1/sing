@@ -6,6 +6,7 @@ import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncViewM
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendar_sync.sync.DirtyHashProvider
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
@@ -42,7 +43,9 @@ fun calendarSyncModule(): Module = module {
     // ViewModel bound to navigation lifecycle — cancelled when the screen leaves the back stack.
     // 6-arg canonical ctor: syncRepo, calendarProvider, scheduler, appQueries, orchestrator, scope
     // (scope = AutoCloseableCoroutineScope for lifecycle-aware cancellation).
-    factory<CalendarSyncViewModel> {
+    // viewModel (not factory): the injected AutoCloseableCoroutineScope must be closed
+    // when the VM is cleared — a factory registration would leak it.
+    viewModel<CalendarSyncViewModel> {
         CalendarSyncViewModel(get(), get(), get(), get(), get(), AutoCloseableCoroutineScope())
     }
 }

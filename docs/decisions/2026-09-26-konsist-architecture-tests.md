@@ -110,6 +110,29 @@ Found while implementing (ritual: critical → fixed immediately, rest → recor
    `setup-hooks` exits 2 on its final `ls`. Needs the path fix + committing `.githooks/`.
 9. **CI log aggregation shows every step as `UNKNOWN STEP`** — failed-run diagnosis is
    unnecessarily hard (worth switching to explicit step ids / fixing the workflow grouping).
+10. **7 of 10 custom detekt rule sets were dead code.** Their `RuleSetProvider`s were
+    never registered in `META-INF/services/dev.detekt.api.RuleSetProvider`
+    (NoStateIn, NoCombineSideEffect, NoGlobalScopeLaunch, NoStaticProfileAwareCurrentUser,
+    PassThroughUseCase) and their config sections were missing from `detekt.yml`
+    (incl. `no-runblocking`) — a detekt rule without a config section is inactive, so
+    these rules silently never ran. Fixed: all providers registered, all sections
+    restored (active: true). Additionally, `visitCallExpression` overrides must call
+    `super` first or the tree traversal stops at the first call expression —
+    `NoRunBlockingRule` had this bug too.
+11. **`NoRunBlocking` now surfaces 7 pre-existing violations** (report-only, no build
+    break): `FileLogWriter.kt:56,63` (shutdown flush), `KoinBridge.kt:17` (sanctioned
+    bridge), `SettingsDataStoreMigration.kt:89` (migration helper),
+    `PlatformModule.android.kt:148,149`, `PlatformModule.jvm.kt:91`. Before promoting
+    detekt to error mode, each needs either a refactor or an explicit
+    `@Suppress("NoRunBlocking")` with a justification comment.
+12. **`CalendarSyncViewModel` was registered via `factory<CalendarSyncViewModel>`** —
+    exactly the memory-leak pattern the rules ban (a factory VM's injected
+    `AutoCloseableCoroutineScope` is never closed). Caught by the new
+    `NoFactoryViewModel` rule on its first real run; fixed to `viewModel<...>`.
+13. **`NoFactoryViewModel` detekt rule added** (`no-factory-viewmodel` ruleset,
+    warning-level like the rest): bans `factory { ... *ViewModel(...) }` and
+    `factoryOf(::*ViewModel)`; 5 unit tests. `viewModel { }` / `viewModelOf(::...)`
+    are not flagged.
 
 ## Links
 
