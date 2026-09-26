@@ -7,7 +7,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Always** keep the auto-fill rule in `OpenAiConfig.resolveBaseUrl(storedUrl, provider)` only. The UI delegates to it — changing both is a bug. _(from `2026-09-05-llm-provider-settings`)_
 - `AiTestResult` is part of `SettingsUiState.Content.aiTestResult` with default `Idle`. **Never** make it a `UiEvent`. _(from `2026-09-05-llm-provider-settings`)_
 - `FakeTextGen` is parametrised: `(success, failureMessage, trackGenerateCalls)`. **Always** use `trackGenerateCalls = true` in VM tests that assert the no-key short-circuit. _(from `2026-09-05-llm-provider-settings`)_
+- **Always** extend `LAYER_ALLOWLIST` in `ArchitectureTest` together with a debt entry _(from `2026-09-26-konsist-architecture-tests`)_
 - **Always** keep `Selector` a pure predicate; badge/transform logic belongs to `SelectorTransformer` attached to `AgendaDefinition`, not embedded in evaluator. _(from `2026-09-17-orgmode-architectural-lessons`)_
+- **Always** keep new Koog imports inside the five sanctioned packages. _(from `2026-09-26-konsist-architecture-tests`)_
 - **Always** make new sealed hierarchies for DSL predicates (filter, selector, transformer, predicate) simultaneously `@Serializable` AND pure predicate — no parallel DTOs. _(from `2026-09-17-orgmode-functional-patterns`)_
 - **Always** return empty collection (not `Result.Left(Empty)`) for no-match cases in pure-domain pipelines like `AgendaEvaluator`. `Result.Left` is reserved for validation/business-rule failures only. _(from `2026-09-17-orgmode-functional-patterns`)_
 - **Always** route derived predicates (`isOverdue`, `isReady`, `isBlocked`) through `feature/tasks/domain/logic/Computed.kt`. Never duplicate inline in `AgendaEvaluator`, `Selector`, or `TaskDomain.matchesFilter`. _(from `2026-09-17-orgmode-architectural-lessons`)_
@@ -15,6 +17,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Always** use `core/tree/Cascade.kt` `cascadeUp` for inheritance queries; never walk ancestors ad-hoc with `find { it.parentId == ... }` chains. _(from `2026-09-17-orgmode-architectural-lessons`)_
 - **Always** use `core/tree/TreeVisitor.kt` `traverseDepthFirst` for recursive tree operations; never write recursive `.filter { … }.map { … }` chains. _(from `2026-09-17-orgmode-architectural-lessons`)_
 - **Always** use `data class.copy()` for Task/Project/Tag/AgendaDefinition mutations in pure-domain code — never add setters. Mutations go through `TaskRepository.update(...)`. _(from `2026-09-17-orgmode-functional-patterns`)_
+- **Never** add `*Blocking` methods to `*Repository` interfaces. _(from `2026-09-26-konsist-architecture-tests`)_
+- **Never** import `*RepositoryImpl` outside `core/di` — DI composition root only. _(from `2026-09-26-konsist-architecture-tests`)_
 - **Never** introduce `Map<String, Any>` plist-style containers in Kotlin domain code — use `data class` instead. _(from `2026-09-17-orgmode-functional-patterns`)_
 - **Never** migrate to plain-text file storage for tasks. Room remains the source of truth; markdown export (if added later) is a read-only projection. _(from `2026-09-17-orgmode-architectural-lessons`)_
 - **Never** relax `assertNoNesting` without a separate ADR. N-level outline requires Room `AutoMigration` (skill `singularity-todo-room-migration`). _(from `2026-09-17-orgmode-architectural-lessons`)_
@@ -122,6 +126,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **~14 изменённых файлов**: Screen.kt + testTag, VM constructors, DI module
 - **~25 новых файлов**: 4 порта, 7 Page Objects, test infrastructure, integration tests
 - 1 orphan VM deleted
+- 15/21 VMs are on the MVI framework
 - 2 UI state classes simplified (`data object` instead of `data class` with dead field)
 - 2 screen preview functions updated
 - 23 Tier-1 VMs lose their `onCleared()` override — the scope is now auto-cancelled via `addCloseable(scope)`.
@@ -139,6 +144,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All 6 repositories now extend `GenericUserScopedRepository`: Tasks, Notes, Projects, Tags, SavedAgendaViews, Profile.
 - All 7 actions require AI to be configured — if no AI is available, `isActionAvailable()` returns false and `runAiAction()` is a no-op.
 - All `FakeRepositories` updated to match
+- All critical bugs are fixed
 - All existing `NoteEntity` construction sites (`createWithContent`, `createNoteWithTitle`) updated to pass explicit `kind = NoteKind.Plain`.
 - All four entity types can be synced (previously only `Task` had `SyncableEntity`)
 - All migrations use `scope: AutoCloseableCoroutineScope` as last constructor parameter with secondary no-arg Koin constructor
@@ -149,6 +155,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Backlink display: `LinkedBacklinksCard` composable rendered via `extraSections` in `TaskEditorContent` model-based overload
 - Backlinks queryable via SQL without HTML parsing
 - Backup/restore roundtrip must include new fields (done via `TaskDto` update)
+- BackupViewModel и SearchViewModel остаются на legacy MVI pattern до своих MR
 - Before using `singleOf`/`factoryOf`, deduplicate existing `single<X> { ... }` bindings for the same type — Koin throws `BeanOverrideException` on duplicates.
 - Both Android and Desktop now use the same Nav3 architecture (multi-back-stack, `Navigator`, `NavDisplay`)
 - Bulk-операции fail-fast при отсутствующих ID
@@ -173,8 +180,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Existing `viewModelOf` calls in DI modules updated to `viewModel { Vm(...) }` form
 - Existing tests for note features verified passing with the new schema.
 - Expand-day-list (tap day in month view to show all tasks).
+- Explicit save correctly emits `SavedPulse` through the `onSaved()` hook
 - Exposed `events: Flow<UiEvent>` becomes `_events.receiveAsFlow()`.
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes)
+- Framework API is stable (vmScope open, setState overridable)
 - Full filter panel with Project / Tags / Priority / Status.
 - Future agents reading these skills will not waste time on `koin-annotations-compiler` setup that doesn't exist.
 - Future developers understand which fields are stubbed vs. populated
@@ -210,10 +219,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`).
+- Remaining VMs are either: (a) complex migrations requiring screen API changes, (b) core module changes, or (c) planned for later MRs
 - Robolectric widget tests в `androidHostTest` также **удалены** — все 5 классов
 - Room schema unchanged (tables `task_tags` and `task_dependencies` already existed).
 - RuStore / Galaxy Store support requires ~1 day of work when distribution to those stores is planned.
 - Schema v7 requires `fallbackToDestructiveMigration` during development (dev strategy per skill)
+- SearchViewModel больше не крашнется при закреплении задачи из поиска
 - Self-loop dependency is rejected at `setDependencies()` call site; cycle detection (A→B→C→A) is deferred.
 - Settings UI is NOT reactive to external changes (other VMs writing to `SettingsRepository`). Acceptable because the settings screen is typically visited once, changed, and closed.
 - Settings screen can show specific recovery actions per failure type
@@ -223,6 +234,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Slot-API (`CalendarContent` separate from `CalendarScreen`) enables preview without Koin.
 - StableJson round-trip test verifies no data loss.
 - Stale KDoc references `[OldInterface]` are dangling after inlining — always grep the whole repo and replace with `[CanonicalType]`.
+- StateFlowExt deleted — no deprecated API remaining
+- StateFlowExt deprecated, но не удаляется пока все VM не мигрированы
+- Technical debt: 4 VM с MutableSharedFlow, 1 с TOCTOU
 - Test classes updated: `createVm()` now takes `scope = backgroundScope` via `TestScope.createVm()`
 - Test factories for those VMs use `testScope(backgroundScope)` (or `testScope(this)` in `runTest`).
 - Tests that construct `TaskEntity` directly must include all 6 new nullable parameters
@@ -270,6 +284,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `DeleteProjectUseCase` конструктор теперь `(projectRepo: ProjectsRepository, taskRepo: TaskRepository)` — DI модуль обновлён соответственно.
 - `DependencyValidatorImplTest` (13 cases) covers self-loop, linear chains, branching chains, branching with merges, deep chains, missing nodes.
 - `Dispatchers.Main.immediate` in secondary constructors causes `IllegalStateException` on JVM — tests must use the primary constructor with `backgroundScope`
+- `DraftMviViewModel` framework is cleaner — dead code removed
 - `ExtractActions` output is only displayed as formatted text in the event notification — actual task creation from extracted actions (pre-filling `TaskCreateSheet`) is deferred to a follow-up that integrates with `CreateTaskFromDraftUseCase`.
 - `FakeAppDatabase` fakes updated for both new DAO methods
 - `FakeNotesRepository` and `FakeNoteDao` updated with all 6 new methods for test coverage.
@@ -281,6 +296,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
 - `NoteDao.getNotesLinkingToTask` — same pattern for `task://` scheme in notes
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
+- `NoteEditor` now fully integrates with `DraftMviViewModel` instead of bypassing it
 - `NoteEditor` now has two AI entry points: `improveNote()` (legacy) and `runAiAction()` (new).
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах
@@ -323,6 +339,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly).
 - `applyRoute` in `TasksViewModel` is dead code — zero callers confirmed; deleted.
 - `core/ui/state/StateFlowExt.kt::updateState` removed after all migrations complete (MR-4)
+- `createdAt` is preserved for existing notes via `cachedNote` in `persist()`
 - `deadlineDate` badge is rendered as a red flag + date for tasks due on the selected date.
 - `deadlineDate` badge rendering in month grid.
 - `delay(until-midnight)` means the flow never completes — collectors must be scoped
@@ -347,10 +364,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - detekt: 60 warnings (pre-existing, non-blocking) | jvmTest: green.
 - kizitonwose remains available for future exploration if AndroidX/JB compatibility is resolved.
 - ~12 MRs total, ~6–9 weeks.
+- Все VMs на MviViewModel/DraftMviViewModel кроме: BackupVM, SearchVM, TaskDetailVM, SettingsVM, ProjectsVM, ProjectDetailVM, CalendarSyncVM, SyncVM
 - Все ViewModel'ы с `scopeOverride` — консистентны в тестах
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear()
 - Все импорты в 30+ файлах обновлены на новые FQN (`.domain.model`, `.domain.port`, `.domain.usecase`, `.data`, `.presentation.state`, `.presentation.viewmodel`).
 - Для UI-тестов на реальном устройстве: Kaspresso или `contentDescription` + `By.desc()`.
+- Критических багов после MR-7 нет
 - Оставшиеся `androidHostTest`: только `AppNavigatorTest` (nav contract, без Espresso),
 - ✅ Multi-profile isolation
 - ✅ No `SCHEDULE_EXACT_ALARM` permission
@@ -440,7 +459,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **−100% UDF violations** in this category — the rule is now written and enforced via skill.
 - 4 new files: `AccountSettingsViewModel.kt`, `TagPickerViewModel.kt`, plus DI registrations.
 - 6 modified files: `ProjectDetailViewModel.kt`, `ProjectDetailScreen.kt`, `ProjectPickerSheet.kt`, `AccountSettingsScreen.kt`, `SettingsScreen.kt`, `Modules.kt`.
+- Boundary checks are now the first **hard** CI gate; detekt remains report-only until
 - Consistent API across all shared components
+- Debt: `calendar_sync` package name contains an underscore — every new file there adds
+- Debt: `feature/profile/ProfileRepositoryImpl.kt` and `feature/search/InternalLinkRepositoryImpl.kt`
 - Diff больше, чем чисто миграция tasks — затрагивает общий `Nav3State`.
 - Each pure-infrastructure module ships with at least one `commonTest` covering empty list, single element, deep nesting, and cycle detection. _(from `2026-09-17-orgmode-architectural-lessons`)_
 - Easier to extend cards and editors without breaking call sites
@@ -452,6 +474,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Preview functions in `TaskDetailViewScreen` updated to pass `emptyFlow()` for `recentlyDeleted`.
 - Previews that don't use Koin continue to work since `searchNotesForLink`/`searchTasksForLink` are nullable.
 - Previews updated: `AccountSettingsScreenLightPreview` / `DarkPreview` now construct `AccountSettingsViewModel(FakeProfileRepository())`; `SettingsScreen` preview updated similarly.
+- Rule "core must not import feature" is **not gated** — 19 files violate it today
 - This ADR layers on top of `2026-09-17-orgmode-architectural-lessons.md` and supersedes nothing. Both ADRs are read together at sprint planning time. _(from `2026-09-17-orgmode-functional-patterns`)_
 - This ADR supersedes nothing; it layers new pure infrastructure over `2026-09-16-agenda-engine.md` and `2026-09-08-task-1-level-subtasks.md`. _(from `2026-09-17-orgmode-architectural-lessons`)_
 - Type-safe actions via `sealed class Action` with exhaustive `when`
@@ -1376,20 +1399,28 @@ _2 entries need attention._
 - `2026-09-25-fake-legacy-cleanup` — testing, fakes, cleanup
 - `2026-09-25-git-hooks-worktree-isolation` — git, hooks, worktree, devx, epic2
 - `2026-09-25-local-mvi-framework` — _untagged_
+- `2026-09-25-mr-6a-audit-findings` — _untagged_
+- `2026-09-25-mr-6b-findings` — _untagged_
+- `2026-09-25-mvi-framework-post-mr-6c` — _untagged_
+- `2026-09-25-mvi-framework-status` — _untagged_
 - `2026-09-25-no-store-library-local-first-pattern` — repository, local-first, sync, architecture
 - `2026-09-25-note-ai-multi-op-design` — _untagged_
 - `2026-09-25-note-templates-daily-design` — _untagged_
+- `2026-09-25-post-mr-7-audit` — _untagged_
 - `2026-09-25-remaining-test-debt` — testing, junit, detekt, epic2
 - `2026-09-25-repository-architecture-gaps` — repository, technical-debt, sync, type-safety
 - `2026-09-25-task-backlinks-design` — _untagged_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _untagged_
+- `2026-09-25-test-flaky-root-causes` — _untagged_
 - `2026-09-25-test-helper-stack` — testing, quality, kotlin, junit5
 - `2026-09-25-test-jvm-heap-default` — testing, gradle, kover, heap, koog
 - `2026-09-25-test-parallelization` — testing, junit, jupiter, parallel, epic2
 - `2026-09-25-test-standards-comprehensive` — testing, junit, jupiter, epic2
 - `2026-09-25-test-suite-tag-defaults` — testing, junit, gradle, detekt
 - `2026-09-25-testable-vm-dispatcher-clock` — testing, coroutines, viewmodel, koin, di
+- `2026-09-26-draft-mvi-bugfixes` — _untagged_
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
+- `2026-09-26-konsist-architecture-tests` — architecture, testing, konsist, ci
 
 ## Active entries
 
@@ -1598,18 +1629,26 @@ _2 entries need attention._
 - `2026-09-25-fake-legacy-cleanup` — Remove FakeTaskRepository legacy observation methods
 - `2026-09-25-git-hooks-worktree-isolation` — Git Hooks — Worktree Isolation + Shared Hooks Path
 - `2026-09-25-local-mvi-framework` — _(no title)_
+- `2026-09-25-mr-6a-audit-findings` — _(no title)_
+- `2026-09-25-mr-6b-findings` — _(no title)_
+- `2026-09-25-mvi-framework-post-mr-6c` — _(no title)_
+- `2026-09-25-mvi-framework-status` — _(no title)_
 - `2026-09-25-no-store-library-local-first-pattern` — Do not adopt MobileNativeFoundation/Store — local-first repository pattern
 - `2026-09-25-note-ai-multi-op-design` — _(no title)_
 - `2026-09-25-note-templates-daily-design` — _(no title)_
+- `2026-09-25-post-mr-7-audit` — _(no title)_
 - `2026-09-25-remaining-test-debt` — Remaining Test Debt — post JUnit/suite-acceleration audit
 - `2026-09-25-repository-architecture-gaps` — Repository architecture gaps — Tag userId types, dead ConflictResolver.merge, empty-string sentinels
 - `2026-09-25-task-backlinks-design` — _(no title)_
 - `2026-09-25-taskcard-slot-api-and-orphan-vm-cleanup` — _(no title)_
+- `2026-09-25-test-flaky-root-causes` — _(no title)_
 - `2026-09-25-test-helper-stack` — Test helper stack — kotest assertions, @ParameterizedTest, hand-rolled fakes
 - `2026-09-25-test-jvm-heap-default` — OOM in TaskOutgoingLinksTest — Kover instrumentation + Koog-heavy classpath
 - `2026-09-25-test-parallelization` — Test Parallelization — Jupiter Concurrency + Thread Safety
 - `2026-09-25-test-standards-comprehensive` — Test Standards Comprehensive — JUnit Jupiter, Virtual Time, Fast/Slow Split
 - `2026-09-25-test-suite-tag-defaults` — Test suite tag defaults and Khorikov testing principles
 - `2026-09-25-testable-vm-dispatcher-clock` — Testable VMs — CoroutineDispatcher injection, Clock in DI, RecordingHttpClient
+- `2026-09-26-draft-mvi-bugfixes` — _(no title)_
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
+- `2026-09-26-konsist-architecture-tests` — Konsist architecture tests — the first hard CI gate for layer boundaries
 

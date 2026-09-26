@@ -107,7 +107,7 @@ private fun TagsScreenContentPreview() = PreviewThemed(darkTheme = false, useSur
 @Composable
 private fun TagsScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     TagsScreen(
-        state = TagsUiState.Empty(userId = "anonymous"),
+        state = TagsUiState.Empty,
         onDelete = {},
     )
 }

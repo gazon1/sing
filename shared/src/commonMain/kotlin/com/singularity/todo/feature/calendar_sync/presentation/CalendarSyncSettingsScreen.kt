@@ -53,7 +53,7 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
     val permissionRequester = rememberCalendarPermissionRequester()
 
     LaunchedEffect(Unit) {
-        viewModel.processIntent(LoadCalendars)
+        viewModel.onIntent(LoadCalendars)
     }
 
     Column(
@@ -76,7 +76,7 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
                 title = "Enable Sync",
                 subtitle = "One-way: tasks sync to your system calendar",
                 checked = state.isEnabled,
-                onCheckedChange = { viewModel.processIntent(SetEnabled(it)) },
+                onCheckedChange = { viewModel.onIntent(SetEnabled(it)) },
             )
         }
 
@@ -85,7 +85,7 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
             CalendarAppPicker(
                 selectedAppPackage = state.selectedAppPackage,
                 availableApps = state.availableApps,
-                onSelectApp = { pkg -> viewModel.processIntent(SelectAppPackage(pkg)) },
+                onSelectApp = { pkg -> viewModel.onIntent(SelectAppPackage(pkg)) },
             )
         }
 
@@ -110,7 +110,7 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
                         RadioRow(
                             label = name,
                             selected = state.selectedCalendarId == id,
-                            onClick = { viewModel.processIntent(SelectCalendar(id)) },
+                            onClick = { viewModel.onIntent(SelectCalendar(id)) },
                         )
                     }
                 }
@@ -141,7 +141,7 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
                 )
 
                 Button(
-                    onClick = { viewModel.processIntent(SyncNow) },
+                    onClick = { viewModel.onIntent(SyncNow) },
                     enabled = state.status !is CalendarSyncStatus.Syncing,
                     modifier = Modifier.padding(top = 8.dp),
                 ) {

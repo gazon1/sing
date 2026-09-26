@@ -1,4 +1,6 @@
-package com.singularity.todo.feature.calendar_sync.data
+package com.singularity.todo.feature.calendar_sync.domain.port
+
+import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
 
 /**
  * Port for enumerating installed calendar apps on the current platform.

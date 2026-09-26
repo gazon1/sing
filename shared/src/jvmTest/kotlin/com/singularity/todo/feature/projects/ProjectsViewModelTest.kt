@@ -8,6 +8,7 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsIntent
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
@@ -75,25 +76,32 @@ class ProjectsViewModelTest {
     @Test
     fun `searchQuery state updates immediately`() = runTest {
         val vm = createVm()
-        assertEquals("", vm.searchQuery.value)
+        advanceUntilIdle()
+        assertEquals("", (vm.state.value as? ProjectsUiState.Content)?.searchQuery)
 
-        vm.setSearchQuery("Work")
-        assertEquals("Work", vm.searchQuery.value)
+        vm.onIntent(ProjectsIntent.SetSearchQuery("Work"))
+        advanceUntilIdle()
+        assertEquals("Work", (vm.state.value as? ProjectsUiState.Content)?.searchQuery)
 
-        vm.setSearchQuery("")
-        assertEquals("", vm.searchQuery.value)
+        vm.onIntent(ProjectsIntent.SetSearchQuery(""))
+        advanceUntilIdle()
+        assertEquals("", (vm.state.value as? ProjectsUiState.Content)?.searchQuery)
     }
 
     @Test
     fun `sortOrder state updates immediately`() = runTest {
         val vm = createVm()
-        assertEquals(ProjectSortOrder.Name, vm.sortOrder.value)
+        seedProject("p1", "Project")
+        advanceUntilIdle()
+        assertEquals(ProjectSortOrder.Name, (vm.state.value as? ProjectsUiState.Content)?.sortOrder)
 
-        vm.setSortOrder(ProjectSortOrder.Color)
-        assertEquals(ProjectSortOrder.Color, vm.sortOrder.value)
+        vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Color))
+        advanceUntilIdle()
+        assertEquals(ProjectSortOrder.Color, (vm.state.value as? ProjectsUiState.Content)?.sortOrder)
 
-        vm.setSortOrder(ProjectSortOrder.Name)
-        assertEquals(ProjectSortOrder.Name, vm.sortOrder.value)
+        vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Name))
+        advanceUntilIdle()
+        assertEquals(ProjectSortOrder.Name, (vm.state.value as? ProjectsUiState.Content)?.sortOrder)
     }
 
     // ─── delete (via use-case, not state) ──────────────────────────────────
@@ -108,7 +116,7 @@ class ProjectsViewModelTest {
         val before = fakeProjectRepo.store.values().filter { !it.isDeleted }
         assertEquals(1, before.size, "Store should have the seeded project")
 
-        vm.delete(ProjectId.fromString("p1"))
+        vm.onIntent(ProjectsIntent.Delete(ProjectId.fromString("p1")))
         advanceUntilIdle()
 
         // Verify store reflects soft-delete

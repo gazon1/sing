@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -12,7 +13,6 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiE
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -37,9 +37,7 @@ class ProjectEditorViewModel(
         scope = scope,
     ) {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     init {
         if (projectId != null) {
@@ -48,11 +46,11 @@ class ProjectEditorViewModel(
     }
 
     private suspend fun loadProject(id: ProjectId) {
-        __state.update { it.copy(loading = true) }
+        updateState { it.copy(loading = true) }
         val project = projectsRepo.observe(id)
             .firstOrNull()
         if (project != null) {
-            __state.update {
+            updateState {
                 it.copy(
                     loading = false,
                     name = project.name,
@@ -64,18 +62,25 @@ class ProjectEditorViewModel(
                 )
             }
         } else {
-            __state.update { it.copy(loading = false, errorMessage = "Project not found") }
+            updateState { it.copy(loading = false, errorMessage = "Project not found") }
         }
     }
 
     override fun onIntent(intent: ProjectEditorIntent) {
         when (intent) {
-            is ProjectEditorIntent.NameChanged -> __state.update { it.copy(name = intent.name, errorMessage = null) }
-            is ProjectEditorIntent.ColorChanged -> __state.update { it.copy(color = intent.color) }
-            is ProjectEditorIntent.IconChanged -> __state.update { it.copy(icon = intent.icon) }
-            is ProjectEditorIntent.DescriptionChanged -> __state.update { it.copy(description = intent.description) }
-            is ProjectEditorIntent.ParentChanged -> __state.update { it.copy(parentId = intent.parentId) }
-            ProjectEditorIntent.ErrorShown -> __state.update { it.copy(errorMessage = null) }
+            is ProjectEditorIntent.NameChanged -> updateState { it.copy(name = intent.name, errorMessage = null) }
+
+            is ProjectEditorIntent.ColorChanged -> updateState { it.copy(color = intent.color) }
+
+            is ProjectEditorIntent.IconChanged -> updateState { it.copy(icon = intent.icon) }
+
+            is ProjectEditorIntent.DescriptionChanged -> updateState { it.copy(description = intent.description) }
+
+            is ProjectEditorIntent.ParentChanged -> updateState { it.copy(parentId = intent.parentId) }
+
+            ProjectEditorIntent.ErrorShown -> updateState { it.copy(errorMessage = null) }
+
+
             ProjectEditorIntent.Save -> scope.launch { save() }
         }
     }
@@ -84,11 +89,11 @@ class ProjectEditorViewModel(
         val current = state.value
         val validationError = validateName(current.name)
         if (validationError != null) {
-            __state.update { it.copy(errorMessage = validationError) }
+            updateState { it.copy(errorMessage = validationError) }
             return
         }
 
-        __state.update { it.copy(saving = true, errorMessage = null) }
+        updateState { it.copy(saving = true, errorMessage = null) }
         if (current.projectId == null) {
             // Create mode
             val input = CreateProjectInput(
@@ -101,11 +106,10 @@ class ProjectEditorViewModel(
             createProject(input).fold(
                 onSuccess = { emit(ProjectEditorUiEvent.NavigateBack) },
                 onFailure = { err ->
-                    __state.update {
+                    updateState {
                         it.copy(
                             saving = false,
-                            errorMessage = err.message
-                                ?: "Failed to create project",
+                            errorMessage = err.toMessage("Failed to create project"),
                         )
                     }
                 },
@@ -123,11 +127,10 @@ class ProjectEditorViewModel(
             }.fold(
                 onSuccess = { emit(ProjectEditorUiEvent.NavigateBack) },
                 onFailure = { err ->
-                    __state.update {
+                    updateState {
                         it.copy(
                             saving = false,
-                            errorMessage = err.message
-                                ?: "Failed to update project",
+                            errorMessage = err.toMessage("Failed to update project"),
                         )
                     }
                 },

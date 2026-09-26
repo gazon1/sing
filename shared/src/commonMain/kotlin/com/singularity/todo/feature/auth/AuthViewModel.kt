@@ -1,16 +1,23 @@
 package com.singularity.todo.feature.auth
 
-import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
+import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.MviViewModel
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+/**
+ * Intents for the auth screen.
+ */
+sealed interface AuthIntent : MviIntent {
+    data class SignIn(val email: String, val password: String) : AuthIntent
+    data class SignUp(val email: String, val password: String) : AuthIntent
+    data object SignInAnonymously : AuthIntent
+    data object SignOut : AuthIntent
+    data object ResetState : AuthIntent
+}
 
 /**
  * Auth screen ViewModel (sign in / sign up / anonymous).
@@ -23,78 +30,77 @@ import kotlinx.coroutines.launch
  */
 class AuthViewModel(
     private val authRepository: AuthRepository,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
-    init {
-        addCloseable(scope)
-    }
-
-    private val _state = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
-    val state: StateFlow<AuthUiState> = _state.asStateFlow()
-
-    private val _events = MutableSharedFlow<AuthUiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<AuthUiEvent> = _events.asSharedFlow()
+    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+) : MviViewModel<AuthUiState, AuthIntent, AuthUiEvent>(
+    initialState = AuthUiState.Idle,
+    scope = scope,
+) {
+    // Store scope for use in intent handlers (MviViewModel doesn't expose it publicly)
+    override val vmScope = scope
 
     val session: StateFlow<Session> = authRepository.currentSession
 
-    fun signIn(email: String, password: String) {
-        scope.launch {
-            _state.value = AuthUiState.Loading
-            val result = authRepository.signIn(email, password)
-            result.fold(
+    override fun onIntent(intent: AuthIntent) {
+        when (intent) {
+            is AuthIntent.SignIn -> signIn(intent.email, intent.password)
+            is AuthIntent.SignUp -> signUp(intent.email, intent.password)
+            AuthIntent.SignInAnonymously -> signInAnonymously()
+            AuthIntent.SignOut -> signOut()
+            AuthIntent.ResetState -> updateState { AuthUiState.Idle }
+        }
+    }
+
+    private fun signIn(email: String, password: String) {
+        vmScope.launch {
+            updateState { AuthUiState.Loading }
+            authRepository.signIn(email, password).fold(
                 onSuccess = {
-                    _state.value = AuthUiState.Success
-                    _events.emit(AuthUiEvent.NavigateToHome)
+                    updateState { AuthUiState.Success }
+                    emit(AuthUiEvent.NavigateToHome)
                 },
                 onFailure = {
-                    _state.value = AuthUiState.Idle
-                    _events.emit(AuthUiEvent.Error(it.message ?: "Sign in failed"))
+                    updateState { AuthUiState.Idle }
+                    emit(AuthUiEvent.Error(it.message ?: "Sign in failed"))
                 },
             )
         }
     }
 
-    fun signUp(email: String, password: String) {
-        scope.launch {
-            _state.value = AuthUiState.Loading
-            val result = authRepository.signUp(email, password)
-            result.fold(
+    private fun signUp(email: String, password: String) {
+        vmScope.launch {
+            updateState { AuthUiState.Loading }
+            authRepository.signUp(email, password).fold(
                 onSuccess = {
-                    _state.value = AuthUiState.Success
-                    _events.emit(AuthUiEvent.NavigateToHome)
+                    updateState { AuthUiState.Success }
+                    emit(AuthUiEvent.NavigateToHome)
                 },
                 onFailure = {
-                    _state.value = AuthUiState.Idle
-                    _events.emit(AuthUiEvent.Error(it.message ?: "Sign up failed"))
+                    updateState { AuthUiState.Idle }
+                    emit(AuthUiEvent.Error(it.message ?: "Sign up failed"))
                 },
             )
         }
     }
 
-    fun signInAnonymously() {
-        scope.launch {
-            _state.value = AuthUiState.Loading
-            val result = authRepository.signInAnonymously()
-            result.fold(
+    private fun signInAnonymously() {
+        vmScope.launch {
+            updateState { AuthUiState.Loading }
+            authRepository.signInAnonymously().fold(
                 onSuccess = {
-                    _state.value = AuthUiState.Success
-                    _events.emit(AuthUiEvent.NavigateToHome)
+                    updateState { AuthUiState.Success }
+                    emit(AuthUiEvent.NavigateToHome)
                 },
                 onFailure = {
-                    _state.value = AuthUiState.Idle
-                    _events.emit(AuthUiEvent.Error(it.message ?: "Failed"))
+                    updateState { AuthUiState.Idle }
+                    emit(AuthUiEvent.Error(it.message ?: "Failed"))
                 },
             )
         }
     }
 
-    fun signOut() {
-        scope.launch {
+    private fun signOut() {
+        vmScope.launch {
             authRepository.signOut()
         }
-    }
-
-    fun resetState() {
-        _state.value = AuthUiState.Idle
     }
 }

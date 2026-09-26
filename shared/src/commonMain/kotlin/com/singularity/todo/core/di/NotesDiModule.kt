@@ -13,6 +13,7 @@ import com.singularity.todo.feature.notes.domain.editor.summarizeNoteLambda
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.search.InternalLinkRepositoryImpl
 import org.koin.core.module.dsl.viewModel
@@ -29,57 +30,58 @@ import org.koin.dsl.module
 fun notesModule(): org.koin.core.module.Module = module {
     // ─── Repository ─────────────────────────────────────────────────────
 
-    single<NotesRepository> {
-        RoomNotesRepository(
-            get(),
-            get(),
-            get(),
-            get(),
-        )
-    }
-    single<InternalLinkRepository> {
-        InternalLinkRepositoryImpl(
-            get(),
-            get(),
-            get(),
-        )
-    }
+        single<NotesRepository> {
+            RoomNotesRepository(
+                get(),
+                get(),
+                get(),
+                get(),
+            )
+        }
+        single<InternalLinkRepository> {
+            InternalLinkRepositoryImpl(
+                get(),
+                get(),
+                get(),
+            )
+        }
 
-    // ─── ViewModels ─────────────────────────────────────────────────────
+        // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModel { NotesListViewModel(repo = get(), idGen = get()) }
+        viewModel { NotesListViewModel(repo = get(), idGen = get()) }
 
-    // NoteEditor: ai is optional — improveNote is null when AI is not configured
-    // (the AI button will be hidden in UI when NoteAiController.isAvailable == false).
-    viewModel {
-        NoteEditor(
-            repo = get(),
-            linkRepo = get(),
-            idGen = get(),
-            ai = NoteAiController(
-                improveNote = getOrNull<ImproveNoteUseCase>()?.let(::improveNoteLambda),
-                summarizeNote = getOrNull<com.singularity.todo.feature.ai.use_cases.SummarizeNoteUseCase>()?.let(
-                    ::summarizeNoteLambda,
+        // NoteEditor: ai is optional — improveNote is null when AI is not configured
+        // (the AI button will be hidden in UI when NoteAiController.isAvailable == false).
+        viewModel {
+            NoteEditor(
+                repo = get(),
+                linkRepo = get(),
+                idGen = get(),
+                ai = NoteAiController(
+                    improveNote = getOrNull<ImproveNoteUseCase>()?.let(::improveNoteLambda),
+                    summarizeNote = getOrNull<com.singularity.todo.feature.ai.use_cases.SummarizeNoteUseCase>()?.let(
+                        ::summarizeNoteLambda,
+                    ),
+                    extractActions = getOrNull<com.singularity.todo.feature.ai.use_cases.ExtractActionsUseCase>()?.let(
+                        ::extractActionsLambda,
+                    ),
+                    rewriteNote = getOrNull<com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase>()?.let(
+                        ::rewriteNoteLambda,
+                    ),
+                    suggestTags = getOrNull<com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase>()?.let(
+                        ::suggestTagsLambda,
+                    ),
                 ),
-                extractActions = getOrNull<com.singularity.todo.feature.ai.use_cases.ExtractActionsUseCase>()?.let(
-                    ::extractActionsLambda,
-                ),
-                rewriteNote = getOrNull<com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase>()?.let(
-                    ::rewriteNoteLambda,
-                ),
-                suggestTags = getOrNull<com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase>()?.let(
-                    ::suggestTagsLambda,
-                ),
-            ),
-            log = get<Logger>(),
-            // scope omitted — default AutoCloseableCoroutineScope() applies
-        )
-    }
+                log = get<Logger>(),
+                currentUser = get<ProfileAwareCurrentUser>(),
+                // scope omitted — default AutoCloseableCoroutineScope() applies
+            )
+        }
 
-    viewModel {
-        NotePreview(
-            repo = get(),
-            linkRepo = get(),
-        )
-    }
+        viewModel {
+            NotePreview(
+                repo = get(),
+                linkRepo = get(),
+            )
+        }
 }

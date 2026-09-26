@@ -72,7 +72,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
         SimpleFilterSheet(
             initialFilter = state.activeFilter,
             onApply = { filter ->
-                viewModel.processIntent(SearchIntent.OnApplyFilter(filter))
+                viewModel.onIntent(SearchIntent.OnApplyFilter(filter))
                 showFilterSheet = false
             },
             onDismiss = { showFilterSheet = false },
@@ -84,7 +84,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
             initialName = state.query.take(30),
             onDismiss = { showSaveDialog = false },
             onSave = { name ->
-                viewModel.processIntent(SearchIntent.OnSaveCurrentSearch(name))
+                viewModel.onIntent(SearchIntent.OnSaveCurrentSearch(name))
                 showSaveDialog = false
             },
         )
@@ -95,7 +95,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
             currentName = currentName,
             onDismiss = { searchToRename = null },
             onRename = { newName ->
-                viewModel.processIntent(SearchIntent.OnRenameSavedSearch(id, newName))
+                viewModel.onIntent(SearchIntent.OnRenameSavedSearch(id, newName))
                 searchToRename = null
             },
         )
@@ -117,7 +117,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
         Column(modifier = Modifier.padding(padding)) {
             OutlinedTextField(
                 value = state.query,
-                onValueChange = { viewModel.processIntent(SearchIntent.OnQueryChange(it)) },
+                onValueChange = { viewModel.onIntent(SearchIntent.OnQueryChange(it)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -130,10 +130,10 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
                 SavedSearchesRow(
                     savedSearches = state.savedSearches,
                     activeSavedSearchId = state.activeSavedSearchId,
-                    onLoadSearch = { id -> viewModel.processIntent(SearchIntent.OnLoadSavedSearch(id)) },
+                    onLoadSearch = { id -> viewModel.onIntent(SearchIntent.OnLoadSavedSearch(id)) },
                     onSaveClick = { showSaveDialog = true },
                     onRename = { id, newName -> searchToRename = id to newName },
-                    onDelete = { id -> viewModel.processIntent(SearchIntent.OnDeleteSavedSearch(id)) },
+                    onDelete = { id -> viewModel.onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
                 )
             }
 
@@ -143,7 +143,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
                 SearchResultsList(
                     results = state.results,
                     navigator = navigator,
-                    onPin = { viewModel.processIntent(SearchIntent.OnTogglePin(it)) },
+                    onPin = { viewModel.onIntent(SearchIntent.OnTogglePin(it)) },
                 )
             }
         }

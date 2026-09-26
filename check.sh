@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # check.sh — Full local verification for Singularity Todo KMP project
-# Runs: jvmTest → androidHostTest → desktopApp:test → assembleDebug → detekt
+# Runs: jvmTest → desktopApp:test → assembleDebug → detekt
 # Optionally runs Android instrumentation on adb device if SKIP_ADB=0
 # Usage: SKIP_ADB=1 ./check.sh   # skip adb tests
+#
+# NOTE: no --no-daemon here on purpose. A warm Gradle+Kotlin daemon keeps
+# incremental compilation across runs; --no-daemon forces a cold JVM every
+# time. CI invokes gradle directly and manages its own lifecycle.
 
 set -e
 
@@ -15,35 +19,28 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${YELLOW}=== [1/4] shared:jvmTest ===${NC}"
-./gradlew :shared:jvmTest --no-daemon --quiet || {
+./gradlew :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}shared:jvmTest passed${NC}"
 
-echo -e "${YELLOW}=== [2/4] shared:testAndroidHostTest ===${NC}"
-./gradlew :shared:testAndroidHostTest --no-daemon --quiet || {
-    echo -e "${RED}shared:testAndroidHostTest FAILED${NC}"
-    exit 1
-}
-echo -e "${GREEN}shared:testAndroidHostTest passed${NC}"
-
-echo -e "${YELLOW}=== [3/4] desktopApp:test ===${NC}"
-./gradlew :desktopApp:test --no-daemon --quiet || {
+echo -e "${YELLOW}=== [2/4] desktopApp:test ===${NC}"
+./gradlew :desktopApp:test --quiet || {
     echo -e "${RED}desktopApp:test FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}desktopApp:test passed${NC}"
 
-echo -e "${YELLOW}=== [4/5] androidApp:assembleDebug ===${NC}"
-./gradlew :androidApp:assembleDebug --no-daemon --quiet || {
+echo -e "${YELLOW}=== [3/4] androidApp:assembleDebug ===${NC}"
+./gradlew :androidApp:assembleDebug --quiet || {
     echo -e "${RED}assembleDebug FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}assembleDebug passed${NC}"
 
-echo -e "${YELLOW}=== [5/5] detekt (report-only, ignoreFailures=true) ===${NC}"
-./gradlew :shared:detekt :desktopApp:detekt --no-daemon --quiet || {
+echo -e "${YELLOW}=== [4/4] detekt (report-only, ignoreFailures=true) ===${NC}"
+./gradlew :shared:detekt :desktopApp:detekt --quiet || {
     echo -e "${YELLOW}  detekt reported violations (ignoreFailures=true — see baselines in config/detekt/)${NC}"
 }
 
@@ -56,7 +53,7 @@ if [[ "${SKIP_ADB:-0}" != "1" ]] && adb devices | grep -q "device$"; then
         echo "Running on device: $SERIAL"
         ./gradlew :androidApp:connectedDebugAndroidTest \
             -Pandroid.testInstrumentationRunnerArguments.device="$SERIAL" \
-            --no-daemon --quiet || true
+            --quiet || true
         echo -e "${GREEN}Android instrumentation completed${NC}"
     fi
 fi

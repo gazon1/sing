@@ -155,6 +155,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
         SearchViewModel(
             searchUseCase = get(),
             savedSearchRepo = get(),
+            taskRepo = get(),
             clock = get(),
         )
     }

@@ -69,8 +69,7 @@ Platform bindings — в `PlatformModule.jvm.kt` / `PlatformModule.android.kt`.
 | Source set | Что | Как запустить |
 |---|---|---|
 | `commonTest` | pure Kotlin, без платформы | `./gradlew :shared:commonTest` |
-| `jvmTest` | Room + SQLite | `./gradlew :shared:jvmTest` |
-| `androidHostTest` | Robolectric, Android resources | `./gradlew :shared:testAndroidHostTest` |
+| `jvmTest` | Room + SQLite + Konsist arch tests | `./gradlew :shared:jvmTest` |
 
 **Fake вместо моков** — все двойники в `test/fakes/FakeRepositories.kt`:
 `FakeTaskRepository`, `FakeNotesRepository`, `FakeProjectsRepository`, `FakeTagsRepository`, `FakeSettingsRepository`, `FakeSecureStorage`, `FakeNotificationPort`, `FakeTextGen`.

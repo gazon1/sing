@@ -47,12 +47,12 @@ class SyncViewModelTest {
         val prefs = FakeSyncPrefs()
         val vm = createVm(repo, prefs, this)
 
-        vm.process(SyncIntent.SyncNow)
-        vm.process(SyncIntent.SyncNow)
+        vm.onIntent(SyncIntent.SyncNow)
+        vm.onIntent(SyncIntent.SyncNow)
         advanceUntilIdle() // let the first (yielding) syncOnce() finish
 
         assertEquals(1, repo.syncOnceCallCount)
-        vm.vmScope.job?.cancel()
+        vm.state.value // access to keep reference
     }
 
     // ─── Test 2: syncNow debounce when status is already running ───────────────
@@ -66,11 +66,10 @@ class SyncViewModelTest {
         repo.setStatus(SyncEngineStatus.Pulling)
         val vm = createVm(repo, prefs, this)
 
-        vm.process(SyncIntent.SyncNow)
+        vm.onIntent(SyncIntent.SyncNow)
         advanceUntilIdle()
 
         assertEquals(0, repo.syncOnceCallCount)
-        vm.vmScope.job?.cancel()
     }
 
     // ─── Test 3: AcknowledgeError clears errorMessage and connectionTestResult ─
@@ -84,15 +83,14 @@ class SyncViewModelTest {
         val vm = createVm(repo, prefs, this)
 
         // Trigger a successful sync so the VM's state is populated.
-        vm.process(SyncIntent.SyncNow)
+        vm.onIntent(SyncIntent.SyncNow)
         advanceUntilIdle()
 
         // Call AcknowledgeError — it should clear both fields unconditionally.
-        vm.process(SyncIntent.AcknowledgeError)
+        vm.onIntent(SyncIntent.AcknowledgeError)
 
         assertNull(vm.state.value.errorMessage)
         assertNull(vm.state.value.connectionTestResult)
-        vm.vmScope.job?.cancel()
     }
 
     // ─── Test 4: TestConnection → Success ─────────────────────────────────────
@@ -105,12 +103,11 @@ class SyncViewModelTest {
         val prefs = FakeSyncPrefs()
         val vm = createVm(repo, prefs, this)
 
-        vm.process(SyncIntent.TestConnection)
+        vm.onIntent(SyncIntent.TestConnection)
         advanceUntilIdle()
 
         assertFalse(vm.state.value.isTestingConnection)
         assertEquals(ConnectionTestResult.Success, vm.state.value.connectionTestResult)
-        vm.vmScope.job?.cancel()
     }
 
     // ─── Test 5: TestConnection → Failure ─────────────────────────────────────
@@ -126,13 +123,12 @@ class SyncViewModelTest {
         val prefs = FakeSyncPrefs()
         val vm = createVm(repo, prefs, this)
 
-        vm.process(SyncIntent.TestConnection)
+        vm.onIntent(SyncIntent.TestConnection)
         advanceUntilIdle()
 
         assertFalse(vm.state.value.isTestingConnection)
         val result = vm.state.value.connectionTestResult
         assertTrue(result is ConnectionTestResult.Failure)
         assertEquals("Invalid token", result.error.message)
-        vm.vmScope.job?.cancel()
     }
 }

@@ -1,11 +1,11 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
-import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
-import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.debounce.Debouncer
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -25,7 +25,6 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -33,7 +32,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
@@ -60,11 +58,11 @@ class ProjectDetailViewModel(
     private val clock: Clock,
     private val log: Logger,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
-
-    init {
-        addCloseable(scope)
-    }
+) : MviViewModel<ProjectDetailUiState, ProjectDetailIntent.Domain, ProjectDetailUiEvent>(
+    initialState = ProjectDetailUiState.Loading,
+    scope = scope,
+) {
+    override val vmScope = scope
 
     // ─── UI State ───────────────────────────────────────────────────────────────
 
@@ -91,19 +89,16 @@ class ProjectDetailViewModel(
     private val _availableTasksFlow = MutableStateFlow<List<Task>>(emptyList())
     val availableTasksFlow: StateFlow<List<Task>> = _availableTasksFlow
 
-    private val _state = MutableStateFlow<ProjectDetailUiState>(ProjectDetailUiState.Loading)
-    val state: StateFlow<ProjectDetailUiState> = _state
-
     init {
         // Collect projectFlow
-        scope.launch {
+        vmScope.launch {
             projectRepo.observe(projectId)
                 .onStart { emit(null) }
                 .collect { _projectFlow.value = it }
         }
 
         // Collect parentOptionsFlow
-        scope.launch {
+        vmScope.launch {
             combine(
                 projectRepo.observe(projectId).onStart { emit(null) },
                 projectRepo.observeAll(),
@@ -119,7 +114,7 @@ class ProjectDetailViewModel(
         }
 
         // Collect availableTasksFlow
-        scope.launch {
+        vmScope.launch {
             taskRepo.observeByFilter(TaskFilter.All)
                 .map { all ->
                     all
@@ -133,7 +128,7 @@ class ProjectDetailViewModel(
         }
 
         // Collect state
-        scope.launch {
+        vmScope.launch {
             combine(
                 projectRepo.observe(projectId).onStart { emit(null) },
                 projectRepo.observe(projectId).onStart { emit(null) }.flatMapLatest { project ->
@@ -174,7 +169,7 @@ class ProjectDetailViewModel(
                         )
                     }
                 }
-            }.collect { _state.value = it }
+            }.collect { setState(it) }
         }
     }
 
@@ -190,26 +185,19 @@ class ProjectDetailViewModel(
     private val debouncer = Debouncer(scope, 300.milliseconds)
 
     init {
-        // Name debounce — reads _latestProject to avoid TOCTOU.
+        // Name debounce — mutate reads _latestProject inside fireAndForget to avoid TOCTOU.
         debouncer.debounce(draftState.state.map { it.name }) { name ->
-            val current = _latestProject.value ?: return@debounce
-            mutate(current) { copy(name = name) }
+            mutate { copy(name = name) }
         }
         // Description debounce — same pattern.
         debouncer.debounce(draftState.state.map { it.description }) { desc ->
-            val current = _latestProject.value ?: return@debounce
-            mutate(current) { copy(description = desc) }
+            mutate { copy(description = desc) }
         }
     }
 
     // ─── Cached latest project — TOCTOU guard ──────────────────────────────────
 
     private val _latestProject = MutableStateFlow<Project?>(null)
-
-    // ─── One-shot events ─────────────────────────────────────────────────────────
-
-    private val _events = Channel<ProjectDetailUiEvent>(Channel.BUFFERED)
-    val events: kotlinx.coroutines.flow.Flow<ProjectDetailUiEvent> = _events.receiveAsFlow()
 
     // ─── Intent dispatcher ─────────────────────────────────────────────────────
 
@@ -219,7 +207,7 @@ class ProjectDetailViewModel(
      * Routing-интенты ([ProjectDetailIntent.Routing]) обрабатываются экраном
      * и сюда не попадают.
      */
-    fun onIntent(intent: ProjectDetailIntent.Domain) {
+    override fun onIntent(intent: ProjectDetailIntent.Domain) {
         when (intent) {
             // ── Visibility ──────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.ToggleHideCompleted ->
@@ -234,39 +222,34 @@ class ProjectDetailViewModel(
 
             // ── Pickers ─────────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.UpdateColor -> {
-                val current = _latestProject.value ?: return
-                mutate(current) { copy(color = intent.color) }
+                mutate { copy(color = intent.color) }
             }
 
             is ProjectDetailIntent.Domain.UpdateIcon -> {
-                val current = _latestProject.value ?: return
-                mutate(current) { copy(icon = intent.icon) }
+                mutate { copy(icon = intent.icon) }
             }
 
             is ProjectDetailIntent.Domain.UpdateParent -> {
-                val current = _latestProject.value ?: return
-                mutate(current) { copy(parentId = intent.parentId) }
+                mutate { copy(parentId = intent.parentId) }
             }
 
             is ProjectDetailIntent.Domain.UpdateDueDate -> {
-                val current = _latestProject.value ?: return
-                mutate(current) { copy(dueDate = intent.dueDate) }
+                mutate { copy(dueDate = intent.dueDate) }
             }
 
             // ── Lifecycle ──────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.ToggleArchive -> {
-                val current = _latestProject.value ?: return
-                mutate(current) { copy(isDeleted = !isDeleted) }
+                mutate { copy(isDeleted = !isDeleted) }
             }
 
             is ProjectDetailIntent.Domain.Delete ->
-                scope.launch {
+                vmScope.launch {
                     deleteProject(projectId)
-                        .onSuccess { _events.trySend(ProjectDetailUiEvent.NavigateBack) }
+                        .onSuccess { emit(ProjectDetailUiEvent.NavigateBack) }
                         .onFailure { e ->
-                            _events.trySend(
+                            emit(
                                 ProjectDetailUiEvent.ShowError(
-                                    (e as? AppError)?.message ?: e.message ?: "Delete failed",
+                                    e.toMessage("Delete failed"),
                                 ),
                             )
                         }
@@ -276,7 +259,7 @@ class ProjectDetailViewModel(
             is ProjectDetailIntent.Domain.CreateTask -> {
                 val trimmed = intent.title.trim()
                 if (trimmed.isEmpty()) return
-                scope.launch {
+                vmScope.launch {
                     createTaskUseCase(
                         CreateTaskInput(
                             title = trimmed,
@@ -284,9 +267,9 @@ class ProjectDetailViewModel(
                             kind = TaskKind.Task,
                         ),
                     ).onFailure { e ->
-                        _events.trySend(
+                        emit(
                             ProjectDetailUiEvent.ShowError(
-                                (e as? AppError)?.message ?: e.message ?: "Create task failed",
+                                e.toMessage("Create task failed"),
                             ),
                         )
                     }
@@ -294,38 +277,34 @@ class ProjectDetailViewModel(
             }
 
             is ProjectDetailIntent.Domain.MoveTaskToProject ->
-                scope.launch {
+                vmScope.launch {
                     updateTask.invoke(intent.taskId) { it.copy(projectId = projectId) }
                         .onFailure { e ->
-                            _events.trySend(
+                            emit(
                                 ProjectDetailUiEvent.ShowError(
-                                    (e as? AppError)?.message ?: e.message ?: "Move task failed",
+                                    e.toMessage("Move task failed"),
                                 ),
                             )
                         }
                 }
 
             is ProjectDetailIntent.Domain.ToggleTaskPin ->
-                scope.fireAndForget(
+                vmScope.fireAndForget(
                     errorLabel = "Pin failed",
                     onError = { e ->
-                        _events.trySend(
-                            ProjectDetailUiEvent.ShowError(
-                                (e as? AppError)?.message ?: e.message ?: "Pin failed",
-                            ),
-                        )
+                        vmScope.launch { emit(ProjectDetailUiEvent.ShowError(e.toMessage("Pin failed"))) }
                     },
                 ) {
                     taskRepo.togglePinned(intent.taskId)
                 }
 
             is ProjectDetailIntent.Domain.DeleteTask ->
-                scope.launch {
+                vmScope.launch {
                     taskRepo.softDelete(intent.taskId)
                         .onFailure { e ->
-                            _events.trySend(
+                            emit(
                                 ProjectDetailUiEvent.ShowError(
-                                    (e as? AppError)?.message ?: e.message ?: "Delete task failed",
+                                    e.toMessage("Delete task failed"),
                                 ),
                             )
                         }
@@ -336,13 +315,13 @@ class ProjectDetailViewModel(
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
     /**
-     * Applies a mutation to [current] via [transform] and persists via [updateProject].
-     * Uses [_latestProject] as the source of truth to avoid TOCTOU.
+     * Applies a mutation to the current project and persists via [updateProject].
+     * Reads from [_latestProject] inside the fireAndForget block to avoid TOCTOU.
      */
-    private fun mutate(current: Project, transform: Project.() -> Project) {
-        scope.fireAndForget(
+    private fun mutate(transform: Project.() -> Project) {
+        vmScope.fireAndForget(
             errorLabel = "Update project failed",
-            onError = { e -> _events.trySend(ProjectDetailUiEvent.ShowError(e.message ?: "Update failed")) },
+            onError = { e -> vmScope.launch { emit(ProjectDetailUiEvent.ShowError(e.toMessage())) } },
         ) {
             updateProject(projectId, transform).also {
                 if (it.isSuccess) _lastEditedAt.value = clock.now()

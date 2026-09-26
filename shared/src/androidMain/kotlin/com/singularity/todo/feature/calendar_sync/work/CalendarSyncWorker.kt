@@ -5,11 +5,13 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
+import com.singularity.todo.feature.calendar_sync.data.toSyncedEventRef
 import com.singularity.todo.feature.calendar_sync.domain.logic.CalendarEventMapper
 import com.singularity.todo.feature.calendar_sync.domain.logic.SyncDiffMerge
 import com.singularity.todo.feature.calendar_sync.domain.logic.checksum
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendar_sync.domain.model.SyncPlan
+import com.singularity.todo.feature.calendar_sync.domain.model.SyncedEventRef
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.error.CalendarSyncException
@@ -65,9 +67,9 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
                 .first()
                 .filter { !it.isCompleted && !it.isTrashed }
 
-            // Use full entity map so diff can detect calendarId changes
-            val existingMap: Map<String, CalendarSyncTaskMapEntity> = taskMapDao.getAll()
-                .associateBy { it.taskId }
+            // Map entities to the domain read model so the pure diff never sees Room types
+            val existingMap: Map<String, SyncedEventRef> = taskMapDao.getAll()
+                .associateBy({ it.taskId }, { it.toSyncedEventRef() })
 
             // Map all tasks to CalendarSyncEvents
             val desiredEvents = allTasks.mapNotNull { task ->

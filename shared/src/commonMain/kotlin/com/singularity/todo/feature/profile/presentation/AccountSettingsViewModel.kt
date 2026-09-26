@@ -31,9 +31,7 @@ class AccountSettingsViewModel(
         scope = scope,
     ) {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     val activeProfile: Flow<Profile?> = profileRepository.activeProfile()
 

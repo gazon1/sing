@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -18,9 +18,6 @@ data class ProfileSwitcherUiState(
     val errorMessage: String? = null,
 )
 
-/** Clears any errorMessage in the UI state. */
-data object DismissError
-
 /**
  * Profile switcher dialog ViewModel.
  *
@@ -31,13 +28,19 @@ data object DismissError
  */
 class ProfileSwitcherViewModel(
     private val profileRepository: ProfileRepository,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
+    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+) : MviViewModel<ProfileSwitcherUiState, ProfileSwitcherIntent, Nothing>(
+    initialState = ProfileSwitcherUiState(),
+    scope = scope,
+) {
     private val log = Logger.withTag("ProfileSwitcherViewModel")
+    override val vmScope = scope
+
+    private val _errorMessage = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     init {
-        addCloseable(scope)
-        scope.launch {
+        // Observe profiles and active profile ID — no addCloseable(scope) needed (MviViewModel handles it)
+        vmScope.launch {
             combine(
                 profileRepository.observeAll(),
                 profileRepository.activeProfileId,
@@ -49,20 +52,26 @@ class ProfileSwitcherViewModel(
                     isLoading = false,
                     errorMessage = errorMsg,
                 )
-            }.collect { _uiState.value = it }
+            }.collect { updateState { it } }
         }
     }
 
-    private val _errorMessage = MutableStateFlow<String?>(null)
-    private val _uiState = MutableStateFlow(ProfileSwitcherUiState())
-    val uiState: StateFlow<ProfileSwitcherUiState> = _uiState.asStateFlow()
+    override fun onIntent(intent: ProfileSwitcherIntent) {
+        when (intent) {
+            is ProfileSwitcherIntent.DismissError -> _errorMessage.value = null
+            is ProfileSwitcherIntent.Create -> create(intent.name, intent.emoji, intent.colorIdx)
+            is ProfileSwitcherIntent.Rename -> rename(intent.id, intent.name)
+            is ProfileSwitcherIntent.Delete -> delete(intent.id)
+            is ProfileSwitcherIntent.SwitchTo -> switchTo(intent.id)
+        }
+    }
 
-    fun create(name: String, emoji: String, colorIdx: Int) {
-        scope.fireAndForget(
+    private fun create(name: String, emoji: String, colorIdx: Int) {
+        vmScope.fireAndForget(
             errorLabel = "Create profile failed",
             onError = { e -> _errorMessage.value = e.message ?: "Failed to create profile" },
         ) {
-            val now = com.singularity.todo.core.platform.Clock.now()
+            val now = Clock.now()
             profileRepository.create(
                 Profile(
                     id = ProfileId.generate(),
@@ -77,8 +86,8 @@ class ProfileSwitcherViewModel(
         }
     }
 
-    fun rename(id: ProfileId, name: String) {
-        scope.fireAndForget(
+    private fun rename(id: ProfileId, name: String) {
+        vmScope.fireAndForget(
             errorLabel = "Rename profile failed",
             onError = { e -> _errorMessage.value = e.message ?: "Failed to rename profile" },
         ) {
@@ -91,8 +100,8 @@ class ProfileSwitcherViewModel(
         }
     }
 
-    fun delete(id: ProfileId) {
-        scope.fireAndForget(
+    private fun delete(id: ProfileId) {
+        vmScope.fireAndForget(
             errorLabel = "Delete profile failed",
             onError = { e -> _errorMessage.value = e.message ?: "Failed to delete profile" },
         ) {
@@ -100,30 +109,19 @@ class ProfileSwitcherViewModel(
         }
     }
 
-    fun switchTo(id: ProfileId) {
-        scope.fireAndForget(
+    private fun switchTo(id: ProfileId) {
+        vmScope.fireAndForget(
             errorLabel = "Switch profile failed",
             onError = { e -> _errorMessage.value = e.message ?: "Failed to switch profile" },
         ) {
-            profileRepository.switchTo(
-                id,
-            ).onFailure { log.w { "Failed to switch to profile ${id.value}: ${it.message}" } }
-        }
-    }
-
-    fun processIntent(intent: ProfileSwitcherIntent) {
-        when (intent) {
-            is ProfileSwitcherIntent.DismissError -> _errorMessage.value = null
-            is ProfileSwitcherIntent.Create -> create(intent.name, intent.emoji, intent.colorIdx)
-            is ProfileSwitcherIntent.Rename -> rename(intent.id, intent.name)
-            is ProfileSwitcherIntent.Delete -> delete(intent.id)
-            is ProfileSwitcherIntent.SwitchTo -> switchTo(intent.id)
+            profileRepository.switchTo(id)
+                .onFailure { log.w { "Failed to switch to profile ${id.value}: ${it.message}" } }
         }
     }
 }
 
 /** Intent sealed interface for ProfileSwitcherViewModel. */
-sealed interface ProfileSwitcherIntent {
+sealed interface ProfileSwitcherIntent : MviIntent {
     data class Create(val name: String, val emoji: String, val colorIdx: Int) : ProfileSwitcherIntent
     data class Rename(val id: ProfileId, val name: String) : ProfileSwitcherIntent
     data class Delete(val id: ProfileId) : ProfileSwitcherIntent

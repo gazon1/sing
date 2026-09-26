@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.state
 
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -20,7 +21,7 @@ import kotlinx.datetime.LocalTime
  *
  * Все варианты обрабатываются VM через [Domain].
  */
-sealed interface TaskDetailIntent {
+sealed interface TaskDetailIntent : MviIntent {
 
     // ── Domain: owned by ViewModel ─────────────────────────────────────────
 

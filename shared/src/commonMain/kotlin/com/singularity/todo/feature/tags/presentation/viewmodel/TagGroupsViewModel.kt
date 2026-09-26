@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tags.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.tags.domain.model.CreateTagGroupInput
@@ -15,7 +16,7 @@ import kotlinx.coroutines.launch
 
 sealed interface TagGroupsUiState {
     data object Loading : TagGroupsUiState
-    data class Empty(val userId: String) : TagGroupsUiState
+    data object Empty : TagGroupsUiState
     data class Content(val groups: List<TagGroup>) : TagGroupsUiState
     data class Error(val message: String) : TagGroupsUiState
 }
@@ -35,16 +36,14 @@ class TagGroupsViewModel(
         scope = scope,
     ) {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     init {
         scope.launch {
             tagGroupRepo.observeAll()
                 .map { groups ->
                     if (groups.isEmpty()) {
-                        TagGroupsUiState.Empty("")
+                        TagGroupsUiState.Empty
                     } else {
                         TagGroupsUiState.Content(groups)
                     }
@@ -52,12 +51,11 @@ class TagGroupsViewModel(
                 .catch {
                     emit(
                         TagGroupsUiState.Error(
-                            it.message
-                                ?: "Error",
-                        ),
+                            it.toMessage()
+                        )
                     )
                 }
-                .collect { __state.value = it }
+                .collect { updateState { it } }
         }
     }
 

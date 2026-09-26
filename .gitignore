@@ -1,9 +1,11 @@
 # Gradle / Kotlin Multiplatform
 .gradle/
 build/
-!gradle/wrapper/gradle-wrapper.jar
 *.class
 *.jar
+# Wrapper jar must be committed for CI `./gradlew` to work — negation
+# must come AFTER the blanket *.jar rule (last match wins in gitignore).
+!gradle/wrapper/gradle-wrapper.jar
 *.log
 
 # Kotlin

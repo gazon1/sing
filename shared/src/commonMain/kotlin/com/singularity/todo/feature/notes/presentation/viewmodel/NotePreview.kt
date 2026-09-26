@@ -1,23 +1,18 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
-import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
+import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -29,24 +24,16 @@ import kotlinx.coroutines.launch
 class NotePreview(
     private val repo: NotesRepository,
     private val linkRepo: InternalLinkRepository,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
-
-    init {
-        addCloseable(scope)
-    }
-
-    private val _state = MutableStateFlow<NotePreviewState>(NotePreviewState.Loading)
-    val state: StateFlow<NotePreviewState> = _state.asStateFlow()
-
-    private val _events = Channel<NotesUiEvent>(Channel.BUFFERED)
-    val events: Flow<NotesUiEvent> = _events.receiveAsFlow()
-
+    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+) : MviViewModel<NotePreviewState, NotePreviewIntent, NotesUiEvent>(
+    initialState = NotePreviewState.Loading,
+    scope = scope,
+) {
     private val logger = Logger.withTag("NotePreview")
-
+    override val vmScope = scope
     private var loadNoteJob: Job? = null
 
-    fun onIntent(intent: NotePreviewIntent) {
+    override fun onIntent(intent: NotePreviewIntent) {
         when (intent) {
             is NotePreviewIntent.Load -> loadNote(intent.noteId)
             NotePreviewIntent.Refresh -> refresh()
@@ -55,13 +42,13 @@ class NotePreview(
     }
 
     private fun refresh() {
-        val currentId = (_state.value as? NotePreviewState.Loaded)?.note?.id ?: return
+        val currentId = (currentState as? NotePreviewState.Loaded)?.note?.id ?: return
         loadNote(currentId.value)
     }
 
     private fun loadNote(noteId: String) {
         loadNoteJob?.cancel()
-        loadNoteJob = scope.launch {
+        loadNoteJob = vmScope.launch {
             val note = repo.observe(NoteId.fromString(noteId))
                 .filterNotNull()
                 .first()
@@ -71,18 +58,15 @@ class NotePreview(
                 logger.w(e) { "Failed to load backlink notes" }
                 emptyList()
             }
-            _state.value = NotePreviewState.Loaded(
-                note = note,
-                backlinks = backlinks,
-            )
+            updateState { NotePreviewState.Loaded(note = note, backlinks = backlinks) }
         }
     }
 
     private fun delete() {
-        val current = _state.value as? NotePreviewState.Loaded ?: return
-        scope.fireAndForget(
+        val current = currentState as? NotePreviewState.Loaded ?: return
+        vmScope.fireAndForget(
             errorLabel = "Delete failed",
-            onError = { e -> _events.trySend(NotesUiEvent.Error("Delete failed: ${e.message ?: "unknown"}")) },
+            onError = { e -> tryEmit(NotesUiEvent.Error("Delete failed: ${e.message ?: "unknown"}")) },
         ) {
             repo.delete(current.note.id)
         }
@@ -97,7 +81,7 @@ sealed interface NotePreviewState {
 }
 
 /** One-shot intents for [NotePreview]. */
-sealed interface NotePreviewIntent {
+sealed interface NotePreviewIntent : MviIntent {
     data class Load(val noteId: String) : NotePreviewIntent
     data object Refresh : NotePreviewIntent
     data object Delete : NotePreviewIntent

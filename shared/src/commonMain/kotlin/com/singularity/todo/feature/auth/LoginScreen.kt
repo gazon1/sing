@@ -106,9 +106,9 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
             Button(
                 onClick = {
                     if (form.value.isSignUp) {
-                        viewModel.signUp(form.value.email, form.value.password)
+                        viewModel.onIntent(AuthIntent.SignUp(form.value.email, form.value.password))
                     } else {
-                        viewModel.signIn(form.value.email, form.value.password)
+                        viewModel.onIntent(AuthIntent.SignIn(form.value.email, form.value.password))
                     }
                 },
                 modifier = Modifier
@@ -141,7 +141,7 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
             Spacer(modifier = Modifier.height(16.dp))
 
             TextButton(
-                onClick = { viewModel.signInAnonymously() },
+                onClick = { viewModel.onIntent(AuthIntent.SignInAnonymously) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag(TestTags.AUTH_CONTINUE_OFFLINE_BUTTON),

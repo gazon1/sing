@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.state
 
+import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
@@ -13,7 +14,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  *
  * @see com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent] — аналогичный паттерн для TaskDetailScreen.
  */
-sealed interface ProjectDetailIntent {
+sealed interface ProjectDetailIntent : MviIntent {
 
     // ── Routing: owned by screen ────────────────────────────────────────────
 

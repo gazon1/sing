@@ -44,10 +44,12 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.rememberOverlayState
+import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.notes.EditorSession
 import com.singularity.todo.feature.notes.EditorState
 import com.singularity.todo.feature.notes.LinkResult
+import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.components.EditorToolbar
 import com.singularity.todo.feature.notes.components.InternalLinkPickerSheet
@@ -59,6 +61,7 @@ import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.rememberEditorSession
 import com.singularity.todo.feature.notes.urlFor
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterIsInstance
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -75,41 +78,43 @@ private sealed class NoteLinkSheet {
 @Composable
 fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewModel()) {
     val navigator = LocalNotesNavigator.current
-    val editorState by viewModel.editorState.collectAsStateWithLifecycle()
+    val editorState by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(route.noteId) {
         if (route.noteId != null) {
-            viewModel.openEditor(route.noteId.value)
+            viewModel.onIntent(NotesEditorIntent.OpenNote(route.noteId.value))
         } else {
-            viewModel.createNote()
+            viewModel.onIntent(NotesEditorIntent.CreateNote)
         }
     }
 
     // Saved-pill animation: on each successful save, show "Saved" for 1.5s.
     var savedVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        viewModel.savedPulse.collect {
-            savedVisible = true
-            kotlinx.coroutines.delay(1500.milliseconds)
-            savedVisible = false
-        }
+        viewModel.events
+            .filterIsInstance<NotesUiEvent.SavedPulse>()
+            .collect {
+                savedVisible = true
+                kotlinx.coroutines.delay(1500.milliseconds)
+                savedVisible = false
+            }
     }
 
     var showAiSheet by remember { mutableStateOf(false) }
     NoteEditorScreenContent(
         editorState = editorState,
-        onTitleChange = { _, title -> viewModel.editTitle(title) },
-        onBodyChange = { _, html -> viewModel.editBody(html) },
-        onSaveNow = viewModel::saveNow,
+        onTitleChange = { title -> viewModel.onIntent(NotesEditorIntent.EditTitle(title)) },
+        onBodyChange = { html -> viewModel.onIntent(NotesEditorIntent.EditBody(html)) },
+        onSaveNow = { viewModel.onIntent(NotesEditorIntent.SaveNow) },
         onBack = {
-            viewModel.closeEditor()
+            viewModel.onIntent(NotesEditorIntent.Close)
             navigator.back()
         },
         onShowAiSheet = { showAiSheet = true },
         savedVisible = savedVisible,
         searchNotesForLink = viewModel::searchNotesForLink,
         searchTasksForLink = viewModel::searchTasksForLink,
-        onAiAction = viewModel::runAiAction,
+        onAiAction = { action -> viewModel.onIntent(NotesEditorIntent.RunAiAction(action)) },
         showAiSheet = showAiSheet,
         onDismissAiSheet = { showAiSheet = false },
     )
@@ -135,9 +140,9 @@ private fun NotesUiEvent.toNotification(): Notification = when (this) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteEditorScreenContent(
-    editorState: EditorState,
-    onTitleChange: (id: String, title: String) -> Unit,
-    onBodyChange: (id: String, html: String) -> Unit,
+    editorState: DraftUiStateCompat,
+    onTitleChange: (title: String) -> Unit,
+    onBodyChange: (html: String) -> Unit,
     onSaveNow: () -> Unit,
     onBack: () -> Unit,
     onShowAiSheet: () -> Unit,
@@ -158,9 +163,8 @@ fun NoteEditorScreenContent(
     var linkUrl by rememberSaveable { mutableStateOf("") }
     val linkQueryFlow = remember { MutableStateFlow("") }
 
-    val session = (editorState as? EditorState.Editing)?.let { editing ->
-        rememberEditorSession(editing, onBodyChange)
-    }
+    val draft = editorState.draft
+    val session = rememberEditorSession(draft) { _, html -> onBodyChange(html) }
 
     Scaffold(
         topBar = {
@@ -172,21 +176,19 @@ fun NoteEditorScreenContent(
                     }
                 },
                 actions = {
-                    if (editorState is EditorState.Editing) {
-                        if (savedVisible || savedAlpha > 0f) {
-                            Text(
-                                text = "Saved",
-                                modifier = Modifier
-                                    .padding(horizontal = 8.dp)
-                                    .alpha(savedAlpha),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Medium,
-                            )
-                        }
-                        IconButton(onClick = onSaveNow, modifier = Modifier.testTag(TestTags.NOTE_EDITOR_SAVE)) {
-                            Icon(Icons.Filled.Check, contentDescription = "Save")
-                        }
+                    if (savedVisible || savedAlpha > 0f) {
+                        Text(
+                            text = "Saved",
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .alpha(savedAlpha),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                    IconButton(onClick = onSaveNow, modifier = Modifier.testTag(TestTags.NOTE_EDITOR_SAVE)) {
+                        Icon(Icons.Filled.Check, contentDescription = "Save")
                     }
                 },
             )
@@ -205,28 +207,15 @@ fun NoteEditorScreenContent(
             }
         },
     ) { padding ->
-        when (editorState) {
-            EditorState.Empty -> {
-                androidx.compose.foundation.layout.Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center,
-                ) {}
-            }
-
-            is EditorState.Editing -> {
-                session?.let { editorSession ->
-                    Column(modifier = Modifier.padding(padding)) {
-                        EditorTitleAndBody(
-                            session = editorSession,
-                            onTitleChange = { newTitle ->
-                                editorSession.updateTitleFieldValue(newTitle)
-                                onTitleChange(editorState.id, newTitle)
-                            },
-                        )
-                    }
-                }
+        Column(modifier = Modifier.padding(padding)) {
+            session?.let { editorSession ->
+                EditorTitleAndBody(
+                    session = editorSession,
+                    onTitleChange = { newTitle ->
+                        editorSession.updateTitleFieldValue(newTitle)
+                        onTitleChange(newTitle)
+                    },
+                )
             }
         }
     }
@@ -282,6 +271,13 @@ fun NoteEditorScreenContent(
         )
     }
 }
+
+/**
+ * Compatibility typealias so [NoteEditorScreenContent] can accept either
+ * the legacy [EditorState.Editing] (used by previews) or [DraftUiStateCompat]
+ * (the actual runtime type from [NoteEditor.editorState]).
+ */
+typealias DraftUiStateCompat = com.singularity.todo.core.ui.DraftUiState<EditorState.Editing>
 
 // ─── Title + Body ──────────────────────────────────────────────────────────────
 
@@ -380,14 +376,16 @@ private fun LinkUrlDialog(
 private fun NoteEditorScreenEditingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     NotesPreviewWrapper {
         NoteEditorScreenContent(
-            editorState = EditorState.Editing(
-                id = "n1",
-                title = "Meeting Notes",
-                html = "<p>Discussed <b>Q4 goals</b> with the team.</p>",
-                isDirty = false,
+            editorState = DraftUiStateCompat(
+                draft = EditorState.Editing(
+                    id = "n1",
+                    title = "Meeting Notes",
+                    html = "<p>Discussed <b>Q4 goals</b> with the team.</p>",
+                    isDirty = false,
+                ),
             ),
-            onTitleChange = { _, _ -> },
-            onBodyChange = { _, _ -> },
+            onTitleChange = { },
+            onBodyChange = { },
             onSaveNow = {},
             onBack = {},
             onShowAiSheet = {},
@@ -404,14 +402,16 @@ private fun NoteEditorScreenEditingPreview() = PreviewThemed(darkTheme = false, 
 private fun NoteEditorScreenDirtyPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
     NotesPreviewWrapper {
         NoteEditorScreenContent(
-            editorState = EditorState.Editing(
-                id = "n2",
-                title = "Draft",
-                html = "<p>Work in progress...</p>",
-                isDirty = true,
+            editorState = DraftUiStateCompat(
+                draft = EditorState.Editing(
+                    id = "n2",
+                    title = "Draft",
+                    html = "<p>Work in progress...</p>",
+                    isDirty = true,
+                ),
             ),
-            onTitleChange = { _, _ -> },
-            onBodyChange = { _, _ -> },
+            onTitleChange = { },
+            onBodyChange = { },
             onSaveNow = {},
             onBack = {},
             onShowAiSheet = {},

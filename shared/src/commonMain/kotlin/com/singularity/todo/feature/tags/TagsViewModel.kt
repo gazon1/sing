@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tags
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -12,7 +13,7 @@ import kotlinx.coroutines.launch
 
 sealed interface TagsUiState {
     data object Loading : TagsUiState
-    data class Empty(val userId: String) : TagsUiState
+    data object Empty : TagsUiState
     data class Content(val tags: List<Tag>) : TagsUiState
     data class Error(val message: String) : TagsUiState
 }
@@ -49,21 +50,19 @@ class TagsViewModel(
     ) {
 
     init {
-        addCloseable(scope)
         scope.launch {
             tagRepo.observeAll()
                 .map { tags ->
-                    if (tags.isEmpty()) TagsUiState.Empty("") else TagsUiState.Content(tags)
+                    if (tags.isEmpty()) TagsUiState.Empty else TagsUiState.Content(tags)
                 }
                 .catch { e ->
                     updateState {
                         TagsUiState.Error(
-                            e.message
-                                ?: "Error",
+                            e.toMessage()
                         )
                     }
                 }
-                .collect { newState -> update { newState } }
+                .collect { newState -> updateState { newState } }
         }
     }
 
@@ -77,15 +76,15 @@ class TagsViewModel(
      * Fire-and-forget delete. Errors are emitted as [TagsUiEvent.ShowError].
      * Exposed as a method reference for Compose UI callbacks (see [SettingsScreen]).
      */
-    fun delete(id: TagId) = scope.launch {
-        tagRepo.delete(id)
-            .onFailure {
-                emit(
-                    TagsUiEvent.ShowError(
-                        it.message
-                            ?: "Error",
-                    ),
-                )
-            }
-    }
+    fun delete(id: TagId) =
+        scope.launch {
+            tagRepo.delete(id)
+                .onFailure {
+                    emit(
+                        TagsUiEvent.ShowError(
+                            it.toMessage()
+                        )
+                    )
+                }
+        }
 }

@@ -7,6 +7,15 @@ description: Audit tool to verify that a feature follows clean architecture: pre
 
 Use after creating or refactoring a feature to verify layer boundaries are respected.
 
+> **Automated since 2026-09-26:** layer rules 1–3, the Koog-import ban, the
+> `java.io.File` ban, the `*RepositoryImpl`-only-in-DI rule and the `*Blocking`-method
+> ban run as hard-failing Konsist tests in
+> `shared/src/jvmTest/kotlin/com/singularity/todo/arch/ArchitectureTest.kt`
+> (part of `:shared:jvmTest` → check.sh → CI). The grep checks below remain useful for
+> pinpointing *which import* inside a single feature directory violates a rule when the
+> Konsist test fails. Allowlist changes require an ADR update — see
+> `docs/decisions/2026-09-26-konsist-architecture-tests.md`.
+
 ## What it checks
 
 ```

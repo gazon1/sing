@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.CalendarContract
+import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
+import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

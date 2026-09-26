@@ -146,7 +146,7 @@ actual fun platformModule(): Module = module {
         NoopCalendarSyncWorkScheduler()
     }
 
-    single<com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries> {
+    single<com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries> {
         JvmCalendarAppQueries()
     }
 }

@@ -2,7 +2,9 @@ package com.singularity.todo.feature.calendar.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.ui.state.updateState
+import com.singularity.todo.core.ui.MviEvent
+import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.goNext
@@ -17,14 +19,10 @@ import com.singularity.todo.feature.calendar.presentation.state.CalendarUiEvent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -38,7 +36,7 @@ import kotlinx.datetime.plus
  * 1. [_calendarState] + [ReminderRepository.observeRecurringTaskIds] → [combine] → [flatMapLatest]
  * 2. [taskRepo.observeByFilter] with ByDateRange → [CalendarTaskMapper] (enriched with recurring IDs)
  * 3. Mapped into [CalendarUiState.Loaded] → [state]
- * 4. One-shot events (task click → navigate) → [_events]
+ * 4. One-shot events (task click → navigate) → [emit]
  *
  * [CalendarTaskUi.isRecurring] is set by looking up the task ID in the
  * [ReminderRepository.observeRecurringTaskIds] set — loaded once per user switch
@@ -49,12 +47,11 @@ class CalendarViewModel(
     private val deps: CalendarDeps,
     initialDate: LocalDate,
     initialMode: CalendarViewMode = CalendarViewMode.MONTH,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
-
-    init {
-        addCloseable(scope)
-    }
+    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+) : MviViewModel<CalendarUiState, CalendarIntent, CalendarUiEvent>(
+    initialState = CalendarUiState.Loading,
+    scope = scope,
+) {
 
     /** Today's date, stable for the lifetime of this VM (captured at construction). */
     private val today: LocalDate = deps.today
@@ -68,15 +65,8 @@ class CalendarViewModel(
         ),
     )
 
-    /** Events emitted to the UI layer (navigate to task detail, errors). */
-    private val _events = Channel<CalendarUiEvent>(Channel.BUFFERED)
-    val events: Flow<CalendarUiEvent> = _events.receiveAsFlow()
-
-    private val _state = MutableStateFlow<CalendarUiState>(CalendarUiState.Loading)
-    val state: StateFlow<CalendarUiState> = _state
-
     init {
-        scope.launch {
+        vmScope.launch {
             combine(
                 _calendarState,
                 deps.reminderRepo.observeRecurringTaskIds(),
@@ -99,7 +89,7 @@ class CalendarViewModel(
                             .groupBy { it.date }
                         cal.toLoadedState(tasksByDate, today)
                     }
-            }.collect { _state.value = it }
+            }.collect { setState(it) }
         }
     }
 
@@ -108,52 +98,51 @@ class CalendarViewModel(
      * NOTE: per AGENTS.md rule — no `.first()` re-fetch inside a debounced collector.
      * [flatMapLatest] above handles window changes reactively.
      */
-    fun onIntent(intent: CalendarIntent) {
+    override fun onIntent(intent: CalendarIntent) {
         when (intent) {
             is CalendarIntent.ViewModeChanged -> {
-                _calendarState.updateState { it.copy(viewMode = intent.mode) }
+                _calendarState.value = _calendarState.value.copy(viewMode = intent.mode)
             }
 
             CalendarIntent.GoToday -> {
-                _calendarState.updateState { it.copy(anchor = today) }
+                _calendarState.value = _calendarState.value.copy(anchor = today)
             }
 
             CalendarIntent.GoNext -> {
-                _calendarState.updateState {
-                    it.copy(anchor = goNext(it.anchor, it.viewMode))
-                }
+                _calendarState.value = _calendarState.value.copy(
+                    anchor = goNext(_calendarState.value.anchor, _calendarState.value.viewMode),
+                )
             }
 
             CalendarIntent.GoPrevious -> {
-                _calendarState.updateState {
-                    it.copy(anchor = goPrevious(it.anchor, it.viewMode))
-                }
+                _calendarState.value = _calendarState.value.copy(
+                    anchor = goPrevious(_calendarState.value.anchor, _calendarState.value.viewMode),
+                )
             }
 
             is CalendarIntent.DayClicked -> {
-                _calendarState.updateState {
-                    it.copy(
-                        viewMode = if (it.viewMode == CalendarViewMode.MONTH) {
-                            CalendarViewMode.DAY
-                        } else {
-                            it.viewMode
-                        },
-                        anchor = intent.date,
-                    )
-                }
+                val current = _calendarState.value
+                _calendarState.value = current.copy(
+                    viewMode = if (current.viewMode == CalendarViewMode.MONTH) {
+                        CalendarViewMode.DAY
+                    } else {
+                        current.viewMode
+                    },
+                    anchor = intent.date,
+                )
             }
 
             CalendarIntent.ToggleMiniCalendar -> {
-                _calendarState.updateState { it.copy(isMiniOpen = !it.isMiniOpen) }
+                _calendarState.value = _calendarState.value.copy(isMiniOpen = !_calendarState.value.isMiniOpen)
             }
 
             CalendarIntent.DismissMiniCalendar -> {
-                _calendarState.updateState { it.copy(isMiniOpen = false) }
+                _calendarState.value = _calendarState.value.copy(isMiniOpen = false)
             }
 
             is CalendarIntent.TaskClicked -> {
-                scope.launch {
-                    _events.trySend(CalendarUiEvent.NavigateToTask(intent.taskId))
+                vmScope.launch {
+                    emit(CalendarUiEvent.NavigateToTask(intent.taskId))
                 }
             }
 
@@ -162,13 +151,13 @@ class CalendarViewModel(
                 // month it started on must not cancel and re-subscribe the Room flow.
                 val newAnchor = LocalDate(intent.month.year, intent.month.month, 1)
                 if (newAnchor != _calendarState.value.anchor) {
-                    _calendarState.updateState { it.copy(anchor = newAnchor) }
+                    _calendarState.value = _calendarState.value.copy(anchor = newAnchor)
                 }
             }
 
             is CalendarIntent.EmptyCellLongPressed -> {
-                scope.launch {
-                    _events.trySend(CalendarUiEvent.ShowCreateTaskSheet(intent.date))
+                vmScope.launch {
+                    emit(CalendarUiEvent.ShowCreateTaskSheet(intent.date))
                 }
             }
         }

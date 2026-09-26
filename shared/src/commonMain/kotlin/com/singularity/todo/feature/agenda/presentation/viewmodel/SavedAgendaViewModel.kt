@@ -3,6 +3,7 @@ package com.singularity.todo.feature.agenda.presentation.viewmodel
 import androidx.compose.runtime.Stable
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.ui.DraftState
@@ -121,9 +122,7 @@ class SavedAgendaViewModel(
         scope = scope,
     ) {
 
-    init {
-        addCloseable(scope)
-    }
+
 
     val draftState = SavedAgendaDraftState()
 
@@ -140,7 +139,7 @@ class SavedAgendaViewModel(
         val view = deps.repo.observe(mode.viewId)
             .first()
         if (view == null) {
-            __state.value = SavedAgendaViewState.NotFound
+            setState(SavedAgendaViewState.NotFound)
             return
         }
         val sections = decodeSections(view.sectionsJson)
@@ -154,11 +153,13 @@ class SavedAgendaViewModel(
             true,
         )
         draftState.seed(draft)
-        __state.value = SavedAgendaViewState.Editing(
-            view,
-            draftState.state,
-            sections?.size,
-            decodeError = sections == null,
+        setState(
+            SavedAgendaViewState.Editing(
+                view,
+                draftState.state,
+                sections?.size,
+                decodeError = sections == null,
+            ),
         )
     }
 
@@ -167,7 +168,9 @@ class SavedAgendaViewModel(
             ?: mode.seed
         val draft = Draft(seed.title, seed.sections, seed.title, seed.sections, true)
         draftState.seed(draft)
-        __state.value = SavedAgendaViewState.Editing(null, draftState.state, seed.sections.size)
+        setState(
+            SavedAgendaViewState.Editing(null, draftState.state, seed.sections.size),
+        )
     }
 
     override fun onIntent(intent: SavedAgendaIntent) {
@@ -199,18 +202,20 @@ class SavedAgendaViewModel(
     }
 
     private fun emitEditingState() {
-        val current = state.value
-        __state.value = SavedAgendaViewState.Editing(
-            view = (current as? SavedAgendaViewState.Editing)?.view,
-            draft = draftState.state,
-            sectionCount = draftState.state.sections.size,
+        val current = currentState
+        setState(
+            SavedAgendaViewState.Editing(
+                view = (current as? SavedAgendaViewState.Editing)?.view,
+                draft = draftState.state,
+                sectionCount = draftState.state.sections.size,
+            ),
         )
     }
 
     private fun onSave() {
-        val current = state.value
+        val current = currentState
         if (current !is SavedAgendaViewState.Editing || current.isSaving || !current.canSave) return
-        __state.value = current.copy(isSaving = true)
+        setState(current.copy(isSaving = true))
         scope.launch {
             val draft = draftState.state
             val nameToSave = draft.name.trim()
@@ -231,9 +236,8 @@ class SavedAgendaViewModel(
                             onFailure = {
                                 emit(
                                     SavedAgendaEvent.ShowError(
-                                        it.message
-                                            ?: "Save failed",
-                                    ),
+                                        it.toMessage("Save failed")
+                                    )
                                 )
                             },
                         )
@@ -248,9 +252,8 @@ class SavedAgendaViewModel(
                             onFailure = {
                                 emit(
                                     SavedAgendaEvent.ShowError(
-                                        it.message
-                                            ?: "Save failed",
-                                    ),
+                                        it.toMessage("Save failed")
+                                    )
                                 )
                             },
                         )
