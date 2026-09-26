@@ -57,33 +57,15 @@ Key properties:
 
 ## Detection commands
 
-```bash
-# Old broken pattern — scopeOverride getter
-grep -rn "scopeOverride: CoroutineScope? = null" shared/src/commonMain/
-
-# Old pattern — processIntent (should be onIntent)
-grep -rln "fun processIntent" shared/src/commonMain/kotlin/com/singularity/todo/feature/*/presentation/viewmodel/
-
-# Hand-rolled event channel (should use MviViewModel's EventBus)
-grep -rln "Channel<.*UiEvent>\|MutableSharedFlow<.*UiEvent>" \
-  shared/src/commonMain/kotlin/com/singularity/todo/feature/*/presentation/viewmodel/
-
-# Direct viewModelScope usage (should use injected scope instead)
-grep -rn "viewModelScope.launch" shared/src/commonMain/kotlin/com/singularity/todo/feature/*/presentation/viewmodel/
-
-# stateIn usages (remaining ones after migration = legitimate exceptions)
-grep -rn "\.stateIn(" shared/src/commonMain/kotlin/com/singularity/todo/feature/*/presentation/viewmodel/
-
-# Side-effects inside combine (look for .value = assignments inside combine/flatMapLatest lambdas)
-grep -rn "\.value\s*=" shared/src/commonMain/kotlin/com/singularity/todo/feature/*/presentation/viewmodel/ | \
-  grep -v " //\|@\|override\|private val _\|MutableStateFlow\|StateFlow\|SharedFlow"
-
-# sharingStarted parameter (should be removed from VMs without stateIn)
-grep -rn "sharingStarted" shared/src/commonMain/kotlin/com/singularity/todo/feature/*/presentation/viewmodel/
-
-# VMs not yet extending MviViewModel
-grep -rln ": ViewModel()" shared/src/commonMain/kotlin/com/singularity/todo/feature/*/presentation/viewmodel/
-```
+| Pattern | Command |
+|---|---|
+| scopeOverride getter | `grep -rn "scopeOverride: CoroutineScope? = null" shared/src/commonMain/` |
+| processIntent (→ onIntent) | `grep -rln "fun processIntent" shared/src/commonMain/.../viewmodel/` |
+| Hand-rolled event channel | `grep -rln "Channel<.*UiEvent>" shared/src/commonMain/.../viewmodel/` |
+| viewModelScope.launch | `grep -rn "viewModelScope.launch" shared/src/commonMain/.../viewmodel/` |
+| stateIn usages | `grep -rn "\.stateIn(" shared/src/commonMain/.../viewmodel/` |
+| sharingStarted param | `grep -rn "sharingStarted" shared/src/commonMain/.../viewmodel/` |
+| Non-MviViewModel VMs | `grep -rln ": ViewModel()" shared/src/commonMain/.../viewmodel/` |
 
 ---
 
@@ -360,115 +342,23 @@ init {
 }
 ```
 
-### Pitfall 4: Smart-cast failure on class properties
-
-```kotlin
-// BROKEN — smart cast fails because mode is a class property
-init {
-    scope.launch {
-        when (mode) {
-            is ScreenMode.Edit -> initEditMode()  // mode narrowed here...
-        }
-    }
-}
-private suspend fun initEditMode() {
-    val id = mode.viewId  // ERROR: mode is back to declared type
-}
-
-// FIX — pass narrowed local val to function
-init {
-    scope.launch {
-        when (val m = mode) {  // m is a local val, smart-cast survives
-            is ScreenMode.Edit -> initEditMode(m)
-        }
-    }
-}
-```
-
-### Pitfall 5: Stale closures on `_state`
-
-```kotlin
-// WRONG — `view` captured from outside is stale
-private fun emitEditingState(view: SavedAgendaView? = null) {
-    _state.value = Editing(view ?: ..., draft, ...)
-}
-
-// CORRECT — read current state inside the function
-private fun emitEditingState() {
-    val current = _state.value
-    _state.value = Editing(
-        view = (current as? SavedAgendaViewState.Editing)?.view,
-        draft = draftState.current,
-        ...
-    )
-}
-```
 
 ---
 
-## Side-Effects-in-Combine Fix (advanced)
+## Migration Order (multi-VM MR)
 
-### Symptom
+1. **Simple VMs first**: add `scope` default + `init { addCloseable }` (no scopeOverride)
+2. **Standard broken VMs next**: replace scopeOverride getter pattern → scope default param
+3. **Side-effects-in-combine VMs last**: extract side-effects first, then migrate
+4. Run tests: `./gradlew :shared:jvmTest --no-daemon`
 
-After migrating the VM constructor and writing tests that collect `vm.state.value`, tests fail with:
-
-```
-kotlinx.coroutines.test.UncompletedCoroutinesError: After waiting for 1m,
-there were active child jobs
-```
-
-**OR** tests hang indefinitely past their 60s timeout.
-
-### Why
-
-The repository-owned scope runs its `stateIn` collector on `Dispatchers.Default` — a real thread pool outside the test dispatcher's `TestScheduler`. `advanceUntilIdle()` does not advance virtual time on `Default`. The upstream feed never emits within the test → state never updates → `UncompletedCoroutinesError`.
-
-### Fix: dedicated collector for upstream cache
-
-See `singularity-todo-testable-vm` for the full pattern. The short version:
-
-```kotlin
-// Populate cache FIRST via dedicated collector (runs before combine chain)
-scope.launch {
-    taskId.flatMapLatest { deps.taskRepo.observe(it) }
-        .filterNotNull()
-        .collect { _latestTask.value = it }
-}
-
-// THEN read from cache in combine/debounce chain
-scope.launch {
-    combine(
-        _latestTask.filterNotNull(),
-        titleEdits.debounce(debounceMs.milliseconds),
-    ) { task, title -> task to title }
-        .collect { (task, title) ->
-            deps.updateTask(task.copy(title = title))
-        }
-}
-```
-
----
-
-## Migration Order (for a multi-VM MR)
-
-When migrating many VMs in a single MR:
-
-1. **Use this playbook** for each VM
-2. **Migration sequence** — group by complexity:
-   - Simple VMs first (no scopeOverride, just add `scope` default + `init { addCloseable }`)
-   - Standard broken VMs next (replace scopeOverride getter pattern)
-   - Side-effects-in-combine VMs last (extract side-effects first, then migrate)
-3. After migration, run tests: `./gradlew :shared:jvmTest --no-daemon`
-4. If `UncompletedCoroutinesError` → missing scope injection or side-effect still inside combine
+If `UncompletedCoroutinesError` → side-effect still inside combine or missing scope injection.
 
 ---
 
 ## See Also
 
-- **`singularity-todo-vm-pattern-overview`** — router: index to all VM skills
-- `singularity-todo-testable-vm` — canonical VM shape + DraftState pattern + BAN list
+- `singularity-todo-testable-vm` — canonical VM shape + IntentActions + BAN list
 - `singularity-todo-test-helpers` — standard test helpers for migrated VMs
-- `singularity-todo-koin-dsl` — Koin 4.x DSL: `viewModelOf` vs `viewModel {}` vs `factory`
-- `singularity-todo-coroutine-scopes` — full pattern for scope placement, anti-pattern, lifecycle
-- `docs/decisions/2026-09-23-test-standards-enforcement.md` — full ADR documenting all 9 PRs
-- `docs/decisions/2026-09-18-testing-best-practices.md` — testing principles
+- `singularity-todo-koin-dsl` — Koin 4.x DSL: `viewModelOf` vs `viewModel {}`
+- `singularity-todo-coroutine-scopes` — scope placement and anti-patterns
