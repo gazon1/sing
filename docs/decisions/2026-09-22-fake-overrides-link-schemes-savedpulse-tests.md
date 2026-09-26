@@ -2,6 +2,7 @@
 title: "Fake repository override pattern, LinkSchemes helper, and SavedPulse emission tests"
 date: 2026-09-22
 tags: [testing, architecture, notes]
+status: accepted
 ---
 
 ## Context

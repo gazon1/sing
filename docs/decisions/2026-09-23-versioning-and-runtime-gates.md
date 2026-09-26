@@ -2,6 +2,7 @@
 title: "Single source of truth for app version, typed schema versioning, and runtime version gates"
 date: 2026-09-23
 tags: [versioning, schema, sync, genui, backup, security, kmp]
+status: accepted
 ---
 
 ## Context

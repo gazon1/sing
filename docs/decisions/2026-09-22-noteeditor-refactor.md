@@ -2,6 +2,7 @@
 title: "NoteEditor — extract state holders, save controller, AI controller"
 date: 2026-09-22
 tags: [notes, architecture, refactor]
+status: accepted
 ---
 
 ## Context
