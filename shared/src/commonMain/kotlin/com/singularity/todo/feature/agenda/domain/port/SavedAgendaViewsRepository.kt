@@ -4,6 +4,13 @@ import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 
+/**
+ * Repository for user-scoped [SavedAgendaView] persistence.
+ *
+ * Extends [GenericUserScopedRepository] for standard CRUD + [observeAll] watching.
+ * Provides [upsert] as the single write primitive, with [duplicateForProfile] for
+ * cross-profile view copying.
+ */
 interface SavedAgendaViewsRepository : GenericUserScopedRepository<SavedAgendaView, SavedAgendaViewId> {
 
     /** Returns the ambient userId string for this repository's scope. */

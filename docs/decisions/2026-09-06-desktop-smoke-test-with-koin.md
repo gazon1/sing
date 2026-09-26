@@ -3,6 +3,7 @@ title: "Desktop smoke test: Koin initialization pattern for Compose Multiplatfor
 date: 2026-09-06
 tags: [desktop, testing, compose, koin, ui-test]
 status: accepted
+superseded-by: 2026-09-26-ui-testing-deferred
 ---
 
 ## Context

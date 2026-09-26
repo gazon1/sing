@@ -14,6 +14,17 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
+/**
+ * ViewModel for the Tag Groups management screen.
+ *
+ * Watches [TagGroupRepository.observeAll] and maps to [TagGroupsUiState].
+ * [TagGroupsIntent.Create] → [CreateTagGroupUseCase]; [TagGroupsIntent.Delete] → [DeleteTagGroupUseCase].
+ *
+ * @param tagGroupRepo Repository for tag group persistence.
+ * @param createTagGroup Use case for creating a new tag group.
+ * @param deleteTagGroup Use case for deleting an existing tag group.
+ * @param scope CoroutineScope for all coroutine work. Tests pass [AutoCloseableCoroutineScope].
+ */
 sealed interface TagGroupsUiState {
     data object Loading : TagGroupsUiState
     data object Empty : TagGroupsUiState
@@ -36,9 +47,8 @@ class TagGroupsViewModel(
         scope = scope,
     ) {
 
-
-
     init {
+        addCloseable(scope)
         scope.launch {
             tagGroupRepo.observeAll()
                 .map { groups ->
@@ -51,8 +61,8 @@ class TagGroupsViewModel(
                 .catch {
                     emit(
                         TagGroupsUiState.Error(
-                            it.toMessage()
-                        )
+                            it.toMessage(),
+                        ),
                     )
                 }
                 .collect { updateState { it } }

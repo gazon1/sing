@@ -2,6 +2,7 @@
 title: UI testing strategy with Ultron + minimal DI seams
 status: accepted
 date: 2026-09-05
+superseded-by: 2026-09-26-ui-testing-deferred
 ---
 
 ## Context

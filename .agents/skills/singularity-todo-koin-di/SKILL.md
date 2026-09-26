@@ -1,9 +1,17 @@
 ---
 name: singularity-todo-koin-di
-description: Koin DSL pattern for this KMP project. Use when adding new repository, use case, ViewModel, or AI tool to the DI graph. Covers domainModule() DSL as the current source of truth, layer-aware binding (interface from domain, impl from data), `singleOf`/`factoryOf` gotchas (4 documented failure modes), explicit `viewModel { }` lambda (never `viewModelOf` due to constructor ambiguity with `CoroutineScope`/`SharingStarted`), Logger injection patterns, Fake test doubles registration, and DI graph dedup.
+status: deprecated
+Alternative: singularity-todo-koin-dsl
+description: DEPRECATED. Use singularity-todo-koin-dsl instead. Koin DSL pattern for this KMP project. Use when adding new repository, use case, ViewModel, or AI tool to the DI graph. Covers domainModule() DSL as the current source of truth, layer-aware binding (interface from domain, impl from data), `singleOf`/`factoryOf` gotchas (4 documented failure modes), explicit `viewModel { }` lambda (never `viewModelOf` due to constructor ambiguity with `CoroutineScope`/`SharingStarted`), Logger injection patterns, Fake test doubles registration, and DI graph dedup.
 ---
 
-# Singularity TODO — Koin DI Pattern
+# ⚠️ DEPRECATED — Use `singularity-todo-koin-dsl` instead
+
+This skill is deprecated as of 2026-09-26. All new DI work should use `singularity-todo-koin-dsl`.
+
+---
+
+# Singularity TODO — Koin DI Pattern (DEPRECATED)
 
 ## Current State (as of 2026-09-09)
 

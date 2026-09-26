@@ -88,7 +88,7 @@ actual fun platformModule(): Module = module {
 
     // One-shot migration: v0 flat-key settings → v1 split + namespaced.
     // Idempotent: skips if state.preferences_pb already has settings_schema_version.
-    kotlinx.coroutines.runBlocking {
+    koinBridge {
         SettingsDataStoreMigration(settingsLegacyDs, userSettingsDs, stateDs).run()
     }
 

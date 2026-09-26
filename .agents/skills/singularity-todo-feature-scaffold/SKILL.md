@@ -5,6 +5,29 @@ description: Feature scaffold pattern for the Singularity Todo KMP app. Use when
 
 # Feature Scaffold — Adding a New CRUD Feature
 
+## Table of Contents
+
+1. [When to use](#when-to-use)
+2. [Two layouts: flat vs layered](#two-layouts-flat-vs-layered)
+3. [Flat layout](#flat-layout--small-feature-10-files-1-screen)
+4. [Layered layout](#layered-layout--large-feature-10-files-multiple-screens-sub-entities)
+5. [The 7-file template](#the-7-file-template)
+6. [Ids.kt — value class IDs](#idskt--value-class-ids)
+7. [\*Domain.kt — pure domain logic](#domainkt--pure-domain-logic)
+8. [\*Repository.kt — interface](#repositorykt--interface)
+9. [\*RepositoryImpl.kt — Room implementation](#repositoryimplkt--room-implementation)
+10. [\*UseCase.kt — real logic only](#usecasekt--real-logic-only)
+11. [\*ViewModel.kt — MviViewModel pattern](#viewmodelkt--mviviewmodel-pattern)
+12. [\*Screen.kt — Compose UI](#screenkt--compose-ui)
+13. [DI registration](#di-registration)
+14. [Navigation](#navigation)
+15. [Subinterface pattern](#subinterface-pattern)
+16. [Testing](#testing)
+
+## When to use
+
+Use this skill when adding a **new CRUD feature** (tasks, notes, projects, tags, reminders) or **extending an existing feature** with a sub-repository (e.g. `NoteTagRepository`).
+
 ## Two layouts: flat vs layered
 
 Pick based on feature size.
