@@ -206,6 +206,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - No immediate change to test infrastructure or CI.
 - No migration needed for this fix.
 - No more write storms from rapid task edits
+- No new critical/warnings bullets
 - No new critical/warnings bullets from these ADRs
 - No new critical/warnings bullets from this PR
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
@@ -230,6 +231,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Pull handler for `DELETED` events is a stub — entities are not soft-deleted from remote events yet
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
+- R22 remains in ARCHITECTURE.md backlog
+- R23 removed from ARCHITECTURE.md backlog
+- R24 remains in ARCHITECTURE.md backlog
+- R25–R30 remain in ARCHITECTURE.md backlog
 - RTL: plan for it when adding the first RTL language
 - Recipe names with `::` sub-namespacing (e.g. `android::db::schema`) do not work in `just 1.57.0` — flat names are used instead (e.g. `android::db-schema`).
 - Retro ADRs reference their PROGRESS.md entry (bidirectional link)
@@ -1217,14 +1222,19 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ## Open / Deferred
 
-_2 entries need attention._
+_6 entries need attention._
 
 - `2026-09-08-instant-migration` — **deferred** — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
 - `2026-09-25-remaining-test-debt` — **open** — Remaining Test Debt — post JUnit/suite-acceleration audit
+- `2026-09-26-agenda-clean-architecture-r22` — **deferred** — 
+- `2026-09-26-deferred-r24-r30` — **deferred** — 
+- `2026-09-26-deferred-r25-r30` — **deferred** — 
+- `2026-09-26-notes-clean-architecture-r21` — **deferred** — 
 
 ## Recently superseded
 
 - `2026-09-26-production-readiness-findings` — Production Readiness Findings — 2026-09-25
+- `2026-09-26-notes-clean-architecture-r21` — 
 - `2026-09-23-test-standards-enforcement` — Test Standards — Enforcement, Gap Filling, and Architecture Cleanup
 - `2026-09-16-nav3-shared-state-factory-and-local-app-navigator` — LocalAppNavigator + shared rememberNav3State factory
 
@@ -1450,12 +1460,16 @@ _2 entries need attention._
 - `2026-09-25-test-suite-tag-defaults` — testing, junit, gradle, detekt
 - `2026-09-25-testable-vm-dispatcher-clock` — testing, coroutines, viewmodel, koin, di
 - `2026-09-26-adr-supersede-process` — _untagged_
+- `2026-09-26-agenda-clean-architecture-r22` — _untagged_
 - `2026-09-26-code-review-process` — _untagged_
+- `2026-09-26-deferred-r24-r30` — _untagged_
+- `2026-09-26-deferred-r25-r30` — _untagged_
 - `2026-09-26-detekt-baseline-established` — _untagged_
 - `2026-09-26-detekt-rules-activation-audit` — detekt, quality, kotlin
 - `2026-09-26-docs-lifecycle` — _untagged_
 - `2026-09-26-domain-glossary-policy` — _untagged_
 - `2026-09-26-four-phases-gate` — _untagged_
+- `2026-09-26-genui-subsystem-applied-r23` — _untagged_
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
 - `2026-09-26-internationalization` — _untagged_
 - `2026-09-26-kdoc-enforcement-rules` — _untagged_
@@ -1467,6 +1481,7 @@ _2 entries need attention._
 - `2026-09-26-post-pr-1.3-retro` — _untagged_
 - `2026-09-26-post-pr-1.4-retro` — _untagged_
 - `2026-09-26-post-pr-2.1-retro` — _untagged_
+- `2026-09-26-post-pr-2.2-retro` — _untagged_
 - `2026-09-26-pr-0-1-retro` — _untagged_
 - `2026-09-26-pr-0-2-retro` — _untagged_
 - `2026-09-26-pr-0-3-retro` — _untagged_
@@ -1699,12 +1714,16 @@ _2 entries need attention._
 - `2026-09-25-test-suite-tag-defaults` — Test suite tag defaults and Khorikov testing principles
 - `2026-09-25-testable-vm-dispatcher-clock` — Testable VMs — CoroutineDispatcher injection, Clock in DI, RecordingHttpClient
 - `2026-09-26-adr-supersede-process` — _(no title)_
+- `2026-09-26-agenda-clean-architecture-r22` — _(no title)_
 - `2026-09-26-code-review-process` — _(no title)_
+- `2026-09-26-deferred-r24-r30` — _(no title)_
+- `2026-09-26-deferred-r25-r30` — _(no title)_
 - `2026-09-26-detekt-baseline-established` — _(no title)_
 - `2026-09-26-detekt-rules-activation-audit` — Detekt custom rules — activate unregistered rule sets and clean up orphan rules
 - `2026-09-26-docs-lifecycle` — _(no title)_
 - `2026-09-26-domain-glossary-policy` — _(no title)_
 - `2026-09-26-four-phases-gate` — _(no title)_
+- `2026-09-26-genui-subsystem-applied-r23` — _(no title)_
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
 - `2026-09-26-internationalization` — _(no title)_
 - `2026-09-26-kdoc-enforcement-rules` — _(no title)_
@@ -1716,6 +1735,7 @@ _2 entries need attention._
 - `2026-09-26-post-pr-1.3-retro` — _(no title)_
 - `2026-09-26-post-pr-1.4-retro` — _(no title)_
 - `2026-09-26-post-pr-2.1-retro` — _(no title)_
+- `2026-09-26-post-pr-2.2-retro` — _(no title)_
 - `2026-09-26-pr-0-1-retro` — _(no title)_
 - `2026-09-26-pr-0-2-retro` — _(no title)_
 - `2026-09-26-pr-0-3-retro` — _(no title)_

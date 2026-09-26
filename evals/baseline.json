@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "date": "2026-09-26",
+  "tasks": {
+    "scoped-fix": {
+      "grade": "pass",
+      "notes": "Task definition valid, constraints clear, expected outcome defined"
+    },
+    "protected-migration": {
+      "grade": "pass",
+      "notes": "MviViewModel migration task, clear migration steps"
+    },
+    "crud-feature": {
+      "grade": "pass",
+      "notes": "7-file CRUD feature scaffold, all canonical patterns covered"
+    },
+    "adr-decision": {
+      "grade": "pass",
+      "notes": "ADR task with clear context, options, decision, consequences structure"
+    },
+    "skill-update": {
+      "grade": "pass",
+      "notes": "Skill update task with clear constraints and expected output"
+    }
+  },
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0
+  },
+  "grader_metrics": {
+    "task_defined": "task definition present",
+    "constraints_defined": "constraints defined",
+    "expected_defined": "expected outcome defined"
+  }
+}

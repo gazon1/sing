@@ -1,0 +1,23 @@
+name: protected-migration
+description: Migrate a feature to use MviViewModel without breaking existing behavior.
+
+task: |
+  Migrate TagGroupsViewModel to use the canonical MviViewModel pattern.
+  The file is at shared/src/commonMain/kotlin/com/singularity/todo/feature/tags/presentation/viewmodel/TagGroupsViewModel.kt
+
+  Steps:
+  1. Make it extend MviViewModel<TagGroupsUiState, TagGroupsIntent, Nothing>
+  2. Replace _state with updateState { } via MviViewModel inheritance
+  3. Remove the manual MutableStateFlow and asStateFlow()
+  4. Replace scope.launch { } with the inherited scope (via onIntent)
+  5. Keep the same initialization logic
+
+constraints:
+  - The sealed interfaces TagGroupsUiState and TagGroupsIntent must not change
+  - All existing tests must pass after migration
+  - The screen composable must not need to change
+
+expected:
+  - Class declaration extends MviViewModel with correct type parameters
+  - No manual MutableStateFlow declaration
+  - onIntent uses scope.launch for async operations

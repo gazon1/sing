@@ -1,0 +1,28 @@
+name: adr-decision
+description: Write an ADR for an architectural decision — must have context, decision, and consequences.
+
+task: |
+  Write an ADR for storing task reminders in the database vs in-memory only.
+
+  Context:
+  - Currently reminders are stored in-memory only (per-session)
+  - Users lose reminders when the app is killed
+  - Room has a `ReminderEntity` table but it is not used
+  - The `ReminderScheduler` uses Android AlarmManager
+
+  Write an ADR at `docs/decisions/2026-09-26-reminder-persistence.md` covering:
+  1. Context — the problem, why it matters
+  2. Options considered — (A) keep in-memory only, (B) use Room, (C) use Room + AlarmManager
+  3. Decision — which option to use and why
+  4. Consequences — what this enables, what it breaks
+
+constraints:
+  - Must have status field in frontmatter
+  - Must have all 4 sections (Context, Options considered, Decision, Consequences)
+  - Decision must be explicit (not "we could do X or Y")
+  - Consequences must include both positive and negative outcomes
+
+expected:
+  - ADR file created at the correct path
+  - Frontmatter has status proposed and date 2026-09-26
+  - All 4 sections present with substantive content
