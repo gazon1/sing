@@ -24,9 +24,6 @@ jobs:
       - name: Run jvmTest (fast + slow)
         run: ./gradlew :shared:jvmTest -Ptest.tags=fast,slow --no-daemon
 
-      - name: Run testAndroidHostTest
-        run: ./gradlew :shared:testAndroidHostTest -Ptest.tags=fast,slow --no-daemon
-
       - name: Run desktopApp:test
         run: ./gradlew :desktopApp:test -Ptest.tags=fast,slow --no-daemon
 

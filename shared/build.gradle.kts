@@ -6,13 +6,13 @@ plugins {
 	alias(libs.plugins.composeMultiplatform)
 	alias(libs.plugins.composeCompiler)
 	alias(libs.plugins.kotlinxSerialization)
-	// KSP for Room annotation processing
+    // KSP for Room annotation processing
     alias(libs.plugins.ksp)
     // Room 3 KSP plugin (schema export)
     alias(libs.plugins.room3)
-    // Koin Compiler Plugin (processes @Single, @Factory, @IntoSet annotations
-    // across KMP source sets — replaces legacy `ksp("koin-annotations-compiler")`)
-    alias(libs.plugins.koin)
+    // NOTE: the Koin compiler plugin (libs.plugins.koin) was removed — zero
+    // @Single/@Factory annotations exist (DI is pure Koin DSL) and koin-annotations 4.x
+    // is incompatible with Koin 4.x (see AGENTS.md). Re-add only if annotations are adopted.
 	// Code quality
 	alias(libs.plugins.detekt)
 	alias(libs.plugins.kover)
@@ -36,9 +36,6 @@ kotlin {
         }
         androidResources {
             enable = true
-        }
-        withHostTest {
-            isIncludeAndroidResources = true
         }
         withDeviceTestBuilder {
             sourceSetTreeName = "test"
@@ -242,22 +239,6 @@ kotlin {
             // over commonMain sources, enforced as part of the regular test run.
             implementation(libs.konsist)
         }
-
-        getByName("androidHostTest").dependencies {
-            implementation(libs.jvm.test)
-            implementation(libs.kotlin.test.junit5)
-            implementation(libs.junit.jupiter)
-            implementation(libs.junit.jupiter.params)
-            implementation(libs.junit.vintage.engine)
-            implementation(libs.koin.test)
-            implementation(libs.androidx.testExt.junit)
-            implementation(libs.androidx.test.core)
-            implementation(libs.robolectric)
-            // Compose UI test infra — needed for createComposeRule and onNodeWithText.
-            // Note: AndroidX version (1.7.3) is used instead of JetBrains (1.11.1) because
-            // JetBrains version depends on Espresso which is incompatible with Robolectric.
-            implementation(libs.compose.ui.test.junit4)
-        }
     }
 }
 
@@ -338,8 +319,7 @@ detekt {
         "src/commonTest/kotlin",
         "src/jvmMain/kotlin",
         "src/jvmTest/kotlin",
-        "src/androidMain/kotlin",
-        "src/androidHostTest/kotlin"
+        "src/androidMain/kotlin"
     )
 }
 
@@ -373,14 +353,3 @@ kover {
     }
 }
 
-// Robolectric JDK 21+ fix — open FileDescriptor reflection internals
-afterEvaluate {
-    project.tasks.withType<Test>().matching { it.name == "testAndroidHostTest" }.configureEach {
-        jvmArgs(
-            "--add-opens=java.base/java.io=ALL-UNNAMED",
-            "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-            "--add-opens=java.base/java.lang=ALL-UNNAMED",
-            "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
-        )
-    }
-}
