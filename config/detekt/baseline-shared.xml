@@ -2,95 +2,16 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>ArgumentListWrapping:CalendarViewModel.kt:CalendarViewModel$(task, today, recurringIds.contains(task.id))</ID>
-    <ID>ArgumentListWrapping:CalendarViewModel.kt:CalendarViewModel$(task.id)</ID>
-    <ID>ArgumentListWrapping:Clock.kt:Clock$("Use kotlinx.datetime.Clock directly. This expect/actual pair is preserved for backward compatibility and will be removed in a future release.")</ID>
-    <ID>ArgumentListWrapping:CoreDiModule.kt:( Logger.withTag("AuthRepository"), get(), get() )</ID>
-    <ID>ArgumentListWrapping:CoreDiModule.kt:( engine = get(), runner = get(), prefs = get(), api = get(), authRepository = get(), scope = get() )</ID>
-    <ID>ArgumentListWrapping:CoreDiModule.kt:( engine = get(), scheduler = get(), authRepository = get(), prefs = get(), scope = get() )</ID>
-    <ID>ArgumentListWrapping:CoreDiModule.kt:( engine = get(), taskRepo = get(), noteRepo = get(), projectRepo = get(), tagRepo = get(), tagGroupRepo = get() )</ID>
-    <ID>ArgumentListWrapping:CoreDiModule.kt:( get(), get(), get() )</ID>
-    <ID>ArgumentListWrapping:DesktopShellNav3.kt:( "edit", "Edit", children = buildMenuNodes { item("undo", "Undo", enabled = false, shortcut = "Ctrl+Z") {} item("redo", "Redo", enabled = false, shortcut = "Ctrl+Y") {} divider() item("find", "Find", shortcut = "Ctrl+F") { navigator.navigate(AppDestination.Search) } })</ID>
-    <ID>ArgumentListWrapping:DesktopShellNav3.kt:( "file", "File", children = buildMenuNodes { item("new_task", "New Task", shortcut = "Ctrl+N") { navigator.navigate(AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create)) } item("settings", "Settings…", shortcut = "Ctrl+,") { navigator.navigate(AppDestination.Settings) } divider() item("quit", "Quit", shortcut = "Ctrl+Q") { exitProcess(0) } })</ID>
-    <ID>ArgumentListWrapping:DesktopShellNav3.kt:( "help", "Help", children = buildMenuNodes { item("about", "About Singularity Todo") { showAbout = true } item("github", "Open GitHub…") { openGitHub() } })</ID>
-    <ID>ArgumentListWrapping:FabActionResolverTest.kt:FabActionResolverTest$(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()), navigate)</ID>
-    <ID>ArgumentListWrapping:FabActionResolverTest.kt:FabActionResolverTest$(AppDestination.ProjectsStartRoute.Editor())</ID>
-    <ID>ArgumentListWrapping:FakeAppDatabase.kt:FakeAppDatabase$(_projectTagGroups)</ID>
-    <ID>ArgumentListWrapping:FakeAppDatabase.kt:FakeProjectDao$(name, ignoreCase = true)</ID>
-    <ID>ArgumentListWrapping:FakeAppDatabase.kt:FakeReminderDao$(limit)</ID>
-    <ID>ArgumentListWrapping:FakeAppDatabase.kt:FakeTagDao$(name, ignoreCase = true)</ID>
-    <ID>ArgumentListWrapping:MenuNodeFlattenTest.kt:MenuNodeFlattenTest$( "a", "A", children = buildMenuNodes { item("a1", "A1") {} item("a2", "A2") {} } )</ID>
-    <ID>ArgumentListWrapping:MenuNodeFlattenTest.kt:MenuNodeFlattenTest$( "b", "B", children = buildMenuNodes { item("b1", "B1") {} } )</ID>
-    <ID>ArgumentListWrapping:MenuNodeFlattenTest.kt:MenuNodeFlattenTest$( "l1", "Level 1", children = buildMenuNodes { subMenu( "l2", "Level 2", children = buildMenuNodes { subMenu( "l3", "Level 3", children = buildMenuNodes { item("deep", "Deepest") {} } ) } ) } )</ID>
-    <ID>ArgumentListWrapping:MenuNodeFlattenTest.kt:MenuNodeFlattenTest$( "l2", "Level 2", children = buildMenuNodes { subMenu( "l3", "Level 3", children = buildMenuNodes { item("deep", "Deepest") {} } ) } )</ID>
-    <ID>ArgumentListWrapping:MenuNodeFlattenTest.kt:MenuNodeFlattenTest$( "l3", "Level 3", children = buildMenuNodes { item("deep", "Deepest") {} } )</ID>
-    <ID>ArgumentListWrapping:MenuNodesBuilderTest.kt:MenuNodesBuilderTest$( "s", "Sub", children = buildMenuNodes { item("nested", "Nested") {} } )</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:("${ui.childProjects.size} sub-projects")</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:("${ui.completedCount}/${ui.totalCount}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:("No tasks found", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:("Search tasks...")</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(16.dp)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(56.dp)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(8.dp)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(ActiveSheet.PickParent(intent.currentParentId))</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(CircleShape)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(Color(ui.project.color))</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(Icons.Filled.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp))</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(Icons.Filled.PushPin, "Unarchive")</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(Icons.Filled.Search, contentDescription = null)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(availableTasks = availableTasks, actions = actions, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(color = MaterialTheme.colorScheme.onSurface)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(date.toString())</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(headlineContent = { Text(task.title, maxLines = 1, overflow = TextOverflow.Ellipsis) }, modifier = Modifier.clickable { onPick(task.id) })</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(horizontal = 16.dp)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(horizontal = 16.dp, vertical = 4.dp)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(horizontal = 16.dp, vertical = 8.dp)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(if (hideCompleted) "Show completed" else "Hide completed", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = actions::onToggleHideCompleted))</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(intent.currentParentId)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp))</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(onClick = actions::onOpenColorSheet)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(onClick = actions::onToggleHideCompleted)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(onClick = { actions.onToggleArchive() })</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(onDone = { if (text.isNotBlank()) { actions.onCreateTask(text); text = ""; focus.clearFocus() } })</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(onPin = { actions.onPin(task.id) }, onDelete = { actions.onDeleteTask(task.id) })</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(padding)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(parent.id)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(parent.name)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(selected = false, onClick = actions::onOpenChildrenSheet, label = { Text("${ui.childProjects.size} sub-projects") }, leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) })</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(selected = false, onClick = actions::onOpenDueDateSheet, label = { Text(date.toString()) }, leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) })</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(selected = false, onClick = { actions.onOpenParentSheet(parent.id) }, label = { Text(parent.name) }, leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) }, trailingIcon = { Icon(Icons.Filled.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp)) })</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(task = task, onClick = { nav.openTask(task.id) }, actions = TaskCardActions(onPin = { actions.onPin(task.id) }, onDelete = { actions.onDeleteTask(task.id) }), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(task.id)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(task.title, maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(text)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(title = "Project not found", modifier = Modifier.padding(padding))</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(ui = s.ui, hideCompleted = hideCompleted, availableTasks = availableTasks, actions = actions, nav = nav)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(ui.project.color)</ID>
-    <ID>ArgumentListWrapping:ProjectDetailContent.kt:(value = query, onValueChange = onQueryChange, placeholder = { Text("Search tasks...") }, modifier = Modifier.fillMaxWidth(), singleLine = true, leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) })</ID>
-    <ID>ArgumentListWrapping:ProjectDetailViewModel.kt:ProjectDetailViewModel$(TaskFilter.ByProject(projectId))</ID>
-    <ID>ArgumentListWrapping:ProjectDetailViewModel.kt:ProjectDetailViewModel$(emptyList())</ID>
-    <ID>ArgumentListWrapping:ProjectDetailViewModel.kt:ProjectDetailViewModel$(projectId)</ID>
-    <ID>ArgumentListWrapping:RecurrenceFormatters.kt:RecurrenceFormatters$( "", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" )</ID>
-    <ID>ArgumentListWrapping:RecurrencePickerSheet.kt:( "Mon" to 1, "Tue" to 2, "Wed" to 3, "Thu" to 4, "Fri" to 5, "Sat" to 6, "Sun" to 7 )</ID>
-    <ID>ArgumentListWrapping:RecurrencePickerSheet.kt:((currentSpec as? Weekly)?.weekdays ?: setOf(anchorDate.dayOfWeek.ordinal + 1))</ID>
-    <ID>ArgumentListWrapping:RecurrencePickerSheet.kt:(anchorDate.dayOfWeek.ordinal + 1)</ID>
-    <ID>ArgumentListWrapping:RecurrencePickerSheet.kt:(selectedBase, selectedType, intervalAmount, selectedUnit, selectedWeekdays, monthlyDay, yearlyMonth, yearlyDay)</ID>
-    <ID>ArgumentListWrapping:RecurrencePickerSheet.kt:(start = 8.dp)</ID>
-    <ID>ArgumentListWrapping:RecurrencePickerSheet.kt:(text = label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))</ID>
-    <ID>ArgumentListWrapping:SettingsScreen.kt:(paddingValues)</ID>
-    <ID>ArgumentListWrapping:SettingsScreen.kt:(title = "Error", subtitle = state.cause.toString(), modifier = Modifier.padding(paddingValues))</ID>
-    <ID>ArgumentListWrapping:TaskEditorContent.kt:( onClick = onDueDateClick ?: { sheets.show(TaskEditorSheet.Date) })</ID>
-    <ID>ArgumentListWrapping:TaskEditorContent.kt:( onClick = onPriorityClick ?: { sheets.show(TaskEditorSheet.Priority) })</ID>
-    <ID>ArgumentListWrapping:TaskEditorSheetsHost.kt:(kotlinx.datetime.TimeZone.currentSystemDefault())</ID>
+    <ID>ArgumentListWrapping:CalendarDateMathTest.kt:CalendarDateMathTest.Companion$(2026, Month.SEPTEMBER, 30)</ID>
+    <ID>ArgumentListWrapping:CalendarDateMathTest.kt:CalendarDateMathTest.Companion$(LocalDate(2026, Month.SEPTEMBER, 30), CalendarViewMode.FOUR_DAYS, "September 30 – October 3, 2026")</ID>
+    <ID>ArgumentListWrapping:CalendarTaskMapperTest.kt:CalendarTaskMapperTest.Companion$(1)</ID>
+    <ID>ArgumentListWrapping:CalendarTaskMapperTest.kt:CalendarTaskMapperTest.Companion$(2026, Month.SEPTEMBER, 10)</ID>
+    <ID>ArgumentListWrapping:CalendarTaskMapperTest.kt:CalendarTaskMapperTest.Companion$(Instant.fromEpochMilliseconds(1), LocalDate(2026, Month.SEPTEMBER, 10), CalendarTaskStatus.DONE)</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _fetchModelsError = MutableStateFlow&lt;String?&gt;(null)</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _isFetchingModels = MutableStateFlow(false)</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _models = MutableStateFlow&lt;List&lt;String&gt;&gt;(emptyList())</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _testResult = MutableStateFlow&lt;AiTestResult&gt;(AiTestResult.Idle)</ID>
     <ID>BackingPropertyNaming:AndroidPomodoroTaskListProvider.kt:AndroidPomodoroTaskListProvider$private val _tasks = MutableStateFlow&lt;List&lt;Task&gt;&gt;(emptyList())</ID>
-    <ID>BackingPropertyNaming:AndroidPomodoroTimerTest.kt:&lt;no name provided&gt;$private val _tasks = MutableStateFlow(tasks)</ID>
-    <ID>BackingPropertyNaming:ArchiveViewModel.kt:ArchiveViewModel$private val _refreshing = MutableStateFlow(false)</ID>
     <ID>BackingPropertyNaming:CalendarViewModel.kt:CalendarViewModel$/** Selection state — anchor date, view mode, mini panel open/closed. */ private val _calendarState = MutableStateFlow( CalendarState( anchor = initialDate, viewMode = initialMode, isMiniOpen = false, ), )</ID>
     <ID>BackingPropertyNaming:EventBus.kt:EventBus$private val _channel = Channel&lt;E&gt;(capacity)</ID>
     <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _agendaViews = MutableStateFlow&lt;Map&lt;String, AgendaViewEntity&gt;&gt;(emptyMap())</ID>
@@ -128,7 +49,6 @@
     <ID>BackingPropertyNaming:HlcFactory.kt:HlcFactory$// Initialize with a placeholder node ID — will be updated on first tick() call private var _lastHlc: Hlc = Hlc.zero("pending")</ID>
     <ID>BackingPropertyNaming:KoogAgentService.kt:FakeTextGen$private val _generateCalls = mutableListOf&lt;Triple&lt;String, String?, String?&gt;&gt;()</ID>
     <ID>BackingPropertyNaming:NotesListViewModel.kt:NotesListViewModel$private val _isSelectionMode = MutableStateFlow(false)</ID>
-    <ID>BackingPropertyNaming:NotesListViewModel.kt:NotesListViewModel$private val _notes = MutableStateFlow&lt;NotesUiState&gt;(NotesUiState.Loading)</ID>
     <ID>BackingPropertyNaming:NotesListViewModel.kt:NotesListViewModel$private val _selectedIds = MutableStateFlow&lt;Set&lt;NoteId&gt;&gt;(emptySet())</ID>
     <ID>BackingPropertyNaming:ProfileSwitcherViewModel.kt:ProfileSwitcherViewModel$private val _errorMessage = MutableStateFlow&lt;String?&gt;(null)</ID>
     <ID>BackingPropertyNaming:ProjectDetailViewModel.kt:ProjectDetailViewModel$/** Emits null on start (loading placeholder), then the project flow. */ private val _projectFlow = MutableStateFlow&lt;Project?&gt;(null)</ID>
@@ -142,51 +62,12 @@
     <ID>BackingPropertyNaming:TaskCreateViewModel.kt:TaskCreateViewModel$private val _draft = MutableStateFlow(initial)</ID>
     <ID>BackingPropertyNaming:TaskCreateViewModel.kt:TaskCreateViewModel$private val _error = MutableStateFlow&lt;String?&gt;(null)</ID>
     <ID>BackingPropertyNaming:TaskCreateViewModel.kt:TaskCreateViewModel$private val _isSaving = MutableStateFlow(false)</ID>
+    <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$/** Backlinks — loaded when task changes. */ private val _linkedNotes = MutableStateFlow&lt;List&lt;com.singularity.todo.feature.notes.Note&gt;&gt;(emptyList())</ID>
     <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$/** Incremented on each retry() call to restart the watchTask subscription. */ private val _retryVersion = MutableStateFlow(0)</ID>
     <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$/** Visible for tests. TOCTOU: prefer to observe via state. */ internal val _latestTask = MutableStateFlow&lt;Task?&gt;(null)</ID>
+    <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$private val _aiRunning = MutableStateFlow(false)</ID>
+    <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$private val _linkedTasks = MutableStateFlow&lt;List&lt;Task&gt;&gt;(emptyList())</ID>
     <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$private val _recentlyDeleted = MutableStateFlow&lt;Task?&gt;(null)</ID>
-    <ID>BinaryExpressionWrapping:FakeAppDatabase.kt:FakeAttachmentDao$a.userId == userId</ID>
-    <ID>BinaryExpressionWrapping:FakeAppDatabase.kt:FakeProjectDao$it.userId == userId</ID>
-    <ID>BinaryExpressionWrapping:FakeAppDatabase.kt:FakeProjectDao$p.userId == userId</ID>
-    <ID>BinaryExpressionWrapping:FakeAppDatabase.kt:FakeTagDao$it.userId == userId &amp;&amp; it.deletedAt == null &amp;&amp; it.name.equals(name, ignoreCase = true)</ID>
-    <ID>BinaryExpressionWrapping:ProjectDetailContent.kt:(contentState as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true</ID>
-    <ID>BinaryExpressionWrapping:ProjectDetailContent.kt:text = ""</ID>
-    <ID>BinaryExpressionWrapping:ProjectDetailViewModel.kt:ProjectDetailViewModel$project == null</ID>
-    <ID>BinaryExpressionWrapping:RecurrenceParser.kt:RecurrenceParser$p &lt; tokens.size &amp;&amp; tokens[p] is Token.Number</ID>
-    <ID>BinaryExpressionWrapping:RecurrenceParser.kt:RecurrenceParser$pos &gt;= tokens.size || tokens[pos] !is Token.Word || (tokens[pos] as Token.Word).value != "every"</ID>
-    <ID>BinaryExpressionWrapping:RecurrencePickerSheet.kt:(currentSpec as? Weekly)?.weekdays ?: setOf(anchorDate.dayOfWeek.ordinal + 1)</ID>
-    <ID>BinaryExpressionWrapping:RecurrencePickerSheet.kt:anchorDate.dayOfWeek.ordinal + 1</ID>
-    <ID>BinaryExpressionWrapping:TaskEditorSheetsHost.kt:model.dueDate ?: kotlin.time.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()).date</ID>
-    <ID>BlankLineBetweenWhenConditions:ProjectDetailContent.kt:when (val s = state) { ProjectDetailUiState.Loading -&gt; LoadingIndicator(Modifier.padding(padding)) ProjectDetailUiState.NotFound -&gt; EmptyState(title = "Project not found", modifier = Modifier.padding(padding)) is ProjectDetailUiState.Content -&gt; Column( modifier = Modifier.fillMaxSize().padding(padding).imePadding(), ) { ProjectHeroSection( ui = s.ui, lastEditedAt = lastEditedAt, now = clock.now(), nameDraft = draftState.name, descriptionDraft = draftState.description, actions = actions, ) ProjectMetaChipsRow(ui = s.ui, actions = actions) ProjectBodySection(ui = s.ui, hideCompleted = hideCompleted, availableTasks = availableTasks, actions = actions, nav = nav) } }</ID>
-    <ID>BlankLineBetweenWhenConditions:ProjectDetailViewModel.kt:ProjectDetailViewModel$when { project == null -&gt; ProjectDetailUiState.Loading project.isDeleted -&gt; ProjectDetailUiState.NotFound else -&gt; { draftState.seed(project.name, project.description ?: "") val visibleTasks = if (hideCompleted) tasks.filter { it.completedAt == null } else tasks ProjectDetailUiState.Content( ProjectDetailUi( project = project, tasks = visibleTasks.take(5), totalCount = tasks.size, completedCount = tasks.count { it.completedAt != null }, childProjects = childProjects, parent = parent, ), ) } }</ID>
-    <ID>BlankLineBetweenWhenConditions:QueryTokenizer.kt:QueryTokenizer$when (input[pos]) { '(' -&gt; { result.add(Token.LParen); pos++ } ')' -&gt; { result.add(Token.RParen); pos++ } '"' -&gt; { pos = scanQuoted(pos, result) } else -&gt; { pos = scanWord(pos, result) } }</ID>
-    <ID>BlankLineBetweenWhenConditions:RecurrenceFormatters.kt:RecurrenceFormatters$when (spec) { is Interval -&gt; intervalLabel(spec.amount, spec.unit) is Weekly -&gt; { val days = spec.weekdays.sorted() .joinToString(",") { WEEKDAY_NAMES.getOrElse(it) { it.toString() } } "Weekly($days)" } is Monthly -&gt; "Monthly(${spec.dayOfMonth})" is Yearly -&gt; "Yearly(${MONTH_NAMES.getOrElse(spec.month) { spec.month.toString() }} ${spec.day})" }</ID>
-    <ID>BlankLineBetweenWhenConditions:RecurrenceParser.kt:RecurrenceParser$when { c == '!' -&gt; { tokens.add(Token.Bang(i)); i++ } c == '.' -&gt; { tokens.add(Token.Dot(i)); i++ } c == ',' -&gt; { tokens.add(Token.Comma(i)); i++ } c == '+' -&gt; { tokens.add(Token.Word("+", i)); i++ } c in '0'..'9' -&gt; { var j = i while (j &lt; input.length &amp;&amp; input[j] in '0'..'9') j++ tokens.add(Token.Number(input.substring(i, j).toInt(), i)) i = j } c in 'a'..'z' -&gt; { var j = i while (j &lt; input.length &amp;&amp; input[j] in 'a'..'z') j++ tokens.add(Token.Word(input.substring(i, j), i)) i = j } c == ' ' -&gt; i++ // skip spaces else -&gt; throw IllegalArgumentException("Unexpected character: '$c' at position $i") }</ID>
-    <ID>BlankLineBetweenWhenConditions:RecurrencePickerSheet.kt:when (selectedType) { SpecType.INTERVAL_DAY, SpecType.INTERVAL_WEEK, SpecType.INTERVAL_MONTH, SpecType.INTERVAL_YEAR -&gt; { IntervalEditor( amount = intervalAmount, unit = selectedUnit, type = selectedType, onAmountChange = { intervalAmount = it }, onUnitChange = { selectedUnit = it }, ) } SpecType.WEEKLY -&gt; { WeekdayEditor( selected = selectedWeekdays, onChange = { selectedWeekdays = it }, ) } SpecType.MONTHLY -&gt; { DayOfMonthEditor( day = monthlyDay, onChange = { monthlyDay = it }, ) } SpecType.YEARLY -&gt; { YearlyEditor( month = yearlyMonth, day = yearlyDay, onMonthChange = { yearlyMonth = it }, onDayChange = { yearlyDay = it }, ) } }</ID>
-    <ID>BlankLineBetweenWhenConditions:RecurrencePickerSheet.kt:when (this) { is Interval -&gt; when (unit) { DateTimeUnit.DAY -&gt; SpecType.INTERVAL_DAY DateTimeUnit.WEEK -&gt; SpecType.INTERVAL_WEEK DateTimeUnit.MONTH -&gt; SpecType.INTERVAL_MONTH DateTimeUnit.YEAR -&gt; SpecType.INTERVAL_YEAR else -&gt; SpecType.INTERVAL_DAY } is Weekly -&gt; SpecType.WEEKLY is Monthly -&gt; SpecType.MONTHLY is Yearly -&gt; SpecType.YEARLY }</ID>
-    <ID>BlankLineBetweenWhenConditions:TaskRepositoryImpl.kt:TaskRepositoryImpl$when (filter) { is TaskFilter.Today -&gt; taskDao.watchByDate(uid.value, today) is TaskFilter.Upcoming -&gt; taskDao.watchUpcoming(uid.value, today, today) is TaskFilter.Someday -&gt; taskDao.watchSomeday(uid.value) is TaskFilter.Inbox -&gt; taskDao.watchActive(uid.value) is TaskFilter.Trash -&gt; taskDao.watchTrash(uid.value) is TaskFilter.All -&gt; taskDao.watchActive(uid.value) is TaskFilter.ByProject -&gt; taskDao.watchByProject(uid.value, filter.id.value) is TaskFilter.Pinned -&gt; taskDao.watchPinned(uid.value) is TaskFilter.ByTag -&gt; taskDao.watchByTag(uid.value, filter.id.value) is TaskFilter.Search -&gt; taskDao.watchSearchResults(uid.value, filter.query) is TaskFilter.ByDateRange -&gt; taskDao.watchByDateRange( uid.value, filter.from.toString(), filter.to.toString(), ) is TaskFilter.ByStatuses -&gt; flowOf(emptyList()) is TaskFilter.ByTags -&gt; { val tagIds = filter.ids.map { it.value } if (filter.matchAll) { taskDao.watchByAllTags(uid.value, tagIds, tagIds.size) } else { taskDao.watchByAnyTag(uid.value, tagIds) } } is TaskFilter.ByPriorities -&gt; taskDao.watchByPriorities( uid.value, filter.priorities.map { it.name }, ) is TaskFilter.ByRegexp -&gt; taskDao.watchByRegexp(uid.value, filter.pattern) is TaskFilter.ByDateBucket -&gt; { val range = filter.bucket.toDateRange(filter.today) taskDao.watchByDateRange(uid.value, range.from.toString(), range.to.toString()) } }</ID>
-    <ID>ClassSignature:AccountSettingsViewModel.kt:AccountSettingsViewModel : ViewModel</ID>
-    <ID>ClassSignature:AndroidPomodoroTaskListProvider.kt:AndroidPomodoroTaskListProvider : PomodoroTaskListProvider</ID>
-    <ID>ClassSignature:DependencyValidatorImpl.kt:DependencyValidatorImpl : DependencyValidator</ID>
-    <ID>ClassSignature:EffectiveTagsResolver.kt:EffectiveTagsResolver</ID>
-    <ID>ClassSignature:FabActionResolver.kt:FabAction</ID>
-    <ID>ClassSignature:FakeAppDatabase.kt:FakeCalendarSyncTaskMapDao : CalendarSyncTaskMapDao</ID>
-    <ID>ClassSignature:FakeAppDatabase.kt:FakeRemoteConfigCacheDao : RemoteConfigCacheDao</ID>
-    <ID>ClassSignature:FakeAppDatabase.kt:FakeRemoteConfigDao : RemoteConfigDao</ID>
-    <ID>ClassSignature:FakeAppDatabase.kt:FakeTagGroupDao : TagGroupDao</ID>
-    <ID>ClassSignature:HoverOpenState.kt:HoverOpenState</ID>
-    <ID>ClassSignature:ProjectDetailIntent.kt:ProjectDetailIntent.Routing$NavigateToChild : Routing</ID>
-    <ID>ClassSignature:RecurrenceSpec.kt:RecurrenceSpec$Interval : RecurrenceSpec</ID>
-    <ID>ClassSignature:RecurrenceSpec.kt:RecurrenceSpec$Monthly : RecurrenceSpec</ID>
-    <ID>ClassSignature:RecurrenceSpec.kt:RecurrenceSpec$Weekly : RecurrenceSpec</ID>
-    <ID>ClassSignature:RecurrenceSpec.kt:RecurrenceSpec$Yearly : RecurrenceSpec</ID>
-    <ID>ClassSignature:TagGroup.kt:UpdateTagGroupInput</ID>
-    <ID>ClassSignature:TagGroupUseCases.kt:DeleteTagGroupUseCase</ID>
-    <ID>ClassSignature:TagGroupUseCases.kt:SetProjectInheritedGroupsUseCase</ID>
-    <ID>ClassSignature:TagGroupUseCases.kt:UpdateTagGroupUseCase</ID>
-    <ID>ClassSignature:TaskEditorCallbacks.kt:RowCallbacks&lt;T&gt;</ID>
-    <ID>ClassSignature:TaskEditorCallbacks.kt:ToggleCallbacks</ID>
-    <ID>ClassSignature:TaskRepositoryImpl.kt:TaskExtras</ID>
     <ID>ComplexCondition:ConditionExprParser.kt:ConditionExprParser$tok is QueryTokenizer.Token.Word || tok is QueryTokenizer.Token.Quoted || tok is QueryTokenizer.Token.LParen || tok is QueryTokenizer.Token.Not</ID>
     <ID>ComplexCondition:JvmNotificationPort.kt:JvmNotificationPort$s.all { it.isLetterOrDigit() || it == '-' || it == '_' || it == '.' || it == '/' }</ID>
     <ID>ComplexCondition:QueryTokenizer.kt:QueryTokenizer$pos &lt; input.length &amp;&amp; !input[pos].isWhitespace() &amp;&amp; input[pos] != '(' &amp;&amp; input[pos] != ')'</ID>
@@ -205,14 +86,11 @@
     <ID>CyclomaticComplexMethod:SettingsDataStoreMigration.kt:SettingsDataStoreMigration$suspend fun run: Boolean</ID>
     <ID>CyclomaticComplexMethod:SimpleFilterMapper.kt:SimpleFilterMapper$fun toQuery: Result&lt;Query&gt;</ID>
     <ID>CyclomaticComplexMethod:SyncConfigScreen.kt:@Composable fun SyncConfigScreen</ID>
-    <ID>CyclomaticComplexMethod:TaskCreateViewModel.kt:TaskCreateViewModel$fun onIntent</ID>
+    <ID>CyclomaticComplexMethod:TaskCreateViewModel.kt:TaskCreateViewModel$override fun onIntent</ID>
     <ID>CyclomaticComplexMethod:TaskDetail.kt:TaskDetailViewModel$fun onIntent</ID>
     <ID>CyclomaticComplexMethod:TaskDomain.kt:TaskDomain$fun matchesFilter: Boolean</ID>
     <ID>CyclomaticComplexMethod:TaskEditorBody.kt:@Composable fun TaskEditorBody</ID>
     <ID>CyclomaticComplexMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
-    <ID>EmptyElseBlock:RecurrenceParser.kt:RecurrenceParser$if (!ordinalSuffix(suffix)) return null</ID>
-    <ID>EmptyElseBlock:RecurrenceParser.kt:RecurrenceParser$if (p &gt;= tokens.size || tokens[p] !is Token.Word || (tokens[p] as Token.Word).value != "month") return null</ID>
-    <ID>EmptyElseBlock:RecurrenceParser.kt:RecurrenceParser$if (p &gt;= tokens.size || tokens[p] !is Token.Word || (tokens[p] as Token.Word).value != "of") return null</ID>
     <ID>EmptyFunctionBlock:FakeHlcFactory.kt:FakeHlcFactory.&lt;no name provided&gt;${}</ID>
     <ID>EmptyFunctionBlock:NoopCalendarSyncRepository.kt:NoopCalendarSyncRepository${}</ID>
     <ID>EmptyFunctionBlock:TaskDetailViewModelTest.kt:TaskDetailViewModelTest.&lt;no name provided&gt;${}</ID>
@@ -236,6 +114,7 @@
     <ID>EndOfSentenceFormat:SyncOutbox.kt:SyncOutboxDao$ Mark patch as failed and increment attempts </ID>
     <ID>EndOfSentenceFormat:SyncOutbox.kt:SyncOutboxDao$ Watch all pending patches ordered by creation time </ID>
     <ID>EndOfSentenceFormat:TaskAi.kt:AiActionResult$ One-shot AI action results shown to user </ID>
+    <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ AI action button — null means AI button is hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Attachments row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Bottom bar content — null means no bottom bar </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Checklist row — null = hidden </ID>
@@ -248,7 +127,6 @@
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Recurrence row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Start date + time row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Tags row — null = hidden </ID>
-    <ID>EndOfSentenceFormat:TaskRepository.kt:TaskRepository$ Emits every task after it's created or updated — for SyncEngine observer </ID>
     <ID>EndOfSentenceFormat:TestTags.kt:TestTags$ Dynamic: genui_&lt;name&gt; </ID>
     <ID>EndOfSentenceFormat:TestTags.kt:TestTags$ Dynamic: menu_&lt;lowercase title with underscores&gt; </ID>
     <ID>EndOfSentenceFormat:TestTags.kt:TestTags$ Dynamic: nav_tab_&lt;lowercase title&gt; </ID>
@@ -270,6 +148,7 @@
     <ID>Filename:FileRevealer.jvm.kt:com.singularity.todo.core.files.FileRevealer.jvm.kt</ID>
     <ID>Filename:Ids.kt:com.singularity.todo.feature.agenda.Ids.kt</ID>
     <ID>Filename:Ids.kt:com.singularity.todo.feature.profile.Ids.kt</ID>
+    <ID>Filename:NoopSubscriptionProviderTest.kt:com.singularity.todo.core.billing.NoopSubscriptionProviderTest.kt</ID>
     <ID>Filename:OutgoingLinksExtractor.kt:com.singularity.todo.feature.notes.OutgoingLinksExtractor.kt</ID>
     <ID>Filename:RemoteBackupService.kt:com.singularity.todo.core.backup.RemoteBackupService.kt</ID>
     <ID>Filename:SearchPreviewHelpers.kt:com.singularity.todo.feature.search.presentation.nav.SearchPreviewHelpers.kt</ID>
@@ -287,6 +166,8 @@
     <ID>ForbiddenComment:AuthRepository.kt:SupabaseAuthRepository$* Stub implementation of AuthRepository for compilation. * TODO: Replace with actual Supabase implementation once SDK is properly integrated.</ID>
     <ID>ForbiddenComment:AuthRepository.kt:SupabaseAuthRepository$// TODO: Implement with Supabase SDK</ID>
     <ID>ForbiddenComment:CoreDiModule.kt:// TODO: when a real SDK is connected, replace with RealAnalytics(binding).</ID>
+    <ID>ForbiddenComment:LinkedBacklinksCard.kt:/* TODO: navigate to note */</ID>
+    <ID>ForbiddenComment:LinkedBacklinksCard.kt:/* TODO: navigate to task */</ID>
     <ID>ForbiddenComment:ProjectDetailContent.kt:/* TODO: wire once project-reminder domain is implemented */</ID>
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$* Stub implementation of SyncApiClient for compilation. * TODO: Replace with actual Supabase implementation once SDK is properly integrated.</ID>
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Function or remote-config endpoint</ID>
@@ -305,21 +186,7 @@
     <ID>ForbiddenComment:TaskMenuBuilder.kt:// TODO: wire to PrintTaskUseCase</ID>
     <ID>ForbiddenComment:TaskMenuBuilder.kt:// TODO: wire to ReorderTaskUseCase</ID>
     <ID>ForbiddenComment:TaskMenuBuilder.kt:// TODO: wire to ShareTaskUseCase</ID>
-    <ID>FunctionExpressionBody:FabActionResolver.kt:{ return when (current) { // ── Modern routes (Desktop / future Android) ─────────────────────────── is AppDestination.AgendaGraph -&gt; { if (current.start == AgendaStartRoute.Inbox || current.start == AgendaStartRoute.Today) { FabAction( label = "Add task", onClick = { navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create)) }, ) } else { null } } is AppDestination.ProjectsGraph -&gt; { FabAction( label = "Add project", onClick = { navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor())) }, ) } // ── Deprecated singletons (Android shell) ─────────────────────────────── AppDestination.Inbox, AppDestination.Today, -&gt; FabAction( label = "Add task", onClick = { navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create)) }, ) AppDestination.Plans -&gt; FabAction( label = "Add project", onClick = { navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor())) }, ) // NotesNavGraph has its own note creation button — no shell FAB needed here. else -&gt; null } }</ID>
-    <ID>FunctionExpressionBody:RecurrenceCalculator.kt:RecurrenceCalculator${ return when (spec) { is RecurrenceSpec.Interval -&gt; nextInterval(anchor, spec.amount, spec.unit) is RecurrenceSpec.Weekly -&gt; nextWeekly(anchor, spec.weekdays) is RecurrenceSpec.Monthly -&gt; nextMonthly(anchor, spec.dayOfMonth) is RecurrenceSpec.Yearly -&gt; nextYearly(anchor, spec.month, spec.day) } }</ID>
-    <ID>FunctionExpressionBody:RecurrenceFormatters.kt:RecurrenceFormatters${ return when (unit) { DateTimeUnit.DAY -&gt; if (amount == 1) "Daily" else "Every $amount days" DateTimeUnit.WEEK -&gt; if (amount == 1) "Weekly" else "Every $amount weeks" DateTimeUnit.MONTH -&gt; if (amount == 1) "Monthly" else "Every $amount months" DateTimeUnit.YEAR -&gt; if (amount == 1) "Yearly" else "Every $amount years" else -&gt; "Every $amount days" // QUARTER, CENTURY, etc. } }</ID>
-    <ID>FunctionExpressionBody:RecurrencePickerSheet.kt:{ return when (selectedType) { SpecType.INTERVAL_DAY -&gt; Interval(selectedBase, intervalAmount, DateTimeUnit.DAY) SpecType.INTERVAL_WEEK -&gt; Interval(selectedBase, intervalAmount, DateTimeUnit.WEEK) SpecType.INTERVAL_MONTH -&gt; Interval(selectedBase, intervalAmount, DateTimeUnit.MONTH) SpecType.INTERVAL_YEAR -&gt; Interval(selectedBase, intervalAmount, DateTimeUnit.YEAR) SpecType.WEEKLY -&gt; Weekly(selectedBase, selectedWeekdays) SpecType.MONTHLY -&gt; Monthly(selectedBase, monthlyDay) SpecType.YEARLY -&gt; Yearly(selectedBase, yearlyMonth, yearlyDay) } }</ID>
-    <ID>FunctionExpressionBody:TagDomain.kt:TagDomain${ return when { color == 0 -&gt; AppError.Validation("Color cannot be transparent (ARGB=0)") else -&gt; null } }</ID>
-    <ID>FunctionExpressionBody:TagDomain.kt:TagDomain${ return when { name.isBlank() -&gt; AppError.Validation("Tag name cannot be blank") name.length &gt; 100 -&gt; AppError.Validation("Tag name too long (max 100 characters)") else -&gt; null } }</ID>
-    <ID>FunctionLiteral:CalendarViewModel.kt:CalendarViewModel$&lt;anonymous&gt;</ID>
-    <ID>FunctionLiteral:FakeAppDatabase.kt:FakeAttachmentDao$&lt;anonymous&gt;</ID>
     <ID>FunctionLiteral:FakeAppDatabase.kt:FakeNoteDao$&lt;anonymous&gt;</ID>
-    <ID>FunctionLiteral:FakeAppDatabase.kt:FakeProjectDao$&lt;anonymous&gt;</ID>
-    <ID>FunctionLiteral:FakeAppDatabase.kt:FakeReminderDao$&lt;anonymous&gt;</ID>
-    <ID>FunctionLiteral:FakeAppDatabase.kt:FakeTagDao$&lt;anonymous&gt;</ID>
-    <ID>FunctionLiteral:ProjectDetailContent.kt:&lt;anonymous&gt;</ID>
-    <ID>FunctionLiteral:RecurrenceParser.kt:RecurrenceParser$&lt;anonymous&gt;</ID>
-    <ID>FunctionLiteral:RecurrencePickerSheet.kt:&lt;anonymous&gt;</ID>
     <ID>FunctionNaming:AccountSettingsScreen.kt:@Composable fun AccountSettingsScreen</ID>
     <ID>FunctionNaming:AccountSettingsScreen.kt:@Composable private fun AccountSettingsScreenPreviewContent</ID>
     <ID>FunctionNaming:AccountSettingsScreen.kt:@Preview @Composable private fun AccountSettingsScreenDarkPreview</ID>
@@ -485,6 +352,8 @@
     <ID>FunctionNaming:InterfaceSettingsScreen.kt:@androidx.compose.ui.tooling.preview.Preview @Composable private fun InterfaceSettingsScreenLightPreview</ID>
     <ID>FunctionNaming:InternalLinkPickerSheet.kt:@Composable private fun LinkResultItem</ID>
     <ID>FunctionNaming:InternalLinkPickerSheet.kt:@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class) @Composable fun InternalLinkPickerSheet</ID>
+    <ID>FunctionNaming:LinkedBacklinksCard.kt:@Composable fun LinkedBacklinksCard</ID>
+    <ID>FunctionNaming:LinkedBacklinksCard.kt:@Composable private fun BacklinkSection</ID>
     <ID>FunctionNaming:ListPickerDsl.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun &lt;T : Any?&gt; ListPickerSheet</ID>
     <ID>FunctionNaming:ListPickerSheet.kt:@Composable private fun &lt;T&gt; ListPickerItemRow</ID>
     <ID>FunctionNaming:ListPickerSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun &lt;T : Any?&gt; ListPickerSheet</ID>
@@ -509,6 +378,8 @@
     <ID>FunctionNaming:MonthGridView.kt:@Composable fun MonthGridView</ID>
     <ID>FunctionNaming:MonthGridView.kt:@Composable private fun MonthGridPage</ID>
     <ID>FunctionNaming:MonthGridView.kt:@OptIn(ExperimentalFoundationApi::class) @Composable private fun MonthDayCell</ID>
+    <ID>FunctionNaming:NoteAiActionSheet.kt:@Composable private fun AiActionItem</ID>
+    <ID>FunctionNaming:NoteAiActionSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun NoteAiActionSheet</ID>
     <ID>FunctionNaming:NoteCard.kt:@Composable fun NoteCard</ID>
     <ID>FunctionNaming:NoteCard.kt:@Composable internal fun DefaultNoteCardTrailing</ID>
     <ID>FunctionNaming:NoteCard.kt:@Composable internal fun NoteCardContent</ID>
@@ -757,153 +628,11 @@
     <ID>FunctionNaming:WorkScheduleSettingsScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun TimeSlider</ID>
     <ID>FunctionNaming:WorkScheduleSettingsScreen.kt:@androidx.compose.ui.tooling.preview.Preview @Composable private fun WorkScheduleSettingsScreenDarkPreview</ID>
     <ID>FunctionNaming:WorkScheduleSettingsScreen.kt:@androidx.compose.ui.tooling.preview.Preview @Composable private fun WorkScheduleSettingsScreenLightPreview</ID>
-    <ID>FunctionSignature:AccountSettingsScreen.kt:@Composable fun AccountSettingsScreen</ID>
-    <ID>FunctionSignature:AwaitState.kt:fun TestScope.awaitState</ID>
-    <ID>FunctionSignature:ChildProjectsSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun ChildProjectsSheet</ID>
-    <ID>FunctionSignature:ColorPickerSheet.kt:@OptIn(ExperimentalLayoutApi::class) @Composable fun ColorPickerSheet</ID>
-    <ID>FunctionSignature:ConfirmArchiveSheet.kt:@Composable fun ConfirmArchiveSheet</ID>
-    <ID>FunctionSignature:ConfirmDeleteSheet.kt:@Composable fun ConfirmDeleteSheet</ID>
-    <ID>FunctionSignature:ContentStateMapper.kt:ContentStateMapper$fun tagGroups: ContentState&lt;List&lt;com.singularity.todo.feature.tags.domain.model.TagGroup&gt;&gt;</ID>
-    <ID>FunctionSignature:CoreDiModule.kt:fun coreModule: org.koin.core.module.Module</ID>
-    <ID>FunctionSignature:DataStoreCatchTest.kt:&lt;no name provided&gt;$override suspend fun updateData: Preferences</ID>
-    <ID>FunctionSignature:DataStoreCatchTest.kt:private fun &lt;T : Any&gt; prefSpecOf: PrefSpec&lt;T&gt;</ID>
-    <ID>FunctionSignature:DataStoreCatchTest.kt:private fun ioExceptionThrowingDataStore: DataStore&lt;Preferences&gt;</ID>
-    <ID>FunctionSignature:DependencyValidator.kt:DependencyValidator$suspend fun assertNoCycles: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:DependencyValidatorImpl.kt:DependencyValidatorImpl$override suspend fun assertNoCycles: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:EditorParentPickerSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun EditorParentPickerSheet</ID>
-    <ID>FunctionSignature:EffectiveTagsResolver.kt:EffectiveTagsResolver$fun resolveEffectiveTags: Flow&lt;List&lt;Tag&gt;&gt;</ID>
-    <ID>FunctionSignature:FabActionResolver.kt:@Suppress("DEPRECATION") internal fun fabActionForNav3: FabAction?</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeAppDatabase$override fun projectInheritedTagGroupDao: ProjectInheritedTagGroupDao</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeAttachmentDao$override fun watchByIdForUser: Flow&lt;AttachmentEntity?&gt;</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeCalendarSyncTaskMapDao$override fun observeAll: Flow&lt;List&lt;CalendarSyncTaskMapEntity&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeCalendarSyncTaskMapDao$override suspend fun getAll: List&lt;CalendarSyncTaskMapEntity&gt;</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeCalendarSyncTaskMapDao$override suspend fun getByTaskId: CalendarSyncTaskMapEntity?</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeCalendarSyncTaskMapDao$override suspend fun getEventId: Long?</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeNoteDao$override suspend fun getBacklinkNotes: List&lt;NoteEntity&gt;</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeProjectDao$override fun watchByIdForUser: Flow&lt;ProjectEntity?&gt;</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeProjectDao$override suspend fun getByIdForUser: ProjectEntity?</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeReminderDao$override fun watchByIdForUser: Flow&lt;com.singularity.todo.core.database.TaskReminderEntity?&gt;</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeRemoteConfigDao$override fun watchDefault: Flow&lt;RemoteConfigEntity?&gt;</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeRemoteConfigDao$override suspend fun getDefault: RemoteConfigEntity?</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeTaskDao$override fun watchByRegexp: Flow&lt;List&lt;TaskEntity&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeTaskDao$override suspend fun listAllTagsForUser: List&lt;TaskTagCrossRef&gt;</ID>
-    <ID>FunctionSignature:FakeAppDatabase.kt:FakeTaskDao$override suspend fun searchTitles: List&lt;TaskEntity&gt;</ID>
-    <ID>FunctionSignature:HoverOpenState.kt:@Composable fun rememberHoverOpenState: HoverOpenState</ID>
-    <ID>FunctionSignature:IconPickerSheet.kt:@OptIn(ExperimentalLayoutApi::class) @Composable fun IconPickerSheet</ID>
-    <ID>FunctionSignature:KoinBridge.kt:internal inline fun &lt;T&gt; koinBridge: T</ID>
-    <ID>FunctionSignature:KoogPromptExecutorPort.kt:KoogPromptExecutorPort$override fun executeStreaming: Flow&lt;StreamFrame&gt;</ID>
-    <ID>FunctionSignature:KoogPromptExecutorPort.kt:KoogPromptExecutorPort$override suspend fun execute: Message.Assistant</ID>
-    <ID>FunctionSignature:Mappers.kt:internal fun TaskEntity.toTask: Task</ID>
-    <ID>FunctionSignature:MenuBottomSheet.kt:MenuItem$fun iconContent: (@Composable () -&gt; Unit)?</ID>
-    <ID>FunctionSignature:MenuNodesBuilder.kt:MenuNodesBuilder$internal fun build: List&lt;MenuNode&gt;</ID>
-    <ID>FunctionSignature:MenuNodesBuilder.kt:fun buildMenuNodes: List&lt;MenuNode&gt;</ID>
-    <ID>FunctionSignature:Modules.kt:fun coreLoggingModule: Module</ID>
-    <ID>FunctionSignature:Modules.kt:fun domainModule: List&lt;Module&gt;</ID>
-    <ID>FunctionSignature:MviViewModel.kt:MviViewModel$protected suspend inline fun &lt;reified T : S&gt; updateStateAs</ID>
-    <ID>FunctionSignature:NotesDiModule.kt:fun notesModule: org.koin.core.module.Module</ID>
-    <ID>FunctionSignature:ProjectDetailContent.kt:@Composable private fun ProjectBodySection</ID>
-    <ID>FunctionSignature:ProjectDetailContent.kt:@Composable private fun ProjectDetailQuickAddInput</ID>
-    <ID>FunctionSignature:ProjectDetailContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun AddExistingTaskPopup</ID>
-    <ID>FunctionSignature:ProjectDetailContent.kt:@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalTime::class) @Composable fun ProjectDetailContent</ID>
-    <ID>FunctionSignature:ProjectDetailScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Suppress("VIEW_MODEL_IN_COMPOSABLE") @Composable fun ProjectDetailScreen</ID>
-    <ID>FunctionSignature:ProjectEditorScreen.kt:@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) @Composable fun ProjectEditorContent</ID>
-    <ID>FunctionSignature:ProjectPickerSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun ProjectPickerSheet</ID>
-    <ID>FunctionSignature:RecurrenceCalculator.kt:RecurrenceCalculator$private fun countIntervalMissed: Int</ID>
-    <ID>FunctionSignature:RecurrencePickerSheet.kt:@Composable private fun DayOfMonthEditor</ID>
-    <ID>FunctionSignature:RecurrencePickerSheet.kt:@OptIn(ExperimentalLayoutApi::class) @Composable private fun WeekdayEditor</ID>
-    <ID>FunctionSignature:RecurrencePickerSheet.kt:@OptIn(ExperimentalLayoutApi::class) @Composable private fun YearlyEditor</ID>
-    <ID>FunctionSignature:ReminderPickerSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun ReminderPickerSheet</ID>
-    <ID>FunctionSignature:RunVmTest.kt:fun &lt;VM, S&gt; TestScope.testVm: TestVmContext&lt;VM, S&gt;</ID>
-    <ID>FunctionSignature:SavedAgendaViewFactory.kt:SavedAgendaViewFactory$fun duplicateForProfile: SavedAgendaView</ID>
-    <ID>FunctionSignature:TagGroupRepository.kt:TagGroupRepository$fun observeInheritedByProject: Flow&lt;Set&lt;TagGroupId&gt;&gt;</ID>
-    <ID>FunctionSignature:TagGroupRepository.kt:TagGroupRepository$suspend fun setInheritedForProject: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:TagGroupRepositoryImpl.kt:TagGroupRepositoryImpl$override fun observe: Flow&lt;TagGroup?&gt;</ID>
-    <ID>FunctionSignature:TagGroupRepositoryImpl.kt:TagGroupRepositoryImpl$override fun observeAll: Flow&lt;List&lt;TagGroup&gt;&gt;</ID>
-    <ID>FunctionSignature:TagGroupRepositoryImpl.kt:TagGroupRepositoryImpl$override suspend fun setInheritedForProject: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:TagGroupsScreen.kt:@Composable fun TagGroupsScreen</ID>
-    <ID>FunctionSignature:TagGroupsScreen.kt:@Composable private fun TagGroupList</ID>
-    <ID>FunctionSignature:TagGroupsScreen.kt:private fun TagGroupsUiState.toContentState: ContentState&lt;List&lt;TagGroup&gt;&gt;</ID>
-    <ID>FunctionSignature:TagsDiModule.kt:fun tagsModule: org.koin.core.module.Module</ID>
-    <ID>FunctionSignature:TagsPickerSheet.kt:@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class) @Composable fun TagsPickerSheet</ID>
-    <ID>FunctionSignature:TaskDetailTopBar.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskDetailTopBar</ID>
-    <ID>FunctionSignature:TaskDetailViewModelTest.kt:TaskDetailViewModelTest.&lt;no name provided&gt;$override suspend fun cancelByTask</ID>
-    <ID>FunctionSignature:TaskEditorBody.kt:private fun dateTimeLabel: String</ID>
-    <ID>FunctionSignature:TaskEditorContent.kt:@Composable fun TaskEditorContent</ID>
-    <ID>FunctionSignature:TaskEditorContent.kt:@Preview @Composable private fun TaskEditorContentDarkPreview</ID>
-    <ID>FunctionSignature:TaskEditorContent.kt:@Preview @Composable private fun TaskEditorContentEmptyPreview</ID>
-    <ID>FunctionSignature:TaskEditorContent.kt:@Preview @Composable private fun TaskEditorContentFilledPreview</ID>
-    <ID>FunctionSignature:TaskEditorContent.kt:private fun priorityLabel: String</ID>
-    <ID>FunctionSignature:TaskMenuBuilderTest.kt:TaskMenuBuilderTest$private fun makeTaskUi</ID>
-    <ID>FunctionSignature:TaskRepositoryImpl.kt:TaskRepositoryImpl$override fun observe: Flow&lt;Task?&gt;</ID>
-    <ID>FunctionSignature:TaskRepositoryImpl.kt:TaskRepositoryImpl$override fun observeAll: Flow&lt;List&lt;Task&gt;&gt;</ID>
-    <ID>FunctionSignature:TaskRepositoryImpl.kt:TaskRepositoryImpl$override fun observeByDate: Flow&lt;List&lt;Task&gt;&gt;</ID>
-    <ID>FunctionSignature:TaskRepositoryImpl.kt:TaskRepositoryImpl$override fun observeByFilter: Flow&lt;List&lt;Task&gt;&gt;</ID>
-    <ID>FunctionSignature:TaskRepositoryImpl.kt:TaskRepositoryImpl$override fun observeSubtasks: Flow&lt;List&lt;Task&gt;&gt;</ID>
-    <ID>FunctionSignature:TaskRepositoryImpl.kt:TaskRepositoryImpl$override suspend fun currentUserId: com.singularity.todo.core.ids.UserId</ID>
-    <ID>FunctionSignature:TasksDiModule.kt:fun tasksModule: org.koin.core.module.Module</ID>
-    <ID>ImportOrdering:AccountSettingsScreen.kt:import androidx.compose.foundation.layout.Arrangement import androidx.compose.foundation.layout.Column import androidx.compose.foundation.layout.Row import androidx.compose.foundation.layout.fillMaxWidth import androidx.compose.foundation.layout.padding import androidx.compose.foundation.layout.size import androidx.compose.foundation.rememberScrollState import androidx.compose.foundation.shape.CircleShape import androidx.compose.foundation.verticalScroll import androidx.compose.material.icons.Icons import androidx.compose.material.icons.automirrored.filled.ArrowForward import androidx.compose.material.icons.filled.Person import androidx.compose.material3.FilledTonalButton import androidx.compose.material3.Icon import androidx.compose.material3.MaterialTheme import androidx.compose.material3.Text import androidx.compose.runtime.Composable import androidx.compose.runtime.getValue import androidx.lifecycle.compose.collectAsStateWithLifecycle import androidx.compose.ui.Alignment import androidx.compose.ui.Modifier import androidx.compose.ui.draw.clip import androidx.compose.ui.text.font.FontWeight import androidx.compose.ui.tooling.preview.Preview import androidx.compose.ui.unit.dp import com.singularity.todo.core.ui.components.SettingsSection import com.singularity.todo.core.ui.preview.PreviewThemed import com.singularity.todo.feature.profile.Profile import com.singularity.todo.feature.settings.presentation.nav.LocalSettingsNavigator import com.singularity.todo.test.fakes.FakeProfileRepository import org.koin.compose.viewmodel.koinViewModel</ID>
-    <ID>ImportOrdering:AlarmReceiver.kt:import android.content.BroadcastReceiver import android.content.Context import android.content.Intent import co.touchlab.kermit.Logger import com.singularity.todo.core.notifications.AndroidNotifier import com.singularity.todo.core.platform.Clock import com.singularity.todo.core.sync.SyncRepository import com.singularity.todo.feature.alarms.AlarmContract import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_PHASE import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_REMINDER_ID import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_USER_ID import com.singularity.todo.feature.pomodoro.PomodoroPhase import com.singularity.todo.feature.reminders.ReminderFireLogic import com.singularity.todo.feature.reminders.ReminderId import com.singularity.todo.feature.reminders.ReminderRepository import com.singularity.todo.feature.reminders.ReminderScheduler import com.singularity.todo.feature.tasks.domain.port.TaskRepository import kotlinx.coroutines.CoroutineExceptionHandler import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.Dispatchers import kotlinx.coroutines.SupervisorJob import kotlinx.coroutines.cancel import kotlinx.coroutines.flow.first import kotlinx.coroutines.launch import org.koin.core.component.KoinComponent import org.koin.core.component.inject import org.koin.core.context.GlobalContext</ID>
-    <ID>ImportOrdering:AnalyticsTest.kt:import androidx.datastore.core.DataStore import androidx.datastore.preferences.core.Preferences import androidx.datastore.preferences.core.longPreferencesKey import androidx.datastore.preferences.core.mutablePreferencesOf import kotlinx.coroutines.flow.Flow import kotlinx.coroutines.flow.MutableStateFlow import kotlinx.coroutines.flow.first import kotlinx.coroutines.test.runTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertNull import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:AppDatabaseFactoryJvmTest.kt:import com.singularity.todo.core.database.contract.createSqlDriver import kotlinx.coroutines.flow.first import kotlinx.coroutines.test.runTest import java.io.File import java.nio.file.Files import org.junit.jupiter.api.Tag import kotlin.test.AfterTest import kotlin.test.BeforeTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertNotNull import kotlin.test.assertTrue</ID>
-    <ID>ImportOrdering:AutoSyncTest.kt:import co.touchlab.kermit.Logger import kotlinx.coroutines.test.TestScope import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.runTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertFalse import kotlin.test.assertTrue import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:BackupOptionsTest.kt:import com.singularity.todo.core.ids.UserId import kotlin.test.Test import kotlin.test.assertEquals import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:ChatViewModelTest.kt:import co.touchlab.kermit.Logger import com.singularity.todo.core.coroutines.testScope import com.singularity.todo.core.ids.SequenceIdGenerator import com.singularity.todo.feature.ai.FakeTextGen import com.singularity.todo.feature.ai.TextGenPort import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.ExperimentalCoroutinesApi import kotlinx.coroutines.flow.Flow import kotlinx.coroutines.flow.flowOf import kotlinx.coroutines.flow.take import kotlinx.coroutines.flow.toList import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.runTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertFalse import kotlin.test.assertTrue import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:CurrentUser.kt:import com.singularity.todo.core.ids.UserId import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.flow.MutableStateFlow import kotlinx.coroutines.launch import kotlinx.coroutines.flow.SharingStarted import kotlinx.coroutines.flow.StateFlow import kotlinx.coroutines.flow.map</ID>
-    <ID>ImportOrdering:DataStoreDraftStore.kt:import androidx.datastore.core.DataStore import androidx.datastore.preferences.core.Preferences import androidx.datastore.preferences.core.edit import androidx.datastore.preferences.core.emptyPreferences import androidx.datastore.preferences.core.stringPreferencesKey import co.touchlab.kermit.Logger import com.singularity.todo.core.serialization.StableJson import kotlinx.coroutines.flow.catch import kotlinx.coroutines.flow.first import kotlinx.coroutines.flow.catch import kotlinx.coroutines.flow.first import kotlinx.serialization.DeserializationStrategy import kotlinx.serialization.SerializationStrategy import java.io.IOException</ID>
-    <ID>ImportOrdering:DesktopRestartSmokeTest.kt:import com.singularity.todo.core.database.contract.createSqlDriver import kotlinx.coroutines.flow.first import kotlinx.coroutines.test.runTest import java.io.File import java.nio.file.Files import org.junit.jupiter.api.Tag import kotlin.test.AfterTest import kotlin.test.BeforeTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertTrue</ID>
-    <ID>ImportOrdering:DiGraphTest.kt:import com.singularity.todo.core.backup.BackupRepository import com.singularity.todo.core.backup.DefaultBackupFileNamer import com.singularity.todo.core.ids.IdGenerator import com.singularity.todo.core.platform.TimeZoneProvider import com.singularity.todo.core.settings.SettingsRepository import com.singularity.todo.feature.checklist.ChecklistRepository import com.singularity.todo.feature.reminders.ReminderScheduler import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver import kotlin.test.Test import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:FakeAppDatabase.kt:import com.singularity.todo.core.attachments.AttachmentDao import com.singularity.todo.core.attachments.AttachmentEntity import com.singularity.todo.core.database.AgendaViewDao import com.singularity.todo.core.database.AgendaViewEntity import com.singularity.todo.core.database.SavedSearchDao import com.singularity.todo.core.database.SavedSearchEntity import com.singularity.todo.core.database.AppDatabase import com.singularity.todo.core.database.ChecklistDao import com.singularity.todo.core.database.ChecklistItemEntity import com.singularity.todo.core.database.LlmUsageDao import com.singularity.todo.core.database.LlmUsageEntity import com.singularity.todo.core.database.NoteDao import com.singularity.todo.core.database.NoteEntity import com.singularity.todo.core.database.ProfileDao import com.singularity.todo.core.database.ProfileEntity import com.singularity.todo.core.database.ProjectDao import com.singularity.todo.core.database.ProjectEntity import com.singularity.todo.core.database.ReminderDao import com.singularity.todo.core.database.TagDao import com.singularity.todo.core.database.TagEntity import com.singularity.todo.core.database.TagGroupDao import com.singularity.todo.core.database.TagGroupEntity import com.singularity.todo.core.database.ProjectInheritedTagGroupDao import com.singularity.todo.core.database.ProjectInheritedTagGroupCrossRef import com.singularity.todo.core.database.TaskDao import com.singularity.todo.core.database.TaskEntity import com.singularity.todo.core.database.TaskDependencyCrossRef import com.singularity.todo.core.database.TaskTagCrossRef import com.singularity.todo.core.config.RemoteConfigCacheDao import com.singularity.todo.core.config.RemoteConfigCacheEntity import com.singularity.todo.core.sync.RemoteConfigDao import com.singularity.todo.core.sync.RemoteConfigEntity import com.singularity.todo.core.sync.SyncOutboxDao import com.singularity.todo.core.sync.SyncOutboxEntity import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity import kotlinx.coroutines.flow.Flow import kotlinx.coroutines.flow.MutableStateFlow import kotlinx.coroutines.flow.map import kotlinx.coroutines.flow.update</ID>
-    <ID>ImportOrdering:JvmAiDiGraphTest.kt:import ai.koog.prompt.llm.LLModel import ai.koog.prompt.llm.OpenAILLMProvider import com.singularity.todo.core.security.FakeSecureStorage import com.singularity.todo.core.security.SecureStoragePort import com.singularity.todo.feature.ai.TextGenPort import com.singularity.todo.feature.ai.tools.ClusterNotesTool import com.singularity.todo.feature.ai.tools.ClusterTasksTool import com.singularity.todo.feature.ai.tools.CreateNoteTool import com.singularity.todo.feature.ai.tools.CreateProjectTool import com.singularity.todo.feature.ai.tools.CreateTagTool import com.singularity.todo.feature.ai.tools.CreateTaskTool import com.singularity.todo.feature.ai.tools.DecomposeTaskTool import com.singularity.todo.feature.ai.tools.DeleteNoteTool import com.singularity.todo.feature.ai.tools.DeleteProjectTool import com.singularity.todo.feature.ai.tools.DeleteTagTool import com.singularity.todo.feature.ai.tools.DeleteTaskTool import com.singularity.todo.feature.ai.tools.GenerateChecklistTool import com.singularity.todo.feature.ai.tools.GenerateDescriptionTool import com.singularity.todo.feature.ai.tools.GetNoteTool import com.singularity.todo.feature.ai.tools.GetProjectTool import com.singularity.todo.feature.ai.tools.GetTaskTool import com.singularity.todo.feature.ai.tools.ImproveNoteTool import com.singularity.todo.feature.ai.tools.ListLinkedTasksTool import com.singularity.todo.feature.ai.tools.ListProjectsTool import com.singularity.todo.feature.ai.tools.ListTasksTool import com.singularity.todo.feature.ai.tools.PickTimeTool import com.singularity.todo.feature.ai.tools.ProjectReviewTool import com.singularity.todo.feature.ai.tools.RefineTaskTool import com.singularity.todo.feature.ai.tools.SearchTasksTool import com.singularity.todo.feature.ai.tools.SmartRewriteTool import com.singularity.todo.feature.ai.tools.UpdateNoteTool import com.singularity.todo.feature.ai.tools.UpdateProjectTool import com.singularity.todo.feature.ai.tools.UpdateTaskTool import com.singularity.todo.feature.ai.tools.WeeklyPlanTool import com.singularity.todo.feature.ai.use_cases.ClusterNotesUseCase import com.singularity.todo.feature.ai.use_cases.ClusterTasksUseCase import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase import com.singularity.todo.feature.ai.use_cases.SmartRewriteUseCase import com.singularity.todo.feature.profile.ProfileAwareCurrentUser import com.singularity.todo.feature.profile.ProfileRepository import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser import com.singularity.todo.test.fakes.FakeProfileRepository import org.koin.dsl.module import kotlin.test.Test import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:KoinGraphValidationTest.kt:import androidx.datastore.core.DataStore import androidx.datastore.preferences.core.Preferences import com.singularity.todo.core.backup.BackupCodec import com.singularity.todo.core.config.RemoteConfigPort import com.singularity.todo.core.database.AppDatabase import com.singularity.todo.core.database.AppDatabaseFactory import com.singularity.todo.core.database.contract.createSqlDriver import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged import com.singularity.todo.core.backup.JvmBackupCodec import com.singularity.todo.core.di.domainModule import com.singularity.todo.core.files.FileRevealer import com.singularity.todo.core.files.FileSystem import com.singularity.todo.core.files.JvmFileRevealer import com.singularity.todo.core.files.JvmFileSystem import com.singularity.todo.core.notifications.JvmNotificationPort import com.singularity.todo.core.notifications.NotificationPort import com.singularity.todo.core.security.JvmSecureStorage import com.singularity.todo.core.security.SecureStoragePort import com.singularity.todo.core.sync.JvmSyncScheduler import com.singularity.todo.core.sync.SyncScheduler import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler import com.singularity.todo.core.sync.work.SyncWorkScheduler import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepository import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler import com.singularity.todo.feature.gate.gateModule import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider import com.singularity.todo.feature.pomodoro.PomodoroTimer import com.singularity.todo.feature.reminders.JvmReminderScheduler import com.singularity.todo.feature.reminders.ReminderScheduler import com.singularity.todo.feature.calendar_sync.data.CalendarAppQueries import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries import org.junit.jupiter.api.Test import org.koin.core.module.Module import org.koin.dsl.koinApplication import org.koin.dsl.module import java.io.File import kotlin.test.assertNotNull</ID>
-    <ID>ImportOrdering:NoteEditorTest.kt:import co.touchlab.kermit.Logger import com.singularity.todo.core.coroutines.testScope import com.singularity.todo.core.ids.UserId import com.singularity.todo.core.platform.Clock import com.singularity.todo.feature.notes.EditorState import com.singularity.todo.feature.notes.Note import com.singularity.todo.feature.notes.NoteId import com.singularity.todo.feature.notes.domain.editor.NoteAiController import com.singularity.todo.feature.search.InternalLinkRepository import com.singularity.todo.feature.tasks.domain.model.Task import com.singularity.todo.test.fakes.FakeIdGenerator import com.singularity.todo.test.fakes.FakeNotesRepository import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.ExperimentalCoroutinesApi import kotlinx.coroutines.flow.take import kotlinx.coroutines.launch import kotlinx.coroutines.test.advanceTimeBy import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.runCurrent import kotlinx.coroutines.test.runTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertFalse import kotlin.test.assertIs import kotlin.test.assertTrue import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:NotePreviewTest.kt:import com.singularity.todo.core.coroutines.testScope import com.singularity.todo.core.ids.UserId import com.singularity.todo.core.platform.Clock import com.singularity.todo.feature.notes.Note import com.singularity.todo.feature.notes.NoteId import com.singularity.todo.feature.search.InternalLinkRepository import com.singularity.todo.feature.tasks.domain.model.Task import com.singularity.todo.test.fakes.FakeNotesRepository import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.ExperimentalCoroutinesApi import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.runTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertIs import kotlin.test.assertNotNull import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:OAuthTokenRefreshTest.kt:import com.singularity.todo.core.auth.oauth.OAuthTokenRefresh.withRefreshResult import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertFalse import kotlin.test.assertTrue import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:Project.kt:import com.singularity.todo.core.ids.UserId import com.singularity.todo.feature.tags.domain.model.TagGroupId import com.singularity.todo.core.serialization.StableJson import com.singularity.todo.core.sync.DocType import com.singularity.todo.core.sync.Hlc import com.singularity.todo.core.sync.SyncableEntity import kotlinx.serialization.Serializable import kotlinx.serialization.json.JsonObject import kotlinx.serialization.serializer import kotlin.time.Instant</ID>
-    <ID>ImportOrdering:ProjectDetailScreen.kt:import androidx.compose.material3.ExperimentalMaterial3Api import androidx.compose.runtime.Composable import androidx.compose.ui.Modifier import com.singularity.todo.feature.projects.domain.model.ProjectId import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel import org.koin.core.parameter.parametersOf import org.koin.compose.viewmodel.koinViewModel</ID>
-    <ID>ImportOrdering:ProjectDetailViewModelTest.kt:import co.touchlab.kermit.Logger import com.singularity.todo.core.coroutines.testScope import com.singularity.todo.core.ids.UserId import com.singularity.todo.core.platform.Clock import com.singularity.todo.feature.projects.domain.model.Project import com.singularity.todo.feature.projects.domain.model.ProjectId import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase import com.singularity.todo.test.fakes.FakeAuthRepository import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser import com.singularity.todo.test.fakes.FakeProfileRepository import com.singularity.todo.test.fakes.FakeProjectsRepository import com.singularity.todo.test.fakes.FakeTaskRepository import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.flow.first import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.runTest import kotlin.test.AfterTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertFalse import kotlin.test.assertNotNull import kotlin.test.assertTrue import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:ProjectsViewModelTest.kt:import com.singularity.todo.core.coroutines.testScope import com.singularity.todo.core.ids.UserId import com.singularity.todo.core.platform.Clock import com.singularity.todo.feature.projects.domain.model.Project import com.singularity.todo.feature.projects.domain.model.ProjectId import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel import com.singularity.todo.test.fakes.FakeProjectsRepository import com.singularity.todo.test.fakes.FakeTaskRepository import kotlinx.coroutines.delay import kotlinx.coroutines.ExperimentalCoroutinesApi import kotlinx.coroutines.test.TestScope import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.runTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertIs import kotlin.test.assertTrue import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:RecurrenceCalculatorTest.kt:import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly import kotlinx.datetime.DateTimeUnit import kotlinx.datetime.LocalDate import kotlin.test.Test import kotlin.test.assertEquals</ID>
-    <ID>ImportOrdering:RecurrenceFormatters.kt:import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly import kotlinx.datetime.DateTimeUnit import kotlinx.datetime.LocalDate</ID>
-    <ID>ImportOrdering:RecurrenceFormattersTest.kt:import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly import kotlinx.datetime.DateTimeUnit import kotlinx.datetime.LocalDate import kotlin.test.Test import kotlin.test.assertEquals</ID>
-    <ID>ImportOrdering:RecurrenceParserTest.kt:import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly import kotlinx.datetime.DateTimeUnit import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertFailsWith</ID>
-    <ID>ImportOrdering:RecurrencePickerSheet.kt:import androidx.compose.foundation.layout.Arrangement import androidx.compose.foundation.layout.Column import androidx.compose.foundation.layout.ExperimentalLayoutApi import androidx.compose.foundation.layout.FlowRow import androidx.compose.foundation.layout.Row import androidx.compose.foundation.layout.Spacer import androidx.compose.foundation.layout.fillMaxWidth import androidx.compose.foundation.layout.height import androidx.compose.foundation.layout.padding import androidx.compose.foundation.layout.width import androidx.compose.foundation.rememberScrollState import androidx.compose.foundation.selection.selectable import androidx.compose.foundation.selection.selectableGroup import androidx.compose.foundation.verticalScroll import androidx.compose.material3.FilterChip import androidx.compose.material3.MaterialTheme import androidx.compose.material3.OutlinedTextField import androidx.compose.material3.RadioButton import androidx.compose.material3.SegmentedButton import androidx.compose.material3.SegmentedButtonDefaults import androidx.compose.material3.SingleChoiceSegmentedButtonRow import androidx.compose.material3.Text import androidx.compose.runtime.Composable import androidx.compose.runtime.getValue import androidx.compose.runtime.mutableIntStateOf import androidx.compose.runtime.mutableStateOf import androidx.compose.runtime.remember import androidx.compose.runtime.setValue import androidx.compose.ui.Alignment import androidx.compose.ui.Modifier import androidx.compose.ui.semantics.Role import androidx.compose.ui.unit.dp import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.baseLabel import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.label import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost import kotlinx.datetime.DateTimeUnit import kotlinx.datetime.LocalDate</ID>
-    <ID>ImportOrdering:SavedAgendaViewModelTest.kt:import co.touchlab.kermit.Logger import com.singularity.todo.core.coroutines.testScope import com.singularity.todo.core.platform.Clock import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition import com.singularity.todo.feature.agenda.domain.model.RelativeBucket import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory import com.singularity.todo.feature.agenda.domain.model.Section import com.singularity.todo.feature.agenda.domain.model.Selector import com.singularity.todo.feature.agenda.presentation.viewmodel.Draft import com.singularity.todo.feature.agenda.presentation.viewmodel.DraftState import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaDeps import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaIntent import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaSeedStore import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewModel import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewState import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.ExperimentalCoroutinesApi import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.runTest import kotlin.test.AfterTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertFalse import kotlin.test.assertIs import kotlin.test.assertNotNull import kotlin.test.assertNull import kotlin.test.assertTrue import kotlin.time.Instant import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:SettingsScreen.kt:import androidx.compose.foundation.background import androidx.compose.foundation.clickable import androidx.compose.foundation.layout.Box import androidx.compose.foundation.layout.Column import androidx.compose.foundation.layout.Row import androidx.compose.foundation.layout.fillMaxHeight import androidx.compose.foundation.layout.fillMaxSize import androidx.compose.foundation.layout.offset import androidx.compose.foundation.layout.padding import androidx.compose.foundation.layout.size import androidx.compose.foundation.layout.width import androidx.compose.foundation.shape.CircleShape import androidx.compose.material.icons.Icons import com.singularity.todo.core.settings.SettingsIntent import androidx.compose.material.icons.filled.AccountCircle import androidx.compose.material.icons.filled.Label import androidx.compose.material.icons.filled.CalendarMonth import androidx.compose.material.icons.filled.CloudUpload import androidx.compose.material.icons.filled.Folder import androidx.compose.material.icons.filled.Notifications import androidx.compose.material.icons.filled.Palette import androidx.compose.material.icons.filled.Schedule import androidx.compose.material.icons.filled.SmartToy import androidx.compose.material3.Icon import androidx.compose.material3.MaterialTheme import androidx.compose.material3.Scaffold import androidx.compose.material3.SnackbarHost import androidx.compose.material3.SnackbarHostState import androidx.compose.material3.Text import androidx.compose.material3.VerticalDivider import androidx.compose.runtime.Composable import androidx.compose.runtime.LaunchedEffect import androidx.compose.runtime.collectAsState import androidx.compose.runtime.getValue import androidx.compose.runtime.mutableStateOf import androidx.compose.runtime.remember import androidx.compose.runtime.setValue import androidx.compose.ui.Alignment import androidx.compose.ui.Modifier import androidx.compose.ui.graphics.Color import androidx.compose.ui.unit.dp import com.singularity.todo.core.files.FileRevealer import com.singularity.todo.core.llm.AiTestResult import com.singularity.todo.core.ui.components.EmptyState import com.singularity.todo.core.ui.components.LoadingIndicator import com.singularity.todo.core.ui.preview.PreviewThemed import com.singularity.todo.feature.backup.BackupScreen import com.singularity.todo.feature.backup.BackupViewModel import com.singularity.todo.feature.tags.TagsScreen import com.singularity.todo.feature.tags.TagsUiState import com.singularity.todo.feature.tags.TagsViewModel import com.singularity.todo.feature.profile.presentation.AccountSettingsScreen import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel import com.singularity.todo.feature.settings.screens.AgendaSettingsScreen import com.singularity.todo.feature.settings.screens.AiProviderSettingsScreen import com.singularity.todo.feature.settings.screens.FilesSettingsScreen import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncSettingsScreen import com.singularity.todo.feature.tags.presentation.screen.TagGroupsScreen import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsViewModel import com.singularity.todo.test.fakes.FakeProfileRepository import org.koin.compose.koinInject import org.koin.compose.viewmodel.koinViewModel</ID>
-    <ID>ImportOrdering:SyncRepositoryCoalescingTest.kt:import kotlinx.coroutines.launch import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.runCurrent import kotlinx.coroutines.test.runTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertIs import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:SyncViewModelTest.kt:import com.singularity.todo.core.coroutines.testScope import com.singularity.todo.core.error.AppError import com.singularity.todo.core.sync.ConnectionTestResult import com.singularity.todo.core.sync.FakeSyncPrefs import com.singularity.todo.core.sync.FakeSyncRepository import com.singularity.todo.core.sync.SyncEngineStatus import com.singularity.todo.feature.sync.presentation.SyncIntent import com.singularity.todo.feature.sync.presentation.SyncViewModel import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.TestScope import kotlinx.coroutines.test.runTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertFalse import kotlin.test.assertNull import kotlin.test.assertTrue import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:TagGroupsScreen.kt:import androidx.compose.foundation.background import androidx.compose.foundation.layout.Arrangement import androidx.compose.foundation.layout.Box import androidx.compose.foundation.layout.Column import androidx.compose.foundation.layout.PaddingValues import androidx.compose.foundation.layout.Row import androidx.compose.foundation.layout.fillMaxWidth import androidx.compose.foundation.layout.padding import androidx.compose.foundation.layout.size import androidx.compose.foundation.lazy.LazyColumn import androidx.compose.foundation.lazy.items import androidx.compose.foundation.shape.CircleShape import androidx.compose.material3.MaterialTheme import androidx.compose.material3.Text import androidx.compose.runtime.Composable import androidx.compose.ui.Alignment import androidx.compose.ui.Modifier import androidx.compose.ui.draw.clip import androidx.compose.ui.graphics.Color import androidx.compose.ui.unit.dp import com.singularity.todo.core.ui.components.ContentStateMapper import com.singularity.todo.core.ui.components.StatefulContent import com.singularity.todo.core.ui.components.ContentState import com.singularity.todo.feature.tags.domain.model.TagGroup import com.singularity.todo.feature.tags.domain.model.TagGroupId import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState</ID>
-    <ID>ImportOrdering:TagsPickerSheet.kt:import androidx.compose.foundation.clickable import androidx.compose.foundation.layout.Arrangement import androidx.compose.foundation.layout.Column import androidx.compose.foundation.layout.ExperimentalLayoutApi import androidx.compose.foundation.layout.FlowRow import androidx.compose.foundation.layout.Row import androidx.compose.foundation.layout.Spacer import androidx.compose.foundation.layout.fillMaxWidth import androidx.compose.foundation.layout.height import androidx.compose.foundation.layout.padding import androidx.compose.material.icons.Icons import androidx.compose.material.icons.filled.Check import androidx.compose.material3.AssistChip import androidx.compose.material3.AssistChipDefaults import androidx.compose.material3.Icon import androidx.compose.material3.ExperimentalMaterial3Api import androidx.compose.material3.MaterialTheme import androidx.compose.material3.Text import androidx.compose.runtime.Composable import androidx.compose.ui.Alignment import androidx.compose.ui.Modifier import androidx.compose.ui.unit.dp import com.singularity.todo.feature.tags.TagId import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost</ID>
-    <ID>ImportOrdering:TaskCreateDebounceTest.kt:import co.touchlab.kermit.Logger import com.singularity.todo.core.coroutines.testScope import com.singularity.todo.core.draft.FakeDraftStore import com.singularity.todo.core.ids.UserId import com.singularity.todo.core.platform.Clock import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent import com.singularity.todo.feature.tasks.presentation.state.TaskDraft import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser import com.singularity.todo.test.fakes.FakeTaskRepository import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.ExperimentalCoroutinesApi import kotlinx.coroutines.test.advanceTimeBy import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.runCurrent import kotlinx.coroutines.test.runTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertNotNull import kotlin.test.assertNull import kotlin.time.Duration.Companion.milliseconds import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:TaskCreateViewModelTest.kt:import co.touchlab.kermit.Logger import com.singularity.todo.core.coroutines.testScope import com.singularity.todo.core.draft.FakeDraftStore import com.singularity.todo.core.ids.UserId import com.singularity.todo.core.platform.Clock import com.singularity.todo.feature.tasks.domain.model.TaskPriority import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent import com.singularity.todo.feature.tasks.presentation.state.TaskDraft import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel import com.singularity.todo.test.fakes.FakeAuthRepository import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser import com.singularity.todo.test.fakes.FakeTaskRepository import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.ExperimentalCoroutinesApi import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.runTest import kotlinx.datetime.LocalDate import kotlinx.datetime.Month import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertNull import kotlin.time.Duration.Companion.milliseconds import org.junit.jupiter.api.Tag</ID>
-    <ID>ImportOrdering:TaskDetailViewModelTest.kt:import com.singularity.todo.core.coroutines.testScope import com.singularity.todo.core.ids.UserId import com.singularity.todo.core.platform.Clock import com.singularity.todo.core.platform.TimeZoneProvider import com.singularity.todo.feature.tasks.domain.model.Task import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps import com.singularity.todo.feature.tasks.domain.model.TaskId import com.singularity.todo.feature.reminders.ReminderId import com.singularity.todo.feature.reminders.ReminderScheduler import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel import com.singularity.todo.test.fakes.FakeAttachmentRepository import com.singularity.todo.test.fakes.FakeAuthRepository import com.singularity.todo.test.fakes.FakeChecklistRepository import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser import com.singularity.todo.test.fakes.FakeProjectsRepository import com.singularity.todo.test.fakes.FakeReminderRepository import com.singularity.todo.test.fakes.FakeTagsRepository import com.singularity.todo.test.fakes.FakeTaskRepository import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.ExperimentalCoroutinesApi import kotlinx.coroutines.delay import kotlinx.coroutines.flow.launchIn import kotlinx.coroutines.test.runTest import kotlin.test.AfterTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertFalse import kotlin.test.assertNotNull import kotlin.test.assertNull import kotlin.test.assertTrue</ID>
-    <ID>ImportOrdering:TaskDetailViewScreen.kt:import androidx.compose.foundation.layout.Arrangement import androidx.compose.foundation.layout.Box import androidx.compose.foundation.layout.Column import androidx.compose.foundation.layout.Spacer import androidx.compose.foundation.layout.fillMaxSize import androidx.compose.foundation.layout.height import androidx.compose.foundation.layout.padding import androidx.compose.material3.CircularProgressIndicator import androidx.compose.material3.MaterialTheme import androidx.compose.material3.Text import androidx.compose.material3.TextButton import androidx.compose.runtime.Composable import androidx.compose.runtime.getValue import androidx.compose.ui.Alignment import androidx.compose.ui.Modifier import androidx.compose.ui.unit.dp import androidx.lifecycle.compose.collectAsStateWithLifecycle import com.singularity.todo.core.ui.components.Notification import com.singularity.todo.core.ui.components.NotificationHost import com.singularity.todo.core.ui.components.formatTimestampsRelative import com.singularity.todo.feature.tasks.domain.model.TaskId import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorCallbacks import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel import org.koin.compose.viewmodel.koinViewModel import org.koin.core.parameter.parametersOf import kotlin.time.Clock</ID>
-    <ID>ImportOrdering:TaskEditorCallbacks.kt:import androidx.compose.runtime.Composable import com.singularity.todo.core.attachments.AttachmentId import com.singularity.todo.feature.checklist.ChecklistItemId import com.singularity.todo.feature.projects.domain.model.ProjectId import com.singularity.todo.feature.tags.TagId import com.singularity.todo.feature.tasks.domain.model.TaskId import com.singularity.todo.feature.tasks.domain.model.TaskPriority import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec import kotlinx.datetime.LocalDate import kotlinx.datetime.LocalTime</ID>
-    <ID>ImportOrdering:TaskEditorModel.kt:import com.singularity.todo.core.attachments.Attachment import com.singularity.todo.feature.checklist.ChecklistItem import com.singularity.todo.feature.projects.domain.model.ProjectId import com.singularity.todo.feature.tags.TagId import com.singularity.todo.feature.tasks.domain.model.TaskId import com.singularity.todo.feature.tasks.domain.model.TaskPriority import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec import kotlinx.datetime.LocalDate import kotlinx.datetime.LocalTime</ID>
-    <ID>ImportOrdering:TaskEditorSheetsHost.kt:import androidx.compose.material3.ExperimentalMaterial3Api import androidx.compose.runtime.Composable import com.singularity.todo.core.ui.components.DatePickerSheet import com.singularity.todo.core.ui.components.TimePickerSheet import com.singularity.todo.feature.attachments.components.AttachmentsSheet import com.singularity.todo.feature.checklist.components.ChecklistEditorSheet import com.singularity.todo.feature.tasks.presentation.components.ProjectPickerSheet import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost import com.singularity.todo.feature.tags.components.TagsPickerSheet import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet import kotlinx.datetime.Clock import kotlinx.datetime.LocalDate import kotlinx.datetime.TimeZone import kotlinx.datetime.toLocalDateTime import kotlinx.datetime.toLocalDateTime</ID>
-    <ID>ImportOrdering:TaskExtrasLoadingTest.kt:import com.singularity.todo.core.ids.UserId import com.singularity.todo.core.platform.Clock import com.singularity.todo.feature.tasks.domain.logic.TaskComputed import com.singularity.todo.feature.tasks.domain.model.Task import com.singularity.todo.feature.tasks.domain.model.TaskId import com.singularity.todo.feature.tags.TagId import com.singularity.todo.test.fakes.FakeTaskRepository import kotlin.time.Instant import kotlinx.coroutines.ExperimentalCoroutinesApi import kotlinx.coroutines.flow.first import kotlinx.coroutines.test.advanceUntilIdle import kotlinx.coroutines.test.runTest import kotlin.test.Test import kotlin.test.assertEquals import kotlin.test.assertFalse import kotlin.test.assertTrue</ID>
-    <ID>Indentation:AnalyticsTest.kt:AnalyticsTest$ </ID>
-    <ID>Indentation:BackupViewModel.kt:BackupViewModel$ </ID>
-    <ID>Indentation:CalendarSyncSettingsRepository.kt:CalendarSyncSettingsRepository$ </ID>
-    <ID>Indentation:FakeAppDatabase.kt:FakeAppDatabase$ </ID>
-    <ID>Indentation:FakeAppDatabase.kt:FakeNoteDao$ </ID>
-    <ID>Indentation:FakeAppDatabase.kt:FakeReminderDao$ </ID>
-    <ID>Indentation:FakeRepositories.kt: </ID>
-    <ID>Indentation:FakeRepositories.kt:InMemoryTaskDao$ </ID>
-    <ID>Indentation:MenuNodeFlattenTest.kt:MenuNodeFlattenTest$ </ID>
-    <ID>Indentation:MenuNodesBuilderTest.kt:MenuNodesBuilderTest$ </ID>
-    <ID>Indentation:PomodoroDomain.kt: </ID>
-    <ID>Indentation:ProfileSwitcherViewModel.kt:ProfileSwitcherViewModel$ </ID>
-    <ID>Indentation:QueryParser.kt:QueryParser$ </ID>
-    <ID>Indentation:SavedAgendaViewModel.kt:SavedAgendaViewModel$ </ID>
-    <ID>Indentation:SelectorMatcher.kt: </ID>
-    <ID>Indentation:SelectorSerializer.kt:RegistryHolder$ </ID>
-    <ID>Indentation:SelectorSerializerTest.kt:SelectorSerializerTest$ </ID>
-    <ID>Indentation:SimpleFilterMapperTest.kt:SimpleFilterMapperTest$ </ID>
-    <ID>Indentation:SyncEngine.kt:SyncEngine$ </ID>
-    <ID>Indentation:TagsViewModel.kt:TagsViewModel$ </ID>
+    <ID>Indentation:FakeRepositories.kt:FakeNotesRepository$ </ID>
+    <ID>Indentation:NoteAiController.kt:NoteAiController$ </ID>
+    <ID>Indentation:TaskDetail.kt:TaskDetailViewModel$ </ID>
     <ID>IntentMethodName:CalendarSyncViewModel.kt:CalendarSyncViewModel$fun processIntent</ID>
     <ID>IntentMethodName:ProfileSwitcherViewModel.kt:ProfileSwitcherViewModel$fun processIntent</ID>
-    <ID>IntentMethodName:ProjectEditorViewModel.kt:ProjectEditorViewModel$fun processIntent</ID>
     <ID>IntentMethodName:SearchViewModel.kt:SearchViewModel$fun processIntent</ID>
     <ID>IntentMethodName:SettingsViewModel.kt:SettingsViewModel$fun processIntent</ID>
     <ID>IntentMethodName:SyncViewModel.kt:SyncViewModel$fun process</ID>
@@ -939,6 +668,7 @@
     <ID>LongMethod:LoginScreen.kt:@Composable fun LoginScreen</ID>
     <ID>LongMethod:NoteEditorScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun NoteEditorScreenContent</ID>
     <ID>LongMethod:NotePreviewScreen.kt:@OptIn(ExperimentalMaterial3Api::class, ExperimentalRichTextApi::class) @Composable fun NotePreviewScreenContent</ID>
+    <ID>LongMethod:NotesListScreen.kt:@Composable private fun NoteList</ID>
     <ID>LongMethod:NotesListScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun NotesScreenContent</ID>
     <ID>LongMethod:PlatformModule.android.kt:actual fun platformModule: Module</ID>
     <ID>LongMethod:PomodoroScreen.kt:@Composable fun PomodoroScreen</ID>
@@ -964,100 +694,37 @@
     <ID>LongMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
     <ID>LongMethod:TaskEditorSheetsHost.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorSheetsHost</ID>
     <ID>LongMethod:TaskMenuBuilder.kt:fun buildTaskContextMenu: List&lt;MenuNode&gt;</ID>
+    <ID>LongMethod:TasksDiModule.kt:fun tasksModule: org.koin.core.module.Module</ID>
     <ID>LoopWithTooManyJumpStatements:A2uiParser.kt:A2uiParser$for</ID>
     <ID>LoopWithTooManyJumpStatements:ConditionExprParser.kt:ConditionExprParser$while</ID>
     <ID>MaximumLineLength:AccountSettingsScreen.kt:,</ID>
     <ID>MaximumLineLength:AgendaEvaluatorTest.kt:AgendaEvaluatorTest$// discard removes matched tasks</ID>
     <ID>MaximumLineLength:BackupCodecTest.kt:BackupCodecTest$)</ID>
+    <ID>MaximumLineLength:CalendarDateMathTest.kt:CalendarDateMathTest.Companion$,</ID>
     <ID>MaximumLineLength:CalendarSyncSettingsScreen.kt:,</ID>
-    <ID>MaximumLineLength:CalendarViewModel.kt:CalendarViewModel$}</ID>
-    <ID>MaximumLineLength:Clock.kt:Clock$)</ID>
-    <ID>MaximumLineLength:ContentStateMapper.kt:ContentStateMapper${</ID>
-    <ID>MaximumLineLength:CoreDiModule.kt:)</ID>
+    <ID>MaximumLineLength:CalendarTaskMapperTest.kt:CalendarTaskMapperTest.Companion$,</ID>
     <ID>MaximumLineLength:Entities.kt:TaskReminderEntity$// epoch millis of last fire; guards against re-firing recurring reminders too soon</ID>
-    <ID>MaximumLineLength:FabActionResolverTest.kt:FabActionResolverTest$)</ID>
-    <ID>MaximumLineLength:FakeAppDatabase.kt:FakeAppDatabase$)</ID>
-    <ID>MaximumLineLength:FakeAppDatabase.kt:FakeAttachmentDao$}</ID>
-    <ID>MaximumLineLength:FakeAppDatabase.kt:FakeNoteDao$-&gt;</ID>
-    <ID>MaximumLineLength:FakeAppDatabase.kt:FakeProjectDao$}</ID>
-    <ID>MaximumLineLength:FakeAppDatabase.kt:FakeReminderDao$=</ID>
-    <ID>MaximumLineLength:FakeAppDatabase.kt:FakeReminderDao$}</ID>
-    <ID>MaximumLineLength:FakeAppDatabase.kt:FakeTagDao$}</ID>
     <ID>MaximumLineLength:FakeRepositories.kt:FakeProjectsRepository$,</ID>
     <ID>MaximumLineLength:IdTokenTest.kt:IdTokenTest$"</ID>
     <ID>MaximumLineLength:KoogAgentService.kt:FakeTextGen$,</ID>
     <ID>MaximumLineLength:LlmUseCase.kt:ImproveNoteUseCase$(</ID>
     <ID>MaximumLineLength:NoteContentMapperTest.kt:NoteContentMapperTest$"""</ID>
     <ID>MaximumLineLength:ProfileSwitcherScreen.kt:// Preview pattern: construct VM with Fake* deps directly</ID>
-    <ID>MaximumLineLength:ProjectDetailContent.kt:)</ID>
     <ID>MaximumLineLength:ProjectDetailContent.kt:,</ID>
-    <ID>MaximumLineLength:ProjectDetailContent.kt:true</ID>
-    <ID>MaximumLineLength:ProjectDetailContent.kt:{</ID>
-    <ID>MaximumLineLength:ProjectDetailContent.kt:}</ID>
-    <ID>MaximumLineLength:ProjectDetailIntent.kt:ProjectDetailIntent.Routing.NavigateToChild$Routing</ID>
-    <ID>MaximumLineLength:ProjectDetailViewModel.kt:ProjectDetailViewModel$)</ID>
-    <ID>MaximumLineLength:RecurrenceCalculator.kt:RecurrenceCalculator${</ID>
-    <ID>MaximumLineLength:RecurrenceParser.kt:RecurrenceParser$1</ID>
-    <ID>MaximumLineLength:RecurrenceParser.kt:RecurrenceParser$null</ID>
-    <ID>MaximumLineLength:RecurrencePickerSheet.kt:)</ID>
-    <ID>MaximumLineLength:RecurrencePickerSheet.kt:}</ID>
     <ID>MaximumLineLength:SavedAgendaViewModelTest.kt:SavedAgendaViewModelTest$,</ID>
     <ID>MaximumLineLength:SettingsImporter.kt:SettingsImporter$)</ID>
-    <ID>MaximumLineLength:SettingsScreen.kt:)</ID>
     <ID>MaximumLineLength:SyncSourceTest.kt:SyncSourceTest$// Periodic: immediate=false, AppResumed: immediate=false → first wins</ID>
-    <ID>MaximumLineLength:TagGroupRepository.kt:TagGroupRepository$&gt;</ID>
-    <ID>MaximumLineLength:TaskDetailViewModelTest.kt:TaskDetailViewModelTest.&lt;no name provided&gt;$}</ID>
-    <ID>MaximumLineLength:TaskEditorSheetsHost.kt:,</ID>
     <ID>MaximumLineLength:TaskRowContent.kt:,</ID>
     <ID>MayBeConstant:AndroidSyncScheduler.kt:AndroidSyncScheduler.Companion$private val INTENT_ACTION = "com.singularity.todo.SYNC_ALARM"</ID>
     <ID>MayBeConstant:SettingsDefaults.kt:SettingsDefaults$// Not const: depends on UserId.anonymous.value (runtime property access). val USER_ID: String = "anonymous"</ID>
     <ID>MayBeConstant:SettingsDefaults.kt:SettingsDefaults$val SCHEMA_VERSION: Int = 1</ID>
     <ID>MayBeConstant:SettingsDefaults.kt:SettingsDefaults.Ai$// Not const: depends on enum entry property access at runtime. val PROVIDER: String = "openai"</ID>
     <ID>MayBeConstant:SettingsDefaults.kt:SettingsDefaults.Appearance$// Not const: depends on enum entry property access at runtime. val ACCENT_COLOR: String = "blue"</ID>
-    <ID>MultiLineIfElse:TaskEditorContent.kt:"$dateStr ${ time.toString() .take(5) }"</ID>
-    <ID>MultiLineIfElse:TaskEditorContent.kt:dateStr</ID>
-    <ID>NoConsecutiveBlankLines:CoreDiModule.kt: </ID>
-    <ID>NoConsecutiveBlankLines:Entities.kt: </ID>
-    <ID>NoConsecutiveBlankLines:ProjectDetailViewModelTest.kt:ProjectDetailViewModelTest$ </ID>
-    <ID>NoConsecutiveBlankLines:TagsDiModule.kt: </ID>
-    <ID>NoEmptyFirstLineInMethodBlock:TagsDiModule.kt: </ID>
-    <ID>NoMultipleSpaces:RecurrenceCalculator.kt:RecurrenceCalculator$ </ID>
-    <ID>NoSemicolons:BackupViewModelTest.kt:BackupViewModelTest$;</ID>
-    <ID>NoSemicolons:FileLogWriter.kt:FileLogWriter.Companion$;</ID>
-    <ID>NoSemicolons:OAuth.kt:OAuthTokenData.Companion$;</ID>
-    <ID>NoSemicolons:QueryTokenizer.kt:QueryTokenizer$;</ID>
-    <ID>NoSemicolons:ReorderableSectionList.kt:;</ID>
-    <ID>NoUnusedImports:AiUsageViewModel.kt:com.singularity.todo.feature.ai.usage.AiUsageViewModel.kt</ID>
-    <ID>NoUnusedImports:ArchiveViewModel.kt:com.singularity.todo.feature.archive.ArchiveViewModel.kt</ID>
-    <ID>NoUnusedImports:BackupCodecContractTest.kt:com.singularity.todo.core.backup.BackupCodecContractTest.kt</ID>
-    <ID>NoUnusedImports:CompleteRecurringTaskUseCase.kt:com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase.kt</ID>
-    <ID>NoUnusedImports:ConfirmArchiveSheet.kt:com.singularity.todo.feature.projects.presentation.components.ConfirmArchiveSheet.kt</ID>
-    <ID>NoUnusedImports:CurrentUser.kt:com.singularity.todo.core.auth.CurrentUser.kt</ID>
-    <ID>NoUnusedImports:DataStoreCatchTest.kt:com.singularity.todo.core.settings.DataStoreCatchTest.kt</ID>
-    <ID>NoUnusedImports:DataStoreDraftStore.kt:import kotlinx.coroutines.flow.catch</ID>
-    <ID>NoUnusedImports:DataStoreDraftStore.kt:import kotlinx.coroutines.flow.first</ID>
-    <ID>NoUnusedImports:DependencyValidator.kt:com.singularity.todo.feature.tasks.domain.port.DependencyValidator.kt</ID>
-    <ID>NoUnusedImports:HoverOpenState.kt:com.singularity.todo.core.ui.menu.HoverOpenState.kt</ID>
-    <ID>NoUnusedImports:IconPickerSheet.kt:com.singularity.todo.feature.projects.presentation.components.IconPickerSheet.kt</ID>
-    <ID>NoUnusedImports:MviViewModel.kt:com.singularity.todo.core.ui.mvi.MviViewModel.kt</ID>
-    <ID>NoUnusedImports:ProfileAwareCurrentUser.kt:com.singularity.todo.feature.profile.ProfileAwareCurrentUser.kt</ID>
-    <ID>NoUnusedImports:ProfileRepositoryImpl.kt:com.singularity.todo.feature.profile.ProfileRepositoryImpl.kt</ID>
-    <ID>NoUnusedImports:ProjectDetailContent.kt:com.singularity.todo.feature.projects.presentation.screen.ProjectDetailContent.kt</ID>
-    <ID>NoUnusedImports:ProjectEditorScreen.kt:com.singularity.todo.feature.projects.presentation.screen.ProjectEditorScreen.kt</ID>
-    <ID>NoUnusedImports:ProjectPickerSheet.kt:com.singularity.todo.feature.tasks.presentation.components.ProjectPickerSheet.kt</ID>
-    <ID>NoUnusedImports:ProjectsViewModel.kt:com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel.kt</ID>
-    <ID>NoUnusedImports:ProjectsViewModelTest.kt:com.singularity.todo.feature.projects.ProjectsViewModelTest.kt</ID>
-    <ID>NoUnusedImports:RecurrenceSpec.kt:com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.kt</ID>
-    <ID>NoUnusedImports:TagsPickerSheet.kt:com.singularity.todo.feature.tags.components.TagsPickerSheet.kt</ID>
-    <ID>NoUnusedImports:TaskCreateDebounceTest.kt:com.singularity.todo.feature.tasks.TaskCreateDebounceTest.kt</ID>
-    <ID>NoUnusedImports:TaskCreateViewModelTest.kt:com.singularity.todo.feature.tasks.TaskCreateViewModelTest.kt</ID>
-    <ID>NoUnusedImports:TaskCreateViewModelTest.kt:import kotlinx.coroutines.test.advanceUntilIdle</ID>
-    <ID>NoUnusedImports:TaskDetail.kt:com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetail.kt</ID>
-    <ID>NoUnusedImports:TaskDetailViewScreen.kt:com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScreen.kt</ID>
-    <ID>NoUnusedImports:TaskEditorContent.kt:com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent.kt</ID>
-    <ID>NoUnusedImports:TaskEditorSheetsHost.kt:com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorSheetsHost.kt</ID>
-    <ID>NoUnusedImports:TaskEditorSheetsHost.kt:import kotlinx.datetime.toLocalDateTime</ID>
-    <ID>NoUnusedImports:TaskExtrasLoadingTest.kt:com.singularity.todo.feature.tasks.TaskExtrasLoadingTest.kt</ID>
+    <ID>NoRunBlocking:FileLogWriter.kt:FileLogWriter$runBlocking { withTimeoutOrNull(DRAIN_TIMEOUT_MS) { flush() } }</ID>
+    <ID>NoRunBlocking:FileLogWriter.kt:FileLogWriter$runBlocking { writeJob.join() }</ID>
+    <ID>NoRunBlocking:KoinBridge.kt:runBlocking { block() }</ID>
+    <ID>NoRunBlocking:SettingsDataStoreMigration.kt:SettingsDataStoreMigration$runBlocking { run() }</ID>
+    <ID>NoUnusedImports:CalendarTaskMapperTest.kt:com.singularity.todo.feature.calendar.CalendarTaskMapperTest.kt</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -1144,22 +811,6 @@
     <ID>PackageNaming:SyncSource.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageNaming:SyncSourceTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageNaming:TranslateExceptions.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
-    <ID>ParameterListWrapping:CalendarViewModel.kt:CalendarViewModel$task</ID>
-    <ID>ParameterListWrapping:FakeAppDatabase.kt:FakeAttachmentDao$(id: String, userId: String)</ID>
-    <ID>ParameterListWrapping:FakeAppDatabase.kt:FakeAttachmentDao$a</ID>
-    <ID>ParameterListWrapping:FakeAppDatabase.kt:FakeProjectDao$(id: String, userId: String)</ID>
-    <ID>ParameterListWrapping:FakeAppDatabase.kt:FakeProjectDao$p</ID>
-    <ID>ParameterListWrapping:FakeAppDatabase.kt:FakeReminderDao$map</ID>
-    <ID>ParameterListWrapping:FakeAppDatabase.kt:FakeReminderDao$r</ID>
-    <ID>ParameterListWrapping:ProjectDetailContent.kt:(String)</ID>
-    <ID>ParameterListWrapping:ProjectDetailContent.kt:(TaskId)</ID>
-    <ID>ParameterListWrapping:ProjectDetailContent.kt:(availableTasks: List&lt;Task&gt;, actions: ProjectDetailActions, modifier: Modifier = Modifier)</ID>
-    <ID>ParameterListWrapping:ProjectDetailContent.kt:(tasks: List&lt;Task&gt;, query: String, onQueryChange: (String) -&gt; Unit, onPick: (TaskId) -&gt; Unit, onDismiss: () -&gt; Unit)</ID>
-    <ID>ParameterListWrapping:ProjectDetailContent.kt:(ui: ProjectDetailUi, hideCompleted: Boolean, availableTasks: List&lt;Task&gt;, actions: ProjectDetailActions, nav: ProjectsNavigator)</ID>
-    <ID>ParameterListWrapping:ProjectDetailIntent.kt:ProjectDetailIntent.Routing.NavigateToChild$(val projectId: com.singularity.todo.feature.projects.domain.model.ProjectId)</ID>
-    <ID>ParameterListWrapping:TagGroupRepository.kt:TagGroupRepository$(projectId: com.singularity.todo.feature.projects.domain.model.ProjectId)</ID>
-    <ID>ParameterListWrapping:TagGroupRepository.kt:TagGroupRepository$(projectId: com.singularity.todo.feature.projects.domain.model.ProjectId, groupIds: Set&lt;TagGroupId&gt;)</ID>
-    <ID>ParameterListWrapping:TaskDetailViewModelTest.kt:TaskDetailViewModelTest.&lt;no name provided&gt;$(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId, userId: UserId)</ID>
     <ID>PropertyName:AppDestination.kt:/** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */ const val MenuButtonTitle = "Menu"</ID>
     <ID>PropertyName:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
     <ID>PropertyName:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
@@ -1168,8 +819,8 @@
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Red = "\u001B[31m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Reset = "\u001B[0m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Yellow = "\u001B[33m"</ID>
-    <ID>PropertyWrapping:FabActionResolverTest.kt:FabActionResolverTest$val result = fabActionForNav3(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()), navigate)</ID>
-    <ID>PropertyWrapping:RecurrencePickerSheet.kt:val spec = remember(selectedBase, selectedType, intervalAmount, selectedUnit, selectedWeekdays, monthlyDay, yearlyMonth, yearlyDay) { buildSpec() }</ID>
+    <ID>RepositoryInterfaceMustHaveKDoc:ChecklistRepository.kt:ChecklistRepository</ID>
+    <ID>RepositoryInterfaceMustHaveKDoc:SavedAgendaViewsRepository.kt:SavedAgendaViewsRepository : GenericUserScopedRepository</ID>
     <ID>RethrowCaughtException:FireAndForget.kt:throw e</ID>
     <ID>ReturnCount:A2uiParser.kt:A2uiParser$fun parseLine: UiEvent?</ID>
     <ID>ReturnCount:AgendaEvaluator.kt:AgendaEvaluator$private fun computeBadge: AgendaBadge?</ID>
@@ -1180,29 +831,7 @@
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseRule: Pair&lt;RecurrenceSpec, Int&gt;</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseShortForm: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseYearlyDate: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
-    <ID>SpacingAroundParens:DesktopShellNav3.kt:(</ID>
-    <ID>SpacingAroundParens:TaskEditorContent.kt:(</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:RecurrenceSpec.kt:RecurrenceSpec.RecurrenceBase.CATCH_UP$/** Like FROM_COMPLETION but generates catch-up copies for missed occurrences. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:RecurrenceSpec.kt:RecurrenceSpec.RecurrenceBase.FROM_COMPLETION$/** Next occurrence is relative to when the current occurrence was completed. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:SessionStore.kt:/** * Emits [emptyPreferences] when [java.io.IOException] is thrown (e.g. corrupted DataStore file), * re-throwing all other exceptions. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:TaskDetailViewModelTest.kt:TaskDetailViewModelTest$/** Stub for [CompleteRecurringTaskUseCase] — existing tests don't cover recurring completion. */</ID>
-    <ID>StatementWrapping:ChildProjectsSheet.kt:;</ID>
-    <ID>StatementWrapping:ChildProjectsSheet.kt:onShowChildren(child); onDismiss()</ID>
-    <ID>StatementWrapping:ProjectDetailContent.kt:;</ID>
-    <ID>StatementWrapping:ProjectDetailContent.kt:QuickAddSheet${ data object Picker : QuickAddSheet() }</ID>
-    <ID>StatementWrapping:ProjectDetailContent.kt:actions.onMoveTaskToProject(taskId); popup.dismissAll(); query = ""</ID>
-    <ID>StatementWrapping:ProjectDetailContent.kt:overflowMenuOpen = false; actions.onOpenArchiveSheet()</ID>
-    <ID>StatementWrapping:ProjectDetailContent.kt:overflowMenuOpen = false; actions.onOpenDeleteSheet()</ID>
-    <ID>StatementWrapping:ProjectDetailContent.kt:popup.dismissAll(); query = ""</ID>
-    <ID>StatementWrapping:ProjectDetailContent.kt:{ IconButton(onClick = { actions.onToggleArchive() }) { Icon(Icons.Filled.PushPin, "Unarchive") } }</ID>
-    <ID>StatementWrapping:ProjectDetailContent.kt:{ actions.onCreateTask(text); text = ""; focus.clearFocus() }</ID>
-    <ID>StatementWrapping:RecurrenceParser.kt:RecurrenceParser$;</ID>
-    <ID>StatementWrapping:RecurrenceParser.kt:RecurrenceParser${ (tokens[p] as Token.Number).value.also { p++ } }</ID>
-    <ID>StatementWrapping:RecurrenceParser.kt:RecurrenceParser${ tokens.add(Token.Bang(i)); i++ }</ID>
-    <ID>StatementWrapping:RecurrenceParser.kt:RecurrenceParser${ tokens.add(Token.Comma(i)); i++ }</ID>
-    <ID>StatementWrapping:RecurrenceParser.kt:RecurrenceParser${ tokens.add(Token.Dot(i)); i++ }</ID>
-    <ID>StatementWrapping:RecurrenceParser.kt:RecurrenceParser${ tokens.add(Token.Word("+", i)); i++ }</ID>
-    <ID>StringTemplate:AwaitState.kt:${timeoutMs}</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:CalendarViewModelTest.kt:CalendarViewModelTest$// Must share the same ProfileAwareCurrentUser so that all internal collectors</ID>
     <ID>SwallowedException:AiToolFilters.kt:e: Throwable</ID>
     <ID>SwallowedException:ConditionExprParser.kt:ConditionExprParser$e: Exception</ID>
     <ID>SwallowedException:QueryParser.kt:QueryParser$e: Exception</ID>
@@ -1218,6 +847,7 @@
     <ID>TooGenericExceptionCaught:ClusterTasksTool.kt:ClusterTasksTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ConditionExprParser.kt:ConditionExprParser$e: Exception</ID>
     <ID>TooGenericExceptionCaught:DecomposeTaskTool.kt:DecomposeTaskTool$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:ExtractActionsTool.kt:ExtractActionsTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:FireAndForget.kt:e: Throwable</ID>
     <ID>TooGenericExceptionCaught:GenerateChecklistTool.kt:GenerateChecklistTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ImproveNoteTool.kt:ImproveNoteTool$e: Exception</ID>
@@ -1227,7 +857,10 @@
     <ID>TooGenericExceptionCaught:RecurrenceParser.kt:RecurrenceParser$e: Exception</ID>
     <ID>TooGenericExceptionCaught:RemoteConfigRepositoryImpl.kt:RemoteConfigRepositoryImpl$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:RewriteNoteTool.kt:RewriteNoteTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SearchViewModel.kt:SearchViewModel$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:SuggestTagsTool.kt:SuggestTagsTool$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:SummarizeNoteTool.kt:SummarizeNoteTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SyncBootstrapper.kt:SyncBootstrapper$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:SyncEngine.kt:SyncEngine$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:SyncOutboxWorker.kt:SyncOutboxWorker$e: Exception</ID>
@@ -1240,10 +873,12 @@
     <ID>TooManyFunctions:Daos.kt:ProjectDao</ID>
     <ID>TooManyFunctions:Daos.kt:TaskDao</ID>
     <ID>TooManyFunctions:JvmSecureStorage.kt:JvmSecureStorage : SecureStoragePort</ID>
+    <ID>TooManyFunctions:NotesListViewModel.kt:NotesListViewModel : MviViewModel</ID>
     <ID>TooManyFunctions:NotesRepository.kt:NotesRepository : GenericUserScopedRepositorySoftDeletable</ID>
     <ID>TooManyFunctions:NotesRepository.kt:RoomNotesRepository : NotesRepository</ID>
     <ID>TooManyFunctions:ProjectDetailActions.kt:ProjectDetailActions</ID>
     <ID>TooManyFunctions:ProjectsRepositoryImpl.kt:ProjectsRepositoryImpl : ProjectsRepository</ID>
+    <ID>TooManyFunctions:Prompts.kt:Prompts</ID>
     <ID>TooManyFunctions:RecurrenceParser.kt:RecurrenceParser</ID>
     <ID>TooManyFunctions:ReminderRepository.kt:ReminderRepository</ID>
     <ID>TooManyFunctions:RoomReminderRepository.kt:RoomReminderRepository : ReminderRepository</ID>
@@ -1251,63 +886,6 @@
     <ID>TooManyFunctions:TaskRepository.kt:TaskRepository : SoftDeletable</ID>
     <ID>TooManyFunctions:TaskRepositoryImpl.kt:TaskRepositoryImpl : TaskRepository</ID>
     <ID>TopLevelPropertyNaming:AppDestination.kt:/** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */ const val MenuButtonTitle = "Menu"</ID>
-    <ID>TrailingCommaOnCallSite:AnalyticsTest.kt:AnalyticsTest$( mutablePreferencesOf( longPreferencesKey("last_logged_event1:default") to today(), ) )</ID>
-    <ID>TrailingCommaOnCallSite:AnalyticsTest.kt:AnalyticsTest$( mutablePreferencesOf( longPreferencesKey("last_logged_event2:default") to today(), ) )</ID>
-    <ID>TrailingCommaOnCallSite:BackupViewModel.kt:BackupViewModel$( Error( "Settings snapshot is from an older app version (v${result.snapshotVersion}). " + "Please update the app first.", ) )</ID>
-    <ID>TrailingCommaOnCallSite:CoreDiModule.kt:( Logger.withTag("AuthRepository"), get(), get() )</ID>
-    <ID>TrailingCommaOnCallSite:CoreDiModule.kt:( Logger.withTag("SyncEngine"), get(), get(), get(), get(), get(), get(), get(), get() )</ID>
-    <ID>TrailingCommaOnCallSite:CoreDiModule.kt:( engine = get(), runner = get(), prefs = get(), api = get(), authRepository = get(), scope = get() )</ID>
-    <ID>TrailingCommaOnCallSite:CoreDiModule.kt:( engine = get(), scheduler = get(), authRepository = get(), prefs = get(), scope = get() )</ID>
-    <ID>TrailingCommaOnCallSite:CoreDiModule.kt:( engine = get(), taskRepo = get(), noteRepo = get(), projectRepo = get(), tagRepo = get(), tagGroupRepo = get() )</ID>
-    <ID>TrailingCommaOnCallSite:CoreDiModule.kt:( get(), get(), get() )</ID>
-    <ID>TrailingCommaOnCallSite:CoreDiModule.kt:( repository = get(), authRepository = get(), backupFileNamer = get(), clock = get(), settingsExporter = get(), settingsImporter = get() )</ID>
-    <ID>TrailingCommaOnCallSite:MenuNodeFlattenTest.kt:MenuNodeFlattenTest$( "a", "A", children = buildMenuNodes { item("a1", "A1") {} item("a2", "A2") {} } )</ID>
-    <ID>TrailingCommaOnCallSite:MenuNodeFlattenTest.kt:MenuNodeFlattenTest$( "b", "B", children = buildMenuNodes { item("b1", "B1") {} } )</ID>
-    <ID>TrailingCommaOnCallSite:MenuNodeFlattenTest.kt:MenuNodeFlattenTest$( "l1", "Level 1", children = buildMenuNodes { subMenu( "l2", "Level 2", children = buildMenuNodes { subMenu( "l3", "Level 3", children = buildMenuNodes { item("deep", "Deepest") {} } ) } ) } )</ID>
-    <ID>TrailingCommaOnCallSite:MenuNodeFlattenTest.kt:MenuNodeFlattenTest$( "l2", "Level 2", children = buildMenuNodes { subMenu( "l3", "Level 3", children = buildMenuNodes { item("deep", "Deepest") {} } ) } )</ID>
-    <ID>TrailingCommaOnCallSite:MenuNodeFlattenTest.kt:MenuNodeFlattenTest$( "l3", "Level 3", children = buildMenuNodes { item("deep", "Deepest") {} } )</ID>
-    <ID>TrailingCommaOnCallSite:MenuNodesBuilderTest.kt:MenuNodesBuilderTest$( "s", "Sub", children = buildMenuNodes { item("nested", "Nested") {} } )</ID>
-    <ID>TrailingCommaOnCallSite:ProfileSwitcherViewModel.kt:ProfileSwitcherViewModel$( Profile( id = ProfileId.generate(), name = name, emoji = emoji, colorIdx = colorIdx, isDefault = false, createdAt = now, updatedAt = now, ) )</ID>
-    <ID>TrailingCommaOnCallSite:RecurrenceFormatters.kt:RecurrenceFormatters$( "", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" )</ID>
-    <ID>TrailingCommaOnCallSite:RecurrenceFormatters.kt:RecurrenceFormatters$( "", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" )</ID>
-    <ID>TrailingCommaOnCallSite:RecurrencePickerSheet.kt:( "Mon" to 1, "Tue" to 2, "Wed" to 3, "Thu" to 4, "Fri" to 5, "Sat" to 6, "Sun" to 7 )</ID>
-    <ID>TrailingCommaOnCallSite:RecurrencePickerSheet.kt:( 1 to "Jan", 2 to "Feb", 3 to "Mar", 4 to "Apr", 5 to "May", 6 to "Jun", 7 to "Jul", 8 to "Aug", 9 to "Sep", 10 to "Oct", 11 to "Nov", 12 to "Dec" )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "AllOf", SelectorEntry( encode = { s -&gt; val allOf = s as Selector.AllOf JsonObject( mapOf( "_type" to JsonPrimitive("AllOf"), "children" to JsonArray( allOf.children.map { child -&gt; allEntries.getValue(child.typeTag).encode(child) } ), ) ) }, decode = { obj -&gt; Selector.AllOf( children = Json.decodeFromJsonElement(serializer(), obj.getValue("children")), ) }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "AnyOf", SelectorEntry( encode = { s -&gt; val anyOf = s as Selector.AnyOf JsonObject( mapOf( "_type" to JsonPrimitive("AnyOf"), "children" to JsonArray( anyOf.children.map { child -&gt; allEntries.getValue(child.typeTag).encode(child) } ), ) ) }, decode = { obj -&gt; Selector.AnyOf( children = Json.decodeFromJsonElement(serializer(), obj.getValue("children")), ) }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "Anything", SelectorEntry( encode = { JsonObject(mapOf("_type" to JsonPrimitive("Anything"))) }, decode = { Selector.Anything }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "Completed", SelectorEntry( encode = { JsonObject(mapOf("_type" to JsonPrimitive("Completed"))) }, decode = { Selector.Completed }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "DateBucket", SelectorEntry( encode = { s -&gt; JsonObject( mapOf( "_type" to JsonPrimitive("DateBucket"), "bucket" to JsonPrimitive((s as Selector.DateBucket).bucket.name), ) ) }, decode = { obj -&gt; Selector.DateBucket( bucket = Json.decodeFromJsonElement(serializer(), obj.getValue("bucket")), ) }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "DateRange", SelectorEntry( encode = { s -&gt; JsonObject( mapOf( "_type" to JsonPrimitive("DateRange"), "from" to JsonPrimitive((s as Selector.DateRange).from.toString()), "to" to JsonPrimitive(s.to.toString()), ) ) }, decode = { obj -&gt; Selector.DateRange( from = Json.decodeFromJsonElement(serializer(), obj.getValue("from")), to = Json.decodeFromJsonElement(serializer(), obj.getValue("to")), ) }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "Not", SelectorEntry( encode = { s -&gt; val not = s as Selector.Not JsonObject( mapOf( "_type" to JsonPrimitive("Not"), "child" to allEntries.getValue(not.child.typeTag).encode(not.child), ) ) }, decode = { obj -&gt; Selector.Not( child = Json.decodeFromJsonElement(serializer(), obj.getValue("child")), ) }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "Overdue", SelectorEntry( encode = { JsonObject(mapOf("_type" to JsonPrimitive("Overdue"))) }, decode = { Selector.Overdue }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "Pinned", SelectorEntry( encode = { JsonObject(mapOf("_type" to JsonPrimitive("Pinned"))) }, decode = { Selector.Pinned }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "Priorities", SelectorEntry( encode = { s -&gt; JsonObject( mapOf( "_type" to JsonPrimitive("Priorities"), "priorities" to JsonArray((s as Selector.Priorities).priorities.map { JsonPrimitive(it.name) }), "atMost" to JsonPrimitive(s.atMost), ) ) }, decode = { obj -&gt; Selector.Priorities( priorities = Json.decodeFromJsonElement(serializer(), obj.getValue("priorities")), atMost = obj["atMost"]?.let { Json.decodeFromJsonElement(serializer(), it) } ?: true, ) }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "Projects", SelectorEntry( encode = { s -&gt; JsonObject( mapOf( "_type" to JsonPrimitive("Projects"), "ids" to JsonArray((s as Selector.Projects).ids.map { JsonPrimitive(it.value) }), ) ) }, decode = { obj -&gt; Selector.Projects( ids = Json.decodeFromJsonElement(serializer(), obj.getValue("ids")), ) }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "Regexp", SelectorEntry( encode = { s -&gt; JsonObject( mapOf( "_type" to JsonPrimitive("Regexp"), "query" to JsonPrimitive((s as Selector.Regexp).query), ) ) }, decode = { obj -&gt; Selector.Regexp( query = obj.getValue("query").jsonPrimitive.content, ) }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "Statuses", SelectorEntry( encode = { s -&gt; JsonObject( mapOf( "_type" to JsonPrimitive("Statuses"), "statuses" to JsonArray((s as Selector.Statuses).statuses.map { JsonPrimitive(it.name) }), ) ) }, decode = { obj -&gt; Selector.Statuses( statuses = Json.decodeFromJsonElement(serializer(), obj.getValue("statuses")), ) }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( "Tags", SelectorEntry( encode = { s -&gt; JsonObject( mapOf( "_type" to JsonPrimitive("Tags"), "ids" to JsonArray((s as Selector.Tags).ids.map { JsonPrimitive(it.value) }), "matchAll" to JsonPrimitive(s.matchAll), ) ) }, decode = { obj -&gt; Selector.Tags( ids = Json.decodeFromJsonElement(serializer(), obj.getValue("ids")), matchAll = obj["matchAll"]?.let { Json.decodeFromJsonElement(serializer(), it) } ?: false, ) }, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( allOf.children.map { child -&gt; allEntries.getValue(child.typeTag).encode(child) } )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( anyOf.children.map { child -&gt; allEntries.getValue(child.typeTag).encode(child) } )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( mapOf( "_type" to JsonPrimitive("AllOf"), "children" to JsonArray( allOf.children.map { child -&gt; allEntries.getValue(child.typeTag).encode(child) } ), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( mapOf( "_type" to JsonPrimitive("AnyOf"), "children" to JsonArray( anyOf.children.map { child -&gt; allEntries.getValue(child.typeTag).encode(child) } ), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( mapOf( "_type" to JsonPrimitive("DateBucket"), "bucket" to JsonPrimitive((s as Selector.DateBucket).bucket.name), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( mapOf( "_type" to JsonPrimitive("DateRange"), "from" to JsonPrimitive((s as Selector.DateRange).from.toString()), "to" to JsonPrimitive(s.to.toString()), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( mapOf( "_type" to JsonPrimitive("Not"), "child" to allEntries.getValue(not.child.typeTag).encode(not.child), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( mapOf( "_type" to JsonPrimitive("Priorities"), "priorities" to JsonArray((s as Selector.Priorities).priorities.map { JsonPrimitive(it.name) }), "atMost" to JsonPrimitive(s.atMost), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( mapOf( "_type" to JsonPrimitive("Projects"), "ids" to JsonArray((s as Selector.Projects).ids.map { JsonPrimitive(it.value) }), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( mapOf( "_type" to JsonPrimitive("Regexp"), "query" to JsonPrimitive((s as Selector.Regexp).query), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( mapOf( "_type" to JsonPrimitive("Statuses"), "statuses" to JsonArray((s as Selector.Statuses).statuses.map { JsonPrimitive(it.name) }), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializer.kt:RegistryHolder$( mapOf( "_type" to JsonPrimitive("Tags"), "ids" to JsonArray((s as Selector.Tags).ids.map { JsonPrimitive(it.value) }), "matchAll" to JsonPrimitive(s.matchAll), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializerTest.kt:SelectorSerializerTest$( listOf( Selector.AllOf( listOf( Selector.Completed, Selector.Pinned, ) ), Selector.Not(Selector.Overdue), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializerTest.kt:SelectorSerializerTest$( listOf( Selector.Completed, Selector.Pinned, ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializerTest.kt:SelectorSerializerTest$( listOf( Selector.DateBucket(RelativeBucket.Today), Selector.Tags(setOf(TagId("tag-1"))), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SelectorSerializerTest.kt:SelectorSerializerTest$( listOf( Selector.Priorities(setOf(TaskPriority.High)), Selector.DateBucket(RelativeBucket.Overdue), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SimpleFilterMapperTest.kt:SimpleFilterMapperTest$( condition = Condition.Or( listOf( Condition.HasTag("work"), Condition.HasTag("home"), ) ) )</ID>
-    <ID>TrailingCommaOnCallSite:SimpleFilterMapperTest.kt:SimpleFilterMapperTest$( listOf( Condition.HasTag("work"), Condition.HasTag("home"), ) )</ID>
-    <ID>TrailingCommaOnCallSite:SimpleFilterMapperTest.kt:SimpleFilterMapperTest$( listOf( Condition.HasTag("work"), Condition.IsArchived, ) )</ID>
-    <ID>TrailingCommaOnCallSite:TagGroupRepositoryImpl.kt:TagGroupRepositoryImpl$( TagGroup( id = id, name = "", // placeholder; sync handler uses docType + syncId only color = 0, createdAt = clock.now(), updatedAt = clock.now(), userId = uid.value, deletedAt = clock.now(), ) )</ID>
-    <ID>TrailingCommaOnCallSite:TagsDiModule.kt:( ::CreateTagUseCase )</ID>
-    <ID>TrailingCommaOnDeclarationSite:RecurrencePickerSheet.kt:SpecType.INTERVAL_DAY, SpecType.INTERVAL_WEEK, SpecType.INTERVAL_MONTH, SpecType.INTERVAL_YEAR -&gt; { IntervalEditor( amount = intervalAmount, unit = selectedUnit, type = selectedType, onAmountChange = { intervalAmount = it }, onUnitChange = { selectedUnit = it }, ) }</ID>
     <ID>UnusedParameter:AgendaEvaluator.kt:AgendaEvaluator$selector: Selector</ID>
     <ID>UnusedParameter:AppVersionGateScreen.kt:playStoreUrl: String</ID>
     <ID>UnusedParameter:AttachmentUploadService.kt:StubAttachmentUploadService$remotePath: String</ID>
@@ -1327,6 +905,7 @@
     <ID>UnusedParameter:FireAndForget.kt:errorLabel: String = "Operation failed"</ID>
     <ID>UnusedParameter:GenuiEngine.kt:GenuiEngine$surfaceId: SurfaceId</ID>
     <ID>UnusedParameter:IconPickerSheet.kt:onDismiss: () -&gt; Unit</ID>
+    <ID>UnusedParameter:NoteAiActionSheet.kt:onClick: () -&gt; Unit</ID>
     <ID>UnusedParameter:NoteCard.kt:isSelected: Boolean</ID>
     <ID>UnusedParameter:NoteCard.kt:onLongClick: () -&gt; Unit = {}</ID>
     <ID>UnusedParameter:NotePreviewScreen.kt:onNoteSelected: (String) -&gt; Unit</ID>
@@ -1351,38 +930,9 @@
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
     <ID>VariableNaming:TaskDetail.kt:TaskDetailViewModel$/** Visible for tests. TOCTOU: prefer to observe via state. */ internal val _latestTask = MutableStateFlow&lt;Task?&gt;(null)</ID>
+    <ID>ViewModelMustHaveKDoc:AppVersionGateViewModel.kt:AppVersionGateViewModel : MviViewModel</ID>
+    <ID>ViewModelMustHaveKDoc:TagGroupsViewModel.kt:TagGroupsViewModel : MviViewModel</ID>
     <ID>VmCloseable:MviViewModel.kt:MviViewModel&lt;S, I : MviIntent, E : MviEvent&gt; : StatefulViewModel</ID>
-    <ID>VmCloseable:TaskCreateViewModel.kt:TaskCreateViewModel$init { // 1. Restore draft from DataStore — seed-if-empty pattern. // Key is bare (no userId prefix) — UserScopedDraftStore handles isolation. scope.launch { runCatching { deps.draftStore.load(TaskCreateDeps.DRAFT_KEY, TaskDraft.serializer()) } .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft restore failed: ${it.message}" } } .getOrNull() ?.let { restored -&gt; if (_draft.value == initial) _draft.value = restored } } // 2. Debounced silent save loop — combine with source StateFlow scope.launch { _draft.drop(1) .debounce { 500L } .collect { draft -&gt; runCatching { deps.draftStore.save(TaskCreateDeps.DRAFT_KEY, draft, TaskDraft.serializer()) }.onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft save failed: ${it.message}" } } } } }</ID>
     <ID>VmScopePosition:SettingsViewModel.kt:SettingsViewModel$private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope()</ID>
-    <ID>Wrapping:DesktopShellNav3.kt:(</ID>
-    <ID>Wrapping:DesktopShellNav3.kt:( "edit", "Edit", children = buildMenuNodes { item("undo", "Undo", enabled = false, shortcut = "Ctrl+Z") {} item("redo", "Redo", enabled = false, shortcut = "Ctrl+Y") {} divider() item("find", "Find", shortcut = "Ctrl+F") { navigator.navigate(AppDestination.Search) } })</ID>
-    <ID>Wrapping:DesktopShellNav3.kt:( "file", "File", children = buildMenuNodes { item("new_task", "New Task", shortcut = "Ctrl+N") { navigator.navigate(AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create)) } item("settings", "Settings…", shortcut = "Ctrl+,") { navigator.navigate(AppDestination.Settings) } divider() item("quit", "Quit", shortcut = "Ctrl+Q") { exitProcess(0) } })</ID>
-    <ID>Wrapping:DesktopShellNav3.kt:( "help", "Help", children = buildMenuNodes { item("about", "About Singularity Todo") { showAbout = true } item("github", "Open GitHub…") { openGitHub() } })</ID>
-    <ID>Wrapping:FakeAppDatabase.kt:FakeAttachmentDao$it[id]?.takeIf { a -&gt; a.userId == userId }</ID>
-    <ID>Wrapping:FakeAppDatabase.kt:FakeProjectDao$it.userId == userId</ID>
-    <ID>Wrapping:FakeAppDatabase.kt:FakeProjectDao$it[id]?.takeIf { p -&gt; p.userId == userId }</ID>
-    <ID>Wrapping:FakeAppDatabase.kt:FakeReminderDao$it.taskId</ID>
-    <ID>Wrapping:FakeAppDatabase.kt:FakeTagDao$it.userId == userId &amp;&amp; it.deletedAt == null &amp;&amp; it.name.equals(name, ignoreCase = true)</ID>
-    <ID>Wrapping:FakeAppDatabase.kt:FakeTaskDao$(</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:Icon(Icons.Filled.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp))</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:Icon(Icons.Filled.Search, contentDescription = null)</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:Text("${ui.childProjects.size} sub-projects")</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:Text("Search tasks...")</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:Text(date.toString())</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:Text(parent.name)</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:Text(task.title, maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:actions.onDeleteTask(task.id)</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:actions.onOpenParentSheet(parent.id)</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:actions.onPin(task.id)</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:if (text.isNotBlank()) { actions.onCreateTask(text); text = ""; focus.clearFocus() }</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:nav.openTask(task.id)</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:onPick(task.id)</ID>
-    <ID>Wrapping:ProjectDetailContent.kt:{ actions.onCreateTask(text); text = ""; focus.clearFocus() }</ID>
-    <ID>Wrapping:RecurrencePickerSheet.kt:buildSpec()</ID>
-    <ID>Wrapping:RecurrencePickerSheet.kt:mutableStateOf((currentSpec as? Weekly)?.weekdays ?: setOf(anchorDate.dayOfWeek.ordinal + 1))</ID>
-    <ID>Wrapping:TaskDetailViewModelTest.kt:TaskDetailViewModelTest$(</ID>
-    <ID>Wrapping:TaskDetailViewModelTest.kt:TaskDetailViewModelTest$(fakeTaskRepo, Clock, FakeProfileAwareCurrentUser(FakeAuthRepository( initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId), )))</ID>
-    <ID>Wrapping:TaskEditorContent.kt:(</ID>
   </CurrentIssues>
 </SmellBaseline>

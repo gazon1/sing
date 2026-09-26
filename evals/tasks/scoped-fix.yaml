@@ -1,0 +1,18 @@
+name: scoped-fix
+description: Fix a scoped bug — the fix must not break other features.
+
+task: |
+  In `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/TaskListViewModel.kt`,
+  the `pinTask` function does not update the UI immediately after the database write.
+  Add an immediate state update so the UI reflects the pin change without waiting for the next repository observation cycle.
+
+constraints:
+  - Do not change the repository implementation
+  - Do not add new dependencies
+  - The fix must be in the ViewModel only
+  - All existing tests must pass after the fix
+
+expected:
+  - The `pinTask` function updates `_state.value` immediately after `updateTask` succeeds
+  - No new coroutine scopes are created
+  - The fix uses `updateState { }` or direct `_state.value` assignment

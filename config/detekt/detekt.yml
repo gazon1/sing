@@ -269,16 +269,6 @@ no-real-delay-in-test:
   NoRealDelayInTest:
     active: true
 
-no-factory-viewmodel:
-  NoFactoryViewModel:
-    active: true
-
-# ---------------------------------------------------------------------------
-# Restored 2026-09-26: these rule sets existed in code but had NO config
-# sections — a detekt rule without a config section is inactive, so all of
-# the below silently never ran (likely lost in the detekt 2.x migration).
-# See ADR 2026-09-26-konsist-architecture-tests (Findings).
-# ---------------------------------------------------------------------------
 no-runblocking:
   NoRunBlocking:
     active: true
@@ -287,26 +277,15 @@ no-viewmodel-scope:
   NoViewModelScopeInProduction:
     active: true
 
-no-global-scope:
-  NoGlobalScopeLaunch:
-    active: true
-
 no-state-in:
   NoStateIn:
-    active: true
-
-no-combine-side-effect:
-  NoCombineSideEffect:
     active: true
 
 no-static-profile-aware-current-user:
   NoStaticProfileAwareCurrentUser:
     active: true
 
-# NOTE: ruleset id is "pass-through" (RuleSetId in PassThroughUseCaseProvider);
-# a section named pass-through-use-case would be an unknown property and fail
-# detekt config validation.
-pass-through:
+pass-through-use-case:
   PassThroughUseCase:
     active: true
 

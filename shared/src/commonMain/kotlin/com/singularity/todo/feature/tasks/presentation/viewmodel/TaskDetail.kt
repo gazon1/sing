@@ -1,8 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
+import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.error.toMessage
-import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
@@ -12,8 +11,10 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -41,11 +43,14 @@ class TaskDetailViewModel(
     private val deps: TaskDetailDeps,
     private val taskId: TaskId,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : MviViewModel<TaskDetailUiState, TaskDetailIntent.Domain, TaskDetailUiEvent>(
-    initialState = TaskDetailUiState.Loading,
-    scope = scope,
-) {
-    override val vmScope = scope
+) : ViewModel() {
+
+    init {
+        addCloseable(scope)
+    }
+
+    private val _events = Channel<TaskDetailUiEvent>(Channel.BUFFERED)
+    val events: kotlinx.coroutines.flow.Flow<TaskDetailUiEvent> = _events.receiveAsFlow()
 
     // edits fire at most once per keystroke; buffer=4 absorbs up to 4-frame burst
     // during UI thread contention without dropping signals
@@ -90,7 +95,7 @@ class TaskDetailViewModel(
     init {
         // Debounce-race fix: combine ensures the edit is applied to the correct task version.
         // If load hasn't completed yet, edits wait in the flow.
-        vmScope.launch {
+        scope.launch {
             combine(
                 _latestTask.filterNotNull(),
                 titleEdits.debounce(deps.debounceMs.milliseconds),
@@ -100,7 +105,7 @@ class TaskDetailViewModel(
                         .onFailure { emitError("Save failed") }
                 }
         }
-        vmScope.launch {
+        scope.launch {
             combine(
                 _latestTask.filterNotNull(),
                 descriptionEdits.debounce(deps.debounceMs.milliseconds),
@@ -111,7 +116,7 @@ class TaskDetailViewModel(
                 }
         }
         // Load backlinks when the observed task changes.
-        vmScope.launch {
+        scope.launch {
             _latestTask.filterNotNull().collect { task ->
                 val linkRepo = deps.linkRepo ?: return@collect
                 val notes = linkRepo.getNotesLinkingToTask(task.id.value)
@@ -122,8 +127,11 @@ class TaskDetailViewModel(
         }
     }
 
+    private val _state = MutableStateFlow<TaskDetailUiState>(TaskDetailUiState.Loading)
+    val state: StateFlow<TaskDetailUiState> = _state
+
     init {
-        vmScope.launch {
+        scope.launch {
             combine(
                 flowOf(taskId),
                 _retryVersion,
@@ -194,30 +202,29 @@ class TaskDetailViewModel(
                         }
                     }
                 }
-                .catch { setState(TaskDetailUiState.Error(it.toMessage())) }
-                .collect { setState(it) }
+                .catch { _state.value = TaskDetailUiState.Error(it.message ?: "Error") }
+                .collect { _state.value = it }
         }
     }
 
     /** Unified intent entry point. */
-    override fun onIntent(intent: TaskDetailIntent.Domain) {
+    fun onIntent(intent: TaskDetailIntent.Domain) {
+        val current = _latestTask.value ?: return
         when (intent) {
             is TaskDetailIntent.Domain.ToggleComplete -> {
-                val task = _latestTask.value ?: return
-                val completed = task.completedAt == null
-                if (completed && task.recurrence != null) {
+                val completed = current.completedAt == null
+                if (completed && current.recurrence != null) {
                     // Recurring task: use CompleteRecurringTaskUseCase to roll forward
-                    vmScope.launch {
-                        val t = _latestTask.value ?: return@launch
-                        deps.completeRecurring(t.id)
-                            .onSuccess {
-                                emit(TaskDetailUiEvent.Saved("Repeating: next occurrence set"))
+                    scope.launch {
+                        deps.completeRecurring(current.id)
+                            .onSuccess { updated ->
+                                _events.trySend(TaskDetailUiEvent.Saved("Repeating: next occurrence set"))
                             }
                             .onFailure { emitError("Failed to complete recurring task") }
                     }
                 } else {
                     val completedAt = if (completed) deps.clock.now() else null
-                    mutate { copy(completedAt = completedAt) }
+                    mutate(current) { copy(completedAt = completedAt) }
                 }
             }
 
@@ -232,68 +239,65 @@ class TaskDetailViewModel(
             }
 
             is TaskDetailIntent.Domain.SetDueDate ->
-                mutate { copy(dueDate = intent.date) }
+                mutate(current) { copy(dueDate = intent.date) }
 
             is TaskDetailIntent.Domain.SetDueTime ->
-                mutate { copy(dueTime = intent.time) }
+                mutate(current) { copy(dueTime = intent.time) }
 
             is TaskDetailIntent.Domain.SetPriority ->
-                mutate { copy(priority = intent.priority) }
+                mutate(current) { copy(priority = intent.priority) }
 
             is TaskDetailIntent.Domain.SetProject ->
-                mutate { copy(projectId = intent.projectId) }
+                mutate(current) { copy(projectId = intent.projectId) }
 
             is TaskDetailIntent.Domain.SetTags ->
-                mutate { copy(tags = intent.tagIds) }
+                mutate(current) { copy(tags = intent.tagIds) }
 
             is TaskDetailIntent.Domain.RemoveTag ->
-                mutate { copy(tags = tags - intent.tagId) }
+                mutate(current) { copy(tags = current.tags - intent.tagId) }
 
             is TaskDetailIntent.Domain.SetKind ->
-                mutate(error = "Failed to set kind") { copy(kind = intent.kind) }
+                mutate(current, error = "Failed to set kind") { copy(kind = intent.kind) }
 
             is TaskDetailIntent.Domain.ToggleSomeday ->
-                mutate(error = "Failed to set someday") { copy(someday = !someday) }
+                mutate(current, error = "Failed to set someday") { copy(someday = !someday) }
 
             is TaskDetailIntent.Domain.TogglePinned ->
-                mutate { copy(isPinned = !isPinned) }
+                mutate(current) { copy(isPinned = !isPinned) }
 
             is TaskDetailIntent.Domain.SetDependencies -> {
-                vmScope.launch {
-                    val task = _latestTask.value ?: return@launch
-                    deps.taskRepo.setDependencies(task.id, intent.dependsOn)
-                        .onSuccess { emit(TaskDetailUiEvent.Saved("Dependencies updated")) }
+                scope.launch {
+                    deps.taskRepo.setDependencies(current.id, intent.dependsOn)
+                        .onSuccess { _events.trySend(TaskDetailUiEvent.Saved("Dependencies updated")) }
                         .onFailure { emitError("Failed to set dependencies") }
                 }
             }
 
             is TaskDetailIntent.Domain.SetRecurrence -> {
-                mutate(error = "Failed to set recurrence") {
+                mutate(current, error = "Failed to set recurrence") {
                     copy(recurrence = intent.spec)
                 }
             }
 
             is TaskDetailIntent.Domain.ToggleChecklistItem -> {
-                vmScope.launch {
-                    val task = _latestTask.value ?: return@launch
-                    deps.checklistRepository.toggleItem(task.id.value, intent.item.id)
+                scope.launch {
+                    deps.checklistRepository.toggleItem(current.id.value, intent.item.id)
                         .onFailure { emitError("Toggle failed") }
                 }
             }
 
             is TaskDetailIntent.Domain.DeleteChecklistItem -> {
-                vmScope.launch {
+                scope.launch {
                     deps.checklistRepository.delete(intent.id)
                         .onFailure { emitError("Delete failed") }
                 }
             }
 
             is TaskDetailIntent.Domain.AddChecklistItem -> {
-                vmScope.launch {
+                scope.launch {
                     if (intent.title.isBlank()) return@launch
-                    val task = _latestTask.value ?: return@launch
-                    deps.checklistRepository.addItem(task.id.value, intent.title.trim())
-                        .onSuccess { emit(TaskDetailUiEvent.Saved("Item added")) }
+                    deps.checklistRepository.addItem(current.id.value, intent.title.trim())
+                        .onSuccess { _events.trySend(TaskDetailUiEvent.Saved("Item added")) }
                         .onFailure { emitError("Add failed") }
                 }
             }
@@ -305,42 +309,40 @@ class TaskDetailViewModel(
             }
 
             is TaskDetailIntent.Domain.DeleteSubtask -> {
-                vmScope.launch {
+                scope.launch {
                     deps.taskRepo.softDelete(intent.task.id)
                         .onFailure { emitError("Delete subtask failed") }
                 }
             }
 
             is TaskDetailIntent.Domain.AddSubtask -> {
-                vmScope.launch {
+                scope.launch {
                     if (intent.title.isBlank()) return@launch
-                    val task = _latestTask.value ?: return@launch
                     deps.createTask(
                         com.singularity.todo.feature.tasks.domain.model.CreateTaskInput(
                             title = intent.title.trim(),
-                            parentTaskId = task.id,
+                            parentTaskId = current.id,
                         ),
                     )
-                        .onSuccess { emit(TaskDetailUiEvent.Saved("Subtask added")) }
+                        .onSuccess { _events.trySend(TaskDetailUiEvent.Saved("Subtask added")) }
                         .onFailure { emitError("Add subtask failed") }
                 }
             }
 
             is TaskDetailIntent.Domain.SetReminder -> {
-                vmScope.launch {
-                    val task = _latestTask.value ?: return@launch
+                scope.launch {
                     val ambientUserId = deps.taskRepo.currentUserId()
                     if (intent.offset == com.singularity.todo.core.reminders.ReminderOffset.AT_DUE) {
-                        deps.reminderScheduler.cancelByTask(task.id, ambientUserId)
-                        deps.reminderRepo.deleteByTask(task.id)
+                        deps.reminderScheduler.cancelByTask(current.id, ambientUserId)
+                        deps.reminderRepo.deleteByTask(current.id)
                             .onFailure { emitError("Failed to set reminder") }
                         return@launch
                     }
                     val now = deps.clock.now().toEpochMilliseconds()
-                    val fireAt = computeFireAt(task.dueDate, task.dueTime, intent.offset, now)
+                    val fireAt = computeFireAt(current.dueDate, current.dueTime, intent.offset, now)
                     val reminder = com.singularity.todo.feature.reminders.Reminder(
                         id = com.singularity.todo.feature.reminders.ReminderId.generate(),
-                        taskId = task.id,
+                        taskId = current.id,
                         userId = ambientUserId,
                         type = com.singularity.todo.feature.reminders.ReminderType.Gentle,
                         offsetMinutes = -intent.offset.minutes,
@@ -354,23 +356,21 @@ class TaskDetailViewModel(
             }
 
             TaskDetailIntent.Domain.DeleteReminder -> {
-                vmScope.launch {
-                    val task = _latestTask.value ?: return@launch
+                scope.launch {
                     val ambientUserId = deps.taskRepo.currentUserId()
-                    deps.reminderScheduler.cancelByTask(task.id, ambientUserId)
-                    deps.reminderRepo.deleteByTask(task.id)
+                    deps.reminderScheduler.cancelByTask(current.id, ambientUserId)
+                    deps.reminderRepo.deleteByTask(current.id)
                         .onFailure { emitError("Failed to remove reminder") }
                 }
             }
 
             TaskDetailIntent.Domain.Delete -> {
-                vmScope.launch {
-                    val task = _latestTask.value ?: return@launch
-                    _recentlyDeleted.value = task
+                scope.launch {
+                    _recentlyDeleted.value = current
                     val ambientUserId = deps.taskRepo.currentUserId()
-                    deps.reminderScheduler.cancelByTask(task.id, ambientUserId)
-                    deps.taskRepo.softDelete(task.id)
-                        .onSuccess { emit(TaskDetailUiEvent.UndoDelete(task.id)) }
+                    deps.reminderScheduler.cancelByTask(current.id, ambientUserId)
+                    deps.taskRepo.softDelete(current.id)
+                        .onSuccess { _events.trySend(TaskDetailUiEvent.UndoDelete(current.id)) }
                         .onFailure {
                             _recentlyDeleted.value = null
                             emitError("Delete failed")
@@ -379,114 +379,111 @@ class TaskDetailViewModel(
             }
 
             TaskDetailIntent.Domain.Archive -> {
-                vmScope.launch {
-                    val task = _latestTask.value ?: return@launch
-                    deps.taskRepo.softDelete(task.id)
+                scope.launch {
+                    deps.taskRepo.softDelete(current.id)
                         .onSuccess {
-                            emit(TaskDetailUiEvent.Saved("Task archived"))
-                            emit(TaskDetailUiEvent.NavigateBack)
+                            _events.trySend(TaskDetailUiEvent.Saved("Task archived"))
+                            _events.trySend(TaskDetailUiEvent.NavigateBack)
                         }
                         .onFailure { emitError("Archive failed") }
                 }
             }
 
             TaskDetailIntent.Domain.Restore -> {
-                vmScope.launch {
+                scope.launch {
                     val task = _recentlyDeleted.value ?: return@launch
                     deps.taskRepo.restore(task.id)
                         .onSuccess {
                             _recentlyDeleted.value = null
-                            emit(TaskDetailUiEvent.Saved("Task restored"))
+                            _events.trySend(TaskDetailUiEvent.Saved("Task restored"))
                         }
                         .onFailure { emitError("Restore failed") }
                 }
             }
 
             is TaskDetailIntent.Domain.SetStartDate ->
-                mutate { copy(startDate = intent.date) }
+                mutate(current) { copy(startDate = intent.date) }
 
             is TaskDetailIntent.Domain.SetStartTime ->
-                mutate { copy(startTime = intent.time) }
+                mutate(current) { copy(startTime = intent.time) }
 
             is TaskDetailIntent.Domain.AddUrlAttachment -> {
-                vmScope.launch {
-                    val task = _latestTask.value ?: return@launch
-                    deps.attachmentsRepo.addUrlAttachment(task.id, intent.url, intent.title)
-                        .onSuccess { emit(TaskDetailUiEvent.Saved("Attachment added")) }
+                scope.launch {
+                    deps.attachmentsRepo.addUrlAttachment(current.id, intent.url, intent.title)
+                        .onSuccess { _events.trySend(TaskDetailUiEvent.Saved("Attachment added")) }
                         .onFailure { emitError("Failed to add attachment") }
                 }
             }
 
             is TaskDetailIntent.Domain.DeleteAttachment -> {
-                vmScope.launch {
+                scope.launch {
                     deps.attachmentsRepo.delete(intent.id)
-                        .onSuccess { emit(TaskDetailUiEvent.Saved("Attachment deleted")) }
+                        .onSuccess { _events.trySend(TaskDetailUiEvent.Saved("Attachment deleted")) }
                         .onFailure { emitError("Failed to delete attachment") }
                 }
             }
 
             is TaskDetailIntent.Domain.RunAiAction -> {
-                vmScope.launch {
-                    val task = _latestTask.value ?: return@launch
+                scope.launch {
                     _aiRunning.value = true
                     val result = when (intent.action) {
                         TaskAiAction.RefineTitle ->
                             deps.refineTask
-                            ?.invoke(task.title, task.description)
-                            ?.map { newTitle ->
-                                deps.updateTask(task.copy(title = newTitle))
-                                emit(TaskDetailUiEvent.Saved("Title refined"))
-                            }
-                            ?: Result.failure(IllegalStateException("RefineTaskUseCase not available"))
+                                ?.invoke(current.title, current.description)
+                                ?.map { newTitle ->
+                                    deps.updateTask(current.copy(title = newTitle))
+                                    _events.trySend(TaskDetailUiEvent.Saved("Title refined"))
+                                }
+                                ?: Result.failure(IllegalStateException("RefineTaskUseCase not available"))
 
                         TaskAiAction.GenerateDescription ->
                             deps.generateDescription
-                            ?.invoke(task.title)
-                            ?.map { desc ->
-                                deps.updateTask(task.copy(description = desc))
-                                emit(TaskDetailUiEvent.Saved("Description generated"))
-                            }
-                            ?: Result.failure(IllegalStateException("GenerateDescriptionUseCase not available"))
+                                ?.invoke(current.title)
+                                ?.map { desc ->
+                                    deps.updateTask(current.copy(description = desc))
+                                    _events.trySend(TaskDetailUiEvent.Saved("Description generated"))
+                                }
+                                ?: Result.failure(IllegalStateException("GenerateDescriptionUseCase not available"))
 
                         TaskAiAction.GenerateChecklist ->
                             deps.generateChecklist
-                            ?.invoke(task.title, task.description)
-                            ?.map { steps ->
-                                steps.forEach { step ->
-                                    deps.createTask(
-                                        com.singularity.todo.feature.tasks.domain.model.CreateTaskInput(
-                                            title = step,
-                                            parentTaskId = task.id,
-                                        ),
-                                    )
+                                ?.invoke(current.title, current.description)
+                                ?.map { steps ->
+                                    steps.forEach { step ->
+                                        deps.createTask(
+                                            com.singularity.todo.feature.tasks.domain.model.CreateTaskInput(
+                                                title = step,
+                                                parentTaskId = current.id,
+                                            ),
+                                        )
+                                    }
+                                    _events.trySend(TaskDetailUiEvent.Saved("${steps.size} checklist items added"))
                                 }
-                                emit(TaskDetailUiEvent.Saved("${steps.size} checklist items added"))
-                            }
-                            ?: Result.failure(IllegalStateException("GenerateChecklistUseCase not available"))
+                                ?: Result.failure(IllegalStateException("GenerateChecklistUseCase not available"))
 
                         TaskAiAction.Decompose ->
                             deps.decomposeTask
-                            ?.invoke(task.title, task.description)
-                            ?.map { subTasks ->
-                                subTasks.forEach { title ->
-                                    deps.createTask(
-                                        com.singularity.todo.feature.tasks.domain.model.CreateTaskInput(
-                                            title = title,
-                                            parentTaskId = task.id,
-                                        ),
-                                    )
+                                ?.invoke(current.title, current.description)
+                                ?.map { subTasks ->
+                                    subTasks.forEach { title ->
+                                        deps.createTask(
+                                            com.singularity.todo.feature.tasks.domain.model.CreateTaskInput(
+                                                title = title,
+                                                parentTaskId = current.id,
+                                            ),
+                                        )
+                                    }
+                                    _events.trySend(TaskDetailUiEvent.Saved("${subTasks.size} subtasks created"))
                                 }
-                                emit(TaskDetailUiEvent.Saved("${subTasks.size} subtasks created"))
-                            }
-                            ?: Result.failure(IllegalStateException("DecomposeTaskUseCase not available"))
+                                ?: Result.failure(IllegalStateException("DecomposeTaskUseCase not available"))
 
                         TaskAiAction.SuggestTime ->
                             deps.pickTime
-                            ?.invoke(task.title, task.description)
-                            ?.map { suggestedTime ->
-                                emit(TaskDetailUiEvent.Saved("Suggested: $suggestedTime"))
-                            }
-                            ?: Result.failure(IllegalStateException("PickTimeUseCase not available"))
+                                ?.invoke(current.title, current.description)
+                                ?.map { suggestedTime ->
+                                    _events.trySend(TaskDetailUiEvent.Saved("Suggested: $suggestedTime"))
+                                }
+                                ?: Result.failure(IllegalStateException("PickTimeUseCase not available"))
                     }
                     _aiRunning.value = false
                     result.onFailure { emitError("AI action failed: ${it.message}") }
@@ -500,20 +497,13 @@ class TaskDetailViewModel(
         _retryVersion.value++
     }
 
-    private fun mutate(error: String = "Save failed", transform: Task.() -> Task) = vmScope.launch {
-        val current = _latestTask.value ?: return@launch
+    private fun mutate(current: Task, error: String = "Save failed", transform: Task.() -> Task) = scope.launch {
         deps.updateTask(current.transform())
             .onFailure { emitError(error) }
     }
 
-    /** Overload for when we already have a Task reference (e.g., ToggleSubtask with intent.task) */
-    private fun mutate(task: Task, error: String = "Save failed", transform: Task.() -> Task) = vmScope.launch {
-        deps.updateTask(task.transform())
-            .onFailure { emitError(error) }
-    }
-
     private fun emitError(message: String) {
-        vmScope.launch { emit(TaskDetailUiEvent.Error(message)) }
+        scope.launch { _events.trySend(TaskDetailUiEvent.Error(message)) }
     }
 
     private fun computeFireAt(

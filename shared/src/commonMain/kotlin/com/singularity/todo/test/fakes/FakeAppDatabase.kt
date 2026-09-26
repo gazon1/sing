@@ -469,9 +469,7 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         }.take(20)
 
     override suspend fun getNotesLinkingToTask(taskId: String, userId: String): List<NoteEntity> =
-        store.value.values.filter {
-            n,
-            ->
+        store.value.values.filter { n ->
             n.userId == userId && n.deletedAt == null && n.outgoingLinks.contains("task://$taskId")
         }.take(20)
 
@@ -487,13 +485,12 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.deletedAt == null
     }
 
-    override fun watchDailyNotesInRange(userId: String, from: String, to: String): Flow<List<NoteEntity>> = store.map {
-        map,
-        ->
-        map.values.filter { n ->
-            n.userId == userId && n.kind.name == "Daily" && n.deletedAt == null && n.title >= from && n.title <= to
-        }.sortedBy { it.title }
-    }
+    override fun watchDailyNotesInRange(userId: String, from: String, to: String): Flow<List<NoteEntity>> =
+        store.map { map ->
+            map.values.filter { n ->
+                n.userId == userId && n.kind.name == "Daily" && n.deletedAt == null && n.title >= from && n.title <= to
+            }.sortedBy { it.title }
+        }
 
     override suspend fun setKind(id: String, kind: String, ts: Long) =
         mutate(id) { it.copy(kind = com.singularity.todo.feature.notes.NoteKind.valueOf(kind), updatedAt = ts) }

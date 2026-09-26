@@ -2,6 +2,7 @@
 title: "Drop ViewModel in AndroidPomodoroTimer; extract PomodoroScheduler port; use kotlinx.datetime.Clock"
 date: 2026-09-23
 tags: [pomodoro, alarms, architecture, testability, koin]
+status: accepted
 ---
 
 ## Context

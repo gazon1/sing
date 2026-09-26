@@ -51,6 +51,7 @@ class CalendarViewModelTest {
             initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
         ),
     )
+
     // Must share the same ProfileAwareCurrentUser so that all internal collectors
     // run on the test dispatcher — advanceUntilIdle() can then drive them to completion.
     private val fakeReminderRepo = FakeReminderRepository(fakeCurrentUser)

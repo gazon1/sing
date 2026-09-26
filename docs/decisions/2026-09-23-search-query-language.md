@@ -2,6 +2,7 @@
 title: "Search query language: AST, SimpleFilter, SavedSearch, canonical SearchViewModel"
 date: 2026-09-23
 tags: [search, query-ast, room, viewmodel, dsl]
+status: accepted
 ---
 
 ## Context

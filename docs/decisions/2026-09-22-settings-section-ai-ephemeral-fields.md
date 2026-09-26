@@ -2,6 +2,7 @@
 title: "Keep ephemeral state inside SettingsSection.Ai, not in EphemeralState"
 date: 2026-09-22
 tags: [settings, architecture, state-management]
+status: accepted
 ---
 
 ## Context

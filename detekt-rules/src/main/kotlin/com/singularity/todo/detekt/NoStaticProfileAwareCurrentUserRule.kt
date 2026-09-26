@@ -4,6 +4,10 @@ import dev.detekt.api.Config
 import dev.detekt.api.Entity
 import dev.detekt.api.Finding
 import dev.detekt.api.Rule
+import dev.detekt.api.RuleName
+import dev.detekt.api.RuleSet
+import dev.detekt.api.RuleSetId
+import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 
@@ -67,4 +71,16 @@ class NoStaticProfileAwareCurrentUserRule(config: Config) : Rule(config, "", nul
             ),
         )
     }
+}
+
+/**
+ * Registers [NoStaticProfileAwareCurrentUserRule] in the `no-static-profile-aware-current-user` rule set.
+ * Inner-class pattern: rule and provider live in the same file.
+ */
+class NoStaticProfileAwareCurrentUserProvider : RuleSetProvider {
+    override val ruleSetId: RuleSetId = RuleSetId("no-static-profile-aware-current-user")
+    override fun instance(): RuleSet = RuleSet(
+        ruleSetId,
+        mapOf(RuleName("NoStaticProfileAwareCurrentUser") to { cfg: Config -> NoStaticProfileAwareCurrentUserRule(cfg) }),
+    )
 }

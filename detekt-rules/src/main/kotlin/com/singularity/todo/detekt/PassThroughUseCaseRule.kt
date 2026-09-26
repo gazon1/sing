@@ -4,6 +4,10 @@ import dev.detekt.api.Config
 import dev.detekt.api.Entity
 import dev.detekt.api.Finding
 import dev.detekt.api.Rule
+import dev.detekt.api.RuleName
+import dev.detekt.api.RuleSet
+import dev.detekt.api.RuleSetId
+import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtBlockExpression
 import org.jetbrains.kotlin.psi.KtCallExpression
@@ -117,4 +121,16 @@ class PassThroughUseCaseRule(config: Config) : Rule(config, "", null) {
         val typeReference = property?.typeReference ?: return null
         return typeReference.text // e.g. "ChecklistRepository"
     }
+}
+
+/**
+ * Registers [PassThroughUseCaseRule] in the `pass-through-use-case` rule set.
+ * Inner-class pattern: rule and provider live in the same file.
+ */
+class PassThroughUseCaseProvider : RuleSetProvider {
+    override val ruleSetId: RuleSetId = RuleSetId("pass-through-use-case")
+    override fun instance(): RuleSet = RuleSet(
+        ruleSetId,
+        mapOf(RuleName("PassThroughUseCase") to { cfg: Config -> PassThroughUseCaseRule(cfg) }),
+    )
 }
