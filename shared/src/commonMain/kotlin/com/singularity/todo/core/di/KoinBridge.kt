@@ -14,4 +14,5 @@ import kotlinx.coroutines.runBlocking
  * and can later be replaced wholesale with Koin coroutine-aware factories
  * — one site change, one behavioural shift.
  */
+@Suppress("NoRunBlocking") // canonical one-shot suspend→sync bridge — see KDoc
 internal inline fun <T> koinBridge(crossinline block: suspend () -> T): T = runBlocking { block() }

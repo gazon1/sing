@@ -103,6 +103,14 @@ Note: `NoRunBlockingProvider` is referenced but the actual provider class `NoRun
 
 **Action:** Create `NoRunBlockingProvider` class that registers `NoRunBlockingRule`, or remove the reference from the ServiceLoader file. This is a build-system bug, not a runtime blocker.
 
+**RESOLVED 2026-09-26 (techdebt-preflight):** `NoRunBlockingProvider` exists as an
+inner class of `NoRunBlockingRule.kt` — the ServiceLoader reference was valid.
+The real gap was different: the `no-runblocking` ruleset had **no activation
+block in `config/detekt/detekt.yml`**, so detekt silently skipped it. Fixed by
+adding the config block (together with `no-viewmodel-scope`); verified by
+positive control. See `2026-09-26-preflight-quick-wins` and
+`2026-09-26-preflight-retro-findings` (R1).
+
 ---
 
 ## Summary

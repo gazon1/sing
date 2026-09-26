@@ -77,6 +77,27 @@ com.singularity.todo.detekt.MyCustomRuleProvider
 
 **Important:** When you add a new provider, you must add the line here. If the line is missing, the rule set is silently not loaded.
 
+## Activation checklist (all three, or the rule silently does nothing)
+
+A rule that compiles but is not registered/activated produces **zero findings and
+zero errors** — it looks working. Every new rule must pass all three steps:
+
+1. **ServiceLoader entry** (see above).
+2. **detekt.yml ruleset block** — detekt skips custom rulesets that have no config
+   block, even when ServiceLoader loads them:
+   ```yaml
+   no-runblocking:        # ← must match the provider's ruleSetId exactly
+     NoRunBlocking:       # ← must match the RuleName exactly
+       active: true
+   ```
+3. **Positive control** — create a temp file containing one intentional violation,
+   run `./gradlew :shared:detekt`, confirm exactly 1 finding in
+   `shared/build/reports/detekt/detekt.xml` (`source="detekt.<RuleName>"`), then
+   delete the temp file.
+
+Historical: `no-runblocking` + `no-viewmodel-scope` sat inactive for days because
+step 2 was missed (see `2026-09-26-preflight-retro-findings`, R1).
+
 ## Writing AST-Based Rules
 
 ### Common PSI visitors

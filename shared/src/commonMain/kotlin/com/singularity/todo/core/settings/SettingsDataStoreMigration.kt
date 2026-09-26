@@ -86,6 +86,7 @@ class SettingsDataStoreMigration(
      * Call from a `runBlocking` context or from `koinBridge { }` in a Koin factory.
      * Returns `true` if migration ran, `false` if it was already done.
      */
+    @Suppress("NoRunBlocking") // one-shot DataStore migration at DI startup — no coroutine context yet
     fun runBlocking(): Boolean = runBlocking { run() }
 
     /**

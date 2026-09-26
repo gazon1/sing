@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * MVI base for editor/draft screens. Encapsulates:
@@ -102,7 +103,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
         // 2. Debounced silent autosave loop
         vmScope.launch {
             _draft.drop(1)
-                .debounce { autosaveDebounceMs }
+                .debounce(autosaveDebounceMs.milliseconds)
                 .collect { current ->
                     runCatching { autosave(current) }
                         .onFailure { onAutosaveError(it) }

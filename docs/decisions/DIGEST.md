@@ -1078,9 +1078,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `tech-debt`
 
+- 0 raw production `runBlocking` outside suppressed boundaries; 2 fewer than
 - All three changes are additive-renames only
+- Detekt now actually enforces runBlocking/vmScope bans in `:shared` (report-only
+- Detekt reports 21 pre-existing `VmCloseable` findings + ~340 mostly-formatting
 - MR-2.2 note: `expect object Clock` remains for backward compatibility; production code should use `kotlinx.datetime.Clock` directly
 - No breaking changes to public API
+- `OAuthTokenRefreshTest` leaves the slow suite; 13 slow classes remain.
 
 ### `technical-debt`
 
@@ -1471,6 +1475,7 @@ _6 entries need attention._
 - `2026-09-26-four-phases-gate` — _untagged_
 - `2026-09-26-genui-subsystem-applied-r23` — _untagged_
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
+<<<<<<< HEAD
 - `2026-09-26-internationalization` — _untagged_
 - `2026-09-26-kdoc-enforcement-rules` — _untagged_
 - `2026-09-26-observability-production` — _untagged_
@@ -1491,6 +1496,10 @@ _6 entries need attention._
 - `2026-09-26-skill-authoring-policy` — _untagged_
 - `2026-09-26-ui-testing-deferred` — _untagged_
 - `2026-09-26-writer-reviewer-pattern` — _untagged_
+=======
+- `2026-09-26-preflight-quick-wins` — tech-debt, detekt, sync, auth, preflight
+- `2026-09-26-preflight-retro-findings` — retro, tech-debt, preflight, detekt, docs
+>>>>>>> 3c08f497 (chore(preflight): quick wins — activate detekt rules, koinBridge refactor, dead code, clock injection)
 
 ## Active entries
 
@@ -1725,6 +1734,7 @@ _6 entries need attention._
 - `2026-09-26-four-phases-gate` — _(no title)_
 - `2026-09-26-genui-subsystem-applied-r23` — _(no title)_
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository
+<<<<<<< HEAD
 - `2026-09-26-internationalization` — _(no title)_
 - `2026-09-26-kdoc-enforcement-rules` — _(no title)_
 - `2026-09-26-observability-production` — _(no title)_
@@ -1745,4 +1755,8 @@ _6 entries need attention._
 - `2026-09-26-skill-authoring-policy` — _(no title)_
 - `2026-09-26-ui-testing-deferred` — UI testing deferred — androidHostTest + UiAutomator postponed
 - `2026-09-26-writer-reviewer-pattern` — _(no title)_
+=======
+- `2026-09-26-preflight-quick-wins` — Pre-flight Quick Wins — techdebt roadmap phase 0
+- `2026-09-26-preflight-retro-findings` — Pre-flight retro findings — phase 0 retrospective
+>>>>>>> 3c08f497 (chore(preflight): quick wins — activate detekt rules, koinBridge refactor, dead code, clock injection)
 
