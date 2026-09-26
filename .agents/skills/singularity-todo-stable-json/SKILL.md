@@ -152,3 +152,19 @@ When adding a new `Selector` variant:
        assertEquals(s, decoded)
    }
    ```
+
+
+## Value classes in @Serializable models
+
+A `@JvmInline value class` used as a property of a `@Serializable` class serializes
+as the underlying primitive (plain string — wire-format friendly), but only when
+the value class itself is annotated `@Serializable`. Otherwise the compiler fails
+with "Serializer has not been found". See `UserId` in `core/ids/`.
+
+## SyncableEntity checklist
+
+Any class implementing `SyncableEntity` MUST be `@Serializable` — `toJson()` uses
+`serializer<T>()` reflection, which throws SerializationException at runtime
+(not compile time) for non-annotated classes. Regression test:
+`TaskSyncSerializationTest` (asserts the wire format + no-throw). Add the same
+per-entity test when a new entity type lands.

@@ -1507,6 +1507,7 @@ _6 entries need attention._
 - `2026-09-26-epic-final-retro` — _untagged_
 - `2026-09-26-epic2-retro-findings` — retro, tech-debt, epic2, detekt, testing
 - `2026-09-26-epic2-roadmap` — tech-debt, roadmap, epic2, testing, vm
+- `2026-09-26-epic3-retro-findings` — retro, tech-debt, epic3, detekt, serialization, sync
 - `2026-09-26-four-phases-gate` — _untagged_
 - `2026-09-26-genui-subsystem-applied-r23` — _untagged_
 - `2026-09-26-internal-link-repo-currentuser` — _untagged_
@@ -1774,6 +1775,7 @@ _6 entries need attention._
 - `2026-09-26-epic-final-retro` — _(no title)_
 - `2026-09-26-epic2-retro-findings` — Epic 2 retro findings — architecture phase retrospective
 - `2026-09-26-epic2-roadmap` — Epic 2 roadmap — architecture phase of the tech-debt sprint
+- `2026-09-26-epic3-retro-findings` — Epic 3 retro findings + sprint close-out — quality phase retrospective
 - `2026-09-26-four-phases-gate` — _(no title)_
 - `2026-09-26-genui-subsystem-applied-r23` — _(no title)_
 - `2026-09-26-internal-link-repo-currentuser` — Drop userId from InternalLinkRepository

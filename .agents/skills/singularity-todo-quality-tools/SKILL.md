@@ -261,3 +261,11 @@ alias(libs.plugins.detekt)
 - `singularity-todo-kotlin-idioms` — covers Kotlin idioms that ktlint enforces
 - `singularity-todo-koin-dsl` — Koin 4.x DSL canonical patterns
 - `singularity-todo-worktree-isolation` — git worktree isolation for refactoring branches
+
+
+## Auto-correct convergence
+
+`detekt --auto-correct` may need **two passes**: one rule's fix (e.g. Indentation
+re-wrapping) can trigger another (NoSemicolons), and vice versa. Run the pass
+twice and verify the second run reports zero auto-fixable findings before
+committing.
