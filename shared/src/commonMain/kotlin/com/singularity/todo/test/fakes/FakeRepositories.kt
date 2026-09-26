@@ -1384,10 +1384,10 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
             kind = if (targetDateKey !=
                 null
             ) {
-                    com.singularity.todo.feature.notes.NoteKind.Daily
-                } else {
-                    com.singularity.todo.feature.notes.NoteKind.Plain
-                },
+                com.singularity.todo.feature.notes.NoteKind.Daily
+            } else {
+                com.singularity.todo.feature.notes.NoteKind.Plain
+            },
             color = template.color,
             wordCount = template.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
             charCount = template.bodyMarkdown?.length ?: 0,

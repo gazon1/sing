@@ -6,15 +6,15 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
  * Android implementation of [PomodoroTaskListProvider] that observes inbox tasks.
  *
- * Converts the [TaskRepository] flow to a [StateFlow] via [stateIn] so callers
- * always have synchronous read access to the current task list.
+ * Maintains a private [MutableStateFlow] updated via [CoroutineScope.launch].
+ * Callers receive a [StateFlow] view for synchronous read access.
  *
+ * @param taskRepository Repository for task observation.
  * @param scope CoroutineScope for collecting the task flow. In production this is
  *   the app-level scope provided by the Android lifecycle.
  */

@@ -11,7 +11,6 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
-import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.NullAndEmptySource
 import org.junit.jupiter.params.provider.ValueSource
@@ -19,7 +18,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /**
  * Tests for [CalendarTaskMapper.toCalendarTaskUi].
@@ -165,7 +163,11 @@ class CalendarTaskMapperTest {
         @JvmStatic
         fun `status mapping`(): List<Arguments> = listOf(
             // today = Sept 16, 2026
-            Arguments.of(Instant.fromEpochMilliseconds(1), LocalDate(2026, Month.SEPTEMBER, 10), CalendarTaskStatus.DONE),
+            Arguments.of(
+                Instant.fromEpochMilliseconds(1),
+                LocalDate(2026, Month.SEPTEMBER, 10),
+                CalendarTaskStatus.DONE,
+            ),
             Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 10), CalendarTaskStatus.OVERDUE),
             Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 16), CalendarTaskStatus.PENDING),
             Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 20), CalendarTaskStatus.PENDING),

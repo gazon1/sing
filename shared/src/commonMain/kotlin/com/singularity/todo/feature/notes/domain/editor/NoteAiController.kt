@@ -17,10 +17,10 @@ class NoteAiController(
     private val extractActions: (suspend (title: String, html: String) -> Result<List<String>>)? = null,
     private val rewriteNote: (
         suspend (
-        title: String,
-        html: String,
-        tone: String,
-    ) -> Result<NoteAiResult.Improved>
+            title: String,
+            html: String,
+            tone: String,
+        ) -> Result<NoteAiResult.Improved>
     )? = null,
     private val suggestTags: (suspend (title: String, html: String) -> Result<List<String>>)? = null,
 ) {

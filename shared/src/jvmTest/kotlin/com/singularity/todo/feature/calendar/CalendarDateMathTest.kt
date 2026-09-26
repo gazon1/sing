@@ -288,7 +288,11 @@ class CalendarDateMathTest {
 
         @JvmStatic
         fun headerLabelCrossMonthCases(): List<Arguments> = listOf(
-            Arguments.of(LocalDate(2026, Month.SEPTEMBER, 30), CalendarViewMode.FOUR_DAYS, "September 30 – October 3, 2026"),
+            Arguments.of(
+                LocalDate(2026, Month.SEPTEMBER, 30),
+                CalendarViewMode.FOUR_DAYS,
+                "September 30 – October 3, 2026",
+            ),
             Arguments.of(LocalDate(2026, Month.DECEMBER, 28), CalendarViewMode.WEEK, "December 28 – January 3, 2027"),
         )
 
