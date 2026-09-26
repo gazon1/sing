@@ -1,4 +1,5 @@
 package com.singularity.todo.feature.search.domain
+import com.singularity.todo.core.ids.UserId
 
 import kotlin.time.Instant
 
@@ -18,7 +19,7 @@ import kotlin.time.Instant
  */
 data class SavedSearch(
     val id: SavedSearchId,
-    val userId: String,
+    val userId: UserId,
     val name: String,
     val queryString: String,
     val createdAt: Instant,

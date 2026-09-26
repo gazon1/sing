@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
+import com.singularity.todo.core.ids.UserId
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -222,7 +223,7 @@ private fun SavedAgendaListContentLoadedPreview() = PreviewAgendaNavigator {
                 listOf(
                     SavedAgendaView(
                         id = SavedAgendaViewId("v1"),
-                        userId = "u1",
+                        userId = UserId("u1"),
                         name = "Weekly Review",
                         sectionsJson = "{}",
                         createdAt = Instant.fromEpochSeconds(1784253600),
@@ -230,7 +231,7 @@ private fun SavedAgendaListContentLoadedPreview() = PreviewAgendaNavigator {
                     ),
                     SavedAgendaView(
                         id = SavedAgendaViewId("v2"),
-                        userId = "u1",
+                        userId = UserId("u1"),
                         name = "Focus Today",
                         sectionsJson = "{}",
                         createdAt = Instant.fromEpochSeconds(1784253600),

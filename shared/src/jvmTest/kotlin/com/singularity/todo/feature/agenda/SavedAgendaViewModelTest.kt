@@ -2,6 +2,7 @@ package com.singularity.todo.feature.agenda
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
@@ -114,7 +115,7 @@ class SavedAgendaViewModelTest {
         fakeRepo.upsertSync(
             SavedAgendaView(
                 id = viewId,
-                userId = "test-user",
+                userId = UserId("test-user"),
                 name = "My View",
                 sectionsJson = """{"title":"My View","sections":[]}""",
                 createdAt = Clock.now(),
@@ -150,7 +151,7 @@ class SavedAgendaViewModelTest {
         fakeRepo.upsertSync(
             SavedAgendaView(
                 id = viewId,
-                userId = "test-user",
+                userId = UserId("test-user"),
                 name = "Original",
                 sectionsJson = """{"title":"Original","sections":[]}""",
                 createdAt = Clock.now(),
@@ -176,7 +177,7 @@ class SavedAgendaViewModelTest {
         fakeRepo.upsertSync(
             SavedAgendaView(
                 id = viewId,
-                userId = "test-user",
+                userId = UserId("test-user"),
                 name = "Test",
                 sectionsJson = """{"title":"Test","sections":[{"name":"Today","order":0,"selector":{"type":"DateBucket","bucket":"Today"}}]}""",
                 createdAt = Clock.now(),
@@ -201,7 +202,7 @@ class SavedAgendaViewModelTest {
         fakeRepo.upsertSync(
             SavedAgendaView(
                 id = viewId,
-                userId = "test-user",
+                userId = UserId("test-user"),
                 name = "Original",
                 sectionsJson = """{"title":"Original","sections":[]}""",
                 createdAt = Clock.now(),
@@ -227,7 +228,7 @@ class SavedAgendaViewModelTest {
         fakeRepo.upsertSync(
             SavedAgendaView(
                 id = viewId,
-                userId = "test-user",
+                userId = UserId("test-user"),
                 name = "To Delete",
                 sectionsJson = """{"title":"To Delete","sections":[]}""",
                 createdAt = Clock.now(),
@@ -361,9 +362,9 @@ class SavedAgendaViewModelTest {
     @Test
     fun factoryCreateGeneratesNewId() {
         val now = Instant.fromEpochMilliseconds(1_000_000)
-        val view = SavedAgendaViewFactory.create("user-1", "My View", """{"title":"My View","sections":[]}""", now)
+        val view = SavedAgendaViewFactory.create(UserId("user-1"), "My View", """{"title":"My View","sections":[]}""", now)
 
-        assertEquals("user-1", view.userId)
+        assertEquals(UserId("user-1"), view.userId)
         assertEquals("My View", view.name)
         assertEquals("""{"title":"My View","sections":[]}""", view.sectionsJson)
         assertEquals(now, view.createdAt)
@@ -377,7 +378,7 @@ class SavedAgendaViewModelTest {
         val now = Instant.fromEpochMilliseconds(1_000_000)
         val original = SavedAgendaView(
             id = com.singularity.todo.feature.agenda.SavedAgendaViewId("original-id"),
-            userId = "user-1",
+            userId = UserId("user-1"),
             name = "Original",
             sectionsJson = """{"title":"Original","sections":[]}""",
             createdAt = Instant.fromEpochMilliseconds(500_000),
@@ -387,7 +388,7 @@ class SavedAgendaViewModelTest {
         val updated = SavedAgendaViewFactory.update(original, "Updated", """{"title":"Updated","sections":[]}""", now)
 
         assertEquals(com.singularity.todo.feature.agenda.SavedAgendaViewId("original-id"), updated.id)
-        assertEquals("user-1", updated.userId)
+        assertEquals(UserId("user-1"), updated.userId)
         assertEquals(Instant.fromEpochMilliseconds(500_000), updated.createdAt)
         assertEquals(now, updated.updatedAt)
         assertEquals("Updated", updated.name)
@@ -398,16 +399,16 @@ class SavedAgendaViewModelTest {
         val now = Instant.fromEpochMilliseconds(1_000_000)
         val original = SavedAgendaView(
             id = com.singularity.todo.feature.agenda.SavedAgendaViewId("original-id"),
-            userId = "user-1",
+            userId = UserId("user-1"),
             name = "Shared View",
             sectionsJson = """{"title":"Shared View","sections":[]}""",
             createdAt = Instant.fromEpochMilliseconds(500_000),
             updatedAt = Instant.fromEpochMilliseconds(800_000),
         )
 
-        val copy = SavedAgendaViewFactory.duplicateForProfile(original, "user-2", now)
+        val copy = SavedAgendaViewFactory.duplicateForProfile(original, UserId("user-2"), now)
 
-        assertEquals("user-2", copy.userId)
+        assertEquals(UserId("user-2"), copy.userId)
         assertEquals("Shared View", copy.name)
         assertEquals("""{"title":"Shared View","sections":[]}""", copy.sectionsJson)
         // New id generated

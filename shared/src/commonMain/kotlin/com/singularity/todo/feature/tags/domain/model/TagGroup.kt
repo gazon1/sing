@@ -1,4 +1,5 @@
 package com.singularity.todo.feature.tags.domain.model
+import com.singularity.todo.core.ids.UserId
 
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
@@ -43,7 +44,7 @@ data class TagGroup(
     val color: Int, // ARGB
     val createdAt: Instant,
     val updatedAt: Instant,
-    val userId: String,
+    val userId: UserId,
     val deletedAt: Instant? = null,
     // ─── Sync fields ───────────────────────────────────────────────────────────
     val serverVersion: Long = 0,

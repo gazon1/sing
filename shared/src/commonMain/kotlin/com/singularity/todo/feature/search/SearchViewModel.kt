@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search
 
+import com.singularity.todo.core.ids.UserId
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
@@ -291,7 +292,7 @@ class SearchViewModel(
 
             val savedSearch = SavedSearch(
                 id = existingEntity?.id ?: SavedSearchId.generate(),
-                userId = "",
+                userId = UserId.anonymous,
                 name = name,
                 queryString = queryString,
                 createdAt = existingEntity?.createdAt ?: now,

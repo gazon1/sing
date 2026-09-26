@@ -127,7 +127,7 @@ internal fun TagGroupEntity.toTagGroup(): TagGroup = TagGroup(
     color = color,
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),
-    userId = userId,
+    userId = UserId(userId),
     deletedAt = deletedAt.toInstantOrNull(),
     serverVersion = sync.serverVersion,
     hlc = sync.hlc?.let { Hlc(it) },
@@ -138,7 +138,7 @@ internal fun TagGroupEntity.toTagGroup(): TagGroup = TagGroup(
  */
 internal fun TagGroup.toEntity(): TagGroupEntity = TagGroupEntity(
     id = id.value,
-    userId = userId,
+    userId = userId.value,
     name = name,
     color = color,
     createdAt = createdAt.toEpochMilliseconds(),

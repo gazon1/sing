@@ -16,6 +16,7 @@
 
 package com.singularity.todo.feature.agenda.domain.model
 
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlin.time.Instant
 
@@ -32,7 +33,7 @@ object SavedAgendaViewFactory {
      * Creates a new [SavedAgendaView] for first-time save (Create mode).
      * Generates a fresh [SavedAgendaViewId] and sets [createdAt] = [updatedAt].
      */
-    fun create(userId: String, name: String, sectionsJson: String, now: Instant): SavedAgendaView = SavedAgendaView(
+    fun create(userId: UserId, name: String, sectionsJson: String, now: Instant): SavedAgendaView = SavedAgendaView(
         id = SavedAgendaViewId.generate(),
         userId = userId,
         name = name,
@@ -56,7 +57,7 @@ object SavedAgendaViewFactory {
      * Duplicates a [SavedAgendaView] into a different user profile.
      * Generates a fresh [id], sets [userId] to [targetUserId], resets timestamps.
      */
-    fun duplicateForProfile(source: SavedAgendaView, targetUserId: String, now: Instant): SavedAgendaView = source.copy(
+    fun duplicateForProfile(source: SavedAgendaView, targetUserId: UserId, now: Instant): SavedAgendaView = source.copy(
         id = SavedAgendaViewId.generate(),
         userId = targetUserId,
         createdAt = now,

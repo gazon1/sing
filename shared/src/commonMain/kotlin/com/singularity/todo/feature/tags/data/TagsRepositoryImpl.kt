@@ -44,13 +44,13 @@ class TagsRepositoryImpl(
     }
 
     override suspend fun create(item: Tag): Result<Tag> = runCatching {
-        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = UserId(item.userId))
+        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         tagDao.upsert(item.toEntity())
         item.also { syncRepository.enqueue(it) }
     }
 
     override suspend fun update(item: Tag): Result<Tag> = runCatching {
-        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = UserId(item.userId))
+        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         tagDao.upsert(item.toEntity())
         item.also { syncRepository.enqueue(it) }
     }
@@ -81,14 +81,14 @@ private fun TagEntity.toTag(): Tag = Tag(
     groupId = groupId?.let { com.singularity.todo.feature.tags.domain.model.TagGroupId.fromString(it) },
     sortOrder = sortOrder,
     deletedAt = deletedAt.toInstantOrNull(),
-    userId = userId,
+    userId = UserId(userId),
     serverVersion = sync.serverVersion,
     hlc = sync.hlc?.let { Hlc(it) },
 )
 
 fun Tag.toEntity(): TagEntity = TagEntity(
     id = id.value,
-    userId = userId,
+    userId = userId.value,
     name = name,
     color = color,
     createdAt = createdAt.toEpochMilliseconds(),

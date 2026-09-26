@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.MviEvent
@@ -103,7 +104,7 @@ class SavedAgendaListViewModel(
                     val now = Clock.now()
                     val copy = SavedAgendaViewFactory.duplicateForProfile(
                         source = sourceView,
-                        targetUserId = targetProfile.id.value,
+                        targetUserId = UserId(targetProfile.id.value),
                         now = now,
                     )
                     deps.repo.upsert(copy)

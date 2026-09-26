@@ -2,6 +2,7 @@ package com.singularity.todo.feature.ai.tools
 
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.Tag
@@ -45,7 +46,7 @@ class CreateTagTool(
             color = finalColor,
             createdAt = now,
             updatedAt = now,
-            userId = userId,
+            userId = UserId(userId),
         )
         tagsRepository.create(tag)
         return Json.encodeToString(

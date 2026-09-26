@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search
 
+import com.singularity.todo.core.ids.UserId
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -232,7 +233,7 @@ private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
         savedSearches = listOf(
             SavedSearch(
                 id = SavedSearchId.generate(),
-                userId = "u1",
+                userId = UserId("u1"),
                 name = "High Priority",
                 queryString = "priority:high",
                 createdAt = Clock.now(),
@@ -240,7 +241,7 @@ private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
             ),
             SavedSearch(
                 id = SavedSearchId.generate(),
-                userId = "u1",
+                userId = UserId("u1"),
                 name = "Work Tasks",
                 queryString = "tag:work",
                 createdAt = Clock.now(),

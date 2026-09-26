@@ -58,7 +58,7 @@ class TagGroupRepositoryImpl(
             color = input.color,
             createdAt = now,
             updatedAt = now,
-            userId = uid.value,
+            userId = uid,
         )
         tagGroupDao.upsert(tagGroup.toEntity())
         syncRepository.enqueue(tagGroup)
@@ -97,7 +97,7 @@ class TagGroupRepositoryImpl(
                 color = 0,
                 createdAt = clock.now(),
                 updatedAt = clock.now(),
-                userId = uid.value,
+                userId = uid,
                 deletedAt = clock.now(),
             ),
         )
@@ -132,7 +132,7 @@ private fun TagGroupEntity.toTagGroup(): TagGroup = TagGroup(
     color = color,
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),
-    userId = userId,
+    userId = UserId(userId),
     deletedAt = deletedAt.toInstantOrNull(),
     serverVersion = sync.serverVersion,
     hlc = sync.hlc?.let { com.singularity.todo.core.sync.Hlc(it) },
@@ -140,7 +140,7 @@ private fun TagGroupEntity.toTagGroup(): TagGroup = TagGroup(
 
 private fun TagGroup.toEntity(): TagGroupEntity = TagGroupEntity(
     id = id.value,
-    userId = userId,
+    userId = userId.value,
     name = name,
     color = color,
     createdAt = createdAt.toEpochMillis(),

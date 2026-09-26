@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
+import com.singularity.todo.core.ids.UserId
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -389,7 +390,7 @@ private fun SavedAgendaContentEditingPreview() = PreviewAgendaNavigator {
             state = SavedAgendaViewState.Editing(
                 view = SavedAgendaView(
                     id = SavedAgendaViewId("v1"),
-                    userId = "u1",
+                    userId = UserId("u1"),
                     name = "My Work Setup",
                     sectionsJson = """{"sections":[{"type":"tasks"},{"type":"notes"}]}""",
                     createdAt = kotlin.time.Instant.fromEpochSeconds(1784253600),
@@ -424,7 +425,7 @@ private fun SavedAgendaContentSavingPreview() = PreviewAgendaNavigator {
             state = SavedAgendaViewState.Editing(
                 view = SavedAgendaView(
                     id = SavedAgendaViewId("v1"),
-                    userId = "u1",
+                    userId = UserId("u1"),
                     name = "My Work Setup",
                     sectionsJson = """{"sections":[]}""",
                     createdAt = kotlin.time.Instant.fromEpochSeconds(1784253600),

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tags
 
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
@@ -34,7 +35,7 @@ data class Tag(
     val groupId: com.singularity.todo.feature.tags.domain.model.TagGroupId? = null,
     val sortOrder: Int = 0,
     val deletedAt: Instant? = null,
-    val userId: String,
+    val userId: UserId,
     // ─── Sync fields ───────────────────────────────────────────────────────────
     val serverVersion: Long = 0,
     val hlc: Hlc? = null,
@@ -55,6 +56,6 @@ data class Tag(
 data class CreateTagInput(
     val name: String,
     val color: Int,
-    val userId: String,
+    val userId: UserId,
     val groupId: com.singularity.todo.feature.tags.domain.model.TagGroupId? = null,
 )
