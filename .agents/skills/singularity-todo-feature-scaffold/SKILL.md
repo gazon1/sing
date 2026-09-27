@@ -163,7 +163,7 @@ class Create<Feature>UseCase(private val repo: <Feature>Repository, private val 
 
 ### 6. <Feature>ViewModel.kt — MviViewModel base
 
-All VMs extend [MviViewModel](core/ui/mvi/MviViewModel.kt). Unifies `MutableStateFlow`, `EventBus`, `onIntent`.
+All VMs extend [MviViewModel](core/ui/MviViewModel.kt). Unifies `MutableStateFlow`, `EventBus`, `onIntent`.
 
 ```kotlin
 sealed interface <Feature>UiState {

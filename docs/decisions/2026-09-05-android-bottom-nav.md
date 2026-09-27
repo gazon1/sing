@@ -5,6 +5,11 @@ tags: [navigation, compose, shell, ui]
 status: accepted
 ---
 
+> **Superseded in part (2026-09-27):** the `isDesktop` flag described below was removed — it
+> had no `expect`, no usages and no callers. Platform-specific shells are selected through the
+> concrete actual, not a runtime boolean. See
+> [2026-09-27-remove-platform-clock-object.md](2026-09-27-remove-platform-clock-object.md).
+
 ## Context
 
 The Android app previously used a `ModalNavigationDrawer` (mobile) / `PermanentNavigationDrawer` (desktop) driven by a hand-rolled `selectedIndex` state in `feature/nav/Navigation.kt`. The user wanted the Android layout to match a reference design with a bottom navigation bar (Menu / Inbox / Today / Plans / Habits / Calendar) and a global FAB.

@@ -8,7 +8,8 @@ import kotlinx.coroutines.flow.Flow
  * Items are stored in Room as a flat list; ordering is maintained via [ChecklistItem.order].
  * All mutations return [Result] — errors are mapped from Room exceptions.
  *
- * @see com.singularity.todo.feature.checklist.domain.usecase.CreateChecklistItemsUseCase for batch creation.
+ * No use-case layer: batch creation is a plain [upsert] loop, so a pass-through
+ * use case would be boilerplate. See `docs/decisions/2026-09-22-checklist-usecase-delete-and-dead-deps-cleanup.md`.
  */
 interface ChecklistRepository {
     fun watchByTask(taskId: String): Flow<List<ChecklistItem>>

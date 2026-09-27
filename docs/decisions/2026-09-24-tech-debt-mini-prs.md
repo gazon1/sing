@@ -7,6 +7,9 @@ epic: chore/tech-debt-mini-prs
 
 # Tech Debt Mini-PRs — September 2024
 
+> **Superseded in part (2026-09-27):** the project-level `com.singularity.todo.core.platform.Clock` expect/actual object was removed. Use `kotlin.time.Clock.System.now()` (inject `Clock` for tests) and `core.platform.todayFlow()` / `todayInSystemZone()`. See [2026-09-27-remove-platform-clock-object.md](2026-09-27-remove-platform-clock-object.md).
+
+
 ## Context
 
 Three targeted fixes from the accumulated tech debt backlog (ADRs `2026-09-23-deprecation-tech-debt`, `2026-09-23-ota-deferred-items`).

@@ -15,8 +15,8 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 /**
  * Dependencies for [TaskCreateViewModel].
  *
- * @param draftStore A [UserScopedDraftStore] — caller is responsible for injecting
- *   the user-scoped wrapper so draft keys stay bare (no manual userId prefix拼接).
+ * @param draftStore A [DraftStore] scoped to the current user — the caller injects the
+ *   user-scoped instance so draft keys stay bare (no manual userId prefix).
  */
 data class TaskCreateDeps(
     val createFromDraft: CreateTaskFromDraftUseCase,
@@ -24,7 +24,7 @@ data class TaskCreateDeps(
     val draftStore: DraftStore,
 ) {
     companion object {
-        /** Bare draft key — [UserScopedDraftStore] prepends the user prefix internally. */
+        /** Bare draft key — the user-scoped store prepends the user prefix internally. */
         const val DRAFT_KEY = "task_create_draft"
     }
 }

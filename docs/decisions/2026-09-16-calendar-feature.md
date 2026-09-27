@@ -1,8 +1,16 @@
 ---
-The app needs a full calendar screen with multiple view modes. Key constraints: 
-- **kotlinx-datetime 0.8.0 limitations: ** No `LocalDate.plus(1, DateTimeUnit.MONTH)`,
+date: 2026-09-16
 status: accepted
+tags: [calendar, feature, navigation]
 ---
+
+# Calendar feature — data layer, UI modes, view models
+
+## Context
+
+The app needs a full calendar screen with multiple view modes. Key constraints:
+
+- **kotlinx-datetime 0.8.0 limitations:** No `LocalDate.plus(1, DateTimeUnit.MONTH)`,
 
 ## Decision
 

@@ -232,7 +232,7 @@ val cursor = driver.executeQuery(null, "SELECT * FROM tasks", emptyList())
 | `shared/src/androidMain/.../core/di/PlatformModule.android.kt` | `enableMultiInstanceInvalidation()` + WAL config |
 | `shared/src/jvmMain/.../core/database/contract/SqlDriverFactory.jvm.kt` | `configurePragmas()` with WAL + busy_timeout |
 | `mcp-server/src/main/kotlin/.../mcp/Main.kt` | `flushWalCheckpoint()` in shutdown hook |
-| `shared/src/commonMain/.../core/observability/PollingWatcher.kt` | `watchTasksPolling()` with conflate + delay |
+| `core/observability/` | `UsageRecorder` + `RoomUsageRecorder` (polling helpers — deferred) |
 
 ## Related Skills
 

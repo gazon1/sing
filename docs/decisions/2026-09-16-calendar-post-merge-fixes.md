@@ -1,7 +1,20 @@
 ---
-After completing the Calendar feature (commit `4dd094a`), a code review identified three issues requiring fixes: 
+date: 2026-09-16
 status: accepted
+tags: [calendar, code-review, compose]
 ---
+
+# Calendar post-merge fixes
+
+## Context
+
+After completing the Calendar feature (commit `4dd094a`), a code review identified three
+issues requiring fixes.
+
+> **Superseded in part (2026-09-27):** the project-level
+> `com.singularity.todo.core.platform.Clock` expect/actual object was removed. Use
+> `kotlin.time.Clock.System.now()` and `core.platform.todayFlow()` / `todayInSystemZone()`.
+> See [2026-09-27-remove-platform-clock-object.md](2026-09-27-remove-platform-clock-object.md).
 
 ## Decision 1 — `staticCompositionLocalOf` → `compositionLocalOf`
 

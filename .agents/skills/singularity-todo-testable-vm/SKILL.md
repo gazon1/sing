@@ -370,12 +370,12 @@ All VMs in the project extend `MviViewModel` as of 2026-09-25:
 | `CalendarSyncViewModel` | `feature/calendar/presentation/viewmodel/CalendarSyncViewModel.kt` | Full MviViewModel migration |
 | `CalendarViewModel` | `feature/calendar/presentation/viewmodel/CalendarViewModel.kt` | Full MviViewModel migration |
 | `AuthViewModel` | `feature/auth/presentation/viewmodel/AuthViewModel.kt` | Full MviViewModel migration |
-| `BackupViewModel` | `feature/settings/presentation/viewmodel/BackupViewModel.kt` | Full MviViewModel migration |
+| `BackupViewModel` | `feature/backup/BackupViewModel.kt` | Full MviViewModel migration |
 | `TaskDetailViewModel` | `feature/tasks/presentation/viewmodel/TaskDetailViewModel.kt` | Full MviViewModel migration; dedicated cache collector |
 | `ProjectDetailViewModel` | `feature/projects/presentation/viewmodel/ProjectDetailViewModel.kt` | Full MviViewModel migration; dedicated cache collector |
 | `ProjectsViewModel` | `feature/projects/presentation/viewmodel/ProjectsViewModel.kt` | Full MviViewModel migration |
-| `NoteEditorViewModel` | `feature/notes/presentation/viewmodel/NoteEditorViewModel.kt` | MviViewModel migration |
-| `NotePreviewViewModel` | `feature/notes/presentation/viewmodel/NotePreviewViewModel.kt` | MviViewModel migration |
+| `NoteEditor` | `feature/notes/presentation/viewmodel/NoteEditor.kt` | MviViewModel migration (класс называется `NoteEditor`) |
+| `NotePreview` | `feature/notes/presentation/viewmodel/NotePreview.kt` | MviViewModel migration (класс `NotePreview`) |
 | `AgendaViewModel` | `feature/agenda/presentation/viewmodel/AgendaViewModel.kt` | Pure read-through → `stateIn(WhileSubscribed)` — legitimate exception |
 
 ---

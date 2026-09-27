@@ -60,18 +60,16 @@ private fun ProjectDetailScreen_Preview() {
     PreviewThemed {
         val fakeTaskRepo = FakeTaskRepository()
         val fakeProjectsRepo = FakeProjectsRepository()
-        val fakeCurrentUser = FakeProfileAwareCurrentUser(
-            FakeAuthRepository(),
-            FakeProfileRepository(),
-        )
         val vm = ProjectDetailViewModel(
             projectId = sampleProjectId,
             projectRepo = fakeProjectsRepo,
             taskRepo = fakeTaskRepo,
-            deleteProject = DeleteProjectUseCase(fakeProjectsRepo, Clock),
+            deleteProject = DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
             updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock),
-            currentUser = fakeCurrentUser,
+            updateTask = UpdateTaskUseCase(fakeTaskRepo),
+            createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, fakeProjectsRepo),
             clock = Clock,
+            log = Logger,
         )
         ProjectDetailContent(
             viewModel = vm,
@@ -84,13 +82,16 @@ private fun ProjectDetailScreen_Preview() {
 }
 ```
 
+> Example abbreviated — the real constructor takes every dependency explicitly. Copy the
+> actual parameter list from the VM when writing a new preview.
+
 ## Rules
 
 1. **Never call `koinViewModel()` inside `@Preview`** — it will crash with "KoinApplication has not been started"
 2. **Public composables are `fun` (not `private`)** — they need Koin at runtime
 3. **Private content composables are `private fun`** — they accept VM and are previewable
 4. **FakeRepositories live in `commonMain`** — `commonTest` source set is not accessible from `commonMain` previews
-5. **`Clock` in previews** — use `com.singularity.todo.core.platform.Clock` directly (it's a platform expect/actual, available in all targets)
+5. **`Clock` in previews** — use `kotlin.time.Clock.System` and/or `core.platform.todayInSystemZone()`; the project-level `core.platform.Clock` object was removed (ADR `2026-09-27-remove-platform-clock-object.md`)
 
 ## What Changed (2026-09-09)
 

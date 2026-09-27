@@ -13,11 +13,11 @@ package com.singularity.todo.feature.agenda.domain.selector
  *
  * ## Rules
  *
- * **R1** (from `orgmode-functional-patterns`): New tree-traversal code must use
+ * **R1** (from `docs/decisions/2026-09-17-orgmode-functional-patterns.md`): New tree-traversal code must use
  * `traverseDepthFirst` or `cascadeUp` from `core.tree`. Ad-hoc recursive
  * `filter/map` chains are prohibited.
  *
- * **R5** (from `orgmode-functional-patterns`): Every sealed DSL hierarchy
+ * **R5** (from `docs/decisions/2026-09-17-orgmode-functional-patterns.md`): Every sealed DSL hierarchy
  * must be simultaneously `@Serializable` and a pure predicate. No parallel DTOs.
  * New Selector variants MUST add all four extension functions here before use.
  *
@@ -52,7 +52,7 @@ package com.singularity.todo.feature.agenda.domain.selector
  * @see com.singularity.todo.feature.agenda.domain.model.Selector
  * @see com.singularity.todo.feature.agenda.domain.model.SelectorSerializer
  * @see com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
- * @see orgmode-functional-patterns.md
+ * @see docs/decisions/2026-09-17-orgmode-functional-patterns.md
  */
 @Retention(AnnotationRetention.BINARY)
 @Target(

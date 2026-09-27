@@ -8,7 +8,7 @@ import kotlinx.datetime.LocalDate
  *
  * These are **never** stored in Room; they are always computed on read.
  *
- * ## Rule (from `orgmode-functional-patterns.md` R2)
+ * ## Rule (from `docs/decisions/2026-09-17-orgmode-functional-patterns.md` R2)
  *
  * Derived values must be computed through [com.singularity.todo.core.tree.cascadeUp] —
  * never as stored fields on entities.

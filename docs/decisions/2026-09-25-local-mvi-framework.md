@@ -7,6 +7,11 @@ status: accepted
 > **Superseded in part (2026-09-27):** `StatefulViewModel`, `updateStateAs<T>`,
 > `onStateChanged` and `CoroutineScope.fireAndForget` were removed. See
 > [2026-09-27-mvi-single-state-entry-and-vm-sweep.md](2026-09-27-mvi-single-state-entry-and-vm-sweep.md).
+>
+> **Paths below are historical (2026-09-27):** the `core/ui/mvi/` subdirectory was flattened
+> to `core/ui/`, so `core/ui/mvi/MviViewModel.kt` is now `core/ui/MviViewModel.kt`, etc. The
+> `commonTest/.../core/ui/mvi/` directory still exists. `SharedEventBus` was dropped as unused,
+> and `StateStrategy.kt` was never added.
 
 ## Context
 
@@ -55,7 +60,7 @@ class EventBus<E : MviEvent>(capacity: Int = Channel.BUFFERED) {
 }
 ```
 
-`Channel.BUFFERED` (64 elements) covers all one-shot UI events. `SharedEventBus<E>` (MutableSharedFlow-backed) available for broadcast scenarios but not yet used.
+`Channel.BUFFERED` (64 elements) covers all one-shot UI events. (As written: `SharedEventBus<E>` (MutableSharedFlow-backed) available for broadcast scenarios. Removed 2026-09-27 as unused by production code.)
 
 ### 3. StatefulViewModel (`core/ui/mvi/StatefulViewModel.kt`)
 

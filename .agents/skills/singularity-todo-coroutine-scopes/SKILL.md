@@ -160,7 +160,7 @@ This creates a new scope per preview render. In Android Studio, preview lifecycl
 ## KMP considerations
 
 - `Dispatchers.Default` is part of `kotlinx-coroutines-core` — available on Android, JVM, iOS, Native, JS.
-- `expect/actual fun` pattern mirrors `core/platform/Clock.kt` (already in the project).
+- `expect/actual fun` pattern mirrors `core/platform/TimeZoneProvider.kt` (already in the project).
 - No iOS target support yet — when iOS is added, add `iosMain/.../BackgroundScope.ios.kt` actual (probably identical to jvmMain/androidMain).
 
 ## When to use this skill

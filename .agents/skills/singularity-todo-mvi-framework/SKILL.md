@@ -1,23 +1,23 @@
 ---
 name: singularity-todo-mvi-framework
-description: Local MVI framework for Singularity Todo KMP. Covers MviViewModel base class, EventBus/SharedEventBus, MviIntent/MviEvent markers, IntentActions inline wrapper, and DraftState helper. Use when migrating a ViewModel to the framework or when writing a new VM.
+description: Local MVI framework for Singularity Todo KMP. Covers MviViewModel base class, EventBus, MviIntent/MviEvent markers, IntentActions inline wrapper, DraftMviViewModel and DraftState helper. Use when migrating a ViewModel to the framework or when writing a new VM.
 ---
 
-# MVI Framework — `core/ui/mvi/`
+# MVI Framework — `core/ui/`
 
-Minimal local MVI framework (~120 lines) providing base classes and utilities for ViewModels.
+Minimal local MVI framework providing base classes and utilities for ViewModels.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `core/ui/mvi/Markers.kt` | `MviIntent`, `MviEvent` marker interfaces |
-| `core/ui/mvi/StatefulViewModel.kt` | Base with `MutableStateFlow` + `update()` |
-| `core/ui/mvi/MviViewModel.kt` | Full base: `EventBus` + `updateState` + `onIntent` |
-| `core/ui/mvi/EventBus.kt` | Channel-backed (`EventBus`) and SharedFlow-backed (`SharedEventBus`) one-shot event buses |
-| `core/ui/mvi/StateStrategy.kt` | State update strategy (currently `Direct`) |
-| `core/ui/mvi/DraftState.kt` | Generic draft helper for editor VMs |
+| `core/ui/Markers.kt` | `MviIntent`, `MviEvent` marker interfaces |
+| `core/ui/MviViewModel.kt` | Full base: `EventBus` + `updateState` + `onIntent` |
+| `core/ui/EventBus.kt` | Channel-backed one-shot event bus |
 | `core/ui/IntentActions.kt` | `@JvmInline value class IntentActions<I : MviIntent>(dispatch: (I) → Unit)` |
+| `core/ui/DraftState.kt` | Generic draft helper for editor VMs |
+| `core/ui/DraftMviViewModel.kt` | Base for VMs that own a persisted draft |
+| `core/ui/TestTags.kt` | Stable test tags for UI verification |
 
 ## Migration Guide
 
