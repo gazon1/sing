@@ -144,8 +144,29 @@ class RoomNotesRepository(
 
     override suspend fun update(item: Note): Result<Note> = runCatching {
         currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
-        noteDao.upsert(item.toEntity())
-        item.also { syncRepository.enqueue(it) }
+        // Re-stamp after the guard, as Tasks now does: the guard has established
+        // that userId is current-or-anonymous, so normalising cannot lose
+        // information, whereas upserting a caller's anonymous id verbatim would
+        // orphan the row.
+        val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
+        noteDao.upsert(toUpdate.toEntity())
+        toUpdate.also { syncRepository.enqueue(it) }
+    }
+
+    /**
+     * Re-reads [id] and pushes that state to the sync outbox.
+     *
+     * Every narrow method below writes through a targeted `UPDATE` / a hand-built
+     * `NoteEntity` rather than a domain `update`, so the caller's note is stale by
+     * the time the write lands. Re-reading is what makes the pushed payload match
+     * the database — including for deletes, which propagate as state (`deletedAt`)
+     * rather than as a tombstone, since `buildPatch` already ships the full
+     * snapshot. `outgoingLinks` in particular is a serialised field of [Note] and
+     * must travel with the rest of the state.
+     */
+    private suspend fun enqueueFresh(id: NoteId) {
+        val row = noteDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value) ?: return
+        syncRepository.enqueue(row.toNote())
     }
 
     // ─── Remote apply (pull handler) ────────────────────────────────────────────
@@ -162,6 +183,7 @@ class RoomNotesRepository(
             currentUser.scopedUserId.value.value,
         )
         require(rows > 0) { "Note $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     // ─── SoftDeletable ────────────────────────────────────────────────────────
@@ -173,6 +195,7 @@ class RoomNotesRepository(
             currentUser.scopedUserId.value.value,
         )
         require(rows > 0) { "Note $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     // ─── Domain methods ───────────────────────────────────────────────────────
@@ -222,6 +245,7 @@ class RoomNotesRepository(
                 archivedAt = null,
             ),
         )
+        enqueueFresh(id)
         id
     }
 
@@ -250,6 +274,7 @@ class RoomNotesRepository(
                 archivedAt = null,
             ),
         )
+        enqueueFresh(id)
         id
     }
 
@@ -271,6 +296,7 @@ class RoomNotesRepository(
             userId = currentUser.scopedUserId.value.value,
         )
         require(rows > 0) { "Note $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     override suspend fun archive(id: NoteId): Result<Unit> = runCatching {
@@ -280,6 +306,7 @@ class RoomNotesRepository(
             currentUser.scopedUserId.value.value,
         )
         require(rows > 0) { "Note $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     override suspend fun unarchive(id: NoteId): Result<Unit> = runCatching {
@@ -289,6 +316,7 @@ class RoomNotesRepository(
             currentUser.scopedUserId.value.value,
         )
         require(rows > 0) { "Note $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     override suspend fun setPinned(id: NoteId, pinned: Boolean): Result<Unit> = runCatching {
@@ -301,6 +329,7 @@ class RoomNotesRepository(
             userId = currentUser.scopedUserId.value.value,
         )
         require(rows > 0) { "Note $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     override suspend fun setColor(id: NoteId, color: NoteColor?): Result<Unit> = runCatching {
@@ -311,6 +340,7 @@ class RoomNotesRepository(
             userId = currentUser.scopedUserId.value.value,
         )
         require(rows > 0) { "Note $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     override suspend fun setSortOrder(id: NoteId, sortOrder: Int): Result<Unit> = runCatching {
@@ -321,6 +351,7 @@ class RoomNotesRepository(
             userId = currentUser.scopedUserId.value.value,
         )
         require(rows > 0) { "Note $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     override suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit> = runCatching {
@@ -331,6 +362,7 @@ class RoomNotesRepository(
             userId = currentUser.scopedUserId.value.value,
         )
         require(rows > 0) { "Note $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     // ─── Templates and daily notes ────────────────────────────────────────────────
@@ -382,6 +414,7 @@ class RoomNotesRepository(
                 archivedAt = null,
             ),
         )
+        enqueueFresh(newId)
         newId
     }
 
@@ -393,6 +426,7 @@ class RoomNotesRepository(
             userId = currentUser.scopedUserId.value.value,
         )
         require(rows > 0) { "Note $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     override suspend fun getOrCreateDailyNote(dateKey: String, fromTemplateId: NoteId?): Result<NoteId> = runCatching {
@@ -426,6 +460,9 @@ class RoomNotesRepository(
                 archivedAt = null,
             ),
         )
+        // Only the creating path enqueues — the early return above found an
+        // existing note and changed nothing.
+        enqueueFresh(newId)
         newId
     }
 }
@@ -487,12 +524,18 @@ private fun String.parseLinksJson(): List<String> {
     return result
 }
 
-private fun List<String>.toLinksJson(): String = if (isEmpty()) {
-    "[]"
-} else {
-    buildString {
+private fun List<String>.toLinksJson(): String {
+    if (isEmpty()) return "[]"
+    // `items` is bound explicitly on purpose. Inside `buildString` the implicit
+    // receiver is the StringBuilder, which is a CharSequence, so a bare
+    // `forEachIndexed` resolves to CharSequence.forEachIndexed and iterates over
+    // the builder's own characters *while appending to it* — an unbounded loop
+    // that ends in OutOfMemoryError. Binding the list removes the ambiguity.
+    // The identical bug lived in TaskOutgoingLinks.toLinksJson.
+    val items = this
+    return buildString {
         append('[')
-        forEachIndexed { index, link ->
+        items.forEachIndexed { index, link ->
             if (index > 0) append(',')
             append('"').append(link).append('"')
         }

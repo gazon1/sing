@@ -33,16 +33,19 @@ fun extractOutgoingLinks(text: String): List<String> {
 }
 
 /** Serialises a list of link URLs to a JSON array string for DB storage. */
-fun List<String>.toLinksJson(): String = when {
-    isEmpty() -> "[]"
-
-    else -> buildString {
+fun List<String>.toLinksJson(): String {
+    if (isEmpty()) return "[]"
+    // `items` is bound explicitly on purpose. Inside `buildString` the implicit
+    // receiver is the StringBuilder, which is a CharSequence, so a bare
+    // `forEachIndexed` resolves to CharSequence.forEachIndexed and iterates over
+    // the builder's own characters *while appending to it* — an unbounded loop
+    // that ends in OutOfMemoryError. Binding the list removes the ambiguity.
+    val items = this
+    return buildString {
         append('[')
-        forEachIndexed { i, link ->
+        items.forEachIndexed { i, link ->
             if (i > 0) append(',')
-            append('"')
-            append(link)
-            append('"')
+            append('"').append(link).append('"')
         }
         append(']')
     }
