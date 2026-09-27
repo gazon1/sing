@@ -41,8 +41,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Always** update `_latest<Entity>` before any async operation that reads it. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - **Never** emit `Saved` events for debounced inline edits — update `_lastEditedAt` only. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - **Always** use `GenericUserScopedRepository<E, ID>` as the base for any new _(from `2026-09-21-generic-user-scoped-repository`)_
+- **Always** — DAO mutations carry `userId` and return the affected count; a `0` is a _(from `2026-09-27-write-layer-soundness`)_
 - **Never** add `ForCurrentUser` suffix to new method names — the type guarantees user-scope. _(from `2026-09-21-generic-user-scoped-repository`)_
 - **Never** return `Result<Unit>` from `create` / `update` — return `Result<E>`. _(from `2026-09-21-generic-user-scoped-repository`)_
+- **Never** — leave an unscoped DAO mutation next to a scoped one; delete the old variant. _(from `2026-09-27-write-layer-soundness`)_
+- **Never** — treat `assertCanWrite` as the sole ownership check for id-only methods. _(from `2026-09-27-write-layer-soundness`)_
 - **Never** add an `aiApiKey` (or any secret) field back to `SettingsRepository`. Adding one is a regression. _(from `2026-09-05-secret-storage-split`)_
 - **Never** add an `aiApiKey` field to `SettingsUiState.Content`. _(from `2026-09-05-secret-storage-split`)_
 - The password field on `AiProviderSettingsScreen` is a local `mutableStateOf`. **Never** lift it to the VM. _(from `2026-09-05-secret-storage-split`)_
@@ -982,8 +985,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **PR 3** (VM cleanup) is unblocked: all repository `create` methods now stamp ambient `userId`, so VMs no longer need to pass it. `currentUser` can be dropped from remaining VMs (`TaskDetailViewModel`, `NotePreview`, `NoteEditor`, `ProjectsViewModel`, `NotesListViewModel`, `ProjectEditorViewModel`, `AttachmentsViewModel`, `SavedAgendaViewModel`, `ProjectDetailViewModel`).
 - **When** a second entity acquires free-text search — extract `Searchable<E>` mixin
 - **When** adding a cross-cutting repository helper (batch op, transactional wrap) —
+- A Konsist rule and a detekt rule (added in the enforcement MR) fail the build on new
 - AI tools (`CreateTaskTool`, `CreateProjectTool`) still pass `userId` in their input classes — those are separate from this PR's scope (the AI tool MCP adapter work).
 - Fakes in `test/fakes/FakeRepositories.kt` simplify: one constructor parameter
+- Fakes must reproduce production semantics — including ownership. A fake that cannot
 - If a future use-case requires a true `SourceOfTruth` abstraction (e.g., migrating part of the data to a KV-store or SqlDelight), the decision to adopt Store or a custom `LocalStore<T>` interface can be revisited.
 - The old `UserScopedRepository<T, ID>` typealias is removed in the cleanup commit
 - Write pipeline is now formalised in `GenericUserScopedRepository` KDoc.
@@ -1550,6 +1555,7 @@ _6 entries need attention._
 - `2026-09-26-writer-reviewer-pattern` — _untagged_
 - `2026-09-27-draft-mvi-single-state-source` — mvi, viewmodel, draft, coroutines, initialization-order
 - `2026-09-27-remove-platform-clock-object` — clock, architecture, migration, kotlin-stdlib
+- `2026-09-27-write-layer-soundness` — repository, multi-profile, sync, architecture, security
 
 ## Active entries
 
@@ -1820,4 +1826,5 @@ _6 entries need attention._
 - `2026-09-26-writer-reviewer-pattern` — _(no title)_
 - `2026-09-27-draft-mvi-single-state-source` — DraftMviViewModel — one state source, no open-member calls from a constructor
 - `2026-09-27-remove-platform-clock-object` — Remove `core.platform.Clock` — use `kotlin.time.Clock` everywhere
+- `2026-09-27-write-layer-soundness` — Write-layer soundness — ownership-scoped DAO mutations and the two-layer guard model
 

@@ -1,0 +1,118 @@
+---
+title: "Write-layer soundness — ownership-scoped DAO mutations and the two-layer guard model"
+date: 2026-09-27
+tags: [repository, multi-profile, sync, architecture, security]
+status: accepted
+---
+
+## Context
+
+The write pipeline documented in `GenericUserScopedRepository` KDoc — `assertCanWrite` →
+`dao.upsert` → `syncRepository.enqueue` — was documented but **not enforced**, and reality
+diverged in three independent ways. A full sweep of `shared/src/commonMain` found:
+
+| Class | Count | Severity |
+|---|---|---|
+| DAO mutations with no `user_id` in the WHERE clause | 28 | cross-user write |
+| Syncable entities with bypassed `enqueue` | ~25 | deletions never propagate |
+| Repository writes with no guard of any kind | 36 | — |
+| Fakes divergent from production | 5 fakes, ~14 methods | tests blind to isolation |
+
+The fakes were the most consequential finding. `FakeProjectsRepository.observeProject`,
+`observeByParent`, `changes` and `findByIdempotencyKey` did not filter by `userId` at all,
+`FakeTaskRepository.delete` hard-deleted where production soft-deletes, and
+`FakeNotesRepository.search` searched body text where production searches title only. Any
+test asserting cross-user isolation passed **vacuously** — which is why the defects
+survived: nothing in the suite could see them.
+
+Two structural facts shaped the fix:
+
+1. **`assertCanWrite` needs an entity.** `toggleComplete(taskId)`, `softDelete(id)` and
+   `setTags(taskId, tags)` carry only an ID — there is no `userId` to check. Adding a
+   guard there would be impossible or a lie. The unbypassable layer is the DAO.
+2. **Room constrains INSERT returns.** `INSERT` queries may return only `Unit` or `Long`,
+   and a rejected `INSERT ... SELECT` reports `-1`, not a row count. Enforcement for
+   cross-ref tables is therefore the `WHERE EXISTS` clause, with callers checking task
+   ownership separately.
+
+## Decision
+
+### 1. Two-layer guard model
+
+- **Entity-carrying writes** (`create`/`update`) → `currentUser.assertCanWrite(...)`, which
+  fails fast with `CrossUserWriteException` and is now applied uniformly.
+- **ID-only writes** (`toggleComplete`, `softDelete`, `setTags`, …) → the DAO filter plus
+  `require(rows > 0)` at the call site. This is the layer that cannot be bypassed.
+
+`assertCanWrite` is explicitly *not* universal, and the `singularity-todo-write-pipeline`
+skill is updated to say so.
+
+### 2. Ownership-scoped DAO mutations
+
+Every `UPDATE`/`DELETE` takes a `userId` and reports the affected row count. Tables without
+a `user_id` column (`task_tags`, `task_dependencies`, `checklist_items`,
+`project_tag_groups`) scope through their owning row, following the pattern already used by
+`listAllTagsForUser`:
+
+```sql
+WHERE task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+```
+
+Old unscoped variants were **deleted**, not left alongside, so the mistake cannot be
+repeated. The only exceptions are the two unscoped `@Upsert` cross-ref methods kept for
+`BackupImporter` (see ledger), and two deliberately global queries.
+
+**No Room migration** — no columns changed, only query signatures.
+
+### 3. Deletion propagates as state, not as a tombstone
+
+`softDelete`/`restore` never called `enqueue`, and `SyncEngine.buildPatch` hardcodes
+`isDelete = false`, so **deletions never reached the server** and the next pull re-applied
+the server's non-trashed state — tasks resurrected. `deltaPatchDelete` exists but its only
+caller is a test.
+
+`buildPatch` already ships the full entity snapshot (`ops = emptyList()`, `shadowChecksum`),
+so the fix is to enqueue the *rebuilt* entity. `archivedAt`/`isDeleted` are serializable
+fields, so this needs **no server-side change**, and `restore` works through the same path.
+`isDelete` stays `false`; a comment on `buildPatch` records why.
+
+### 4. `Result.success` must not lie
+
+`toggleComplete`/`togglePinned` previously did `?: return@runCatching` on a missing entity,
+so a caller could not distinguish "not found" from "toggled". Missing rows now surface as
+`Result.failure`.
+
+## Consequences
+
+- **Always** — DAO mutations carry `userId` and return the affected count; a `0` is a
+  failed write.
+- **Never** — leave an unscoped DAO mutation next to a scoped one; delete the old variant.
+- **Never** — treat `assertCanWrite` as the sole ownership check for id-only methods.
+- A Konsist rule and a detekt rule (added in the enforcement MR) fail the build on new
+  violations, with an allowlist for the intentional exceptions.
+- Fakes must reproduce production semantics — including ownership. A fake that cannot
+  evaluate a rule must say so in a comment rather than silently diverge.
+
+## Known gaps (ledger)
+
+Accumulates from the per-MR phase reviews. Each entry is a finding that was **not** fixed in
+the MR that discovered it.
+
+| # | Finding | Status |
+|---|---|---|
+| 1 | `TaskDao.getById(id)` is unscoped, and `TaskRepositoryImpl.get(id)` uses it — so `get` can return another user's task. A **read** leak, found during the MR-1 review. Not fixed: this batch was scoped to writes. Fix: add `getByIdForUser` and use it. | open |
+| 2 | `BackupImporter` (BackupImporter.kt:58-93) writes `taskDao`/`noteDao`/`projectDao`/`tagDao` directly, violating the layer rule. It **cannot** simply route through repositories: import targets an arbitrary `userId` while repositories read the *ambient* scoped user. The two unscoped `@Upsert` cross-ref methods exist solely for it. Correct resolution is a documented Konsist allowlist entry plus, longer term, a real bulk-import port. | open |
+| 3 | `TaskDetailViewModelTest.TitleChanged debounce saves after delay` fails on `main` — a 60-second `UncompletedCoroutinesError`, not caused by this work (verified by stashing the changes). Root cause chain: `FakeProfileAwareCurrentUser` defaults to `Dispatchers.Default` so its `scopedUserId` collector is not virtualised, and the VM's save path is `combine(_latestTask.filterNotNull(), titleEdits.debounce(300ms))` over a `MutableSharedFlow(replay = 0)`. Injecting `StandardTestDispatcher(testScheduler)` converts the hang into a fast assertion failure (`expected: <Edited title> but was: <Test task>`), i.e. it removes the 60s stall but does not fix the debounce. Not fixed here: out of scope, and the file documents its own planned fix in ADR `2026-09-25-testable-vm-dispatcher-clock`. | open |
+| 4 | `RoomChecklistRepository` still has no `assertCanWrite` and its remaining writes (`upsert`, `toggleItem`, `createBatch`) bypass ownership entirely. Now that it resolves the ambient user, the DAO layer can enforce these next. | open |
+| 5 | `FakeNotesRepository.search` searches title + body while production searches title only. Fixed in the fake-fidelity MR; the underlying question — *should* production search body? — is a product decision, not a correctness one. | open |
+| 6 | ~15 sites swallow exceptions via bare `runCatching`/`getOrNull()`. The genuine bugs are fixed; the intentional AI-tool fallbacks only gain warn-level logging. | open |
+| 7 | `TagGroupRepositoryImpl.delete` enqueues a placeholder `TagGroup(name = "", color = 0)`; `setInheritedForProject` deletes inherited groups and never inserts the replacements. Queued for the Projects/Tags/TagGroup MR. | open |
+| 8 | Narrow field-update methods (`toggleComplete`, `setPinned`, `setTags`, …) remain separate write paths. Collapsing them into `update(entity)` removes the bug class by construction but introduces a read-modify-write race that partial UPDATEs currently avoid; the correct long-term answer is an optimistic-locking version column. Deliberately deferred — deciding it needs production evidence this batch does not produce. | open |
+| 9 | `NotesRepository.kt` is 448 lines mixing interface, impl and mappers, against a detekt `TooManyFunctions` limit of 25 per file. Structural debt, unrelated to correctness. | open |
+
+## Links
+
+- `docs/decisions/2026-09-21-generic-user-scoped-repository.md` — the base interface
+- `docs/decisions/2026-09-24-dao-userid-guards.md` — the `*ForUser` precedent
+- `docs/decisions/2026-09-25-no-store-library-local-first-pattern.md` — Room as SoT
+- `docs/decisions/2026-09-26-konsist-architecture-tests.md` — the allowlist protocol
