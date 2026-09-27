@@ -7,7 +7,6 @@ import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.SyncRepository
@@ -20,6 +19,7 @@ import com.singularity.todo.feature.tags.domain.model.UpdateTagGroupInput
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlin.time.Clock
 
 /**
  * Room-backed production [TagGroupRepository].

@@ -298,7 +298,18 @@ sealed interface AppDestination : NavKey {
      */
     @Serializable
     data class AgendaGraph(val start: AgendaStartRoute = AgendaStartRoute.Inbox) : AppDestination {
-        override val title = "Agenda"
+        // Three of these are bottom-bar tabs and the shell renders `title`
+        // directly as the tab label, so it has to vary by start route.
+        override val title: String = when (start) {
+            AgendaStartRoute.Inbox -> "Inbox"
+            AgendaStartRoute.Today -> "Today"
+            AgendaStartRoute.Upcoming -> "Upcoming"
+            is AgendaStartRoute.Project -> "Project"
+            is AgendaStartRoute.Tag -> "Tag"
+            AgendaStartRoute.SavedAgendaList -> "Saved views"
+            is AgendaStartRoute.SavedAgendaEdit -> "Edit view"
+            AgendaStartRoute.SavedAgendaCreate -> "New view"
+        }
     }
 }
 
@@ -341,16 +352,13 @@ const val MenuButtonTitle = "Menu"
  */
 object DestinationKind {
     /** Six persistent tabs shown in the bottom bar (excludes the Menu button). */
-    fun isTab(destination: AppDestination): Boolean =
-        destination in tabSet
+    fun isTab(destination: AppDestination): Boolean = destination in tabSet
 
     /** Menu destinations opened from the bottom sheet overlay. */
-    fun isMenuEntry(destination: AppDestination): Boolean =
-        destination in menuSet
+    fun isMenuEntry(destination: AppDestination): Boolean = destination in menuSet
 
     /** Anything that is NOT a top-level tab — i.e. push-on sub-routes. */
-    fun isSubRoute(destination: AppDestination): Boolean =
-        destination !in tabSet && destination !in menuSet
+    fun isSubRoute(destination: AppDestination): Boolean = destination !in tabSet && destination !in menuSet
 
     /** Six bottom-bar tab destinations in display order. */
     val tabs: List<AppDestination> = listOf(

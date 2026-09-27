@@ -34,10 +34,10 @@ fun TagsScreen(state: TagsUiState, modifier: Modifier = Modifier, onDelete: (Tag
         state = state.toContentState(),
         emptyTitle = "No tags yet",
         modifier = modifier,
-    ) { tags ->
+    ) { tags, contentModifier ->
         TagList(
             tags = tags,
-            modifier = modifier,
+            modifier = contentModifier,
             onDelete = onDelete,
         )
     }

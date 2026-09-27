@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.notifications.AndroidNotifier
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.alarms.AlarmContract
 import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_PHASE
@@ -27,6 +26,7 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.context.GlobalContext
+import kotlin.time.Clock
 
 /**
  * Multi-action [BroadcastReceiver] that handles all alarm-driven events:

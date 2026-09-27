@@ -152,7 +152,7 @@ class KoogJsonSchemaBuilderTest {
     private fun createTaskTool() = CreateTaskTool(
         taskRepository = FakeTaskRepository(),
         currentUser = FakeProfileAwareCurrentUser(),
-        clock = com.singularity.todo.core.platform.Clock,
+        clock = kotlin.time.Clock,
     )
 
     /** Tools that don't need an LLM executor at construction time. */

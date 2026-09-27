@@ -1,10 +1,10 @@
 package com.singularity.todo.feature.tasks.domain.usecase
 
 import com.singularity.todo.core.error.AppError
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlin.time.Clock
 
 /**
  * Updates a task with automatic updatedAt timestamp injection.

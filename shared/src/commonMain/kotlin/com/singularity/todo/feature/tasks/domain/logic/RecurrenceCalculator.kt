@@ -11,7 +11,7 @@ import kotlinx.datetime.plus
 /**
  * Pure next-occurrence calculator for [RecurrenceSpec].
  *
- * All methods are pure functions — no side effects, no `Clock.now()`, no I/O.
+ * All methods are pure functions — no side effects, no  Clock.System.now()`, no I/O.
  * Thread-safe (no mutable state).
  *
  * @see RecurrenceParser for DSL parsing.

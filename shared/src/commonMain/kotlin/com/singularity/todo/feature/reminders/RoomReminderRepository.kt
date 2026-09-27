@@ -3,13 +3,13 @@ package com.singularity.todo.feature.reminders
 import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlin.time.Clock
 
 /**
  * Room-backed implementation of [ReminderRepository].

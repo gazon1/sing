@@ -1,12 +1,12 @@
 package com.singularity.todo.core.observability
 
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.time.Clock
 
 /**
  * Tests for [RoomUsageRecorder] — verifies that AI tool call events are
@@ -16,7 +16,7 @@ class LlmUsageRecorderTest {
 
     private fun makeRecorder(): RoomUsageRecorder {
         val db = FakeAppDatabase()
-        return RoomUsageRecorder(db.llmUsageDao(), Clock)
+        return RoomUsageRecorder(db.llmUsageDao(), Clock.System)
     }
 
     @Test
@@ -34,7 +34,7 @@ class LlmUsageRecorderTest {
                 durationMs = 450L,
                 profileId = "user-1",
                 error = null,
-                timestamp = Clock.now(),
+                timestamp = Clock.System.now(),
             ),
         )
 
@@ -66,7 +66,7 @@ class LlmUsageRecorderTest {
                 durationMs = 300L,
                 profileId = "user-1",
                 error = "network timeout",
-                timestamp = Clock.now(),
+                timestamp = Clock.System.now(),
             ),
         )
 
@@ -91,7 +91,7 @@ class LlmUsageRecorderTest {
                     durationMs = 300L,
                     profileId = "user-1",
                     error = null,
-                    timestamp = Clock.now(),
+                    timestamp = Clock.System.now(),
                 ),
             )
         }
@@ -117,7 +117,7 @@ class LlmUsageRecorderTest {
                 durationMs = 200L,
                 profileId = "profile-a",
                 error = null,
-                timestamp = Clock.now(),
+                timestamp = Clock.System.now(),
             ),
         )
         recorder.record(
@@ -131,7 +131,7 @@ class LlmUsageRecorderTest {
                 durationMs = 180L,
                 profileId = "profile-b",
                 error = null,
-                timestamp = Clock.now(),
+                timestamp = Clock.System.now(),
             ),
         )
 
@@ -159,7 +159,7 @@ class LlmUsageRecorderTest {
                 durationMs = 200L,
                 profileId = "user-1",
                 error = null,
-                timestamp = Clock.now(),
+                timestamp = Clock.System.now(),
             ),
         )
 

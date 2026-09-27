@@ -7,7 +7,6 @@ import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.error.toMessage
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
@@ -94,20 +93,12 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     private val autosaveDebounceMs: Long = 500L,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<DraftUiState<D>, I, E>(
-    initialState = DraftUiState(draft = initialDraft),
-    scope = scope,
-) {
+        initialState = DraftUiState(draft = initialDraft),
+        scope = scope,
+    ) {
     override val vmScope: AutoCloseableCoroutineScope = scope
 
     private val draftState = DraftState(initialDraft)
-
-    /** Single source of truth for everything the UI observes. */
-    private val _uiState = MutableStateFlow(
-        DraftUiState(
-            draft = initialDraft,
-            isSaveEnabled = validate(initialDraft) == null,
-        ),
-    )
 
     private val effectJobs = ConcurrentHashMap<Any, Job>()
 
@@ -122,10 +113,19 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
             val restored = restore()
             if (restored != null && draftState.value == initialDraft && !draftState.isDirty) {
                 draftState.open(restored)
-                pushUiState()
             }
 
-            // 2. Debounced silent autosave loop — starts only after restore settles.
+            // 2. First evaluation of the UI state. It cannot happen in the
+            //    initial-state expression above because validate() is an open
+            //    member: calling it from this class's constructor would run
+            //    before a subclass's own properties are initialized. Running it
+            //    from the launched coroutine happens after construction, so
+            //    implementations may safely read their own state. Validation
+            //    errors stay out of this first pass — they belong to user edits,
+            //    not to the draft the editor was opened with.
+            pushUiState(includeValidationError = false)
+
+            // 3. Debounced silent autosave loop — starts only after restore settles.
             draftState.current.drop(1)
                 .debounce(autosaveDebounceMs.milliseconds)
                 .collect { current ->
@@ -135,24 +135,27 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
         }
     }
 
-    /** Recomputes [DraftUiState] from [draftState] + the current saving/error flags and publishes it. */
-    private fun pushUiState() {
-        _uiState.update { state ->
-            val current = draftState.value
-            val validationError = validate(current)
+    /**
+     * Recomputes [DraftUiState] from [draftState] + the current saving flag and publishes it.
+     *
+     * @param includeValidationError Whether a live validation failure should be
+     *   surfaced in [DraftUiState.error]. False for the initial pass, which only
+     *   needs [DraftUiState.isSaveEnabled] / [DraftUiState.isDirty].
+     */
+    private fun pushUiState(includeValidationError: Boolean = true) {
+        val current = draftState.value
+        val validationError = validate(current)
+        updateState { state ->
             state.copy(
                 draft = current,
                 isSaveEnabled = validationError == null && !state.isSaving,
-                // Live validation errors are transient and recomputed every call;
-                // a persistence error (set explicitly via `_uiState.update` in
-                // `save()`/`onAutosaveError`) is left as-is here so it survives
-                // across edits until the user acts on it or edits their way past it.
-                error = validationError
-                    ?: state.error,
+                // Recomputed on every edit so a validation error disappears as
+                // soon as the draft becomes valid. A persistence error set by
+                // [save] is cleared the same way — the user has moved on.
+                error = if (includeValidationError) validationError else state.error,
                 isDirty = draftState.isDirty,
             )
         }
-        updateState { _uiState.value }
     }
 
     /**
@@ -173,7 +176,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     open fun open(newDraft: D) {
         if (sameEntity(draftState.value, newDraft)) return
         draftState.open(newDraft)
-        _uiState.update { it.copy(isSaving = false, error = null) }
+        updateState { it.copy(isSaving = false, error = null) }
         pushUiState()
     }
 
@@ -182,8 +185,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * Default is identity equality. Override for draft types that wrap an entity ID.
      * Example: `current.id == incoming.id` for a NoteDraft that wraps a [Note].
      */
-    protected open fun sameEntity(current: D, incoming: D): Boolean =
-        current == incoming
+    protected open fun sameEntity(current: D, incoming: D): Boolean = current == incoming
 
     /** Override to return a human-readable validation error, or null if valid. */
     protected abstract fun validate(draft: D): String?
@@ -226,19 +228,19 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * Guarded against concurrent calls (race condition prevention).
      */
     open fun save() {
-        if (_uiState.value.isSaving) return
-        _uiState.update { it.copy(isSaving = true) }
+        if (currentState.isSaving) return
+        updateState { it.copy(isSaving = true) }
         vmScope.launch {
             try {
                 val currentDraft = draftState.value
                 val validationError = validate(currentDraft)
                 if (validationError != null) {
-                    _uiState.update { it.copy(error = validationError, isSaving = false) }
+                    updateState { it.copy(error = validationError, isSaving = false) }
                     return@launch
                 }
                 when (val result = persist(currentDraft)) {
                     is Either.Left -> {
-                        _uiState.update { it.copy(error = result.error.toMessage("Save failed")) }
+                        updateState { it.copy(error = result.error.toMessage("Save failed")) }
                     }
 
                     is Either.Right -> {
@@ -251,7 +253,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                     }
                 }
             } finally {
-                _uiState.update { it.copy(isSaving = false) }
+                updateState { it.copy(isSaving = false) }
             }
         }
     }
@@ -267,13 +269,13 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      */
     open fun discard() {
         draftState.discard()
-        _uiState.update { it.copy(isSaving = false, error = null) }
+        updateState { it.copy(isSaving = false, error = null) }
         pushUiState()
     }
 
     /** Dismisses the current error banner. */
     open fun dismissError() {
-        _uiState.update { it.copy(error = null) }
+        updateState { it.copy(error = null) }
     }
 
     /**

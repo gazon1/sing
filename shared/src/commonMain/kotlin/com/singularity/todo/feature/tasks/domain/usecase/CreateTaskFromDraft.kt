@@ -2,7 +2,7 @@ package com.singularity.todo.feature.tasks.domain.usecase
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
-import com.singularity.todo.core.platform.Clock
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -17,6 +17,7 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
+import kotlin.time.Clock
 
 /**
  * Creates a task from a [TaskDraft] (editor UI state) — the entry point used by
@@ -99,7 +100,7 @@ class CreateTaskFromDraftUseCase(
                 repo.create(task).fold(
                     onSuccess = { Either.Right(taskId) },
                     onFailure = { e ->
-                        Either.Left(AppError.Persistence(e))
+                        Either.Left(AppError.Persistence(e.toMessage()))
                     },
                 )
             }

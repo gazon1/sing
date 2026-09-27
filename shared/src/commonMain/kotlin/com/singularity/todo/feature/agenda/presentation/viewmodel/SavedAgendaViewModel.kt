@@ -5,9 +5,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.serialization.StableJson
-import com.singularity.todo.core.ui.DraftState
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -22,17 +20,26 @@ import kotlinx.coroutines.launch
 /**
  * Dependencies for [SavedAgendaViewModel].
  */
-data class SavedAgendaDeps(val repo: SavedAgendaViewsRepository, val clock: Clock = Clock, val log: Logger)
+data class SavedAgendaDeps(
+    val repo: SavedAgendaViewsRepository,
+    val clock: kotlin.time.Clock = kotlin.time.Clock.System,
+    val log: Logger,
+)
 
 /**
  * Editable draft state — single source of truth for name/sections.
  * Mutated directly via typed methods. No flow magic, no combine.
  */
 @Stable
-class SavedAgendaDraftState : DraftState<Draft>(Draft.empty()) {
-    fun seed(draft: Draft) {
-        if (state.initialized) return
-        reset(draft)
+class SavedAgendaDraftState {
+
+    private var draft: Draft = Draft.empty()
+
+    val state: Draft get() = draft
+
+    fun seed(value: Draft) {
+        if (draft.initialized) return
+        draft = value
     }
 
     fun setName(name: String) = update { it.copy(name = name) }
@@ -56,6 +63,10 @@ class SavedAgendaDraftState : DraftState<Draft>(Draft.empty()) {
 
     /** Marks the current draft as saved — resets originalName/originalSections so isDirty becomes false. */
     fun markSaved() = update { it.copy(originalName = it.name, originalSections = it.sections) }
+
+    private fun update(reducer: (Draft) -> Draft) {
+        draft = reducer(draft)
+    }
 }
 
 data class Draft(

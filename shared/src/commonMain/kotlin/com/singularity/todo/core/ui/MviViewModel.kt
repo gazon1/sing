@@ -56,15 +56,13 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     val events: Flow<E> get() = _events.flow
 
     /** Emits a one-shot event. Suspends until the channel accepts it. */
-    protected suspend fun emit(event: E) =
-        _events.emit(event)
+    protected suspend fun emit(event: E) = _events.emit(event)
 
     /**
      * Tries to emit a one-shot event without suspending.
      * Returns `true` if the event was sent, `false` if the buffer is full.
      */
-    protected fun tryEmit(event: E): Boolean =
-        _events.tryEmit(event)
+    protected fun tryEmit(event: E): Boolean = _events.tryEmit(event)
 
     /**
      * Updates state by applying [transform] to the current value.
@@ -103,7 +101,8 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
         if (current is T) {
             val old = currentState
             update { transform(current) }
-            @Suppress("UNCHECKED_CAST") onStateChanged(old, currentState)
+            @Suppress("UNCHECKED_CAST")
+            onStateChanged(old, currentState)
         }
     }
 

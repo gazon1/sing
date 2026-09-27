@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.components
 
+import com.singularity.todo.core.error.AppError
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -25,10 +26,10 @@ class ContentStateTest {
     }
 
     @Test
-    fun errorHoldsAMessage() {
-        val error = ContentState.Error("boom")
+    fun errorHoldsAnAppError() {
+        val error = ContentState.Error(AppError.Network("boom"))
         assertIs<ContentState.Error>(error)
-        assertEquals("boom", error.message)
+        assertEquals("boom", error.error.message)
     }
 
     @Test
@@ -40,10 +41,10 @@ class ContentStateTest {
 
     @Test
     fun errorMessagesAreDistinct() {
-        val e1 = ContentState.Error("one")
-        val e2 = ContentState.Error("two")
-        assertEquals("one", e1.message)
-        assertEquals("two", e2.message)
+        val e1 = ContentState.Error(AppError.Network("one"))
+        val e2 = ContentState.Error(AppError.Network("two"))
+        assertEquals("one", e1.error.message)
+        assertEquals("two", e2.error.message)
     }
 
     @Test

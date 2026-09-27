@@ -63,7 +63,7 @@ class BackupViewModelTest {
             repository = repo,
             authRepository = auth,
             backupFileNamer = namer,
-            clock = com.singularity.todo.core.platform.Clock,
+            clock = kotlin.time.Clock.System,
             settingsExporter = stubSettingsExporter,
             settingsImporter = stubSettingsImporter,
             scope = testScope(scope),

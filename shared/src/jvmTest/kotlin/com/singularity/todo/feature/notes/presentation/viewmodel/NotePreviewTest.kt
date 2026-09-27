@@ -2,7 +2,6 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.search.InternalLinkRepository
@@ -17,6 +16,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.time.Clock
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class NotePreviewTest {
@@ -30,8 +30,8 @@ class NotePreviewTest {
         bodyHtml = "<p>Hello world</p>",
         wordCount = 2,
         charCount = 11,
-        createdAt = Clock.now(),
-        updatedAt = Clock.now(),
+        createdAt = Clock.System.now(),
+        updatedAt = Clock.System.now(),
     )
 
     private val emptyLinkRepo = object : InternalLinkRepository {

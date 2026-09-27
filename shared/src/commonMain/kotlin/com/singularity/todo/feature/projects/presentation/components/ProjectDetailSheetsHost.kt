@@ -24,7 +24,8 @@ fun ProjectDetailSheetsHost(
     onSheetDismiss: () -> Unit,
 ) {
     when (activeSheet) {
-        null -> { /* no sheet */
+        null -> {
+            /* no sheet */
         }
 
         is ActiveSheet.PickColor -> ColorPickerSheet(

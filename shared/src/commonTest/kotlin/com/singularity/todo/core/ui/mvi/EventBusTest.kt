@@ -2,7 +2,6 @@ package com.singularity.todo.core.ui.mvi
 
 import com.singularity.todo.core.ui.EventBus
 import com.singularity.todo.core.ui.MviEvent
-import com.singularity.todo.core.ui.SharedEventBus
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -41,26 +40,5 @@ class EventBusTest {
     fun `EventBus tryEmit returns true when buffer has capacity`() = runTest {
         val bus = EventBus<TestEvent>(capacity = 1)
         assertTrue(bus.tryEmit(TestEvent.Signal))
-    }
-
-    @Test
-    fun `SharedEventBus emits to subscribers`() = runTest {
-        val bus = SharedEventBus<TestEvent>(extraBufferCapacity = 2)
-        val results = mutableListOf<TestEvent>()
-
-        // Start collector first, then emit (SharedEventBus emits to active subscribers)
-        launch {
-            bus.flow.collect { results.add(it) }
-        }.let { job ->
-            advanceUntilIdle() // ensure collector starts
-            bus.emit(TestEvent.Text("hello"))
-            advanceUntilIdle()
-            bus.emit(TestEvent.Signal)
-            advanceUntilIdle()
-            job.cancel()
-        }
-
-        assertEquals(2, results.size)
-        assertTrue(results[0] is TestEvent.Text)
     }
 }

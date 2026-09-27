@@ -2,11 +2,11 @@ package com.singularity.todo.feature.tags.domain.usecase
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingResult
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tags.CreateTagInput
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
+import kotlin.time.Clock
 
 // Keep: has validation (require without throw) + clock + TagId generation
 class CreateTagUseCase(private val repo: TagsRepository, private val clock: Clock) {

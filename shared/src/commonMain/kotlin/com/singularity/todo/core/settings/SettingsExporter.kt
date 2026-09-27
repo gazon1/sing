@@ -3,7 +3,6 @@ package com.singularity.todo.core.settings
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 
-
 /**
  * Exports the current settings as a JSON string.
  *
@@ -57,11 +56,12 @@ open class SettingsExporter(private val contributors: Set<SettingsContributor<*,
             ?.first()
             ?: SettingsSection.Greeting()
 
-        val defaultAgendaView = contributors.filterIsInstance<SettingsContributor<SettingsSection.DefaultAgendaView, *>>()
-            .firstOrNull()
-            ?.observe()
-            ?.first()
-            ?: SettingsSection.DefaultAgendaView()
+        val defaultAgendaView =
+            contributors.filterIsInstance<SettingsContributor<SettingsSection.DefaultAgendaView, *>>()
+                .firstOrNull()
+                ?.observe()
+                ?.first()
+                ?: SettingsSection.DefaultAgendaView()
 
         val snapshot = SettingsSnapshot(
             schemaVersion = SettingsSnapshot.CURRENT_VERSION,

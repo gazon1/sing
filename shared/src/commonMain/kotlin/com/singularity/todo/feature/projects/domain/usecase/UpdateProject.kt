@@ -2,10 +2,10 @@ package com.singularity.todo.feature.projects.domain.usecase
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingResult
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import kotlin.time.Clock
 
 // Keep: has domain timestamp update
 class UpdateProjectUseCase(private val repo: ProjectsRepository, private val clock: Clock) {

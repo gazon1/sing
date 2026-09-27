@@ -27,8 +27,7 @@ class Nav3State internal constructor(
     val topLevelRoutes: Set<NavKey> = backStacks.keys
 
     /** Get the back stack for a given top-level route. */
-    fun backStackFor(route: NavKey): NavBackStack<NavKey>? =
-        backStacks[route]
+    fun backStackFor(route: NavKey): NavBackStack<NavKey>? = backStacks[route]
 
     var topLevelRoute: NavKey
         get() = topLevelRouteState.value
@@ -68,22 +67,22 @@ class Nav3State internal constructor(
                 backStack = stack,
                 entryDecorators = decorators,
                 entryProvider = { key: NavKey ->
-                    @Suppress("UNCHECKED_CAST") entryProvider(key as AppDestination) as NavEntry<NavKey>
+                    @Suppress("UNCHECKED_CAST")
+                    entryProvider(key as AppDestination) as NavEntry<NavKey>
                 },
             )
         }
         return getTopLevelRoutesInUse().flatMap {
-                decoratedEntries[it]
-                    ?: emptyList()
-            }
+            decoratedEntries[it]
+                ?: emptyList()
+        }
     }
 
-    private fun getTopLevelRoutesInUse(): List<NavKey> =
-        if (topLevelRoute == startRoute) {
-            listOf(startRoute)
-        } else {
-            listOf(startRoute, topLevelRoute)
-        }
+    private fun getTopLevelRoutesInUse(): List<NavKey> = if (topLevelRoute == startRoute) {
+        listOf(startRoute)
+    } else {
+        listOf(startRoute, topLevelRoute)
+    }
 }
 
 /**

@@ -4,11 +4,11 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.alarms.AlarmContract
 import com.singularity.todo.feature.alarms.AlarmReceiver
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.first
+import kotlin.time.Clock
 
 /**
  * Android [ReminderScheduler] implementation using [AlarmManager.setAlarmClock].

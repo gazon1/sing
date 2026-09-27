@@ -2,7 +2,6 @@ package com.singularity.todo.core.log
 
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Severity
-import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,6 +17,7 @@ import okio.Path
 import okio.buffer
 import okio.utf8Size
 import kotlin.concurrent.Volatile
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
@@ -50,7 +50,7 @@ class FileLogWriter(
     private var shuttingDown = false
 
     override fun log(severity: Severity, message: String, tag: String, throwable: Throwable?) {
-        val entry = formatEntry(Clock.now(), severity, tag, message, throwable)
+        val entry = formatEntry(Clock.System.now(), severity, tag, message, throwable)
         val writeJob = scope.launch { write(entry) }
         if (shuttingDown) {
             @Suppress("NoRunBlocking") // process-exit drain: no coroutine context available

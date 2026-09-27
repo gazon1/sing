@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.domain.usecase
 
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
@@ -8,6 +7,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 
 /**
  * Handles completion of a recurring task, rolling forward to the next occurrence.

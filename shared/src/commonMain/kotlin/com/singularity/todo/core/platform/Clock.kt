@@ -12,7 +12,6 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Instant
 
 /**
  * Emits the current [LocalDate] in [zone] immediately, then re-emits exactly once
@@ -29,24 +28,22 @@ import kotlin.time.Instant
  *
  * @param zone The time zone used to compute midnight. Defaults to system default.
  */
-fun todayFlow(zone: TimeZone = TimeZone.currentSystemDefault()): Flow<LocalDate> =
-    flow {
-        while (true) {
-            val current = todayAt(zone)
-            emit(current)
-            val delayMs = delayUntilNextMidnight(current, zone)
-            // Guards against zero/negative delay from a clock adjustment; the loop
-            // will recompute the date and re-emit only if it actually changed.
-            if (delayMs > 0) {
-                delay(delayMs.milliseconds)
-            }
+fun todayFlow(zone: TimeZone = TimeZone.currentSystemDefault()): Flow<LocalDate> = flow {
+    while (true) {
+        val current = todayAt(zone)
+        emit(current)
+        val delayMs = delayUntilNextMidnight(current, zone)
+        // Guards against zero/negative delay from a clock adjustment; the loop
+        // will recompute the date and re-emit only if it actually changed.
+        if (delayMs > 0) {
+            delay(delayMs.milliseconds)
         }
-    }.distinctUntilChanged()
+    }
+}.distinctUntilChanged()
 
 /** Returns today's [LocalDate] in [zone]. */
-internal fun todayAt(zone: TimeZone): LocalDate =
-    Clock.System.now()
-        .toLocalDateTime(zone).date
+internal fun todayAt(zone: TimeZone): LocalDate = Clock.System.now()
+    .toLocalDateTime(zone).date
 
 /**
  * Computes milliseconds until the next local midnight after [today] in [zone].
@@ -63,14 +60,4 @@ private fun delayUntilNextMidnight(today: LocalDate, zone: TimeZone): Long {
     return (tomorrowMidnight - now).inWholeMilliseconds
 }
 
-fun todayInSystemZone(): LocalDate =
-    todayAt(TimeZone.currentSystemDefault())
-
-@Deprecated(
-    "Use kotlin.time.Clock directly.",
-    ReplaceWith("Clock.System.now()", "kotlin.time.Clock"),
-)
-object Clock {
-    fun now(): Instant =
-        Clock.System.now()
-}
+fun todayInSystemZone(): LocalDate = todayAt(TimeZone.currentSystemDefault())

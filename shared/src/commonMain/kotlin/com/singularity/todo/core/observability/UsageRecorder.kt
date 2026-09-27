@@ -16,7 +16,7 @@ data class ToolUsageEvent(
     val durationMs: Long,
     val profileId: String, // from ProfileAwareCurrentUser
     val error: String?, // null on success
-    val timestamp: Instant, // from Clock.now()
+    val timestamp: Instant, // from Clock.System.now()
 )
 
 /** Daily aggregated usage. */
@@ -32,17 +32,3 @@ data class ToolUsage(val toolName: String, val totalTokens: Long, val totalCostU
 
 /** Per-model aggregated usage. */
 data class ModelUsage(val modelId: String, val totalTokens: Long, val totalCostUsdMicros: Long?, val callCount: Long)
-
-/**
- * Port for recording and observing AI token usage.
- *
- * Implementations persist to Room ([LlmUsageEntity]) or an external observability backend.
- * Call [record][com.singularity.todo.core.observability.RoomUsageRecorder.record] after every AI tool execution, and query via observe* flows.
- *
- * ## Clock contract
- * All timestamps use [kotlin.time.Instant] (from [com.singularity.todo.core.platform.Clock.now]).
- * Room stores epoch-milliseconds (Long). On the boundary, convert via
- * [kotlin.time.Instant.toEpochMilliseconds] and [kotlin.time.Instant.fromEpochMilliseconds].
- * **Do not use [kotlinx.datetime.Instant]** — it is used only for date arithmetic
- * in `todayInSystemZone()` and will eventually be removed from the codebase.
- */

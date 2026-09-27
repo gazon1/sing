@@ -2,10 +2,10 @@ package com.singularity.todo.feature.checklist
 
 import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.ChecklistItemEntity
-import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlin.time.Clock
 
 class RoomChecklistRepository(private val dao: ChecklistDao, private val clock: Clock) : ChecklistRepository {
 

@@ -2,13 +2,13 @@ package com.singularity.todo.core.sync.work
 
 import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.sync.HlcFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.time.Clock
 
 /**
  * Minimal fake [HlcFactory] for tests.
@@ -33,6 +33,6 @@ class FakeHlcFactory :
             override suspend fun saveDeviceId(id: String) {}
             override suspend fun clear() {}
         },
-        clock = Clock, // actual singleton — safe to share in tests
+        clock = Clock.System, // actual singleton — safe to share in tests
         scope = AutoCloseableCoroutineScope(CoroutineScope(Dispatchers.Unconfined).coroutineContext),
     )

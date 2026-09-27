@@ -205,7 +205,7 @@ fun NotesScreenContent(
                 state = state.toContentState(),
                 emptyTitle = "No notes yet",
                 modifier = Modifier.padding(padding),
-            ) { allNotes ->
+            ) { allNotes, contentModifier ->
                 NoteList(
                     allNotes = allNotes,
                     pinned = listState?.pinned ?: emptyList(),
@@ -216,6 +216,7 @@ fun NotesScreenContent(
                     selectedIds = listState?.selectedIds ?: emptySet(),
                     navigator = navigator,
                     actions = actions,
+                    modifier = contentModifier,
                 )
             }
         }
@@ -330,9 +331,10 @@ private fun NoteList(
     selectedIds: Set<NoteId>,
     navigator: NotesNavigator,
     actions: NotesActions,
+    modifier: Modifier = Modifier,
 ) {
     LazyColumn(
-        modifier = Modifier.testTag(TestTags.NOTES_LIST),
+        modifier = modifier.testTag(TestTags.NOTES_LIST),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {

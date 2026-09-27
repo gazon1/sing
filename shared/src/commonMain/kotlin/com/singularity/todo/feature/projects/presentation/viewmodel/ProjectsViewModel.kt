@@ -55,9 +55,9 @@ class ProjectsViewModel(
     private val deleteProject: DeleteProjectUseCase,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectsUiState, ProjectsIntent, ProjectsUiEvent>(
-    initialState = ProjectsUiState.Loading,
-    scope = scope,
-) {
+        initialState = ProjectsUiState.Loading,
+        scope = scope,
+    ) {
     override val vmScope = scope
 
     private val _searchQuery = MutableStateFlow("")
@@ -66,31 +66,31 @@ class ProjectsViewModel(
     init {
         vmScope.launch {
             combine(_searchQuery, _sortOrder) { query, sort -> query to sort }.flatMapLatest { (query, sort) ->
-                    projectRepo.observeProjectsWithCounts()
-                        .map { rows ->
-                            val domainRows = rows.map { row ->
-                                ProjectWithCounts(
-                                    project = row.project.toProject(),
-                                    totalCount = row.totalCount,
-                                    completedCount = row.completedCount,
-                                )
-                            }
-                            val filtered = if (query.isBlank()) {
-                                domainRows
-                            } else {
-                                domainRows.filter { it.project.name.contains(query, ignoreCase = true) }
-                            }
-                            val sorted = when (sort) {
-                                ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
-                                ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
-                            }
-                            if (sorted.isEmpty()) {
-                                ProjectsUiState.Empty
-                            } else {
-                                ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
-                            }
+                projectRepo.observeProjectsWithCounts()
+                    .map { rows ->
+                        val domainRows = rows.map { row ->
+                            ProjectWithCounts(
+                                project = row.project.toProject(),
+                                totalCount = row.totalCount,
+                                completedCount = row.completedCount,
+                            )
                         }
-                }
+                        val filtered = if (query.isBlank()) {
+                            domainRows
+                        } else {
+                            domainRows.filter { it.project.name.contains(query, ignoreCase = true) }
+                        }
+                        val sorted = when (sort) {
+                            ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
+                            ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
+                        }
+                        if (sorted.isEmpty()) {
+                            ProjectsUiState.Empty
+                        } else {
+                            ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
+                        }
+                    }
+            }
                 .catch { cause ->
                     setState(ProjectsUiState.Error(cause.toMessage()))
                 }

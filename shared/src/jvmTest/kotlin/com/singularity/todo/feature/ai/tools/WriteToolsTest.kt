@@ -2,7 +2,6 @@ package com.singularity.todo.feature.ai.tools
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -20,6 +19,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 /**
  * Unit tests for write tools: CreateTaskTool, UpdateTaskTool, DeleteTaskTool, CreateNoteTool.
@@ -29,7 +29,7 @@ import kotlin.test.assertTrue
  */
 class WriteToolsTest {
 
-    private val clock: Clock = Clock
+    private val clock: Clock = Clock.System
     private val userId = UserId("test-user")
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeNotesRepo = FakeNotesRepository()

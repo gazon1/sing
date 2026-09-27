@@ -2,7 +2,6 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.notes.EditorState
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
@@ -27,6 +26,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 /**
  * Smoke tests for [NoteEditor].
@@ -46,8 +46,8 @@ class NoteEditorTest {
         bodyHtml = "<p>Hello world</p>",
         wordCount = 2,
         charCount = 11,
-        createdAt = Clock.now(),
-        updatedAt = Clock.now(),
+        createdAt = Clock.System.now(),
+        updatedAt = Clock.System.now(),
     )
 
     private val emptyLinkRepo = object : InternalLinkRepository {

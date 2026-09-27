@@ -2,10 +2,10 @@ package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 /**
  * Factory for creating HLC timestamps with a fixed device node ID.

@@ -4,8 +4,8 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.IdGenerator
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.feature.notes.EditorState.Editing
@@ -31,6 +31,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
+import kotlin.time.Clock
 
 /**
  * Note editor ViewModel backed by [DraftMviViewModel].
@@ -63,7 +64,7 @@ class NoteEditor(
             // extra round-trip on every keystroke is acceptable.
             val noteId = NoteId.fromString(draft.id)
             val existing = repo.get(noteId)
-            val now: Instant = Clock.now()
+            val now: Instant = Clock.System.now()
             repo.upsert(
                 Note(
                     id = noteId,
@@ -90,7 +91,7 @@ class NoteEditor(
     private fun editingAsNote(draft: Editing): Note {
         val noteId = NoteId.fromString(draft.id)
         val existing = cachedNote
-        val now: Instant = Clock.now()
+        val now: Instant = Clock.System.now()
         return Note(
             id = noteId,
             userId = currentUser.scopedUserId.value,
@@ -158,7 +159,7 @@ class NoteEditor(
         repo.upsert(editingAsNote(draft))
         Either.Right(Unit)
     } catch (e: Exception) {
-        Either.Left(AppError.Persistence(e))
+        Either.Left(AppError.Persistence(e.toMessage()))
     }
 
     override fun onAutosaveError(e: Throwable) {

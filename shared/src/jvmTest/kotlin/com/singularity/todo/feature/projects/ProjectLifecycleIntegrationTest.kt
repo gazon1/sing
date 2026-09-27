@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
@@ -14,6 +13,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 /**
  * Integration tests for project lifecycle: create → assign tasks → delete guard.
@@ -36,8 +36,8 @@ class ProjectLifecycleIntegrationTest {
                 userId = testUserId,
                 name = "Empty Project",
                 color = 0xFF0000,
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
         val useCase = createDeleteProjectUseCase()
@@ -60,8 +60,8 @@ class ProjectLifecycleIntegrationTest {
                 userId = testUserId,
                 name = "Project with tasks",
                 color = 0xFF0000,
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
         fakeTaskRepo.seed(
@@ -70,8 +70,8 @@ class ProjectLifecycleIntegrationTest {
                 userId = testUserId,
                 title = "Active task",
                 projectId = projectId,
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
         val useCase = createDeleteProjectUseCase()

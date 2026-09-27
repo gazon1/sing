@@ -27,8 +27,7 @@ interface MviIntent
  * }
  * ```
  *
- * Use [EventBus] for Channel-backed emission or [SharedEventBus] for SharedFlow-backed.
+ * Use [EventBus] for emission and collection.
  * @see EventBus
- * @see SharedEventBus
  */
 interface MviEvent

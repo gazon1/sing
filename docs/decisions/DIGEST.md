@@ -604,6 +604,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 - When a real use case appears (e.g. TaskDetailViewModel needs a project picker), implement it from scratch using `ListPickerSheet` + `DialogState` + caller-side state hoisting — not by resurrecting the deleted code.
 
+### `clock`
+
+- Anything still passing a bare `Clock` as a value will silently bind
+- Injecting a `Clock` still gives full test control — `FakeClock` implements
+- `Clock.jvm.kt` / `Clock.android.kt` shrink to the single `actual val
+- `core/platform/Clock.kt` no longer declares anything `expect`/`actual`; the
+
 ### `compose`
 
 - All JetBrains compose library versions MUST track `version.ref = "composeMultiplatform"`. Split-version declarations are forbidden unless the artifact is an AndroidX (not JetBrains) group.
@@ -796,6 +803,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Room schema v8 с `llm_usage` table + `profiles` table
 - ZCode подключается с `--profile=ai-agent` → все операции в профиле ai-agent
 - `ProfileAwareCurrentUser` инжектится во все write-tools
+
+### `mvi`
+
+- Any subclass relying on `error` persisting across unrelated edits will see it
+- The first `pushUiState()` is asynchronous, so `isSaveEnabled` / `isDirty` are
+- `isSaveEnabled` starts `false` even for a valid draft, and is corrected on the
 
 ### `nav3`
 
@@ -1535,6 +1548,8 @@ _6 entries need attention._
 - `2026-09-26-skill-authoring-policy` — _untagged_
 - `2026-09-26-ui-testing-deferred` — _untagged_
 - `2026-09-26-writer-reviewer-pattern` — _untagged_
+- `2026-09-27-draft-mvi-single-state-source` — mvi, viewmodel, draft, coroutines, initialization-order
+- `2026-09-27-remove-platform-clock-object` — clock, architecture, migration, kotlin-stdlib
 
 ## Active entries
 
@@ -1803,4 +1818,6 @@ _6 entries need attention._
 - `2026-09-26-skill-authoring-policy` — _(no title)_
 - `2026-09-26-ui-testing-deferred` — UI testing deferred — androidHostTest + UiAutomator postponed
 - `2026-09-26-writer-reviewer-pattern` — _(no title)_
+- `2026-09-27-draft-mvi-single-state-source` — DraftMviViewModel — one state source, no open-member calls from a constructor
+- `2026-09-27-remove-platform-clock-object` — Remove `core.platform.Clock` — use `kotlin.time.Clock` everywhere
 

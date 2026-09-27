@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeChecklistRepository
@@ -14,6 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
@@ -36,7 +36,7 @@ class TaskLifecycleIntegrationTest {
         archivedAt: Instant? = null,
         isPinned: Boolean = false,
     ) {
-        val now = Clock.now()
+        val now = Clock.System.now()
         repo.seed(
             Task(
                 id = TaskId.fromString(id),
@@ -64,8 +64,8 @@ class TaskLifecycleIntegrationTest {
                 id = taskId,
                 userId = testUserId,
                 title = "Shopping",
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
 
@@ -89,8 +89,8 @@ class TaskLifecycleIntegrationTest {
                 id = taskId,
                 userId = testUserId,
                 title = "Multi",
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
 
@@ -113,8 +113,8 @@ class TaskLifecycleIntegrationTest {
                 id = taskId,
                 userId = testUserId,
                 title = "Toggle test",
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
 
@@ -142,8 +142,8 @@ class TaskLifecycleIntegrationTest {
                 id = taskId,
                 userId = testUserId,
                 title = "Delete test",
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
 

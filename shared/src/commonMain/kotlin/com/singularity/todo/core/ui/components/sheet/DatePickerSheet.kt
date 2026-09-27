@@ -12,11 +12,7 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DatePickerSheet(
-    initialDate: LocalDate?,
-    onDateSelected: (LocalDate?) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun DatePickerSheet(initialDate: LocalDate?, onDateSelected: (LocalDate?) -> Unit, onDismiss: () -> Unit) {
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = initialDate?.atStartOfDayIn(TimeZone.UTC)
             ?.toEpochMilliseconds(),
@@ -24,7 +20,10 @@ fun DatePickerSheet(
     BottomSheetHost(onDismiss = onDismiss) {
         SheetScaffold(
             actions = SheetActions(
-                onClear = { onDateSelected(null); onDismiss() },
+                onClear = {
+                    onDateSelected(null)
+                    onDismiss()
+                },
                 onCancel = onDismiss,
                 onConfirm = {
                     val date = datePickerState.selectedDateMillis?.let {

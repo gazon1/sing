@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 internal class RemoteConfigRepositoryImpl(
     private val dao: RemoteConfigDao,
-    private val clock: com.singularity.todo.core.platform.Clock,
+    private val clock: kotlin.time.Clock,
     private val log: Logger = Logger.withTag("RemoteConfigRepository"),
 ) : RemoteConfigRepository {
 

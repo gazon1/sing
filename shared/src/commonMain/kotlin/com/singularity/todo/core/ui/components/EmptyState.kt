@@ -70,68 +70,60 @@ inline fun If(condition: Boolean, content: @Composable () -> Unit) {
     if (condition) content()
 }
 
+@Preview
+@Composable
+private fun EmptyStateLightPreview() = PreviewThemed(darkTheme = false) {
+    EmptyState(title = "No tasks yet", subtitle = "Tap + to create one")
+}
 
 @Preview
 @Composable
-private fun EmptyStateLightPreview() =
-    PreviewThemed(darkTheme = false) {
-        EmptyState(title = "No tasks yet", subtitle = "Tap + to create one")
-    }
+private fun EmptyStateDarkPreview() = PreviewThemed(darkTheme = true) {
+    EmptyState(title = "No results", subtitle = "Try a different search")
+}
 
 @Preview
 @Composable
-private fun EmptyStateDarkPreview() =
-    PreviewThemed(darkTheme = true) {
-        EmptyState(title = "No results", subtitle = "Try a different search")
-    }
+private fun EmptyStateNoSubtitlePreview() = PreviewThemed(darkTheme = false) {
+    EmptyState(title = "Nothing here")
+}
 
 @Preview
 @Composable
-private fun EmptyStateNoSubtitlePreview() =
-    PreviewThemed(darkTheme = false) {
-        EmptyState(title = "Nothing here")
-    }
+private fun EmptyStateWithActionsPreview() = PreviewThemed(darkTheme = false) {
+    EmptyState(
+        title = "No notes yet",
+        subtitle = "Create your first note to get started",
+        actions = {
+            FilledTonalButton(onClick = {}) {
+                Text("Create your first note")
+            }
+        },
+    )
+}
 
 @Preview
 @Composable
-private fun EmptyStateWithActionsPreview() =
-    PreviewThemed(darkTheme = false) {
-        EmptyState(
-            title = "No notes yet",
-            subtitle = "Create your first note to get started",
-            actions = {
-                FilledTonalButton(onClick = {}) {
-                    Text("Create your first note")
-                }
-            },
-        )
-    }
+private fun EmptyStateWithActionsDarkPreview() = PreviewThemed(darkTheme = true) {
+    EmptyState(
+        title = "No tasks yet",
+        subtitle = "Tap + to create one",
+        actions = {
+            FilledTonalButton(onClick = {}) {
+                Text("Create task")
+            }
+        },
+    )
+}
 
 @Preview
 @Composable
-private fun EmptyStateWithActionsDarkPreview() =
-    PreviewThemed(darkTheme = true) {
-        EmptyState(
-            title = "No tasks yet",
-            subtitle = "Tap + to create one",
-            actions = {
-                FilledTonalButton(onClick = {}) {
-                    Text("Create task")
-                }
-            },
-        )
-    }
+private fun LoadingIndicatorLightPreview() = PreviewThemed(darkTheme = false) {
+    LoadingIndicator()
+}
 
 @Preview
 @Composable
-private fun LoadingIndicatorLightPreview() =
-    PreviewThemed(darkTheme = false) {
-        LoadingIndicator()
-    }
-
-@Preview
-@Composable
-private fun LoadingIndicatorDarkPreview() =
-    PreviewThemed(darkTheme = true) {
-        LoadingIndicator()
-    }
+private fun LoadingIndicatorDarkPreview() = PreviewThemed(darkTheme = true) {
+    LoadingIndicator()
+}

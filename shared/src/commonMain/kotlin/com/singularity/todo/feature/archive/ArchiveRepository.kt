@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.archive
 
 import com.singularity.todo.core.database.TaskDao
-import com.singularity.todo.core.platform.Clock
+import kotlin.time.Clock
 
 /**
  * Bulk-archive completed tasks. The repository owns the side effect;

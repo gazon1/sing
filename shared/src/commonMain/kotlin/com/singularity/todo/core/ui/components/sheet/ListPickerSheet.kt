@@ -1,6 +1,5 @@
 package com.singularity.todo.core.ui.components.sheet
 
-
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,8 +40,7 @@ data class ListPickerItem<T>(
     val subtitle: String? = null,
     val selected: Boolean = false,
     val enabled: Boolean = true,
-    val leading: (@Composable RowScope.() -> Unit) = {},
-//    val leading: @Composable (RowScope.() -> Unit) = {},
+    val leading: @Composable (RowScope.() -> Unit) = {},
 ) where T : Any?
 
 /**
@@ -108,10 +106,7 @@ fun <T> ListPickerSheet(
 }
 
 @Composable
-private fun <T> ListPickerItemRow(
-    item: ListPickerItem<T>,
-    onSelect: () -> Unit,
-) {
+private fun <T> ListPickerItemRow(item: ListPickerItem<T>, onSelect: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth()
             .then(
@@ -121,7 +116,7 @@ private fun <T> ListPickerItemRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item.leading()
+        item.leading(this)
         Box(modifier = Modifier.weight(1f)) {
             Column {
                 Text(

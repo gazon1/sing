@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.agenda
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.agenda.data.RoomSavedAgendaViewsRepository
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
@@ -18,6 +17,7 @@ import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import kotlin.time.Clock
 
 /**
  * DI module for the Agenda feature.
@@ -71,7 +71,7 @@ fun agendaModule(): Module = module {
         SavedAgendaViewModel(
             deps = SavedAgendaDeps(
                 repo = get(),
-                clock = Clock,
+                clock = Clock.System,
                 log = Logger.withTag("SavedAgenda"),
             ),
             mode = mode,

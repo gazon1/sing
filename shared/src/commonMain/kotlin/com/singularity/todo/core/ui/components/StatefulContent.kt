@@ -114,12 +114,7 @@ fun <T> StatefulContent(
  * component.
  */
 @Composable
-private fun ErrorState(
-    title: String,
-    error: AppError,
-    onRetry: (() -> Unit)?,
-    modifier: Modifier = Modifier,
-) {
+private fun ErrorState(title: String, error: AppError, onRetry: (() -> Unit)?, modifier: Modifier = Modifier) {
     // Mirrors EmptyState's centered Box+Column layout so Loading/Empty/Error
     // all occupy their slot the same way; title uses the error color so it
     // doesn't read as just another empty-state message.
@@ -164,52 +159,47 @@ sealed interface ContentState<out T> {
     data class Ready<out T>(val value: T) : ContentState<T>
 }
 
+@Preview
+@Composable
+private fun StatefulContentLoadingPreview() = PreviewThemed(darkTheme = false) {
+    StatefulContent<String>(
+        state = ContentState.Loading,
+        emptyTitle = "No items",
+    ) { value, modifier -> Text(value, modifier) }
+}
 
 @Preview
 @Composable
-private fun StatefulContentLoadingPreview() =
-    PreviewThemed(darkTheme = false) {
-        StatefulContent<String>(
-            state = ContentState.Loading,
-            emptyTitle = "No items",
-        ) { value, modifier -> Text(value, modifier) }
-    }
+private fun StatefulContentEmptyPreview() = PreviewThemed(darkTheme = false) {
+    StatefulContent<String>(
+        state = ContentState.Empty,
+        emptyTitle = "No tasks yet",
+        emptySubtitle = "Create your first task",
+        emptyActions = {
+            FilledTonalButton(onClick = {}) { Text("Create task") }
+        },
+    ) { value, modifier -> Text(value, modifier) }
+}
 
 @Preview
 @Composable
-private fun StatefulContentEmptyPreview() =
-    PreviewThemed(darkTheme = false) {
-        StatefulContent<String>(
-            state = ContentState.Empty,
-            emptyTitle = "No tasks yet",
-            emptySubtitle = "Create your first task",
-            emptyActions = {
-                FilledTonalButton(onClick = {}) { Text("Create task") }
-            },
-        ) { value, modifier -> Text(value, modifier) }
-    }
+private fun StatefulContentErrorPreview() = PreviewThemed(darkTheme = true) {
+    StatefulContent<String>(
+        state = ContentState.Error(AppError.Network("Timed out")),
+        emptyTitle = "No tasks",
+        onRetry = {},
+    ) { value, modifier -> Text(value, modifier) }
+}
 
 @Preview
 @Composable
-private fun StatefulContentErrorPreview() =
-    PreviewThemed(darkTheme = true) {
-        StatefulContent<String>(
-            state = ContentState.Error(AppError.Network("Timed out")),
-            emptyTitle = "No tasks",
-            onRetry = {},
-        ) { value, modifier -> Text(value, modifier) }
-    }
-
-@Preview
-@Composable
-private fun StatefulContentReadyPreview() =
-    PreviewThemed(darkTheme = false) {
-        StatefulContent(
-            state = ContentState.Ready("Sample task content"),
-            emptyTitle = "No tasks",
-        ) { value, modifier ->
-            Box(modifier = modifier.fillMaxSize()) {
-                Text(text = value)
-            }
+private fun StatefulContentReadyPreview() = PreviewThemed(darkTheme = false) {
+    StatefulContent(
+        state = ContentState.Ready("Sample task content"),
+        emptyTitle = "No tasks",
+    ) { value, modifier ->
+        Box(modifier = modifier.fillMaxSize()) {
+            Text(text = value)
         }
     }
+}

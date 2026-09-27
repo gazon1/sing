@@ -26,13 +26,13 @@ class DataStoreDraftStore(
 
     override suspend fun <T> load(key: String, deserializer: DeserializationStrategy<T>): T? {
         val data = dataStore.data.catch { e ->
-                if (e is IOException) {
-                    logger.w(tag = "DraftStore") { "DataStore read failed for key=$key, treating as empty: $e" }
-                    emit(emptyPreferences())
-                } else {
-                    throw e
-                }
+            if (e is IOException) {
+                logger.w(tag = "DraftStore") { "DataStore read failed for key=$key, treating as empty: $e" }
+                emit(emptyPreferences())
+            } else {
+                throw e
             }
+        }
             .first()
         val json = data[stringPreferencesKey(key)]
             ?: return null

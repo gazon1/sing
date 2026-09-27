@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
@@ -19,6 +18,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 class ProjectsUseCaseTest {
     private val testUserId = UserId("test-user")
@@ -30,8 +30,8 @@ class ProjectsUseCaseTest {
         ),
     )
 
-    private fun createProjectUseCase() = CreateProjectUseCase(fakeProjectRepo, Clock, fakeCurrentUser)
-    private fun updateProjectUseCase() = UpdateProjectUseCase(fakeProjectRepo, Clock)
+    private fun createProjectUseCase() = CreateProjectUseCase(fakeProjectRepo, Clock.System, fakeCurrentUser)
+    private fun updateProjectUseCase() = UpdateProjectUseCase(fakeProjectRepo, Clock.System)
     private fun deleteProjectUseCase() = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo)
 
     // ─── CreateProjectUseCase ───────────────────────────────────────────────
@@ -133,7 +133,7 @@ class ProjectsUseCaseTest {
         ).getOrNull()!!
 
         // Seed a task belonging to this project
-        val now = Clock.now()
+        val now = Clock.System.now()
         fakeTaskRepo.seed(
             Task(
                 id = TaskId.fromString("t1"),

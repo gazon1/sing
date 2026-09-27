@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.error.toMessage
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.debounce.Debouncer
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -33,6 +32,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
@@ -60,9 +60,9 @@ class ProjectDetailViewModel(
     private val log: Logger,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectDetailUiState, ProjectDetailIntent.Domain, ProjectDetailUiEvent>(
-    initialState = ProjectDetailUiState.Loading,
-    scope = scope,
-) {
+        initialState = ProjectDetailUiState.Loading,
+        scope = scope,
+    ) {
     override val vmScope = scope
 
     // ─── UI State ───────────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ class ProjectDetailViewModel(
                         draftState.seed(
                             project.name,
                             project.description
-                                ?: ""
+                                ?: "",
                         )
                     }
                 }
@@ -130,7 +130,9 @@ class ProjectDetailViewModel(
                 .map { all ->
                     all.filter { it.projectId != null && it.projectId != projectId && it.completedAt == null }
                         .sortedWith(
-                            compareBy<Task, kotlinx.datetime.LocalDate?>(nullsLast()) { it.dueDate }.thenByDescending { it.updatedAt },
+                            compareBy<Task, kotlinx.datetime.LocalDate?>(
+                                nullsLast(),
+                            ) { it.dueDate }.thenByDescending { it.updatedAt },
                         )
                 }
                 .collect { _availableTasksFlow.value = it }
@@ -224,7 +226,7 @@ class ProjectDetailViewModel(
 
             is ProjectDetailIntent.Domain.UpdateDescription -> draftState.setDescription(
                 intent.description
-                    ?: ""
+                    ?: "",
             )
 
             // ── Pickers ─────────────────────────────────────────────────────

@@ -34,11 +34,10 @@ fun TaskAiBottomSheet(task: Task, onAction: (TaskAiAction) -> Unit, onDismiss: (
     )
 }
 
-private fun TaskAiAction.label(): String =
-    when (this) {
-        TaskAiAction.RefineTitle -> "Refine title"
-        TaskAiAction.GenerateDescription -> "Generate description"
-        TaskAiAction.GenerateChecklist -> "Generate checklist"
-        TaskAiAction.Decompose -> "Decompose into sub-tasks"
-        TaskAiAction.SuggestTime -> "Suggest time"
-    }
+private fun TaskAiAction.label(): String = when (this) {
+    TaskAiAction.RefineTitle -> "Refine title"
+    TaskAiAction.GenerateDescription -> "Generate description"
+    TaskAiAction.GenerateChecklist -> "Generate checklist"
+    TaskAiAction.Decompose -> "Decompose into sub-tasks"
+    TaskAiAction.SuggestTime -> "Suggest time"
+}

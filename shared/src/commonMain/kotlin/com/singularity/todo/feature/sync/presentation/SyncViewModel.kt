@@ -2,6 +2,7 @@ package com.singularity.todo.feature.sync.presentation
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.sync.ConnectionTestResult
 import com.singularity.todo.core.sync.SyncEngineStatus
 import com.singularity.todo.core.sync.SyncPrefs
@@ -140,7 +141,7 @@ class SyncViewModel(
                     updateState {
                         it.copy(
                             isLoading = false,
-                            status = SyncEngineStatus.Failure(e as? AppError ?: AppError.Unknown(e)),
+                            status = SyncEngineStatus.Failure(e as? AppError ?: AppError.Unknown(e.toMessage())),
                         )
                     }
                     return@launch

@@ -7,9 +7,9 @@ import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.files.FileSystem
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.serialization.StableJson
 import kotlinx.serialization.json.jsonObject
+import kotlin.time.Clock
 
 class BackupImporter(
     private val log: Logger,

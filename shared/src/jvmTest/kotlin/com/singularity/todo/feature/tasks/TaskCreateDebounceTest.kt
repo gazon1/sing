@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
@@ -21,6 +20,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.time.Clock
 
 /**
  * Unit tests for [TaskCreateViewModel] debounce + draft persistence behavior.
@@ -43,7 +43,7 @@ class TaskCreateDebounceTest {
 
     private fun createVm(scope: CoroutineScope): TaskCreateViewModel {
         val deps = TaskCreateDeps(
-            createFromDraft = CreateTaskFromDraftUseCase(fakeTaskRepo, Clock, fakeCurrentUser),
+            createFromDraft = CreateTaskFromDraftUseCase(fakeTaskRepo, Clock.System, fakeCurrentUser),
             logger = Logger.withTag("TaskCreate"),
             draftStore = fakeDraftStore,
         )

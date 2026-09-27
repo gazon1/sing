@@ -2,7 +2,6 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
@@ -20,6 +19,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.time.Clock
 
 /**
  * Tests for [ProjectsViewModel].
@@ -49,7 +49,7 @@ class ProjectsViewModelTest {
         icon: String? = null,
         parentId: ProjectId? = null,
     ) {
-        val now = Clock.now()
+        val now = Clock.System.now()
         fakeProjectRepo.seed(
             Project(
                 id = ProjectId.fromString(id),

@@ -89,8 +89,7 @@ class SettingsDataStoreMigration(
      * Returns `true` if migration ran, `false` if it was already done.
      */
     @Suppress("NoRunBlocking") // one-shot DataStore migration at DI startup — no coroutine context yet
-    fun runBlockingForStartup(): Boolean =
-        runBlocking { run() }
+    fun runBlockingForStartup(): Boolean = runBlocking { run() }
 
     /**
      * Suspend entry-point that accepts DataStores as parameters.

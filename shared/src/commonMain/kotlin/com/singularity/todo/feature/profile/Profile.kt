@@ -27,7 +27,7 @@ data class Profile(
 ) {
     companion object {
         /** Creates the default "Personal" profile shown on first launch. */
-        fun createDefault(clock: com.singularity.todo.core.platform.Clock): Profile {
+        fun createDefault(clock: kotlin.time.Clock): Profile {
             val now = clock.now()
             return Profile(
                 id = ProfileId.default,

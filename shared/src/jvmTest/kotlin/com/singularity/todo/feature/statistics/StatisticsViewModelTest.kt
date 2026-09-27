@@ -2,7 +2,6 @@ package com.singularity.todo.feature.statistics
 
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeTaskRepository
@@ -12,6 +11,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatisticsViewModelTest {
@@ -19,7 +19,7 @@ class StatisticsViewModelTest {
     private val testUserId = UserId("test-user")
 
     private fun task(id: String, completed: Boolean = false): Task {
-        val now = Clock.now()
+        val now = Clock.System.now()
         return Task(
             id = TaskId.fromString(id),
             title = "Task $id",
@@ -33,7 +33,7 @@ class StatisticsViewModelTest {
     private fun TestScope.createVm(repo: FakeTaskRepository = FakeTaskRepository()): StatisticsViewModel =
         StatisticsViewModel(
             taskRepository = repo,
-            clock = Clock,
+            clock = Clock.System,
             scope = testScope(backgroundScope),
         )
 

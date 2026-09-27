@@ -5,7 +5,6 @@ import com.singularity.todo.core.database.SavedSearchEntity
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.domain.SavedSearch
@@ -13,11 +12,12 @@ import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlin.time.Clock
 
 class RoomSavedSearchRepository(
     private val savedSearchDao: SavedSearchDao,
     private val currentUser: ProfileAwareCurrentUser,
-    private val clock: Clock = Clock,
+    private val clock: Clock = Clock.System,
 ) : SavedSearchRepository {
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────

@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
@@ -34,6 +33,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 private val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
     override fun current() = kotlinx.datetime.TimeZone.UTC
@@ -77,7 +77,7 @@ class TaskDetailViewModelTest {
     /** Stub for [CompleteRecurringTaskUseCase] — existing tests don't cover recurring completion. */
     private val stubCompleteRecurring = object : CompleteRecurringTaskUseCase(
         repo = fakeTaskRepo,
-        clock = Clock,
+        clock = Clock.System,
         timeZoneProvider = TEST_TZ,
         calculator = com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator,
     ) {
@@ -88,10 +88,10 @@ class TaskDetailViewModelTest {
     private fun createVm(scope: CoroutineScope, taskId: TaskId): TaskDetailViewModel {
         val deps = TaskDetailDeps(
             taskRepo = fakeTaskRepo,
-            updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
+            updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock.System),
             createTask = CreateTaskUseCase(
                 fakeTaskRepo,
-                Clock,
+                Clock.System,
                 FakeProfileAwareCurrentUser(
                     FakeAuthRepository(
                         initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
@@ -105,7 +105,7 @@ class TaskDetailViewModelTest {
             reminderScheduler = fakeReminderScheduler,
             attachmentsRepo = fakeAttachmentsRepo,
             timeZoneProvider = TEST_TZ,
-            clock = Clock,
+            clock = Clock.System,
             completeRecurring = stubCompleteRecurring,
             // AI use cases are nullable — tests omit them since RunAiAction is not exercised here
             debounceMs = 300L,
@@ -123,8 +123,8 @@ class TaskDetailViewModelTest {
             id = id,
             title = "Test task",
             userId = testUserId,
-            createdAt = Clock.now(),
-            updatedAt = Clock.now(),
+            createdAt = Clock.System.now(),
+            updatedAt = Clock.System.now(),
         )
         fakeTaskRepo.seed(task)
         return task

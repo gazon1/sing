@@ -2,12 +2,12 @@ package com.singularity.todo.feature.tasks.domain.usecase
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlin.time.Clock
 
 /**
  * Creates a new task with domain validation and timestamp injection.

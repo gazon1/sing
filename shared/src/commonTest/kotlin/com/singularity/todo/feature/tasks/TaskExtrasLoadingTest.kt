@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -14,6 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
@@ -41,7 +41,7 @@ class TaskExtrasLoadingTest {
         dependsOn: Set<TaskId> = emptySet(),
         completedAt: Instant? = null,
     ): Task {
-        val now = Clock.now()
+        val now = Clock.System.now()
         return Task(
             id = TaskId.fromString(id),
             title = title,
@@ -95,7 +95,7 @@ class TaskExtrasLoadingTest {
         val depId = TaskId.fromString("dep-finished")
         repo.seed(
             makeTask("t1", "Blocked task", dependsOn = setOf(depId)),
-            makeTask("dep-finished", "Finished dependency", completedAt = Clock.now()),
+            makeTask("dep-finished", "Finished dependency", completedAt = Clock.System.now()),
         )
 
         val tasks = repo.observeAll().first()

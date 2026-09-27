@@ -33,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.search.domain.SavedSearch
@@ -47,6 +46,7 @@ import com.singularity.todo.feature.search.presentation.nav.SearchNavigator
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
 import org.koin.compose.viewmodel.koinViewModel
+import kotlin.time.Clock
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -236,16 +236,16 @@ private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
                 userId = UserId("u1"),
                 name = "High Priority",
                 queryString = "priority:high",
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
             SavedSearch(
                 id = SavedSearchId.generate(),
                 userId = UserId("u1"),
                 name = "Work Tasks",
                 queryString = "tag:work",
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         ),
         activeSavedSearchId = null,

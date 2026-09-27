@@ -19,7 +19,6 @@ import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.notifications.NotificationsSettingsRepository
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
@@ -65,6 +64,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 
 // ─── SettingsRepository ────────────────────────────────────────────────────────
 
@@ -497,7 +497,7 @@ open class FakeTaskRepository(
                             it,
                             filter,
                             kotlin.time.Instant.fromEpochMilliseconds(
-                                Clock.now().toEpochMilliseconds(),
+                                Clock.System.now().toEpochMilliseconds(),
                             ).toLocalDateTime(TimeZone.currentSystemDefault()).date,
                         )
                     }
@@ -535,7 +535,7 @@ open class FakeTaskRepository(
         softDeleteOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { task ->
-                val deleted = task.copy(archivedAt = Clock.now())
+                val deleted = task.copy(archivedAt = Clock.System.now())
                 store.upsert(deleted)
             }
         }
@@ -562,7 +562,7 @@ open class FakeTaskRepository(
                 val toggled = if (task.completedAt != null) {
                     task.copy(completedAt = null)
                 } else {
-                    task.copy(completedAt = Clock.now())
+                    task.copy(completedAt = Clock.System.now())
                 }
                 store.upsert(toggled)
             }
@@ -831,7 +831,7 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
 
     override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
         store[id.value]?.let { existing ->
-            store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.now()))
+            store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.System.now()))
         }
     }
 
@@ -1033,8 +1033,8 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
                 type = com.singularity.todo.core.attachments.AttachmentType.File,
                 localPath = sourcePath,
                 mimeType = mimeType,
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             )
             store.upsert(att)
             att
@@ -1056,8 +1056,8 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
                 type = com.singularity.todo.core.attachments.AttachmentType.Url,
                 url = url,
                 title = title ?: "",
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             )
             store.upsert(att)
             att
@@ -1141,7 +1141,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         deleteOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { existing ->
-                store.upsert(existing.copy(deletedAt = Clock.now()))
+                store.upsert(existing.copy(deletedAt = Clock.System.now()))
             }
         }
     }
@@ -1203,7 +1203,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         createWithContentOverride?.let { return it }
         return runCatching {
             val uid = currentUser.scopedUserId.value
-            val now = Clock.now()
+            val now = Clock.System.now()
             val note = com.singularity.todo.feature.notes.Note(
                 id = id,
                 userId = uid,
@@ -1226,7 +1226,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         return runCatching {
             val uid = currentUser.scopedUserId.value
             val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
-            val now = Clock.now()
+            val now = Clock.System.now()
             val note = com.singularity.todo.feature.notes.Note(
                 id = id,
                 userId = uid,
@@ -1260,7 +1260,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
                         bodyHtml = bodyHtml,
                         wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
                         charCount = bodyMarkdown.length,
-                        updatedAt = Clock.now(),
+                        updatedAt = Clock.System.now(),
                     ),
                 )
             }
@@ -1271,7 +1271,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         archiveOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { existing ->
-                store.upsert(existing.copy(archivedAt = Clock.now()))
+                store.upsert(existing.copy(archivedAt = Clock.System.now()))
             }
         }
     }
@@ -1289,7 +1289,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         setPinnedOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { existing ->
-                store.upsert(existing.copy(isPinned = pinned, pinnedAt = if (pinned) Clock.now() else null))
+                store.upsert(existing.copy(isPinned = pinned, pinnedAt = if (pinned) Clock.System.now() else null))
             }
         }
     }
@@ -1374,7 +1374,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         val template = store.state.value.values.firstOrNull { it.id == templateId && it.userId == uid }
             ?: throw IllegalArgumentException("Template not found: $templateId")
         val newId = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
-        val now = Clock.now()
+        val now = Clock.System.now()
         val finalTitle = targetDateKey?.let { "$it — $targetTitle" } ?: targetTitle
         val note = template.copy(
             id = newId,
@@ -1414,7 +1414,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
                 it.deletedAt == null
         }
         if (existing != null) return@runCatching existing.id
-        val now = Clock.now()
+        val now = Clock.System.now()
         val newId = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
         val template = fromTemplateId?.let {
             store.state.value.values.firstOrNull { n -> n.id == it && n.userId == uid }
@@ -1651,7 +1651,7 @@ class FakeSavedAgendaViewsRepository(
 
     override suspend fun duplicateForProfile(view: SavedAgendaView, targetUserId: String): Result<SavedAgendaView> =
         runCatching {
-            val now = Clock.now()
+            val now = Clock.System.now()
             val copy = view.copy(
                 id = SavedAgendaViewId.generate(),
                 userId = UserId(targetUserId),

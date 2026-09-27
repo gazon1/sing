@@ -5,7 +5,6 @@ import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlinx.serialization.json.Json
 
-
 /**
  * Imports a settings snapshot from JSON, validates it, and applies each
  * section to the corresponding [SettingsContributor].
@@ -41,7 +40,7 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
         }.getOrElse { e ->
             return ImportResult.ParseError(
                 e.message
-                    ?: "Failed to parse settings JSON"
+                    ?: "Failed to parse settings JSON",
             )
         }
 

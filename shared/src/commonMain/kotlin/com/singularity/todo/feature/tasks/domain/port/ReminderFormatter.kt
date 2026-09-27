@@ -11,7 +11,7 @@ import kotlinx.datetime.toInstant
  * Computes the instant at which a reminder should fire for a task with the given
  * due date/time, applying the [ReminderOffset] offset.
  *
- * Pure: depends only on its inputs, no side effects, no `Clock.now()`.
+ * Pure: depends only on its inputs, no side effects, no  Clock.System.now()`.
  *
  * @param dueDate  the task's due date, or null if no date is set.
  * @param dueTime  the task's due time, or null (defaults to 12:00).

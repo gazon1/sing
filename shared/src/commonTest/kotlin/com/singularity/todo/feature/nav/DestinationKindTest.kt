@@ -15,11 +15,12 @@ class DestinationKindTest {
 
     @Test
     fun isTabRecognisesAllSixBottomBarTabs() {
-        assertTrue(DestinationKind.isTab(AppDestination.Inbox))
-        assertTrue(DestinationKind.isTab(AppDestination.Today))
-        assertTrue(DestinationKind.isTab(AppDestination.Upcoming))
+        assertTrue(DestinationKind.isTab(AppDestination.AgendaGraph(AgendaStartRoute.Inbox)))
+        assertTrue(DestinationKind.isTab(AppDestination.AgendaGraph(AgendaStartRoute.Today)))
+        assertTrue(DestinationKind.isTab(AppDestination.AgendaGraph(AgendaStartRoute.Upcoming)))
         assertTrue(DestinationKind.isTab(AppDestination.Plans))
         assertTrue(DestinationKind.isTab(AppDestination.Pomodoro))
+        assertTrue(DestinationKind.isTab(AppDestination.Calendar))
     }
 
     @Test
@@ -50,8 +51,8 @@ class DestinationKindTest {
 
     @Test
     fun isMenuEntryRejectsTabsAndSubRoutes() {
-        assertFalse(DestinationKind.isMenuEntry(AppDestination.Today))
-        assertFalse(DestinationKind.isMenuEntry(AppDestination.Upcoming))
+        assertFalse(DestinationKind.isMenuEntry(AppDestination.AgendaGraph(AgendaStartRoute.Today)))
+        assertFalse(DestinationKind.isMenuEntry(AppDestination.AgendaGraph(AgendaStartRoute.Upcoming)))
         assertFalse(DestinationKind.isMenuEntry(AppDestination.TaskDetailCreate()))
     }
 
@@ -64,17 +65,17 @@ class DestinationKindTest {
 
     @Test
     fun isSubRouteRejectsTabsAndMenuEntries() {
-        assertFalse(DestinationKind.isSubRoute(AppDestination.Today))
-        assertFalse(DestinationKind.isSubRoute(AppDestination.Upcoming))
+        assertFalse(DestinationKind.isSubRoute(AppDestination.AgendaGraph(AgendaStartRoute.Today)))
+        assertFalse(DestinationKind.isSubRoute(AppDestination.AgendaGraph(AgendaStartRoute.Upcoming)))
         assertFalse(DestinationKind.isSubRoute(AppDestination.Notes))
     }
 
     @Test
     fun classificationIsMutuallyExclusiveAcrossThreeBuckets() {
         val all = listOf(
-            AppDestination.Inbox,
-            AppDestination.Today,
-            AppDestination.Upcoming,
+            AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
+            AppDestination.AgendaGraph(AgendaStartRoute.Today),
+            AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
             AppDestination.Plans,
             AppDestination.Pomodoro,
             AppDestination.Statistics,

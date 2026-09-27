@@ -33,16 +33,17 @@ fun TagGroupsScreen(state: TagGroupsUiState, onDelete: (TagGroupId) -> Unit, mod
         state = state.toContentState(),
         emptyTitle = "No tag groups yet",
         modifier = modifier,
-    ) { groups ->
-        TagGroupList(groups = groups, onDelete = onDelete)
+    ) { groups, contentModifier ->
+        TagGroupList(groups = groups, modifier = contentModifier, onDelete = onDelete)
     }
 }
 
 private fun TagGroupsUiState.toContentState(): ContentState<List<TagGroup>> = ContentStateMapper.tagGroups(this)
 
 @Composable
-private fun TagGroupList(groups: List<TagGroup>, onDelete: (TagGroupId) -> Unit) {
+private fun TagGroupList(groups: List<TagGroup>, modifier: Modifier = Modifier, onDelete: (TagGroupId) -> Unit) {
     LazyColumn(
+        modifier = modifier,
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {

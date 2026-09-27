@@ -58,233 +58,236 @@ import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import kotlin.time.Clock
 
 /**
  * Core platform bindings: settings, auth, sync, attachments, backup.
  * Does NOT include feature use cases or ViewModels — those live in feature modules.
  */
-fun coreModule(): org.koin.core.module.Module =
-    module {
-        // ─── Coroutine Scope ────────────────────────────────────────────────
+fun coreModule(): org.koin.core.module.Module = module {
+    // ─── Coroutine Scope ────────────────────────────────────────────────
 
-        // Background scope для долгоживущих компонентов (репозитории, движки синхронизации).
-        // factory, а не single — каждый потребитель получает свой экземпляр,
-        // который закрывается вместе с владельцем.
-        factory {
-            AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)
-        }
-
-        // ─── Settings ────────────────────────────────────────────────────────
-
-        // DataStore<Preferences> is bound per-platform in PlatformModule.{android,jvm}.kt
-        // (real file on Android, in-memory stub on JVM).
-        single<SettingsRepository> { DataStoreSettingsRepository(get()) }
-
-        // ─── Drafts ──────────────────────────────────────────────────────────
-        // DraftStore uses the same per-platform DataStore<Preferences> binding.
-        // Drafts are not secrets — stored in regular DataStore, not SecureStoragePort.
-        single<DraftStore> { DataStoreDraftStore(get(), Logger.withTag("DraftStore")) }
-
-        // ─── Session / Auth ─────────────────────────────────────────────────
-
-        single<SessionStore> { DataStoreSessionStore(get(), get()) }
-
-        single<AuthRepository> {
-            SupabaseAuthRepository(
-                Logger.withTag("AuthRepository"),
-                get(),
-                get(),
-            )
-        }
-
-        single { CurrentUser(get(), createBackgroundScope()) }
-
-        // ─── Repositories ───────────────────────────────────────────────────
-
-        single<AttachmentRepository> {
-            AttachmentRepositoryImpl(
-                get(),
-                get(),
-                get(),
-                get(),
-                get(),
-            )
-        }
-
-        factoryOf(::AttachmentStorage)
-
-        single<ReminderRepository> { RoomReminderRepository(get(), get(), get()) }
-
-        // ─── Ports ───────────────────────────────────────────────────────────
-
-        singleOf(::StubAttachmentUploadService)
-
-        single { DefaultBackupFileNamer() }
-
-        singleOf(::StubRemoteBackupService)
-
-        // ─── Sync ───────────────────────────────────────────────────────────
-
-        // HlcFactory is internal; SyncEngine depends on it.
-        single {
-            HlcFactory(
-                get(),
-                get(),
-                get(),
-            )
-        }
-
-        single<SyncApiClient> { SupabaseSyncApiClient() }
-
-        // SyncPrefs: DataStore-backed (not in-memory).
-        single<SyncPrefs> { DataStoreSyncPrefs(get(), get()) }
-
-        // SyncEngine is internal — feature modules must use SyncRepository.
-        // Takes both SyncPrefs (for LSN tracking) and SyncWorkScheduler (for auth-session init).
-        single {
-            SyncEngine(
-                Logger.withTag("SyncEngine"), get(), get(), get(),
-                get(), get(), get(), get(),
-            )
-        }
-
-        // SyncRunner is internal.
-        single {
-            SyncRunner(
-                engine = get(),
-                scheduler = get(),
-                authRepository = get(),
-                prefs = get(),
-                scope = get(),
-            )
-        }
-
-        // Public facade.
-        single<SyncRepository> {
-            SyncRepositoryImpl(
-                engine = get(),
-                runner = get(),
-                prefs = get(),
-                api = get(),
-                authRepository = get(),
-                scope = get(),
-            )
-        }
-
-        // RemoteConfigRepository (Supabase endpoint credentials — kept in core/sync, not renamed).
-        single<RemoteConfigRepository> { RemoteConfigRepositoryImpl(get(), get()) }
-
-        // RemoteConfigPort: Room + network-backed runtime config snapshot.
-        // Consumes SyncApiClient (stub in MR-2) and Clock.
-        single<RemoteConfigPort> { com.singularity.todo.core.config.RemoteConfigRepositoryImpl(get(), get()) }
-
-        // SyncBootstrapper: registers pull handlers for all DocTypes.
-        // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag, TagGroup).
-        // The init {} block performs the registration.
-        single {
-            SyncBootstrapper(
-                engine = get(),
-                taskRepo = get(),
-                noteRepo = get(),
-                projectRepo = get(),
-                tagRepo = get(),
-                tagGroupRepo = get(),
-            )
-        }
-
-        // AutoSync is NOT in DI — callers construct it with their own CoroutineScope.
-        // Example: val autoSync = AutoSync(get(), get(), viewModelScope)
-
-        // ─── Sync ViewModel ─────────────────────────────────────────────────
-
-        viewModel { SyncViewModel(get(), get(), get()) }
-
-        // ─── IDs / Clock ────────────────────────────────────────────────────
-
-        factory<IdGenerator> { UlidIdGenerator }
-
-        single<TimeZoneProvider> { com.singularity.todo.core.platform.systemTimeZone }
-
-        single<kotlinx.datetime.Clock> { kotlin.time.Clock.System }
-
-        // com.singularity.todo.core.platform.Clock is an expect object singleton.
-        single { com.singularity.todo.core.platform.Clock }
-
-        // ─── Observability ─────────────────────────────────────────────────
-
-        // Analytics — off by default (GDPR). NoopAnalytics is a safe all-no-op.
-        // TODO: when a real SDK is connected, replace with RealAnalytics(binding).
-        single<com.singularity.todo.core.analytics.Analytics> {
-            com.singularity.todo.core.analytics.NoopAnalytics()
-        }
-
-        // ─── Billing ──────────────────────────────────────────────────────
-
-        // No-op billing provider. Real implementation (Google Play, RevenueCat, Supabase)
-        // will replace this in a follow-up ADR.
-        single<com.singularity.todo.core.billing.SubscriptionProvider> {
-            com.singularity.todo.core.billing.NoopSubscriptionProvider()
-        }
-
-        // ─── Backup ─────────────────────────────────────────────────────────
-
-        singleOf(::BackupExporter)
-        single {
-            BackupImporter(
-                Logger.withTag("BackupImporter"),
-                get(), get(),
-                get(), get(),
-                get(),
-                get(), get(),
-                get(),
-            )
-        }
-        single<BackupRepository> {
-            BackupRepositoryImpl(
-                exporter = get(),
-                importer = get(),
-                remoteService = get(),
-                fs = get(),
-                backupDir = get<String>(),
-                currentUser = get(),
-            )
-        }
-        // ─── Settings ────────────────────────────────────────────────────────
-
-        // SettingsViewModel uses marker interface lookups — each contributor is
-        // registered individually in its own feature module and injected here via getOrNull.
-        viewModel {
-            SettingsViewModel(
-                scope = get(),
-                appearanceContributor = getOrNull<AppearanceContributor>(),
-                notificationsContributor = getOrNull<NotificationsContributor>(),
-                workScheduleContributor = getOrNull<WorkScheduleContributor>(),
-                greetingContributor = getOrNull<GreetingContributor>(),
-                aiContributor = getOrNull<AiContributor>(),
-                defaultAgendaViewContributor = getOrNull<DefaultAgendaViewContributor>(),
-                savedAgendaViewsRepo = get(),
-                fileRevealer = get(),
-            )
-        }
-
-        // ─── ViewModels ─────────────────────────────────────────────────────
-
-        viewModel { AuthViewModel(authRepository = get()) }
-
-        // Settings snapshot exporter / importer (registered as single — stateless, no per-injection state)
-        single { SettingsExporter(getAll<SettingsContributor<*, *>>().toSet()) }
-        single { SettingsImporter(getAll<SettingsContributor<*, *>>().toSet()) }
-
-        viewModel {
-            BackupViewModel(
-                repository = get(),
-                authRepository = get(),
-                backupFileNamer = get(),
-                clock = get(),
-                settingsExporter = get(),
-                settingsImporter = get(),
-            )
-        }
-
-        viewModel { AttachmentsViewModel(repository = get()) }
+    // Background scope для долгоживущих компонентов (репозитории, движки синхронизации).
+    // factory, а не single — каждый потребитель получает свой экземпляр,
+    // который закрывается вместе с владельцем.
+    factory {
+        AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)
     }
+
+    // ─── Settings ────────────────────────────────────────────────────────
+
+    // DataStore<Preferences> is bound per-platform in PlatformModule.{android,jvm}.kt
+    // (real file on Android, in-memory stub on JVM).
+    single<SettingsRepository> { DataStoreSettingsRepository(get()) }
+
+    // ─── Drafts ──────────────────────────────────────────────────────────
+    // DraftStore uses the same per-platform DataStore<Preferences> binding.
+    // Drafts are not secrets — stored in regular DataStore, not SecureStoragePort.
+    single<DraftStore> { DataStoreDraftStore(get(), Logger.withTag("DraftStore")) }
+
+    // ─── Session / Auth ─────────────────────────────────────────────────
+
+    single<SessionStore> { DataStoreSessionStore(get(), get()) }
+
+    single<AuthRepository> {
+        SupabaseAuthRepository(
+            Logger.withTag("AuthRepository"),
+            get(),
+            get(),
+        )
+    }
+
+    single { CurrentUser(get(), createBackgroundScope()) }
+
+    // ─── Repositories ───────────────────────────────────────────────────
+
+    single<AttachmentRepository> {
+        AttachmentRepositoryImpl(
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+        )
+    }
+
+    factoryOf(::AttachmentStorage)
+
+    single<ReminderRepository> { RoomReminderRepository(get(), get(), get()) }
+
+    // ─── Ports ───────────────────────────────────────────────────────────
+
+    singleOf(::StubAttachmentUploadService)
+
+    single { DefaultBackupFileNamer() }
+
+    singleOf(::StubRemoteBackupService)
+
+    // ─── Sync ───────────────────────────────────────────────────────────
+
+    // HlcFactory is internal; SyncEngine depends on it.
+    single {
+        HlcFactory(
+            get(),
+            get(),
+            get(),
+        )
+    }
+
+    single<SyncApiClient> { SupabaseSyncApiClient() }
+
+    // SyncPrefs: DataStore-backed (not in-memory).
+    single<SyncPrefs> { DataStoreSyncPrefs(get(), get()) }
+
+    // SyncEngine is internal — feature modules must use SyncRepository.
+    // Takes both SyncPrefs (for LSN tracking) and SyncWorkScheduler (for auth-session init).
+    single {
+        SyncEngine(
+            Logger.withTag("SyncEngine"),
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+        )
+    }
+
+    // SyncRunner is internal.
+    single {
+        SyncRunner(
+            engine = get(),
+            scheduler = get(),
+            authRepository = get(),
+            prefs = get(),
+            scope = get(),
+        )
+    }
+
+    // Public facade.
+    single<SyncRepository> {
+        SyncRepositoryImpl(
+            engine = get(),
+            runner = get(),
+            prefs = get(),
+            api = get(),
+            authRepository = get(),
+            scope = get(),
+        )
+    }
+
+    // RemoteConfigRepository (Supabase endpoint credentials — kept in core/sync, not renamed).
+    single<RemoteConfigRepository> { RemoteConfigRepositoryImpl(get(), get()) }
+
+    // RemoteConfigPort: Room + network-backed runtime config snapshot.
+    // Consumes SyncApiClient (stub in MR-2) and Clock.
+    single<RemoteConfigPort> { com.singularity.todo.core.config.RemoteConfigRepositoryImpl(get(), get()) }
+
+    // SyncBootstrapper: registers pull handlers for all DocTypes.
+    // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag, TagGroup).
+    // The init {} block performs the registration.
+    single {
+        SyncBootstrapper(
+            engine = get(),
+            taskRepo = get(),
+            noteRepo = get(),
+            projectRepo = get(),
+            tagRepo = get(),
+            tagGroupRepo = get(),
+        )
+    }
+
+    // AutoSync is NOT in DI — callers construct it with their own CoroutineScope.
+    // Example: val autoSync = AutoSync(get(), get(), viewModelScope)
+
+    // ─── Sync ViewModel ─────────────────────────────────────────────────
+
+    viewModel { SyncViewModel(get(), get(), get()) }
+
+    // ─── IDs / Clock ────────────────────────────────────────────────────
+
+    factory<IdGenerator> { UlidIdGenerator }
+
+    single<TimeZoneProvider> { com.singularity.todo.core.platform.systemTimeZone }
+
+    single<Clock> { Clock.System }
+
+    // ─── Observability ─────────────────────────────────────────────────
+
+    // Analytics — off by default (GDPR). NoopAnalytics is a safe all-no-op.
+    // TODO: when a real SDK is connected, replace with RealAnalytics(binding).
+    single<com.singularity.todo.core.analytics.Analytics> {
+        com.singularity.todo.core.analytics.NoopAnalytics()
+    }
+
+    // ─── Billing ──────────────────────────────────────────────────────
+
+    // No-op billing provider. Real implementation (Google Play, RevenueCat, Supabase)
+    // will replace this in a follow-up ADR.
+    single<com.singularity.todo.core.billing.SubscriptionProvider> {
+        com.singularity.todo.core.billing.NoopSubscriptionProvider()
+    }
+
+    // ─── Backup ─────────────────────────────────────────────────────────
+
+    singleOf(::BackupExporter)
+    single {
+        BackupImporter(
+            Logger.withTag("BackupImporter"),
+            get(), get(),
+            get(), get(),
+            get(),
+            get(), get(),
+            get(),
+        )
+    }
+    single<BackupRepository> {
+        BackupRepositoryImpl(
+            exporter = get(),
+            importer = get(),
+            remoteService = get(),
+            fs = get(),
+            backupDir = get<String>(),
+            currentUser = get(),
+        )
+    }
+    // ─── Settings ────────────────────────────────────────────────────────
+
+    // SettingsViewModel uses marker interface lookups — each contributor is
+    // registered individually in its own feature module and injected here via getOrNull.
+    viewModel {
+        SettingsViewModel(
+            scope = get(),
+            appearanceContributor = getOrNull<AppearanceContributor>(),
+            notificationsContributor = getOrNull<NotificationsContributor>(),
+            workScheduleContributor = getOrNull<WorkScheduleContributor>(),
+            greetingContributor = getOrNull<GreetingContributor>(),
+            aiContributor = getOrNull<AiContributor>(),
+            defaultAgendaViewContributor = getOrNull<DefaultAgendaViewContributor>(),
+            savedAgendaViewsRepo = get(),
+            fileRevealer = get(),
+        )
+    }
+
+    // ─── ViewModels ─────────────────────────────────────────────────────
+
+    viewModel { AuthViewModel(authRepository = get()) }
+
+    // Settings snapshot exporter / importer (registered as single — stateless, no per-injection state)
+    single { SettingsExporter(getAll<SettingsContributor<*, *>>().toSet()) }
+    single { SettingsImporter(getAll<SettingsContributor<*, *>>().toSet()) }
+
+    viewModel {
+        BackupViewModel(
+            repository = get(),
+            authRepository = get(),
+            backupFileNamer = get(),
+            clock = get(),
+            settingsExporter = get(),
+            settingsImporter = get(),
+        )
+    }
+
+    viewModel { AttachmentsViewModel(repository = get()) }
+}

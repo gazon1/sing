@@ -5,6 +5,7 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.toMessage
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
@@ -47,7 +48,7 @@ internal class SyncRepositoryImpl(
             ?: return ConnectionTestResult.Failure(AppError.Validation("Not signed in"))
         return api.testConnection(session.userId.value).fold(
             onSuccess = { ConnectionTestResult.Success },
-            onFailure = { ConnectionTestResult.Failure(it as? AppError ?: AppError.Unknown(it)) },
+            onFailure = { ConnectionTestResult.Failure(it as? AppError ?: AppError.Unknown(it.toMessage())) },
         )
     }
 

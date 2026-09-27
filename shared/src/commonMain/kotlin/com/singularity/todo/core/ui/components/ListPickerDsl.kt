@@ -2,9 +2,6 @@ package com.singularity.todo.core.ui.components
 
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SheetValue
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import com.singularity.todo.core.ui.components.sheet.ListPickerItem
 import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
@@ -108,13 +105,11 @@ class ListPickerScope<T> internal constructor() {
  * }
  * ```
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun <T> ListPickerSheet(
     title: String,
     onItemSelected: (T) -> Unit,
     onDismiss: () -> Unit,
-    sheetState: androidx.compose.material3.SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
     block: ListPickerScope<T>.() -> Unit,
 ) {
     val scope = ListPickerScope<T>().apply(block)
@@ -123,7 +118,6 @@ fun <T> ListPickerSheet(
         items = scope.items,
         onItemSelected = onItemSelected,
         onDismiss = onDismiss,
-        sheetState = sheetState,
         header = scope.headerSlot,
         footer = scope.footerSlot,
     )

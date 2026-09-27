@@ -1,13 +1,13 @@
 package com.singularity.todo.core.config
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.SyncApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.JsonObject
+import kotlin.time.Clock
 
 /**
  * Room + network implementation of [RemoteConfigPort].
@@ -64,7 +64,7 @@ internal class RemoteConfigRepositoryImpl(
                 }
                 val entity = RemoteConfigCacheEntity(
                     snapshotJson = StableJson.encodeToString(RemoteConfigSnapshot.serializer(), validated),
-                    fetchedAtEpochMillis = Clock.now().toEpochMilliseconds(),
+                    fetchedAtEpochMillis = Clock.System.now().toEpochMilliseconds(),
                 )
                 cacheDao.upsert(entity)
                 _snapshot.value = validated

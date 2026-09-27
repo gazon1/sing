@@ -15,11 +15,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -181,7 +179,6 @@ private fun ProfilePickerSheet(
 ) {
     val profiles by profileRepo.observeAll()
         .collectAsStateWithLifecycle(initialValue = emptyList())
-    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
 
     ListPickerSheet(
         title = "Copy to profile",
@@ -195,7 +192,6 @@ private fun ProfilePickerSheet(
         },
         onItemSelected = onPick,
         onDismiss = onDismiss,
-        sheetState = sheetState,
     )
 }
 
@@ -203,49 +199,47 @@ private fun ProfilePickerSheet(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaListContentEmptyPreview() =
-    PreviewAgendaNavigator {
-        PreviewThemed(darkTheme = false) {
-            SavedAgendaListContent(
-                state = SavedAgendaListState.Loaded(emptyList()),
-                onViewSelected = {},
-                onDelete = {},
-                onEdit = {},
-                onCopyToProfile = {},
-            )
-        }
+private fun SavedAgendaListContentEmptyPreview() = PreviewAgendaNavigator {
+    PreviewThemed(darkTheme = false) {
+        SavedAgendaListContent(
+            state = SavedAgendaListState.Loaded(emptyList()),
+            onViewSelected = {},
+            onDelete = {},
+            onEdit = {},
+            onCopyToProfile = {},
+        )
     }
+}
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaListContentLoadedPreview() =
-    PreviewAgendaNavigator {
-        PreviewThemed(darkTheme = false) {
-            SavedAgendaListContent(
-                state = SavedAgendaListState.Loaded(
-                    listOf(
-                        SavedAgendaView(
-                            id = SavedAgendaViewId("v1"),
-                            userId = UserId("u1"),
-                            name = "Weekly Review",
-                            sectionsJson = "{}",
-                            createdAt = Instant.fromEpochSeconds(1784253600),
-                            updatedAt = Instant.fromEpochSeconds(1785496200),
-                        ),
-                        SavedAgendaView(
-                            id = SavedAgendaViewId("v2"),
-                            userId = UserId("u1"),
-                            name = "Focus Today",
-                            sectionsJson = "{}",
-                            createdAt = Instant.fromEpochSeconds(1784253600),
-                            updatedAt = Instant.fromEpochSeconds(1785496200),
-                        ),
+private fun SavedAgendaListContentLoadedPreview() = PreviewAgendaNavigator {
+    PreviewThemed(darkTheme = false) {
+        SavedAgendaListContent(
+            state = SavedAgendaListState.Loaded(
+                listOf(
+                    SavedAgendaView(
+                        id = SavedAgendaViewId("v1"),
+                        userId = UserId("u1"),
+                        name = "Weekly Review",
+                        sectionsJson = "{}",
+                        createdAt = Instant.fromEpochSeconds(1784253600),
+                        updatedAt = Instant.fromEpochSeconds(1785496200),
+                    ),
+                    SavedAgendaView(
+                        id = SavedAgendaViewId("v2"),
+                        userId = UserId("u1"),
+                        name = "Focus Today",
+                        sectionsJson = "{}",
+                        createdAt = Instant.fromEpochSeconds(1784253600),
+                        updatedAt = Instant.fromEpochSeconds(1785496200),
                     ),
                 ),
-                onViewSelected = {},
-                onDelete = {},
-                onEdit = {},
-                onCopyToProfile = {},
-            )
-        }
+            ),
+            onViewSelected = {},
+            onDelete = {},
+            onEdit = {},
+            onCopyToProfile = {},
+        )
     }
+}

@@ -3,7 +3,6 @@ package com.singularity.todo.feature.agenda.presentation.viewmodel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -17,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 /**
  * Dependencies for [SavedAgendaListViewModel].
@@ -99,7 +99,7 @@ class SavedAgendaListViewModel(
                         emit(SavedAgendaListEvent.ShowError("Profile not found"))
                         return@launch
                     }
-                    val now = Clock.now()
+                    val now = Clock.System.now()
                     val copy = SavedAgendaViewFactory.duplicateForProfile(
                         source = sourceView,
                         targetUserId = UserId(targetProfile.id.value),

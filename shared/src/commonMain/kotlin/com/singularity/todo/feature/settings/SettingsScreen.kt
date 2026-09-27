@@ -183,15 +183,20 @@ private fun SettingsContent(
 
         Box(
             modifier = Modifier.weight(1f)
-                .fillMaxHeight()
+                .fillMaxHeight(),
         ) {
             previewOverrides[selectedTab]?.invoke()
                 ?: when (selectedTab) {
                     SettingsTab.Interface -> InterfaceSettingsScreen(state = state, onIntent = onIntent)
+
                     SettingsTab.Agenda -> AgendaSettingsScreen(state = state, onIntent = onIntent)
+
                     SettingsTab.Notifications -> NotificationSettingsScreen(state = state, onIntent = onIntent)
+
                     SettingsTab.AIProvider -> AiProviderSettingsScreen(state = state, onIntent = onIntent)
+
                     SettingsTab.WorkSchedule -> WorkScheduleSettingsScreen(state = state, onIntent = onIntent)
+
                     SettingsTab.Calendar -> CalendarSyncSettingsScreen()
 
                     SettingsTab.Tags -> {
@@ -253,7 +258,7 @@ private fun SettingsNavRail(
 ) {
     Column(
         modifier = modifier.width(80.dp)
-            .padding(vertical = 8.dp)
+            .padding(vertical = 8.dp),
     ) {
         SettingsTab.entries.forEach { tab ->
             val isSelected = tab == selectedTab
@@ -303,10 +308,9 @@ private fun AiStatusBadge(aiTestResult: AiTestResult, modifier: Modifier = Modif
     }
     Box(
         modifier = modifier.size(8.dp)
-            .background(badgeColor, CircleShape)
+            .background(badgeColor, CircleShape),
     )
 }
-
 
 // Reuses the real SettingsContent (see SettingsScreen.kt) instead of keeping a
 // second, hand-copied `when` over SettingsTab — the two previously drifted
@@ -350,14 +354,12 @@ private fun SettingsScreenPreview(selectedTab: SettingsTab) {
 
 @Preview
 @Composable
-private fun SettingsScreenLightPreview() =
-    PreviewThemed(darkTheme = false, useSurface = false) {
-        SettingsScreenPreview(selectedTab = SettingsTab.Interface)
-    }
+private fun SettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    SettingsScreenPreview(selectedTab = SettingsTab.Interface)
+}
 
 @Preview
 @Composable
-private fun SettingsScreenDarkPreview() =
-    PreviewThemed(darkTheme = true, useSurface = false) {
-        SettingsScreenPreview(selectedTab = SettingsTab.Account)
-    }
+private fun SettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    SettingsScreenPreview(selectedTab = SettingsTab.Account)
+}

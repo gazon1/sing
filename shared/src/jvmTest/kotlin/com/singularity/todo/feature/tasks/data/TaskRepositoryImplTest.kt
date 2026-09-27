@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tasks.data
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -20,6 +19,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 /**
  * Integration test for [FakeTaskRepository] with user-switch behavior.
@@ -106,8 +106,8 @@ class TaskRepositoryImplTest {
         someday = false,
         archivedAt = null,
         isPinned = false,
-        createdAt = Clock.now(),
-        updatedAt = Clock.now(),
+        createdAt = Clock.System.now(),
+        updatedAt = Clock.System.now(),
         userId = userId,
         tags = emptyList(),
     )

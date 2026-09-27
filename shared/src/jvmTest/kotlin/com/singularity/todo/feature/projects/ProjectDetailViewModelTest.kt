@@ -3,7 +3,6 @@ package com.singularity.todo.feature.projects
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
@@ -30,6 +29,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 /**
  * Unit tests for [ProjectDetailViewModel] verifying behavioral contracts.
@@ -53,10 +53,10 @@ class ProjectDetailViewModelTest {
             projectRepo = fakeProjectsRepo,
             taskRepo = fakeTaskRepo,
             deleteProject = DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
-            updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock),
-            updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock),
-            createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, Clock, fakeCurrentUser),
-            clock = Clock,
+            updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock.System),
+            updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock.System),
+            createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, Clock.System, fakeCurrentUser),
+            clock = Clock.System,
             log = Logger,
             scope = AutoCloseableCoroutineScope(scope.coroutineContext),
         )
@@ -72,8 +72,8 @@ class ProjectDetailViewModelTest {
             icon = null,
             parentId = null,
             isDeleted = false,
-            createdAt = Clock.now(),
-            updatedAt = Clock.now(),
+            createdAt = Clock.System.now(),
+            updatedAt = Clock.System.now(),
             userId = testUserId,
         )
         fakeProjectsRepo.seed(project)

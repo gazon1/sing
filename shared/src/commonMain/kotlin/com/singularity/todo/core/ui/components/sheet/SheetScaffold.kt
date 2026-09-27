@@ -8,10 +8,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-
 
 /**
  * Scaffold для picker-sheet-ов с actions-строкой.
@@ -26,7 +26,7 @@ fun SheetScaffold(
     Column(
         modifier = modifier.fillMaxWidth()
             .padding(horizontal = 24.dp)
-            .padding(bottom = 24.dp),  // insets уже даёт ModalBottomSheet
+            .padding(bottom = 24.dp), // insets уже даёт ModalBottomSheet
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         content()
@@ -59,9 +59,4 @@ private fun SheetActionsRow(actions: SheetActions) {
             TextButton(onClick = actions.onConfirm) { Text(actions.confirmLabel) }
         }
     }
-}
-
-@Composable
-fun TextButton(onClick: () -> Unit, content: @Composable () -> Unit) {
-    TODO("Not yet implemented")
 }

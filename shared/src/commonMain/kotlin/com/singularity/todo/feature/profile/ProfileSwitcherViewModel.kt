@@ -3,11 +3,11 @@ package com.singularity.todo.feature.profile
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.fireAndForget
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 data class ProfileSwitcherUiState(
     val profiles: List<Profile> = emptyList(),
@@ -70,7 +70,7 @@ class ProfileSwitcherViewModel(
             errorLabel = "Create profile failed",
             onError = { e -> _errorMessage.value = e.message ?: "Failed to create profile" },
         ) {
-            val now = Clock.now()
+            val now = Clock.System.now()
             profileRepository.create(
                 Profile(
                     id = ProfileId.generate(),

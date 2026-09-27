@@ -3,7 +3,6 @@ package com.singularity.todo.feature.agenda
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -31,6 +30,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
@@ -51,7 +51,7 @@ class SavedAgendaViewModelTest {
     private val seedStore = SavedAgendaSeedStore()
 
     private fun createVm(mode: SavedAgendaScreenMode, scope: CoroutineScope) = SavedAgendaViewModel(
-        deps = SavedAgendaDeps(repo = fakeRepo, clock = Clock, log = Logger),
+        deps = SavedAgendaDeps(repo = fakeRepo, clock = Clock.System, log = Logger),
         mode = mode,
         seedStore = seedStore,
         scope = AutoCloseableCoroutineScope(scope.coroutineContext),
@@ -117,8 +117,8 @@ class SavedAgendaViewModelTest {
                 userId = UserId("test-user"),
                 name = "My View",
                 sectionsJson = """{"title":"My View","sections":[]}""",
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
 
@@ -153,8 +153,8 @@ class SavedAgendaViewModelTest {
                 userId = UserId("test-user"),
                 name = "Original",
                 sectionsJson = """{"title":"Original","sections":[]}""",
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
 
@@ -179,8 +179,8 @@ class SavedAgendaViewModelTest {
                 userId = UserId("test-user"),
                 name = "Test",
                 sectionsJson = """{"title":"Test","sections":[{"name":"Today","order":0,"selector":{"type":"DateBucket","bucket":"Today"}}]}""",
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
 
@@ -204,8 +204,8 @@ class SavedAgendaViewModelTest {
                 userId = UserId("test-user"),
                 name = "Original",
                 sectionsJson = """{"title":"Original","sections":[]}""",
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
 
@@ -230,8 +230,8 @@ class SavedAgendaViewModelTest {
                 userId = UserId("test-user"),
                 name = "To Delete",
                 sectionsJson = """{"title":"To Delete","sections":[]}""",
-                createdAt = Clock.now(),
-                updatedAt = Clock.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
 

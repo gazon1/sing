@@ -2,12 +2,12 @@ package com.singularity.todo.feature.projects.domain.usecase
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.ProjectsDomain
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import kotlin.time.Clock
 
 /**
  * Uses [ProjectsDomain.validateCreateInput] for typed validation.

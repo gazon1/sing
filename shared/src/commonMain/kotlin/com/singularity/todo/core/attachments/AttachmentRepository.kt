@@ -2,12 +2,12 @@ package com.singularity.todo.core.attachments
 
 import com.singularity.todo.core.files.MimeTypes
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlin.time.Clock
 
 /**
  * Repository for task attachments — files stored locally and URLs linked remotely.

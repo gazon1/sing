@@ -2,6 +2,7 @@
 title: "Konsist architecture tests — the first hard CI gate for layer boundaries"
 date: 2026-09-26
 tags: [architecture, testing, konsist, ci]
+status: accepted
 ---
 
 ## Context

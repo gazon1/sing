@@ -5,14 +5,21 @@ import com.singularity.todo.core.database.LlmUsageDao
 import com.singularity.todo.core.database.LlmUsageEntity
 import com.singularity.todo.core.database.ModelUsageRow
 import com.singularity.todo.core.database.ToolUsageRow
-import com.singularity.todo.core.platform.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
  * Room-based AI usage recorder.
  * Persists [ToolUsageEvent] rows to the [LlmUsageDao] and exposes aggregated flows.
+ *
+ * ## Clock contract
+ * All timestamps use [kotlin.time.Instant] from the injected [Clock]. Room stores
+ * epoch-milliseconds ([Long]); convert on the boundary via
+ * [kotlin.time.Instant.toEpochMilliseconds] and [kotlin.time.Instant.fromEpochMilliseconds].
+ * **Do not use [kotlinx.datetime.Instant]** — it is used only for date arithmetic
+ * in `todayInSystemZone()`.
  */
 class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock: Clock) {
 

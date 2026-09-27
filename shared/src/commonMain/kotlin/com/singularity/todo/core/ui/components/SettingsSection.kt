@@ -111,7 +111,7 @@ fun SettingsRow(
     ) {
         Column(
             modifier = Modifier.weight(1f)
-                .fillMaxWidth()
+                .fillMaxWidth(),
         ) {
             Text(text = title, style = MaterialTheme.typography.bodyLarge)
             subtitle?.let {
@@ -196,12 +196,7 @@ fun SettingsValueRow(
  * shown with a trailing chevron (e.g. "Language", "About").
  */
 @Composable
-fun SettingsActionRow(
-    title: String,
-    onClick: () -> Unit,
-    subtitle: String? = null,
-    modifier: Modifier = Modifier,
-) {
+fun SettingsActionRow(title: String, onClick: () -> Unit, subtitle: String? = null, modifier: Modifier = Modifier) {
     SettingsRow(
         title = title,
         subtitle = subtitle,
@@ -221,77 +216,71 @@ fun SettingsActionRow(
 // (SettingsComponentsPreview.kt), since androidx.compose.ui.tooling.preview
 // is Android-only tooling and shouldn't be pulled into commonMain.
 
+@Preview
+@Composable
+private fun SettingsSectionLightPreview() = PreviewThemed(darkTheme = false) {
+    SettingsSection(title = "Appearance") {
+        SettingsSwitchRow(
+            title = "Dark theme",
+            subtitle = "Use dark color scheme",
+            checked = false,
+            onCheckedChange = {},
+        )
+        SettingsSwitchRow(
+            title = "Notifications",
+            subtitle = "Show reminders",
+            checked = true,
+            onCheckedChange = {},
+        )
+    }
+}
 
 @Preview
 @Composable
-private fun SettingsSectionLightPreview() =
-    PreviewThemed(darkTheme = false) {
-        SettingsSection(title = "Appearance") {
-            SettingsSwitchRow(
-                title = "Dark theme",
-                subtitle = "Use dark color scheme",
-                checked = false,
-                onCheckedChange = {},
-            )
-            SettingsSwitchRow(
-                title = "Notifications",
-                subtitle = "Show reminders",
-                checked = true,
-                onCheckedChange = {},
-            )
-        }
+private fun SettingsSectionDarkPreview() = PreviewThemed(darkTheme = true) {
+    SettingsSection(title = "Account") {
+        SettingsSwitchRow(
+            title = "Auto-sync",
+            subtitle = "Sync data automatically",
+            checked = true,
+            onCheckedChange = {},
+        )
+        SettingsSwitchRow(
+            title = "Offline mode",
+            checked = false,
+            onCheckedChange = {},
+        )
     }
+}
 
 @Preview
 @Composable
-private fun SettingsSectionDarkPreview() =
-    PreviewThemed(darkTheme = true) {
-        SettingsSection(title = "Account") {
-            SettingsSwitchRow(
-                title = "Auto-sync",
-                subtitle = "Sync data automatically",
-                checked = true,
-                onCheckedChange = {},
-            )
-            SettingsSwitchRow(
-                title = "Offline mode",
-                checked = false,
-                onCheckedChange = {},
-            )
-        }
+private fun SettingsRowLightPreview() = PreviewThemed(darkTheme = false) {
+    SettingsSection(title = "General") {
+        SettingsActionRow(title = "Language", subtitle = "English", onClick = {})
+        SettingsActionRow(title = "About", onClick = {})
+        SettingsSwitchRow(title = "Switch setting", checked = true, onCheckedChange = {})
     }
+}
 
 @Preview
 @Composable
-private fun SettingsRowLightPreview() =
-    PreviewThemed(darkTheme = false) {
-        SettingsSection(title = "General") {
-            SettingsActionRow(title = "Language", subtitle = "English", onClick = {})
-            SettingsActionRow(title = "About", onClick = {})
-            SettingsSwitchRow(title = "Switch setting", checked = true, onCheckedChange = {})
-        }
+private fun SettingsRowDarkPreview() = PreviewThemed(darkTheme = true) {
+    SettingsSection(title = "General") {
+        SettingsActionRow(title = "Language", subtitle = "English", onClick = {})
     }
+}
 
 @Preview
 @Composable
-private fun SettingsRowDarkPreview() =
-    PreviewThemed(darkTheme = true) {
-        SettingsSection(title = "General") {
-            SettingsActionRow(title = "Language", subtitle = "English", onClick = {})
-        }
+private fun SettingsValueRowPreview() = PreviewThemed(darkTheme = false) {
+    SettingsSection(title = "Region") {
+        SettingsValueRow(title = "Language", value = "English", onClick = {})
+        SettingsValueRow(
+            title = "Week starts on",
+            value = "Monday",
+            subtitle = "Applies to calendar and reminders",
+            onClick = {},
+        )
     }
-
-@Preview
-@Composable
-private fun SettingsValueRowPreview() =
-    PreviewThemed(darkTheme = false) {
-        SettingsSection(title = "Region") {
-            SettingsValueRow(title = "Language", value = "English", onClick = {})
-            SettingsValueRow(
-                title = "Week starts on",
-                value = "Monday",
-                subtitle = "Applies to calendar and reminders",
-                onClick = {},
-            )
-        }
-    }
+}

@@ -172,7 +172,8 @@ fun TaskEditorSheetsHost(
             onDismiss = onSheetDismiss,
         )
 
-        null -> { /* no sheet open */
+        null -> {
+            /* no sheet open */
         }
     }
 }

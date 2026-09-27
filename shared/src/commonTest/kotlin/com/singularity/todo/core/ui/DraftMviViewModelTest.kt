@@ -129,7 +129,7 @@ class DraftMviViewModelTest {
         val vm = testVm(
             initialDraft = TestDraft(title = " "),
             validateBlock = { if (it.title.isBlank()) "Title required" else null },
-            persistBlock = { Either.Left(AppError.Persistence(Exception("db error"))) },
+            persistBlock = { Either.Left(AppError.Persistence("db error")) },
         )
         delay(20)
 
@@ -207,7 +207,7 @@ class DraftMviViewModelTest {
     fun `save surfaces persist failure as error`() = testVm {
         val vm = testVm(
             initialDraft = TestDraft(title = "Hello"),
-            persistBlock = { Either.Left(AppError.Persistence(Exception("db error"))) },
+            persistBlock = { Either.Left(AppError.Persistence("db error")) },
         )
         delay(20)
 

@@ -3,7 +3,6 @@ package com.singularity.todo.feature.projects
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.Clock
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
@@ -17,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Clock
 
 /**
  * Smoke tests for [ProjectEditorViewModel] — verify construction and basic intent flow.
@@ -33,8 +33,8 @@ class ProjectEditorViewModelTest {
 
     private fun createVm(scope: CoroutineScope, projectId: ProjectId? = null) = ProjectEditorViewModel(
         projectId = projectId,
-        createProject = CreateProjectUseCase(fakeProjectsRepo, Clock, fakeCurrentUser),
-        updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock),
+        createProject = CreateProjectUseCase(fakeProjectsRepo, Clock.System, fakeCurrentUser),
+        updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock.System),
         projectsRepo = fakeProjectsRepo,
         scope = testScope(scope),
     )
