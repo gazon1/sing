@@ -77,6 +77,9 @@ clean:
 detekt:
     #!/bin/bash
     set -euo pipefail
+    # Cheap, runs first. A duplicated rule registration fails the Gradle build
+    # later with a YAML error pointing at the config rather than the real cause.
+    ./scripts/check-detekt-registrations.sh
     ./gradlew :shared:detekt :desktopApp:detekt
 
 [group('lint')]

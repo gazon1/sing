@@ -1,6 +1,8 @@
 ---
-status: accepted
+title: No-Op `updateState` Reducer Silently Discards Collected State
 date: 2026-09-27
+status: accepted
+deciders: Singularity Developer
 deciders: Singularity Developer
 ---
 

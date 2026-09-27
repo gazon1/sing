@@ -18,6 +18,14 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+echo -e "${YELLOW}=== [0/4] detekt rule registry (fast) ===${NC}"
+# Runs before Gradle: a duplicated or missing rule registration otherwise surfaces
+# minutes later as a YAML parse error pointing at detekt.yml rather than the cause.
+./scripts/check-detekt-registrations.sh || {
+    echo -e "${RED}detekt rule registry FAILED${NC}"
+    exit 1
+}
+
 echo -e "${YELLOW}=== [1/4] shared:jvmTest ===${NC}"
 ./gradlew :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"

@@ -678,6 +678,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All 7 custom rule sets now produce findings when violations exist
 - Both rules are in **warning mode** — they do not fail the build
 - Promotion to error: after baseline is reduced in a follow-up PR
+- The activation checklist in `singularity-todo-detekt-rules-authoring` gains a fourth
+- The check is deliberately narrow. It validates the registry's internal consistency; it
+- The class of bug is caught at commit time instead of at merge time.
 - `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline`
 - `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport`
 - `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline`
@@ -686,6 +689,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `NoRealDelayInTestRule` fires on all 44 pre-existing `delay(N>1)` occurrences
 - `NoRunBlocking`, `NoViewModelScopeInProduction`, `NoStateIn`, `NoStaticProfileAwareCurrentUser`, `PassThroughUseCase` are active in `shared` and `desktopApp` modules
 - `NoViewModelScopeInProductionRule` fires on 7 pre-existing `viewModelScope.launch` occurrences
+- `check.sh` and `just lint` both fail fast on a malformed rule registry, with a message
 
 ### `di`
 
@@ -1591,6 +1595,7 @@ _6 entries need attention._
 - `2026-09-27-remove-platform-clock-object` — clock, architecture, migration, kotlin-stdlib
 - `2026-09-27-taskdetail-migration-and-debounce-write-loop` — _untagged_
 - `2026-09-27-vm-koin-scoping-retired` — koin, viewmodel, skills, documentation
+- `2026-09-28-detekt-duplicate-registration-guard` — detekt, tooling, ci, parallel-work, postmortem
 
 ## Active entries
 
@@ -1865,8 +1870,9 @@ _6 entries need attention._
 - `2026-09-27-draft-mvi-single-state-source` — DraftMviViewModel — one state source, no open-member calls from a constructor
 - `2026-09-27-mvi-single-state-entry-and-vm-sweep` — MVI Base — Single State-Update Entry + ViewModel Sweep
 - `2026-09-27-nav3-startroute-invariant` — Nav3 startRoute must be a top-level route — enforce with an invariant, centralize serializers
-- `2026-09-27-no-op-update-state-reducer` — _(no title)_
+- `2026-09-27-no-op-update-state-reducer` — No-Op `updateState` Reducer Silently Discards Collected State
 - `2026-09-27-remove-platform-clock-object` — Remove `core.platform.Clock` — use `kotlin.time.Clock` everywhere
 - `2026-09-27-taskdetail-migration-and-debounce-write-loop` — TaskDetailViewModel Migration + Debounce Write-Loop Fix
 - `2026-09-27-vm-koin-scoping-retired` — Retire `singularity-todo-vm-koin-scoping`
+- `2026-09-28-detekt-duplicate-registration-guard` — Guard against duplicate detekt rule registration
 

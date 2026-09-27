@@ -30,7 +30,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-cross-feature-navigation` | 196 | How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). |
 | `singularity-todo-cycle-detector-pattern` | 248 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |
 | `singularity-todo-decisions-workflow` | 336 | Lightweight decision-log workflow for this project. |
-| `singularity-todo-detekt-rules-authoring` | 313 | How to write and register custom detekt rules in the Singularity Todo project. |
+| `singularity-todo-detekt-rules-authoring` | 353 | How to write and register custom detekt rules in the Singularity Todo project. |
 | `singularity-todo-detekt-workflow` | 112 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules (PassThroughUseCase, NoStateIn, NoRunBlocking, NoViewModelScopeInProduction, NoRealDelayInTest, KDoc enforcement). |
 | `singularity-todo-di-graph-testing` | 206 | Catch Koin DI missing bindings before the app reaches a device. |
 | `singularity-todo-document-style-detail` | 211 | Generic document-style UX pattern for any read-only detail screen (Task, Project, Note, etc.). |

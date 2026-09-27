@@ -98,6 +98,38 @@ zero errors** — it looks working. Every new rule must pass all three steps:
 Historical: `no-runblocking` + `no-viewmodel-scope` sat inactive for days because
 step 2 was missed (see `2026-09-26-preflight-retro-findings`, R1).
 
+## Registering the same rule twice
+
+Steps 1–3 above assume nobody else registered the rule while you worked. In parallel
+work — a worktree, a second agent, two branches off the same base — this is the failure
+that gets through review:
+
+- both changes add **the same single line** in **different places** in the file, so the
+  diff is two innocuous insertions and reads as fine;
+- the merge produces a duplicate `RuleSetProvider` line and a duplicate
+  `no-<rule>:` block in `detekt.yml`;
+- the build then fails with `found duplicate key <rule-set>` — a YAML error pointing at
+  the config file, minutes into a Gradle run, with nothing in it about the real cause.
+
+It happened here on 2026-09-28: `NoFactoryViewModel` was wired independently in the
+`doc-and-skills` sprint and in `fix/mvi-no-op-update-state`, and the merge broke
+`./gradlew :shared:detekt`.
+
+So, before committing a registration:
+
+```bash
+./scripts/check-detekt-registrations.sh
+```
+
+It fails on a duplicated provider, a duplicated `detekt.yml` key, a provider listed but
+not present in the source, and a provider declared but not listed. It runs in
+`check.sh` (step 0, before Gradle) and as the first line of `just lint`, because a
+seconds-long check is worth far more here than a multi-minute failure with a misleading
+message.
+
+If it reports a duplicate, keep **one** registration and move any explanatory comment
+onto the survivor — the comment is usually the only record of why a rule was dormant.
+
 ## Writing AST-Based Rules
 
 ### Common PSI visitors
@@ -291,6 +323,14 @@ finding the existing `mvi-viewmodel` rules do not cover.
 
 ### 1. Provider not in ServiceLoader
 **Symptom:** Rule doesn't fire, no errors. Run with `--debug` to see loaded providers.
+
+### 1b. Provider registered twice (the mirror-image failure)
+**Symptom:** `found duplicate key <rule-set>` during a Gradle run — a YAML error that
+points at `config/detekt/detekt.yml` and says nothing about the cause. Happens when the
+rule was wired in two branches in parallel: the diff shows the same line added twice in
+different places, which reads as harmless.
+**Fix:** `./scripts/check-detekt-registrations.sh`, then keep one registration and move
+any explanatory comment onto it. See *Registering the same rule twice* above.
 
 ### 2. Wrong PSI class for the node type
 Use `KtNameReferenceExpression` for bare names, `KtCallExpression` for function calls with `()`, `KtDotQualifiedExpression` for `receiver.member()`.
