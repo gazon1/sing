@@ -202,6 +202,43 @@ already covered and 4 more were one workflow sliced three ways. Implemented inst
   Each is either "write the file" or "reword the example so it is clearly hypothetical" —
   a decision per reference, not a mechanical fix.
 
-## Phase G
+## Phase G — close-out
 
-_(pending)_
+### Verified before the final commit
+
+- Every number in `2026-09-27-doc-and-skills-sprint-results.md` re-checked against the
+  tree: 9 rule files / 9 providers, 211-line `AGENTS.md`, 91 skills, 278 ADRs, 180 files
+  changed, 12 commits.
+- Digest regenerated (278 entries), skills catalog regenerated (91 skills), ADR
+  frontmatter re-normalised.
+- All router→leaf links in the two split skills resolve; every inbound reference to a
+  renamed or retired skill was re-pointed, not deleted.
+
+### Final state of the gate
+
+```bash
+./check.sh            # tests + Android build + detekt (now failing on violations)
+just tcheck-evals     # 5/5
+just docs-audit       # frontmatter OK, sizes warn-only, dead refs: 34 remaining
+```
+
+`just docs-audit` still exits non-zero because of the 34 dead references. That is
+deliberate: the remaining ones are all "this was designed in a document and never built",
+and each needs a decision (write it, or stop describing it as existing) rather than a
+mechanical edit.
+
+### Backlog carried out of the sprint
+
+1. `DIGEST.md` 1867 → 1500 lines (generator selection, not manual pruning; already
+   tracked as PR-1.2).
+2. 34 dead references in skill prose.
+3. 5 skills near the 500-line budget: `test-helpers`, `llm-usage-tracking`,
+   `kotlin-idioms`, `feature-scaffold`, `ai-tool`.
+4. `ModelPricing` / `UsageExtractor` — documented as existing, never implemented, so the
+   AI Usage cost column is always empty.
+5. 12 modules with zero ADR coverage.
+6. `mcp-server` detekt baseline (74 findings) and no detekt on `androidApp`.
+7. Supabase stub TODOs and the 15 `TaskMenuBuilder` TODOs that name use cases the
+   `PassThroughUseCase` rule would forbid.
+8. Konsist test for the DI-facade invariant from
+   `2026-09-27-di-module-aggregator-narrative.md`.
