@@ -102,6 +102,37 @@ Each MR closes with a re-sweep of the four bug classes plus a regression check.
 | MR-1 (Task/Note DAOs) | TaskDao and NoteDao fully scoped. Found: unscoped `TaskDao.getById` read → ledger #1. |
 | MR-2 (remaining DAOs) | Zero unscoped `UPDATE`/`DELETE` remain except the two intentionally global ones, headed for the allowlist. Found: `RoomChecklistRepository` still has no guard on its other writes → ledger #4. |
 | MR-3 (TaskRepository) | TaskRepositoryImpl has **no** remaining sync bypasses — all six narrow methods verified enqueueing by test. Remaining bypasses: 13 in Notes, 4 in Projects/Tags/TagGroup, which is MR-4/MR-5 scope. |
+| MR-4 (NotesRepository) | All 14 note write methods now enqueue. The review surfaced two critical defects the bypass sweep could not see, both fixed here — see "Two defects the class-level sweep could not find" below. |
+
+### Two defects the class-level sweep could not find
+
+Both were found only because MR-4's tests exercised the real path end to end
+rather than grepping for bypasses.
+
+**`Note` and `NoteColor` were not `@Serializable`, so notes never synced at all.**
+`Note.toJson()` resolves `serializer<Note>()`, which throws when the class is
+not `@Serializable`. Production `enqueue` is
+repository → `SyncEngine.enqueue` → `buildPatch` → `toJson`, and
+`runCatchingResult` swallowed the throw, so **no outbox row was ever written
+for a note** — not even through `create`/`update`, which did call `enqueue`.
+The bypass methods were the more visible half of the problem; the deeper half
+was that the sync path was non-functional for Notes. Fixed by annotating both
+classes; the KSP-generated serializer also unblocks the pull path, where
+`SyncBootstrapper` decodes into `Note`.
+
+**`toLinksJson` had an unbounded loop.** Inside `buildString` the implicit
+receiver is the `StringBuilder`, which is a `CharSequence`, so a bare
+`forEachIndexed` bound to `CharSequence.forEachIndexed` rather than to the
+list — iterating the builder's own characters *while appending to it*, until
+`OutOfMemoryError`. Only the `isEmpty()` short-circuit hid it, so any task
+with at least one outgoing link crashed. Both copies (`TaskOutgoingLinks` and
+`NotesRepository`) had the same shape.
+
+`TaskOutgoingLinksTest` had been `@Disabled` with a comment attributing this
+OOM to the Kover coverage runtime, citing ADR
+`2026-09-25-test-jvm-heap-default`. **That diagnosis was wrong** — the OOM
+reproduces with Kover off and in complete isolation. The tests had been
+switched off rather than the cause fixed; they are re-enabled and pass.
 
 ## Known gaps (ledger)
 
@@ -117,6 +148,8 @@ the MR that discovered it.
 | 5 | `FakeNotesRepository.search` searches title + body while production searches title only. Fixed in the fake-fidelity MR; the underlying question — *should* production search body? — is a product decision, not a correctness one. | open |
 | 6 | ~15 sites swallow exceptions via bare `runCatching`/`getOrNull()`. The genuine bugs are fixed; the intentional AI-tool fallbacks only gain warn-level logging. | open |
 | 7 | `TagGroupRepositoryImpl.delete` enqueues a placeholder `TagGroup(name = "", color = 0)`; `setInheritedForProject` deletes inherited groups and never inserts the replacements. Queued for the Projects/Tags/TagGroup MR. | open |
+| 10 | `Project` and `TagGroup` domain models may have the same missing-`@Serializable` problem as `Note` did. **Verified NOT affected during MR-4** — both resolve their serializers — but no test asserts it, so a future refactor could reintroduce a silent total sync loss. Fix: add a `toJson()` round-trip test per `SyncableEntity`. | open |
+| 11 | ADR `2026-09-25-test-jvm-heap-default.md` attributes the `toLinksJson` OOM to the Kover coverage runtime. That is disproven (it reproduces in isolation, Kover disabled). The ADR is now misleading and should be corrected or superseded. | open |
 | 8 | Narrow field-update methods (`toggleComplete`, `setPinned`, `setTags`, …) remain separate write paths. Collapsing them into `update(entity)` removes the bug class by construction but introduces a read-modify-write race that partial UPDATEs currently avoid; the correct long-term answer is an optimistic-locking version column. Deliberately deferred — deciding it needs production evidence this batch does not produce. | open |
 | 9 | `NotesRepository.kt` is 448 lines mixing interface, impl and mappers, against a detekt `TooManyFunctions` limit of 25 per file. Structural debt, unrelated to correctness. | open |
 
