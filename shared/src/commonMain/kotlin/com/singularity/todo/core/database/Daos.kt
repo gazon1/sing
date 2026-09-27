@@ -16,6 +16,13 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NOT NULL ORDER BY archived_at DESC")
     fun watchTrash(userId: String): Flow<List<TaskEntity>>
 
+    /**
+     * Suspend counterpart of [watchTrash], for one-shot reads such as computing
+     * which rows a bulk archive just changed (so they can be pushed to sync).
+     */
+    @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NOT NULL ORDER BY archived_at DESC")
+    suspend fun getTrashForUser(userId: String): List<TaskEntity>
+
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND someday = 1 ORDER BY created_at DESC",
     )

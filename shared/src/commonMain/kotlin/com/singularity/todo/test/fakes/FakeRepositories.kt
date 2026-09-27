@@ -344,6 +344,9 @@ internal class InMemoryTaskDao : TaskDao {
     override fun watchTrash(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
 
+    override suspend fun getTrashForUser(userId: String): List<com.singularity.todo.core.database.TaskEntity> =
+        error("not implemented")
+
     override fun watchSomeday(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
 

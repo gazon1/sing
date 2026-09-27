@@ -184,6 +184,10 @@ private class FakeTaskDao(
             .sortedByDescending { it.archivedAt }
     }
 
+    override suspend fun getTrashForUser(userId: String): List<TaskEntity> = store.value.values
+        .filter { t -> t.userId == userId && t.archivedAt != null }
+        .sortedByDescending { it.archivedAt }
+
     override fun watchSomeday(userId: String): Flow<List<TaskEntity>> = store.map {
         it.values.filter { t -> t.userId == userId && t.someday && t.archivedAt == null }
             .sortedByDescending { it.createdAt }
