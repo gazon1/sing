@@ -225,6 +225,32 @@ The check is AST-local, so a side effect hidden inside a callee is not reported.
 `observe()` + `suspend process`). It is not a `FeatureSlot`; do not force them together before
 `SettingsViewModel` is migrated.
 
+## Splitting a god VM — the reference case
+
+`TaskDetailViewModel` (524 LOC, 30 intents, 18 deps) became `TaskDetailCoordinator` plus
+seven slots. What to copy:
+
+- **One intent marker per slot.** Each `XxxIntent.Domain` variant also implements a sealed
+  marker (`TaskChildrenIntent`, …), and the slot's `onIntent` takes that marker. Passing the
+  wrong intent is a compile error, not an unmatched branch.
+- **The coordinator's `when` is exhaustive over the sealed intent**, so an unrouted variant
+  also fails to compile.
+- **Merge only what the screen renders.** The coordinator merged six flows, not nine —
+  completion, lifecycle, and AI state do not appear in the UI state, so folding them in would
+  recompute the whole screen on a delete for no visible change.
+- **A read-only producer is not a slot.** `TaskBacklinksCollector` has no intent surface, so it
+  is a plain class; an `onIntent` that ignores every argument advertises a mutation path that
+  does not exist.
+- **Seeding is not a projection.** `TaskDraftSlot.seed()` is public and idempotent, called from
+  the task collector. A `combine` transform would re-run it on every child-collection update.
+- **Slot tests construct one slot** with only the fakes it needs. See the retro caveat below.
+
+**Test caveat (2026-09-28):** slot tests pump with real `delay()`, not `advanceUntilIdle()`.
+The fakes' `FakeProfileAwareCurrentUser` runs on `Dispatchers.Default`, which virtual time
+cannot advance. Three attempts to bind it to the test scheduler all failed — the fix is in
+`FakeProfileAwareCurrentUser` and the user-scoped repository observers, not in the tests. Do
+not re-derive this; read `2026-09-28-mr2-retro-findings.md` R6 first.
+
 ## See Also
 
 - `singularity-todo-testable-vm` — VM test patterns

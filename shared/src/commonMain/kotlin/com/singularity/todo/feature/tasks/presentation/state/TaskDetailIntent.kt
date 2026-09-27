@@ -17,9 +17,15 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
 /**
- * Единая точка входа для [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel].
+ * Единая точка входа для [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator].
  *
  * Все варианты обрабатываются VM через [Domain].
+ *
+ * Каждый вариант [Domain] дополнительно реализует маркер своего слота
+ * ([TaskEntityIntent], [TaskChildrenIntent], …). Слот принимает только свой маркер,
+ * поэтому передать чужой intent в слот — ошибка компиляции, а не молчаливо неверная
+ * ветка `when`. Координатор маршрутизирует варианты в слоты единственным
+ * исчерпывающим `when` по [Domain].
  */
 sealed interface TaskDetailIntent : MviIntent {
 
@@ -29,74 +35,120 @@ sealed interface TaskDetailIntent : MviIntent {
 
         // ── Hero ────────────────────────────────────────────────────────────
 
-        data object ToggleComplete : Domain
-        data class TitleChanged(val title: String) : Domain
-        data class DescriptionChanged(val description: String) : Domain
-        data object ToggleSomeday : Domain
-        data class SetKind(val kind: TaskKind) : Domain
+        data object ToggleComplete : Domain, TaskCompletionIntent
+        data class TitleChanged(val title: String) :
+            Domain,
+            TaskDraftIntent
+        data class DescriptionChanged(val description: String) :
+            Domain,
+            TaskDraftIntent
+        data object ToggleSomeday : Domain, TaskEntityIntent
+        data class SetKind(val kind: TaskKind) :
+            Domain,
+            TaskEntityIntent
 
         // ── Meta fields ─────────────────────────────────────────────────────
 
-        data class SetDueDate(val date: LocalDate?) : Domain
-        data class SetDueTime(val time: LocalTime?) : Domain
-        data class SetStartDate(val date: LocalDate?) : Domain
-        data class SetStartTime(val time: LocalTime?) : Domain
-        data class SetPriority(val priority: TaskPriority) : Domain
-        data class SetProject(val projectId: ProjectId?) : Domain
+        data class SetDueDate(val date: LocalDate?) :
+            Domain,
+            TaskEntityIntent
+        data class SetDueTime(val time: LocalTime?) :
+            Domain,
+            TaskEntityIntent
+        data class SetStartDate(val date: LocalDate?) :
+            Domain,
+            TaskEntityIntent
+        data class SetStartTime(val time: LocalTime?) :
+            Domain,
+            TaskEntityIntent
+        data class SetPriority(val priority: TaskPriority) :
+            Domain,
+            TaskEntityIntent
+        data class SetProject(val projectId: ProjectId?) :
+            Domain,
+            TaskEntityIntent
 
         // ── Tags ────────────────────────────────────────────────────────────
 
-        data class SetTags(val tagIds: List<TagId>) : Domain
-        data class RemoveTag(val tagId: TagId) : Domain
+        data class SetTags(val tagIds: List<TagId>) :
+            Domain,
+            TaskEntityIntent
+        data class RemoveTag(val tagId: TagId) :
+            Domain,
+            TaskEntityIntent
 
         // ── Checklist ───────────────────────────────────────────────────────
 
-        data class ToggleChecklistItem(val item: ChecklistItem) : Domain
-        data class DeleteChecklistItem(val id: ChecklistItemId) : Domain
-        data class AddChecklistItem(val title: String) : Domain
+        data class ToggleChecklistItem(val item: ChecklistItem) :
+            Domain,
+            TaskChildrenIntent
+        data class DeleteChecklistItem(val id: ChecklistItemId) :
+            Domain,
+            TaskChildrenIntent
+        data class AddChecklistItem(val title: String) :
+            Domain,
+            TaskChildrenIntent
 
         // ── Subtasks ─────────────────────────────────────────────────────
 
-        data class ToggleSubtask(val task: Task) : Domain
-        data class DeleteSubtask(val task: Task) : Domain
-        data class AddSubtask(val title: String) : Domain
+        data class ToggleSubtask(val task: Task) :
+            Domain,
+            TaskChildrenIntent
+        data class DeleteSubtask(val task: Task) :
+            Domain,
+            TaskChildrenIntent
+        data class AddSubtask(val title: String) :
+            Domain,
+            TaskChildrenIntent
 
         // ── Reminders ─────────────────────────────────────────────────────
 
-        data class SetReminder(val offset: ReminderOffset) : Domain
-        data object DeleteReminder : Domain
+        data class SetReminder(val offset: ReminderOffset) :
+            Domain,
+            TaskRemindersIntent
+        data object DeleteReminder : Domain, TaskRemindersIntent
 
         // ── Lifecycle ─────────────────────────────────────────────────────
 
         /** Soft-delete + show Undo snackbar. */
-        data object Delete : Domain
+        data object Delete : Domain, TaskLifecycleIntent
 
         /** Soft-delete without Undo (archive). */
-        data object Archive : Domain
+        data object Archive : Domain, TaskLifecycleIntent
 
         /** Restore the last soft-deleted task. */
-        data object Restore : Domain
+        data object Restore : Domain, TaskLifecycleIntent
 
         // ── Pin ─────────────────────────────────────────────────────────────
 
-        data object TogglePinned : Domain
+        data object TogglePinned : Domain, TaskEntityIntent
 
         // ── Dependencies ─────────────────────────────────────────────────────
 
-        data class SetDependencies(val dependsOn: Set<TaskId>) : Domain
+        data class SetDependencies(val dependsOn: Set<TaskId>) :
+            Domain,
+            TaskEntityIntent
 
         // ── Recurrence ───────────────────────────────────────────────────────
 
-        data class SetRecurrence(val spec: RecurrenceSpec?) : Domain
+        data class SetRecurrence(val spec: RecurrenceSpec?) :
+            Domain,
+            TaskEntityIntent
 
         // ── Attachments ──────────────────────────────────────────────────────
 
-        data class AddUrlAttachment(val url: String, val title: String?) : Domain
-        data class DeleteAttachment(val id: AttachmentId) : Domain
+        data class AddUrlAttachment(val url: String, val title: String?) :
+            Domain,
+            TaskChildrenIntent
+        data class DeleteAttachment(val id: AttachmentId) :
+            Domain,
+            TaskChildrenIntent
 
         // ── AI ────────────────────────────────────────────────────────────────
 
         /** Run an AI action (RefineTitle, GenerateDescription, etc.) and apply the result. */
-        data class RunAiAction(val action: TaskAiAction) : Domain
+        data class RunAiAction(val action: TaskAiAction) :
+            Domain,
+            TaskAiIntent
     }
 }

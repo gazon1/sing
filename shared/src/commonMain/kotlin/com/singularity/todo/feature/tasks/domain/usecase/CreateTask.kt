@@ -19,16 +19,28 @@ class CreateTaskUseCase(
     private val currentUser: ProfileAwareCurrentUser,
 ) {
     suspend operator fun invoke(input: CreateTaskInput): Result<TaskId> {
+        // Every field of `input` must be forwarded here. `createInput` re-validates and
+        // rebuilds a new CreateTaskInput, so any field not passed is dropped — and
+        // `buildTask` then persists a task without it. `parentTaskId` was omitted here,
+        // which silently turned "add subtask" into "add a top-level task".
         val validated: Either<AppError.Validation, CreateTaskInput> = TaskDomain.createInput(
             title = input.title,
             description = input.description,
             priority = input.priority,
             kind = input.kind,
             projectId = input.projectId,
+            parentTaskId = input.parentTaskId,
             tagIds = input.tagIds,
             dueDate = input.dueDate,
             dueTime = input.dueTime,
+            startDate = input.startDate,
+            startTime = input.startTime,
+            endDate = input.endDate,
+            endTime = input.endTime,
+            accentColor = input.accentColor,
+            emoji = input.emoji,
             someday = input.someday,
+            recurrence = input.recurrence,
         )
         if (validated is Either.Left) return Result.failure(validated.error)
 

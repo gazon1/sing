@@ -31,7 +31,7 @@ import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
-import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -41,7 +41,7 @@ import org.koin.core.parameter.parametersOf
  */
 @Composable
 fun TaskDetailViewScreen(taskId: TaskId) {
-    val vm: TaskDetailViewModel = koinViewModel { parametersOf(taskId) }
+    val vm: TaskDetailCoordinator = koinViewModel { parametersOf(taskId) }
     val navigator = LocalTasksNavigator.current
 
     val state by vm.state.collectAsStateWithLifecycle()

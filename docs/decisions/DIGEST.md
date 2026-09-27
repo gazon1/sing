@@ -1243,10 +1243,18 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `viewmodel`
 
+- A detail ViewModel that observes more than one repository should be a coordinator plus slots,
+- A slot's `onIntent` needs an `else` branch. It is unreachable through the coordinator's
 - No cast needed — `scope` is `AutoCloseableCoroutineScope` at both call site and definition
+- Slot tests pump with real `delay()`, not `advanceUntilIdle()`. The fakes' current user runs on
 - Tests use `testScope(backgroundScope)` to wrap the test dispatcher
+- The AI slot's five success paths are covered at the coordinator level rather than with five
 - `AutoCloseableCoroutineScope` companion factory creates a scope backed by `createBackgroundScope()`
+- `TaskAiState.isRunning` is now actually reachable; the old `_aiRunning` was write-only.
+- `TaskDraftSlot.seed()` is public because seeding is a one-time initialisation, not a
+- `UpdateTaskUseCase.invoke(task)` is still deprecated for the stale-snapshot reason; migrating
 - `appearanceContributor = null` is explicit — the default is intentional, not accidental
+- `combineStates`' transform is non-suspending by design: a suspending repository write inside a
 
 ### `vm`
 
@@ -1565,6 +1573,8 @@ _6 entries need attention._
 - `2026-09-27-framework-drift-resolution` — mvi, framework, detekt, tech-debt
 - `2026-09-27-mr1-retro-findings` — retro, tech-debt, tests, detekt
 - `2026-09-27-remove-platform-clock-object` — clock, architecture, migration, kotlin-stdlib
+- `2026-09-28-mr2-retro-findings` — retro, tech-debt, tasks, tests
+- `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
 
 ## Active entries
 
@@ -1838,4 +1848,6 @@ _6 entries need attention._
 - `2026-09-27-framework-drift-resolution` — MVI framework drift — StateStrategy.Atomic deferred, NoCombineSideEffectRule written
 - `2026-09-27-mr1-retro-findings` — MR-1 retro — pre-existing red test, a rule that never existed, a deprecated TOCTOU API
 - `2026-09-27-remove-platform-clock-object` — Remove `core.platform.Clock` — use `kotlin.time.Clock` everywhere
+- `2026-09-28-mr2-retro-findings` — MR-2 retro — a subtask bug the slot tests exposed, and what the split did not fix
+- `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
 

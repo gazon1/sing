@@ -19,7 +19,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import kotlin.time.Clock
 
 /**
- * Dependencies for [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel].
+ * Dependencies for [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator].
  */
 data class TaskDetailDeps(
     val taskRepo: TaskRepository,
