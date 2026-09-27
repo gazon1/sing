@@ -90,7 +90,8 @@ class AttachmentRepositoryImpl(
 
     override suspend fun delete(id: AttachmentId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
-        dao.softDelete(id.value, ts)
+        val rows = dao.softDeleteForUser(id.value, ts, currentUser.scopedUserId.value.value)
+        require(rows > 0) { "Attachment $id not found or not owned by current user" }
     }
 
     // ─── Domain methods ─────────────────────────────────────────────────────

@@ -35,14 +35,14 @@ interface AttachmentDao {
     @Upsert
     suspend fun upsert(entity: AttachmentEntity)
 
-    @Query("UPDATE attachments SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
-    suspend fun softDelete(id: String, ts: Long)
+    @Query("UPDATE attachments SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
 
     @Query("SELECT * FROM attachments WHERE sync_status = :status AND deleted_at IS NULL")
     fun watchBySyncStatus(status: String): Flow<List<AttachmentEntity>>
 
-    @Query("DELETE FROM attachments WHERE id = :id")
-    suspend fun delete(id: String)
+    @Query("DELETE FROM attachments WHERE id = :id AND user_id = :userId")
+    suspend fun deleteForUser(id: String, userId: String): Int
 
     @Query("SELECT * FROM attachments WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<AttachmentEntity>

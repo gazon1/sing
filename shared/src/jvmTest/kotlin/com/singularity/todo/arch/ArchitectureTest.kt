@@ -48,6 +48,40 @@ class ArchitectureTest {
 
         private fun KoFileDeclaration.importFqns(): List<String> = imports.map { it.name }
 
+        /** Strips KDoc and line comments so prose about DAOs is not read as a call. */
+        private fun KoFileDeclaration.codeOnly(): String =
+            text.replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
+                .replace(Regex("""//[^\n]*"""), "")
+
+        /**
+         * Every `@Query(...)` + following `fun` in this file, as
+         * `Triple(daoName, methodName, sql)`. Read from the raw file text so the
+         * assertion does not depend on Konsist's annotation-argument API.
+         *
+         * The owning DAO is resolved by *position* — the nearest `interface *Dao`
+         * declaration preceding the query. Taking the first interface in the file
+         * would attribute every query in a multi-DAO file to the first one.
+         */
+        private fun queryFunctions(file: KoFileDeclaration): List<Triple<String, String, String>> {
+            val source = file.codeOnly()
+            val interfaces = Regex("""interface\s+(\w*Dao)\b""").findAll(source)
+                .map { it.groupValues[1] to it.range.first }
+                .toList()
+            fun ownerAt(offset: Int): String = interfaces.lastOrNull { it.second < offset }?.first ?: "?"
+
+            val pattern = Regex(
+                """@Query\(\s*((?:"(?:[^"\\]|\\.)*"\s*)+)\)\s*\n\s*(?:suspend\s+)?fun\s+(\w+)""",
+            )
+            val literal = Regex(""""((?:[^"\\]|\\.)*)"""")
+            return pattern.findAll(source).map { m ->
+                Triple(
+                    ownerAt(m.range.first),
+                    m.groupValues[2],
+                    literal.findAll(m.groupValues[1]).joinToString("") { it.groupValues[1] },
+                )
+            }.toList()
+        }
+
         /**
          * Files inside `feature/<x>/<layer>(/...)` whose imports match [forbidden].
          * Top-level feature packages without a layer segment are out of scope —
@@ -77,7 +111,61 @@ class ArchitectureTest {
          */
         private val LAYER_ALLOWLIST = setOf("feature/tasks/domain/usecase/CreateTaskFromDraft.kt")
 
+        /**
+         * DAO mutations that are intentionally not user-scoped, keyed by
+         * `"<DaoName>.<method>"`. Every entry is a deliberate decision recorded in
+         * `docs/decisions/2026-09-27-write-layer-soundness.md`; adding one without
+         * updating that ADR is a regression.
+         *
+         * The pattern is: either the row is not user data at all (device-local
+         * bookkeeping, internal machinery, app-wide config), or the table has no
+         * `user_id` column to scope by.
+         */
+        private val GLOBAL_DAO_MUTATION_ALLOWLIST = setOf(
+            // Retention sweeps over the whole table — device-local telemetry.
+            "LlmUsageDao.pruneOlderThan",
+            "TaskDao.pruneOlderThan",
+            // A profile *is* the scope, not something scoped by a user id.
+            "ProfileDao.deleteById",
+            // App-wide remote-config cache, not user data.
+            "RemoteConfigCacheDao.deleteDefault",
+            "RemoteConfigDao.deleteDefault",
+            // Sync outbox rows are internal machinery keyed by patchId/entityId.
+            "SyncOutboxDao.delete",
+            "SyncOutboxDao.markFailed",
+            "SyncOutboxDao.deleteByEntity",
+            "SyncOutboxDao.clearAll",
+            // calendar_sync_task_map has no user_id column: it is device-local
+            // bookkeeping mapping calendar events, not user-owned data. Making it
+            // per-profile would need a schema migration — ledger #17.
+            "CalendarSyncTaskMapDao.delete",
+            "CalendarSyncTaskMapDao.deleteByEventId",
+            "CalendarSyncTaskMapDao.deleteStale",
+            "CalendarSyncTaskMapDao.clearAll",
+        )
+
+        /**
+         * Core-layer files permitted to call a DAO mutation directly.
+         *
+         * `BackupImporter` restores rows for an arbitrary `userId`, while every
+         * user-scoped repository resolves its target from the *ambient* profile and
+         * rejects a foreign one — so it cannot go through them. Documented at the
+         * write loop in the file itself (ledger #2 in the write-layer ADR).
+         */
+        private val CORE_DAO_WRITE_ALLOWLIST = setOf(
+            "core/backup/BackupImporter.kt",
+        )
+
+        /** Class-name suffixes that are themselves a repository/port implementation. */
+        private val REPOSITORY_IMPL_SUFFIXES =
+            listOf("RepositoryImpl", "Recorder", "Adapters", "ArchiveRepository")
+
+        /** Packages whose DAOs are legitimately written by the class that owns them. */
+        private val CORE_DAO_OWNER_PACKAGES =
+            listOf("$PKG.core.database", "$PKG.core.sync", "$PKG.core.llm")
+
         /** Packages allowed to import Koog (AGENTS.md ban #7; genui sanctioned). */
+
         private val KOOG_ALLOWED_PACKAGES = listOf(
             "$PKG.feature.ai",
             "$PKG.feature.genui",
@@ -150,5 +238,46 @@ class ArchitectureTest {
             offenders,
             "repositories expose suspend + Flow APIs; *Blocking() methods are banned (AGENTS.md ban #2)",
         ) { it.path }
+    }
+
+    @Test
+    fun `DAO mutations are ownership-scoped`() {
+        val mutating = Regex("""\b(UPDATE|DELETE\s+FROM)\b""", RegexOption.IGNORE_CASE)
+        val offenders = scope.files.flatMap { file ->
+            queryFunctions(file)
+                .filter { (_, _, sql) -> mutating.containsMatchIn(sql) }
+                .filter { (dao, method, _) -> "$dao.$method" !in GLOBAL_DAO_MUTATION_ALLOWLIST }
+                .filter { (_, _, sql) -> "user_id" !in sql }
+                .map { (dao, method, _) -> "${file.path}: $dao.$method() has no user_id in its WHERE" }
+        }
+        assertNoOffenders(
+            offenders,
+            "every UPDATE/DELETE must filter on user_id so a write cannot cross users. " +
+                "If a query is genuinely global, add it to GLOBAL_DAO_MUTATION_ALLOWLIST and " +
+                "record the decision in the write-layer ADR.",
+        ) { it }
+    }
+
+    @Test
+    fun `core layer reaches DAO mutations only through a repository`() {
+        val mutationCall = Regex("""\.\w*(upsert|insert|update|delete|softDelete|restore|clear)\w*\s*\(""")
+        val offenders = scope.files
+            .filterNot { file -> CORE_DAO_WRITE_ALLOWLIST.any { file.path.endsWith(it) } }
+            .map { it.packageName() to it }
+            .filter { (pkg, _) -> pkg.startsWith("$PKG.core.") }
+            .filter { (pkg, _) -> CORE_DAO_OWNER_PACKAGES.none { pkg == it || pkg.startsWith("$it.") } }
+            .filter { (_, file) -> Regex("""\b\w*[Dd]ao\b""").containsMatchIn(file.codeOnly()) }
+            .filter { (_, file) -> mutationCall.containsMatchIn(file.codeOnly()) }
+            .filterNot { (_, file) ->
+                Regex("""class\s+(\w+)""").find(file.codeOnly())?.groupValues?.get(1)
+                    ?.let { n -> REPOSITORY_IMPL_SUFFIXES.any { n.endsWith(it) } } == true
+            }
+            .map { (_, file) -> file.path }
+        assertNoOffenders(
+            offenders,
+            "core/ must not write DAOs directly unless it *is* the repository for that DAO, " +
+                "or it is a documented allowlist entry (BackupImporter restores for an arbitrary " +
+                "userId, which ambient-scoped repositories cannot express).",
+        ) { it }
     }
 }

@@ -783,9 +783,18 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
     override suspend fun upsert(entity: AttachmentEntity) {
         store.update { it + (entity.id to entity) }
     }
-    override suspend fun softDelete(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
-    override suspend fun delete(id: String) {
+    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int {
+        val entity = store.value[id]
+        if (entity == null || entity.userId != userId) return 0
+        mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
+        return 1
+    }
+
+    override suspend fun deleteForUser(id: String, userId: String): Int {
+        val entity = store.value[id]
+        if (entity == null || entity.userId != userId) return 0
         store.update { it - id }
+        return 1
     }
 
     override fun watchBySyncStatus(status: String): Flow<List<AttachmentEntity>> =
