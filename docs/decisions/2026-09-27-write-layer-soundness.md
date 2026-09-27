@@ -103,6 +103,21 @@ Each MR closes with a re-sweep of the four bug classes plus a regression check.
 | MR-2 (remaining DAOs) | Zero unscoped `UPDATE`/`DELETE` remain except the two intentionally global ones, headed for the allowlist. Found: `RoomChecklistRepository` still has no guard on its other writes → ledger #4. |
 | MR-3 (TaskRepository) | TaskRepositoryImpl has **no** remaining sync bypasses — all six narrow methods verified enqueueing by test. Remaining bypasses: 13 in Notes, 4 in Projects/Tags/TagGroup, which is MR-4/MR-5 scope. |
 | MR-4 (NotesRepository) | All 14 note write methods now enqueue. The review surfaced two critical defects the bypass sweep could not see, both fixed here — see "Two defects the class-level sweep could not find" below. |
+| MR-5 (Projects/Tags/TagGroup) | All remaining bypasses closed. The serializability defect was **not confined to Notes** — `Project` and `Tag` had it too. The sweep also caught `archiveCompletedTasks`, a bulk `UPDATE` that trashed N tasks and pushed none. |
+
+### The serializability defect was not confined to Notes
+
+MR-4 found that `Note` lacked `@Serializable` while `toJson()` resolves
+`serializer<Note>()`, so every note enqueue threw and was swallowed. The
+obvious next question is whether the other syncable types share the defect —
+and the honest answer is that MR-4 did not check. MR-5 checked: **`Project`
+and `Tag` were both missing the annotation as well.** Three of the five
+`SyncableEntity` types therefore never reached the outbox at all.
+
+That makes the invariant worth testing rather than remembering, so
+`SyncableEntitySerializationTest` round-trips `toJson()` for every entity and
+asserts that every `DocType` is covered — with a positive control, since a
+test that cannot fail is not a test.
 
 ### Two defects the class-level sweep could not find
 
@@ -147,9 +162,10 @@ the MR that discovered it.
 | 4 | `RoomChecklistRepository` still has no `assertCanWrite` and its remaining writes (`upsert`, `toggleItem`, `createBatch`) bypass ownership entirely. Now that it resolves the ambient user, the DAO layer can enforce these next. | open |
 | 5 | `FakeNotesRepository.search` searches title + body while production searches title only. Fixed in the fake-fidelity MR; the underlying question — *should* production search body? — is a product decision, not a correctness one. | open |
 | 6 | ~15 sites swallow exceptions via bare `runCatching`/`getOrNull()`. The genuine bugs are fixed; the intentional AI-tool fallbacks only gain warn-level logging. | open |
-| 7 | `TagGroupRepositoryImpl.delete` enqueues a placeholder `TagGroup(name = "", color = 0)`; `setInheritedForProject` deletes inherited groups and never inserts the replacements. Queued for the Projects/Tags/TagGroup MR. | open |
-| 10 | `Project` and `TagGroup` domain models may have the same missing-`@Serializable` problem as `Note` did. **Verified NOT affected during MR-4** — both resolve their serializers — but no test asserts it, so a future refactor could reintroduce a silent total sync loss. Fix: add a `toJson()` round-trip test per `SyncableEntity`. | open |
+| 7 | `TagGroupRepositoryImpl.delete` pushed a placeholder `TagGroup(name = "", color = 0)` and `setInheritedForProject` deleted without re-inserting. Both **fixed in MR-5**. | closed |
+| 10 | `Project` and `Tag` had the **same** missing-`@Serializable` defect as `Note`, and were fixed in MR-5 — three of the five `SyncableEntity` types never reached the outbox. Now locked down by `SyncableEntitySerializationTest`, which round-trips `toJson()` per entity and asserts every `DocType` is covered (verified with a positive control). **Correction:** the MR-4 entry in this ledger claimed Project and TagGroup were "verified NOT affected". That claim was made without checking them, and was wrong. | closed |
 | 11 | ADR `2026-09-25-test-jvm-heap-default.md` attributes the `toLinksJson` OOM to the Kover coverage runtime. That is disproven (it reproduces in isolation, Kover disabled). The ADR is now misleading and should be corrected or superseded. | open |
+| 12 | A project's *inherited tag groups* are never synced. They live in the `project_tag_groups` join table and are not a field on `Project`, so there is no entity state to push — `setInheritedForProject` is correct not to enqueue. Whether that relationship *should* converge across devices is a sync-protocol question this batch deliberately does not answer. | open |
 | 8 | Narrow field-update methods (`toggleComplete`, `setPinned`, `setTags`, …) remain separate write paths. Collapsing them into `update(entity)` removes the bug class by construction but introduces a read-modify-write race that partial UPDATEs currently avoid; the correct long-term answer is an optimistic-locking version column. Deliberately deferred — deciding it needs production evidence this batch does not produce. | open |
 | 9 | `NotesRepository.kt` is 448 lines mixing interface, impl and mappers, against a detekt `TooManyFunctions` limit of 25 per file. Structural debt, unrelated to correctness. | open |
 
