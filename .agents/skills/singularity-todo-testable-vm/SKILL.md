@@ -239,11 +239,19 @@ init {
 
 ## BAN List (enforced by detekt rules)
 
-| Pattern | Rule | Severity | Why |
+All of these fail the build (`ignoreFailures = false`). Rule names as registered in
+`config/detekt/detekt.yml`:
+
+| Pattern | Rule | RuleSet | Why |
 |---|---|---|---|
-| `stateIn(WhileSubscribed(...))` in VMs with init/drafts | `MviViewModelExtRule` | Error | Hard to test; keeps upstream active 5s after unsubscribe |
-| `viewModelScope.launch` in production | `NoViewModelScopeInProductionRule` | Warning | Not injectable; not testable |
-| `runBlocking { }` in production | `NoRunBlockingRule` | Warning | Blocks thread; not testable |
+| `stateIn(WhileSubscribed(...))` in VMs with init/drafts | `NoStateIn` | `no-state-in` | Hard to test; keeps upstream active 5s after unsubscribe. Exempts `@OptIn(CombineStateInReadThrough)` |
+| `viewModelScope.launch` in production | `NoViewModelScopeInProduction` | `no-viewmodel-scope` | Not injectable; not testable |
+| `runBlocking { }` in production | `NoRunBlocking` | `no-run-blocking` | Blocks thread; not testable |
+| `factory { SomeViewModel(...) }` in DI | `NoFactoryViewModel` | `no-factory-viewmodel` | Not lifecycle-bound; scope never closed |
+| ViewModel without KDoc | `ViewModelMustHaveKDoc` | `kdoc-enforcement` | `AGENTS.md` requires a "why" on every VM |
+| `_state.value =` outside `updateState` | `ShadowedState` | `mvi-viewmodel` | Single state-update entry point |
+| scope not registered via `addCloseable` | `VmCloseable` | `mvi-viewmodel` | Leaks the coroutine scope |
+| scope not last constructor param | `VmScopePosition` | `mvi-viewmodel` | Koin `get()` ordering |
 | Side effect inside `combine`/`flatMapLatest` | N/A (manual) | Error | TOCTOU race, stale closures |
 | `emit()` from non-suspend context | N/A (compile error) | Error | `emit` is `protected suspend fun` |
 | `scope` not `private val` in MviViewModel | N/A (compile error) | Error | `addCloseable(scope)` in init requires scope as property |

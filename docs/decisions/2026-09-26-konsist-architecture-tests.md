@@ -5,6 +5,14 @@ tags: [architecture, testing, konsist, ci]
 status: accepted
 ---
 
+# Konsist architecture tests — the first hard CI gate for layer boundaries
+
+> **Correction (2026-09-27):** finding 13 below claims the `NoFactoryViewModel` detekt rule
+> was added and caught `CalendarSyncViewModel`. The rule file existed but its provider was
+> never listed in `META-INF/services/dev.detekt.api.RuleSetProvider`, so it never ran — the
+> finding must have come from a manual review, not from the rule. The provider is now
+> registered and the rule is active with 0 violations across `shared`.
+
 ## Context
 
 Layer boundaries (`presentation → domain ← data`, Koog-import confinement, `java.io.File`
