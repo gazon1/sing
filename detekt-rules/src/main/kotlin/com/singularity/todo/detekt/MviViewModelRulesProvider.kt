@@ -27,13 +27,14 @@ import org.jetbrains.kotlin.psi.KtWhenExpression
 private class MviViewModelExtRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
-        if (!root.name.endsWith("ViewModel.kt")) return
         for (declaration in root.declarations) {
             if (declaration is KtClass) checkClass(declaration)
         }
     }
 
     private fun checkClass(clazz: KtClass) {
+        if (!isViewModelClass(clazz)) return
+
         // Check if already extends MviViewModel. Compare the RAW name — the type
         // reference text also carries the generic arguments ("MviViewModel<State, …>"),
         // so an exact match never fired and this early-return was dead.
@@ -71,13 +72,14 @@ private class MviViewModelExtRule(config: Config) : Rule(config, "", null) {
 private class IntentMethodNameRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
-        if (!root.name.endsWith("ViewModel.kt")) return
         for (declaration in root.declarations) {
             if (declaration is KtClass) checkClass(declaration)
         }
     }
 
     private fun checkClass(clazz: KtClass) {
+        if (!isViewModelClass(clazz)) return
+
         val classBody = clazz.body ?: return
         for (declaration in classBody.functions) {
             if (isIntentHandler(declaration)) {
@@ -136,13 +138,14 @@ private class IntentMethodNameRule(config: Config) : Rule(config, "", null) {
 private class VmScopePositionRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
-        if (!root.name.endsWith("ViewModel.kt")) return
         for (declaration in root.declarations) {
             if (declaration is KtClass) checkClass(declaration)
         }
     }
 
     private fun checkClass(clazz: KtClass) {
+        if (!isViewModelClass(clazz)) return
+
         val primaryConstructor = clazz.primaryConstructor ?: return
         // Get parameters via valueParameters
         val paramRefs = primaryConstructor.valueParameters
@@ -166,13 +169,14 @@ private class VmScopePositionRule(config: Config) : Rule(config, "", null) {
 private class VmCloseableRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
-        if (!root.name.endsWith("ViewModel.kt")) return
         for (declaration in root.declarations) {
             if (declaration is KtClass) checkClass(declaration)
         }
     }
 
     private fun checkClass(clazz: KtClass) {
+        if (!isViewModelClass(clazz)) return
+
         val primaryConstructor = clazz.primaryConstructor
         if (primaryConstructor == null) return
         val paramRefs = primaryConstructor.valueParameters
@@ -248,13 +252,14 @@ private class VmCloseableRule(config: Config) : Rule(config, "", null) {
 private class ShadowedStateRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
-        if (!root.name.endsWith("ViewModel.kt")) return
         for (declaration in root.declarations) {
             if (declaration is KtClass) checkClass(declaration)
         }
     }
 
     private fun checkClass(clazz: KtClass) {
+        if (!isViewModelClass(clazz)) return
+
         val extendsMvi = clazz.superTypeListEntries.any { entry ->
             entry is KtSuperTypeCallEntry && entry.typeReference?.text?.substringBefore('<') == "MviViewModel"
         }
@@ -295,3 +300,15 @@ class MviViewModelRulesProvider : RuleSetProvider {
         ),
     )
 }
+
+/**
+ * Matches top-level classes named `*ViewModel`.
+ *
+ * The rules used to gate on the FILE being named `*ViewModel.kt`, which silently
+ * skipped `TaskDetailViewModel` because it lived in `TaskDetail.kt` — a 523-line
+ * ViewModel outside every MVI rule, rule for four epic sprints. Gating on the class
+ * name matches how `ViewModelMustHaveKDocRule` in `KDocEnforcementRules.kt` already
+ * works, and it is the name that actually carries the contract.
+ */
+private fun isViewModelClass(clazz: KtClass): Boolean =
+    clazz.name?.endsWith("ViewModel") == true

@@ -92,6 +92,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска
 - **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
 - **Duplicate snackbar on settings export.** `exportSettingsSnapshot` emitted both
+- **Every ViewModel in the project is now on `MviViewModel` or `DraftMviViewModel`.**
 - **Five commits land together** because they all touch the same orbit
 - **HlcFactory must be `open`**: The actual JVM class is final, preventing test subclassing. Changed to `open class`.
 - **JVM target**: `SyncEngine` still exists, but `SyncWorkScheduler` is `NoopSyncWorkScheduler` (no-op). No background sync on desktop.
@@ -291,7 +292,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
 - The `writer-reviewer-pattern` governs who is responsible for each phase transition
 - The default `viewModelScope` is still created by the ViewModel but is unused in Tier-1 VMs (negligible memory cost: one empty `SupervisorJob`).
+- The detekt MVI rules can no longer be evaded by file naming. All 29 `*ViewModel`
 - The four layers of the OTA strategy (gate, in-app update, flags, GenUI) are production-ready for Google Play distribution.
+- The suite is green for the first time in this refactor: 1047 tests, 0 failures.
 - The ~930 baseline violations are **technical debt**. A dedicated cleanup campaign (PR-0.3 or follow-up) should address the top categories: FunctionNaming, BackingPropertyNaming, LongMethod, PackageNaming.
 - The ⟳ icon on calendar task chips will now work once MR-3b (Click-to-create)
 - Theme switching now correctly recomposes the calendar palette
@@ -415,6 +418,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `just tcheck` (full pipeline) is the authoritative check before merge
 - `just` must be installed (`just 1.57.0` is present in this environment).
 - `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
+- `onIntent` is still 249 lines with cyclomatic complexity over the limit. That debt is
 - `refresh-decisions-digest.sh` must handle `superseded-by` by not duplicating superseded ADR bullets into DIGEST Critical section
 - `scopeOverride` добавлен в `ProjectsViewModel`
 - `security-review` skill gives a step-by-step security review checklist
@@ -1559,6 +1563,7 @@ _6 entries need attention._
 - `2026-09-27-draft-mvi-single-state-source` — mvi, viewmodel, draft, coroutines, initialization-order
 - `2026-09-27-mvi-single-state-entry-and-vm-sweep` — _untagged_
 - `2026-09-27-remove-platform-clock-object` — clock, architecture, migration, kotlin-stdlib
+- `2026-09-27-taskdetail-migration-and-debounce-write-loop` — _untagged_
 
 ## Active entries
 
@@ -1830,4 +1835,5 @@ _6 entries need attention._
 - `2026-09-27-draft-mvi-single-state-source` — DraftMviViewModel — one state source, no open-member calls from a constructor
 - `2026-09-27-mvi-single-state-entry-and-vm-sweep` — _(no title)_
 - `2026-09-27-remove-platform-clock-object` — Remove `core.platform.Clock` — use `kotlin.time.Clock` everywhere
+- `2026-09-27-taskdetail-migration-and-debounce-write-loop` — _(no title)_
 

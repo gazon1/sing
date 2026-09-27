@@ -59,12 +59,12 @@
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _parsedQuery = MutableStateFlow&lt;Query?&gt;(null)</ID>
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _queryString = MutableStateFlow("")</ID>
     <ID>BackingPropertyNaming:SessionStore.kt:DataStoreSessionStore$private val _deviceIdFlow = MutableStateFlow("")</ID>
-    <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$/** Backlinks — loaded when task changes. */ private val _linkedNotes = MutableStateFlow&lt;List&lt;com.singularity.todo.feature.notes.Note&gt;&gt;(emptyList())</ID>
-    <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$/** Incremented on each retry() call to restart the watchTask subscription. */ private val _retryVersion = MutableStateFlow(0)</ID>
-    <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$/** Visible for tests. TOCTOU: prefer to observe via state. */ internal val _latestTask = MutableStateFlow&lt;Task?&gt;(null)</ID>
-    <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$private val _aiRunning = MutableStateFlow(false)</ID>
-    <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$private val _linkedTasks = MutableStateFlow&lt;List&lt;Task&gt;&gt;(emptyList())</ID>
-    <ID>BackingPropertyNaming:TaskDetail.kt:TaskDetailViewModel$private val _recentlyDeleted = MutableStateFlow&lt;Task?&gt;(null)</ID>
+    <ID>BackingPropertyNaming:TaskDetailViewModel.kt:TaskDetailViewModel$/** Backlinks — loaded when task changes. */ private val _linkedNotes = MutableStateFlow&lt;List&lt;com.singularity.todo.feature.notes.Note&gt;&gt;(emptyList())</ID>
+    <ID>BackingPropertyNaming:TaskDetailViewModel.kt:TaskDetailViewModel$/** Incremented on each retry() call to restart the watchTask subscription. */ private val _retryVersion = MutableStateFlow(0)</ID>
+    <ID>BackingPropertyNaming:TaskDetailViewModel.kt:TaskDetailViewModel$/** Visible for tests. TOCTOU: prefer to observe via state. */ internal val _latestTask = MutableStateFlow&lt;Task?&gt;(null)</ID>
+    <ID>BackingPropertyNaming:TaskDetailViewModel.kt:TaskDetailViewModel$private val _aiRunning = MutableStateFlow(false)</ID>
+    <ID>BackingPropertyNaming:TaskDetailViewModel.kt:TaskDetailViewModel$private val _linkedTasks = MutableStateFlow&lt;List&lt;Task&gt;&gt;(emptyList())</ID>
+    <ID>BackingPropertyNaming:TaskDetailViewModel.kt:TaskDetailViewModel$private val _recentlyDeleted = MutableStateFlow&lt;Task?&gt;(null)</ID>
     <ID>ComplexCondition:ConditionExprParser.kt:ConditionExprParser$tok is QueryTokenizer.Token.Word || tok is QueryTokenizer.Token.Quoted || tok is QueryTokenizer.Token.LParen || tok is QueryTokenizer.Token.Not</ID>
     <ID>ComplexCondition:JvmNotificationPort.kt:JvmNotificationPort$s.all { it.isLetterOrDigit() || it == '-' || it == '_' || it == '.' || it == '/' }</ID>
     <ID>ComplexCondition:QueryTokenizer.kt:QueryTokenizer$pos &lt; input.length &amp;&amp; !input[pos].isWhitespace() &amp;&amp; input[pos] != '(' &amp;&amp; input[pos] != ')'</ID>
@@ -83,7 +83,7 @@
     <ID>CyclomaticComplexMethod:SimpleFilterMapper.kt:SimpleFilterMapper$fun toQuery: Result&lt;Query&gt;</ID>
     <ID>CyclomaticComplexMethod:SyncConfigScreen.kt:@Composable fun SyncConfigScreen</ID>
     <ID>CyclomaticComplexMethod:TaskCreateViewModel.kt:TaskCreateViewModel$override fun onIntent</ID>
-    <ID>CyclomaticComplexMethod:TaskDetail.kt:TaskDetailViewModel$fun onIntent</ID>
+    <ID>CyclomaticComplexMethod:TaskDetailViewModel.kt:TaskDetailViewModel$override fun onIntent</ID>
     <ID>CyclomaticComplexMethod:TaskDomain.kt:TaskDomain$fun matchesFilter: Boolean</ID>
     <ID>CyclomaticComplexMethod:TaskEditorBody.kt:@Composable fun TaskEditorBody</ID>
     <ID>CyclomaticComplexMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
@@ -152,7 +152,6 @@
     <ID>Filename:SearchPreviewHelpers.kt:com.singularity.todo.feature.search.presentation.nav.SearchPreviewHelpers.kt</ID>
     <ID>Filename:SearchRoute.kt:com.singularity.todo.feature.search.presentation.nav.SearchRoute.kt</ID>
     <ID>Filename:SettingsRoute.kt:com.singularity.todo.feature.settings.presentation.nav.SettingsRoute.kt</ID>
-    <ID>Filename:TaskDetail.kt:com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetail.kt</ID>
     <ID>Filename:TaskDetailState.kt:com.singularity.todo.feature.tasks.domain.model.TaskDetailState.kt</ID>
     <ID>Filename:TaskMutations.kt:com.singularity.todo.feature.tasks.domain.usecase.TaskMutations.kt</ID>
     <ID>Filename:TaskToJsonProbeTest.kt:com.singularity.todo.core.sync.TaskToJsonProbeTest.kt</ID>
@@ -678,7 +677,7 @@
     <ID>LongMethod:StatisticsScreen.kt:@Composable private fun StatisticsContentPreview</ID>
     <ID>LongMethod:SyncConfigScreen.kt:@Composable fun SyncConfigScreen</ID>
     <ID>LongMethod:TaskCreateScreen.kt:@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun TaskCreateScreen</ID>
-    <ID>LongMethod:TaskDetail.kt:TaskDetailViewModel$fun onIntent</ID>
+    <ID>LongMethod:TaskDetailViewModel.kt:TaskDetailViewModel$override fun onIntent</ID>
     <ID>LongMethod:TaskDetailViewScreen.kt:@Composable fun TaskDetailViewScreen</ID>
     <ID>LongMethod:TaskEditorBody.kt:@Composable fun TaskEditorBody</ID>
     <ID>LongMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
@@ -915,7 +914,7 @@
     <ID>UnusedParameter:TaskSaveBar.kt:isLoading: Boolean = false</ID>
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
-    <ID>VariableNaming:TaskDetail.kt:TaskDetailViewModel$/** Visible for tests. TOCTOU: prefer to observe via state. */ internal val _latestTask = MutableStateFlow&lt;Task?&gt;(null)</ID>
+    <ID>VariableNaming:TaskDetailViewModel.kt:TaskDetailViewModel$/** Visible for tests. TOCTOU: prefer to observe via state. */ internal val _latestTask = MutableStateFlow&lt;Task?&gt;(null)</ID>
     <ID>ViewModelMustHaveKDoc:AppVersionGateViewModel.kt:AppVersionGateViewModel : MviViewModel</ID>
     <ID>ViewModelMustHaveKDoc:TagGroupsViewModel.kt:TagGroupsViewModel : MviViewModel</ID>
   </CurrentIssues>

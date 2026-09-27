@@ -25,6 +25,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -59,6 +61,11 @@ private val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
 class TaskDetailViewModelTest {
 
     private val testUserId = UserId("test-user")
+
+    private companion object {
+        /** Mirrors `debounceMs` passed to [TaskDetailDeps] in [createVm]. */
+        const val DEBOUNCE_MS = 300L
+    }
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeChecklistRepo = FakeChecklistRepository()
     private val fakeReminderRepo = FakeReminderRepository()
@@ -108,7 +115,7 @@ class TaskDetailViewModelTest {
             clock = Clock.System,
             completeRecurring = stubCompleteRecurring,
             // AI use cases are nullable — tests omit them since RunAiAction is not exercised here
-            debounceMs = 300L,
+            debounceMs = DEBOUNCE_MS,
         )
         val vm = TaskDetailViewModel(deps = deps, taskId = taskId, scope = testScope(scope))
         // Keep a subscriber so the VM's state flow behaves identically with and
@@ -148,11 +155,38 @@ class TaskDetailViewModelTest {
     fun `TitleChanged debounce saves after delay`() = runTest {
         val task = seedTask()
         val vm = createVm(backgroundScope, task.id)
-        delay(100) // Allow FakeProfileAwareCurrentUser's Default-dispatcher collectors to settle
+        // Virtual time, not a real delay: the debounce is 300ms of scheduler time, and
+        // `delay()` inside runTest is skipped instantly — the old real-time version of
+        // this test hung for the full 60s runTest timeout instead of waiting.
+        advanceUntilIdle()
+        testScheduler.runCurrent()
 
         vm.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited title"))
-        delay(400) // debounce(300ms) needs real time
+        advanceTimeBy(DEBOUNCE_MS + 100)
+        testScheduler.runCurrent()
 
+        assertEquals("Edited title", fakeTaskRepo.tasks.value["t1"]?.title)
+    }
+
+    @Test
+    fun `debounced title write does not feed back into further writes`() = runTest {
+        val task = seedTask()
+        val vm = createVm(backgroundScope, task.id)
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+
+        vm.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited title"))
+        advanceTimeBy(DEBOUNCE_MS + 100)
+        testScheduler.runCurrent()
+        val afterFirstWrite = fakeTaskRepo.tasks.value["t1"]?.updatedAt
+        assertNotNull(afterFirstWrite, "the debounced write should have landed")
+
+        // A write stamps a new updatedAt, which re-emits the repository observation.
+        // If that fed back into the collector, the loop would rewrite forever.
+        advanceTimeBy(5_000)
+        testScheduler.runCurrent()
+
+        assertEquals(afterFirstWrite, fakeTaskRepo.tasks.value["t1"]?.updatedAt)
         assertEquals("Edited title", fakeTaskRepo.tasks.value["t1"]?.title)
     }
 

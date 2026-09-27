@@ -5,6 +5,14 @@ tags: [testing, coroutines, viewmodel, koin, di]
 status: accepted
 ---
 
+
+> **Corrected (2026-09-27):** the 60 s hang this ADR set out to fix was not a
+> dispatcher problem. The debounce collector wrote to the repository, whose
+> observation re-emitted and re-triggered it in an unbounded loop. See
+> [2026-09-27-taskdetail-migration-and-debounce-write-loop.md](2026-09-27-taskdetail-migration-and-debounce-write-loop.md).
+> Dispatcher injection may still be worth doing for other reasons, but it was not
+> the cause.
+
 ## Context
 
 Post-audit findings (2026-09-25) identified three categories of production code that actively harm testability:
