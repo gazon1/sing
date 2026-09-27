@@ -147,9 +147,29 @@ the phase commit; everything below is deliberate backlog.
   detekt warnings not failing will now see failures. Expected — it matches CI — but
   worth a line in the PR description.
 
-## Phase E
+## Phase E — oversized skill splits
 
-_(pending)_
+### Done
+
+- `shared-ui-components` 756 → 42-line router + 5 leaf files
+  (`widget-library`, `decomposition`, `content-slot-api`, `menus-and-dialogs`,
+  `document-style-layout`).
+- `ui-event-vs-state` 679 → 63-line router + 8 leaf files (one-shot events, VM event
+  tests, anti-patterns, routing state, state ownership, debounced edits, collection
+  strategy, mirror state).
+- Both routers keep the decision rule inline so an agent gets it without opening a leaf,
+  and `SKILL.md` stays the entry point, so the ~12 inbound references keep resolving. All
+  13 router→leaf links verified.
+
+### Backlog
+
+- **4 more skills are over the 500-line budget** and will fail `check-doc-sizes.py`:
+  `test-helpers` (500, at the limit), `llm-usage-tracking` (467),
+  `kotlin-idioms` (455), `feature-scaffold` (455), `ai-tool` (434). `feature-scaffold`
+  and `ai-tool` are close enough to be worth a look; `test-helpers` and `llm-usage-tracking`
+  are the two densest.
+- **The size check will fail the docs-audit until DIGEST.md is under 1500 lines.** The
+  other budgets are now green.
 
 ## Phase F
 

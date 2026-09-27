@@ -30,8 +30,8 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-cross-feature-navigation` | 196 | How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). |
 | `singularity-todo-cycle-detector-pattern` | 248 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |
 | `singularity-todo-decisions-workflow` | 289 | Lightweight decision-log workflow for this project. |
-| `singularity-todo-detekt-rules-authoring` | 307 | How to write and register custom detekt rules in the Singularity Todo project. |
-| `singularity-todo-detekt-workflow` | 110 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules (PassThroughUseCase, NoStateIn, NoRunBlocking, NoViewModelScopeInProduction, NoRealDelayInTest, KDoc enforcement). |
+| `singularity-todo-detekt-rules-authoring` | 313 | How to write and register custom detekt rules in the Singularity Todo project. |
+| `singularity-todo-detekt-workflow` | 112 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules (PassThroughUseCase, NoStateIn, NoRunBlocking, NoViewModelScopeInProduction, NoRealDelayInTest, KDoc enforcement). |
 | `singularity-todo-di-graph-testing` | 206 | Catch Koin DI missing bindings before the app reaches a device. |
 | `singularity-todo-document-style-detail` | 211 | Generic document-style UX pattern for any read-only detail screen (Task, Project, Note, etc.). |
 | `singularity-todo-domain-logic-pattern` | 203 | Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. |
@@ -62,14 +62,14 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-notifications` | 134 | Notification port pattern for KMP with notify-send/at on JVM, AlarmManager+BootReceiver on Android. |
 | `singularity-todo-preview-with-koin` | 160 | Use when writing @Preview composables in this KMP project and the preview crashes with "KoinApplication has not been started". |
 | `singularity-todo-pure-formatters` | 195 | How to extract user-facing string formatting out of Composables and into pure-Kotlin helpers that can be unit-tested without a Compose runtime. |
-| `singularity-todo-quality-tools` | 270 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
+| `singularity-todo-quality-tools` | 280 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
 | `singularity-todo-relational-counts` | 216 | How to display aggregate counts (task count per project, note count per tag) in list screens. |
 | `singularity-todo-repository-architecture` | 261 | Canonical repository-architecture invariants in this KMP project. |
 | `singularity-todo-rich-editor` | 346 | Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. |
 | `singularity-todo-room-migration` | 322 | Room 3 (androidx.room3:3.0.0) setup for KMP with the specific gotchas this project hit: EROFS when name is treated as relative path (must use Context.getDatabasePath), missing @ColumnInfo causes SQL validation failures, no autoMigrations needs fallbackToDestructiveMigration for dev. |
 | `singularity-todo-room-multi-instance` | 241 | Cross-process SQLite access pattern for Singularity Todo KMP. |
 | `singularity-todo-secure-storage` | 173 | Secure storage port pattern for KMP using expect/actual with libsecret shell-out on JVM, AES-GCM encrypted file fallback, and EncryptedSharedPreferences on Android. |
-| `singularity-todo-shared-ui-components` | 755 | The complete UI decomposition pattern for Singularity Todo screens. |
+| `singularity-todo-shared-ui-components` | 41 | Screen decomposition and the shared widget library for Singularity Todo Compose screens. |
 | `singularity-todo-sheet-extraction` | 395 | Sheet extraction workflow for Singularity Todo. |
 | `singularity-todo-stable-json` | 169 | When adding kotlinx.serialization to a KMP project, always use StableJson instead of local `Json { . |
 | `singularity-todo-swipe-actions` | 259 | Swipe-to-dismiss pattern for Compose Multiplatform using Material3 SwipeToDismissBox. |
@@ -81,9 +81,9 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-test-flaky-prevention` | 193 | Rules to prevent test flakiness in the Singularity Todo project. |
 | `singularity-todo-test-helpers` | 499 | Standardized test helpers and patterns for ViewModel tests in this project. |
 | `singularity-todo-test-tag-strategy` | 162 | JUnit tag-based test filtering strategy for the Singularity Todo project. |
-| `singularity-todo-testable-vm` | 426 | Testable ViewModel pattern for Singularity Todo KMP app. |
+| `singularity-todo-testable-vm` | 434 | Testable ViewModel pattern for Singularity Todo KMP app. |
 | `singularity-todo-top-bar-entry` | 158 | Use when adding an IconButton to the TopAppBar that opens a nested screen (Saved Views, Search, Filters). |
-| `singularity-todo-ui-event-vs-state` | 678 | How to model one-shot UI events and state ownership separately from continuous UI state in Singularity Todo ViewModels. |
+| `singularity-todo-ui-event-vs-state` | 62 | How to model one-shot UI events, routing state and continuous state separately in Singularity Todo ViewModels. |
 | `singularity-todo-vm-intent-pattern` | 286 | The house ViewModel pattern for this project: sealed Intent + single onIntent dispatcher, routing vs domain intent separation, _latestTask cache, and when to use (or skip) a pure reducer. |
 | `singularity-todo-vm-lifecycle-addcloseable` | 218 | Migrate a ViewModel from manual 'override fun onCleared() { scope.cancel() }' to AutoCloseableCoroutineScope + ViewModel.addCloseable() (lifecycle 2.8+). |
 | `singularity-todo-vm-migration-playbook` | 355 | Step-by-step playbook for migrating an existing ViewModel from stateIn/combine/scopeOverride to the canonical scope-as-default-param pattern. |
