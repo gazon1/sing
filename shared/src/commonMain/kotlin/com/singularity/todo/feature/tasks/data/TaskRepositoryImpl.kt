@@ -2,9 +2,7 @@ package com.singularity.todo.feature.tasks.data
 
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TaskDao
-import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
-import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toEpochMillisOrNull
 import com.singularity.todo.core.database.toIsoOrNull
@@ -187,7 +185,7 @@ class TaskRepositoryImpl(
         taskDao.upsert(toInsert.toEntity())
         saveOutgoingLinks(toInsert.id, toInsert.description)
         toInsert.tags.forEach { tagId ->
-            taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = toInsert.id.value, tagId = tagId.value))
+            taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
         }
         syncRepository.enqueue(toInsert)
         toInsert
@@ -206,7 +204,13 @@ class TaskRepositoryImpl(
 
     private suspend fun saveOutgoingLinks(id: TaskId, description: String?) {
         val links = description?.let { extractOutgoingLinks(it) }.orEmpty()
-        taskDao.setOutgoingLinks(id.value, links.toLinksJson(), clock.now().toEpochMilliseconds())
+        val rows = taskDao.setOutgoingLinksForUser(
+            id = id.value,
+            linksJson = links.toLinksJson(),
+            updatedAt = clock.now().toEpochMilliseconds(),
+            userId = currentUser.scopedUserId.value.value,
+        )
+        require(rows > 0) { "Outgoing links not written for $id — not found or not owned by current user" }
     }
 
     override suspend fun delete(id: TaskId): Result<Unit> = softDelete(id)
@@ -220,28 +224,35 @@ class TaskRepositoryImpl(
 
     override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
-        taskDao.softDelete(id.value, ts)
+        val rows = taskDao.softDeleteForUser(id.value, ts, currentUser.scopedUserId.value.value)
+        require(rows > 0) { "Task $id not found or not owned by current user" }
     }
 
     override suspend fun restore(id: TaskId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
-        taskDao.restore(id.value, ts)
+        val rows = taskDao.restoreForUser(id.value, ts, currentUser.scopedUserId.value.value)
+        require(rows > 0) { "Task $id not found or not owned by current user" }
     }
 
     override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatching {
-        val task = taskDao.getById(id.value) ?: return@runCatching
+        val task = taskDao.getById(id.value)
+            ?: throw IllegalArgumentException("Task not found: ${id.value}")
         val ts = clock.now().toEpochMilliseconds()
-        if (task.completedAt != null) {
-            taskDao.markIncomplete(id.value, ts)
+        val uid = currentUser.scopedUserId.value.value
+        val rows = if (task.completedAt != null) {
+            taskDao.markIncompleteForUser(id.value, ts, uid)
         } else {
-            taskDao.markComplete(id.value, ts)
+            taskDao.markCompleteForUser(id.value, ts, uid)
         }
+        require(rows > 0) { "Task $id not found or not owned by current user" }
     }
 
     override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatching {
-        val task = taskDao.getById(id.value) ?: return@runCatching
+        val task = taskDao.getById(id.value)
+            ?: throw IllegalArgumentException("Task not found: ${id.value}")
         val ts = clock.now().toEpochMilliseconds()
-        taskDao.setPinned(id.value, !task.isPinned, ts)
+        val rows = taskDao.setPinnedForUser(id.value, !task.isPinned, ts, currentUser.scopedUserId.value.value)
+        require(rows > 0) { "Task $id not found or not owned by current user" }
     }
 
     override fun getTagIds(taskId: TaskId): Flow<List<TagId>> = taskDao.getTagIdsForTask(taskId.value).map {
@@ -253,22 +264,26 @@ class TaskRepositoryImpl(
     override suspend fun get(id: TaskId): Task? = taskDao.getById(id.value)?.toTask()
 
     override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
+        val uid = currentUser.scopedUserId.value.value
+        // Touch the owning task first so a foreign id fails here rather than
+        // silently "succeeding" with zero cross-refs written.
+        require(taskDao.getById(taskId.value) != null) { "Task $taskId not found" }
         val existing = taskDao.getTagIdsForTask(taskId.value).first()
         existing.forEach { tagId ->
-            taskDao.removeTagRef(taskId.value, tagId)
+            taskDao.removeTagRefForUser(taskId.value, tagId, uid)
         }
         tagIds.forEach { tagId ->
-            taskDao.upsertTagCrossRef(TaskTagCrossRef(taskId = taskId.value, tagId = tagId.value))
+            taskDao.upsertTagCrossRefForUser(taskId.value, tagId.value, uid)
         }
     }
 
     override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> = runCatching {
+        val uid = currentUser.scopedUserId.value.value
+        require(taskDao.getById(taskId.value) != null) { "Task $taskId not found" }
         dependencyValidator.assertNoCycles(taskId, deps).getOrThrow()
-        taskDao.clearDependencies(taskId.value)
+        taskDao.clearDependenciesForUser(taskId.value, uid)
         deps.forEach { depId ->
-            taskDao.upsertDependency(
-                TaskDependencyCrossRef(taskId = taskId.value, dependsOnTaskId = depId.value),
-            )
+            taskDao.upsertDependencyForUser(taskId.value, depId.value, uid)
         }
     }
 }

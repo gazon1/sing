@@ -156,13 +156,23 @@ class RoomNotesRepository(
     }
 
     override suspend fun delete(id: NoteId): Result<Unit> = runCatching {
-        noteDao.softDelete(id.value, clock.now().toEpochMilliseconds())
+        val rows = noteDao.softDeleteForUser(
+            id.value,
+            clock.now().toEpochMilliseconds(),
+            currentUser.scopedUserId.value.value,
+        )
+        require(rows > 0) { "Note $id not found or not owned by current user" }
     }
 
     // ─── SoftDeletable ────────────────────────────────────────────────────────
 
     override suspend fun restore(id: NoteId): Result<Unit> = runCatching {
-        noteDao.restore(id.value, clock.now().toEpochMilliseconds())
+        val rows = noteDao.restoreForUser(
+            id.value,
+            clock.now().toEpochMilliseconds(),
+            currentUser.scopedUserId.value.value,
+        )
+        require(rows > 0) { "Note $id not found or not owned by current user" }
     }
 
     // ─── Domain methods ───────────────────────────────────────────────────────
@@ -250,40 +260,77 @@ class RoomNotesRepository(
         bodyHtml: String,
     ): Result<Unit> = runCatching {
         val wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() }
-        noteDao.updateContent(
-            id.value,
-            title,
-            bodyMarkdown,
-            bodyHtml,
-            wordCount,
-            bodyMarkdown.length,
-            clock.now().toEpochMilliseconds(),
+        val rows = noteDao.updateContentForUser(
+            id = id.value,
+            title = title,
+            markdown = bodyMarkdown,
+            html = bodyHtml,
+            wordCount = wordCount,
+            charCount = bodyMarkdown.length,
+            updatedAt = clock.now().toEpochMilliseconds(),
+            userId = currentUser.scopedUserId.value.value,
         )
+        require(rows > 0) { "Note $id not found or not owned by current user" }
     }
 
     override suspend fun archive(id: NoteId): Result<Unit> = runCatching {
-        noteDao.archive(id.value, clock.now().toEpochMilliseconds())
+        val rows = noteDao.archiveForUser(
+            id.value,
+            clock.now().toEpochMilliseconds(),
+            currentUser.scopedUserId.value.value,
+        )
+        require(rows > 0) { "Note $id not found or not owned by current user" }
     }
 
     override suspend fun unarchive(id: NoteId): Result<Unit> = runCatching {
-        noteDao.unarchive(id.value, clock.now().toEpochMilliseconds())
+        val rows = noteDao.unarchiveForUser(
+            id.value,
+            clock.now().toEpochMilliseconds(),
+            currentUser.scopedUserId.value.value,
+        )
+        require(rows > 0) { "Note $id not found or not owned by current user" }
     }
 
     override suspend fun setPinned(id: NoteId, pinned: Boolean): Result<Unit> = runCatching {
         val now = clock.now().toEpochMilliseconds()
-        noteDao.setPinned(id.value, pinned, if (pinned) now else null, now)
+        val rows = noteDao.setPinnedForUser(
+            id = id.value,
+            pinned = pinned,
+            pinnedAt = if (pinned) now else null,
+            ts = now,
+            userId = currentUser.scopedUserId.value.value,
+        )
+        require(rows > 0) { "Note $id not found or not owned by current user" }
     }
 
     override suspend fun setColor(id: NoteId, color: NoteColor?): Result<Unit> = runCatching {
-        noteDao.setColor(id.value, color?.value, clock.now().toEpochMilliseconds())
+        val rows = noteDao.setColorForUser(
+            id = id.value,
+            color = color?.value,
+            ts = clock.now().toEpochMilliseconds(),
+            userId = currentUser.scopedUserId.value.value,
+        )
+        require(rows > 0) { "Note $id not found or not owned by current user" }
     }
 
     override suspend fun setSortOrder(id: NoteId, sortOrder: Int): Result<Unit> = runCatching {
-        noteDao.setSortOrder(id.value, sortOrder, clock.now().toEpochMilliseconds())
+        val rows = noteDao.setSortOrderForUser(
+            id = id.value,
+            sortOrder = sortOrder,
+            ts = clock.now().toEpochMilliseconds(),
+            userId = currentUser.scopedUserId.value.value,
+        )
+        require(rows > 0) { "Note $id not found or not owned by current user" }
     }
 
     override suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit> = runCatching {
-        noteDao.setOutgoingLinks(id.value, links.toLinksJson(), clock.now().toEpochMilliseconds())
+        val rows = noteDao.setOutgoingLinksForUser(
+            id = id.value,
+            linksJson = links.toLinksJson(),
+            updatedAt = clock.now().toEpochMilliseconds(),
+            userId = currentUser.scopedUserId.value.value,
+        )
+        require(rows > 0) { "Note $id not found or not owned by current user" }
     }
 
     // ─── Templates and daily notes ────────────────────────────────────────────────
@@ -339,7 +386,13 @@ class RoomNotesRepository(
     }
 
     override suspend fun saveAsTemplate(id: NoteId): Result<Unit> = runCatching {
-        noteDao.setKind(id.value, NoteKind.Template.name, clock.now().toEpochMilliseconds())
+        val rows = noteDao.setKindForUser(
+            id = id.value,
+            kind = NoteKind.Template.name,
+            ts = clock.now().toEpochMilliseconds(),
+            userId = currentUser.scopedUserId.value.value,
+        )
+        require(rows > 0) { "Note $id not found or not owned by current user" }
     }
 
     override suspend fun getOrCreateDailyNote(dateKey: String, fromTemplateId: NoteId?): Result<NoteId> = runCatching {

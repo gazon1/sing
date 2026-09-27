@@ -278,12 +278,23 @@ internal class InMemoryTaskDao : TaskDao {
         }
     }
 
-    override suspend fun removeDependency(taskId: String, depId: String) {
+    // Ownership-scoped variants. This stub has no task store, so the userId check
+    // cannot be evaluated — it applies the mutation and reports the affected count,
+    // preserving the pre-existing behaviour for the dependency tests.
+    override suspend fun removeDependencyForUser(taskId: String, depId: String, userId: String): Int {
+        val before = _deps.value.count { it.taskId == taskId && it.dependsOnTaskId == depId }
         _deps.update { current -> current.filter { !(it.taskId == taskId && it.dependsOnTaskId == depId) } }
+        return before
     }
 
-    override suspend fun clearDependencies(taskId: String) {
+    override suspend fun clearDependenciesForUser(taskId: String, userId: String): Int {
+        val before = _deps.value.count { it.taskId == taskId }
         _deps.update { current -> current.filter { it.taskId != taskId } }
+        return before
+    }
+
+    override suspend fun upsertDependencyForUser(taskId: String, depId: String, userId: String) {
+        upsertDependency(TaskDependencyCrossRef(taskId = taskId, dependsOnTaskId = depId))
     }
 
     // ── Tag methods (stubs so the interface is satisfied) ─────────────────────
@@ -295,8 +306,14 @@ internal class InMemoryTaskDao : TaskDao {
         _tags.update { current -> current.filter { !(it.taskId == ref.taskId && it.tagId == ref.tagId) } + ref }
     }
 
-    override suspend fun removeTagRef(taskId: String, tagId: String) {
+    override suspend fun upsertTagCrossRefForUser(taskId: String, tagId: String, userId: String) {
+        upsertTagCrossRef(TaskTagCrossRef(taskId = taskId, tagId = tagId))
+    }
+
+    override suspend fun removeTagRefForUser(taskId: String, tagId: String, userId: String): Int {
+        val before = _tags.value.count { it.taskId == taskId && it.tagId == tagId }
         _tags.update { current -> current.filter { !(it.taskId == taskId && it.tagId == tagId) } }
+        return before
     }
 
     // ── Batch extras (for TaskRepositoryImpl userTasksWithExtras) ─────────────
@@ -307,8 +324,9 @@ internal class InMemoryTaskDao : TaskDao {
 
     // ── Outgoing links (stub — not used by FakeTaskRepository) ───────────────
 
-    override suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long) {
-        // no-op: FakeTaskRepository calls TaskDao directly, not this path
+    override suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int {
+        // no-op: FakeTaskRepository does not use this path
+        return 0
     }
 
     override suspend fun getBacklinkTasks(
@@ -376,7 +394,8 @@ internal class InMemoryTaskDao : TaskDao {
     override fun watchPinned(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
 
-    override suspend fun setPinned(id: String, pinned: Boolean, ts: Long) = error("not implemented")
+    override suspend fun setPinnedForUser(id: String, pinned: Boolean, ts: Long, userId: String): Int =
+        error("not implemented")
 
     override suspend fun getById(id: String): com.singularity.todo.core.database.TaskEntity? = error("not implemented")
 
@@ -394,13 +413,13 @@ internal class InMemoryTaskDao : TaskDao {
 
     override suspend fun upsert(task: com.singularity.todo.core.database.TaskEntity) = error("not implemented")
 
-    override suspend fun softDelete(id: String, ts: Long) = error("not implemented")
+    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int = error("not implemented")
 
-    override suspend fun restore(id: String, ts: Long) = error("not implemented")
+    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int = error("not implemented")
 
-    override suspend fun markComplete(id: String, ts: Long) = error("not implemented")
+    override suspend fun markCompleteForUser(id: String, ts: Long, userId: String): Int = error("not implemented")
 
-    override suspend fun markIncomplete(id: String, ts: Long) = error("not implemented")
+    override suspend fun markIncompleteForUser(id: String, ts: Long, userId: String): Int = error("not implemented")
 
     override suspend fun listAllForUser(userId: String): List<com.singularity.todo.core.database.TaskEntity> = error(
         "not implemented",
@@ -410,7 +429,7 @@ internal class InMemoryTaskDao : TaskDao {
 
     override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> = error("not implemented")
 
-    override suspend fun archiveCompleted(ts: Long): Int = error("not implemented")
+    override suspend fun archiveCompletedForUser(ts: Long, userId: String): Int = error("not implemented")
 }
 
 open class FakeTaskRepository(
@@ -597,9 +616,10 @@ open class FakeTaskRepository(
     open override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> {
         setDependenciesOverride?.let { return it }
         return runCatching {
-            dao.clearDependencies(taskId.value)
+            val uid = currentUserId().value
+            dao.clearDependenciesForUser(taskId.value, uid)
             deps.forEach { dep ->
-                dao.upsertDependency(TaskDependencyCrossRef(taskId = taskId.value, dependsOnTaskId = dep.value))
+                dao.upsertDependencyForUser(taskId.value, dep.value, uid)
             }
         }
     }

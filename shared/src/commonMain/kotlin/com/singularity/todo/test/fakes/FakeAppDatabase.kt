@@ -272,17 +272,51 @@ private class FakeTaskDao(
     override suspend fun upsert(task: TaskEntity) {
         store.update { it + (task.id to task) }
     }
-    override suspend fun softDelete(id: String, ts: Long) = mutateTask(id) { it.copy(archivedAt = ts, updatedAt = ts) }
-    override suspend fun restore(id: String, ts: Long) = mutateTask(id) { it.copy(archivedAt = null, updatedAt = ts) }
+
+    /**
+     * Applies [fn] to the task only when it exists **and** belongs to [userId],
+     * returning the affected row count — mirroring the `WHERE id AND user_id`
+     * contract of the real DAO. Returning 0 here is what makes tests able to
+     * assert cross-user isolation instead of passing vacuously.
+     */
+    private fun mutateTaskForUser(id: String, userId: String, fn: (TaskEntity) -> TaskEntity): Int {
+        var affected = 0
+        store.update { current ->
+            val existing = current[id]
+            if (existing == null || existing.userId != userId) {
+                current
+            } else {
+                affected = 1
+                current + (id to fn(existing))
+            }
+        }
+        return affected
+    }
+
+    private fun ownsTask(id: String, userId: String): Boolean = store.value[id]?.userId == userId
+
+    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int =
+        mutateTaskForUser(id, userId) { it.copy(archivedAt = ts, updatedAt = ts) }
+
+    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int =
+        mutateTaskForUser(id, userId) { it.copy(archivedAt = null, updatedAt = ts) }
+
     override suspend fun getById(id: String): TaskEntity? = store.value[id]
-    override suspend fun markComplete(id: String, ts: Long) = mutateTask(
-        id,
-    ) { it.copy(completedAt = ts, updatedAt = ts) }
-    override suspend fun archiveCompleted(ts: Long): Int {
+
+    override suspend fun markCompleteForUser(id: String, ts: Long, userId: String): Int =
+        mutateTaskForUser(id, userId) { it.copy(completedAt = ts, updatedAt = ts) }
+
+    override suspend fun markIncompleteForUser(id: String, ts: Long, userId: String): Int =
+        mutateTaskForUser(id, userId) { it.copy(completedAt = null, updatedAt = ts) }
+
+    override suspend fun setPinnedForUser(id: String, pinned: Boolean, ts: Long, userId: String): Int =
+        mutateTaskForUser(id, userId) { it.copy(isPinned = pinned, updatedAt = ts) }
+
+    override suspend fun archiveCompletedForUser(ts: Long, userId: String): Int {
         var count = 0
         store.update { current ->
             current.mapValues { (_, task) ->
-                if (task.completedAt != null && task.archivedAt == null) {
+                if (task.userId == userId && task.completedAt != null && task.archivedAt == null) {
                     count++
                     task.copy(archivedAt = ts, updatedAt = ts)
                 } else {
@@ -292,18 +326,20 @@ private class FakeTaskDao(
         }
         return count
     }
-    override suspend fun markIncomplete(id: String, ts: Long) = mutateTask(
-        id,
-    ) { it.copy(completedAt = null, updatedAt = ts) }
-    override suspend fun setPinned(id: String, pinned: Boolean, ts: Long) = mutateTask(
-        id,
-    ) { it.copy(isPinned = pinned, updatedAt = ts) }
 
     override suspend fun upsertTagCrossRef(ref: TaskTagCrossRef) {
         crossRefs.update { it + ref }
     }
-    override suspend fun removeTagRef(taskId: String, tagId: String) {
+
+    override suspend fun upsertTagCrossRefForUser(taskId: String, tagId: String, userId: String) {
+        if (!ownsTask(taskId, userId)) return
+        crossRefs.update { it + TaskTagCrossRef(taskId = taskId, tagId = tagId) }
+    }
+
+    override suspend fun removeTagRefForUser(taskId: String, tagId: String, userId: String): Int {
+        if (!ownsTask(taskId, userId)) return 0
         crossRefs.update { it.filterNot { r -> r.taskId == taskId && r.tagId == tagId } }
+        return 1
     }
 
     override fun getTagIdsForTask(taskId: String): Flow<List<String>> =
@@ -325,12 +361,22 @@ private class FakeTaskDao(
         }
     }
 
-    override suspend fun removeDependency(taskId: String, depId: String) {
-        depRefs.update { it.filterNot { r -> r.taskId == taskId && r.dependsOnTaskId == depId } }
+    override suspend fun upsertDependencyForUser(taskId: String, depId: String, userId: String) {
+        if (!ownsTask(taskId, userId)) return
+        upsertDependency(TaskDependencyCrossRef(taskId = taskId, dependsOnTaskId = depId))
     }
 
-    override suspend fun clearDependencies(taskId: String) {
+    override suspend fun removeDependencyForUser(taskId: String, depId: String, userId: String): Int {
+        if (!ownsTask(taskId, userId)) return 0
+        depRefs.update { it.filterNot { r -> r.taskId == taskId && r.dependsOnTaskId == depId } }
+        return 1
+    }
+
+    override suspend fun clearDependenciesForUser(taskId: String, userId: String): Int {
+        if (!ownsTask(taskId, userId)) return 0
+        val before = depRefs.value.count { it.taskId == taskId }
         depRefs.update { it.filterNot { r -> r.taskId == taskId } }
+        return before
     }
 
     override suspend fun listAllForUser(userId: String): List<TaskEntity> =
@@ -353,20 +399,13 @@ private class FakeTaskDao(
         it.userId == userId && it.archivedAt == null && it.title.contains(q, ignoreCase = true)
     }.sortedByDescending { it.updatedAt }.take(20)
 
-    override suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long) =
-        mutateTask(id) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
+    override suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int =
+        mutateTaskForUser(id, userId) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
 
     override suspend fun getBacklinkTasks(taskId: String, userId: String): List<TaskEntity> =
         store.value.values.filter { t ->
             t.userId == userId && t.archivedAt == null && t.outgoingLinks.contains("task://$taskId")
         }.take(20)
-
-    private fun mutateTask(id: String, fn: (TaskEntity) -> TaskEntity) {
-        store.update { current ->
-            val existing = current[id] ?: return@update current
-            current + (id to fn(existing))
-        }
-    }
 }
 
 // ─── NoteDao ──────────────────────────────────────────────────────────────────
@@ -416,11 +455,39 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
     override suspend fun upsert(note: NoteEntity) {
         store.update { it + (note.id to note) }
     }
-    override suspend fun softDelete(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
-    override suspend fun restore(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = null, updatedAt = ts) }
-    override suspend fun archive(id: String, ts: Long) = mutate(id) { it.copy(archivedAt = ts, updatedAt = ts) }
-    override suspend fun unarchive(id: String, ts: Long) = mutate(id) { it.copy(archivedAt = null, updatedAt = ts) }
-    override suspend fun updateContent(
+
+    /**
+     * Applies [fn] only when the note exists **and** belongs to [userId],
+     * returning the affected row count — mirroring the real DAO's
+     * `WHERE id AND user_id` contract.
+     */
+    private fun mutateForUser(id: String, userId: String, fn: (NoteEntity) -> NoteEntity): Int {
+        var affected = 0
+        store.update { current ->
+            val existing = current[id]
+            if (existing == null || existing.userId != userId) {
+                current
+            } else {
+                affected = 1
+                current + (id to fn(existing))
+            }
+        }
+        return affected
+    }
+
+    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(deletedAt = ts, updatedAt = ts) }
+
+    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(deletedAt = null, updatedAt = ts) }
+
+    override suspend fun archiveForUser(id: String, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(archivedAt = ts, updatedAt = ts) }
+
+    override suspend fun unarchiveForUser(id: String, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(archivedAt = null, updatedAt = ts) }
+
+    override suspend fun updateContentForUser(
         id: String,
         title: String,
         markdown: String,
@@ -428,27 +495,27 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         wordCount: Int,
         charCount: Int,
         updatedAt: Long,
-    ) {
-        store.update { current ->
-            val existing = current[id] ?: return@update current
-            current + (
-                id to existing.copy(
-                    title = title,
-                    bodyMarkdown = markdown,
-                    bodyHtml = html,
-                    wordCount = wordCount,
-                    charCount = charCount,
-                    updatedAt = updatedAt,
-                )
-            )
-        }
+        userId: String,
+    ): Int = mutateForUser(id, userId) {
+        it.copy(
+            title = title,
+            bodyMarkdown = markdown,
+            bodyHtml = html,
+            wordCount = wordCount,
+            charCount = charCount,
+            updatedAt = updatedAt,
+        )
     }
-    override suspend fun setPinned(id: String, pinned: Boolean, pinnedAt: Long?, ts: Long) =
-        mutate(id) { it.copy(isPinned = pinned, pinnedAt = pinnedAt, updatedAt = ts) }
-    override suspend fun setColor(id: String, color: Int?, ts: Long) =
-        mutate(id) { it.copy(color = color, updatedAt = ts) }
-    override suspend fun setSortOrder(id: String, sortOrder: Int, ts: Long) =
-        mutate(id) { it.copy(sortOrder = sortOrder, updatedAt = ts) }
+
+    override suspend fun setPinnedForUser(id: String, pinned: Boolean, pinnedAt: Long?, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(isPinned = pinned, pinnedAt = pinnedAt, updatedAt = ts) }
+
+    override suspend fun setColorForUser(id: String, color: Int?, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(color = color, updatedAt = ts) }
+
+    override suspend fun setSortOrderForUser(id: String, sortOrder: Int, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(sortOrder = sortOrder, updatedAt = ts) }
+
     override suspend fun listAllForUser(userId: String): List<NoteEntity> =
         store.value.values.filter { it.userId == userId }
 
@@ -460,8 +527,8 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
     }
         .sortedByDescending { it.updatedAt }.take(20)
 
-    override suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long) =
-        mutate(id) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
+    override suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
 
     override suspend fun getBacklinkNotes(noteId: String, userId: String): List<NoteEntity> =
         store.value.values.filter { n ->
@@ -492,15 +559,10 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
             }.sortedBy { it.title }
         }
 
-    override suspend fun setKind(id: String, kind: String, ts: Long) =
-        mutate(id) { it.copy(kind = com.singularity.todo.feature.notes.NoteKind.valueOf(kind), updatedAt = ts) }
-
-    private fun mutate(id: String, fn: (NoteEntity) -> NoteEntity) {
-        store.update { current ->
-            val existing = current[id] ?: return@update current
-            current + (id to fn(existing))
+    override suspend fun setKindForUser(id: String, kind: String, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) {
+            it.copy(kind = com.singularity.todo.feature.notes.NoteKind.valueOf(kind), updatedAt = ts)
         }
-    }
 }
 
 // ─── ProjectDao ────────────────────────────────────────────────────────────────
