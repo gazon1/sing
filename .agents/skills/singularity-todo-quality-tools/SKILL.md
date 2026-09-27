@@ -26,7 +26,7 @@ description: Run detekt, ktlint, and kover on the Singularity Todo KMP project. 
 ## Just recipes
 
 ```bash
-just lint            # run detekt analysis (shared + desktopApp) — report-only
+just lint            # run detekt analysis (shared + desktopApp) — enforcing
 just detekt-fix      # auto-fix detekt rules + ktlint formatting (in-place) ✅ USE THIS BEFORE COMMIT
 just detekt-baseline # regenerate baseline files (after large auto-fix pass)
 just coverage        # kover XML reports → shared/build/reports/kover/
@@ -40,7 +40,7 @@ just tcheck          # full pipeline: tests + assembleDebug + lint
 
 ```bash
 # detekt
-./gradlew :shared:detekt :desktopApp:detekt                    # check (report-only)
+./gradlew :shared:detekt :desktopApp:detekt                    # check (enforcing)
 ./gradlew :shared:detekt --rerun-tasks                        # force rerun
 ./gradlew :shared:detektBaseline :desktopApp:detektBaseline  # generate baselines
 

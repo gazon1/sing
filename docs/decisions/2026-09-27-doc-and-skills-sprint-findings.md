@@ -116,9 +116,36 @@ the phase commit; everything below is deliberate backlog.
   here. Correct for a generic skill, but the checker flags it. Consider a per-skill
   ignore list rather than loosening the checker.
 
-## Phase D
+## Phase D — detekt wiring
 
-_(pending)_
+### Fixed inline
+
+- **`NoFactoryViewModelRule` had never run.** The rule and its unit tests existed, and
+  `2026-09-26-konsist-architecture-tests` credited it with catching a real
+  `factory<CalendarSyncViewModel>` registration — but the provider was never listed in
+  `META-INF/services/dev.detekt.api.RuleSetProvider`, so detekt never loaded it. The
+  finding came from a manual review. Now registered and active, 0 findings.
+  **Worth noting: `singularity-todo-detekt-rules-authoring` already documented
+  "Provider not in ServiceLoader" as Common Mistake #1. Knowing the failure mode did not
+  prevent it.**
+- **`check.sh` swallowed detekt failures.** The step printed "report-only,
+  ignoreFailures=true" and had a `|| { echo ... }` with no `exit 1`, so a green
+  `./check.sh` did not imply a clean detekt run — while `ignoreFailures` had actually been
+  `false` since PR 3.3. The local check was the most-trusted gate and it did not gate.
+- **4 more places claimed detekt was report-only** (`quality-tools` ×2, `detekt-workflow`,
+  `AGENTS.md`). An agent reading those would have treated lint as optional.
+- **`MviViewModelExtRule` never existed** — the real rules are `NoStateIn`,
+  `NoFactoryViewModel`, `ViewModelMustHaveKDoc` plus the `mvi-viewmodel` trio.
+- **Both detekt skills listed a subset of the rules** (3 of 9 and 5 of 9). Both now list
+  all 9, with the rule-registration procedure called out in both.
+
+### Backlog
+
+- `mcp-server` still carries a 74-finding detekt baseline and `androidApp` has no detekt at
+  all (`quality-tools` coverage table). Both are known, both are unaddressed.
+- The `check.sh` fix changes local-check behaviour: contributors who were relying on
+  detekt warnings not failing will now see failures. Expected — it matches CI — but
+  worth a line in the PR description.
 
 ## Phase E
 

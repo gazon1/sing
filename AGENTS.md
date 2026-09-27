@@ -131,7 +131,7 @@ AndroidKoogFactory error stub), `onSecondaryClick()` (AWT / secondary pointer).
 ./gradlew :desktopApp:run               # Desktop (headless: xvfb-run -a)
 ./gradlew :desktopApp:jvmTest           # Desktop JVM UI test
 
-just lint              # detekt (shared + desktopApp), report-only
+just lint              # detekt (shared + desktopApp), enforcing
 just detekt-fix        # auto-fix detekt + ktlint in-place
 just detekt-baseline   # пересоздать baseline
 just coverage          # kover XML → shared/build/reports/kover/

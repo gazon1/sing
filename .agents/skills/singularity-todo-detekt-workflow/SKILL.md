@@ -20,12 +20,14 @@ This runs `./gradlew :shared:detekt :desktopApp:detekt --auto-correct`. The `--a
 ### 2. Verify (after fix)
 
 ```bash
-just detekt
+just lint
 # or
 ./gradlew :shared:detekt :desktopApp:detekt
 ```
 
-Report-only mode. `ignoreFailures=true` in all modules, so this never fails the build.
+**Enforcing** — `ignoreFailures = false` in `shared/build.gradle.kts` and
+`desktopApp/build.gradle.kts` (since PR 3.3). A violation fails the build; the baselines in
+`config/detekt/` cover the accepted debt. `./check.sh` no longer swallows detekt failures.
 
 ### 3. Rebuild Baseline (after formatting pass)
 
@@ -35,19 +37,19 @@ just detekt-baseline
 ./gradlew :shared:detektBaseline :desktopApp:detektBaseline
 ```
 
-Captures **current** violations into `baseline-shared.xml` and `baseline-desktopApp.xml`. Run after a large auto-fix pass to freeze the baseline.
+Captures **current** violations into `baseline-shared.xml` and `baseline-desktopApp.xml`. Run after a large auto-fix pass to freeze the accepted debt.
 
-### 4. Promote to Strict Mode (follow-up PR)
+### 4. Adding a new rule
 
-After enough violations are fixed manually, remove `ignoreFailures = true` from module's `build.gradle.kts`:
+1. Write `XxxRule.kt` + `XxxProvider` in `detekt-rules/src/main/kotlin/com/singularity/todo/detekt/`.
+2. **Add the provider to `detekt-rules/src/main/resources/META-INF/services/dev.detekt.api.RuleSetProvider`.** A rule missing from this file never loads — this is how `NoFactoryViewModelRule` sat dormant.
+3. Add the `xxx:` block to `config/detekt/detekt.yml` with `active: true`.
+4. Run `./gradlew :shared:detekt` and read the finding count.
+   - **0 findings** → done, the rule is live and enforcing.
+   - **> 0** → either fix them, or accept them into the baseline (`just detekt-baseline`)
+     and treat the rule as advisory until the tree is clean.
 
-```kotlin
-detekt {
-    buildUponDefaultConfig = true
-    // ignoreFailures = true  // REMOVE this line
-    // violations now fail the build
-}
-```
+See `singularity-todo-detekt-rules-authoring` for the PSI-level pitfalls.
 
 ## Violation Categories
 
