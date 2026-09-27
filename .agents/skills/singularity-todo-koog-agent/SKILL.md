@@ -45,7 +45,7 @@ actual fun createKoogPromptExecutor(): PromptExecutor {
 }
 ```
 
-**androidMain** (`AndroidKoogFactory.kt`):
+**androidMain** (`core/di/KoogPromptExecutorFactory.kt` — the actual throws):
 ```kotlin
 actual fun createKoogPromptExecutor(): PromptExecutor {
     error("Koog PromptExecutor is not available on Android")
@@ -237,7 +237,7 @@ object Prompts {
 | `shared/src/commonMain/.../feature/ai/KoogAgentService.kt` | Koog wrapper with AIAgent.builder() |
 | `shared/src/commonMain/.../core/di/KoogPromptExecutorFactory.kt` | expect declaration |
 | `shared/src/jvmMain/.../core/di/JvmKoogFactory.kt` | MultiLLMPromptExecutor + OpenAILLMClient |
-| `shared/src/androidMain/.../core/di/AndroidKoogFactory.kt` | Error stub |
+| `shared/src/androidMain/.../core/di/KoogPromptExecutorFactory.kt` | Error stub |
 | `shared/src/commonMain/.../feature/ai/prompts/Prompts.kt` | All prompt strings |
 | `shared/src/commonMain/.../feature/ai/tools/` | 16 SimpleTool<T> implementations |
 | `shared/src/commonMain/.../feature/ai/use_cases/` | 8 use case classes |

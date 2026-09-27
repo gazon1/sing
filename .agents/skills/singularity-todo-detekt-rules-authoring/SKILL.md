@@ -277,8 +277,6 @@ advanceTimeBy(300L)  // advances virtual time by 300ms
 | `NoViewModelScopeInProductionRule` | `NoViewModelScopeInProductionRule.kt` | `no-viewmodel-scope` | `viewModelScope.launch/async/cancel` in production |
 | `NoRunBlockingRule` | `NoRunBlockingRule.kt` | `no-run-blocking` | `runBlocking` in production |
 | `NoStateInRule` | `NoStateInRule.kt` | `no-state-in` | `.stateIn(...)` in production VMs (exempts `@OptIn(CombineStateInReadThrough)`) |
-| `NoCombineSideEffectRule` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | `_state.value = ...` inside `combine { }` lambda |
-| `NoGlobalScopeLaunchRule` | `NoGlobalScopeLaunchRule.kt` | `no-global-scope` | `GlobalScope.launch/async/cancel` in production |
 | `PassThroughUseCaseRule` | `PassThroughUseCaseRule.kt` | `pass-through-use-case` | `UseCase` with no real logic (pass-through to repo) |
 
 ## Common Mistakes

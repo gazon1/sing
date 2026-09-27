@@ -76,9 +76,45 @@ the phase commit; everything below is deliberate backlog.
   matching grep for the old name. That is intentional (history stays greppable) but means
   "is this skill live?" checks need to filter on the suffix.
 
-## Phase C
+## Phase C — frontmatter + CI gates
 
-_(pending)_
+### Fixed inline
+
+- **108 ADRs normalised**: 106 gained a `title` (from the first H1, else the slug), 39
+  gained a `date` (from the filename). The digest previously rendered most recent
+  decisions as `_(no title)_`; it now renders none.
+- **5 skills retrofitted with frontmatter** — `detekt-workflow`, `koin-dsl`,
+  `tech-debt-refactor`, `vm-lifecycle-addcloseable`, `worktree-isolation`. All 89 now
+  have frontmatter.
+- **`check-skill-frontmatter.sh` no longer skips a skill with no frontmatter.** It
+  skipped them silently, so 5 broken skills looked like 5 healthy ones. A skill without
+  frontmatter is invisible to the loader, so it is now an error.
+- **Writing the dead-ref checker surfaced three more cascades** beyond the 13 in Phase A:
+  `core/profile/` → `feature/profile/`, `AiToolsDiModule.kt` → `AiToolsModule.{jvm,android}.kt`,
+  `core/di/DiGraphTest.kt` → `test/KoinGraphValidationTest.kt`. All fixed.
+- **`detekt-rules-authoring` listed two rules that no longer exist**
+  (`NoCombineSideEffectRule`, `NoGlobalScopeLaunchRule` — deleted per
+  `2026-09-26-detekt-rules-activation-audit`). Removed from the table.
+- **`koog-agent` pointed at `AndroidKoogFactory.kt`**, which does not exist; the actual
+  lives in `core/di/KoogPromptExecutorFactory.kt`.
+
+### Backlog
+
+- **~30 dead refs remain in skills** that prescribe files which were designed but never
+  written: `AppDatabaseCtor.kt`, `ChannelTransportTest.kt`, `Args.kt`,
+  `DateBucketExtensions.kt`, `RunInLifecycle.kt`, `TaskFormatters.kt`, `TasksFormatters.kt`,
+  `NotesScreen.kt`, `NoteCardActions.kt`, `TaskDetailActions.kt`, `AttachmentButton.kt`,
+  `AttachmentSheet.kt`, `TaskDetailScreen.kt`, `AndroidDiGraphTest.kt`, plus ADR paths that
+  were renamed (`2026-09-26-junit-tag-default-semantics.md`). These are examples in skill
+  prose rather than claims that would mislead a code edit, so they rank below the Phase A
+  cascades — but `just docs-audit` keeps failing until they are resolved. Either write the
+  files or reword the examples so the hypothetical is explicit.
+- **`DIGEST.md` is 1865 lines against a 1500 budget** (up from 1823 as ADRs were added).
+  Trimming needs a change to `refresh-decisions-digest.py`'s selection, not manual pruning
+  — already deferred to PR-1.2.
+- **`writing-for-agents` references `CLAUDE.md` and `package.json`**, which do not exist
+  here. Correct for a generic skill, but the checker flags it. Consider a per-skill
+  ignore list rather than loosening the checker.
 
 ## Phase D
 
