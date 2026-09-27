@@ -15,7 +15,6 @@ This is a **router skill** — it points to the right skill for your task. No di
 | `singularity-todo-testable-vm` | Canonical VM pattern with MviViewModel: scope injection, IntentActions, testable tests |
 | `singularity-todo-vm-migration-playbook` | Migrating an existing VM to MviViewModel (hand-rolled → framework) |
 | `singularity-todo-vm-lifecycle-addcloseable` | Making a Tier-1 VM auto-cancellable via `addCloseable(scope)` |
-| `singularity-todo-vm-koin-scoping` | Koin scope decisions: `viewModelOf` vs `viewModel {}`, `koinViewModel` vs `koinInject` |
 | `singularity-todo-vm-intent-pattern` | `onIntent` sealed interface, routing vs domain intent separation, `_latestTask` cache |
 | `singularity-todo-koin-dsl` | Canonical Koin 4.x DSL for domain module registration |
 | `singularity-todo-clean-architecture-audit` | Verifying layer boundaries and architecture compliance |
@@ -60,7 +59,7 @@ VM leaks coroutines / doesn't cancel on screen leave?
   → singularity-todo-vm-lifecycle-addcloseable
 
 DI bindings wrong / Koin errors?
-  → singularity-todo-vm-koin-scoping + singularity-todo-koin-dsl
+  → `AGENTS.md` DI table + singularity-todo-koin-dsl
 
 VM has complex intents / state management?
   → singularity-todo-vm-intent-pattern

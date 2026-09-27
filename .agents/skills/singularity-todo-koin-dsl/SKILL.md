@@ -93,7 +93,7 @@ single { BackupExporter(get(), get(), get(), get(), get(), get(), get(), get()) 
 
 ## See also
 
-- `singularity-todo-vm-koin-scoping` — ViewModel scope management, AutoCloseableCoroutineScope
+- `AGENTS.md` — canonical ViewModel registration table (`viewModelOf` / `viewModel {}` / `koinViewModel`)
 - `singularity-todo-testable-vm` — Canonical 4-arg VM constructor pattern
 - `singularity-todo-vm-migration-playbook` — Migrating old VMs to canonical pattern
 - `singularity-todo-di-graph-testing` — DI graph smoke tests
