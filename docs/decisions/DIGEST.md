@@ -812,19 +812,28 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `nav3`
 
+- **Deprecated `AppDestination` singletons** (`Inbox`, `Today`, `Upcoming`, `TasksByProject`,
+- **`TaskDetailViewModelTest."TitleChanged debounce saves after delay"` fails with
+- **`just setup-hooks` is broken in worktrees.** It sets `core.hooksPath` to
+- **`rememberNavBackStackTyped<T>`** from `2026-09-16-nav3-type-asymmetry-adr.md` is still
+- **`topLevelRoute` is not persisted**, so a cold launch always restores the start tab rather
 - 8 new files (nav package under projects feature) + 2 new ADR records.
 - Additional level of indirection for new developers: "where am I?"
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters.
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters.
 - Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling.
+- Call `requireBackStackFor(route)` instead of `backStackFor(route)` at any call site that cannot
 - Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops.
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells.
+- Keep the shell fallback destination (`AndroidShellNav3`, `DesktopShellNav3`) in sync with
+- Register new `AppDestination` serializers in `AppDestinationSerializers`, nowhere else.
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`.
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android.
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods.
 - `TasksNavGraph` is the `@Composable` nav host — it sets up `LocalTasksNavigator`, `LocalNavBackStack`, and the `BackHandler`.
 - `TasksNavigator` is the only class that mutates `NavBackStack<TasksRoute>`.
 - `TasksRoute` is the sealed interface defining all routes within the tasks graph (Inbox, Today, ByProject, Detail, Create).
+- `startRoute` used by `rememberNav3State` **must** be a member of `topLevelRoutes`
 
 ### `navigation`
 
@@ -1549,6 +1558,7 @@ _6 entries need attention._
 - `2026-09-26-ui-testing-deferred` — _untagged_
 - `2026-09-26-writer-reviewer-pattern` — _untagged_
 - `2026-09-27-draft-mvi-single-state-source` — mvi, viewmodel, draft, coroutines, initialization-order
+- `2026-09-27-nav3-startroute-invariant` — nav3, navigation, bug, koin, architecture
 - `2026-09-27-remove-platform-clock-object` — clock, architecture, migration, kotlin-stdlib
 
 ## Active entries
@@ -1819,5 +1829,6 @@ _6 entries need attention._
 - `2026-09-26-ui-testing-deferred` — UI testing deferred — androidHostTest + UiAutomator postponed
 - `2026-09-26-writer-reviewer-pattern` — _(no title)_
 - `2026-09-27-draft-mvi-single-state-source` — DraftMviViewModel — one state source, no open-member calls from a constructor
+- `2026-09-27-nav3-startroute-invariant` — Nav3 startRoute must be a top-level route — enforce with an invariant, centralize serializers
 - `2026-09-27-remove-platform-clock-object` — Remove `core.platform.Clock` — use `kotlin.time.Clock` everywhere
 

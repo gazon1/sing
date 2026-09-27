@@ -24,7 +24,10 @@ import androidx.navigation3.runtime.NavKey
  */
 @Composable
 actual fun rememberNav3State(): Nav3State {
-    val startRoute: NavKey = AppDestination.Today
+    // MUST be a member of `topLevelRoutes` — `backStacks` is built from that set, so a
+    // startRoute outside it would have no back stack and NavDisplay would receive an
+    // empty entry list. `DestinationKind.tabs` uses AgendaGraph(...) instances.
+    val startRoute: NavKey = AppDestination.AgendaGraph(AgendaStartRoute.Today)
     val topLevelRoutes: Set<NavKey> =
         DestinationKind.tabs.toSet() + DestinationKind.menuEntries.toSet()
 

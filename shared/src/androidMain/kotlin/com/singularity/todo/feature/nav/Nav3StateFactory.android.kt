@@ -23,7 +23,10 @@ import androidx.navigation3.runtime.rememberNavBackStack
  */
 @Composable
 actual fun rememberNav3State(): Nav3State {
-    val startRoute: NavKey = AppDestination.Today
+    // MUST be a member of `topLevelRoutes` — `backStacks` is built from that set, so a
+    // startRoute outside it would have no back stack and NavDisplay would receive an
+    // empty entry list. `DestinationKind.tabs` uses AgendaGraph(...) instances.
+    val startRoute: NavKey = AppDestination.AgendaGraph(AgendaStartRoute.Today)
     val topLevelRoutes: Set<NavKey> =
         DestinationKind.tabs.toSet() + DestinationKind.menuEntries.toSet()
 
@@ -32,32 +35,7 @@ actual fun rememberNav3State(): Nav3State {
     }
 
     val savedStateConfig = remember {
-        navSavedStateConfig(
-            // Top-level tab + menu data objects
-            AppDestination.Inbox.serializer(),
-            AppDestination.Today.serializer(),
-            AppDestination.Plans.serializer(),
-            AppDestination.Pomodoro.serializer(),
-            AppDestination.Statistics.serializer(),
-            AppDestination.Notes.serializer(),
-            AppDestination.AiChat.serializer(),
-            AppDestination.Search.serializer(),
-            AppDestination.Archive.serializer(),
-            AppDestination.Settings.serializer(),
-            AppDestination.AiUsage.serializer(),
-            AppDestination.ProfileSwitcher.serializer(),
-            // Sub-route data classes (push-on-top of a top-level destination)
-            AppDestination.TasksGraph.serializer(),
-            AppDestination.TasksByProject.serializer(),
-            AppDestination.TaskDetail.serializer(),
-            AppDestination.TaskDetailCreate.serializer(),
-            AppDestination.ProjectEditor.serializer(),
-            AppDestination.ProjectDetail.serializer(),
-            AppDestination.ProjectsGraph.serializer(),
-            AppDestination.NotesGraph.serializer(),
-            AppDestination.Calendar.serializer(),
-            AppDestination.CalendarGraph.serializer(),
-        )
+        navSavedStateConfig(*AppDestinationSerializers.toTypedArray())
     }
 
     val backStacks = topLevelRoutes.associateWith { key ->

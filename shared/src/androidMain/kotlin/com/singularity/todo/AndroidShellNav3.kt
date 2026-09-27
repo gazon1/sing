@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.MenuButtonTitle
@@ -57,7 +58,7 @@ fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
 
     // topLevelRoute is MutableState<NavKey>, getValue triggers recomposition on change
     val current: AppDestination = state.topLevelRoute as? AppDestination
-        ?: AppDestination.Today
+        ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
 
     val fabAction = fabActionForNav3(current) { navigator.navigate(it) }
 
