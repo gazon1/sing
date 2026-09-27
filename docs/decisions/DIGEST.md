@@ -280,6 +280,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - The detekt MVI rules can no longer be evaded by file naming. All 29 `*ViewModel`
 - The four layers of the OTA strategy (gate, in-app update, flags, GenUI) are production-ready for Google Play distribution.
 - The suite is green for the first time in this refactor: 1047 tests, 0 failures.
+- The task list, tag groups and saved agendas render again on desktop and Android.
 - The ~930 baseline violations are **technical debt**. A dedicated cleanup campaign (PR-0.3 or follow-up) should address the top categories: FunctionNaming, BackingPropertyNaming, LongMethod, PackageNaming.
 - The ⟳ icon on calendar task chips will now work once MR-3b (Click-to-create)
 - Throttling prevents SQLite spam from polling.
@@ -325,6 +326,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `FakeRepositories.InMemoryTaskDao.listAllDependenciesForUser` stub implemented for tests.
 - `InternalLinkRepositoryImpl` now fully owns the user resolution — consistent with `TagsRepository`, `TaskRepository`, etc.
 - `MviViewModel` is now the single place that holds UI state. `TaskDetailViewModel`
+- `NoFactoryViewModelProvider` is absent from the `detekt-rules` service-loader file and
 - `NoteDao.getNotesLinkingToTask` — same pattern for `task://` scheme in notes
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
 - `NoteEditor` now fully integrates with `DraftMviViewModel` instead of bypassing it
@@ -400,6 +402,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `singularity-todo-domain-glossary` skill provides a decision tree for "should this be a term?"
 - `singularity-todo-secure-storage` skill governs credential storage decisions
 - `status: deferred` ADRs are not required to have a `date` field
+- `updateState { it }` is now a build failure, so the mechanical-rewrite trap cannot
 - `ux-a11y-review` skill covers non-functional requirements beyond performance
 - cTag/ETag two-way diff (needs CalDAV server)
 - detekt: 0 new findings | jvmTest: green
@@ -1584,6 +1587,7 @@ _6 entries need attention._
 - `2026-09-27-draft-mvi-single-state-source` — mvi, viewmodel, draft, coroutines, initialization-order
 - `2026-09-27-mvi-single-state-entry-and-vm-sweep` — _untagged_
 - `2026-09-27-nav3-startroute-invariant` — nav3, navigation, bug, koin, architecture
+- `2026-09-27-no-op-update-state-reducer` — _untagged_
 - `2026-09-27-remove-platform-clock-object` — clock, architecture, migration, kotlin-stdlib
 - `2026-09-27-taskdetail-migration-and-debounce-write-loop` — _untagged_
 - `2026-09-27-vm-koin-scoping-retired` — koin, viewmodel, skills, documentation
@@ -1861,6 +1865,7 @@ _6 entries need attention._
 - `2026-09-27-draft-mvi-single-state-source` — DraftMviViewModel — one state source, no open-member calls from a constructor
 - `2026-09-27-mvi-single-state-entry-and-vm-sweep` — MVI Base — Single State-Update Entry + ViewModel Sweep
 - `2026-09-27-nav3-startroute-invariant` — Nav3 startRoute must be a top-level route — enforce with an invariant, centralize serializers
+- `2026-09-27-no-op-update-state-reducer` — _(no title)_
 - `2026-09-27-remove-platform-clock-object` — Remove `core.platform.Clock` — use `kotlin.time.Clock` everywhere
 - `2026-09-27-taskdetail-migration-and-debounce-write-loop` — TaskDetailViewModel Migration + Debounce Write-Loop Fix
 - `2026-09-27-vm-koin-scoping-retired` — Retire `singularity-todo-vm-koin-scoping`

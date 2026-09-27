@@ -42,7 +42,6 @@ class AgendaViewModel(
     ) {
 
     init {
-        addCloseable(scope)
         scope.launch {
             todayFlow().flatMapLatest { today ->
                 deps.taskRepo.observeByFilter(TaskFilter.All)
@@ -54,7 +53,7 @@ class AgendaViewModel(
                         )
                     }
             }
-                .collect { updateState { it } }
+                .collect { loaded -> setState(loaded) }
         }
     }
 
