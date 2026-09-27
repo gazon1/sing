@@ -28,9 +28,16 @@ object ContentStateMapper {
 
     fun notes(state: NotesUiState): ContentState<List<com.singularity.todo.feature.notes.Note>> = when (state) {
         is NotesUiState.Loading -> ContentState.Loading
-        is NotesUiState.Empty -> ContentState.Empty
+
         is NotesUiState.Error -> ContentState.Error(AppError.Unknown(state.message))
-        is NotesUiState.Content -> ContentState.Ready(state.list.pinned + state.list.unpinned)
+
+        is NotesUiState.Content -> {
+            if (state.list.isEmpty) {
+                ContentState.Empty
+            } else {
+                ContentState.Ready(state.list.pinned + state.list.unpinned)
+            }
+        }
     }
 
     fun tags(state: TagsUiState): ContentState<List<com.singularity.todo.feature.tags.Tag>> = when (state) {

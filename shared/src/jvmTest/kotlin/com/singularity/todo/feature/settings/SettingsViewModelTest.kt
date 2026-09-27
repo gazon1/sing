@@ -126,7 +126,7 @@ class SettingsViewModelTest {
 // because advanceUntilIdle() may return before background coroutines settle.
         repeat(3) { advanceUntilIdle() }
         runCurrent()
-        vm.processIntent(SettingsIntent.Notifications.UpdateEnabled(false))
+        vm.onIntent(SettingsIntent.Notifications.UpdateEnabled(false))
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
         repeat(3) { advanceUntilIdle() }
@@ -144,7 +144,7 @@ class SettingsViewModelTest {
 // because advanceUntilIdle() may return before background coroutines settle.
         repeat(3) { advanceUntilIdle() }
         runCurrent()
-        vm.processIntent(SettingsIntent.WorkSchedule.UpdateWorkDayStart(600))
+        vm.onIntent(SettingsIntent.WorkSchedule.UpdateWorkDayStart(600))
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
         repeat(3) { advanceUntilIdle() }
@@ -162,7 +162,7 @@ class SettingsViewModelTest {
 // because advanceUntilIdle() may return before background coroutines settle.
         repeat(3) { advanceUntilIdle() }
         runCurrent()
-        vm.processIntent(SettingsIntent.Greeting.UpdateMorningEnd(10))
+        vm.onIntent(SettingsIntent.Greeting.UpdateMorningEnd(10))
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
         repeat(3) { advanceUntilIdle() }
@@ -181,7 +181,7 @@ class SettingsViewModelTest {
         repeat(3) { advanceUntilIdle() }
         runCurrent()
         val job = backgroundScope.launch {
-            vm.processIntent(SettingsIntent.Ai.UpdateProvider(com.singularity.todo.core.llm.LlmProvider.OLLAMA))
+            vm.onIntent(SettingsIntent.Ai.UpdateProvider(com.singularity.todo.core.llm.LlmProvider.OLLAMA))
         }
         job.join()
         // Advance until all VM collectors have drained (multiple passes needed
@@ -200,7 +200,7 @@ class SettingsViewModelTest {
         repeat(3) { advanceUntilIdle() }
         runCurrent()
         backgroundScope.launch {
-            vm.processIntent(SettingsIntent.Ai.TestConnection)
+            vm.onIntent(SettingsIntent.Ai.TestConnection)
         }
         // Let the VM's scope (backgroundScope) process the launched coroutines
         repeat(10) { advanceUntilIdle() }
@@ -220,7 +220,7 @@ class SettingsViewModelTest {
         repeat(3) { advanceUntilIdle() }
         runCurrent()
         val job = backgroundScope.launch {
-            vm.processIntent(SettingsIntent.Ai.TestConnection)
+            vm.onIntent(SettingsIntent.Ai.TestConnection)
         }
         job.join()
         // Advance until all VM collectors have drained (multiple passes needed
@@ -265,7 +265,7 @@ class SettingsViewModelTest {
         repeat(3) { advanceUntilIdle() }
         runCurrent()
         val job = backgroundScope.launch {
-            vm.processIntent(SettingsIntent.Ai.TestConnection)
+            vm.onIntent(SettingsIntent.Ai.TestConnection)
         }
         job.join()
         // Advance until all VM collectors have drained (multiple passes needed

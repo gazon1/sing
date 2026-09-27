@@ -5,6 +5,11 @@ tags: [tech-debt, audit, vm, database, tests]
 status: accepted
 ---
 
+
+> **Superseded in part (2026-09-27):** `StatefulViewModel`, `updateStateAs<T>`,
+> `onStateChanged` and `CoroutineScope.fireAndForget` were removed. See
+> [2026-09-27-mvi-single-state-entry-and-vm-sweep.md](2026-09-27-mvi-single-state-entry-and-vm-sweep.md).
+
 ## Context
 
 After completing PR #2 (`feat/vm-event-guard-cleanup`) a batch audit surfaced residual issues not yet scoped into any PR. This ADR records them for tracking.

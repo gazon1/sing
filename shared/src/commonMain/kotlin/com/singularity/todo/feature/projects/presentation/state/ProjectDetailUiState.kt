@@ -1,9 +1,28 @@
 package com.singularity.todo.feature.projects.presentation.state
 
+import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
+import com.singularity.todo.feature.tasks.domain.model.Task
 
 sealed interface ProjectDetailUiState {
     data object Loading : ProjectDetailUiState
     data object NotFound : ProjectDetailUiState
-    data class Content(val ui: ProjectDetailUi) : ProjectDetailUiState
+
+    /**
+     * Everything the screen renders, in one snapshot.
+     *
+     * [parentOptions] and [availableTasks] used to be separate public flows on the
+     * ViewModel. Folding them in means the screen collects a single state instead of
+     * four independently-timed flows, which is what let the UI briefly show a
+     * `hideCompleted` toggle that disagreed with the task list already on screen.
+     */
+    data class Content(
+        val ui: ProjectDetailUi,
+        /** Whether completed tasks are filtered out of [ProjectDetailUi.tasks]. */
+        val hideCompleted: Boolean,
+        /** Parent-picker options; excludes this project, deleted and non-root projects. */
+        val parentOptions: List<ParentOption>,
+        /** Active tasks outside this project, for the "add existing task" picker. */
+        val availableTasks: List<Task>,
+    ) : ProjectDetailUiState
 }

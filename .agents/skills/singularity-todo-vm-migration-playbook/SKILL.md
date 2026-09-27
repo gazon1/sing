@@ -122,15 +122,7 @@ _events.send(MyEvent.ShowError("Error"))
 emit(MyEvent.ShowError("Error"))
 ```
 
-**Remember:** `emit()` is `protected suspend fun`. If calling from a non-suspend lambda (e.g. `fireAndForget`'s `onError`), wrap in `scope.launch {}`:
-
-```kotlin
-// ✅ Correct
-onError = { e -> scope.launch { emit(MyEvent.ShowError(...)) } }
-
-// ❌ Wrong
-onError = { e -> emit(MyEvent.ShowError(...)) }  // compile error
-```
+**Remember:** `emit()` is `protected suspend fun`. If the failure belongs to a one-shot event, use `emitError(errorLabel, SomeUiEvent::ShowError) { repoCall() }` from the base class — its routing lambda is `suspend`, so there is no nested `scope.launch { emit(...) }`.
 
 ### Step D: Replace `_state.value = ...` with `updateState { }` or direct assignment
 

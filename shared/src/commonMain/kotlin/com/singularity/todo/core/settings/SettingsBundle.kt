@@ -98,7 +98,7 @@ sealed interface EphemeralState {
  * Sealed hierarchy of all settings intents.
  * Each subtype is handled by the corresponding [SettingsContributor].
  */
-sealed interface SettingsIntent {
+sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
 
     // ── Appearance ────────────────────────────────────────────────────────────
 

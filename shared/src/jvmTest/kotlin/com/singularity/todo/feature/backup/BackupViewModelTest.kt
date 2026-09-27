@@ -94,7 +94,7 @@ class BackupViewModelTest {
         testScheduler.runCurrent()
         testScheduler.runCurrent()
 
-        vm.createBackup()
+        vm.onIntent(BackupIntent.CreateBackup)
         advanceUntilIdle()
         testScheduler.runCurrent()
         testScheduler.runCurrent()
@@ -113,7 +113,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.createBackup()
+        vm.onIntent(BackupIntent.CreateBackup)
         advanceUntilIdle()
         testScheduler.runCurrent()
 
@@ -130,13 +130,16 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        // Collect snackbar in background so emit() has an active collector
+        // Collect in background so emit() has an active collector. `events` is a
+        // Channel — exactly one collector may drain it.
         var capturedSnackbar: String? = null
-        backgroundScope.launch { vm.snackbar.collect { capturedSnackbar = it } }
+        backgroundScope.launch {
+            vm.events.collect { e -> if (e is BackupUiEvent.ShowSnackbar) capturedSnackbar = e.message }
+        }
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.createBackup()
+        vm.onIntent(BackupIntent.CreateBackup)
         advanceUntilIdle()
         testScheduler.runCurrent()
 
@@ -157,7 +160,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.createBackup()
+        vm.onIntent(BackupIntent.CreateBackup)
         advanceUntilIdle()
         testScheduler.runCurrent()
         testScheduler.runCurrent()
@@ -175,7 +178,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.import("/path/to/backup.zip")
+        vm.onIntent(BackupIntent.Import("/path/to/backup.zip"))
         advanceUntilIdle()
         testScheduler.runCurrent()
 
@@ -193,7 +196,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.delete(BackupId("b1"))
+        vm.onIntent(BackupIntent.Delete(BackupId("b1")))
         advanceUntilIdle()
         testScheduler.runCurrent()
 
@@ -211,7 +214,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.push(BackupId("b1"))
+        vm.onIntent(BackupIntent.Push(BackupId("b1")))
         advanceUntilIdle()
         testScheduler.runCurrent()
 

@@ -88,10 +88,14 @@ fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koin
         NotesActions(viewModel::onIntent)
     }
 
+    // filter/sortOrder live on NotesListState — read them from the one state
+    // snapshot instead of collecting a duplicate copy from the ViewModel.
+    val listState = (state as? NotesUiState.Content)?.list
+
     NotesScreenContent(
         state = state,
-        currentFilter = viewModel.filter.collectAsStateWithLifecycle().value,
-        currentSortOrder = viewModel.sortOrder.collectAsStateWithLifecycle().value,
+        currentFilter = listState?.filter ?: NoteFilter.All,
+        currentSortOrder = listState?.sortOrder ?: NoteSortOrder.UpdatedDesc,
         navigator = navigator,
         onCreateNote = { title -> NoteId.fromString(viewModel.createNoteWithTitle(title)) },
         actions = actions,
@@ -182,7 +186,7 @@ fun NotesScreenContent(
             }
         },
     ) { padding ->
-        if (state is NotesUiState.Empty) {
+        if (state is NotesUiState.Content && state.list.isEmpty) {
             EmptyState(
                 title = "No notes yet",
                 subtitle = "Create your first note to get started",
@@ -566,7 +570,7 @@ private fun NotesScreenContentPreview() = PreviewThemed(darkTheme = false, useSu
 private fun NotesScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     NotesPreviewWrapper {
         NotesScreenContent(
-            state = NotesUiState.Empty,
+            state = NotesUiState.Content(NotesListState()),
             currentFilter = NoteFilter.All,
             currentSortOrder = NoteSortOrder.UpdatedDesc,
             navigator = LocalNotesNavigator.current,

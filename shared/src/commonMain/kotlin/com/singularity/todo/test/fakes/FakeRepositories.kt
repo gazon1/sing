@@ -1540,7 +1540,7 @@ class FakeProfileRepository : ProfileRepository {
 fun FakeProfileAwareCurrentUser(
     initialUserId: UserId = UserId("test-user"),
     profileRepository: ProfileRepository = FakeProfileRepository(),
-    dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Default,
+    dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Unconfined,
 ): ProfileAwareCurrentUser {
     val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + dispatcher)
     return fakeProfileAwareCurrentUserImpl(
@@ -1570,7 +1570,7 @@ fun FakeProfileAwareCurrentUser(
 fun FakeProfileAwareCurrentUser(
     authRepository: AuthRepository,
     profileRepository: ProfileRepository = FakeProfileRepository(),
-    dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Default,
+    dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Unconfined,
 ): ProfileAwareCurrentUser {
     val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + dispatcher)
     return fakeProfileAwareCurrentUserImpl(authRepository, profileRepository, scope)

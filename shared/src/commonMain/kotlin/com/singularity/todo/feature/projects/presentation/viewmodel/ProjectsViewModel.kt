@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.database.toProject
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ui.MviIntent
@@ -58,7 +57,6 @@ class ProjectsViewModel(
         initialState = ProjectsUiState.Loading,
         scope = scope,
     ) {
-    override val vmScope = scope
 
     private val _searchQuery = MutableStateFlow("")
     private val _sortOrder = MutableStateFlow(ProjectSortOrder.Name)
@@ -116,14 +114,7 @@ class ProjectsViewModel(
     }
 
     private fun delete(id: ProjectId) {
-        vmScope.fireAndForget(
-            errorLabel = "Delete project failed",
-            onError = { e ->
-                vmScope.launch {
-                    emit(ProjectsUiEvent.Error("Delete project failed: ${e.toMessage()}"))
-                }
-            },
-        ) {
+        emitError("Delete project failed", { msg -> ProjectsUiEvent.Error("Delete project failed: $msg") }) {
             deleteProject(id)
         }
     }

@@ -96,7 +96,6 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
         initialState = DraftUiState(draft = initialDraft),
         scope = scope,
     ) {
-    override val vmScope: AutoCloseableCoroutineScope = scope
 
     private val draftState = DraftState(initialDraft)
 

@@ -91,6 +91,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Breaking change** for `NoteEditor`, `NotePreview`, and their tests — the `userId` argument is removed from `linkRepo.searchNotes(...)`, `linkRepo.searchTasks(...)`, and `linkRepo.getBacklinkNotes(...)` calls.
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска
 - **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
+- **Duplicate snackbar on settings export.** `exportSettingsSnapshot` emitted both
+- **Every ViewModel in the project is now on `MviViewModel` or `DraftMviViewModel`.**
 - **Five commits land together** because they all touch the same orbit
 - **HlcFactory must be `open`**: The actual JVM class is final, preventing test subclassing. Changed to `open class`.
 - **JVM target**: `SyncEngine` still exists, but `SyncWorkScheduler` is `NoopSyncWorkScheduler` (no-op). No background sync on desktop.
@@ -117,6 +119,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **UX honesty**: rendered buttons do what they advertise. No more
 - **Unit tests gain an `init { ProfileAwareCurrentUser.setInstance(fake) }` setup
 - **`AutoCloseableCoroutineScope.job` property** is now exposed; `testScope()` creates a child Job so test cleanup does not cancel the parent TestScope root.
+- **`BackupScreen` collected `events` twice** (its own `LaunchedEffect` plus
+- **`MviViewModelExt` early-return was dead code** (full type text vs bare name).
 - **`ProjectDetailActions` still uses the value-class + block pattern** —
 - **`SyncViewModel` constructor exposes `vmScope`** for tests; cancelling `vmScope.job` is the documented way to stop infinite collectors in test scope cleanup (child Job, does not cancel test body).
 - **`TaskCardActions` API is a breaking change** for any external consumer
@@ -288,7 +292,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - The `scopeOverride` getter anti-pattern remains in 10 VMs (the canonical
 - The `writer-reviewer-pattern` governs who is responsible for each phase transition
 - The default `viewModelScope` is still created by the ViewModel but is unused in Tier-1 VMs (negligible memory cost: one empty `SupervisorJob`).
+- The detekt MVI rules can no longer be evaded by file naming. All 29 `*ViewModel`
 - The four layers of the OTA strategy (gate, in-app update, flags, GenUI) are production-ready for Google Play distribution.
+- The suite is green for the first time in this refactor: 1047 tests, 0 failures.
 - The ~930 baseline violations are **technical debt**. A dedicated cleanup campaign (PR-0.3 or follow-up) should address the top categories: FunctionNaming, BackingPropertyNaming, LongMethod, PackageNaming.
 - The ⟳ icon on calendar task chips will now work once MR-3b (Click-to-create)
 - Theme switching now correctly recomposes the calendar palette
@@ -338,11 +344,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `FakeRepositories.InMemoryTaskDao.listAllDependenciesForUser` stub implemented for tests.
 - `InternalLinkRepositoryImpl` now fully owns the user resolution — consistent with `TagsRepository`, `TaskRepository`, etc.
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
+- `MviViewModel` is now the single place that holds UI state. `TaskDetailViewModel`
 - `NoteDao.getNotesLinkingToTask` — same pattern for `task://` scheme in notes
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
 - `NoteEditor` now fully integrates with `DraftMviViewModel` instead of bypassing it
 - `NoteEditor` now has two AI entry points: `improveNote()` (legacy) and `runAiAction()` (new).
 - `NotesNavGraph(navCallbacks)` is the single integration point with the outer graph
+- `NotesUiState` lost its `Empty` variant — an empty list is `Content` with
 - `NotificationHost` заменил ~64 строки ручного glue кода на 8 экранах
 - `PlatformModule.android.kt` still has two `runBlocking` calls — these are at module initialization time (startup), not inside VMs or repositories. Acceptable for now.
 - `ProfileAwareCurrentUser` moves **inside** repositories; the DI graph registers
@@ -353,6 +361,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `RoomReminderRepository.upsert` now stamps ambient on insert — no more stale/missing userId.
 - `RoomSavedAgendaViewsRepository.upsert` now stamps ambient on insert — consistent with other repos.
 - `SavedAgendaViewModel` (via `SavedAgendaDeps`) no longer injects `ProfileAwareCurrentUser`.
+- `SettingsUiState.Loading` / `.Error` were never produced by anyone; the two screen
 - `ShowError` event removed from `CalendarUiEvent` (no longer needed after previous refactors).
 - `SyncBootstrapper` remains `internal` — no feature code can bypass `SyncRepository`
 - `SyncEngine` and `SyncRunner` remain `internal` — feature modules never touch them directly
@@ -385,6 +394,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `androidHostTest` configuration (Robolectric) exists in `shared/build.gradle.kts` but runs 0 tests — no harm in leaving it.
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly).
 - `applyRoute` in `TasksViewModel` is dead code — zero callers confirmed; deleted.
+- `catchTo`'s `onError` being `suspend` is load-bearing. Reverting it to non-suspend
 - `check-skill-frontmatter.sh` validates all skills in `.agents/skills/`
 - `core/ui/state/StateFlowExt.kt::updateState` removed after all migrations complete (MR-4)
 - `createdAt` is preserved for existing notes via `cachedNote` in `persist()`
@@ -393,6 +403,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `debugging-investigation` skill gives engineers a step-by-step diagnosis procedure
 - `delay(until-midnight)` means the flow never completes — collectors must be scoped
 - `endTime` / `accentColor` — blocked on Room migration for `startAt`/`endAt`/`accentColor` fields in `Task`
+- `errorLabel` is a **fallback**, not a prefix: `toMessage(label)` prefers
 - `expect object Clock` rename to `PlatformClock` — deferred until a broader cleanup window
 - `flatMapLatest` re-evaluates all tasks on every date change (necessary trade-off;
 - `getOrThrow()` removed from 5 VM sites; replaced with `fireAndForget` + channel emit.
@@ -407,6 +418,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `just tcheck` (full pipeline) is the authoritative check before merge
 - `just` must be installed (`just 1.57.0` is present in this environment).
 - `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
+- `onIntent` is still 249 lines with cyclomatic complexity over the limit. That debt is
 - `refresh-decisions-digest.sh` must handle `superseded-by` by not duplicating superseded ADR bullets into DIGEST Critical section
 - `scopeOverride` добавлен в `ProjectsViewModel`
 - `security-review` skill gives a step-by-step security review checklist
@@ -1558,8 +1570,10 @@ _6 entries need attention._
 - `2026-09-26-ui-testing-deferred` — _untagged_
 - `2026-09-26-writer-reviewer-pattern` — _untagged_
 - `2026-09-27-draft-mvi-single-state-source` — mvi, viewmodel, draft, coroutines, initialization-order
+- `2026-09-27-mvi-single-state-entry-and-vm-sweep` — _untagged_
 - `2026-09-27-nav3-startroute-invariant` — nav3, navigation, bug, koin, architecture
 - `2026-09-27-remove-platform-clock-object` — clock, architecture, migration, kotlin-stdlib
+- `2026-09-27-taskdetail-migration-and-debounce-write-loop` — _untagged_
 
 ## Active entries
 
@@ -1829,6 +1843,8 @@ _6 entries need attention._
 - `2026-09-26-ui-testing-deferred` — UI testing deferred — androidHostTest + UiAutomator postponed
 - `2026-09-26-writer-reviewer-pattern` — _(no title)_
 - `2026-09-27-draft-mvi-single-state-source` — DraftMviViewModel — one state source, no open-member calls from a constructor
+- `2026-09-27-mvi-single-state-entry-and-vm-sweep` — _(no title)_
 - `2026-09-27-nav3-startroute-invariant` — Nav3 startRoute must be a top-level route — enforce with an invariant, centralize serializers
 - `2026-09-27-remove-platform-clock-object` — Remove `core.platform.Clock` — use `kotlin.time.Clock` everywhere
+- `2026-09-27-taskdetail-migration-and-debounce-write-loop` — _(no title)_
 

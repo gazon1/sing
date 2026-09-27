@@ -2,7 +2,6 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.notes.Note
@@ -30,7 +29,6 @@ class NotePreview(
         scope = scope,
     ) {
     private val logger = Logger.withTag("NotePreview")
-    override val vmScope = scope
     private var loadNoteJob: Job? = null
 
     override fun onIntent(intent: NotePreviewIntent) {
@@ -64,10 +62,7 @@ class NotePreview(
 
     private fun delete() {
         val current = currentState as? NotePreviewState.Loaded ?: return
-        vmScope.fireAndForget(
-            errorLabel = "Delete failed",
-            onError = { e -> tryEmit(NotesUiEvent.Error("Delete failed: ${e.message ?: "unknown"}")) },
-        ) {
+        emitError("Delete failed", { msg -> NotesUiEvent.Error("Delete failed: $msg") }) {
             repo.delete(current.note.id)
         }
     }

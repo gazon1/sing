@@ -6,7 +6,6 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import kotlinx.coroutines.launch
 
 /** Placeholder state — AttachmentsViewModel only emits events. */
 sealed interface AttachmentsUiState {
@@ -40,45 +39,27 @@ class AttachmentsViewModel(
 
     override fun onIntent(intent: AttachmentsIntent) {
         when (intent) {
-            is AttachmentsIntent.AddUrl -> scope.launch { addUrl(intent) }
-            is AttachmentsIntent.SaveFile -> scope.launch { saveFile(intent) }
-            is AttachmentsIntent.Delete -> scope.launch { delete(intent) }
+            is AttachmentsIntent.AddUrl -> addUrl(intent)
+            is AttachmentsIntent.SaveFile -> saveFile(intent)
+            is AttachmentsIntent.Delete -> delete(intent)
         }
     }
 
-    private suspend fun addUrl(intent: AttachmentsIntent.AddUrl) {
-        repository.addUrlAttachment(intent.taskId, intent.url, intent.title)
-            .onFailure {
-                emit(
-                    AttachmentsUiEvent.ShowError(
-                        it.message
-                            ?: "Failed to add link",
-                    ),
-                )
-            }
+    private fun addUrl(intent: AttachmentsIntent.AddUrl) {
+        emitError("Failed to add link", AttachmentsUiEvent::ShowError) {
+            repository.addUrlAttachment(intent.taskId, intent.url, intent.title)
+        }
     }
 
-    private suspend fun saveFile(intent: AttachmentsIntent.SaveFile) {
-        repository.saveFileAttachment(intent.taskId, intent.sourcePath, intent.mimeType)
-            .onFailure {
-                emit(
-                    AttachmentsUiEvent.ShowError(
-                        it.message
-                            ?: "Failed to save file",
-                    ),
-                )
-            }
+    private fun saveFile(intent: AttachmentsIntent.SaveFile) {
+        emitError("Failed to save file", AttachmentsUiEvent::ShowError) {
+            repository.saveFileAttachment(intent.taskId, intent.sourcePath, intent.mimeType)
+        }
     }
 
-    private suspend fun delete(intent: AttachmentsIntent.Delete) {
-        repository.delete(intent.attachmentId)
-            .onFailure {
-                emit(
-                    AttachmentsUiEvent.ShowError(
-                        it.message
-                            ?: "Delete failed",
-                    ),
-                )
-            }
+    private fun delete(intent: AttachmentsIntent.Delete) {
+        emitError("Delete failed", AttachmentsUiEvent::ShowError) {
+            repository.delete(intent.attachmentId)
+        }
     }
 }

@@ -6,6 +6,11 @@ deciders: Singularity Developer
 
 # Post-MR-6d Audit: MVI Framework Migration — Final Status
 
+
+> **Superseded in part (2026-09-27):** `StatefulViewModel`, `updateStateAs<T>`,
+> `onStateChanged` and `CoroutineScope.fireAndForget` were removed. See
+> [2026-09-27-mvi-single-state-entry-and-vm-sweep.md](2026-09-27-mvi-single-state-entry-and-vm-sweep.md).
+
 ## Context
 
 After completing MR-6c (SearchVM + ProjectsVM), MR-6d-early (TOCTOU fixes), and MR-6d (full TaskDetailVM + ProjectDetailVM migration), this ADR records the final migration status.

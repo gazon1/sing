@@ -100,10 +100,7 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
     val nav = LocalProjectsNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
-    val hideCompleted by viewModel.hideCompleted.collectAsStateWithLifecycle()
     val clock: Clock = Clock.System
-    val parentOptions by viewModel.parentOptionsFlow.collectAsStateWithLifecycle()
-    val availableTasks by viewModel.availableTasksFlow.collectAsStateWithLifecycle()
     val sheets = rememberDialogState<ActiveSheet>()
     var overflowMenuOpen by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -218,8 +215,8 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                 ProjectMetaChipsRow(ui = s.ui, actions = actions)
                 ProjectBodySection(
                     ui = s.ui,
-                    hideCompleted = hideCompleted,
-                    availableTasks = availableTasks,
+                    hideCompleted = s.hideCompleted,
+                    availableTasks = s.availableTasks,
                     actions = actions,
                     nav = nav,
                 )
@@ -255,7 +252,7 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                         onNavigateToChild = { id -> actions.onNavigateToChild(id) },
                     )
                 },
-                parentOptions = parentOptions,
+                parentOptions = content?.parentOptions.orEmpty(),
                 onSheetDismiss = { sheets.dismiss() },
             )
         }

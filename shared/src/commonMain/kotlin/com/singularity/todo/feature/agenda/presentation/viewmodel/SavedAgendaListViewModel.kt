@@ -74,15 +74,8 @@ class SavedAgendaListViewModel(
     override fun onIntent(intent: SavedAgendaListIntent) {
         when (intent) {
             is SavedAgendaListIntent.Delete -> with(intent) {
-                scope.launch {
+                emitError("Delete failed", SavedAgendaListEvent::ShowError) {
                     deps.repo.delete(viewId)
-                        .onFailure {
-                            emit(
-                                SavedAgendaListEvent.ShowError(
-                                    it.toMessage("Delete failed"),
-                                ),
-                            )
-                        }
                 }
             }
 

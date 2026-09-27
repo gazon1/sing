@@ -63,7 +63,6 @@ class SyncViewModel(
         ),
         scope = scope,
     ) {
-    override val vmScope = scope
     private val syncMutex = Mutex()
 
     /**

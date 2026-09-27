@@ -21,6 +21,7 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
@@ -86,17 +87,31 @@ class ProjectDetailViewModelTest {
         fakeTaskRepo.clear()
     }
 
+    /**
+     * Reads the single state snapshot the screen renders. The toggle is part of the
+     * state now, not a standalone flow, so the `combine` has to emit `Content` first.
+     */
+    private fun ProjectDetailViewModel.hideCompleted(): Boolean =
+        (state.value as? ProjectDetailUiState.Content)?.hideCompleted
+            ?: error("expected Content, got ${state.value}")
+
     @Test
     fun `ToggleHideCompleted flips hideCompleted state`() = runTest {
         seedProject()
         val vm = createVm(backgroundScope)
-        assertFalse(vm.hideCompleted.value)
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+        assertFalse(vm.hideCompleted())
 
         vm.onIntent(ProjectDetailIntent.Domain.ToggleHideCompleted)
-        assertTrue(vm.hideCompleted.value)
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+        assertTrue(vm.hideCompleted())
 
         vm.onIntent(ProjectDetailIntent.Domain.ToggleHideCompleted)
-        assertFalse(vm.hideCompleted.value)
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+        assertFalse(vm.hideCompleted())
     }
 
     @Test
