@@ -7,7 +7,7 @@
 > Budgets enforced by `python3 scripts/check-doc-sizes.py`: SKILL.md <= 500 lines,
 > `description` <= 1024 chars.
 
-89 skills: 76 project-specific, 13 generic/meta.
+91 skills: 78 project-specific, 13 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -29,7 +29,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-coroutine-scopes` | 200 | Canonical patterns for CoroutineScope ownership in this KMP project — where scopes live, anti-patterns to avoid, and how to fix hanging tests caused by repository-owned scopes. |
 | `singularity-todo-cross-feature-navigation` | 196 | How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). |
 | `singularity-todo-cycle-detector-pattern` | 248 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |
-| `singularity-todo-decisions-workflow` | 289 | Lightweight decision-log workflow for this project. |
+| `singularity-todo-decisions-workflow` | 336 | Lightweight decision-log workflow for this project. |
 | `singularity-todo-detekt-rules-authoring` | 313 | How to write and register custom detekt rules in the Singularity Todo project. |
 | `singularity-todo-detekt-workflow` | 112 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules (PassThroughUseCase, NoStateIn, NoRunBlocking, NoViewModelScopeInProduction, NoRealDelayInTest, KDoc enforcement). |
 | `singularity-todo-di-graph-testing` | 206 | Catch Koin DI missing bindings before the app reaches a device. |
@@ -52,6 +52,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-mcp-dogfooding` | 202 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
 | `singularity-todo-mcp-init` | 261 | MCP init command pattern for Singularity Todo KMP. |
 | `singularity-todo-mcp-server` | 424 | MCP server pattern for Singularity Todo KMP. |
+| `singularity-todo-monthly-doc-audit` | 95 | Monthly or pre-release sweep of the documentation ecosystem in this repo. |
 | `singularity-todo-multi-profile` | 401 | Namespace-based multi-profile pattern for Singularity Todo KMP. |
 | `singularity-todo-multi-select` | 325 | Long-press multi-selection pattern for Compose Multiplatform list screens. |
 | `singularity-todo-mvi-framework` | 168 | Local MVI framework for Singularity Todo KMP. |
@@ -68,6 +69,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-rich-editor` | 346 | Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. |
 | `singularity-todo-room-migration` | 322 | Room 3 (androidx.room3:3.0.0) setup for KMP with the specific gotchas this project hit: EROFS when name is treated as relative path (must use Context.getDatabasePath), missing @ColumnInfo causes SQL validation failures, no autoMigrations needs fallbackToDestructiveMigration for dev. |
 | `singularity-todo-room-multi-instance` | 241 | Cross-process SQLite access pattern for Singularity Todo KMP. |
+| `singularity-todo-scheduled-maintenance` | 74 | Runtime measurement and periodic health checks for the Singularity Todo desktop (JVM) app. |
 | `singularity-todo-secure-storage` | 173 | Secure storage port pattern for KMP using expect/actual with libsecret shell-out on JVM, AES-GCM encrypted file fallback, and EncryptedSharedPreferences on Android. |
 | `singularity-todo-shared-ui-components` | 41 | Screen decomposition and the shared widget library for Singularity Todo Compose screens. |
 | `singularity-todo-sheet-extraction` | 395 | Sheet extraction workflow for Singularity Todo. |
@@ -96,8 +98,8 @@ state *which tasks need the skill*, not summarise its contents.
 
 | Skill | Lines | Description |
 |---|---:|---|
-| `code-review-pr-workflow` | 105 | Conduct a code review following the four-phases gate process. |
-| `debugging-investigation` | 129 | Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis, common patterns. |
+| `code-review-pr-workflow` | 191 | Author and review a pull request in this project. |
+| `debugging-investigation` | 176 | Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis, common patterns. |
 | `domain-glossary` | 89 | Decide whether a term belongs in docs/CONTEXT.md and add it correctly. |
 | `domain-modeling` | 73 | Build and sharpen a project's domain model. |
 | `grill-me` | 5 | A relentless interview to sharpen a plan or design. |

@@ -95,6 +95,53 @@ If unsure, write a one-paragraph entry — small is fine. Missing a decision is 
 
 The script is idempotent — running it on an already-fresh tree is a no-op that exits 0.
 
+#### Superseding an earlier decision
+
+An ADR records what was true when it was written, so **do not rewrite its body** to match
+today's code. Supersede it:
+
+1. Write the new ADR normally.
+2. In the **new** ADR's frontmatter, add `supersedes: <old-slug>`.
+3. In the **old** ADR's frontmatter, add `superseded-by: <new-slug>` and set
+   `status: superseded`.
+4. Add a banner at the top of the old ADR's body, directly under the frontmatter, so a
+   reader who opens the file learns the status without parsing frontmatter:
+
+   ```markdown
+   > **Superseded in part (YYYY-MM-DD):** <what changed and why>.
+   > See [YYYY-MM-DD-new-slug.md](YYYY-MM-DD-new-slug.md).
+   ```
+
+   Use "in part" when only one section of the old decision still holds — that is the
+   common case, and a blanket `superseded` hides decisions that are still in force.
+
+`scripts/check-doc-dead-refs.py` understands these banners: references inside one are
+reported as *historical* rather than *dead*, so a superseded ADR can still name files it
+described at the time.
+
+**A retired artifact also gets a banner.** When a skill, class or script is removed, the
+ADRs that described it are not wrong — they were right. Say so at the top rather than
+letting the next agent trust a path that no longer exists.
+
+#### Validating the corpus
+
+```bash
+just docs-audit        # frontmatter, doc sizes, dead refs, digest
+```
+
+That covers the mechanical checks. Two things it cannot see, worth a glance whenever you
+touch the decision log:
+
+- **A digest entry that states a rule the code no longer follows.** The digest is built
+  from the ADRs' `## Consequences`, so a stale consequence surfaces as a confident-looking
+  rule in the one file every agent reads first. When you change the code a rule describes,
+  fix the rule in the ADR or supersede the ADR — do not leave the consequence standing.
+- **A module with no ADR.** Twelve feature/core modules have zero decision records
+  (`feature/gate`, `feature/whatsnew`, `core/tree`, `core/serialization`, `core/ids` and
+  others — the full list is in
+  `docs/decisions/2026-09-27-doc-and-skills-sprint-findings.md`). Absence is not wrong;
+  it means the next person to change that module starts from nothing.
+
 #### Tools (optional, documented — not installed)
 
 - **`mdq`** — Markdown Query. CLI tool for grepping the decision corpus. Available at [github.com/megabreezy/mdq](https://github.com/megabreezy/mdq) (`brew install mdq` / `pip install mdq`). Not installed in this workspace; documented only.
