@@ -5,8 +5,8 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import com.singularity.todo.core.ui.components.ListPickerItem
-import com.singularity.todo.core.ui.components.ListPickerSheet
+import com.singularity.todo.core.ui.components.sheet.ListPickerItem
+import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 
@@ -34,10 +34,11 @@ fun TaskAiBottomSheet(task: Task, onAction: (TaskAiAction) -> Unit, onDismiss: (
     )
 }
 
-private fun TaskAiAction.label(): String = when (this) {
-    TaskAiAction.RefineTitle -> "Refine title"
-    TaskAiAction.GenerateDescription -> "Generate description"
-    TaskAiAction.GenerateChecklist -> "Generate checklist"
-    TaskAiAction.Decompose -> "Decompose into sub-tasks"
-    TaskAiAction.SuggestTime -> "Suggest time"
-}
+private fun TaskAiAction.label(): String =
+    when (this) {
+        TaskAiAction.RefineTitle -> "Refine title"
+        TaskAiAction.GenerateDescription -> "Generate description"
+        TaskAiAction.GenerateChecklist -> "Generate checklist"
+        TaskAiAction.Decompose -> "Decompose into sub-tasks"
+        TaskAiAction.SuggestTime -> "Suggest time"
+    }

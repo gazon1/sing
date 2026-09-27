@@ -17,6 +17,7 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectsUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -46,16 +47,17 @@ sealed interface ProjectsIntent : MviIntent {
  * @see ProjectsUiState
  * @see ProjectsUiEvent
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class ProjectsViewModel(
     private val projectRepo: ProjectsRepository,
     private val taskRepository: TaskRepository,
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectsUiState, ProjectsIntent, ProjectsUiEvent>(
-        initialState = ProjectsUiState.Loading,
-        scope = scope,
-    ) {
+    initialState = ProjectsUiState.Loading,
+    scope = scope,
+) {
     override val vmScope = scope
 
     private val _searchQuery = MutableStateFlow("")
@@ -63,31 +65,31 @@ class ProjectsViewModel(
 
     init {
         vmScope.launch {
-            combine(_searchQuery, _sortOrder) { query, sort -> query to sort }
-                .flatMapLatest { (query, sort) ->
-                    projectRepo.observeProjectsWithCounts().map { rows ->
-                        val domainRows = rows.map { row ->
-                            ProjectWithCounts(
-                                project = row.project.toProject(),
-                                totalCount = row.totalCount,
-                                completedCount = row.completedCount,
-                            )
+            combine(_searchQuery, _sortOrder) { query, sort -> query to sort }.flatMapLatest { (query, sort) ->
+                    projectRepo.observeProjectsWithCounts()
+                        .map { rows ->
+                            val domainRows = rows.map { row ->
+                                ProjectWithCounts(
+                                    project = row.project.toProject(),
+                                    totalCount = row.totalCount,
+                                    completedCount = row.completedCount,
+                                )
+                            }
+                            val filtered = if (query.isBlank()) {
+                                domainRows
+                            } else {
+                                domainRows.filter { it.project.name.contains(query, ignoreCase = true) }
+                            }
+                            val sorted = when (sort) {
+                                ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
+                                ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
+                            }
+                            if (sorted.isEmpty()) {
+                                ProjectsUiState.Empty
+                            } else {
+                                ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
+                            }
                         }
-                        val filtered = if (query.isBlank()) {
-                            domainRows
-                        } else {
-                            domainRows.filter { it.project.name.contains(query, ignoreCase = true) }
-                        }
-                        val sorted = when (sort) {
-                            ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
-                            ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
-                        }
-                        if (sorted.isEmpty()) {
-                            ProjectsUiState.Empty
-                        } else {
-                            ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
-                        }
-                    }
                 }
                 .catch { cause ->
                     setState(ProjectsUiState.Error(cause.toMessage()))
@@ -128,7 +130,8 @@ class ProjectsViewModel(
 
     private fun reviewProject(project: Project) {
         vmScope.launch {
-            val tasks = taskRepository.observeByFilter(TaskFilter.ByProject(project.id)).first()
+            val tasks = taskRepository.observeByFilter(TaskFilter.ByProject(project.id))
+                .first()
             val result = projectReview?.invoke(project.name, tasks.map { it.title })
                 ?.fold(
                     onSuccess = { it },

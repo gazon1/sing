@@ -161,7 +161,8 @@ sealed interface AppDestination : NavKey {
         @Serializable
         data object Today : TasksStartRoute
 
-        @Serializable data object Create : TasksStartRoute
+        @Serializable
+        data object Create : TasksStartRoute
 
         @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
         @Serializable
@@ -171,7 +172,8 @@ sealed interface AppDestination : NavKey {
         @Serializable
         data class ByProject(val projectId: String) : TasksStartRoute
 
-        @Serializable data class Detail(val taskId: String) : TasksStartRoute
+        @Serializable
+        data class Detail(val taskId: String) : TasksStartRoute
     }
 
     /**
@@ -240,9 +242,11 @@ sealed interface AppDestination : NavKey {
      */
     @Serializable
     sealed interface ProjectsStartRoute : NavKey {
-        @Serializable data object List : ProjectsStartRoute
+        @Serializable
+        data object List : ProjectsStartRoute
 
-        @Serializable data class Editor(val projectId: String? = null) : ProjectsStartRoute
+        @Serializable
+        data class Editor(val projectId: String? = null) : ProjectsStartRoute
     }
 
     /**
@@ -250,9 +254,11 @@ sealed interface AppDestination : NavKey {
      */
     @Serializable
     sealed interface NotesStartRoute : NavKey {
-        @Serializable data object List : NotesStartRoute
+        @Serializable
+        data object List : NotesStartRoute
 
-        @Serializable data class Preview(val noteId: String) : NotesStartRoute
+        @Serializable
+        data class Preview(val noteId: String) : NotesStartRoute
     }
 
     /**
@@ -269,7 +275,8 @@ sealed interface AppDestination : NavKey {
      */
     @Serializable
     sealed interface CalendarStartRoute : NavKey {
-        @Serializable data class Month(val anchor: String) : CalendarStartRoute
+        @Serializable
+        data class Month(val anchor: String) : CalendarStartRoute
     }
 
     /**
@@ -334,19 +341,22 @@ const val MenuButtonTitle = "Menu"
  */
 object DestinationKind {
     /** Six persistent tabs shown in the bottom bar (excludes the Menu button). */
-    fun isTab(destination: AppDestination): Boolean = destination in tabSet
+    fun isTab(destination: AppDestination): Boolean =
+        destination in tabSet
 
     /** Menu destinations opened from the bottom sheet overlay. */
-    fun isMenuEntry(destination: AppDestination): Boolean = destination in menuSet
+    fun isMenuEntry(destination: AppDestination): Boolean =
+        destination in menuSet
 
     /** Anything that is NOT a top-level tab — i.e. push-on sub-routes. */
-    fun isSubRoute(destination: AppDestination): Boolean = destination !in tabSet && destination !in menuSet
+    fun isSubRoute(destination: AppDestination): Boolean =
+        destination !in tabSet && destination !in menuSet
 
     /** Six bottom-bar tab destinations in display order. */
     val tabs: List<AppDestination> = listOf(
-        AppDestination.Inbox,
-        AppDestination.Today,
-        AppDestination.Upcoming,
+        AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
+        AppDestination.AgendaGraph(AgendaStartRoute.Today),
+        AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
         AppDestination.Plans,
         AppDestination.Pomodoro,
         AppDestination.Calendar,

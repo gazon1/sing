@@ -89,7 +89,8 @@ class SettingsDataStoreMigration(
      * Returns `true` if migration ran, `false` if it was already done.
      */
     @Suppress("NoRunBlocking") // one-shot DataStore migration at DI startup — no coroutine context yet
-    fun runBlockingForStartup(): Boolean = runBlocking { run() }
+    fun runBlockingForStartup(): Boolean =
+        runBlocking { run() }
 
     /**
      * Suspend entry-point that accepts DataStores as parameters.
@@ -112,7 +113,9 @@ class SettingsDataStoreMigration(
         if (SCHEMA_VERSION_KEY in state) return false
 
         val legacy = legacyDataStore.data.first()
-        if (legacy.asMap().isEmpty()) {
+        if (legacy.asMap()
+                .isEmpty()
+        ) {
             // Fresh install — nothing to migrate, just write schema version
             stateDataStore.edit {
                 it[SCHEMA_VERSION_KEY] = SettingsDefaults.SCHEMA_VERSION
@@ -124,25 +127,24 @@ class SettingsDataStoreMigration(
         // Map legacy keys → namespaced, write to user_settings
         userSettingsDataStore.edit { target ->
             legacy[DARK_THEME_LEGACY]?.let { target[DataStoreSettingsRepository.DARK_THEME] = it }
-            legacy[ACCENT_COLOR_LEGACY]?.let { target[DataStoreSettingsRepository.ACCENT_COLOR] = it as String }
+            legacy[ACCENT_COLOR_LEGACY]?.let { target[DataStoreSettingsRepository.ACCENT_COLOR] = it }
             legacy[FONT_SIZE_SCALE_LEGACY]?.let { target[DataStoreSettingsRepository.FONT_SIZE_SCALE] = it }
-            legacy[AI_PROVIDER_LEGACY]?.let { target[DataStoreSettingsRepository.AI_PROVIDER] = it as String }
-            legacy[AI_MODEL_LEGACY]?.let { target[DataStoreSettingsRepository.AI_MODEL] = it as String }
-            legacy[AI_BASE_URL_LEGACY]?.let { target[DataStoreSettingsRepository.AI_BASE_URL] = it as String }
-            legacy[AI_SYSTEM_PROMPT_LEGACY]?.let { target[DataStoreSettingsRepository.AI_SYSTEM_PROMPT] = it as String }
+            legacy[AI_PROVIDER_LEGACY]?.let { target[DataStoreSettingsRepository.AI_PROVIDER] = it }
+            legacy[AI_MODEL_LEGACY]?.let { target[DataStoreSettingsRepository.AI_MODEL] = it }
+            legacy[AI_BASE_URL_LEGACY]?.let { target[DataStoreSettingsRepository.AI_BASE_URL] = it }
+            legacy[AI_SYSTEM_PROMPT_LEGACY]?.let { target[DataStoreSettingsRepository.AI_SYSTEM_PROMPT] = it }
             legacy[NOTIFICATIONS_ENABLED_LEGACY]?.let { target[DataStoreSettingsRepository.NOTIFICATIONS_ENABLED] = it }
             legacy[NOTIFICATION_SOUND_LEGACY]?.let { target[DataStoreSettingsRepository.NOTIFICATION_SOUND] = it }
             legacy[NOTIFICATION_VIBRATION_LEGACY]?.let {
                 target[DataStoreSettingsRepository.NOTIFICATION_VIBRATION] = it
             }
-            legacy[REMINDER_DEFAULT_LEGACY]?.let { target[DataStoreSettingsRepository.REMINDER_DEFAULT] = it as String }
+            legacy[REMINDER_DEFAULT_LEGACY]?.let { target[DataStoreSettingsRepository.REMINDER_DEFAULT] = it }
             legacy[WORK_DAY_START_MINUTES_LEGACY]?.let {
                 target[DataStoreSettingsRepository.WORK_DAY_START_MINUTES] = it
             }
             legacy[WORK_DAY_END_MINUTES_LEGACY]?.let { target[DataStoreSettingsRepository.WORK_DAY_END_MINUTES] = it }
             legacy[WORK_LUNCH_START_MINUTES_LEGACY]?.let {
-                target[DataStoreSettingsRepository.WORK_LUNCH_START_MINUTES] =
-                    it
+                target[DataStoreSettingsRepository.WORK_LUNCH_START_MINUTES] = it
             }
             legacy[WORK_LUNCH_END_MINUTES_LEGACY]?.let {
                 target[DataStoreSettingsRepository.WORK_LUNCH_END_MINUTES] = it
@@ -153,10 +155,9 @@ class SettingsDataStoreMigration(
             legacy[GREETING_AFTERNOON_END_LEGACY]?.let {
                 target[DataStoreSettingsRepository.GREETING_AFTERNOON_END] = it
             }
-            legacy[USER_ID_LEGACY]?.let { target[DataStoreSettingsRepository.USER_ID] = it as String }
+            legacy[USER_ID_LEGACY]?.let { target[DataStoreSettingsRepository.USER_ID] = it }
             legacy[DEFAULT_SAVED_AGENDA_VIEW_ID_LEGACY]?.let {
-                target[DataStoreSettingsRepository.DEFAULT_SAVED_AGENDA_VIEW_ID] =
-                    it as String
+                target[DataStoreSettingsRepository.DEFAULT_SAVED_AGENDA_VIEW_ID] = it
             }
         }
 

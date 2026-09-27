@@ -40,7 +40,6 @@ import kotlin.time.Instant
  * ViewModel for [com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen].
  *
  * Subscribes to the project repository ONCE; the task/child/parent streams derive
- * from [projectFlow] (one Room observer, not five). Combines the project, its
  * tasks, and aggregate counts into a single [ProjectDetailUi].
  * Inline edits (name, description) use silent debounce — they update [_lastEditedAt]
  * but do NOT emit [ProjectDetailUiEvent.Saved].
@@ -59,11 +58,11 @@ class ProjectDetailViewModel(
     private val createTaskUseCase: CreateTaskUseCase,
     private val clock: Clock,
     private val log: Logger,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectDetailUiState, ProjectDetailIntent.Domain, ProjectDetailUiEvent>(
-        initialState = ProjectDetailUiState.Loading,
-        scope = scope,
-    ) {
+    initialState = ProjectDetailUiState.Loading,
+    scope = scope,
+) {
     override val vmScope = scope
 
     // ─── UI State ───────────────────────────────────────────────────────────────
@@ -73,7 +72,6 @@ class ProjectDetailViewModel(
 
     /** Emits null on start (loading placeholder), then the project flow. */
     private val _projectFlow = MutableStateFlow<Project?>(null)
-    private val projectFlow: StateFlow<Project?> = _projectFlow
 
     /**
      * Reactive list of parent-picker options, derived from [projectFlow] and
@@ -102,7 +100,11 @@ class ProjectDetailViewModel(
                     _projectFlow.value = project
                     _latestProject.value = project
                     if (project != null && !project.isDeleted) {
-                        draftState.seed(project.name, project.description ?: "")
+                        draftState.seed(
+                            project.name,
+                            project.description
+                                ?: ""
+                        )
                     }
                 }
         }
@@ -116,8 +118,7 @@ class ProjectDetailViewModel(
                 if (project == null) {
                     emptyList()
                 } else {
-                    allProjects
-                        .filter { it.id != project.id && it.parentId == null && !it.isDeleted }
+                    allProjects.filter { it.id != project.id && it.parentId == null && !it.isDeleted }
                         .map { ParentOption(it.id, it.name, it.id == project.parentId) }
                 }
             }.collect { _parentOptionsFlow.value = it }
@@ -127,11 +128,9 @@ class ProjectDetailViewModel(
         vmScope.launch {
             taskRepo.observeByFilter(TaskFilter.All)
                 .map { all ->
-                    all
-                        .filter { it.projectId != null && it.projectId != projectId && it.completedAt == null }
+                    all.filter { it.projectId != null && it.projectId != projectId && it.completedAt == null }
                         .sortedWith(
-                            compareBy<Task, kotlinx.datetime.LocalDate?>(nullsLast()) { it.dueDate }
-                                .thenByDescending { it.updatedAt },
+                            compareBy<Task, kotlinx.datetime.LocalDate?>(nullsLast()) { it.dueDate }.thenByDescending { it.updatedAt },
                         )
                 }
                 .collect { _availableTasksFlow.value = it }
@@ -218,15 +217,15 @@ class ProjectDetailViewModel(
     override fun onIntent(intent: ProjectDetailIntent.Domain) {
         when (intent) {
             // ── Visibility ──────────────────────────────────────────────────
-            is ProjectDetailIntent.Domain.ToggleHideCompleted ->
-                _hideCompleted.value = !_hideCompleted.value
+            is ProjectDetailIntent.Domain.ToggleHideCompleted -> _hideCompleted.value = !_hideCompleted.value
 
             // ── Inline edits — debounced, written to draft StateFlows ────────
-            is ProjectDetailIntent.Domain.UpdateName ->
-                draftState.setName(intent.name)
+            is ProjectDetailIntent.Domain.UpdateName -> draftState.setName(intent.name)
 
-            is ProjectDetailIntent.Domain.UpdateDescription ->
-                draftState.setDescription(intent.description ?: "")
+            is ProjectDetailIntent.Domain.UpdateDescription -> draftState.setDescription(
+                intent.description
+                    ?: ""
+            )
 
             // ── Pickers ─────────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.UpdateColor -> {
@@ -250,18 +249,16 @@ class ProjectDetailViewModel(
                 mutate { copy(isDeleted = !isDeleted) }
             }
 
-            is ProjectDetailIntent.Domain.Delete ->
-                vmScope.launch {
-                    deleteProject(projectId)
-                        .onSuccess { emit(ProjectDetailUiEvent.NavigateBack) }
-                        .onFailure { e ->
-                            emit(
-                                ProjectDetailUiEvent.ShowError(
-                                    e.toMessage("Delete failed"),
-                                ),
-                            )
-                        }
-                }
+            is ProjectDetailIntent.Domain.Delete -> vmScope.launch {
+                deleteProject(projectId).onSuccess { emit(ProjectDetailUiEvent.NavigateBack) }
+                    .onFailure { e ->
+                        emit(
+                            ProjectDetailUiEvent.ShowError(
+                                e.toMessage("Delete failed"),
+                            ),
+                        )
+                    }
+            }
 
             // ── Tasks ──────────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.CreateTask -> {
@@ -284,39 +281,36 @@ class ProjectDetailViewModel(
                 }
             }
 
-            is ProjectDetailIntent.Domain.MoveTaskToProject ->
-                vmScope.launch {
-                    updateTask.invoke(intent.taskId) { it.copy(projectId = projectId) }
-                        .onFailure { e ->
-                            emit(
-                                ProjectDetailUiEvent.ShowError(
-                                    e.toMessage("Move task failed"),
-                                ),
-                            )
-                        }
-                }
+            is ProjectDetailIntent.Domain.MoveTaskToProject -> vmScope.launch {
+                updateTask.invoke(intent.taskId) { it.copy(projectId = projectId) }
+                    .onFailure { e ->
+                        emit(
+                            ProjectDetailUiEvent.ShowError(
+                                e.toMessage("Move task failed"),
+                            ),
+                        )
+                    }
+            }
 
-            is ProjectDetailIntent.Domain.ToggleTaskPin ->
-                vmScope.fireAndForget(
-                    errorLabel = "Pin failed",
-                    onError = { e ->
-                        vmScope.launch { emit(ProjectDetailUiEvent.ShowError(e.toMessage("Pin failed"))) }
-                    },
-                ) {
-                    taskRepo.togglePinned(intent.taskId)
-                }
+            is ProjectDetailIntent.Domain.ToggleTaskPin -> vmScope.fireAndForget(
+                errorLabel = "Pin failed",
+                onError = { e ->
+                    vmScope.launch { emit(ProjectDetailUiEvent.ShowError(e.toMessage("Pin failed"))) }
+                },
+            ) {
+                taskRepo.togglePinned(intent.taskId)
+            }
 
-            is ProjectDetailIntent.Domain.DeleteTask ->
-                vmScope.launch {
-                    taskRepo.softDelete(intent.taskId)
-                        .onFailure { e ->
-                            emit(
-                                ProjectDetailUiEvent.ShowError(
-                                    e.toMessage("Delete task failed"),
-                                ),
-                            )
-                        }
-                }
+            is ProjectDetailIntent.Domain.DeleteTask -> vmScope.launch {
+                taskRepo.softDelete(intent.taskId)
+                    .onFailure { e ->
+                        emit(
+                            ProjectDetailUiEvent.ShowError(
+                                e.toMessage("Delete task failed"),
+                            ),
+                        )
+                    }
+            }
         }
     }
 

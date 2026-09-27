@@ -30,11 +30,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.components.EmptyState
-import com.singularity.todo.core.ui.components.ListPickerItem
-import com.singularity.todo.core.ui.components.ListPickerSheet
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.sheet.ListPickerItem
+import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
@@ -179,7 +179,8 @@ private fun ProfilePickerSheet(
     onDismiss: () -> Unit,
     onPick: (com.singularity.todo.feature.profile.ProfileId) -> Unit,
 ) {
-    val profiles by profileRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
+    val profiles by profileRepo.observeAll()
+        .collectAsStateWithLifecycle(initialValue = emptyList())
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
 
     ListPickerSheet(
@@ -202,47 +203,49 @@ private fun ProfilePickerSheet(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaListContentEmptyPreview() = PreviewAgendaNavigator {
-    PreviewThemed(darkTheme = false) {
-        SavedAgendaListContent(
-            state = SavedAgendaListState.Loaded(emptyList()),
-            onViewSelected = {},
-            onDelete = {},
-            onEdit = {},
-            onCopyToProfile = {},
-        )
+private fun SavedAgendaListContentEmptyPreview() =
+    PreviewAgendaNavigator {
+        PreviewThemed(darkTheme = false) {
+            SavedAgendaListContent(
+                state = SavedAgendaListState.Loaded(emptyList()),
+                onViewSelected = {},
+                onDelete = {},
+                onEdit = {},
+                onCopyToProfile = {},
+            )
+        }
     }
-}
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaListContentLoadedPreview() = PreviewAgendaNavigator {
-    PreviewThemed(darkTheme = false) {
-        SavedAgendaListContent(
-            state = SavedAgendaListState.Loaded(
-                listOf(
-                    SavedAgendaView(
-                        id = SavedAgendaViewId("v1"),
-                        userId = UserId("u1"),
-                        name = "Weekly Review",
-                        sectionsJson = "{}",
-                        createdAt = Instant.fromEpochSeconds(1784253600),
-                        updatedAt = Instant.fromEpochSeconds(1785496200),
-                    ),
-                    SavedAgendaView(
-                        id = SavedAgendaViewId("v2"),
-                        userId = UserId("u1"),
-                        name = "Focus Today",
-                        sectionsJson = "{}",
-                        createdAt = Instant.fromEpochSeconds(1784253600),
-                        updatedAt = Instant.fromEpochSeconds(1785496200),
+private fun SavedAgendaListContentLoadedPreview() =
+    PreviewAgendaNavigator {
+        PreviewThemed(darkTheme = false) {
+            SavedAgendaListContent(
+                state = SavedAgendaListState.Loaded(
+                    listOf(
+                        SavedAgendaView(
+                            id = SavedAgendaViewId("v1"),
+                            userId = UserId("u1"),
+                            name = "Weekly Review",
+                            sectionsJson = "{}",
+                            createdAt = Instant.fromEpochSeconds(1784253600),
+                            updatedAt = Instant.fromEpochSeconds(1785496200),
+                        ),
+                        SavedAgendaView(
+                            id = SavedAgendaViewId("v2"),
+                            userId = UserId("u1"),
+                            name = "Focus Today",
+                            sectionsJson = "{}",
+                            createdAt = Instant.fromEpochSeconds(1784253600),
+                            updatedAt = Instant.fromEpochSeconds(1785496200),
+                        ),
                     ),
                 ),
-            ),
-            onViewSelected = {},
-            onDelete = {},
-            onEdit = {},
-            onCopyToProfile = {},
-        )
+                onViewSelected = {},
+                onDelete = {},
+                onEdit = {},
+                onCopyToProfile = {},
+            )
+        }
     }
-}

@@ -18,7 +18,7 @@ import com.singularity.todo.core.reminders.ReminderOffset
  */
 object SettingsDefaults {
 
-    val SCHEMA_VERSION: Int = 1
+    const val SCHEMA_VERSION: Int = 1
 
     // ── Appearance ────────────────────────────────────────────────────────
 
@@ -26,7 +26,7 @@ object SettingsDefaults {
         const val DARK_THEME: Boolean = false
 
         // Not const: depends on enum entry property access at runtime.
-        val ACCENT_COLOR: String = "blue"
+        const val ACCENT_COLOR: String = "blue"
         const val FONT_SIZE_SCALE: Float = 1f
     }
 
@@ -34,11 +34,10 @@ object SettingsDefaults {
 
     object Ai {
         // Not const: depends on enum entry property access at runtime.
-        val PROVIDER: String = "openai"
+        const val PROVIDER: String = "openai"
         const val MODEL: String = "gpt-4o-mini"
         const val BASE_URL: String = "https://api.openai.com/v1"
-        const val SYSTEM_PROMPT: String =
-            "You are a helpful productivity assistant. Be concise and actionable."
+        const val SYSTEM_PROMPT: String = "You are a helpful productivity assistant. Be concise and actionable."
     }
 
     // ── Notifications ─────────────────────────────────────────────────────
@@ -71,5 +70,5 @@ object SettingsDefaults {
     // ── Account ───────────────────────────────────────────────────────────
 
     // Not const: depends on UserId.anonymous.value (runtime property access).
-    val USER_ID: String = "anonymous"
+    const val USER_ID: String = "anonymous"
 }

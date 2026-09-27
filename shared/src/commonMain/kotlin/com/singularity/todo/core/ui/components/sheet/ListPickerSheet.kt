@@ -1,25 +1,25 @@
-package com.singularity.todo.core.ui.components
+package com.singularity.todo.core.ui.components.sheet
+
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetState
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,12 +28,12 @@ import androidx.compose.ui.unit.dp
 /**
  * A single item in a [ListPickerSheet].
  *
- * @param key          The value emitted when this item is selected.
- * @param label        Primary text shown in the row.
- * @param subtitle     Optional secondary text.
- * @param selected     Whether this item is currently selected.
- * @param enabled      Whether the item is interactive. Defaults to true.
- * @param leading      Leading composable slot — called with [RowScope].
+ * @param key      Value emitted when this item is selected.
+ * @param label    Primary text.
+ * @param subtitle Optional secondary text.
+ * @param selected Whether this item is currently selected — renders a trailing check.
+ * @param enabled  Whether the item is interactive. Defaults to true.
+ * @param leading  Per-item leading slot — called with [RowScope].
  */
 data class ListPickerItem<T>(
     val key: T,
@@ -41,29 +41,23 @@ data class ListPickerItem<T>(
     val subtitle: String? = null,
     val selected: Boolean = false,
     val enabled: Boolean = true,
-    val leading: @Composable (RowScope.() -> Unit) = {},
+    val leading: (@Composable RowScope.() -> Unit) = {},
+//    val leading: @Composable (RowScope.() -> Unit) = {},
 ) where T : Any?
 
 /**
- * A bottom sheet that displays a flat list of selectable items.
+ * Bottom sheet that displays a flat list of selectable items.
  *
- * ```
- * ListPickerSheet(
- *     title = "Add section",
- *     items = listOf(
- *         ListPickerItem("Active tasks", Selector.Statuses(setOf(TaskStatus.Active))),
- *     ),
- *     onItemSelected = { selector -> ... },
- *     onDismiss = { ... },
- * )
- * ```
+ * Tapping an item calls [onItemSelected] and then dismisses the sheet
+ * (through [BottomSheetHost]'s animated dismiss). Selected items render
+ * a trailing check mark.
  *
- * @param title        Sheet title.
- * @param items        List of items to display.
- * @param onItemSelected Called with the item's [ListPickerItem.key] when the user taps an item.
- * @param onDismiss    Called when the sheet is dismissed.
- * @param sheetState   Sheet state. Created lazily by default.
- * @param leading      Optional leading slot applied to every row — called with [RowScope].
+ * @param title            Sheet title.
+ * @param items            Items to display.
+ * @param onItemSelected   Called with the item's [ListPickerItem.key] on tap.
+ * @param onDismiss        Called after the sheet is hidden.
+ * @param header           Optional content between the title and the list.
+ * @param footer           Optional content after the list.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,25 +66,15 @@ fun <T> ListPickerSheet(
     items: List<ListPickerItem<T>>,
     onItemSelected: (T) -> Unit,
     onDismiss: () -> Unit,
-    sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
-    leading: @Composable (RowScope.() -> Unit) = {},
     header: (@Composable ColumnScope.() -> Unit)? = null,
     footer: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-        ) {
+    BottomSheetHost(onDismiss = onDismiss) {
+        SheetScaffold {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
             )
-            Spacer(modifier = Modifier.height(16.dp))
 
             header?.invoke(this)
 
@@ -101,12 +85,17 @@ fun <T> ListPickerSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                LazyColumn {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth()
+                        .heightIn(max = 480.dp), // защита от вытеснения footer-а
+                ) {
                     items(items, key = { it.key.toString() }) { item ->
                         ListPickerItemRow(
                             item = item,
-                            onSelect = { onItemSelected(item.key) },
-                            leading = leading,
+                            onSelect = {
+                                onItemSelected(item.key)
+                                onDismiss()
+                            },
                         )
                         HorizontalDivider()
                     }
@@ -122,21 +111,17 @@ fun <T> ListPickerSheet(
 private fun <T> ListPickerItemRow(
     item: ListPickerItem<T>,
     onSelect: () -> Unit,
-    leading: @Composable (RowScope.() -> Unit),
 ) {
     Row(
         modifier = Modifier.fillMaxWidth()
             .then(
-                if (item.enabled) {
-                    Modifier.clickable(onClick = onSelect)
-                } else {
-                    Modifier
-                },
+                if (item.enabled) Modifier.clickable(onClick = onSelect) else Modifier,
             )
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        leading()
+        item.leading()
         Box(modifier = Modifier.weight(1f)) {
             Column {
                 Text(
@@ -148,14 +133,21 @@ private fun <T> ListPickerItemRow(
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
-                if (item.subtitle != null) {
+                item.subtitle?.let {
                     Text(
-                        text = item.subtitle,
+                        text = it,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
+        }
+        if (item.selected) {
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
         }
     }
 }

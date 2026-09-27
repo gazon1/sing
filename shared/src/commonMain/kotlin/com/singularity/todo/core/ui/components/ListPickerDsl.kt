@@ -6,15 +6,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import com.singularity.todo.core.ui.components.sheet.ListPickerItem
+import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
 
 /**
- * DSL marker so that the trailing lambda can only be called from inside [ListPickerSheet].
+ * DSL marker so that the trailing lambda can only be called from inside [com.singularity.todo.core.ui.components.sheet.ListPickerSheet].
  */
 @DslMarker
 annotation class ListPickerDsl
 
 /**
- * Receiver scope for the [ListPickerSheet] trailing lambda.
+ * Receiver scope for the [com.singularity.todo.core.ui.components.sheet.ListPickerSheet] trailing lambda.
  *
  * Add items imperatively inside the lambda:
  * ```

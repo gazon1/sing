@@ -27,7 +27,8 @@ class Nav3State internal constructor(
     val topLevelRoutes: Set<NavKey> = backStacks.keys
 
     /** Get the back stack for a given top-level route. */
-    fun backStackFor(route: NavKey): NavBackStack<NavKey>? = backStacks[route]
+    fun backStackFor(route: NavKey): NavBackStack<NavKey>? =
+        backStacks[route]
 
     var topLevelRoute: NavKey
         get() = topLevelRouteState.value
@@ -61,26 +62,28 @@ class Nav3State internal constructor(
             val decorators = buildList {
                 addAll(entryDecorators)
                 // Always include SaveableStateHolder for state preservation across tab swaps
-                add(rememberSaveableStateHolderNavEntryDecorator<NavKey>())
+                add(rememberSaveableStateHolderNavEntryDecorator())
             }
             rememberDecoratedNavEntries(
                 backStack = stack,
                 entryDecorators = decorators,
                 entryProvider = { key: NavKey ->
-                    @Suppress("UNCHECKED_CAST")
-                    entryProvider(key as AppDestination) as NavEntry<NavKey>
+                    @Suppress("UNCHECKED_CAST") entryProvider(key as AppDestination) as NavEntry<NavKey>
                 },
             )
         }
-        return getTopLevelRoutesInUse()
-            .flatMap { decoratedEntries[it] ?: emptyList() }
+        return getTopLevelRoutesInUse().flatMap {
+                decoratedEntries[it]
+                    ?: emptyList()
+            }
     }
 
-    private fun getTopLevelRoutesInUse(): List<NavKey> = if (topLevelRoute == startRoute) {
-        listOf(startRoute)
-    } else {
-        listOf(startRoute, topLevelRoute)
-    }
+    private fun getTopLevelRoutesInUse(): List<NavKey> =
+        if (topLevelRoute == startRoute) {
+            listOf(startRoute)
+        } else {
+            listOf(startRoute, topLevelRoute)
+        }
 }
 
 /**
@@ -105,7 +108,8 @@ class Navigator(private val state: Nav3State) {
         if (route in state.topLevelRoutes) {
             state.topLevelRoute = route
         } else {
-            state.backStackFor(state.topLevelRoute)?.add(route)
+            state.backStackFor(state.topLevelRoute)
+                ?.add(route)
         }
     }
 
@@ -113,7 +117,8 @@ class Navigator(private val state: Nav3State) {
     fun goBack() {
         val currentStack = state.backStackFor(state.topLevelRoute)
             ?: error("Stack for ${state.topLevelRoute} not found")
-        val currentRoute = currentStack.lastOrNull() ?: return
+        val currentRoute = currentStack.lastOrNull()
+            ?: return
 
         if (currentRoute == state.topLevelRoute) {
             state.topLevelRoute = state.startRoute

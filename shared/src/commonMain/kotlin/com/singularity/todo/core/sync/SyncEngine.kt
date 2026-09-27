@@ -54,8 +54,11 @@ sealed interface SyncEngineStatus {
     data object NoConnection : SyncEngineStatus
     data class Failure(val error: AppError) : SyncEngineStatus
 
-    fun isRunning(): Boolean = this is Pushing || this is Pulling
-    fun isSuccess(): Boolean = this is Idle || this is NoConnection
+    fun isRunning(): Boolean =
+        this is Pushing || this is Pulling
+
+    fun isSuccess(): Boolean =
+        this is Idle || this is NoConnection
 }
 
 /**
@@ -84,7 +87,6 @@ internal class SyncEngine(
     private val api: SyncApiClient,
     private val authRepository: AuthRepository,
     private val outboxDao: SyncOutboxDao,
-    private val hlcFactory: HlcFactory,
     private val idGenerator: IdGenerator,
     private val prefs: SyncPrefs,
     private val scheduler: SyncWorkScheduler,
@@ -116,7 +118,7 @@ internal class SyncEngine(
                     is Session.Anonymous,
                     is Session.SignedOut,
                     is Session.Loading,
-                    -> scheduler.cancelPush()
+                        -> scheduler.cancelPush()
                 }
             }
         }
@@ -132,21 +134,21 @@ internal class SyncEngine(
     /**
      * Enqueues an entity change for sync.
      */
-    suspend fun enqueue(entity: SyncableEntity): Result<Unit> = runCatchingResult {
-        val hlc = hlcFactory.tick()
-        val patch = buildPatch(entity)
-        val payload = json.encodeToString(patch)
+    suspend fun enqueue(entity: SyncableEntity): Result<Unit> =
+        runCatchingResult {
+            val patch = buildPatch(entity)
+            val payload = json.encodeToString(patch)
 
-        outboxDao.insert(
-            SyncOutboxEntity(
-                patchId = patch.patchId,
-                entityId = entity.syncId,
-                entityType = entity.docType.key,
-                payload = payload,
-                createdAt = System.currentTimeMillis(),
-            ),
-        )
-    }
+            outboxDao.insert(
+                SyncOutboxEntity(
+                    patchId = patch.patchId,
+                    entityId = entity.syncId,
+                    entityType = entity.docType.key,
+                    payload = payload,
+                    createdAt = System.currentTimeMillis(),
+                ),
+            )
+        }
 
     /**
      * Runs one push + pull cycle.
@@ -193,7 +195,11 @@ internal class SyncEngine(
                     succeeded++
                 } else {
                     if (result.isRetriable) {
-                        outboxDao.markFailed(result.patchId, result.error ?: "Unknown error")
+                        outboxDao.markFailed(
+                            result.patchId,
+                            result.error
+                                ?: "Unknown error"
+                        )
                     } else {
                         outboxDao.delete(result.patchId)
                     }
@@ -206,7 +212,11 @@ internal class SyncEngine(
             _status.value = SyncEngineStatus.Idle
             Result.success(summary)
         } catch (e: Throwable) {
-            val err: AppError = e as? AppError ?: AppError.Unknown(e)
+            val err: AppError = e as? AppError
+                ?: AppError.Unknown(
+                    e.message
+                        ?: ""
+                )
             _lastPush.value = Result.failure(err)
             log.e(e) { "Batch push failed [count=${pending.size}]" }
             _status.value = SyncEngineStatus.Failure(err)
@@ -233,7 +243,8 @@ internal class SyncEngine(
 
             events.forEach { event ->
                 maxLsn = maxOf(maxLsn, event.serverLsn)
-                val handler = handlers[event.entityType] ?: return@forEach
+                val handler = handlers[event.entityType]
+                    ?: return@forEach
                 when (handler.apply(event)) {
                     is ApplyOutcome.Applied -> applied++
                     is ApplyOutcome.Conflict -> conflicts++
@@ -250,7 +261,11 @@ internal class SyncEngine(
             _status.value = SyncEngineStatus.Idle
             Result.success(summary)
         } catch (e: Throwable) {
-            val err: AppError = e as? AppError ?: AppError.Unknown(e)
+            val err: AppError = e as? AppError
+                ?: AppError.Unknown(
+                    e.message
+                        ?: ""
+                )
             _lastPull.value = Result.failure(err)
             log.e(e) { "Pull failed [sinceLsn=$sinceLsn]" }
             _status.value = SyncEngineStatus.Failure(err)

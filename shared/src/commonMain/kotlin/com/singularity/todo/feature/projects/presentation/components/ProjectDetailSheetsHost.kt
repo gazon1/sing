@@ -2,7 +2,7 @@ package com.singularity.todo.feature.projects.presentation.components
 
 import androidx.compose.runtime.Composable
 import com.singularity.todo.core.reminders.ReminderOffset
-import com.singularity.todo.core.ui.components.DatePickerSheet
+import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
@@ -24,7 +24,8 @@ fun ProjectDetailSheetsHost(
     onSheetDismiss: () -> Unit,
 ) {
     when (activeSheet) {
-        null -> { /* no sheet */ }
+        null -> { /* no sheet */
+        }
 
         is ActiveSheet.PickColor -> ColorPickerSheet(
             currentColor = currentContent?.color
@@ -65,13 +66,15 @@ fun ProjectDetailSheetsHost(
         )
 
         is ActiveSheet.ShowChildren -> ChildProjectsSheet(
-            children = currentContent?.childProjects ?: emptyList(),
+            children = currentContent?.childProjects
+                ?: emptyList(),
             onShowChildren = { child -> currentContent?.onNavigateToChild?.invoke(child.id) },
             onDismiss = onSheetDismiss,
         )
 
         is ActiveSheet.ConfirmDelete -> ConfirmDeleteSheet(
-            projectName = currentContent?.name ?: "",
+            projectName = currentContent?.name
+                ?: "",
             onConfirm = {
                 currentContent?.onDelete?.invoke()
                 onSheetDismiss()
@@ -80,7 +83,8 @@ fun ProjectDetailSheetsHost(
         )
 
         is ActiveSheet.ConfirmArchive -> ConfirmArchiveSheet(
-            isArchived = currentContent?.isArchived ?: false,
+            isArchived = currentContent?.isArchived
+                ?: false,
             onConfirm = {
                 currentContent?.onToggleArchive?.invoke()
                 onSheetDismiss()

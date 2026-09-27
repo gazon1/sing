@@ -13,6 +13,9 @@ inline fun <T> runCatchingResult(block: () -> T): Result<T> =
     runCatching(block).recoverCatching { e ->
         throw when (e) {
             is AppError -> e
-            else -> AppError.Unknown(e)
+            else -> AppError.Unknown(
+                e.message
+                    ?: ""
+            )
         }
     }

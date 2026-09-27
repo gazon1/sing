@@ -1,10 +1,8 @@
 package com.singularity.todo.core.settings
 
-import com.singularity.todo.core.settings.SettingsContributor
-import com.singularity.todo.core.settings.SettingsSection
 import kotlinx.coroutines.flow.first
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+
 
 /**
  * Exports the current settings as a JSON string.
@@ -29,43 +27,37 @@ open class SettingsExporter(private val contributors: Set<SettingsContributor<*,
      * Returns a JSON string on success, or an exception on failure.
      */
     open suspend fun exportAsJson(): String {
-        val appearance = contributors
-            .filterIsInstance<SettingsContributor<SettingsSection.Appearance, *>>()
+        val appearance = contributors.filterIsInstance<SettingsContributor<SettingsSection.Appearance, *>>()
             .firstOrNull()
             ?.observe()
             ?.first()
             ?: SettingsSection.Appearance()
 
-        val ai = contributors
-            .filterIsInstance<SettingsContributor<SettingsSection.Ai, *>>()
+        val ai = contributors.filterIsInstance<SettingsContributor<SettingsSection.Ai, *>>()
             .firstOrNull()
             ?.observe()
             ?.first()
             ?: SettingsSection.Ai()
 
-        val notifications = contributors
-            .filterIsInstance<SettingsContributor<SettingsSection.Notifications, *>>()
+        val notifications = contributors.filterIsInstance<SettingsContributor<SettingsSection.Notifications, *>>()
             .firstOrNull()
             ?.observe()
             ?.first()
             ?: SettingsSection.Notifications()
 
-        val workSchedule = contributors
-            .filterIsInstance<SettingsContributor<SettingsSection.WorkSchedule, *>>()
+        val workSchedule = contributors.filterIsInstance<SettingsContributor<SettingsSection.WorkSchedule, *>>()
             .firstOrNull()
             ?.observe()
             ?.first()
             ?: SettingsSection.WorkSchedule()
 
-        val greeting = contributors
-            .filterIsInstance<SettingsContributor<SettingsSection.Greeting, *>>()
+        val greeting = contributors.filterIsInstance<SettingsContributor<SettingsSection.Greeting, *>>()
             .firstOrNull()
             ?.observe()
             ?.first()
             ?: SettingsSection.Greeting()
 
-        val defaultAgendaView = contributors
-            .filterIsInstance<SettingsContributor<SettingsSection.DefaultAgendaView, *>>()
+        val defaultAgendaView = contributors.filterIsInstance<SettingsContributor<SettingsSection.DefaultAgendaView, *>>()
             .firstOrNull()
             ?.observe()
             ?.first()

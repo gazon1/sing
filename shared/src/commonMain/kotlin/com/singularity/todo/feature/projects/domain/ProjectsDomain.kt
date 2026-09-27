@@ -32,26 +32,6 @@ object ProjectsDomain {
     }
 
     /**
-     * Checks the 1-level hierarchy invariant: a project being set as a parent
-     * must itself be a root project (parentId == null).
-     *
-     * @param parent the candidate parent project, or null for root-level.
-     * @return [Either.Right] with [parent] on success, [Either.Left] if parent already has a parent.
-     */
-    fun assertParentIsRoot(parent: Project?): Either<AppError.Validation, Project?> {
-        if (parent == null) return Either.Right(null)
-        return if (parent.parentId == null) {
-            Either.Right(parent)
-        } else {
-            Either.Left(
-                AppError.Validation(
-                    "Only root projects can be parents. \"${parent.name}\" is already a sub-project.",
-                ),
-            )
-        }
-    }
-
-    /**
      * Builds a [Project] from validated input.
      * Pure function — no side effects.
      * @param userId The ambient user ID, resolved by the caller (use case / repository).
@@ -62,23 +42,24 @@ object ProjectsDomain {
         createdAt: Instant,
         updatedAt: Instant,
         userId: UserId,
-    ): Project = Project(
-        id = id,
-        name = input.name.trim(),
-        color = input.color,
-        icon = input.icon,
-        description = input.description,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-        isDefault = false,
-        dueDate = null,
-        team = null,
-        isDeleted = false,
-        deletedAt = null,
-        parentId = input.parentId,
-        sortOrder = 0,
-        idempotencyKey = null,
-        externalId = null,
-        userId = userId,
-    )
+    ): Project =
+        Project(
+            id = id,
+            name = input.name.trim(),
+            color = input.color,
+            icon = input.icon,
+            description = input.description,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            isDefault = false,
+            dueDate = null,
+            team = null,
+            isDeleted = false,
+            deletedAt = null,
+            parentId = input.parentId,
+            sortOrder = 0,
+            idempotencyKey = null,
+            externalId = null,
+            userId = userId,
+        )
 }
