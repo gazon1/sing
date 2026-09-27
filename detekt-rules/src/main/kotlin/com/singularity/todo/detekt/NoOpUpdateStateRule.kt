@@ -8,7 +8,6 @@ import dev.detekt.api.RuleName
 import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
-import org.jetbrains.kotlin.psi.KtBlockExpression
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
@@ -90,8 +89,7 @@ class NoOpUpdateStateRule(config: Config) : Rule(config, "", null) {
      * with more than one statement is never a bare identity reducer.
      */
     private fun KtLambdaExpression.singleBodyReference(): KtNameReferenceExpression? {
-        val body = bodyExpression ?: return null
-        val statement = (body as? KtBlockExpression)?.statements?.singleOrNull() ?: body
+        val statement = bodyExpression?.statements?.singleOrNull() ?: return null
         return statement as? KtNameReferenceExpression
     }
 }
