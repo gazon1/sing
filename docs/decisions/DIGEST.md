@@ -195,6 +195,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Exposed `events: Flow<UiEvent>` becomes `_events.receiveAsFlow()`.
 - FAB работает на desktop для всех табов (Tasks, Projects, Notes)
 - For the AI agent: it acts as a reviewer when PRs contain ADRs; it acts as a writer when it files ADRs for deferred findings
+- Found while writing this up: `NoFactoryViewModelProvider` was missing from the
 - Framework API is stable (vmScope open, setState overridable)
 - Future agents reading these skills will not waste time on `koin-annotations-compiler` setup that doesn't exist.
 - GenUI is purely client-side rendering; the LLM controls content. No server-side validation of the payload happens — trust comes from the authenticated Supabase session.
@@ -326,7 +327,6 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `FakeRepositories.InMemoryTaskDao.listAllDependenciesForUser` stub implemented for tests.
 - `InternalLinkRepositoryImpl` now fully owns the user resolution — consistent with `TagsRepository`, `TaskRepository`, etc.
 - `MviViewModel` is now the single place that holds UI state. `TaskDetailViewModel`
-- `NoFactoryViewModelProvider` is absent from the `detekt-rules` service-loader file and
 - `NoteDao.getNotesLinkingToTask` — same pattern for `task://` scheme in notes
 - `NoteEditorScreen` still accepts `onNavigateToNote` and `onNavigateToTask` for
 - `NoteEditor` now fully integrates with `DraftMviViewModel` instead of bypassing it

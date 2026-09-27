@@ -294,6 +294,8 @@ no-op-update-state:
   NoOpUpdateState:
     active: true
 
+# Wired 2026-09-27. The rule file existed but the provider was not listed in the
+# RuleSetProvider service file, so the rule had never actually run.
 no-factory-viewmodel:
   NoFactoryViewModel:
     active: true
@@ -310,10 +312,4 @@ kdoc-enforcement:
   ViewModelMustHaveKDoc:
     active: true
   RepositoryInterfaceMustHaveKDoc:
-    active: true
-
-# Wired 2026-09-27. The rule file existed but the provider was not listed in the
-# RuleSetProvider service file, so the rule had never actually run.
-no-factory-viewmodel:
-  NoFactoryViewModel:
     active: true
