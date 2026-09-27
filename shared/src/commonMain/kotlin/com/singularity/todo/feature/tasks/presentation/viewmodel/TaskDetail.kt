@@ -140,6 +140,13 @@ class TaskDetailViewModel(
                 .flatMapLatest { task ->
                     // Update latestTask BEFORE combine starts — so debounce collectors always have fresh task
                     _latestTask.value = task
+                    // Seed the draft once per task emission rather than once per combine
+                    // emission. seed() is idempotent so this is behaviour-identical, but it
+                    // stops the write re-firing on unrelated checklist/attachment/subtask
+                    // updates. See detekt NoCombineSideEffect.
+                    if (task != null) {
+                        draftState.seed(task.title, task.description ?: "")
+                    }
                     if (task == null) {
                         flowOf<TaskDetailUiState>(TaskDetailUiState.Error("Not found"))
                     } else {
@@ -179,9 +186,6 @@ class TaskDetailViewModel(
                         }
 
                         allFlow.combine(flowOf(task)) { all, t ->
-                            // Seed from loaded task — idempotent, won't overwrite user's active edits.
-                            draftState.seed(t.title, t.description ?: "")
-
                             TaskDetailUiState.Loaded(
                                 TaskDetailUi(
                                     task = t,

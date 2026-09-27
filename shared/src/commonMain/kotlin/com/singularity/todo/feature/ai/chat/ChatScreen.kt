@@ -37,7 +37,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun ChatScreen(modifier: Modifier = Modifier) {
     val vm: ChatViewModel = koinViewModel()
-    val state by vm.uiState.collectAsStateWithLifecycle()
+    val state by vm.state.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = modifier,

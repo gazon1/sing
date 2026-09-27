@@ -94,7 +94,7 @@ class BackupViewModelTest {
         testScheduler.runCurrent()
         testScheduler.runCurrent()
 
-        vm.createBackup()
+        vm.onIntent(BackupIntent.CreateBackup)
         advanceUntilIdle()
         testScheduler.runCurrent()
         testScheduler.runCurrent()
@@ -113,7 +113,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.createBackup()
+        vm.onIntent(BackupIntent.CreateBackup)
         advanceUntilIdle()
         testScheduler.runCurrent()
 
@@ -136,7 +136,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.createBackup()
+        vm.onIntent(BackupIntent.CreateBackup)
         advanceUntilIdle()
         testScheduler.runCurrent()
 
@@ -157,7 +157,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.createBackup()
+        vm.onIntent(BackupIntent.CreateBackup)
         advanceUntilIdle()
         testScheduler.runCurrent()
         testScheduler.runCurrent()
@@ -175,7 +175,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.import("/path/to/backup.zip")
+        vm.onIntent(BackupIntent.Restore("/path/to/backup.zip"))
         advanceUntilIdle()
         testScheduler.runCurrent()
 
@@ -193,7 +193,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.delete(BackupId("b1"))
+        vm.onIntent(BackupIntent.Delete(BackupId("b1")))
         advanceUntilIdle()
         testScheduler.runCurrent()
 
@@ -211,7 +211,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.push(BackupId("b1"))
+        vm.onIntent(BackupIntent.Push(BackupId("b1")))
         advanceUntilIdle()
         testScheduler.runCurrent()
 

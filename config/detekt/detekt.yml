@@ -301,3 +301,7 @@ kdoc-enforcement:
     active: true
   RepositoryInterfaceMustHaveKDoc:
     active: true
+
+no-combine-side-effect:
+  NoCombineSideEffect:
+    active: true

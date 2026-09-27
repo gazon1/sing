@@ -37,7 +37,7 @@ class ChatViewModelTest {
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
 
-        val messages = vm.uiState.value.messages
+        val messages = vm.state.value.messages
         assertEquals(2, messages.size)
         assertEquals(ChatRole.User, messages[0].role)
         assertEquals("Hello", messages[0].content)
@@ -51,9 +51,9 @@ class ChatViewModelTest {
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
 
-        val assistant = vm.uiState.value.messages.last { it.role == ChatRole.Assistant }
+        val assistant = vm.state.value.messages.last { it.role == ChatRole.Assistant }
         assertEquals("alpha beta gamma", assistant.content)
-        assertFalse(vm.uiState.value.isLoading)
+        assertFalse(vm.state.value.isLoading)
     }
 
     @Test
@@ -63,7 +63,7 @@ class ChatViewModelTest {
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
 
-        assertTrue(vm.uiState.value.messages.isEmpty())
+        assertTrue(vm.state.value.messages.isEmpty())
     }
 
     @Test

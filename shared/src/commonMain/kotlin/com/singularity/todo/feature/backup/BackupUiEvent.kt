@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.backup
 
+import com.singularity.todo.core.ui.MviEvent
+
 /**
  * One-shot events emitted by [BackupViewModel].
  *
@@ -7,7 +9,7 @@ package com.singularity.todo.feature.backup
  *
  * [Error] replaces the `showError = true` / `error = message` pattern on [BackupUiState].
  */
-sealed interface BackupUiEvent {
+sealed interface BackupUiEvent : MviEvent {
     data class Error(val message: String) : BackupUiEvent
 
     /**

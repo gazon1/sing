@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.backup
 
-import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.auth.AuthDomain
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupMetadata
@@ -11,14 +10,11 @@ import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.settings.SettingsImporter
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.backup.BackupUiEvent.Error
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 
@@ -34,10 +30,18 @@ data class BackupSummary(val destPath: String, val byteSize: Long, val entityCou
  * Backup management screen ViewModel.
  *
  * Owns: local backup list, export/import/push/pull operations.
- * Triggers: export, import, delete, push to remote, pull from remote.
- * One-shot events: [BackupUiEvent.ShowSnackbar], [BackupUiEvent.Error].
+ * Triggers: [BackupIntent] — export, import, delete, push to remote, settings snapshot.
+ * One-shot events: [BackupUiEvent.Error], [BackupUiEvent.SettingsSnapshotExported].
+ *
+ * Success snackbars are a separate stream ([snackbar]) rather than events: a snackbar is
+ * a notification, not a navigation or dialog request, and the screen renders it from its
+ * own collector.
+ *
+ * The public methods ([createBackup], [delete], [push], …) forward to [onIntent] so a
+ * screen can use the operation name; [onIntent] stays the single dispatch point.
  *
  * @see BackupUiState
+ * @see BackupIntent
  */
 class BackupViewModel(
     private val repository: BackupRepository,
@@ -46,14 +50,11 @@ class BackupViewModel(
     private val clock: Clock,
     private val settingsExporter: com.singularity.todo.core.settings.SettingsExporter,
     private val settingsImporter: SettingsImporter,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
-
-    private val _state = MutableStateFlow(BackupUiState())
-    val state: StateFlow<BackupUiState> = _state.asStateFlow()
-
-    private val _events = MutableSharedFlow<BackupUiEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<BackupUiEvent> = _events.asSharedFlow()
+    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+) : MviViewModel<BackupUiState, BackupIntent, BackupUiEvent>(
+        initialState = BackupUiState(),
+        scope = scope,
+    ) {
 
     private val _snackbar = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val snackbar: SharedFlow<String> = _snackbar.asSharedFlow()
@@ -65,151 +66,135 @@ class BackupViewModel(
         addCloseable(scope)
         scope.launch {
             repository.observeAll().collect { backups ->
-                _state.update { it.copy(backups = backups) }
+                updateState { it.copy(backups = backups) }
             }
         }
     }
 
-    fun export(destPath: String) {
-        scope.launch {
-            _state.update { it.copy(isWorking = true) }
-            val result = repository.export(
-                exportOptions {
-                    userId = effectiveUserId
-                    this.destPath = destPath
-                    includeAttachments = true
-                },
-            )
-            result
-                .onSuccess { br ->
-                    _state.update {
-                        it.copy(
-                            isWorking = false,
-                            lastBackup = BackupSummary(
-                                destPath = br.destPath,
-                                byteSize = br.byteSize,
-                                entityCount = br.manifest.entityCounts.tasks +
-                                    br.manifest.entityCounts.notes +
-                                    br.manifest.entityCounts.projects,
-                            ),
-                        )
-                    }
-                    _snackbar.emit("Backup created")
-                }
-                .onFailure { e ->
-                    _state.update { it.copy(isWorking = false) }
-                    _events.emit(Error(e.message ?: "Export failed"))
-                }
+    override fun onIntent(intent: BackupIntent) {
+        when (intent) {
+            is BackupIntent.Export -> vmScope.launch { runExport(intent.destPath) }
+            BackupIntent.CreateBackup -> vmScope.launch { runCreateBackup() }
+            is BackupIntent.Restore -> vmScope.launch { runRestore(intent.sourcePath) }
+            is BackupIntent.Delete -> vmScope.launch { runDelete(intent.id) }
+            is BackupIntent.Push -> vmScope.launch { runPush(intent.id) }
+            BackupIntent.ExportSettingsSnapshot -> vmScope.launch { runExportSettingsSnapshot() }
+            is BackupIntent.ImportSettingsSnapshot -> vmScope.launch { runImportSettingsSnapshot(intent.json) }
         }
     }
 
-    /** Parameterless backup — uses a timestamped default path under the working directory. */
-    fun createBackup() {
-        val ts = clock.now().toEpochMilliseconds()
-        val path = backupFileNamer.nextBackupName(ts)
-        export(path)
-    }
-
-    fun import(sourcePath: String) {
-        scope.launch {
-            _state.update { it.copy(isWorking = true) }
-            val opts = importOptions {
-                this.sourcePath = sourcePath
-                this.targetUserId = effectiveUserId
-            }
-            val result = repository.import(opts)
-            result
-                .onSuccess {
-                    _state.update { it.copy(isWorking = false) }
-                    _snackbar.emit("Restore complete")
-                }
-                .onFailure { e ->
-                    _state.update { it.copy(isWorking = false) }
-                    _events.emit(Error(e.message ?: "Import failed"))
-                }
-        }
-    }
-
-    /**
-     * Exports current settings as a JSON snapshot and emits [BackupUiEvent.SettingsSnapshotExported].
-     * The shell should present the JSON to the user via system share sheet.
-     */
-    fun exportSettingsSnapshot() {
-        scope.launch {
-            _state.update { it.copy(isWorking = true) }
-            runCatching {
-                settingsExporter.exportAsJson()
-            }.onSuccess { json ->
-                _state.update { it.copy(isWorking = false) }
-                _events.emit(BackupUiEvent.SettingsSnapshotExported(json))
-                _snackbar.emit("Settings snapshot ready")
-            }.onFailure { e ->
-                _state.update { it.copy(isWorking = false) }
-                _events.emit(Error(e.message ?: "Settings export failed"))
-            }
-        }
-    }
-
-    /**
-     * Imports settings from a JSON snapshot string.
-     * The JSON may come from a file the user selected via platform file picker.
-     */
-    fun importSettingsSnapshot(json: String) {
-        scope.launch {
-            _state.update { it.copy(isWorking = true) }
-            when (val result = settingsImporter.importFromJson(json)) {
-                is SettingsImporter.ImportResult.Success -> {
-                    _state.update { it.copy(isWorking = false) }
-                    _snackbar.emit("Settings restored")
-                }
-
-                is SettingsImporter.ImportResult.SchemaTooOld -> {
-                    _state.update { it.copy(isWorking = false) }
-                    _events.emit(
-                        Error(
-                            "Settings snapshot is from an older app version (v${result.snapshotVersion}). " +
-                                "Please update the app first.",
+    private suspend fun runExport(destPath: String) {
+        updateState { it.copy(isWorking = true) }
+        repository.export(
+            exportOptions {
+                userId = effectiveUserId
+                this.destPath = destPath
+                includeAttachments = true
+            },
+        )
+            .onSuccess { br ->
+                updateState {
+                    it.copy(
+                        isWorking = false,
+                        lastBackup = BackupSummary(
+                            destPath = br.destPath,
+                            byteSize = br.byteSize,
+                            entityCount = br.manifest.entityCounts.tasks +
+                                br.manifest.entityCounts.notes +
+                                br.manifest.entityCounts.projects,
                         ),
                     )
                 }
+                _snackbar.emit("Backup created")
+            }
+            .onFailure { e ->
+                updateState { it.copy(isWorking = false) }
+                emit(Error(e.message ?: "Export failed"))
+            }
+    }
 
-                is SettingsImporter.ImportResult.ParseError -> {
-                    _state.update { it.copy(isWorking = false) }
-                    _events.emit(Error("Invalid settings file: ${result.message}"))
-                }
+    private suspend fun runCreateBackup() {
+        val ts = clock.now().toEpochMilliseconds()
+        runExport(backupFileNamer.nextBackupName(ts))
+    }
 
-                is SettingsImporter.ImportResult.PartialFailure -> {
-                    _state.update { it.copy(isWorking = false) }
-                    _events.emit(Error("Some settings could not be restored: ${result.failures.joinToString("; ")}"))
-                }
+    private suspend fun runRestore(sourcePath: String) {
+        updateState { it.copy(isWorking = true) }
+        val opts = importOptions {
+            this.sourcePath = sourcePath
+            this.targetUserId = effectiveUserId
+        }
+        repository.import(opts)
+            .onSuccess {
+                updateState { it.copy(isWorking = false) }
+                _snackbar.emit("Restore complete")
+            }
+            .onFailure { e ->
+                updateState { it.copy(isWorking = false) }
+                emit(Error(e.message ?: "Import failed"))
+            }
+    }
+
+    private suspend fun runExportSettingsSnapshot() {
+        updateState { it.copy(isWorking = true) }
+        runCatching { settingsExporter.exportAsJson() }
+            .onSuccess { json ->
+                updateState { it.copy(isWorking = false) }
+                emit(BackupUiEvent.SettingsSnapshotExported(json))
+                _snackbar.emit("Settings snapshot ready")
+            }
+            .onFailure { e ->
+                updateState { it.copy(isWorking = false) }
+                emit(Error(e.message ?: "Settings export failed"))
+            }
+    }
+
+    private suspend fun runImportSettingsSnapshot(json: String) {
+        updateState { it.copy(isWorking = true) }
+        when (val result = settingsImporter.importFromJson(json)) {
+            is SettingsImporter.ImportResult.Success -> {
+                updateState { it.copy(isWorking = false) }
+                _snackbar.emit("Settings restored")
+            }
+
+            is SettingsImporter.ImportResult.SchemaTooOld -> {
+                updateState { it.copy(isWorking = false) }
+                emit(
+                    Error(
+                        "Settings snapshot is from an older app version (v${result.snapshotVersion}). " +
+                            "Please update the app first.",
+                    ),
+                )
+            }
+
+            is SettingsImporter.ImportResult.ParseError -> {
+                updateState { it.copy(isWorking = false) }
+                emit(Error("Invalid settings file: ${result.message}"))
+            }
+
+            is SettingsImporter.ImportResult.PartialFailure -> {
+                updateState { it.copy(isWorking = false) }
+                emit(Error("Some settings could not be restored: ${result.failures.joinToString("; ")}"))
             }
         }
     }
 
-    fun delete(backupId: com.singularity.todo.core.backup.BackupId) {
-        scope.launch {
-            repository.delete(backupId)
-                .onSuccess {
-                    _snackbar.emit("Backup deleted")
-                }
-                .onFailure { e ->
-                    _events.emit(Error(e.message ?: "Delete failed"))
-                }
-        }
+    private suspend fun runDelete(backupId: com.singularity.todo.core.backup.BackupId) {
+        repository.delete(backupId)
+            .onSuccess { _snackbar.emit("Backup deleted") }
+            .onFailure { e -> emit(Error(e.message ?: "Delete failed")) }
     }
 
-    fun push(backupId: com.singularity.todo.core.backup.BackupId) {
-        scope.launch {
-            _state.update { it.copy(isWorking = true) }
-            repository.push(backupId)
-                .onFailure { e ->
-                    _state.update { it.copy(isWorking = false) }
-                    _events.emit(Error(e.message ?: "Push failed"))
-                }
-                .onSuccess {
-                    _state.update { it.copy(isWorking = false) }
-                    _snackbar.emit("Backup pushed")
-                }
-        }
+    private suspend fun runPush(backupId: com.singularity.todo.core.backup.BackupId) {
+        updateState { it.copy(isWorking = true) }
+        repository.push(backupId)
+            .onFailure { e ->
+                updateState { it.copy(isWorking = false) }
+                emit(Error(e.message ?: "Push failed"))
+            }
+            .onSuccess {
+                updateState { it.copy(isWorking = false) }
+                _snackbar.emit("Backup pushed")
+            }
     }
 }

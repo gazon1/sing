@@ -50,6 +50,7 @@ import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.backup.BackupIntent
 import com.singularity.todo.feature.backup.BackupScreen
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncSettingsScreen
@@ -236,16 +237,16 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
         events = backupVm.events,
         snackbar = backupVm.snackbar,
         onBack = onBack,
-        onCreateBackup = backupVm::createBackup,
+        onCreateBackup = { backupVm.onIntent(BackupIntent.CreateBackup) },
         onSelectRestoreFile = { /* Platform shell provides file picker on Android */ },
-        onRestore = { path -> backupVm.import(path) },
-        onDelete = backupVm::delete,
-        onPush = backupVm::push,
+        onRestore = { path -> backupVm.onIntent(BackupIntent.Restore(path)) },
+        onDelete = { id -> backupVm.onIntent(BackupIntent.Delete(id)) },
+        onPush = { id -> backupVm.onIntent(BackupIntent.Push(id)) },
         // Settings snapshot — platform shell handles file picking / sharing
-        onExportSettings = backupVm::exportSettingsSnapshot,
-        onSelectSettingsFile = { /* shell opens file picker → calls importSettingsSnapshot */ },
+        onExportSettings = { backupVm.onIntent(BackupIntent.ExportSettingsSnapshot) },
+        onSelectSettingsFile = { /* shell opens file picker → calls BackupIntent.ImportSettingsSnapshot */ },
         onShareSettingsJson = { /* shell shows share sheet with JSON */ },
-        onImportSettings = { json -> backupVm.importSettingsSnapshot(json) },
+        onImportSettings = { json -> backupVm.onIntent(BackupIntent.ImportSettingsSnapshot(json)) },
     )
 }
 

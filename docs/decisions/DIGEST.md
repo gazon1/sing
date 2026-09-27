@@ -806,8 +806,20 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `mvi`
 
+- **Verify a rule exists before relying on it.** The skill table listed a rule that had never
+- A `combine` transform must be pure. `NoCombineSideEffect` fails the build on `.value =`,
+- A detail-screen ViewModel that owns more than one repository observation should be a
+- A slot that is read-only and has no intent surface (the backlinks collector) is a plain
 - Any subclass relying on `error` persisting across unrelated edits will see it
+- Do not add `StateStrategy.Atomic` or a `stateStrategy` parameter until a VM demonstrates a
+- Slot tests construct one slot and its own fakes. Share one test-dispatcher-backed
 - The first `pushUiState()` is asynchronous, so `isSaveEnabled` / `isDirty` are
+- When a new detekt rule is added, follow the three-step activation checklist: ServiceLoader
+- `FeatureSlot.state` is a `StateFlow`, not a `Flow` — the coordinator must be able to read a
+- `MviViewModel.updateState(transform: (S) -> S)` is non-suspending and stays that way. Use
+- `NoCombineSideEffectRule` is active in `config/detekt/detekt.yml` and fails the build. A
+- `SettingsContributor` remains a separate abstraction until `SettingsViewModel` is migrated;
+- `combineStates`' transform is non-suspending; perform writes in a `collect { }` block.
 - `isSaveEnabled` starts `false` even for a valid draft, and is corrected on the
 
 ### `nav3`
@@ -1549,6 +1561,9 @@ _6 entries need attention._
 - `2026-09-26-ui-testing-deferred` — _untagged_
 - `2026-09-26-writer-reviewer-pattern` — _untagged_
 - `2026-09-27-draft-mvi-single-state-source` — mvi, viewmodel, draft, coroutines, initialization-order
+- `2026-09-27-feature-slot-pattern` — mvi, viewmodel, architecture, flow
+- `2026-09-27-framework-drift-resolution` — mvi, framework, detekt, tech-debt
+- `2026-09-27-mr1-retro-findings` — retro, tech-debt, tests, detekt
 - `2026-09-27-remove-platform-clock-object` — clock, architecture, migration, kotlin-stdlib
 
 ## Active entries
@@ -1819,5 +1834,8 @@ _6 entries need attention._
 - `2026-09-26-ui-testing-deferred` — UI testing deferred — androidHostTest + UiAutomator postponed
 - `2026-09-26-writer-reviewer-pattern` — _(no title)_
 - `2026-09-27-draft-mvi-single-state-source` — DraftMviViewModel — one state source, no open-member calls from a constructor
+- `2026-09-27-feature-slot-pattern` — FeatureSlot — split a god ViewModel into a coordinator plus focused slots
+- `2026-09-27-framework-drift-resolution` — MVI framework drift — StateStrategy.Atomic deferred, NoCombineSideEffectRule written
+- `2026-09-27-mr1-retro-findings` — MR-1 retro — pre-existing red test, a rule that never existed, a deprecated TOCTOU API
 - `2026-09-27-remove-platform-clock-object` — Remove `core.platform.Clock` — use `kotlin.time.Clock` everywhere
 

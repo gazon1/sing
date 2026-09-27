@@ -277,9 +277,14 @@ advanceTimeBy(300L)  // advances virtual time by 300ms
 | `NoViewModelScopeInProductionRule` | `NoViewModelScopeInProductionRule.kt` | `no-viewmodel-scope` | `viewModelScope.launch/async/cancel` in production |
 | `NoRunBlockingRule` | `NoRunBlockingRule.kt` | `no-run-blocking` | `runBlocking` in production |
 | `NoStateInRule` | `NoStateInRule.kt` | `no-state-in` | `.stateIn(...)` in production VMs (exempts `@OptIn(CombineStateInReadThrough)`) |
-| `NoCombineSideEffectRule` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | `_state.value = ...` inside `combine { }` lambda |
-| `NoGlobalScopeLaunchRule` | `NoGlobalScopeLaunchRule.kt` | `no-global-scope` | `GlobalScope.launch/async/cancel` in production |
+| `NoCombineSideEffectRule` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | `.value =`, `seed()`, `Channel.send`, `launchIn` inside a `combine { }` transform. Restored 2026-09-27 after the 2026-09-26 orphan cleanup. |
 | `PassThroughUseCaseRule` | `PassThroughUseCaseRule.kt` | `pass-through-use-case` | `UseCase` with no real logic (pass-through to repo) |
+
+> **This table is a claim, not a guarantee.** It was stale for a day: it still listed
+> `NoCombineSideEffectRule` after the 2026-09-26 activation audit had deleted that file as an
+> orphan, and listed `NoGlobalScopeLaunchRule`, which was deleted in the same pass and has not
+> been restored. Before planning around a rule, confirm the `.kt` file, the ServiceLoader
+> entry, and the `detekt.yml` block all exist — and grep `docs/decisions/` for a removal first.
 
 ## Common Mistakes
 
