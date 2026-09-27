@@ -272,6 +272,16 @@ internal class SyncEngine(
 
     /**
      * Builds a DeltaPatch from a SyncableEntity.
+     *
+     * `isDelete` is deliberately always `false`. Deletions propagate as **state**:
+     * repositories re-read the entity after a soft delete and enqueue it, so
+     * `archivedAt` / `isDeleted` ride along in the snapshot that `ops = emptyList()` +
+     * `shadowChecksum` already carries. That needs no server-side change, and — unlike
+     * a tombstone — it also covers `restore` through the same path.
+     *
+     * `deltaPatchDelete` exists in the protocol and would express a true tombstone,
+     * but it has never been exercised against the server; adopting it is a separate
+     * protocol decision. See docs/decisions/2026-09-27-write-layer-soundness.md.
      */
     private fun buildPatch(entity: SyncableEntity): DeltaPatch {
         val state = entity.toJson()

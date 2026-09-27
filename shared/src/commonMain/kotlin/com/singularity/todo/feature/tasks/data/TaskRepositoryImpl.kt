@@ -192,14 +192,20 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun update(item: Task): Result<Task> = runCatching {
+        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         // Read-before-write guard: reject updates to non-existent entities.
         // Prevents silent data loss from upsert-on-missing.
         taskDao.getById(item.id.value)
             ?: throw IllegalArgumentException("Task not found: ${item.id.value}")
-        taskDao.upsert(item.toEntity())
-        saveOutgoingLinks(item.id, item.description)
-        syncRepository.enqueue(item)
-        item
+        // Re-stamp after the guard, exactly as `create` does: the guard has just
+        // established that userId is either current or anonymous, so normalising
+        // anonymous -> current cannot lose information, whereas upserting the
+        // caller's anonymous id verbatim would orphan the row.
+        val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
+        taskDao.upsert(toUpdate.toEntity())
+        saveOutgoingLinks(toUpdate.id, toUpdate.description)
+        syncRepository.enqueue(toUpdate)
+        toUpdate
     }
 
     private suspend fun saveOutgoingLinks(id: TaskId, description: String?) {
@@ -211,6 +217,27 @@ class TaskRepositoryImpl(
             userId = currentUser.scopedUserId.value.value,
         )
         require(rows > 0) { "Outgoing links not written for $id — not found or not owned by current user" }
+    }
+
+    /**
+     * Re-reads [id] together with its cross-refs and pushes that state to the sync
+     * outbox.
+     *
+     * The narrow field-update methods below write through a targeted `UPDATE` /
+     * cross-ref insert rather than a whole-row upsert, so the caller's copy of the
+     * task is stale by the time the write lands. Re-reading is what makes the pushed
+     * payload match what is actually in the database — including for deletes, which
+     * propagate as state (`archivedAt`) rather than as a tombstone. `buildPatch`
+     * already ships the full snapshot, so no protocol change is involved.
+     */
+    private suspend fun enqueueFresh(id: TaskId) {
+        val row = taskDao.getById(id.value) ?: return
+        val tags = taskDao.getTagIdsForTask(id.value).first().map { TagId.fromString(it) }
+        val deps = taskDao.getDependencyIdsForTask(id.value)
+            .first()
+            .map { TaskId.fromString(it) }
+            .toSet()
+        syncRepository.enqueue(row.toTask(tags = tags, dependsOn = deps))
     }
 
     override suspend fun delete(id: TaskId): Result<Unit> = softDelete(id)
@@ -226,12 +253,14 @@ class TaskRepositoryImpl(
         val ts = clock.now().toEpochMilliseconds()
         val rows = taskDao.softDeleteForUser(id.value, ts, currentUser.scopedUserId.value.value)
         require(rows > 0) { "Task $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     override suspend fun restore(id: TaskId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
         val rows = taskDao.restoreForUser(id.value, ts, currentUser.scopedUserId.value.value)
         require(rows > 0) { "Task $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatching {
@@ -245,6 +274,7 @@ class TaskRepositoryImpl(
             taskDao.markCompleteForUser(id.value, ts, uid)
         }
         require(rows > 0) { "Task $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatching {
@@ -253,6 +283,7 @@ class TaskRepositoryImpl(
         val ts = clock.now().toEpochMilliseconds()
         val rows = taskDao.setPinnedForUser(id.value, !task.isPinned, ts, currentUser.scopedUserId.value.value)
         require(rows > 0) { "Task $id not found or not owned by current user" }
+        enqueueFresh(id)
     }
 
     override fun getTagIds(taskId: TaskId): Flow<List<TagId>> = taskDao.getTagIdsForTask(taskId.value).map {
@@ -275,6 +306,9 @@ class TaskRepositoryImpl(
         tagIds.forEach { tagId ->
             taskDao.upsertTagCrossRefForUser(taskId.value, tagId.value, uid)
         }
+        // `tags` is a serialised field of Task, so the cross-ref change is part of
+        // the synced state and must be pushed.
+        enqueueFresh(taskId)
     }
 
     override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> = runCatching {
@@ -285,6 +319,8 @@ class TaskRepositoryImpl(
         deps.forEach { depId ->
             taskDao.upsertDependencyForUser(taskId.value, depId.value, uid)
         }
+        // Same as setTags: `dependsOn` is part of the synced payload.
+        enqueueFresh(taskId)
     }
 }
 
