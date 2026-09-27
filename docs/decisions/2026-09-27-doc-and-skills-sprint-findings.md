@@ -171,6 +171,37 @@ the phase commit; everything below is deliberate backlog.
 - **The size check will fail the docs-audit until DIGEST.md is under 1500 lines.** The
   other budgets are now green.
 
-## Phase F
+## Phase F — skill ecosystem rebalance
+
+### Done
+
+The plan called for 11 new meta-skills; deduplication against the existing 89 showed 4 were
+already covered and 4 more were one workflow sliced three ways. Implemented instead:
+
+- **5 additions to skills that already owned their topic** (no new description in context):
+  `code-review-pr-workflow` (Phase 0 author pre-flight), `debugging-investigation`
+  (incident report template), `decisions-workflow` (supersede protocol + corpus
+  validation), `writing-for-agents/SKILL-MECHANICS.md` (size budgets, router+leaf
+  convention, description-as-invocation-condition), and the generated
+  `docs/SKILLS-CATALOG.md`.
+- **2 new skills**: `singularity-todo-monthly-doc-audit` (the judgement pass the
+  mechanical checks cannot do) and `singularity-todo-scheduled-maintenance` (runtime
+  measurement, wrapping the previously unwrapped `scripts/ram-bench.sh`).
+- 91 skills, all with valid frontmatter, all within budget.
+
+### Backlog
+
+- **34 dead refs remain**, almost all in skill prose describing files that were designed
+  and never written (`AppDatabaseCtor.kt`, `AndroidDiGraphTest.kt`, `Args.kt`,
+  `ChannelTransportTest.kt`, `DateBucketExtensions.kt`, `RunInLifecycle.kt`,
+  `TaskFormatters.kt` ×2, `TasksFormatters.kt`, `NotesScreen.kt`, `NoteCardActions.kt`,
+  `TaskDetailActions.kt`, `AttachmentButton.kt` ×2, `AttachmentSheet.kt` ×2,
+  `TaskDetailScreen.kt`, `ProjectDetailScreen.kt` path drift, `Context-MAP.md`,
+  `RELEASE.md`, `CLAUDE.md`, `package.json`) plus one renamed ADR
+  (`2026-09-26-junit-tag-default-semantics.md`). **These keep `just docs-audit` red.**
+  Each is either "write the file" or "reword the example so it is clearly hypothetical" —
+  a decision per reference, not a mechanical fix.
+
+## Phase G
 
 _(pending)_

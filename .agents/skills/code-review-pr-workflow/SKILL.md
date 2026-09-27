@@ -98,8 +98,8 @@ introduced, a KDoc `@see` pointing at a file that moved, and any test asserting 
 literal instead of the behaviour.
 
 An agent reviewing its own diff inherits the assumptions the diff was built on. For a
-change over a few hundred lines, spawn a fresh sub-agent with only the diff — it sees
-what you cannot unsee. (`singularity-todo-sub-agent-delegation` in the catalog.)
+change over a few hundred lines, dispatch a fresh sub-agent with only the diff and the
+ADR — it sees what you cannot unsee. Give it the diff, not the session history.
 
 ---
 
