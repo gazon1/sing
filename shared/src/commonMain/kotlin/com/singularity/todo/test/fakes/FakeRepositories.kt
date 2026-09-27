@@ -489,6 +489,12 @@ open class FakeTaskRepository(
     open override suspend fun update(item: Task): Result<Task> {
         updateOverride?.let { return it }
         return runCatching {
+            // Production reads before writing and rejects updates to entities
+            // that do not exist. The fake accepted them, so a test asserting
+            // that behaviour could never fail here.
+            val uid = currentUserId()
+            store[item.id.value]?.takeIf { it.userId == uid }
+                ?: throw IllegalArgumentException("Task not found or not owned: ${item.id.value}")
             store.upsert(item)
             item
         }
@@ -497,7 +503,13 @@ open class FakeTaskRepository(
     open override suspend fun delete(id: TaskId): Result<Unit> {
         deleteOverride?.let { return it }
         return runCatching {
-            store.remove(id.value)
+            // Production `delete` soft-deletes (sets archivedAt) and keeps the row.
+            // The fake hard-deleted it, so a test asserting "the task is in the
+            // trash" or "deleting twice fails" could not pass against the fake.
+            val uid = currentUserId()
+            val existing = store[id.value]?.takeIf { it.userId == uid }
+                ?: throw IllegalArgumentException("Task not found or not owned: ${id.value}")
+            store.upsert(existing.copy(archivedAt = kotlin.time.Clock.System.now()))
         }
     }
 
@@ -839,8 +851,14 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
         return store[id.value]?.takeIf { it.userId == uid }
     }
 
-    override fun observeProject(id: ProjectId): Flow<Project?> =
-        store.state.map { list -> list.values.firstOrNull { it.id == id } }
+    /**
+     * Scoped to the current user, matching production's `watchByIdForUser`.
+     * Previously this filtered by nothing, so it returned another user's project
+     * and any test asserting cross-user isolation passed vacuously.
+     */
+    override fun observeProject(id: ProjectId): Flow<Project?> = currentUser.observeForCurrentUser { uid ->
+        store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+    }
 
     override suspend fun create(item: Project): Result<Project> = runCatching {
         store.upsert(item)
@@ -903,14 +921,21 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
             }
         }
 
-    override fun observeByParent(parentId: ProjectId): Flow<List<Project>> =
-        store.state.map { list -> list.values.filter { it.parentId == parentId && !it.isDeleted } }
+    /** Scoped to the current user, matching production's `watchByParentForUser`. */
+    override fun observeByParent(parentId: ProjectId): Flow<List<Project>> = currentUser.observeForCurrentUser { uid ->
+        store.state.map { list ->
+            list.values.filter { it.parentId == parentId && it.userId == uid && !it.isDeleted }
+        }
+    }
 
-    override fun changes(id: ProjectId): Flow<Project?> =
-        store.state.map { list -> list.values.firstOrNull { it.id == id } }
+    /** Scoped to the current user, matching production's `watchByIdForUser`. */
+    override fun changes(id: ProjectId): Flow<Project?> = currentUser.observeForCurrentUser { uid ->
+        store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+    }
 
     override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {
-        store[id.value]?.let { existing ->
+        val uid = currentUser.scopedUserId.value
+        store[id.value]?.takeIf { it.userId == uid }?.let { existing ->
             store.upsert(
                 existing.copy(parentId = parentId, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)),
             )
@@ -918,15 +943,19 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
     }
 
     override suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long) {
-        store[id.value]?.let { existing ->
+        val uid = currentUser.scopedUserId.value
+        store[id.value]?.takeIf { it.userId == uid }?.let { existing ->
             store.upsert(
                 existing.copy(sortOrder = sortOrder, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)),
             )
         }
     }
 
-    override suspend fun findByIdempotencyKey(key: String): Project? =
-        store.values().firstOrNull { it.idempotencyKey == key }
+    /** Scoped to the current user, matching production's `findByIdempotencyKeyForUser`. */
+    override suspend fun findByIdempotencyKey(key: String): Project? {
+        val uid = currentUser.scopedUserId.value
+        return store.values().firstOrNull { it.idempotencyKey == key && it.userId == uid }
+    }
 }
 
 // ─── TagsRepository ──────────────────────────────────────────────────────────
@@ -948,10 +977,16 @@ class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = Fake
                 .map { list -> list.values.filter { it.userId == uid } }
         }
 
+    /** Scoped to the current user, matching production's `watchByIdForUser`. */
     override fun observe(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
-        store.state.map { list -> list.values.firstOrNull { it.id == id } }
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
 
-    override suspend fun get(id: TagId): com.singularity.todo.feature.tags.Tag? = store[id.value]
+    override suspend fun get(id: TagId): com.singularity.todo.feature.tags.Tag? {
+        val uid = currentUser.scopedUserId.value
+        return store[id.value]?.takeIf { it.userId == uid }
+    }
 
     override suspend fun create(
         tag: com.singularity.todo.feature.tags.Tag,
@@ -967,12 +1002,20 @@ class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = Fake
         tag
     }
 
+    /** Scoped to the current user, matching production's `watchByIdForUser`. */
     override fun observeTag(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
-        store.state.map { list -> list.values.firstOrNull { it.id == id } }
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
 
     override suspend fun delete(id: TagId): Result<Unit> = runCatching {
-        val existing = store[id.value] ?: return@runCatching
-        store.upsert(existing.copy(deletedAt = kotlin.time.Instant.fromEpochMilliseconds(0)))
+        val uid = currentUser.scopedUserId.value
+        val existing = store[id.value]?.takeIf { it.userId == uid }
+            ?: throw NoSuchElementException("Tag $id not found or not owned by current user")
+        // Previously stamped deletedAt = epoch(0) rather than "now", so the tag
+        // looked trashed since 1970 — anything comparing the timestamp saw a
+        // different value than production produces.
+        store.upsert(existing.copy(deletedAt = kotlin.time.Clock.System.now()))
     }
 
     override suspend fun upsert(tag: com.singularity.todo.feature.tags.Tag): com.singularity.todo.feature.tags.Tag {
@@ -1049,6 +1092,11 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
         saveFileAttachmentOverride?.let { return it }
         return runCatching {
             val uid = currentUser.scopedUserId.value
+            // `checksum` / `fileSizeBytes` stay at their defaults. Production
+            // computes them from the file via the AttachmentStorage port, which
+            // this fake has no access to; inventing values here would make a test
+            // assert against a checksum that could never match production.
+            // Exercising the checksum path needs a storage double.
             val att = com.singularity.todo.core.attachments.Attachment(
                 id = com.singularity.todo.core.attachments.AttachmentId.generate(),
                 taskId = taskId,
@@ -1071,6 +1119,9 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
     ): Result<com.singularity.todo.core.attachments.Attachment> {
         addUrlAttachmentOverride?.let { return it }
         return runCatching {
+            // Production rejects malformed URLs before writing; the fake accepted
+            // anything, so validation could never be exercised in a test.
+            com.singularity.todo.core.attachments.AttachmentDomain.validateUrl(url).getOrThrow()
             val uid = currentUser.scopedUserId.value
             val att = com.singularity.todo.core.attachments.Attachment(
                 id = com.singularity.todo.core.attachments.AttachmentId.generate(),
@@ -1208,11 +1259,14 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
     override fun search(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
+                // Title only, matching production's `watchSearchByTitle`
+                // (`title LIKE ?`). The fake also matched body text, so a test
+                // seeded with body content would find a note here that production
+                // never returns. The fake is the test double, not a better spec —
+                // whether note search *should* cover bodies is a product question.
                 list.values.filter { note ->
-                    note.userId == uid && note.deletedAt == null && (
-                        note.title.contains(query, ignoreCase = true) ||
-                            (note.bodyMarkdown?.contains(query, ignoreCase = true) == true)
-                    )
+                    note.userId == uid && note.deletedAt == null &&
+                        note.title.contains(query, ignoreCase = true)
                 }
             }
         }
