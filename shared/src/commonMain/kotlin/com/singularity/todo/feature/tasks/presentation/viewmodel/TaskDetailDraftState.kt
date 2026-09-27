@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Pure editable-draft state for [TaskDetailViewModel].
+ * Pure editable-draft state for [TaskDetailCoordinator].
  *
  * Owns the in-progress title and description edits with dirty-tracking.
  * The [seed] operation is idempotent — it only initializes from the loaded task

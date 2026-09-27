@@ -4,28 +4,33 @@ import com.singularity.todo.core.backup.BackupId
 import com.singularity.todo.core.ui.MviIntent
 
 /**
- * User actions dispatched into [BackupViewModel].
+ * User actions on the backup screen.
  *
- * Replaces the seven public methods the ViewModel used to expose, so every entry
- * point goes through the same `onIntent` seam and `IntentMethodName` can police it.
+ * Dispatched through [BackupViewModel.onIntent]. The public methods on
+ * [BackupViewModel] (`createBackup()`, `delete(id)`, …) are thin forwarders to these,
+ * so a screen can keep calling the ergonomic name while the intent hierarchy stays the
+ * single description of what the user can do.
  */
 sealed interface BackupIntent : MviIntent {
-    /** Export a backup to [destPath]. */
+
+    /** Export to an explicit path. */
     data class Export(val destPath: String) : BackupIntent
 
-    /** Export to a timestamped default path under the working directory. */
+    /** Export to a timestamped default path derived from the clock. */
     data object CreateBackup : BackupIntent
 
-    /** Restore from an existing backup file. */
-    data class Import(val sourcePath: String) : BackupIntent
+    /** Restore from an archive on disk. */
+    data class Restore(val sourcePath: String) : BackupIntent
 
-    /** Export current settings as a shareable JSON snapshot. */
+    /** Delete a stored backup. */
+    data class Delete(val id: BackupId) : BackupIntent
+
+    /** Upload a stored backup to the remote endpoint. */
+    data class Push(val id: BackupId) : BackupIntent
+
+    /** Export settings as a JSON snapshot for the platform share sheet. */
     data object ExportSettingsSnapshot : BackupIntent
 
-    /** Import settings from a JSON snapshot string. */
+    /** Restore settings from a JSON snapshot previously produced by [ExportSettingsSnapshot]. */
     data class ImportSettingsSnapshot(val json: String) : BackupIntent
-
-    data class Delete(val backupId: BackupId) : BackupIntent
-
-    data class Push(val backupId: BackupId) : BackupIntent
 }

@@ -825,8 +825,20 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `mvi`
 
+- **Verify a rule exists before relying on it.** The skill table listed a rule that had never
+- A `combine` transform must be pure. `NoCombineSideEffect` fails the build on `.value =`,
+- A detail-screen ViewModel that owns more than one repository observation should be a
+- A slot that is read-only and has no intent surface (the backlinks collector) is a plain
 - Any subclass relying on `error` persisting across unrelated edits will see it
+- Do not add `StateStrategy.Atomic` or a `stateStrategy` parameter until a VM demonstrates a
+- Slot tests construct one slot and its own fakes. Share one test-dispatcher-backed
 - The first `pushUiState()` is asynchronous, so `isSaveEnabled` / `isDirty` are
+- When a new detekt rule is added, follow the three-step activation checklist: ServiceLoader
+- `FeatureSlot.state` is a `StateFlow`, not a `Flow` — the coordinator must be able to read a
+- `MviViewModel.updateState(transform: (S) -> S)` is non-suspending and stays that way. Use
+- `NoCombineSideEffectRule` is active in `config/detekt/detekt.yml` and fails the build. A
+- `SettingsContributor` remains a separate abstraction until `SettingsViewModel` is migrated;
+- `combineStates`' transform is non-suspending; perform writes in a `collect { }` block.
 - `isSaveEnabled` starts `false` even for a valid draft, and is corrected on the
 
 ### `nav3`
@@ -1268,10 +1280,18 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `viewmodel`
 
+- A detail ViewModel that observes more than one repository should be a coordinator plus slots,
+- A slot's `onIntent` needs an `else` branch. It is unreachable through the coordinator's
 - No cast needed — `scope` is `AutoCloseableCoroutineScope` at both call site and definition
+- Slot tests pump with real `delay()`, not `advanceUntilIdle()`. The fakes' current user runs on
 - Tests use `testScope(backgroundScope)` to wrap the test dispatcher
+- The AI slot's five success paths are covered at the coordinator level rather than with five
 - `AutoCloseableCoroutineScope` companion factory creates a scope backed by `createBackgroundScope()`
+- `TaskAiState.isRunning` is now actually reachable; the old `_aiRunning` was write-only.
+- `TaskDraftSlot.seed()` is public because seeding is a one-time initialisation, not a
+- `UpdateTaskUseCase.invoke(task)` is still deprecated for the stale-snapshot reason; migrating
 - `appearanceContributor = null` is explicit — the default is intentional, not accidental
+- `combineStates`' transform is non-suspending by design: a suspending repository write inside a
 
 ### `vm`
 
@@ -1589,6 +1609,9 @@ _6 entries need attention._
 - `2026-09-27-doc-and-skills-sprint-findings` — sprint, hygiene, triage, documentation
 - `2026-09-27-doc-and-skills-sprint-results` — sprint, hygiene, documentation, skills, tooling
 - `2026-09-27-draft-mvi-single-state-source` — mvi, viewmodel, draft, coroutines, initialization-order
+- `2026-09-27-feature-slot-pattern` — mvi, viewmodel, architecture, flow
+- `2026-09-27-framework-drift-resolution` — mvi, framework, detekt, tech-debt
+- `2026-09-27-mr1-retro-findings` — retro, tech-debt, tests, detekt
 - `2026-09-27-mvi-single-state-entry-and-vm-sweep` — _untagged_
 - `2026-09-27-nav3-startroute-invariant` — nav3, navigation, bug, koin, architecture
 - `2026-09-27-no-op-update-state-reducer` — _untagged_
@@ -1596,6 +1619,8 @@ _6 entries need attention._
 - `2026-09-27-taskdetail-migration-and-debounce-write-loop` — _untagged_
 - `2026-09-27-vm-koin-scoping-retired` — koin, viewmodel, skills, documentation
 - `2026-09-28-detekt-duplicate-registration-guard` — detekt, tooling, ci, parallel-work, postmortem
+- `2026-09-28-mr2-retro-findings` — retro, tech-debt, tasks, tests
+- `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
 
 ## Active entries
 
@@ -1868,6 +1893,9 @@ _6 entries need attention._
 - `2026-09-27-doc-and-skills-sprint-findings` — Triage findings from the doc-and-skills hygiene sprint
 - `2026-09-27-doc-and-skills-sprint-results` — Doc & skills hygiene sprint — results
 - `2026-09-27-draft-mvi-single-state-source` — DraftMviViewModel — one state source, no open-member calls from a constructor
+- `2026-09-27-feature-slot-pattern` — FeatureSlot — split a god ViewModel into a coordinator plus focused slots
+- `2026-09-27-framework-drift-resolution` — MVI framework drift — StateStrategy.Atomic deferred, NoCombineSideEffectRule written
+- `2026-09-27-mr1-retro-findings` — MR-1 retro — pre-existing red test, a rule that never existed, a deprecated TOCTOU API
 - `2026-09-27-mvi-single-state-entry-and-vm-sweep` — MVI Base — Single State-Update Entry + ViewModel Sweep
 - `2026-09-27-nav3-startroute-invariant` — Nav3 startRoute must be a top-level route — enforce with an invariant, centralize serializers
 - `2026-09-27-no-op-update-state-reducer` — No-Op `updateState` Reducer Silently Discards Collected State
@@ -1875,4 +1903,6 @@ _6 entries need attention._
 - `2026-09-27-taskdetail-migration-and-debounce-write-loop` — TaskDetailViewModel Migration + Debounce Write-Loop Fix
 - `2026-09-27-vm-koin-scoping-retired` — Retire `singularity-todo-vm-koin-scoping`
 - `2026-09-28-detekt-duplicate-registration-guard` — Guard against duplicate detekt rule registration
+- `2026-09-28-mr2-retro-findings` — MR-2 retro — a subtask bug the slot tests exposed, and what the split did not fix
+- `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
 

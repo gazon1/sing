@@ -310,14 +310,22 @@ advanceTimeBy(300L)  // advances virtual time by 300ms
 | `NoRunBlockingRule` | `NoRunBlockingRule.kt` | `no-run-blocking` | `runBlocking` in production |
 | `NoStateInRule` | `NoStateInRule.kt` | `no-state-in` | `.stateIn(...)` in production VMs (exempts `@OptIn(CombineStateInReadThrough)`) |
 | `NoStaticProfileAwareCurrentUserRule` | `NoStaticProfileAwareCurrentUserRule.kt` | `no-static-profile-aware-current-user` | static/global `ProfileAwareCurrentUser` |
+| `NoCombineSideEffectRule` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | `.value =`, `seed()`, `Channel.send`, `launchIn` inside a `combine { }` transform. Restored 2026-09-27 after the 2026-09-26 orphan cleanup. |
 | `PassThroughUseCaseRule` | `PassThroughUseCaseRule.kt` | `pass-through-use-case` | `UseCase` with no real logic (pass-through to repo) |
 | `KDocEnforcementRules` | `KDocEnforcementRules.kt` | `kdoc-enforcement` | `ViewModelMustHaveKDoc`, `RepositoryInterfaceMustHaveKDoc` |
 | `NoFactoryViewModelRule` | `NoFactoryViewModelRule.kt` | `no-factory-viewmodel` | `factory { *ViewModel(...) }` / `factoryOf(::*ViewModel)` |
+| `NoOpUpdateStateRule` | `NoOpUpdateStateRule.kt` | `no-op-update-state` | `updateState { }` whose lambda returns the receiver unchanged |
 | `MviViewModelRulesProvider` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | `VmScopePosition`, `VmCloseable`, `ShadowedState` |
 
 `NoCombineSideEffectRule` and `NoGlobalScopeLaunchRule` existed at one point and were
 removed in `2026-09-26-detekt-rules-activation-audit`; do not re-add them without a
 finding the existing `mvi-viewmodel` rules do not cover.
+
+> **This table is a claim, not a guarantee.** It was stale for a day: it still listed
+> `NoCombineSideEffectRule` after the 2026-09-26 activation audit had deleted that file as an
+> orphan, and listed `NoGlobalScopeLaunchRule`, which was deleted in the same pass and has not
+> been restored. Before planning around a rule, confirm the `.kt` file, the ServiceLoader
+> entry, and the `detekt.yml` block all exist — and grep `docs/decisions/` for a removal first.
 
 ## Common Mistakes
 

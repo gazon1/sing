@@ -130,8 +130,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        // Collect in background so emit() has an active collector. `events` is a
-        // Channel — exactly one collector may drain it.
+        // Collect events in background so the event channel has an active receiver
         var capturedSnackbar: String? = null
         backgroundScope.launch {
             vm.events.collect { e -> if (e is BackupUiEvent.ShowSnackbar) capturedSnackbar = e.message }
@@ -178,7 +177,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.onIntent(BackupIntent.Import("/path/to/backup.zip"))
+        vm.onIntent(BackupIntent.Restore("/path/to/backup.zip"))
         advanceUntilIdle()
         testScheduler.runCurrent()
 

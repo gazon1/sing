@@ -47,6 +47,8 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.settings.SettingsIntent
+import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.backup.BackupIntent
 import com.singularity.todo.feature.backup.BackupScreen
@@ -115,8 +117,9 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Show snackbar on error, then dismiss it
-    LaunchedEffect(uiState.errorMessage) {
-        val msg = uiState.errorMessage ?: return@LaunchedEffect
+    LaunchedEffect((uiState as? SettingsUiState.Content)?.errorMessage) {
+        val msg = (uiState as? SettingsUiState.Content)?.errorMessage
+            ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(msg)
         viewModel.onIntent(SettingsIntent.DismissError)
     }
@@ -125,17 +128,25 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier,
     ) { paddingValues ->
-        // The ViewModel's state is always Content — `Loading` / `Error` variants were
-        // never produced by anyone, so the branches that handled them could not render.
-        SettingsContent(
-            state = uiState,
-            selectedTab = selectedTab,
-            onSelectTab = { selectedTab = it },
-            onIntent = viewModel::onIntent,
-            onOpenAttachmentsFolder = { viewModel.onIntent(SettingsIntent.OpenAttachmentsFolder) },
-            attachmentsPath = koinInject<FileRevealer>().attachmentsBasePath(),
-            modifier = Modifier.padding(paddingValues),
-        )
+        when (val state = uiState) {
+            is SettingsUiState.Loading -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
+
+            is SettingsUiState.Error -> EmptyState(
+                title = "Error",
+                subtitle = state.cause.toString(),
+                modifier = Modifier.padding(paddingValues),
+            )
+
+            is SettingsUiState.Content -> SettingsContent(
+                state = state,
+                selectedTab = selectedTab,
+                onSelectTab = { selectedTab = it },
+                onIntent = viewModel::onIntent,
+                onOpenAttachmentsFolder = { viewModel.onIntent(SettingsIntent.OpenAttachmentsFolder) },
+                attachmentsPath = koinInject<FileRevealer>().attachmentsBasePath(),
+                modifier = Modifier.padding(paddingValues),
+            )
+        }
     }
 }
 
@@ -227,12 +238,12 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
         onBack = onBack,
         onCreateBackup = { backupVm.onIntent(BackupIntent.CreateBackup) },
         onSelectRestoreFile = { /* Platform shell provides file picker on Android */ },
-        onRestore = { path -> backupVm.onIntent(BackupIntent.Import(path)) },
+        onRestore = { path -> backupVm.onIntent(BackupIntent.Restore(path)) },
         onDelete = { id -> backupVm.onIntent(BackupIntent.Delete(id)) },
         onPush = { id -> backupVm.onIntent(BackupIntent.Push(id)) },
         // Settings snapshot — platform shell handles file picking / sharing
         onExportSettings = { backupVm.onIntent(BackupIntent.ExportSettingsSnapshot) },
-        onSelectSettingsFile = { /* shell opens file picker → calls importSettingsSnapshot */ },
+        onSelectSettingsFile = { /* shell opens file picker → calls BackupIntent.ImportSettingsSnapshot */ },
         onShareSettingsJson = { /* shell shows share sheet with JSON */ },
         onImportSettings = { json -> backupVm.onIntent(BackupIntent.ImportSettingsSnapshot(json)) },
     )

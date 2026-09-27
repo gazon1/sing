@@ -33,7 +33,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
-import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailViewModel
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
@@ -111,7 +111,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     // ─── ViewModels ─────────────────────────────────────────────────────
 
     viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
-        TaskDetailViewModel(
+        TaskDetailCoordinator(
             deps = TaskDetailDeps(
                 taskRepo = get(),
                 updateTask = get(),

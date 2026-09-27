@@ -2,7 +2,6 @@ package com.singularity.todo.feature.ai.chat
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
@@ -46,7 +45,7 @@ class ChatViewModel(
     }
 
     private fun send() = vmScope.launch {
-        val current = currentState
+        val current = state.value
         val text = current.input.trim()
         if (text.isBlank() || current.isLoading) return@launch
 
@@ -73,7 +72,7 @@ class ChatViewModel(
             }
         }.onFailure { error ->
             log.e(error) { "AI stream failed [msg=${text.take(50)}]" }
-            emit(ChatUiEvent.Error(error.toMessage("AI request failed")))
+            emit(ChatUiEvent.Error(error.message ?: "AI request failed"))
         }
 
         updateState { it.copy(isLoading = false) }
