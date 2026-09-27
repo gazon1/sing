@@ -25,7 +25,7 @@ Skip for: single-profile deployment, full multi-user auth (different humans).
 ## Profile Domain Object
 
 ```kotlin
-// shared/src/commonMain/.../core/profile/Profile.kt
+// shared/src/commonMain/.../feature/profile/Profile.kt
 package com.singularity.todo.core.profile
 
 import kotlinx.datetime.Instant
@@ -56,7 +56,7 @@ val Profile.defaultSettings get() = ProfileSettings()
 ## ProfileRepository
 
 ```kotlin
-// shared/src/commonMain/.../core/profile/ProfileRepository.kt
+// shared/src/commonMain/.../feature/profile/ProfileRepository.kt
 package com.singularity.todo.core.profile
 
 import kotlinx.coroutines.flow.Flow
@@ -120,7 +120,7 @@ data class ProfileSettingsEntity(
 The key insight: `profileId` maps to `userId` transparently. Existing repositories already filter by `userId`. We don't change the contract — we change what `userId` means.
 
 ```kotlin
-// shared/src/commonMain/.../core/profile/ProfileAwareCurrentUser.kt
+// shared/src/commonMain/.../feature/profile/ProfileAwareCurrentUser.kt
 package com.singularity.todo.core.profile
 
 import com.singularity.todo.core.auth.CurrentUser
@@ -222,7 +222,7 @@ data class ParsedArgs(
 New destination: `AppDestination.ProfileSwitcher`
 
 ```kotlin
-// shared/src/commonMain/.../feature/profiles/ProfileSwitcherScreen.kt
+// shared/src/commonMain/.../feature/profile/ProfileSwitcherScreen.kt
 @Composable
 fun ProfileSwitcherScreen(
     viewModel: ProfileSwitcherViewModel = koinViewModel(),
@@ -382,12 +382,12 @@ val dbPath = "~/.singularity-todo/singularity-todo.db"  // same for all!
 
 | File | Purpose |
 |---|---|
-| `shared/src/commonMain/.../core/profile/Profile.kt` | Domain object + ProfileSettings |
-| `shared/src/commonMain/.../core/profile/ProfileRepository.kt` | Interface |
-| `shared/src/commonMain/.../core/profile/RoomProfileRepository.kt` | Room implementation |
-| `shared/src/commonMain/.../core/profile/ProfileAwareCurrentUser.kt` | userId mapper |
-| `shared/src/commonMain/.../core/profile/ProfileSwitcherViewModel.kt` | VM for UI |
-| `shared/src/commonMain/.../feature/profiles/ProfileSwitcherScreen.kt` | Compose screen |
+| `shared/src/commonMain/.../feature/profile/Profile.kt` | Domain object + ProfileSettings |
+| `shared/src/commonMain/.../feature/profile/ProfileRepository.kt` | Interface |
+| `shared/src/commonMain/.../feature/profile/RoomProfileRepository.kt` | Room implementation |
+| `shared/src/commonMain/.../feature/profile/ProfileAwareCurrentUser.kt` | userId mapper |
+| `shared/src/commonMain/.../feature/profile/ProfileSwitcherViewModel.kt` | VM for UI |
+| `shared/src/commonMain/.../feature/profile/ProfileSwitcherScreen.kt` | Compose screen |
 | `mcp-server/src/main/kotlin/.../mcp/Args.kt` | `--profile` argument parsing |
 | `shared/src/commonMain/.../core/settings/SettingsRepository.kt` | Per-profile AI settings |
 

@@ -55,9 +55,25 @@ the phase commit; everything below is deliberate backlog.
   protocol). Allowed by the current KDoc policy, but these are the three files a new
   contributor reads first when touching sync.
 
-## Phase B
+## Phase B — retiring `vm-koin-scoping`
 
-_(pending)_
+### Fixed inline
+
+- **6 live references redirected.** `vm-pattern-overview` (router table + decision tree),
+  `koin-dsl` ("See also"), `koin-overview` (router table + decision tree),
+  `vm-intent-pattern` ("See also") and `attachments` all pointed at the retired skill. Each
+  now points at the `AGENTS.md` DI table or `koin-dsl`.
+
+### Backlog
+
+- **5 skills still have no YAML frontmatter** and are silently skipped by
+  `check-skill-frontmatter.sh` (it `continue`s instead of failing): `detekt-workflow`,
+  `koin-dsl`, `tech-debt-refactor`, `vm-lifecycle-addcloseable`, `worktree-isolation`.
+  Because the check skips rather than fails, nobody is told. Fix in Phase C — retrofit
+  frontmatter and make the script report skips as a warning.
+- The retired directory is named `singularity-todo-vm-koin-scoping-RETIRED`, which will keep
+  matching grep for the old name. That is intentional (history stays greppable) but means
+  "is this skill live?" checks need to filter on the suffix.
 
 ## Phase C
 

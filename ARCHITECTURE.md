@@ -236,7 +236,7 @@ ChatScreen → KoogAgentService → AIAgent.builder()
 → LLM response → tools → JSON output → UseCase.decode → Result<String>
 ```
 
-**32 tools** (registered via `single<List<Tool<*, *>>>` в `AiToolsDiModule.kt`, НЕ через `@IntoSet`):
+**32 tools** (registered via `single<List<Tool<*, *>>>` в `AiToolsModule.{jvm,android}.kt`, НЕ через `@IntoSet`):
 
 Write: `CreateTaskTool`, `UpdateTaskTool`, `DeleteTaskTool`, `CreateNoteTool`, `UpdateNoteTool`, `DeleteNoteTool`, `CreateProjectTool`, `UpdateProjectTool`, `DeleteProjectTool`, `CreateTagTool`, `DeleteTagTool`, `DecomposeAndCreateTool`, `WriteAdrTool`.
 
@@ -465,7 +465,7 @@ when (val result = repo.create(task)) {
 | R10 | Pass-through use cases удалены | CRUD-UseCase'ы не создаются |
 | R11 | `require { throw }` bug исправлен | CreateProjectUseCase |
 | R12 | Custom detekt rule `PassThroughUseCase` | `detekt-rules/` module — live rule в `:detekt-rules` |
-| R16 | FakeReminderRepository централизован | `commonMain/test/fakes/FakeRepositories.kt` |
+| R16 | FakeReminderRepository централизован | `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/FakeRepositories.kt` |
 | R23 | GenUI subsystem ADR | `feature/genui/` — catalog, parser, render, schema |
 
 ### ❌ Отменено
@@ -518,6 +518,6 @@ domainModule()
 
 DI модули разнесены по 13 файлам в `core/di/`:
 `CoreDiModule.kt`, `TasksDiModule.kt`, `NotesDiModule.kt`, `ProjectsDiModule.kt`,
-`TagsDiModule.kt`, `CalendarDiModule.kt`, `AiToolsDiModule.kt`, `PlatformModule.kt`,
+`TagsDiModule.kt`, `CalendarDiModule.kt`, `AiToolsModule.{jvm,android}.kt`, `PlatformModule.kt`,
 `Modules.kt` (оркестратор), `KoinBridge.kt`, `KoogPromptExecutorFactory.kt`,
 `KoogPromptExecutorPort.kt`, `PromptExecutorPort.kt`.
