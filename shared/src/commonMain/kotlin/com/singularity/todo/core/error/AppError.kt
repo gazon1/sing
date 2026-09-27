@@ -4,14 +4,15 @@ sealed class AppError(message: String) : RuntimeException(message) {
     class Validation(message: String) : AppError(message)
     class NotFound(message: String) : AppError(message)
     class Unauthorized(message: String) : AppError(message)
-    class Persistence(cause: Throwable) : AppError(cause.message ?: "Persistence error")
-    class Network(cause: Throwable) : AppError(cause.message ?: "Network error")
-    class Unknown(cause: Throwable) : AppError(cause.message ?: "Unknown error")
+    class Persistence(message: String) : AppError(message)
+    class Network(message: String) : AppError(message)
+    class Unknown(message: String) : AppError(message)
 }
 
-inline fun <T> runCatchingResult(block: () -> T): Result<T> = runCatching(block).recoverCatching { e ->
-    throw when (e) {
-        is AppError -> e
-        else -> AppError.Unknown(e)
+inline fun <T> runCatchingResult(block: () -> T): Result<T> =
+    runCatching(block).recoverCatching { e ->
+        throw when (e) {
+            is AppError -> e
+            else -> AppError.Unknown(e)
+        }
     }
-}

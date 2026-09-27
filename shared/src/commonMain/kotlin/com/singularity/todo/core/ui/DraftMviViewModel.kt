@@ -1,34 +1,43 @@
 package com.singularity.todo.core.ui
 
-import androidx.compose.runtime.Immutable
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
-import com.singularity.todo.core.error.Either.Left
-import com.singularity.todo.core.error.Either.Right
 import com.singularity.todo.core.error.toMessage
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * MVI base for editor/draft screens. Encapsulates:
- * - A [draft] [MutableStateFlow] mutated via [updateDraft]
+ * - A [draft] value (backed by [DraftState]) mutated via [updateDraft]
  * - Debounced silent autosave (no [Saved][DraftUiEvent.Saved] events from autosave)
- * - Explicit [save] with validation + [persist] + [onSaved] callback
+ * - Explicit [save] with validation + [persist] + checkpoint + [onSaved] callback
  * - Entity switching via [open]
  * - Async effects on the draft via [launchDraftEffect]
  *
  * ## Autosave is silent
- * Autosave failures call [onAutosaveError] only — they do NOT emit [DraftUiEvent.Saved].
- * Only explicit [save] emits [DraftUiEvent.Saved]. This prevents the "Saved-spam"
- * regression where every keystroke in a debounce window fires a notification.
+ * Autosave failures call [onAutosaveError] only — they do NOT emit [DraftUiEvent.Saved],
+ * and they do NOT move the [DraftState] checkpoint. Only explicit [save] does both.
+ * This prevents the "Saved-spam" regression where every keystroke in a debounce
+ * window fires a notification, and keeps [DraftUiState.isDirty] honest.
+ *
+ * ## Single source of truth for state
+ * All of `draft`, `isSaving`, `error`, and `isDirty` live in one [MutableStateFlow]
+ * of [DraftUiState], updated atomically via [MutableStateFlow.update]. There is no
+ * separate `combine` step re-deriving state from multiple flows — that
+ * intermediate design allowed a window where the UI could observe a new draft
+ * paired with a stale error flag. Live validation is a pure function of the
+ * draft computed inline on every update; [DraftUiState.error] is reserved for
+ * persistence-layer failures (autosave/save), which is the only kind of error
+ * that needs to survive across an `updateDraft` call.
  *
  * ## Usage
  * ```
@@ -49,6 +58,10 @@ import kotlin.time.Duration.Companion.milliseconds
  *     override suspend fun persist(draft: TaskDraft): Either<AppError, Unit> =
  *         deps.createFromDraft(draft)
  *
+ *     override suspend fun clearAutosave() {
+ *         deps.draftStore.clear(DRAFT_KEY)
+ *     }
+ *
  *     override suspend fun onSaved() {
  *         emit(TaskCreateUiEvent.Saved)
  *     }
@@ -61,83 +74,95 @@ import kotlin.time.Duration.Companion.milliseconds
  * @param initialDraft The starting draft when the editor opens fresh (no restore).
  * @param autosave Called after each debounce window with the current draft.
  *   Must be idempotent — calling it multiple times with the same draft is safe.
- *   Called silently; failures go to [onAutosaveError] only.
- * @param restore Called once on init to restore a previously saved draft.
- *   Return null if no draft was saved — [initialDraft] is used.
+ *   Called silently; failures go to [onAutosaveError] only; never moves the checkpoint.
+ * @param restore Called once on init, *before* the autosave loop starts, to restore
+ *   a previously saved draft. Return null if no draft was saved — [initialDraft] is used.
+ *   Running this to completion before autosave starts (rather than racing the two
+ *   in parallel) means a slow restore can no longer lose to the user's first
+ *   keystroke: there is no window where typing beats restore and silently
+ *   discards it.
  * @param logger For [onAutosaveError] logging.
  * @param autosaveDebounceMs Milliseconds to wait after the last edit before autosaving.
  * @param scope Coroutine scope for collectors and async work.
  */
-@Immutable
+@OptIn(FlowPreview::class)
 abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     private val initialDraft: D,
     private val autosave: suspend (D) -> Unit,
     private val restore: suspend () -> D? = { null },
     private val logger: Logger,
-    autosaveDebounceMs: Long = 500L,
+    private val autosaveDebounceMs: Long = 500L,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<DraftUiState<D>, I, E>(
-        initialState = DraftUiState(draft = initialDraft),
-        scope = scope,
-    ) {
+    initialState = DraftUiState(draft = initialDraft),
+    scope = scope,
+) {
     override val vmScope: AutoCloseableCoroutineScope = scope
 
-    private var baseline: D = initialDraft
-    private val _draft = MutableStateFlow(initialDraft)
-    private val _isSaving = MutableStateFlow(false)
-    private val _error = MutableStateFlow<String?>(null)
+    private val draftState = DraftState(initialDraft)
+
+    /** Single source of truth for everything the UI observes. */
+    private val _uiState = MutableStateFlow(
+        DraftUiState(
+            draft = initialDraft,
+            isSaveEnabled = validate(initialDraft) == null,
+        ),
+    )
+
+    private val effectJobs = ConcurrentHashMap<Any, Job>()
 
     /** Current draft value. Use inside [updateDraft] transforms. */
-    protected val draft: D get() = _draft.value
+    protected val draft: D get() = draftState.value
 
     init {
-        // 1. Restore persisted draft if present — seed-if-empty pattern
         vmScope.launch {
-            restore()?.let { restored ->
-                if (_draft.value == baseline) {
-                    _draft.value = restored
-                    baseline = restored
-                }
+            // 1. Restore persisted draft first — seed-if-empty, run to completion
+            //    before autosave starts so a slow restore can't lose a race to the
+            //    user's first keystroke (see `restore` kdoc above).
+            val restored = restore()
+            if (restored != null && draftState.value == initialDraft && !draftState.isDirty) {
+                draftState.open(restored)
+                pushUiState()
             }
-        }
-        // 2. Debounced silent autosave loop
-        vmScope.launch {
-            _draft.drop(1)
+
+            // 2. Debounced silent autosave loop — starts only after restore settles.
+            draftState.current.drop(1)
                 .debounce(autosaveDebounceMs.milliseconds)
                 .collect { current ->
-                    runCatching { autosave(current) }
-                        .onSuccess { onAutosaved(current) }
+                    runCatching { autosave(current) }.onSuccess { onAutosaved(current) }
                         .onFailure { onAutosaveError(it) }
                 }
         }
-        // 3. Derive DraftUiState from draft + saving + error flows
-        vmScope.launch {
-            combine(_draft, _isSaving, _error) { draft, saving, error ->
-                DraftUiState(
-                    draft = draft,
-                    isSaveEnabled = validate(draft) == null && !saving,
-                    error = error,
-                    isDirty = draft != baseline,
-                    isSaving = saving,
-                )
-            }.collect { newState ->
-                updateState { newState }
-            }
+    }
+
+    /** Recomputes [DraftUiState] from [draftState] + the current saving/error flags and publishes it. */
+    private fun pushUiState() {
+        _uiState.update { state ->
+            val current = draftState.value
+            val validationError = validate(current)
+            state.copy(
+                draft = current,
+                isSaveEnabled = validationError == null && !state.isSaving,
+                // Live validation errors are transient and recomputed every call;
+                // a persistence error (set explicitly via `_uiState.update` in
+                // `save()`/`onAutosaveError`) is left as-is here so it survives
+                // across edits until the user acts on it or edits their way past it.
+                error = validationError
+                    ?: state.error,
+                isDirty = draftState.isDirty,
+            )
         }
+        updateState { _uiState.value }
     }
 
     /**
-     * Mutates the draft. Sets error if the new draft is invalid;
-     * clears error when transitioning from invalid to valid.
+     * Mutates the draft. Recomputes validation and dirty state atomically —
+     * there is no window where the UI can observe the new draft paired with a
+     * stale error flag.
      */
-    public open fun updateDraft(transform: (D) -> D) {
-        _draft.update(transform)
-        val validationError = validate(_draft.value)
-        if (validationError != null) {
-            if (_error.value == null) _error.value = validationError
-        } else if (_error.value != null) {
-            _error.value = null
-        }
+    open fun updateDraft(transform: (D) -> D) {
+        draftState.edit(transform)
+        pushUiState()
     }
 
     /**
@@ -145,12 +170,11 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * Cancels any in-flight autosave for the old entity.
      * Caller is responsible for checking [isDirty] and prompting save if needed.
      */
-    public open fun open(newDraft: D) {
-        if (sameEntity(_draft.value, newDraft)) return
-        baseline = newDraft
-        _draft.value = newDraft
-        _isSaving.value = false
-        _error.value = null
+    open fun open(newDraft: D) {
+        if (sameEntity(draftState.value, newDraft)) return
+        draftState.open(newDraft)
+        _uiState.update { it.copy(isSaving = false, error = null) }
+        pushUiState()
     }
 
     /**
@@ -158,7 +182,8 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * Default is identity equality. Override for draft types that wrap an entity ID.
      * Example: `current.id == incoming.id` for a NoteDraft that wraps a [Note].
      */
-    protected open fun sameEntity(current: D, incoming: D): Boolean = current == incoming
+    protected open fun sameEntity(current: D, incoming: D): Boolean =
+        current == incoming
 
     /** Override to return a human-readable validation error, or null if valid. */
     protected abstract fun validate(draft: D): String?
@@ -170,6 +195,16 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     protected open suspend fun onSaved() {}
 
     /**
+     * Called once, right after a successful explicit [save], to clear whatever
+     * [autosave] persisted (e.g. delete the draft-store entry). Default is a
+     * no-op, which means the autosave store and the "real" store are expected
+     * to be the same target — if they're not, override this, otherwise a
+     * stale autosave entry for an already-saved entity will linger and get
+     * restored by [restore] the next time this editor opens.
+     */
+    protected open suspend fun clearAutosave() {}
+
+    /**
      * Called when autosave fails. Default logs the error.
      * Override to surface DB/network failures to the UI (NoteEditor requires this).
      */
@@ -178,47 +213,67 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     }
 
     /**
-     * Called after a successful autosave. [baseline] is intentionally NOT advanced:
-     * [discard] must keep reverting to the last opened state. Override to clear
+     * Called after a successful autosave. The [DraftState] checkpoint is
+     * intentionally NOT moved here: [discard] must keep reverting to the last
+     * *explicitly saved* state, not the last autosaved one. Override to clear
      * draft-local dirty/new flags (e.g. NoteEditor's `Editing.isDirty` field).
      */
     protected open fun onAutosaved(current: D) {}
 
     /**
-     * Explicit save: validates, persists, clears draft storage, calls [onSaved].
+     * Explicit save: validates, persists, checkpoints the draft, clears
+     * autosave storage, calls [onSaved].
      * Guarded against concurrent calls (race condition prevention).
      */
-    public open fun save() {
-        if (!_isSaving.compareAndSet(expect = false, update = true)) return
+    open fun save() {
+        if (_uiState.value.isSaving) return
+        _uiState.update { it.copy(isSaving = true) }
         vmScope.launch {
             try {
-                val currentDraft = _draft.value
+                val currentDraft = draftState.value
                 val validationError = validate(currentDraft)
                 if (validationError != null) {
-                    _error.value = validationError
-                    _isSaving.value = false
+                    _uiState.update { it.copy(error = validationError, isSaving = false) }
                     return@launch
                 }
                 when (val result = persist(currentDraft)) {
-                    is Either.Left -> _error.value = result.error.toMessage("Save failed")
-                    is Either.Right -> onSaved()
+                    is Either.Left -> {
+                        _uiState.update { it.copy(error = result.error.toMessage("Save failed")) }
+                    }
+
+                    is Either.Right -> {
+                        // Move the checkpoint *before* clearing autosave / calling
+                        // onSaved, so isDirty is correct even if either of those throws.
+                        draftState.checkpoint()
+                        pushUiState()
+                        clearAutosave()
+                        onSaved()
+                    }
                 }
             } finally {
-                _isSaving.value = false
+                _uiState.update { it.copy(isSaving = false) }
             }
         }
     }
 
-    /** Discards changes and resets to [baseline]. Does NOT clear persisted draft storage. */
-    public open fun discard() {
-        _draft.value = baseline
-        _isSaving.value = false
-        _error.value = null
+    /**
+     * Discards changes and reverts the draft to the last checkpoint (the last
+     * explicit [save], or the restored/initial draft if never saved).
+     *
+     * Does NOT clear [autosave] storage: the autosave entry is a standing
+     * safety net, not part of this editor's visible undo. If you want a hard
+     * reset that also forgets the autosaved copy, call [clearAutosave]
+     * explicitly after [discard].
+     */
+    open fun discard() {
+        draftState.discard()
+        _uiState.update { it.copy(isSaving = false, error = null) }
+        pushUiState()
     }
 
     /** Dismisses the current error banner. */
-    public open fun dismissError() {
-        _error.value = null
+    open fun dismissError() {
+        _uiState.update { it.copy(error = null) }
     }
 
     /**
@@ -231,30 +286,24 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      *   update the editor, or null to leave the draft unchanged.
      * @param onEvent Optional — return an event to emit after a successful result.
      */
-    public open fun <R> launchDraftEffect(
+    open fun <R> launchDraftEffect(
         key: Any,
         operation: suspend (current: D) -> R,
         onResult: (current: D, result: R) -> D?,
         onEvent: (result: R) -> E? = { null },
     ) {
-        cancelEffect(key)
+        effectJobs.remove(key)
+            ?.cancel()
         effectJobs[key] = vmScope.launch {
-            val before = _draft.value
+            val before = draftState.value
             val result = operation(before)
             onResult(before, result)?.let { updateDraft { _ -> it } }
             onEvent(result)?.let { emit(it) }
         }
     }
-
-    private val effectJobs = mutableMapOf<Any, Job>()
-
-    private fun cancelEffect(key: Any) {
-        effectJobs.remove(key)?.cancel()
-    }
 }
 
 /** UI state emitted by [DraftMviViewModel]. */
-@Immutable
 data class DraftUiState<D>(
     val draft: D,
     val isSaveEnabled: Boolean = false,

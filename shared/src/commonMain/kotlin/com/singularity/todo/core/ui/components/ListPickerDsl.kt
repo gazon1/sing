@@ -31,7 +31,7 @@ annotation class ListPickerDsl
  * @param T The type of the key emitted when an item is selected.
  */
 @ListPickerDsl
-class ListPickerScope<T : Any?> internal constructor() {
+class ListPickerScope<T> internal constructor() {
 
     internal val items: MutableList<ListPickerItem<T>> = mutableListOf()
 
@@ -108,7 +108,7 @@ class ListPickerScope<T : Any?> internal constructor() {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun <T : Any?> ListPickerSheet(
+fun <T> ListPickerSheet(
     title: String,
     onItemSelected: (T) -> Unit,
     onDismiss: () -> Unit,

@@ -67,7 +67,7 @@ data class ListPickerItem<T>(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun <T : Any?> ListPickerSheet(
+fun <T> ListPickerSheet(
     title: String,
     items: List<ListPickerItem<T>>,
     onItemSelected: (T) -> Unit,
@@ -82,8 +82,7 @@ fun <T : Any?> ListPickerSheet(
         sheetState = sheetState,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
         ) {
@@ -126,8 +125,7 @@ private fun <T> ListPickerItemRow(
     leading: @Composable (RowScope.() -> Unit),
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
             .then(
                 if (item.enabled) {
                     Modifier.clickable(onClick = onSelect)

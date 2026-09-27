@@ -25,24 +25,25 @@ class DataStoreDraftStore(
 ) : DraftStore {
 
     override suspend fun <T> load(key: String, deserializer: DeserializationStrategy<T>): T? {
-        val data = dataStore.data
-            .catch { e ->
+        val data = dataStore.data.catch { e ->
                 if (e is IOException) {
-                    logger.w("DraftStore") { "DataStore read failed for key=$key, treating as empty: $e" }
+                    logger.w(tag = "DraftStore") { "DataStore read failed for key=$key, treating as empty: $e" }
                     emit(emptyPreferences())
                 } else {
                     throw e
                 }
             }
             .first()
-        val json = data[stringPreferencesKey(key)] ?: return null
+        val json = data[stringPreferencesKey(key)]
+            ?: return null
         return runCatching {
             StableJson.decodeFromString(deserializer, json)
-        }.getOrNull().also { result ->
-            if (result == null) {
-                logger.w("DraftStore") { "decode failed for key=$key, draft dropped" }
+        }.getOrNull()
+            .also { result ->
+                if (result == null) {
+                    logger.w(tag = "DraftStore") { "decode failed for key=$key, draft dropped" }
+                }
             }
-        }
     }
 
     override suspend fun <T> save(key: String, value: T, serializer: SerializationStrategy<T>) {
