@@ -1,6 +1,7 @@
 ---
-status: superseded
+title: ADR: ViewModel scope cancellation on `onCleared()` (SUPERSEDED)
 date: 2026-09-18
+status: superseded
 superseded-by: 2026-09-21-auto-closeable-coroutine-scope
 ---
 

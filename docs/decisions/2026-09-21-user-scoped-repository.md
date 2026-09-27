@@ -1,8 +1,9 @@
 ---
-status: accepted
+title: User-Scoped Repository Pattern
 date: 2026-09-21
-deciders:
-  - Singularity Developer
+status: accepted
+deciders: 
+deciders: 
 ---
 
 # User-Scoped Repository Pattern

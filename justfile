@@ -59,7 +59,11 @@ alias lint       := tests::lint
 alias detekt-fix := tests::detekt-fix
 
 # ----- Docs shortcuts -----
-alias docs-audit := tests::docs-audit
+alias docs-audit  := tests::docs-audit
+alias docs-regen  := tests::docs-regen
+
+# ----- Agent workflow evals -----
+alias tcheck-evals := tests::tcheck-evals
 
 # ----- Coverage shortcuts -----
 alias coverage := tests::coverage

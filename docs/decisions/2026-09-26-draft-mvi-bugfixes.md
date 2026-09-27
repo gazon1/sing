@@ -1,4 +1,6 @@
 ---
+title: Bugfixes in DraftMviViewModel and NoteEditor (post-MR-4 audit)
+date: 2026-09-26
 status: accepted
 ---
 

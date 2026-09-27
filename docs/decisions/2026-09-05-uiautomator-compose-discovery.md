@@ -1,4 +1,5 @@
 ---
+title: UI Automator + JetBrains Compose: несовместимость обнаружения элементов
 date: 2026-09-05
 status: accepted
 superseded-by: 2026-09-26-ui-testing-deferred

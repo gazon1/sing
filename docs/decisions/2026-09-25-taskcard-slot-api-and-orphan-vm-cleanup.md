@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: TaskCard slot API refactor + TasksViewModel final cleanup
 date: 2026-09-25
+status: accepted
 ---
 
 # TaskCard slot API refactor + TasksViewModel final cleanup

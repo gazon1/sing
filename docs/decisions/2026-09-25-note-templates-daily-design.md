@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Note Templates and Daily Log Design
 date: 2026-09-25
+status: accepted
 ---
 
 # Note Templates and Daily Log Design

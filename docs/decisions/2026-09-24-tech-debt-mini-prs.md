@@ -1,11 +1,15 @@
 ---
-status: accepted
+title: Tech Debt Mini-PRs — September 2024
 date: 2026-09-24
+status: accepted
 tags: [tech-debt, deprecation, android]
 epic: chore/tech-debt-mini-prs
 ---
 
 # Tech Debt Mini-PRs — September 2024
+
+> **Superseded in part (2026-09-27):** the project-level `com.singularity.todo.core.platform.Clock` expect/actual object was removed. Use `kotlin.time.Clock.System.now()` (inject `Clock` for tests) and `core.platform.todayFlow()` / `todayInSystemZone()`. See [2026-09-27-remove-platform-clock-object.md](2026-09-27-remove-platform-clock-object.md).
+
 
 ## Context
 

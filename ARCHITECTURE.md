@@ -16,10 +16,9 @@
 | `core/auth/` | Supabase session, `SessionStore`, `AuthRepository` |
 | `core/attachments/` | Attachment entity, DAO, repository, storage (класс, не порт) |
 | `core/backup/` | BackupCodec, BackupExporter/Importer, migration chain, DSL builders |
-| `core/clock/` | `Clock` expect object, `todayFlow`, `AutosaveScheduler` |
 | `core/coroutines/` | `createBackgroundScope()` expect/actual — mandatory `CoroutineScope` для VM |
 | `core/database/` | Room entities, DAOs, migrations, **Mappers.kt** |
-| `core/di/` | `Modules.kt` (domainModule, 13 модулей), Koin Bridge, Platform/AI factories |
+| `core/di/` | `Modules.kt` (фасад: `coreLoggingModule` + `domainModule(): List<Module>`), per-domain `*DiModule.kt`, Koin Bridge, Platform/AI factories |
 | `core/draft/` | `DraftStore<T>` — DataStore-based, debounce 500ms, seed-if-empty |
 | `core/error/` | `AppError` sealed, `runCatchingResult` |
 | `core/files/` | `FileSystem` порт (интерфейс), `MimeTypes`, `FileChecksum` |
@@ -29,7 +28,7 @@
 | `core/network/` | Ktor/OkHttp client config |
 | `core/notifications/` | `NotificationPort` (expect/actual) |
 | `core/observability/` | `UsageRecorder`, `RoomUsageRecorder` — LLM token tracking |
-| `core/platform/` | `Clock`, `TimeZoneProvider`, `isDesktop` expect/actual |
+| `core/platform/` | `todayFlow` / `todayAt` / `todayInSystemZone` / `delayUntilNextMidnight`, `TimeZoneProvider` expect/actual |
 | `core/reminders/` | `ReminderRepository`, reminder scheduling |
 | `core/security/` | `SecureStoragePort` (expect/actual: secret-tool/AES-GCM + EncryptedSharedPreferences), `ProfileAwareSecureStorage` |
 | `core/serialization/` | `StableJson` — centralized JSON с `encodeDefaults` + `ignoreUnknownKeys` |
@@ -198,12 +197,12 @@ SyncableEntity.mutate() → HLC timestamp → SyncOutbox.enqueue()
                                                     ↓
                             SyncApi.pull() ← Supabase PostgREST
                                                     ↓
-                            ConflictResolver.merge() → Room upsert
+                            ConflictResolver.checksumEquals() → SyncEngine.applyRemoteWins (LWW) → Room upsert
 ```
 
 **HLC** (`Hlc.kt`): Hybrid Logical Clock — физическое время + логический счётчик. Гарантирует каузальный порядок без синхронизации часов.
 
-**ConflictResolver**: Last-Writer-Wins по HLC, tiebreaker — `serverVersion`.
+**ConflictResolver**: Last-Writer-Wins по HLC, tiebreaker — `serverVersion`. Per-field `merge()` удалён как dead code (ADR `2026-09-25-repository-architecture-gaps`); остались `checksum()` / `checksumEquals()`.
 
 **SyncOutbox**: Room-очередь pending мутаций. Операции: `CREATE`, `UPDATE`, `DELETE`.
 
@@ -237,7 +236,7 @@ ChatScreen → KoogAgentService → AIAgent.builder()
 → LLM response → tools → JSON output → UseCase.decode → Result<String>
 ```
 
-**32 tools** (registered via `single<List<Tool<*, *>>>` в `AiToolsDiModule.kt`, НЕ через `@IntoSet`):
+**32 tools** (registered via `single<List<Tool<*, *>>>` в `AiToolsModule.{jvm,android}.kt`, НЕ через `@IntoSet`):
 
 Write: `CreateTaskTool`, `UpdateTaskTool`, `DeleteTaskTool`, `CreateNoteTool`, `UpdateNoteTool`, `DeleteNoteTool`, `CreateProjectTool`, `UpdateProjectTool`, `DeleteProjectTool`, `CreateTagTool`, `DeleteTagTool`, `DecomposeAndCreateTool`, `WriteAdrTool`.
 
@@ -465,8 +464,8 @@ when (val result = repo.create(task)) {
 | R6 | `@Embedded SyncColumns` | 4 entities |
 | R10 | Pass-through use cases удалены | CRUD-UseCase'ы не создаются |
 | R11 | `require { throw }` bug исправлен | CreateProjectUseCase |
-| R12 | Custom detekt rule `PassThroughUseCase` | `ChecklistUseCase.kt` |
-| R16 | FakeReminderRepository централизован | `commonMain/test/fakes/FakeRepositories.kt` |
+| R12 | Custom detekt rule `PassThroughUseCase` | `detekt-rules/` module — live rule в `:detekt-rules` |
+| R16 | FakeReminderRepository централизован | `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/FakeRepositories.kt` |
 | R23 | GenUI subsystem ADR | `feature/genui/` — catalog, parser, render, schema |
 
 ### ❌ Отменено
@@ -519,6 +518,6 @@ domainModule()
 
 DI модули разнесены по 13 файлам в `core/di/`:
 `CoreDiModule.kt`, `TasksDiModule.kt`, `NotesDiModule.kt`, `ProjectsDiModule.kt`,
-`TagsDiModule.kt`, `CalendarDiModule.kt`, `AiToolsDiModule.kt`, `PlatformModule.kt`,
+`TagsDiModule.kt`, `CalendarDiModule.kt`, `AiToolsModule.{jvm,android}.kt`, `PlatformModule.kt`,
 `Modules.kt` (оркестратор), `KoinBridge.kt`, `KoogPromptExecutorFactory.kt`,
 `KoogPromptExecutorPort.kt`, `PromptExecutorPort.kt`.

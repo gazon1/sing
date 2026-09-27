@@ -383,7 +383,7 @@ See `singularity-todo-llm-usage-tracking` for the full `UsageRecorder` pattern.
 
 ### Tool Annotations
 
-Every tool registered in `AiToolsDiModule.kt` must specify its annotation for MCP exposure:
+Every tool registered in `AiToolsModule.{jvm,android}.kt` must specify its annotation for MCP exposure:
 
 ```kotlin
 // In ToolAnnotations.kt (mcp-server module):

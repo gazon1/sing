@@ -1,23 +1,109 @@
 ---
 name: code-review-pr-workflow
-description: Conduct a code review following the four-phases gate process. Use when reviewing or authoring a PR.
+description: Author and review a pull request in this project. Use when opening a PR, deciding draft vs ready, naming a branch, writing a PR body, self-reviewing a local diff before pushing, or reviewing someone else's PR.
 ---
 
 # Code Review PR Workflow
 
+Phases 0–3: Phase 0 is the author's side (before the PR exists), Phases 1–3 are the
+reviewer's side. Both are here because a reviewer's questions ("why no test?", "what
+changed?") are usually the author's unanswered checklist.
+
 ## When to use
 
-- When assigned as a reviewer on a PR
-- When opening a PR and self-reviewing before requesting review
-- When checking if a PR is ready to merge
+- Opening a PR, or deciding draft vs. ready
+- Self-reviewing a local diff before pushing
+- Reviewing someone else's PR
+- Checking whether a PR is ready to merge
 
 ## Prerequisites
 
-- PR is open and assigned to you as reviewer
-- You have read access to the repo
-- CI is running or has run
+- PR is open and assigned to you as reviewer (Phases 1–3)
+- You have write access and a clean working tree (Phase 0)
 
-## Step-by-step
+---
+
+## Phase 0 — Author pre-flight (before the PR exists)
+
+### Branch naming
+
+```
+<type>/<scope>-<slug>        e.g. refactor/shared-ui-components-split
+```
+
+Types in use here: `feat`, `fix`, `refactor`, `docs`, `chore`, `build`, `test`.
+Scope is the feature or subsystem (`tasks`, `sync`, `di`, `skills`, `detekt`).
+
+For anything wider than one file or one subsystem, work in a dedicated worktree
+(`singularity-todo-worktree-isolation`) so the main checkout stays usable.
+
+### The gate — run all of it, in this order
+
+```bash
+./check.sh            # jvmTest → desktopApp:test → assembleDebug → detekt (enforcing)
+just tcheck-evals     # agent workflow evals
+just docs-audit       # frontmatter + doc sizes + dead refs + DIGEST
+```
+
+All three must be green. `just docs-audit` is the one most often skipped and the one that
+catches the errors that actually reach a reviewer: a dead file reference, an ADR whose
+frontmatter drifted, a skill that outgrew its size budget.
+
+### PR body
+
+```markdown
+## What
+One or two sentences. The problem, not the diff.
+
+## Why
+Why this approach over the obvious alternative. Link the ADR if there is one.
+
+## How
+The shape of the change, not a file listing. Note anything a reviewer cannot infer
+from the diff (a refactor that touches X for consistency, a generated file, a
+deliberately deferred item).
+
+## Verification
+- [ ] ./check.sh
+- [ ] just tcheck-evals
+- [ ] just docs-audit
+- [ ] manual/UI verification where the change is visual
+
+## Risk
+What could break, and how you would notice. "None — docs only" is a valid answer.
+```
+
+### Draft vs. ready
+
+Push as **draft** when any of these hold; they are the same list a reviewer will check:
+
+- the gate has not been run end to end
+- a test for the new behaviour does not exist yet
+- you know of a follow-up that belongs in the same PR
+- you are not able to say what could break
+
+Drop the draft prefix when the gate is green and you can answer "what could break".
+
+### Self-review before requesting review
+
+Read your own diff as if you had not written it:
+
+```bash
+git diff <base>...HEAD --stat
+git diff <base>...HEAD
+```
+
+Check specifically for: a commented-out block, a debug `println`/`Log.d`, a TODO you
+introduced, a KDoc `@see` pointing at a file that moved, and any test asserting a
+literal instead of the behaviour.
+
+An agent reviewing its own diff inherits the assumptions the diff was built on. For a
+change over a few hundred lines, dispatch a fresh sub-agent with only the diff and the
+ADR — it sees what you cannot unsee. Give it the diff, not the session history.
+
+---
+
+## Phase 1–3 — Reviewer side
 
 ### Step 1 — Identify the phase
 

@@ -1,6 +1,8 @@
 ---
-description: How pull events are applied to local entities, how handlers are registered, and how repositories enqueue sync changes.
+title: ADR: Sync Pull Application & Consumer Wiring
+date: 2026-09-23
 status: accepted
+description: How pull events are applied to local entities, how handlers are registered, and how repositories enqueue sync changes.
 ---
 
 # ADR: Sync Pull Application & Consumer Wiring

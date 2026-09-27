@@ -269,7 +269,7 @@ advanceUntilIdle()  // drains all pending coroutines
 advanceTimeBy(300L)  // advances virtual time by 300ms
 ```
 
-## Existing Rules (as of 2026-09-25)
+## Existing Rules (as of 2026-09-27)
 
 | Rule | File | RuleSet ID | What it checks |
 |------|------|------------|----------------|
@@ -277,9 +277,15 @@ advanceTimeBy(300L)  // advances virtual time by 300ms
 | `NoViewModelScopeInProductionRule` | `NoViewModelScopeInProductionRule.kt` | `no-viewmodel-scope` | `viewModelScope.launch/async/cancel` in production |
 | `NoRunBlockingRule` | `NoRunBlockingRule.kt` | `no-run-blocking` | `runBlocking` in production |
 | `NoStateInRule` | `NoStateInRule.kt` | `no-state-in` | `.stateIn(...)` in production VMs (exempts `@OptIn(CombineStateInReadThrough)`) |
-| `NoCombineSideEffectRule` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | `_state.value = ...` inside `combine { }` lambda |
-| `NoGlobalScopeLaunchRule` | `NoGlobalScopeLaunchRule.kt` | `no-global-scope` | `GlobalScope.launch/async/cancel` in production |
+| `NoStaticProfileAwareCurrentUserRule` | `NoStaticProfileAwareCurrentUserRule.kt` | `no-static-profile-aware-current-user` | static/global `ProfileAwareCurrentUser` |
 | `PassThroughUseCaseRule` | `PassThroughUseCaseRule.kt` | `pass-through-use-case` | `UseCase` with no real logic (pass-through to repo) |
+| `KDocEnforcementRules` | `KDocEnforcementRules.kt` | `kdoc-enforcement` | `ViewModelMustHaveKDoc`, `RepositoryInterfaceMustHaveKDoc` |
+| `NoFactoryViewModelRule` | `NoFactoryViewModelRule.kt` | `no-factory-viewmodel` | `factory { *ViewModel(...) }` / `factoryOf(::*ViewModel)` |
+| `MviViewModelRulesProvider` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | `VmScopePosition`, `VmCloseable`, `ShadowedState` |
+
+`NoCombineSideEffectRule` and `NoGlobalScopeLaunchRule` existed at one point and were
+removed in `2026-09-26-detekt-rules-activation-audit`; do not re-add them without a
+finding the existing `mvi-viewmodel` rules do not cover.
 
 ## Common Mistakes
 

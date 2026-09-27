@@ -1,4 +1,7 @@
-# singularity-todo-tech-debt-refactor
+---
+name: singularity-todo-tech-debt-refactor
+description: High-level plan for the tech-debt refactor epic (3 epics x 10 PRs), with per-PR pointers to the skill that carries the detail. Work happens in git worktrees to keep the main checkout clean. Use when starting or resuming work on the tech-debt epic; load the pointed-to skill for the specific PR before making changes.
+---
 
 > **When to use:** Starting or continuing work on the tech debt refactor epic. Provides high-level plan overview, completed PRs, and pointers to relevant skills for each piece.
 

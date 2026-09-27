@@ -1,6 +1,8 @@
 ---
-summary: Реструктуризация feature/projects по Clean Architecture: domain/data/presentation слои, перемещение Ids.kt, ProjectsRepository, UseCase-файлов, UI-state, экранов
+title: ADR: feature/projects — Clean Architecture рефакторинг
+date: 2026-09-15
 status: accepted
+summary: Реструктуризация feature/projects по Clean Architecture: domain/data/presentation слои, перемещение Ids.kt, ProjectsRepository, UseCase-файлов, UI-state, экранов
 ---
 
 # ADR: feature/projects — Clean Architecture рефакторинг

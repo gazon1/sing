@@ -105,20 +105,49 @@ lint: detekt
 # ---------------------------------------------------------------------------
 
 [group('docs')]
-[doc('Audit ADR frontmatter, regenerate DIGEST, check source-tree drift')]
+[doc('Audit docs: frontmatter, size budgets, dead refs, supersede chains, DIGEST')]
 [working-directory(justfile_directory())]
 docs-audit:
     #!/bin/bash
-    set -euo pipefail
-    echo "=== ADR frontmatter normalization check ==="
+    set -uo pipefail
+    status=0
+    echo "=== Skill frontmatter (name + description required) ==="
+    ./scripts/check-skill-frontmatter.sh || status=1
+    echo ""
+    echo "=== Doc size budgets (AGENTS.md, SKILL.md, description, DIGEST.md) ==="
+    python3 scripts/check-doc-sizes.py --warn-only || status=1
+    echo ""
+    echo "=== Dead file references in docs, skills and KDoc ==="
+    python3 scripts/check-doc-dead-refs.py || status=1
+    echo ""
+    echo "=== ADR frontmatter normalization (dry run) ==="
     ./scripts/normalize-adr-frontmatter.sh --dry-run 2>/dev/null || true
     echo ""
-    echo "=== DIGEST freshness check ==="
+    echo "=== DIGEST freshness ==="
     ./scripts/refresh-decisions-digest.sh
     echo ""
-    echo "=== Source tree drift check ==="
+    echo "=== Source tree drift ==="
     ./scripts/print-source-tree.sh --output /tmp/source-tree.md
     echo "(source tree written to /tmp/source-tree.md for manual diff)"
+    exit $status
+
+[group('docs')]
+[doc('Re-generate docs that are auto-derived from the tree (SKILLS-CATALOG, DIGEST)')]
+[working-directory(justfile_directory())]
+docs-regen:
+    #!/bin/bash
+    set -euo pipefail
+    ./scripts/regen-skills-catalog.sh
+    ./scripts/refresh-decisions-digest.sh
+    echo "docs-regen: regenerated SKILLS-CATALOG.md and DIGEST.md"
+
+[group('tests')]
+[doc('Run the agent workflow evals (agent behaviour regression)')]
+[working-directory(justfile_directory())]
+tcheck-evals:
+    #!/bin/bash
+    set -euo pipefail
+    python3 scripts/run-evals.py
 
 # ---------------------------------------------------------------------------
 # Coverage (kotlinx-kover)

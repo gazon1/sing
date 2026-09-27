@@ -26,7 +26,7 @@ description: Run detekt, ktlint, and kover on the Singularity Todo KMP project. 
 ## Just recipes
 
 ```bash
-just lint            # run detekt analysis (shared + desktopApp) — report-only
+just lint            # run detekt analysis (shared + desktopApp) — enforcing
 just detekt-fix      # auto-fix detekt rules + ktlint formatting (in-place) ✅ USE THIS BEFORE COMMIT
 just detekt-baseline # regenerate baseline files (after large auto-fix pass)
 just coverage        # kover XML reports → shared/build/reports/kover/
@@ -40,7 +40,7 @@ just tcheck          # full pipeline: tests + assembleDebug + lint
 
 ```bash
 # detekt
-./gradlew :shared:detekt :desktopApp:detekt                    # check (report-only)
+./gradlew :shared:detekt :desktopApp:detekt                    # check (enforcing)
 ./gradlew :shared:detekt --rerun-tasks                        # force rerun
 ./gradlew :shared:detektBaseline :desktopApp:detektBaseline  # generate baselines
 
@@ -176,26 +176,36 @@ kover {
 
 The `detekt-rules/` module provides project-specific rules loaded via `META-INF/services/dev.detekt.api.RuleSetProvider`:
 
-| Rule | RuleSet | Severity | What it bans |
-|---|---|---|---|
-| `NoRealDelayInTestRule` | `no-real-delay-in-test` | **warning** | `delay(N>1)` in test sources |
-| `NoViewModelScopeInProductionRule` | `no-viewmodel-scope` | **warning** | `viewModelScope.launch/async/cancel` in production |
-| `NoRunBlockingRule` | `no-run-blocking` | **warning** | `runBlocking` in production |
+| Rule | RuleSet | What it bans |
+|---|---|---|
+| `NoRealDelayInTestRule` | `no-real-delay-in-test` | `delay(N>1)` in test sources |
+| `NoViewModelScopeInProductionRule` | `no-viewmodel-scope` | `viewModelScope.launch/async/cancel` in production |
+| `NoRunBlockingRule` | `no-run-blocking` | `runBlocking` in production |
+| `NoStateInRule` | `no-state-in` | `.stateIn(...)` in production VMs (exempts `@OptIn(CombineStateInReadThrough)`) |
+| `NoStaticProfileAwareCurrentUserRule` | `no-static-profile-aware-current-user` | static/global `ProfileAwareCurrentUser` |
+| `PassThroughUseCaseRule` | `pass-through-use-case` | a `UseCase` with no real logic |
+| `KDocEnforcementRules` | `kdoc-enforcement` | ViewModel / repository interface without KDoc |
+| `NoFactoryViewModelRule` | `no-factory-viewmodel` | `factory { Vm(...) }` / `factoryOf(::Vm)` for a ViewModel |
+| `MviViewModelRules` | `mvi-viewmodel` | `VmScopePosition`, `VmCloseable`, `ShadowedState` |
 
-Both rules are **warning-only** on day 1 (do not fail the build). Promotion to error requires baseline stabilization in a follow-up PR.
+**All of these are enforcing** — `ignoreFailures = false` in `shared/build.gradle.kts` and
+`desktopApp/build.gradle.kts` since PR 3.3. A new rule is warning-level until its violation
+count reaches zero across `shared` + `desktopApp`; from then on it fails the build.
 
-See `ADR 2026-09-25-detekt-test-rules.md` for details.
+See `ADR 2026-09-25-detekt-test-rules.md` and `2026-09-26-detekt-rules-activation-audit.md`.
 
-## Promoting from report-only to fail-on-violation
+## Adding a custom rule
 
-When the codebase is clean enough to enforce violations:
+1. Write `XxxRule.kt` + `XxxProvider` in `detekt-rules/src/main/kotlin/com/singularity/todo/detekt/`.
+2. Register the provider in `detekt-rules/src/main/resources/META-INF/services/dev.detekt.api.RuleSetProvider`
+   — **a rule missing from that file never runs**, which is how `NoFactoryViewModelRule`
+   stayed dormant until 2026-09-27.
+3. Add the `xxx:` block to `config/detekt/detekt.yml` with `active: true`.
+4. Run `./gradlew :shared:detekt` and check the finding count. Non-zero → keep it as a
+   warning until the tree is clean, or fix the violations.
+5. Add the rule to the table above.
 
-1. Set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts`
-2. Update `check.sh` to remove `|| echo` fallback:
-   ```bash
-   ./gradlew :shared:detekt :desktopApp:detekt --no-daemon
-   ```
-3. Commit as a separate PR with a note in the decision record (`docs/decisions/2026-09-15-detekt-ktlint-kover-setup.md` — `ignoreFailures` consequence note)
+Details: `singularity-todo-detekt-rules-authoring` skill.
 
 ## Common issues
 

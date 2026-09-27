@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Skill Authoring Policy
 date: 2026-09-26
+status: accepted
 ---
 
 # Skill Authoring Policy

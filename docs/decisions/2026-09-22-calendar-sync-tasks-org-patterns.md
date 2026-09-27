@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Calendar sync — Tasks.org patterns adoption
 date: 2026-09-22
+status: accepted
 ---
 
 # Calendar sync — Tasks.org patterns adoption

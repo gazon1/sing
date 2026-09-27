@@ -39,9 +39,13 @@ echo -e "${YELLOW}=== [3/4] androidApp:assembleDebug ===${NC}"
 }
 echo -e "${GREEN}assembleDebug passed${NC}"
 
-echo -e "${YELLOW}=== [4/4] detekt (report-only, ignoreFailures=true) ===${NC}"
+echo -e "${GREEN}=== [4/4] detekt (enforcing, ignoreFailures=false) ===${NC}"
+# Detekt has failed the build since PR 3.3 (ignoreFailures = false in both modules).
+# The `|| { echo }` fallback that used to be here swallowed real violations, so a
+# green ./check.sh did not imply a clean detekt run.
 ./gradlew :shared:detekt :desktopApp:detekt --quiet || {
-    echo -e "${YELLOW}  detekt reported violations (ignoreFailures=true — see baselines in config/detekt/)${NC}"
+    echo -e "${RED}detekt reported violations — see config/detekt/ for the active rule set${NC}"
+    exit 1
 }
 
 # Optional: Android instrumentation tests on real adb device

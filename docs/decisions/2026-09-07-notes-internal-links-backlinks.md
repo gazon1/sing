@@ -1,6 +1,8 @@
 ---
-description: Internal links (Obsidian-style) + backlinks panel for Notes editor
+title: Notes Internal Links + Backlinks (Phase 2 extension)
+date: 2026-09-07
 status: accepted
+description: Internal links (Obsidian-style) + backlinks panel for Notes editor
 ---
 
 # Notes Internal Links + Backlinks (Phase 2 extension)

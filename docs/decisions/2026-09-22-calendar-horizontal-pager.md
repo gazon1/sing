@@ -1,4 +1,6 @@
 ---
+title: Calendar HorizontalPager (MR-1)
+date: 2026-09-22
 status: accepted
 ---
 

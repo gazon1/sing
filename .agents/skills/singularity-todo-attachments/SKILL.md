@@ -315,7 +315,7 @@ fun AttachmentSheet(
 }
 ```
 
-**⚠️ Never use `factory { AttachmentsViewModel(...) }` for ViewModel** — it causes memory leaks (per `singularity-todo-vm-koin-scoping`).
+**⚠️ Never use `factory { AttachmentsViewModel(...) }` for ViewModel** — it causes memory leaks (see the DI table in `AGENTS.md`).
 
 ## UI components
 

@@ -1,0 +1,40 @@
+# Accepted dead file references in docs, skills and KDoc.
+#
+# Each line is `<file>:<referenced-path>`. A dead reference means the
+# referenced file does not exist anywhere in the repo. These are accepted
+# because the surrounding prose describes a design that was written down
+# but never built; they are catalogued in
+# docs/decisions/2026-09-27-doc-and-skills-sprint-findings.md.
+#
+# New dead references are NOT baselined and fail `just docs-audit`.
+# Regenerate with: python3 scripts/check-doc-dead-refs.py --update-baseline
+# Remove a line once the file is written or the example is reworded.
+.agents/skills/domain-modeling/SKILL.md:CONTEXT-MAP.md
+.agents/skills/singularity-todo-ai-action-registry-pattern/SKILL.md:TaskFormatters.kt
+.agents/skills/singularity-todo-android-release-workflow/SKILL.md:RELEASE.md
+.agents/skills/singularity-todo-attachments/SKILL.md:feature/attachments/AttachmentButton.kt
+.agents/skills/singularity-todo-attachments/SKILL.md:feature/attachments/AttachmentSheet.kt
+.agents/skills/singularity-todo-clean-architecture-audit/SKILL.md:TaskModel.kt
+.agents/skills/singularity-todo-document-style-detail/SKILL.md:feature/tasks/TaskDetailScreen.kt
+.agents/skills/singularity-todo-feature-scaffold/SKILL.md:domain/model/TaskList.kt
+.agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:shared/src/commonMain/.../feature/projects/ProjectsViewModel.kt
+.agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:shared/src/commonMain/.../feature/tasks/TasksViewModel.kt
+.agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:shared/src/jvmMain/.../core/di/JvmPromptExecutorPort.kt
+.agents/skills/singularity-todo-mcp-server/SKILL.md:mcp-server/src/test/kotlin/.../mcp/ChannelTransportTest.kt
+.agents/skills/singularity-todo-multi-profile/SKILL.md:mcp-server/src/main/kotlin/.../mcp/Args.kt
+.agents/skills/singularity-todo-multi-profile/SKILL.md:shared/src/commonMain/.../feature/profile/RoomProfileRepository.kt
+.agents/skills/singularity-todo-quality-tools/SKILL.md:XxxRule.kt
+.agents/skills/singularity-todo-rich-editor/SKILL.md:NotesScreen.kt
+.agents/skills/singularity-todo-room-migration/SKILL.md:AppDatabase_Impl.kt
+.agents/skills/singularity-todo-room-migration/SKILL.md:shared/src/commonMain/.../core/database/AppDatabaseCtor.kt
+.agents/skills/singularity-todo-room-migration/SKILL.md:shared/src/jvmMain/.../core/database/AppDatabaseCtor.jvm.kt
+.agents/skills/singularity-todo-shared-ui-components/SKILL.md:Screen.kt
+.agents/skills/singularity-todo-task-callback-groups/SKILL.md:feature/notes/components/NoteCardActions.kt
+.agents/skills/singularity-todo-task-callback-groups/SKILL.md:feature/tasks/components/TaskDetailActions.kt
+.agents/skills/singularity-todo-tech-debt-refactor/SKILL.md:RunInLifecycle.kt
+.agents/skills/singularity-todo-test-tag-strategy/SKILL.md:docs/decisions/2026-09-26-junit-tag-default-semantics.md
+.agents/skills/writing-for-agents/SKILL.md:CLAUDE.md
+.agents/skills/writing-for-agents/SKILL.md:package.json
+PROGRESS.md:StateStrategy.kt
+PROGRESS.md:StatefulViewModel.kt
+shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector/package-info.kt:DateBucketExtensions.kt

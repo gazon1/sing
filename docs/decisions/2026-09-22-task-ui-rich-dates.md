@@ -1,4 +1,6 @@
 ---
+title: Task UI + Domain Wiring for Rich Dates (MR-2b)
+date: 2026-09-22
 status: accepted
 ---
 

@@ -5,6 +5,10 @@ tags: [technical-debt, deprecation, tests]
 status: accepted
 ---
 
+# Accumulated deprecation warnings and pre-existing test failures
+
+> **Superseded in part (2026-09-27):** the project-level `com.singularity.todo.core.platform.Clock` expect/actual object was removed. Use `kotlin.time.Clock.System.now()` (inject `Clock` for tests) and `core.platform.todayFlow()` / `todayInSystemZone()`. See [2026-09-27-remove-platform-clock-object.md](2026-09-27-remove-platform-clock-object.md).
+
 ## Context
 
 During the `refactor/cleanup-alarms` worktree session, the following issues were identified but deferred for later fixes because they are non-critical (warnings, not errors) or require significant test infrastructure changes.

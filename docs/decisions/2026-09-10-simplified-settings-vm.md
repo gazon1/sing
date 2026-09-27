@@ -1,4 +1,6 @@
 ---
+title: Simplified SettingsViewModel — no reactive collection
+date: 2026-09-10
 status: accepted
 ---
 # Simplified SettingsViewModel — no reactive collection

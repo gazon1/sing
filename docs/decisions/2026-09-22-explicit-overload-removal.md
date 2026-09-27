@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Explicit userId overload removal
 date: 2026-09-22
+status: accepted
 ---
 
 # Explicit userId overload removal

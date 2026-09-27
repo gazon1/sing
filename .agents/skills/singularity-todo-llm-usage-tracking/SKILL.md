@@ -180,7 +180,7 @@ interface LlmUsageDao {
 ## ModelPricing — Token Cost Table
 
 ```kotlin
-// shared/src/commonMain/.../feature/ai/ModelPricing.kt
+// shared/src/commonMain/.../core/observability/UsageRecorder.kt (costUsdMicros field)
 package com.singularity.todo.feature.ai
 
 /**
@@ -229,7 +229,7 @@ internal object ModelPricing {
 Koog 1.1.1 exposes usage via `Message.Assistant.metaInfo`:
 
 ```kotlin
-// shared/src/commonMain/.../feature/ai/usage/UsageExtractor.kt
+// shared/src/commonMain/.../core/observability/RoomUsageRecorder.kt
 package com.singularity.todo.feature.ai.usage
 
 import ai.koog.prompt.executor.model.ResponseMetaInfo
@@ -333,7 +333,7 @@ override suspend fun generate(prompt: String, systemPrompt: String?, model: Stri
 New destination: `AppDestination.AiUsage`
 
 ```kotlin
-// shared/src/commonMain/.../feature/usage/AiUsageScreen.kt
+// shared/src/commonMain/.../feature/ai/usage/AiUsageScreen.kt
 @Composable
 fun AiUsageScreen(viewModel: AiUsageViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsState()
@@ -447,14 +447,16 @@ val priceMicros = ModelPricing.priceOrNull(model, input, output)
 
 | File | Purpose |
 |---|---|
-| `shared/src/commonMain/.../core/observability/UsageRecorder.kt` | Port + data classes |
+| `shared/src/commonMain/.../core/observability/UsageRecorder.kt` | Port + data classes (`ToolUsageEvent.costUsdMicros` — `null` если модель не в pricing table) |
 | `shared/src/commonMain/.../core/observability/RoomUsageRecorder.kt` | Room implementation |
 | `shared/src/commonMain/.../core/database/Entities.kt` | `LlmUsageEntity` |
 | `shared/src/commonMain/.../core/database/Daos.kt` | `LlmUsageDao` |
-| `shared/src/commonMain/.../feature/ai/ModelPricing.kt` | Pricing table |
-| `shared/src/commonMain/.../feature/ai/usage/UsageExtractor.kt` | Koog metaInfo extraction |
-| `shared/src/commonMain/.../feature/usage/AiUsageScreen.kt` | Compose screen |
-| `shared/src/commonMain/.../feature/usage/AiUsageViewModel.kt` | ViewModel with state |
+| `shared/src/commonMain/.../feature/ai/usage/AiUsageScreen.kt` | Compose screen |
+| `shared/src/commonMain/.../feature/ai/usage/AiUsageViewModel.kt` | ViewModel with state |
+
+> ⚠️ `ModelPricing` (pricing table) и `UsageExtractor` (Koog `metaInfo` extraction) из примеров
+> ниже **ещё не реализованы** — `costUsdMicros` всегда `null`. Примеры описывают целевой
+> дизайн, а не существующие файлы. Backlog: `docs/decisions/2026-09-27-doc-and-skills-sprint-findings.md`.
 
 ## Related Skills
 

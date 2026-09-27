@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Epic Final Retro — docs-and-skills-hygiene
 date: 2026-09-26
+status: accepted
 ---
 
 # Epic Final Retro — docs-and-skills-hygiene

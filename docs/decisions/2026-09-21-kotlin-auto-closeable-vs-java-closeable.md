@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: `kotlin.AutoCloseable` vs `java.io.Closeable` in KMP commonMain
 date: 2026-09-21
+status: accepted
 ---
 
 # `kotlin.AutoCloseable` vs `java.io.Closeable` in KMP commonMain

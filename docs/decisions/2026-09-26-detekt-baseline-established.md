@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: detekt baseline established
 date: 2026-09-26
+status: accepted
 review: after PR-0.3 (KDoc batch)
 ---
 

@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: KDoc enforcement rules
 date: 2026-09-26
+status: accepted
 ---
 
 # KDoc enforcement rules

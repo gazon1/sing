@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: combine+stateIn Policy
 date: 2026-09-24
+status: accepted
 tags: [vm, architecture, epic2, policy]
 epic: refactor/techdebt-epic2
 ---

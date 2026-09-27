@@ -1,4 +1,6 @@
 ---
+title: Outbox polling → WorkManager
+date: 2026-09-22
 status: accepted
 ---
 

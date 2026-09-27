@@ -1,7 +1,17 @@
 ---
-Key constraints: 
+title: Tasks — Upcoming screen
+date: 2026-09-16
 status: accepted
+tags: [tasks, filter, repository]
 ---
+
+# Tasks — Upcoming screen
+
+## Context
+
+The Upcoming screen needs a task list filtered to a date range, but `TaskFilter` is a sealed
+hierarchy and adding a `ByDateRange` branch would ripple through every screen that exhausts
+it.
 
 ## Decision
 

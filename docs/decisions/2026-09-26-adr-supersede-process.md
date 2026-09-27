@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: ADR Supersede Process
 date: 2026-09-26
+status: accepted
 ---
 
 # ADR Supersede Process

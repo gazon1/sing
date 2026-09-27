@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Mutation-result handling in ViewModels
 date: 2026-09-18
+status: accepted
 ---
 
 # Mutation-result handling in ViewModels

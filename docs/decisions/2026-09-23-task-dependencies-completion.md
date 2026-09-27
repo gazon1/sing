@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Task Dependencies (Blocked/Blocking)
 date: 2026-09-23
+status: accepted
 authors: Singularity Developer
 ---
 

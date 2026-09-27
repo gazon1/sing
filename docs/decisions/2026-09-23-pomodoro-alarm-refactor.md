@@ -5,6 +5,10 @@ tags: [pomodoro, alarms, architecture, testability, koin]
 status: accepted
 ---
 
+# Drop ViewModel in AndroidPomodoroTimer; extract PomodoroScheduler port; use kotlinx.datetime.Clock
+
+> **Superseded in part (2026-09-27):** the project-level `com.singularity.todo.core.platform.Clock` expect/actual object was removed. Use `kotlin.time.Clock.System.now()` (inject `Clock` for tests) and `core.platform.todayFlow()` / `todayInSystemZone()`. See [2026-09-27-remove-platform-clock-object.md](2026-09-27-remove-platform-clock-object.md).
+
 ## Context
 
 `AndroidPomodoroTimer` extended `ViewModel` and used `viewModelScope.launch` internally. This made it untestable in isolation — `viewModelScope` is provided by the ViewModel system and isn't available in a plain JVM test. Additionally, it accepted `PomodoroAlarmScheduler` (the concrete Android class) rather than a port, preventing test substitution. The `tasks: StateFlow<List<Task>>` was mixed into the `PomodoroTimer` interface, violating layer separation.

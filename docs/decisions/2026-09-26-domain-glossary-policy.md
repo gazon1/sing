@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Domain Glossary Policy
 date: 2026-09-26
+status: accepted
 ---
 
 # Domain Glossary Policy

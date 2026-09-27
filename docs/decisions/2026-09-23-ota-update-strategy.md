@@ -1,4 +1,6 @@
 ---
+title: OTA Update Strategy — Play In-App Updates + Remote Config
+date: 2026-09-23
 status: accepted
 ---
 

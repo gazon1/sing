@@ -115,6 +115,53 @@ LOG SHOWS ERROR
   └─── Unknown → escalate to senior engineer
 ```
 
+## Writing it up: incident report / retro ADR
+
+Once you have the root cause, write it down — an investigation that lives only in the
+terminal is gone by the next session. The decision tree above says "file incident report"
+and "file retro ADR"; this is what that looks like.
+
+**Investigation in progress** (cause known, fix not yet landed) — an incident report:
+
+```markdown
+---
+date: YYYY-MM-DD
+status: open
+tags: [incident, <area>]
+---
+
+# <Symptom as the user saw it>
+
+## Timeline
+- <when it started, and what preceded it — deploy, config change, data migration>
+- <what was already ruled out>
+
+## Root cause
+<The mechanism, not the symptom. "The debounced write loop re-triggered on its own
+emission, so the title field never settled" — not "the title was wrong".>
+
+Evidence: <log excerpt, traceId, failing test, or the query that showed it.>
+
+## Blast radius
+<Which profiles, which data, whether it self-heals, whether a backup is needed.>
+
+## Fix or workaround
+- Fix: <what actually changes, and where>
+- Workaround: <what unblocks users now, if the fix is not ready>
+```
+
+**After the fix** — flip `status: open` to `accepted` and add `## Prevention`: what now
+stops this class of bug. Usually one of:
+
+- a test that fails without the fix (the strongest kind)
+- a detekt rule or Konsist test (`singularity-todo-detekt-rules-authoring`)
+- a pattern note in the relevant skill, so the next agent does not rediscover it
+- nothing — a genuine one-off, in which case say so rather than inventing prevention
+
+**Worth keeping:** "why did this pass review and tests" is a more useful question than
+"how did we fix it", because it points at the gap rather than the symptom. Write that
+answer down while it is fresh.
+
 ## Common pitfalls
 
 1. **Ignoring WARN before ERROR** — the root cause often appears as a WARN before the ERROR

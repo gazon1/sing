@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: state-hoisting-p3: Dispatchers, OverlayState, snackbar separation
 date: 2026-09-21
+status: accepted
 ---
 
 # state-hoisting-p3: Dispatchers, OverlayState, snackbar separation

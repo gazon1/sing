@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: R23: GenUI subsystem — applied
 date: 2026-09-26
+status: accepted
 supersedes: 2026-09-26-notes-clean-architecture-r21
 ---
 

@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Task Backlinks — Design
 date: 2026-09-25
+status: accepted
 ---
 
 # Task Backlinks — Design

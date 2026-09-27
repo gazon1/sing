@@ -1,4 +1,7 @@
-# singularity-todo-vm-lifecycle-addcloseable
+---
+name: singularity-todo-vm-lifecycle-addcloseable
+description: Migrate a ViewModel from manual 'override fun onCleared() { scope.cancel() }' to AutoCloseableCoroutineScope + ViewModel.addCloseable() (lifecycle 2.8+). Use when a ViewModel manages its own scope, or when reviewing a VM for lifecycle-cancellation correctness. For the full canonical VM shape see singularity-todo-testable-vm.
+---
 
 ## Purpose
 

@@ -12,7 +12,6 @@ This is a **router skill** — it points to the right skill for your task. No di
 | Skill | When to use |
 |---|---|
 | `singularity-todo-koin-dsl` | **Start here.** Canonical Koin 4.x DSL: `viewModelOf` vs `viewModel {}`, `koinViewModel` vs `koinInject`, 7-constructor limit |
-| `singularity-todo-vm-koin-scoping` | When to use `viewModel {}`, `viewModelOf`, or `factory {}` for ViewModels |
 | `singularity-todo-di-graph-testing` | Testing the DI graph — verifying bindings, resolving dependencies |
 | `singularity-todo-clean-architecture-audit` | Verifying DI bindings follow layer rules |
 
@@ -23,7 +22,7 @@ Registering a new dependency?
   → singularity-todo-koin-dsl
 
 ViewModel not resolving / wrong scope?
-  → singularity-todo-vm-koin-scoping
+  → `AGENTS.md` DI table
 
 Koin runtime error (missing binding, etc)?
   → singularity-todo-di-graph-testing (run DiGraphTest)

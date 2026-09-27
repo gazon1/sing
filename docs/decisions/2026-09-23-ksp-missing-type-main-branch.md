@@ -1,4 +1,6 @@
 ---
+title: ADR: Pre-existing KSP Error in Main Branch
+date: 2026-09-23
 status: accepted
 ---
 # ADR: Pre-existing KSP Error in Main Branch

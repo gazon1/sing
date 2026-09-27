@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Four Phases Gate
 date: 2026-09-26
+status: accepted
 ---
 
 # Four Phases Gate

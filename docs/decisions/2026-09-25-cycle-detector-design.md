@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: CycleDetector Design
 date: 2026-09-25
+status: accepted
 ---
 
 # CycleDetector Design

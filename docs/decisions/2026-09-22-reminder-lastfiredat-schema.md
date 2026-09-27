@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Reminder `lastFiredAt` — schema migration + scheduler guard
 date: 2026-09-22
+status: accepted
 tags: [reminders, database, scheduler]
 ---
 

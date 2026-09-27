@@ -18,7 +18,7 @@ UI/UseCase → SyncableEntity.mutate() → HLC timestamp → SyncOutbox.enqueue(
                                                               ↓
                                     SyncApi.pull() ←── Supabase PostgREST
                                                               ↓
-                                    ConflictResolver.merge() → Room upsert
+                                    ConflictResolver.checksumEquals() → applyRemoteWins (LWW) → Room upsert
 ```
 
 ## Hybrid Logical Clock (HLC)

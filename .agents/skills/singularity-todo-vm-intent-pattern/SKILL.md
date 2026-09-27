@@ -267,7 +267,7 @@ Keep this value consistent across VMs unless you have a measured reason to devia
 - `singularity-todo-task-callback-groups` — pairing this pattern with `@JvmInline value class Actions` in Composables
 - `singularity-todo-ui-event-vs-state` — routing state (which sheet is open) is NOT a `SharedFlow` event
 - `singularity-todo-testable-vm` — **testability pattern**: plain `MutableStateFlow`, scope injection, no `combine`+`stateIn`
-- `singularity-todo-vm-koin-scoping` — how to register this VM in Koin (especially two-constructor testable VMs — never `viewModelOf`, always explicit `viewModel { ... }`)
+- `AGENTS.md` DI table — how to register this VM in Koin. For a genuinely two-constructor testable VM, use an explicit `viewModel { ... }` block (see `feature/agenda/AgendaDiModule.kt`)
 - `singularity-todo-sheet-extraction` — routing intents for sheet navigation (e.g. `NavigateToChild`), `ActiveSheet` sealed interface, `*SheetsHost` composition, `CurrentContent` data class
 - `docs/decisions/2026-09-09-task-detail-intent-refactor.md` — the ADR that formalized this pattern
 - `docs/decisions/2026-09-09-project-detail-intent-refactor.md` — the minimal variant ADR (no sheets)

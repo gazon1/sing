@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Task AI Action Registry Design
 date: 2026-09-25
+status: accepted
 ---
 
 # Task AI Action Registry Design

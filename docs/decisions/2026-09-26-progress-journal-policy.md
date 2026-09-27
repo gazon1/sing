@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Progress Journal Policy
 date: 2026-09-26
+status: accepted
 ---
 
 # Progress Journal Policy

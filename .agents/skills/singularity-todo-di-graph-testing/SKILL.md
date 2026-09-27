@@ -18,7 +18,7 @@ Both call `checkModules { modules(...) }` from `org.koin.test.check.checkModules
 
 ## Reference implementation
 
-### `shared/src/jvmTest/kotlin/com/singularity/todo/core/di/DiGraphTest.kt`
+### `shared/src/jvmTest/kotlin/com/singularity/todo/test/KoinGraphValidationTest.kt`
 
 ```kotlin
 package com.singularity.todo.core.di
@@ -43,7 +43,7 @@ class DiGraphTest {
 }
 ```
 
-### `shared/src/androidHostTest/kotlin/com/singularity/todo/core/di/AndroidDiGraphTest.kt`
+### `shared/src/androidHostTest/kotlin/com/singularity/todo/test/KoinGraphValidationTest.kt`
 
 ```kotlin
 package com.singularity.todo.core.di
@@ -200,8 +200,8 @@ It instantiates every `single`/`factory` definition and recursively resolves `ge
 
 | File | Role |
 |---|---|
-| `shared/src/jvmTest/.../core/di/DiGraphTest.kt` | JVM graph test |
-| `shared/src/androidHostTest/.../core/di/AndroidDiGraphTest.kt` | Robolectric graph test |
+| `shared/src/jvmTest/.../test/KoinGraphValidationTest.kt` | JVM graph test |
+| `shared/src/androidHostTest/.../test/KoinGraphValidationTest.kt` | Robolectric graph test |
 | `shared/src/commonMain/.../core/di/Modules.kt` | `coreDomainModule()`, `expect fun aiToolsModule()` |
 | `shared/src/jvmMain/.../core/di/PlatformModule.jvm.kt` + `AiToolsModule.jvm.kt` | JVM platform |
 | `shared/src/androidMain/.../core/di/PlatformModule.android.kt` + `AiToolsModule.android.kt` | Android platform + AI stubs |

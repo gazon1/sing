@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Reminder + SavedAgenda repository ambient stamping
 date: 2026-09-23
+status: accepted
 ---
 
 # Reminder + SavedAgenda repository ambient stamping

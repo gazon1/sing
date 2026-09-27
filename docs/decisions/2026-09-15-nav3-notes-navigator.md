@@ -1,4 +1,6 @@
 ---
+title: Nav3 Notes Navigator — Eliminate callback-passing in notes screens
+date: 2026-09-15
 status: accepted
 ---
 # Nav3 Notes Navigator — Eliminate callback-passing in notes screens
