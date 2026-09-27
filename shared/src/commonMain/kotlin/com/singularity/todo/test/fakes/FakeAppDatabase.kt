@@ -1131,4 +1131,23 @@ private class FakeProjectInheritedTagGroupDao(
         store.update { list -> list.filter { it.projectId != projectId } }
         return before
     }
+
+    /**
+     * The real DAO inserts only when the owning project belongs to [userId]. This
+     * fake holds just the join rows and has no view of the projects table, so it
+     * applies the insert — the ownership contract is exercised against real
+     * SQLite in the repository sync tests instead.
+     */
+    override suspend fun insertForUser(projectId: String, tagGroupId: String, userId: String) {
+        store.update { list ->
+            if (list.any { it.projectId == projectId && it.tagGroupId == tagGroupId }) {
+                list
+            } else {
+                list + ProjectInheritedTagGroupCrossRef(projectId = projectId, tagGroupId = tagGroupId)
+            }
+        }
+    }
+
+    /** No projects table in this fake, so ownership cannot be evaluated. */
+    override suspend fun isProjectOwnedBy(projectId: String, userId: String): Boolean = true
 }

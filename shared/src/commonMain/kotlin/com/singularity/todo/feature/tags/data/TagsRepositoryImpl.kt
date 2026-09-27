@@ -67,6 +67,10 @@ class TagsRepositoryImpl(
         val ts = clock.now().toEpochMilliseconds()
         val rows = tagDao.softDeleteForUser(id.value, ts, uid.value)
         require(rows > 0) { "Tag $id not found or not owned by user" }
+        // Deletion propagates as state (deletedAt) rather than a tombstone, so
+        // the trashed tag itself is pushed and the server converges.
+        val row = tagDao.getByIdForUser(id.value, uid.value) ?: return@runCatching
+        syncRepository.enqueue(row.toTag())
     }
 
     override fun observeTag(id: TagId): Flow<Tag?> = tagDao.watchById(id.value).map { it?.toTag() }

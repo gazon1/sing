@@ -52,8 +52,28 @@ class ProjectsRepositoryImpl(
     }
 
     override suspend fun update(item: Project): Result<Project> = runCatching {
-        projectDao.upsert(item.toEntity())
-        item.also { syncRepository.enqueue(it) }
+        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+        // Re-stamp after the guard, as Tasks and Notes now do: the guard has
+        // established that userId is current-or-anonymous, so normalising cannot
+        // lose information, whereas upserting a caller's anonymous id verbatim
+        // would orphan the row.
+        val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
+        projectDao.upsert(toUpdate.toEntity())
+        toUpdate.also { syncRepository.enqueue(it) }
+    }
+
+    /**
+     * Re-reads [id] and pushes that state to the sync outbox.
+     *
+     * The narrow methods below write through a targeted `UPDATE`, so the caller's
+     * project is stale by the time the write lands. Re-reading makes the pushed
+     * payload match the database — including for deletes, which propagate as
+     * state (`isDeleted`) rather than as a tombstone, since `buildPatch` already
+     * ships the full snapshot.
+     */
+    private suspend fun enqueueFresh(id: ProjectId) {
+        val row = projectDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value) ?: return
+        syncRepository.enqueue(row.toProject())
     }
 
     // ── Remote apply (pull handler) ────────────────────────────────────────────
@@ -68,6 +88,7 @@ class ProjectsRepositoryImpl(
         val uid = currentUser.scopedUserId.value.value
         val rows = projectDao.softDeleteForUser(id.value, ts, uid)
         require(rows > 0) { "Project $id not found or not owned by user" }
+        enqueueFresh(id)
     }
 
     // ── SoftDeletable ─────────────────────────────────────────────────────────
@@ -77,6 +98,7 @@ class ProjectsRepositoryImpl(
         val uid = currentUser.scopedUserId.value.value
         val rows = projectDao.restoreForUser(id.value, ts, uid)
         require(rows > 0) { "Project $id not found or not owned by user" }
+        enqueueFresh(id)
     }
 
     // ── Domain methods ───────────────────────────────────────────────────────
@@ -112,12 +134,18 @@ class ProjectsRepositoryImpl(
 
     override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {
         val uid = currentUser.scopedUserId.value.value
-        projectDao.setParentForUser(id.value, parentId?.value, updatedAt, uid)
+        val rows = projectDao.setParentForUser(id.value, parentId?.value, updatedAt, uid)
+        require(rows > 0) { "Project $id not found or not owned by user" }
+        // parentId is a serialised field of Project, so the reparent must sync.
+        enqueueFresh(id)
     }
 
     override suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long) {
         val uid = currentUser.scopedUserId.value.value
-        projectDao.setSortOrderForUser(id.value, sortOrder, updatedAt, uid)
+        val rows = projectDao.setSortOrderForUser(id.value, sortOrder, updatedAt, uid)
+        require(rows > 0) { "Project $id not found or not owned by user" }
+        // sortOrder is a serialised field of Project.
+        enqueueFresh(id)
     }
 
     override suspend fun findByIdempotencyKey(key: String): Project? {

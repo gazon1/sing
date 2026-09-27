@@ -749,4 +749,31 @@ interface ProjectInheritedTagGroupDao {
         """,
     )
     suspend fun deleteAllForUser(projectId: String, userId: String): Int
+
+    /**
+     * Inserts one inheritance row, scoped to the owning project.
+     *
+     * Returns `Unit` because Room only permits `Unit`/`Long` from INSERT queries
+     * and reports `-1` for a rejected one; the `EXISTS` clause is the enforcement.
+     * The caller validates up-front that the project is owned, and reports the
+     * failure itself when nothing was written.
+     */
+    @Query(
+        """
+        INSERT OR REPLACE INTO project_tag_groups (project_id, tag_group_id)
+        SELECT :projectId, :tagGroupId
+        WHERE EXISTS (SELECT 1 FROM projects WHERE id = :projectId AND user_id = :userId)
+        """,
+    )
+    suspend fun insertForUser(projectId: String, tagGroupId: String, userId: String)
+
+    /**
+     * Whether [projectId] exists and belongs to [userId].
+     *
+     * Lives here rather than in the repository so callers do not have to take a
+     * dependency on [ProjectDao] purely to assert ownership of a project they are
+     * only touching through this join table.
+     */
+    @Query("SELECT EXISTS(SELECT 1 FROM projects WHERE id = :projectId AND user_id = :userId)")
+    suspend fun isProjectOwnedBy(projectId: String, userId: String): Boolean
 }

@@ -91,17 +91,15 @@ class TagGroupRepositoryImpl(
         val rows = tagGroupDao.softDeleteForUser(id.value, ts, uid.value)
         require(rows > 0) { "TagGroup $id not found or not owned by current user" }
         // TODO: clear groupId on member tags (requires TagDao bulk update)
-        syncRepository.enqueue(
-            TagGroup(
-                id = id,
-                name = "", // placeholder; sync handler uses docType + syncId only
-                color = 0,
-                createdAt = clock.now(),
-                updatedAt = clock.now(),
-                userId = uid,
-                deletedAt = clock.now(),
-            ),
-        )
+        //
+        // Push the *real* trashed group, not a placeholder. The previous form
+        // built `name = ""`, `color = 0` on the assumption that the sync handler
+        // only reads docType + syncId — but toJson() serialises the whole model,
+        // so the server received a tag group with an empty name. Deletion
+        // propagates as state (`deletedAt`), same as every other entity.
+        val row = tagGroupDao.getByIdForUser(id.value, uid.value)
+            ?: throw IllegalStateException("TagGroup $id vanished between soft delete and sync")
+        syncRepository.enqueue(row.toTagGroup())
     }
 
     // ─── Inheritance ────────────────────────────────────────────────────────────
@@ -113,8 +111,25 @@ class TagGroupRepositoryImpl(
 
     override suspend fun setInheritedForProject(projectId: ProjectId, groupIds: Set<TagGroupId>): Result<Unit> =
         runCatching {
-            inheritedTagGroupDao.deleteAllForUser(projectId.value, currentUser.scopedUserId.value.value)
-            // Note: individual inserts not needed — upsert via raw SQL handled by sync worker
+            val uid = currentUser.scopedUserId.value.value
+            // Fail fast if the project is not ours, rather than silently
+            // deleting nothing and reporting success.
+            require(inheritedTagGroupDao.isProjectOwnedBy(projectId.value, uid)) {
+                "Project $projectId not found or not owned by current user"
+            }
+            val removed = inheritedTagGroupDao.deleteAllForUser(projectId.value, uid)
+            // The previous implementation only deleted, on the stated assumption
+            // that "individual inserts are not needed — upsert via raw SQL
+            // handled by sync worker". That is not how the sync worker behaves:
+            // it pushes *local* state to the server and never writes to the local
+            // database. The result was that setting inherited groups emptied the
+            // join table and left it empty forever.
+            var inserted = 0
+            groupIds.forEach { groupId ->
+                inheritedTagGroupDao.insertForUser(projectId.value, groupId.value, uid)
+                inserted++
+            }
+            require(removed >= 0 && inserted == groupIds.size) { "Failed to set inherited tag groups" }
         }
 
     // ─── Sync ───────────────────────────────────────────────────────────────────

@@ -19,6 +19,12 @@ value class TagId(val value: String) {
     }
 }
 
+/**
+ * `@Serializable` is load-bearing: [toJson] resolves `serializer<Tag>()`. Without
+ * it every enqueue throws, `runCatchingResult` swallows it, and tags silently
+ * never reach the sync outbox. Same defect as Note, fixed 2026-09-27.
+ */
+@Serializable
 data class Tag(
     val id: TagId,
     val name: String,
