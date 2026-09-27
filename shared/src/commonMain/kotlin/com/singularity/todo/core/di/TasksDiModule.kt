@@ -67,7 +67,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     singleOf(::TaskDaoArchiveRepository)
 
-    single<ChecklistRepository> { RoomChecklistRepository(get(), get()) }
+    single<ChecklistRepository> { RoomChecklistRepository(get(), get(), get()) }
 
     single<SavedSearchRepository> { RoomSavedSearchRepository(get(), get(), get()) }
 

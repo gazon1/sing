@@ -670,8 +670,6 @@ private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEnti
         store.update { it + (tag.id to tag) }
     }
 
-    override suspend fun softDelete(id: String, ts: Long) = mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
-
     override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int {
         val entity = store.value[id]
         return if (entity != null && entity.userId == userId) {
@@ -891,12 +889,21 @@ private class FakeChecklistDao(private val store: MutableStateFlow<Map<String, C
         store.update { it + (item.id to item) }
     }
 
-    override suspend fun delete(id: String) {
+    /**
+     * The real DAO scopes these through the owning task's `user_id`. This fake
+     * has no task store, so it cannot evaluate ownership and applies the
+     * deletion, reporting how many rows it removed.
+     */
+    override suspend fun deleteForUser(id: String, userId: String): Int {
+        val existed = store.value.containsKey(id)
         store.update { it - id }
+        return if (existed) 1 else 0
     }
 
-    override suspend fun deleteByTask(taskId: String) {
+    override suspend fun deleteByTaskForUser(taskId: String, userId: String): Int {
+        val before = store.value.values.count { it.taskId == taskId }
         store.update { current -> current.filterValues { c -> c.taskId != taskId } }
+        return before
     }
 }
 
@@ -1092,10 +1099,16 @@ private class FakeTagGroupDao(private val store: MutableStateFlow<Map<String, Ta
     override suspend fun upsert(entity: TagGroupEntity) {
         store.update { it + (entity.id to entity) }
     }
-    override suspend fun softDelete(id: String, ts: Long) {
-        store.update { current ->
-            val existing = current[id] ?: return@update current
-            current + (id to existing.copy(deletedAt = ts, updatedAt = ts))
+    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int {
+        val entity = store.value[id]
+        return if (entity != null && entity.userId == userId) {
+            store.update { current ->
+                val existing = current[id] ?: return@update current
+                current + (id to existing.copy(deletedAt = ts, updatedAt = ts))
+            }
+            1
+        } else {
+            0
         }
     }
 }
@@ -1105,10 +1118,17 @@ private class FakeTagGroupDao(private val store: MutableStateFlow<Map<String, Ta
 private class FakeProjectInheritedTagGroupDao(
     private val store: MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>,
 ) : ProjectInheritedTagGroupDao {
-    override fun watchByProject(projectId: String): Flow<List<String>> = store.map { list ->
+    override fun watchByProject(projectId: String, userId: String): Flow<List<String>> = store.map { list ->
         list.filter { it.projectId == projectId }.map { it.tagGroupId }
     }
-    override suspend fun deleteAllForProject(projectId: String) {
+
+    /**
+     * The real DAO scopes this through the owning project's `user_id`. This fake
+     * holds only the join rows, so ownership cannot be evaluated here.
+     */
+    override suspend fun deleteAllForUser(projectId: String, userId: String): Int {
+        val before = store.value.count { it.projectId == projectId }
         store.update { list -> list.filter { it.projectId != projectId } }
+        return before
     }
 }

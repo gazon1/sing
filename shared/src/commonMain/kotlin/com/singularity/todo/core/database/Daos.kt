@@ -532,9 +532,6 @@ interface TagDao {
     @Upsert
     suspend fun upsert(tag: TagEntity)
 
-    @Query("UPDATE tags SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
-    suspend fun softDelete(id: String, ts: Long)
-
     @Query("UPDATE tags SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
     suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
 
@@ -590,11 +587,23 @@ interface ChecklistDao {
     @Upsert
     suspend fun upsert(item: ChecklistItemEntity)
 
-    @Query("DELETE FROM checklist_items WHERE id = :id")
-    suspend fun delete(id: String)
+    @Query(
+        """
+        DELETE FROM checklist_items
+        WHERE id = :id
+        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    suspend fun deleteForUser(id: String, userId: String): Int
 
-    @Query("DELETE FROM checklist_items WHERE task_id = :taskId")
-    suspend fun deleteByTask(taskId: String)
+    @Query(
+        """
+        DELETE FROM checklist_items
+        WHERE task_id = :taskId
+        AND EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
+        """,
+    )
+    suspend fun deleteByTaskForUser(taskId: String, userId: String): Int
 }
 
 @Dao
@@ -704,8 +713,8 @@ interface TagGroupDao {
     @Upsert
     suspend fun upsert(entity: TagGroupEntity)
 
-    @Query("UPDATE tag_groups SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
-    suspend fun softDelete(id: String, ts: Long)
+    @Query("UPDATE tag_groups SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
 }
 
 // ─── Project ↔ Tag Group Join DAO ─────────────────────────────────────────────
@@ -717,14 +726,27 @@ interface TagGroupDao {
 @Dao
 interface ProjectInheritedTagGroupDao {
     /**
-     * Returns all tag group IDs inherited by a project.
+     * Returns all tag group IDs inherited by a project, scoped to its owner.
      */
-    @Query("SELECT tag_group_id FROM project_tag_groups WHERE project_id = :projectId")
-    fun watchByProject(projectId: String): Flow<List<String>>
+    @Query(
+        """
+        SELECT tag_group_id FROM project_tag_groups
+        WHERE project_id = :projectId
+        AND project_id IN (SELECT id FROM projects WHERE user_id = :userId)
+        """,
+    )
+    fun watchByProject(projectId: String, userId: String): Flow<List<String>>
 
     /**
      * Replaces the entire set of inherited tag groups for a project.
+     * Scoped to the owner; returns the number of rows removed.
      */
-    @Query("DELETE FROM project_tag_groups WHERE project_id = :projectId")
-    suspend fun deleteAllForProject(projectId: String)
+    @Query(
+        """
+        DELETE FROM project_tag_groups
+        WHERE project_id = :projectId
+        AND project_id IN (SELECT id FROM projects WHERE user_id = :userId)
+        """,
+    )
+    suspend fun deleteAllForUser(projectId: String, userId: String): Int
 }

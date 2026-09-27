@@ -2,12 +2,17 @@ package com.singularity.todo.feature.checklist
 
 import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.ChecklistItemEntity
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 
-class RoomChecklistRepository(private val dao: ChecklistDao, private val clock: Clock) : ChecklistRepository {
+class RoomChecklistRepository(
+    private val dao: ChecklistDao,
+    private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
+) : ChecklistRepository {
 
     override fun watchByTask(taskId: String): Flow<List<ChecklistItem>> =
         dao.watchByTask(taskId).map { list -> list.map { it.toItem() } }
@@ -58,7 +63,8 @@ class RoomChecklistRepository(private val dao: ChecklistDao, private val clock: 
     }
 
     override suspend fun delete(id: ChecklistItemId): Result<Unit> = runCatching {
-        dao.delete(id.value)
+        val rows = dao.deleteForUser(id.value, currentUser.scopedUserId.value.value)
+        require(rows > 0) { "Checklist item $id not found or not owned by current user" }
     }
 
     override suspend fun createBatch(taskId: String, items: List<ChecklistItem>): Result<Unit> = runCatching {

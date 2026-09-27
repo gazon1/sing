@@ -88,7 +88,8 @@ class TagGroupRepositoryImpl(
     override suspend fun delete(id: TagGroupId): Result<Unit> = runCatching {
         val uid = currentUser.scopedUserId.value
         val ts = clock.now().toEpochMillis()
-        tagGroupDao.softDelete(id.value, ts)
+        val rows = tagGroupDao.softDeleteForUser(id.value, ts, uid.value)
+        require(rows > 0) { "TagGroup $id not found or not owned by current user" }
         // TODO: clear groupId on member tags (requires TagDao bulk update)
         syncRepository.enqueue(
             TagGroup(
@@ -106,13 +107,13 @@ class TagGroupRepositoryImpl(
     // ─── Inheritance ────────────────────────────────────────────────────────────
 
     override fun observeInheritedByProject(projectId: ProjectId): Flow<Set<TagGroupId>> =
-        inheritedTagGroupDao.watchByProject(projectId.value).map { list ->
+        inheritedTagGroupDao.watchByProject(projectId.value, currentUser.scopedUserId.value.value).map { list ->
             list.mapTo(LinkedHashSet()) { TagGroupId.fromString(it) }
         }
 
     override suspend fun setInheritedForProject(projectId: ProjectId, groupIds: Set<TagGroupId>): Result<Unit> =
         runCatching {
-            inheritedTagGroupDao.deleteAllForProject(projectId.value)
+            inheritedTagGroupDao.deleteAllForUser(projectId.value, currentUser.scopedUserId.value.value)
             // Note: individual inserts not needed — upsert via raw SQL handled by sync worker
         }
 
