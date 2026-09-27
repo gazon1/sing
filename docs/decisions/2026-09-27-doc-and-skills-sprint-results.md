@@ -28,7 +28,7 @@ references traced back to a handful of refactors whose documentation was never u
 | Oversized skills (>500 lines) | 2 (+5 near the limit) | 0 (+5 in backlog) |
 | Directly contradicted rule (viewModelOf) | 1 | 0 |
 | `check.sh` failing on a detekt violation | no | yes |
-| Stale file references in live docs | ~100 | 34 (all in skill prose) |
+| Stale file references in live docs | ~100 | 0 unbaselined (29 baselined debt) |
 | Docs invariants enforced by a script | 1 (frontmatter presence) | 5 |
 
 ## Three findings worth keeping
@@ -60,7 +60,11 @@ constructor. The ban was a rule for a problem this codebase does not have.
   chars, `DIGEST.md` ≤ 1500. Fails the build.
 - `scripts/check-doc-dead-refs.py` — classifies every backticked path in docs, skills and
   KDoc as dead / drifted / historical, where *historical* means "inside a supersedure
-  banner", so a retired ADR can still name what it described.
+  banner", so a retired ADR can still name what it described. The 29 pre-existing dead
+  references are accepted via `config/docs/dead-refs-baseline.txt`, using the same
+  baseline convention the project already applies to detekt: a **new** dead reference
+  fails the check, so the gate is green today and still catches the next one. Verified in
+  both directions.
 - `check-skill-frontmatter.sh` — no longer skips a skill that lacks frontmatter; that is
   now an error, because such a skill is invisible to the loader.
 - `scripts/regen-skills-catalog.sh` + `just docs-regen` — generates
@@ -80,12 +84,14 @@ to skills that already owned their topic, and 2 oversized skills split into a ro
 
 ## Left behind, on purpose
 
-`DIGEST.md` is 1865 lines against a 1500 budget, and 34 dead references remain in skill
-prose — mostly files that were designed in a document and never written. Both need a
-decision per item, not a mechanical fix, and both are catalogued in the findings ADR. The
-dead-ref check will keep `just docs-audit` red until they are resolved, which is the
-intended pressure: the remaining references are all "this design was never built", and
-each should either become code or stop being described as if it exists.
+`DIGEST.md` is 1867 lines against a 1500 budget, and 29 dead references remain in skill
+prose — files that were designed in a document and never written. Both need a decision per
+item, not a mechanical fix, and both are catalogued in the findings ADR.
+
+The dead references are baselined rather than blocking: each is "this design was never
+built", and the honest resolution is to write the file or stop describing it as existing —
+a per-item judgement, not something a lint rule can decide. Baselining keeps the gate
+green for the next change while still failing on anything newly introduced.
 
 The process is now a ritual rather than a one-off: a post-phase review after every phase
 of work, appending to one findings ADR, with `./check.sh` + `just tcheck-evals` +

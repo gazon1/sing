@@ -1857,7 +1857,7 @@ _6 entries need attention._
 - `2026-09-26-writer-reviewer-pattern` — Writer-Reviewer Pattern
 - `2026-09-27-di-module-aggregator-narrative` — DI: `Modules.kt` is a facade, not the source of truth
 - `2026-09-27-doc-and-skills-sprint-findings` — Triage findings from the doc-and-skills hygiene sprint
-- `2026-09-27-doc-and-skills-sprint-results` — _(no title)_
+- `2026-09-27-doc-and-skills-sprint-results` — Doc & skills hygiene sprint — results
 - `2026-09-27-draft-mvi-single-state-source` — DraftMviViewModel — one state source, no open-member calls from a constructor
 - `2026-09-27-mvi-single-state-entry-and-vm-sweep` — MVI Base — Single State-Update Entry + ViewModel Sweep
 - `2026-09-27-nav3-startroute-invariant` — Nav3 startRoute must be a top-level route — enforce with an invariant, centralize serializers

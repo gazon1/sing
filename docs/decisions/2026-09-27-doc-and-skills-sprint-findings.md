@@ -198,9 +198,12 @@ already covered and 4 more were one workflow sliced three ways. Implemented inst
   `TaskDetailActions.kt`, `AttachmentButton.kt` ×2, `AttachmentSheet.kt` ×2,
   `TaskDetailScreen.kt`, `ProjectDetailScreen.kt` path drift, `Context-MAP.md`,
   `RELEASE.md`, `CLAUDE.md`, `package.json`) plus one renamed ADR
-  (`2026-09-26-junit-tag-default-semantics.md`). **These keep `just docs-audit` red.**
-  Each is either "write the file" or "reword the example so it is clearly hypothetical" —
-  a decision per reference, not a mechanical fix.
+  (`2026-09-26-junit-tag-default-semantics.md`). Each is either "write the file" or
+  "reword the example so it is clearly hypothetical" — a decision per reference, not a
+  mechanical fix, so they are **baselined** in
+  `config/docs/dead-refs-baseline.txt` (the detekt baseline convention this repo already
+  uses). The gate is green; a newly introduced dead reference still fails it. Remove a
+  baseline line as each is resolved.
 
 ## Phase G — close-out
 

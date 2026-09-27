@@ -169,6 +169,10 @@ def main() -> int:
     ap.add_argument("--max", type=int, default=40, help="max lines to print per file")
     ap.add_argument("--strict", action="store_true",
                     help="treat path drift as a failure too")
+    ap.add_argument("--baseline", metavar="PATH", default=str(ROOT / "config" / "docs" / "dead-refs-baseline.txt"),
+                    help="file of accepted dead refs, one 'path:ref' per line")
+    ap.add_argument("--update-baseline", action="store_true",
+                    help="rewrite the baseline from the current findings, then exit")
     args = ap.parse_args()
 
     rel_paths, by_name = build_index()
@@ -183,9 +187,15 @@ def main() -> int:
     if args.include_adr:
         targets += [p for p in sorted(DECISIONS_DIR.glob("*.md")) if p.name != "DIGEST.md"]
 
+    baseline_path = pathlib.Path(args.baseline)
+    accepted: set[str] = set()
+    if baseline_path.exists():
+        accepted = {l.strip() for l in baseline_path.read_text().splitlines() if l.strip() and not l.startswith("#")}
+
     dead_total = 0
     drift_total = 0
     hist_total = 0
+    new_dead: list[str] = []
     for path in targets:
         if not path.exists():
             continue
@@ -196,9 +206,13 @@ def main() -> int:
         dead = [f for f in findings if f[2] == "dead"]
         drift = [f for f in findings if f[2] == "drift"]
         hist = [f for f in findings if f[2] == "historical"]
-        if not dead and not drift and hist:
-            print(f"\n{rel}: {len(hist)} historical reference(s) (expected for retired ADRs)")
-        for label, group in (("DEAD", dead), ("DRIFT", drift)):
+        # Split dead into baselined (accepted debt) and new (must be fixed).
+        baselined = [f for f in dead if f"{rel}:{f[1]}" in accepted]
+        new = [f for f in dead if f"{rel}:{f[1]}" not in accepted]
+        new_dead += [f"{rel}:{ref}" for _, ref, _ in new]
+        if not new and not drift and (baselined or hist):
+            print(f"\n{rel}: {len(baselined)} baselined dead, {len(hist)} historical — OK")
+        for label, group in (("DEAD (new)", new), ("DRIFT", drift)):
             if not group:
                 continue
             print(f"\n{rel}: {len(group)} {label} reference(s)")
@@ -210,14 +224,44 @@ def main() -> int:
         drift_total += len(drift)
         hist_total += len(hist)
 
-    print(f"\nDead refs: {dead_total} dead, {drift_total} path-drift, {hist_total} historical")
-    if dead_total:
-        print("\nDEAD: the file does not exist anywhere. Point it at the current file,")
-        print("or mark the passage as historical (a 'Superseded in part' banner).")
+    if args.update_baseline:
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        all_dead = sorted(
+            {f"{path.relative_to(ROOT).as_posix()}:{ref}"
+             for path in targets if path.exists()
+             for _, ref, kind in scan(path, rel_paths, by_name) if kind == "dead"}
+        )
+        header = (
+            "# Accepted dead file references in docs, skills and KDoc.\n"
+            "#\n"
+            "# Each line is `<file>:<referenced-path>`. A dead reference means the\n"
+            "# referenced file does not exist anywhere in the repo. These are accepted\n"
+            "# because the surrounding prose describes a design that was written down\n"
+            "# but never built; they are catalogued in\n"
+            "# docs/decisions/2026-09-27-doc-and-skills-sprint-findings.md.\n"
+            "#\n"
+            "# New dead references are NOT baselined and fail `just docs-audit`.\n"
+            "# Regenerate with: python3 scripts/check-doc-dead-refs.py --update-baseline\n"
+            "# Remove a line once the file is written or the example is reworded.\n"
+        )
+        baseline_path.write_text(header + "\n".join(all_dead) + "\n", encoding="utf-8")
+        print(f"\nbaseline written: {len(all_dead)} accepted dead refs -> {baseline_path}")
+        return 0
+
+    print(f"\nDead refs: {dead_total} dead ({dead_total - len(new_dead)} baselined), "
+          f"{drift_total} path-drift, {hist_total} historical")
+    if new_dead:
+        print("\nNEW dead references (not baselined — fix or reword the example):")
+        for entry in new_dead[: args.max]:
+            print(f"  {entry}")
+        if len(new_dead) > args.max:
+            print(f"  ... and {len(new_dead) - args.max} more")
+    if dead_total - len(new_dead):
+        print("\nBaselined dead refs are accepted debt — see the baseline file header.")
     if drift_total:
-        print("\nDRIFT: the file exists but moved. Update the path (or accept the")
-        print("basename, which is why this is a warning rather than a hard failure).")
-    return 1 if (dead_total or (drift_total and args.strict)) else 0
+        print("\nDRIFT: the file exists but moved. Update the path; basename matches are")
+        print("accepted, so drift is a warning unless --strict is passed.")
+    return 1 if (new_dead or (drift_total and args.strict)) else 0
 
 
 if __name__ == "__main__":
