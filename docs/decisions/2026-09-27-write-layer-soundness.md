@@ -93,6 +93,16 @@ so a caller could not distinguish "not found" from "toggled". Missing rows now s
 - Fakes must reproduce production semantics — including ownership. A fake that cannot
   evaluate a rule must say so in a comment rather than silently diverge.
 
+## Phase reviews
+
+Each MR closes with a re-sweep of the four bug classes plus a regression check.
+
+| After | Result |
+|---|---|
+| MR-1 (Task/Note DAOs) | TaskDao and NoteDao fully scoped. Found: unscoped `TaskDao.getById` read → ledger #1. |
+| MR-2 (remaining DAOs) | Zero unscoped `UPDATE`/`DELETE` remain except the two intentionally global ones, headed for the allowlist. Found: `RoomChecklistRepository` still has no guard on its other writes → ledger #4. |
+| MR-3 (TaskRepository) | TaskRepositoryImpl has **no** remaining sync bypasses — all six narrow methods verified enqueueing by test. Remaining bypasses: 13 in Notes, 4 in Projects/Tags/TagGroup, which is MR-4/MR-5 scope. |
+
 ## Known gaps (ledger)
 
 Accumulates from the per-MR phase reviews. Each entry is a finding that was **not** fixed in
