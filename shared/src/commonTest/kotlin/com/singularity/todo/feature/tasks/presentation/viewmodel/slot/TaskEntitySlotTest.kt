@@ -75,6 +75,9 @@ class TaskEntitySlotTest {
     @Test
     fun `set priority writes through to the repository`() = runTest {
         val fakes = SlotFakes()
+        // The slot writes through to `update`, which production rejects for a row that
+        // does not exist — so the task has to be seeded, as it would be in the app.
+        fakes.taskRepo.seed(task("t1"))
         val source = TaskSource(task("t1"))
         val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
         delay(SETTLE)
@@ -88,6 +91,9 @@ class TaskEntitySlotTest {
     @Test
     fun `toggle pinned flips the flag`() = runTest {
         val fakes = SlotFakes()
+        // The slot writes through to `update`, which production rejects for a row that
+        // does not exist — so the task has to be seeded, as it would be in the app.
+        fakes.taskRepo.seed(task("t1"))
         val source = TaskSource(task("t1"))
         val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
         delay(SETTLE)

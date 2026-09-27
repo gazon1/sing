@@ -20,6 +20,12 @@ value class ProjectId(val value: String) {
     }
 }
 
+/**
+ * `@Serializable` is load-bearing: [toJson] resolves `serializer<Project>()`.
+ * Without it every enqueue throws, `runCatchingResult` swallows it, and projects
+ * silently never reach the sync outbox. Same defect as Note, fixed 2026-09-27.
+ */
+@Serializable
 data class Project(
     val id: ProjectId,
     val name: String,

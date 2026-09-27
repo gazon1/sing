@@ -30,6 +30,9 @@ class TaskCompletionSlotTest {
     @Test
     fun `toggle complete stamps completedAt on a plain task`() = runTest {
         val fakes = SlotFakes()
+        // The slot writes through to `update`, which production rejects for a row that
+        // does not exist — so the task has to be seeded, as it would be in the app.
+        fakes.taskRepo.seed(task("t1"))
         val source = TaskSource(task("t1"))
         val slot = TaskCompletionSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
         delay(SETTLE)

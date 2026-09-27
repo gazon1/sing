@@ -54,6 +54,28 @@ class BackupImporter(
         }
 
         // 5. Restore entities
+        //
+        // LAYER EXCEPTION — this writes DAOs directly instead of going through
+        // repositories, and that is deliberate rather than an oversight.
+        //
+        // Every user-scoped repository resolves its target from the *ambient*
+        // profile (`ProfileAwareCurrentUser.scopedUserId`) and its writes are
+        // constrained to that user: `assertCanWrite` rejects a foreign `userId`,
+        // and the `*ForUser` DAO queries filter on it. An import, by contrast,
+        // targets an arbitrary `options.targetUserId` — restoring a backup on
+        // behalf of another account is the whole point of the feature. Routing
+        // this through the repositories would either be rejected by the guard or
+        // would require temporarily switching the active profile, which is a
+        // user-visible side effect for the duration of the import.
+        //
+        // It is also why the two unscoped `@Upsert` cross-ref methods in TaskDao
+        // are retained: `upsertTagCrossRef` and `upsertDependency` have no
+        // user-scoped counterpart because only this path needs them.
+        //
+        // Tracked as known debt in docs/decisions/2026-09-27-write-layer-soundness.md
+        // (ledger #2). The proper resolution is a dedicated bulk-import port that
+        // takes an explicit userId, not a pass through the ambient-scoped
+        // repositories.
         for (task in migratedPayload.tasks) {
             taskDao.upsert(
                 task.toEntity(options.targetUserId.value).copy(

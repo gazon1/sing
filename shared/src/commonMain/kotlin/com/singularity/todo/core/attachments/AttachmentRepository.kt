@@ -90,7 +90,8 @@ class AttachmentRepositoryImpl(
 
     override suspend fun delete(id: AttachmentId): Result<Unit> = runCatching {
         val ts = clock.now().toEpochMilliseconds()
-        dao.softDelete(id.value, ts)
+        val rows = dao.softDeleteForUser(id.value, ts, currentUser.scopedUserId.value.value)
+        require(rows > 0) { "Attachment $id not found or not owned by current user" }
     }
 
     // ─── Domain methods ─────────────────────────────────────────────────────
@@ -114,6 +115,12 @@ class AttachmentRepositoryImpl(
 
         // Save to local storage
         val localPath = storage.saveFile(taskId.value, id.value, sourcePath, ext).getOrThrow()
+        // Intentional degradation: a checksum failure must not fail the save —
+        // the file is already on disk and losing the whole attachment over a
+        // digest would be worse. The cost is that `checksum` is silently null,
+        // so downstream dedupe/upload cannot rely on it. Surfacing this needs a
+        // Logger in this class, which has no DI logger today; tracked in
+        // docs/decisions/2026-09-27-write-layer-soundness.md (ledger #15).
         val checksum = storage.computeChecksum(localPath).getOrNull()
 
         val attachment = Attachment(

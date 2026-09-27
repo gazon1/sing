@@ -68,6 +68,9 @@ class TaskDraftSlotTest {
     @Test
     fun `title change persists after the debounce window`() = runTest {
         val fakes = SlotFakes()
+        // The slot writes through to `update`, which production rejects for a row that
+        // does not exist — so the task has to be seeded, as it would be in the app.
+        fakes.taskRepo.seed(task("t1", title = "Original"))
         val source = TaskSource(task("t1", title = "Original"))
         val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
         slot.seed("Original", "")
@@ -97,6 +100,9 @@ class TaskDraftSlotTest {
     @Test
     fun `debounced title write does not feed back into further writes`() = runTest {
         val fakes = SlotFakes()
+        // The slot writes through to `update`, which production rejects for a row that
+        // does not exist — so the task has to be seeded, as it would be in the app.
+        fakes.taskRepo.seed(task("t1", title = "Original"))
         val source = TaskSource(task("t1", title = "Original"))
         val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
         slot.seed("Original", "")
@@ -118,6 +124,9 @@ class TaskDraftSlotTest {
     @Test
     fun `the persisted title keeps fields the user did not touch`() = runTest {
         val fakes = SlotFakes()
+        // The slot writes through to `update`, which production rejects for a row that
+        // does not exist — so the task has to be seeded, as it would be in the app.
+        fakes.taskRepo.seed(task("t1", title = "Original").copy(emoji = "🎯"))
         val source = TaskSource(task("t1", title = "Original").copy(emoji = "🎯"))
         val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
         slot.seed("Original", "")

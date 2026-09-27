@@ -13,8 +13,23 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     fun watchById(id: String): Flow<TaskEntity?>
 
+    /**
+     * Scoped read. [watchById] / [getById] filter by id alone, so a repository
+     * using them can return another user's task; these are the user-scoped
+     * counterparts every repository read path should use.
+     */
+    @Query("SELECT * FROM tasks WHERE id = :id AND user_id = :userId")
+    fun watchByIdForUser(id: String, userId: String): Flow<TaskEntity?>
+
     @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NOT NULL ORDER BY archived_at DESC")
     fun watchTrash(userId: String): Flow<List<TaskEntity>>
+
+    /**
+     * Suspend counterpart of [watchTrash], for one-shot reads such as computing
+     * which rows a bulk archive just changed (so they can be pushed to sync).
+     */
+    @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NOT NULL ORDER BY archived_at DESC")
+    suspend fun getTrashForUser(userId: String): List<TaskEntity>
 
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND someday = 1 ORDER BY created_at DESC",
@@ -89,11 +104,15 @@ interface TaskDao {
     )
     fun watchPinned(userId: String): Flow<List<TaskEntity>>
 
-    @Query("UPDATE tasks SET is_pinned = :pinned, updated_at = :ts WHERE id = :id")
-    suspend fun setPinned(id: String, pinned: Boolean, ts: Long)
+    @Query("UPDATE tasks SET is_pinned = :pinned, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun setPinnedForUser(id: String, pinned: Boolean, ts: Long, userId: String): Int
 
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getById(id: String): TaskEntity?
+
+    /** Scoped counterpart of [getById] — see [watchByIdForUser]. */
+    @Query("SELECT * FROM tasks WHERE id = :id AND user_id = :userId")
+    suspend fun getByIdForUser(id: String, userId: String): TaskEntity?
 
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND (title LIKE '%' || :q || '%' OR description LIKE '%' || :q || '%') ORDER BY due_date ASC, is_pinned DESC",
@@ -108,48 +127,134 @@ interface TaskDao {
     @Upsert
     suspend fun upsert(task: TaskEntity)
 
-    @Query("UPDATE tasks SET archived_at = :ts, updated_at = :ts WHERE id = :id")
-    suspend fun softDelete(id: String, ts: Long)
+    // ── Ownership-scoped mutations ────────────────────────────────────────────
+    //
+    // Every mutation below takes a `userId` and returns the affected row count.
+    // That `Int` is the enforcement signal: `0` means "no such row for this user"
+    // and callers must treat the write as failed. This is the layer that cannot
+    // be bypassed — `assertCanWrite` only covers methods that carry an entity,
+    // and id-only methods have no userId to check.
+    //
+    // See docs/decisions/2026-09-27-write-layer-soundness.md.
 
-    @Query("UPDATE tasks SET archived_at = NULL, updated_at = :ts WHERE id = :id")
-    suspend fun restore(id: String, ts: Long)
+    @Query("UPDATE tasks SET archived_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
 
-    @Query("UPDATE tasks SET completed_at = :ts, updated_at = :ts WHERE id = :id")
-    suspend fun markComplete(id: String, ts: Long)
+    @Query("UPDATE tasks SET archived_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun restoreForUser(id: String, ts: Long, userId: String): Int
 
-    @Query("UPDATE tasks SET completed_at = NULL, updated_at = :ts WHERE id = :id")
-    suspend fun markIncomplete(id: String, ts: Long)
+    @Query("UPDATE tasks SET completed_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun markCompleteForUser(id: String, ts: Long, userId: String): Int
 
+    @Query("UPDATE tasks SET completed_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun markIncompleteForUser(id: String, ts: Long, userId: String): Int
+
+    /**
+     * Inserts a tag cross-ref only when the owning task belongs to [userId].
+     *
+     * Returns `Unit` because Room only permits `Unit`/`Long` from INSERT
+     * queries, and a rejected insert reports `-1` rather than a row count. The
+     * `WHERE EXISTS` clause is the actual enforcement: for a foreign task
+     * nothing is written, silently. Callers that need to surface that failure
+     * must check task ownership first.
+     *
+     * The unscoped [upsertTagCrossRef] is kept solely for the backup-restore
+     * path, which imports rows belonging to arbitrary users.
+     */
+    @Query(
+        """
+        INSERT OR REPLACE INTO task_tags (task_id, tag_id)
+        SELECT :taskId, :tagId
+        WHERE EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
+        """,
+    )
+    suspend fun upsertTagCrossRefForUser(taskId: String, tagId: String, userId: String)
+
+    /** Unscoped variant — backup-restore path only. See [upsertTagCrossRefForUser]. */
     @Upsert
     suspend fun upsertTagCrossRef(ref: TaskTagCrossRef)
 
-    @Query("DELETE FROM task_tags WHERE task_id = :taskId AND tag_id = :tagId")
-    suspend fun removeTagRef(taskId: String, tagId: String)
+    @Query(
+        """
+        DELETE FROM task_tags
+        WHERE task_id = :taskId AND tag_id = :tagId
+        AND EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
+        """,
+    )
+    suspend fun removeTagRefForUser(taskId: String, tagId: String, userId: String): Int
 
     @Query("SELECT tag_id FROM task_tags WHERE task_id = :taskId")
     fun getTagIdsForTask(taskId: String): Flow<List<String>>
+
+    /** Scoped to the owning task's user; the cross-ref table has no `user_id`. */
+    @Query(
+        """
+        SELECT tag_id FROM task_tags
+        WHERE task_id = :taskId
+        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    fun getTagIdsForUser(taskId: String, userId: String): Flow<List<String>>
 
     // ── Task dependencies ─────────────────────────────────────────────────────
 
     @Query("SELECT depends_on_task_id FROM task_dependencies WHERE task_id = :taskId")
     fun getDependencyIdsForTask(taskId: String): Flow<List<String>>
 
+    /** Scoped to the owning task's user; the cross-ref table has no `user_id`. */
+    @Query(
+        """
+        SELECT depends_on_task_id FROM task_dependencies
+        WHERE task_id = :taskId
+        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    fun getDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>>
+
     @Query("SELECT task_id FROM task_dependencies WHERE depends_on_task_id = :taskId")
     fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>>
 
+    /**
+     * Inserts a dependency cross-ref only when the owning task belongs to [userId].
+     * Returns `Unit` — see [upsertTagCrossRefForUser] for why the rejected case
+     * cannot report a count. The unscoped [upsertDependency] is kept solely for
+     * the backup-restore path.
+     */
+    @Query(
+        """
+        INSERT OR REPLACE INTO task_dependencies (task_id, depends_on_task_id)
+        SELECT :taskId, :depId
+        WHERE EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
+        """,
+    )
+    suspend fun upsertDependencyForUser(taskId: String, depId: String, userId: String)
+
+    /** Unscoped variant — backup-restore path only. See [upsertDependencyForUser]. */
     @Upsert
     suspend fun upsertDependency(ref: TaskDependencyCrossRef)
 
-    @Query("DELETE FROM task_dependencies WHERE task_id = :taskId AND depends_on_task_id = :depId")
-    suspend fun removeDependency(taskId: String, depId: String)
+    @Query(
+        """
+        DELETE FROM task_dependencies
+        WHERE task_id = :taskId AND depends_on_task_id = :depId
+        AND EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
+        """,
+    )
+    suspend fun removeDependencyForUser(taskId: String, depId: String, userId: String): Int
 
-    @Query("DELETE FROM task_dependencies WHERE task_id = :taskId")
-    suspend fun clearDependencies(taskId: String)
+    @Query(
+        """
+        DELETE FROM task_dependencies
+        WHERE task_id = :taskId
+        AND EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
+        """,
+    )
+    suspend fun clearDependenciesForUser(taskId: String, userId: String): Int
 
     // ── Outgoing links ─────────────────────────────────────────────────────────
 
-    @Query("UPDATE tasks SET outgoing_links = :linksJson, updated_at = :updatedAt WHERE id = :id")
-    suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long)
+    @Query("UPDATE tasks SET outgoing_links = :linksJson, updated_at = :updatedAt WHERE id = :id AND user_id = :userId")
+    suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int
 
     /**
      * Returns tasks that link TO [taskId] via `task://<id>` URL scheme, for the current user.
@@ -177,10 +282,19 @@ interface TaskDao {
     @Query("SELECT * FROM task_tags WHERE task_id IN (SELECT id FROM tasks WHERE user_id = :userId)")
     suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef>
 
+    /**
+     * Archives completed tasks **for one user only**.
+     *
+     * The previous unscoped form swept every user's completed tasks in a single
+     * UPDATE, which is a cross-user write. Kept user-scoped by construction.
+     */
     @Query(
-        "UPDATE tasks SET archived_at = :ts, updated_at = :ts WHERE completed_at IS NOT NULL AND archived_at IS NULL",
+        """
+        UPDATE tasks SET archived_at = :ts, updated_at = :ts
+        WHERE user_id = :userId AND completed_at IS NOT NULL AND archived_at IS NULL
+        """,
     )
-    suspend fun archiveCompleted(ts: Long): Int
+    suspend fun archiveCompletedForUser(ts: Long, userId: String): Int
 
     /**
      * Non-suspend Flow of all tag cross-references for the given [userId].
@@ -243,11 +357,17 @@ interface NoteDao {
     @Upsert
     suspend fun upsert(note: NoteEntity)
 
+    // ── Ownership-scoped mutations ────────────────────────────────────────────
+    //
+    // Same contract as TaskDao: every mutation takes a `userId` and returns the
+    // affected row count, so `0` is a failed write rather than a silent success.
+    // See docs/decisions/2026-09-27-write-layer-soundness.md.
+
     /** Atomic update — does NOT require a prior read. */
     @Query(
-        "UPDATE notes SET title = :title, body_markdown = :markdown, body_html = :html, word_count = :wordCount, char_count = :charCount, updated_at = :updatedAt WHERE id = :id",
+        "UPDATE notes SET title = :title, body_markdown = :markdown, body_html = :html, word_count = :wordCount, char_count = :charCount, updated_at = :updatedAt WHERE id = :id AND user_id = :userId",
     )
-    suspend fun updateContent(
+    suspend fun updateContentForUser(
         id: String,
         title: String,
         markdown: String,
@@ -255,34 +375,37 @@ interface NoteDao {
         wordCount: Int,
         charCount: Int,
         updatedAt: Long,
+        userId: String,
+    ): Int
+
+    @Query(
+        "UPDATE notes SET is_pinned = :pinned, pinned_at = :pinnedAt, updated_at = :ts WHERE id = :id AND user_id = :userId",
     )
+    suspend fun setPinnedForUser(id: String, pinned: Boolean, pinnedAt: Long?, ts: Long, userId: String): Int
 
-    @Query("UPDATE notes SET is_pinned = :pinned, pinned_at = :pinnedAt, updated_at = :ts WHERE id = :id")
-    suspend fun setPinned(id: String, pinned: Boolean, pinnedAt: Long?, ts: Long)
+    @Query("UPDATE notes SET archived_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun archiveForUser(id: String, ts: Long, userId: String): Int
 
-    @Query("UPDATE notes SET archived_at = :ts, updated_at = :ts WHERE id = :id")
-    suspend fun archive(id: String, ts: Long)
+    @Query("UPDATE notes SET archived_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun unarchiveForUser(id: String, ts: Long, userId: String): Int
 
-    @Query("UPDATE notes SET archived_at = NULL, updated_at = :ts WHERE id = :id")
-    suspend fun unarchive(id: String, ts: Long)
+    @Query("UPDATE notes SET color = :color, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun setColorForUser(id: String, color: Int?, ts: Long, userId: String): Int
 
-    @Query("UPDATE notes SET color = :color, updated_at = :ts WHERE id = :id")
-    suspend fun setColor(id: String, color: Int?, ts: Long)
+    @Query("UPDATE notes SET sort_order = :sortOrder, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun setSortOrderForUser(id: String, sortOrder: Int, ts: Long, userId: String): Int
 
-    @Query("UPDATE notes SET sort_order = :sortOrder, updated_at = :ts WHERE id = :id")
-    suspend fun setSortOrder(id: String, sortOrder: Int, ts: Long)
+    @Query("UPDATE notes SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
 
-    @Query("UPDATE notes SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
-    suspend fun softDelete(id: String, ts: Long)
-
-    @Query("UPDATE notes SET deleted_at = NULL, updated_at = :ts WHERE id = :id")
-    suspend fun restore(id: String, ts: Long)
+    @Query("UPDATE notes SET deleted_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun restoreForUser(id: String, ts: Long, userId: String): Int
 
     @Query("SELECT * FROM notes WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<NoteEntity>
 
-    @Query("UPDATE notes SET outgoing_links = :linksJson, updated_at = :updatedAt WHERE id = :id")
-    suspend fun setOutgoingLinks(id: String, linksJson: String, updatedAt: Long)
+    @Query("UPDATE notes SET outgoing_links = :linksJson, updated_at = :updatedAt WHERE id = :id AND user_id = :userId")
+    suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int
 
     /** Notes that link TO the given noteId via note:// URL scheme, for the current user only. */
     @Query(
@@ -362,8 +485,8 @@ interface NoteDao {
     /**
      * Update the kind of a note.
      */
-    @Query("UPDATE notes SET kind = :kind, updated_at = :ts WHERE id = :id")
-    suspend fun setKind(id: String, kind: String, ts: Long)
+    @Query("UPDATE notes SET kind = :kind, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun setKindForUser(id: String, kind: String, ts: Long, userId: String): Int
 }
 
 @Dao
@@ -448,9 +571,6 @@ interface TagDao {
     @Upsert
     suspend fun upsert(tag: TagEntity)
 
-    @Query("UPDATE tags SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
-    suspend fun softDelete(id: String, ts: Long)
-
     @Query("UPDATE tags SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
     suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
 
@@ -506,11 +626,23 @@ interface ChecklistDao {
     @Upsert
     suspend fun upsert(item: ChecklistItemEntity)
 
-    @Query("DELETE FROM checklist_items WHERE id = :id")
-    suspend fun delete(id: String)
+    @Query(
+        """
+        DELETE FROM checklist_items
+        WHERE id = :id
+        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    suspend fun deleteForUser(id: String, userId: String): Int
 
-    @Query("DELETE FROM checklist_items WHERE task_id = :taskId")
-    suspend fun deleteByTask(taskId: String)
+    @Query(
+        """
+        DELETE FROM checklist_items
+        WHERE task_id = :taskId
+        AND EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
+        """,
+    )
+    suspend fun deleteByTaskForUser(taskId: String, userId: String): Int
 }
 
 @Dao
@@ -620,8 +752,8 @@ interface TagGroupDao {
     @Upsert
     suspend fun upsert(entity: TagGroupEntity)
 
-    @Query("UPDATE tag_groups SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
-    suspend fun softDelete(id: String, ts: Long)
+    @Query("UPDATE tag_groups SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
 }
 
 // ─── Project ↔ Tag Group Join DAO ─────────────────────────────────────────────
@@ -633,14 +765,54 @@ interface TagGroupDao {
 @Dao
 interface ProjectInheritedTagGroupDao {
     /**
-     * Returns all tag group IDs inherited by a project.
+     * Returns all tag group IDs inherited by a project, scoped to its owner.
      */
-    @Query("SELECT tag_group_id FROM project_tag_groups WHERE project_id = :projectId")
-    fun watchByProject(projectId: String): Flow<List<String>>
+    @Query(
+        """
+        SELECT tag_group_id FROM project_tag_groups
+        WHERE project_id = :projectId
+        AND project_id IN (SELECT id FROM projects WHERE user_id = :userId)
+        """,
+    )
+    fun watchByProject(projectId: String, userId: String): Flow<List<String>>
 
     /**
      * Replaces the entire set of inherited tag groups for a project.
+     * Scoped to the owner; returns the number of rows removed.
      */
-    @Query("DELETE FROM project_tag_groups WHERE project_id = :projectId")
-    suspend fun deleteAllForProject(projectId: String)
+    @Query(
+        """
+        DELETE FROM project_tag_groups
+        WHERE project_id = :projectId
+        AND project_id IN (SELECT id FROM projects WHERE user_id = :userId)
+        """,
+    )
+    suspend fun deleteAllForUser(projectId: String, userId: String): Int
+
+    /**
+     * Inserts one inheritance row, scoped to the owning project.
+     *
+     * Returns `Unit` because Room only permits `Unit`/`Long` from INSERT queries
+     * and reports `-1` for a rejected one; the `EXISTS` clause is the enforcement.
+     * The caller validates up-front that the project is owned, and reports the
+     * failure itself when nothing was written.
+     */
+    @Query(
+        """
+        INSERT OR REPLACE INTO project_tag_groups (project_id, tag_group_id)
+        SELECT :projectId, :tagGroupId
+        WHERE EXISTS (SELECT 1 FROM projects WHERE id = :projectId AND user_id = :userId)
+        """,
+    )
+    suspend fun insertForUser(projectId: String, tagGroupId: String, userId: String)
+
+    /**
+     * Whether [projectId] exists and belongs to [userId].
+     *
+     * Lives here rather than in the repository so callers do not have to take a
+     * dependency on [ProjectDao] purely to assert ownership of a project they are
+     * only touching through this join table.
+     */
+    @Query("SELECT EXISTS(SELECT 1 FROM projects WHERE id = :projectId AND user_id = :userId)")
+    suspend fun isProjectOwnedBy(projectId: String, userId: String): Boolean
 }

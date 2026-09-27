@@ -22,7 +22,12 @@ value class NoteId(val value: String) {
 /**
  * User-facing color for a note. Stored as ARGB Int.
  * Presets match common note-app colors (yellow, blue, green, red, purple).
+ *
+ * `@Serializable` is required: [Note.toJson] resolves `serializer<Note>()`, which
+ * in turn needs a serializer for every field type. Without it, **every** enqueue
+ * of a note throws and notes silently never reach the sync outbox.
  */
+@Serializable
 @JvmInline
 value class NoteColor(val value: Int) {
     companion object {
@@ -56,6 +61,17 @@ enum class NoteKind {
     Template,
 }
 
+/**
+ * A note.
+ *
+ * `@Serializable` is load-bearing, not decorative: [toJson] resolves
+ * `serializer<Note>()`. Without the annotation the serializer lookup throws at
+ * runtime, [com.singularity.todo.core.sync.SyncRepository.enqueue] swallows it via
+ * `runCatchingResult`, and notes are **never** written to the sync outbox — a
+ * silent total loss of note sync, not merely a missing field. The KSP-generated
+ * serializer is also what makes the Koin/serialization plugin happy.
+ */
+@Serializable
 data class Note(
     val id: NoteId,
     val userId: UserId,
