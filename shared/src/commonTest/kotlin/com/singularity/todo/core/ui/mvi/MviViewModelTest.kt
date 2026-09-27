@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui.mvi
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -24,6 +25,11 @@ sealed interface TestIntent : MviIntent {
     data object Start : TestIntent
     data class UpdateProgress(val value: Int) : TestIntent
     data object Fail : TestIntent
+    data object Reset : TestIntent
+    data object FailingToState : TestIntent
+    data object FailingToEvent : TestIntent
+    data object FailingWithAppError : TestIntent
+    data object Succeeding : TestIntent
 }
 
 sealed interface VmEvent : MviEvent {
@@ -52,6 +58,32 @@ class VmUnderTest(private val testScope: CoroutineScope) :
                 updateState { TestState.Error("boom") }
                 emit(VmEvent.Notify("failed"))
             }
+
+            TestIntent.Reset -> testScope.launch { setState(TestState.Idle) }
+
+            TestIntent.FailingToState -> testScope.launch {
+                catchTo("state route failed", { msg -> updateState { TestState.Error(msg) } }) {
+                    Result.failure<Unit>(IllegalStateException("inner"))
+                }
+            }
+
+            TestIntent.FailingToEvent -> testScope.launch {
+                emitError("event route failed", VmEvent::Notify) {
+                    Result.failure<Unit>(IllegalStateException("inner"))
+                }
+            }
+
+            TestIntent.FailingWithAppError -> testScope.launch {
+                catchTo("unused label", { msg -> updateState { TestState.Error(msg) } }) {
+                    Result.failure<Unit>(AppError.Validation("domain says no"))
+                }
+            }
+
+            TestIntent.Succeeding -> testScope.launch {
+                catchTo("should not fire", { msg -> updateState { TestState.Error(msg) } }) {
+                    Result.success(Unit)
+                }
+            }
         }
     }
 }
@@ -74,7 +106,7 @@ class MviViewModelTest {
     }
 
     @Test
-    fun `updateState only updates matching state type`() = runTest {
+    fun `updateState keeps state when the transform guard does not match`() = runTest {
         val vm = VmUnderTest(this)
 
         // Try to update Working state when in Idle — should stay Idle
@@ -105,5 +137,70 @@ class MviViewModelTest {
         job.cancel()
 
         assertTrue(events.any { it is VmEvent.Notify }, "should have Notify event")
+    }
+
+    @Test
+    fun `setState replaces the whole state`() = runTest {
+        val vm = VmUnderTest(this)
+
+        vm.onIntent(TestIntent.Start)
+        advanceUntilIdle()
+        assertTrue(vm.state.value is TestState.Working)
+
+        vm.onIntent(TestIntent.Reset)
+        advanceUntilIdle()
+        assertTrue(vm.state.value is TestState.Idle)
+    }
+
+    @Test
+    fun `catchTo routes the throwable message into onError`() = runTest {
+        val vm = VmUnderTest(this)
+
+        vm.onIntent(TestIntent.FailingToState)
+        advanceUntilIdle()
+
+        val state = vm.state.value
+        assertTrue(state is TestState.Error, "expected Error, got $state")
+        // errorLabel is a FALLBACK, not a prefix: the throwable's own message wins.
+        assertEquals("inner", state.message)
+    }
+
+    @Test
+    fun `catchTo prefers an AppError message over the throwable and the label`() = runTest {
+        val vm = VmUnderTest(this)
+
+        vm.onIntent(TestIntent.FailingWithAppError)
+        advanceUntilIdle()
+
+        val state = vm.state.value
+        assertTrue(state is TestState.Error, "expected Error, got $state")
+        assertEquals("domain says no", state.message)
+    }
+
+    @Test
+    fun `catchTo leaves state untouched when the block succeeds`() = runTest {
+        val vm = VmUnderTest(this)
+
+        vm.onIntent(TestIntent.Succeeding)
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value is TestState.Idle)
+    }
+
+    @Test
+    fun `emitError emits an event when the block fails`() = runTest {
+        val vm = VmUnderTest(this)
+        val events = mutableListOf<VmEvent>()
+        val job = launch { vm.events.collect { events.add(it) } }
+        advanceUntilIdle()
+
+        vm.onIntent(TestIntent.FailingToEvent)
+        advanceUntilIdle()
+        job.cancel()
+
+        assertTrue(
+            events.any { it is VmEvent.Notify && it.msg == "inner" },
+            "expected the throwable message in the event, got $events",
+        )
     }
 }

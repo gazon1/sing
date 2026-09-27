@@ -626,7 +626,6 @@
     <ID>FunctionNaming:WorkScheduleSettingsScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun TimeSlider</ID>
     <ID>FunctionNaming:WorkScheduleSettingsScreen.kt:@androidx.compose.ui.tooling.preview.Preview @Composable private fun WorkScheduleSettingsScreenDarkPreview</ID>
     <ID>FunctionNaming:WorkScheduleSettingsScreen.kt:@androidx.compose.ui.tooling.preview.Preview @Composable private fun WorkScheduleSettingsScreenLightPreview</ID>
-    <ID>IntentMethodName:SettingsViewModel.kt:SettingsViewModel$fun processIntent</ID>
     <ID>InvalidPackageDeclaration:TagsRepository.kt:package com.singularity.todo.feature.tags</ID>
     <ID>InvalidPackageDeclaration:ToneColorTest.kt:package com.singularity.todo.feature.genui.render.material3.atoms</ID>
     <ID>Kdoc:BackupFormatters.kt:/** * Pure formatting helpers for backup UI. * Moved out of [BackupScreen] so they can be unit-tested without Compose * and used in JVM-only environments without [java.text.SimpleDateFormat]. */</ID>
@@ -919,6 +918,5 @@
     <ID>VariableNaming:TaskDetail.kt:TaskDetailViewModel$/** Visible for tests. TOCTOU: prefer to observe via state. */ internal val _latestTask = MutableStateFlow&lt;Task?&gt;(null)</ID>
     <ID>ViewModelMustHaveKDoc:AppVersionGateViewModel.kt:AppVersionGateViewModel : MviViewModel</ID>
     <ID>ViewModelMustHaveKDoc:TagGroupsViewModel.kt:TagGroupsViewModel : MviViewModel</ID>
-    <ID>VmScopePosition:SettingsViewModel.kt:SettingsViewModel$private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope()</ID>
   </CurrentIssues>
 </SmellBaseline>

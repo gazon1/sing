@@ -1,9 +1,7 @@
 package com.singularity.todo.feature.settings
 
-import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.appearance.AppearanceContributor
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.schedule.GreetingContributor
@@ -12,11 +10,11 @@ import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.ai.AiContributor
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -31,11 +29,10 @@ import kotlinx.coroutines.launch
  *   compile-safe lookup without Kotlin type erasure.
  * - Each contributor's [observe][SettingsContributor.observe] feeds a dedicated
  *   [MutableStateFlow] via [bind]; any change rebuilds the merged [Content] state.
- * - [processIntent] routes to the section's contributor through the single
- *   [dispatch] helper with [fireAndForget] error handling.
+ * - [onIntent] routes to the section's contributor through the single [dispatch]
+ *   helper, which routes failures into [SettingsUiState.Content.errorMessage].
  */
 class SettingsViewModel(
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
     private val appearanceContributor: AppearanceContributor?,
     private val notificationsContributor: NotificationsContributor?,
     private val workScheduleContributor: WorkScheduleContributor?,
@@ -44,7 +41,11 @@ class SettingsViewModel(
     private val defaultAgendaViewContributor: DefaultAgendaViewContributor?,
     private val savedAgendaViewsRepo: SavedAgendaViewsRepository,
     private val fileRevealer: FileRevealer,
-) : ViewModel() {
+    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+) : MviViewModel<SettingsUiState.Content, SettingsIntent, Nothing>(
+        initialState = SettingsUiState.Content(),
+        scope = scope,
+    ) {
 
     // ─── Per-section state flows ──────────────────────────────────────────────
     // Each section feeds its own MutableStateFlow so combine doesn't block on
@@ -63,20 +64,20 @@ class SettingsViewModel(
     private val agendaEphemeral = MutableStateFlow(EphemeralState.Agenda())
 
     // ─── UI state ────────────────────────────────────────────────────────────
-
-    private val _state = MutableStateFlow(SettingsUiState.Content())
-    val state: StateFlow<SettingsUiState> get() = _state
+    // Owned by [MviViewModel]; the per-section flows above are the inputs that
+    // [rebuildState] folds into [currentState].
 
     init {
-        addCloseable(scope)
         // Seed state with all defaults immediately (before any flow emits).
-        _state.value = SettingsUiState.Content(
-            appearance = appearanceFlow.value,
-            notifications = notificationsFlow.value,
-            workSchedule = workScheduleFlow.value,
-            greeting = greetingFlow.value,
-            ai = aiFlow.value,
-            defaultAgendaView = defaultAgendaViewFlow.value,
+        setState(
+            SettingsUiState.Content(
+                appearance = appearanceFlow.value,
+                notifications = notificationsFlow.value,
+                workSchedule = workScheduleFlow.value,
+                greeting = greetingFlow.value,
+                ai = aiFlow.value,
+                defaultAgendaView = defaultAgendaViewFlow.value,
+            ),
         )
 
         bind(appearanceContributor, appearanceFlow)
@@ -91,15 +92,15 @@ class SettingsViewModel(
                 agendaEphemeral.value = agendaEphemeral.value.copy(savedViews = views)
                 rebuildState()
             }
-            .launchIn(scope)
+            .launchIn(vmScope)
 
         // Bridge AI ephemeral state from the single combined flow.
         aiContributor?.ephemeralStateFlow
             ?.onEach { aiEph ->
                 aiEphemeral.value = aiEph
-                _state.value = _state.value.copy(aiEphemeral = aiEph)
+                updateState { it.copy(aiEphemeral = aiEph) }
             }
-            ?.launchIn(scope)
+            ?.launchIn(vmScope)
     }
 
     /** Collects [contributor]'s section flow into [slot]; every change rebuilds the merged state. */
@@ -109,24 +110,26 @@ class SettingsViewModel(
                 slot.value = section
                 rebuildState()
             }
-            ?.launchIn(scope)
+            ?.launchIn(vmScope)
     }
 
     /** Rebuilds the full Content from current per-section flows. */
     private fun rebuildState() {
-        _state.value = _state.value.copy(
-            appearance = appearanceFlow.value,
-            notifications = notificationsFlow.value,
-            workSchedule = workScheduleFlow.value,
-            greeting = greetingFlow.value,
-            ai = aiFlow.value,
-            defaultAgendaView = defaultAgendaViewFlow.value,
-        )
+        updateState {
+            it.copy(
+                appearance = appearanceFlow.value,
+                notifications = notificationsFlow.value,
+                workSchedule = workScheduleFlow.value,
+                greeting = greetingFlow.value,
+                ai = aiFlow.value,
+                defaultAgendaView = defaultAgendaViewFlow.value,
+            )
+        }
     }
 
     // ─── Intent ───────────────────────────────────────────────────────────────
 
-    fun processIntent(intent: SettingsIntent) {
+    override fun onIntent(intent: SettingsIntent) {
         when (intent) {
             is SettingsIntent.Appearance -> dispatch(appearanceContributor, "Update appearance failed", intent)
 
@@ -151,18 +154,15 @@ class SettingsViewModel(
     }
 
     /**
-     * Routes [intent] to [contributor] with fire-and-forget error handling.
+     * Routes [intent] to [contributor], routing failures into the state's error field.
      *
-     * The cast is safe: [processIntent]'s `when` guarantees the contributor and
+     * The cast is safe: [onIntent]'s `when` guarantees the contributor and
      * intent belong to the same section (e.g. `NotificationsContributor` only
      * receives `SettingsIntent.Notifications`).
      */
     private fun dispatch(contributor: SettingsContributor<*, *>?, errorLabel: String, intent: SettingsIntent) {
-        _state.value = _state.value.copy(errorMessage = null)
-        scope.fireAndForget(
-            errorLabel = errorLabel,
-            onError = { e -> _state.value = _state.value.copy(errorMessage = e.message) },
-        ) {
+        updateState { it.copy(errorMessage = null) }
+        catchTo(errorLabel, { msg -> updateState { it.copy(errorMessage = msg) } }) {
             runCatching {
                 @Suppress("UNCHECKED_CAST")
                 (contributor as SettingsContributor<SettingsSection, SettingsIntent>).process(intent)
@@ -173,7 +173,7 @@ class SettingsViewModel(
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private fun openAttachmentsFolder() {
-        scope.launch {
+        vmScope.launch {
             fileRevealer.revealAttachmentsFolder(fileRevealer.attachmentsBasePath())
         }
     }
@@ -182,7 +182,7 @@ class SettingsViewModel(
      * Updates the AI API key via the contributor (writes to SecureStorage).
      */
     fun updateAiApiKey(value: String) {
-        scope.launch {
+        vmScope.launch {
             aiContributor?.updateApiKey(value)
         }
     }

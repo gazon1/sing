@@ -2,7 +2,6 @@ package com.singularity.todo.feature.profile
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import kotlinx.coroutines.flow.combine
@@ -33,7 +32,6 @@ class ProfileSwitcherViewModel(
         scope = scope,
     ) {
     private val log = Logger.withTag("ProfileSwitcherViewModel")
-    override val vmScope = scope
 
     private val _errorMessage = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
@@ -66,10 +64,7 @@ class ProfileSwitcherViewModel(
     }
 
     private fun create(name: String, emoji: String, colorIdx: Int) {
-        vmScope.fireAndForget(
-            errorLabel = "Create profile failed",
-            onError = { e -> _errorMessage.value = e.message ?: "Failed to create profile" },
-        ) {
+        catchTo("Failed to create profile", { msg -> _errorMessage.value = msg }) {
             val now = Clock.System.now()
             profileRepository.create(
                 Profile(
@@ -86,10 +81,7 @@ class ProfileSwitcherViewModel(
     }
 
     private fun rename(id: ProfileId, name: String) {
-        vmScope.fireAndForget(
-            errorLabel = "Rename profile failed",
-            onError = { e -> _errorMessage.value = e.message ?: "Failed to rename profile" },
-        ) {
+        catchTo("Failed to rename profile", { msg -> _errorMessage.value = msg }) {
             runCatching {
                 val profile = profileRepository.get(id) ?: return@runCatching Result.failure<Unit>(
                     IllegalArgumentException("Profile not found"),
@@ -100,19 +92,13 @@ class ProfileSwitcherViewModel(
     }
 
     private fun delete(id: ProfileId) {
-        vmScope.fireAndForget(
-            errorLabel = "Delete profile failed",
-            onError = { e -> _errorMessage.value = e.message ?: "Failed to delete profile" },
-        ) {
+        catchTo("Failed to delete profile", { msg -> _errorMessage.value = msg }) {
             profileRepository.delete(id).onFailure { log.w { "Failed to delete profile ${id.value}: ${it.message}" } }
         }
     }
 
     private fun switchTo(id: ProfileId) {
-        vmScope.fireAndForget(
-            errorLabel = "Switch profile failed",
-            onError = { e -> _errorMessage.value = e.message ?: "Failed to switch profile" },
-        ) {
+        catchTo("Failed to switch profile", { msg -> _errorMessage.value = msg }) {
             profileRepository.switchTo(id)
                 .onFailure { log.w { "Failed to switch to profile ${id.value}: ${it.message}" } }
         }

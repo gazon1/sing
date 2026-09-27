@@ -187,10 +187,15 @@ data class NotesListState(
     val isEmpty: Boolean get() = pinned.isEmpty() && unpinned.isEmpty()
 }
 
-/** UI state for the notes list screen. */
+/**
+ * UI state for the notes list screen.
+ *
+ * There is no separate `Empty` variant: an empty list is `Content` whose
+ * [NotesListState.isEmpty] is true. A dedicated variant lost `filter` / `sortOrder`,
+ * so selecting a filter that matched nothing silently reset the filter chip to "All".
+ */
 sealed interface NotesUiState {
     data object Loading : NotesUiState
-    data object Empty : NotesUiState
     data class Content(val list: NotesListState) : NotesUiState
     data class Error(val message: String) : NotesUiState
 }

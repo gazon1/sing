@@ -76,14 +76,7 @@ class TagsViewModel(
      * Fire-and-forget delete. Errors are emitted as [TagsUiEvent.ShowError].
      * Exposed as a method reference for Compose UI callbacks (see [SettingsScreen]).
      */
-    fun delete(id: TagId) = scope.launch {
+    fun delete(id: TagId) = emitError("Delete failed", TagsUiEvent::ShowError) {
         tagRepo.delete(id)
-            .onFailure {
-                emit(
-                    TagsUiEvent.ShowError(
-                        it.toMessage(),
-                    ),
-                )
-            }
     }
 }

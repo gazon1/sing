@@ -97,29 +97,32 @@ See `core/coroutines/AutoCloseableCoroutineScope.kt` for the full rationale.
 
 ---
 
-## `emit()` from Non-Suspend Context
+## `emit()` from a Non-Suspend Context
 
-`emit()` is `protected suspend fun`. The most common mistake is calling it from inside a non-suspend lambda like `fireAndForget`'s `onError`:
+`emit()` is `protected suspend fun`, so it cannot be called from a plain `(T) -> Unit`
+lambda. The base class solves this: use `emitError` (failure becomes a one-shot event)
+or `catchTo` (failure goes somewhere else) — both take the routing lambda as
+`suspend`, so `emit` is called directly.
 
 ```kotlin
-// ❌ WRONG — onError lambda is not a suspend context
+// ✅ Failure becomes a one-shot event — no nested launch
 is ProjectDetailIntent.Domain.ToggleTaskPin ->
-    scope.fireAndForget(
-        errorLabel = "Pin failed",
-        onError = { e ->
-            emit(ProjectDetailUiEvent.ShowError(...))  // COMPILE ERROR
-        },
-    ) { taskRepo.togglePinned(intent.taskId) }
+    emitError("Pin failed", ProjectDetailUiEvent::ShowError) {
+        taskRepo.togglePinned(intent.taskId)
+    }
 
-// ✅ CORRECT — wrap in scope.launch {}
-is ProjectDetailIntent.Domain.ToggleTaskPin ->
-    scope.fireAndForget(
-        errorLabel = "Pin failed",
-        onError = { e ->
-            scope.launch { emit(ProjectDetailUiEvent.ShowError(...)) }
-        },
-    ) { taskRepo.togglePinned(intent.taskId) }
+// ✅ Failure goes to a state field
+catchTo("Delete failed", { msg -> updateState { it.copy(errorMessage = msg) } }) {
+    repo.delete(id)
+}
 ```
+
+`catchTo`'s `onError` is `suspend` **on purpose**. It exists so this call site stays a
+single expression; the previous `CoroutineScope.fireAndForget` helper took a non-suspend
+`onError`, which forced every call site to wrap `emit` in `scope.launch { }`.
+
+For failures that need a success branch as well, keep a plain `vmScope.launch { … }`
+with `fold(onSuccess = …, onFailure = …)` — `emitError` only routes the failure.
 
 ---
 

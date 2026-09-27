@@ -35,9 +35,6 @@ class AuthViewModel(
         initialState = AuthUiState.Idle,
         scope = scope,
     ) {
-    // Store scope for use in intent handlers (MviViewModel doesn't expose it publicly)
-    override val vmScope = scope
-
     val session: StateFlow<Session> = authRepository.currentSession
 
     override fun onIntent(intent: AuthIntent) {

@@ -5,6 +5,11 @@ date: 2026-09-18
 
 # Mutation-result handling in ViewModels
 
+
+> **Superseded in part (2026-09-27):** `StatefulViewModel`, `updateStateAs<T>`,
+> `onStateChanged` and `CoroutineScope.fireAndForget` were removed. See
+> [2026-09-27-mvi-single-state-entry-and-vm-sweep.md](2026-09-27-mvi-single-state-entry-and-vm-sweep.md).
+
 ## Context
 
 A code review identified two classes of correctness bugs across 12 ViewModels in `feature/**/presentation/viewmodel/`:

@@ -266,6 +266,8 @@ mvi-viewmodel:
     active: true
   VmCloseable:
     active: true
+  ShadowedState:
+    active: true
 
 no-real-delay-in-test:
   NoRealDelayInTest:

@@ -58,7 +58,7 @@ Single source of truth for domain vocabulary. All terms are canonicalized here â
 
 ## MviViewModel / MviIntent / UiState
 
-**MviViewModel** is the base ViewModel class using the MVI pattern. It takes `initialState`, `scope`, and exposes `updateState`.
+**MviViewModel** is the base ViewModel class using the MVI pattern. It takes `initialState`, `scope`, and exposes `updateState` / `setState` and the `catchTo` / `emitError` error helpers.
 
 **MviIntent** is the sealed interface for user intents â€” each screen defines its own `sealed interface FooIntent : MviIntent`.
 

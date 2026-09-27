@@ -34,9 +34,11 @@ private class MviViewModelExtRule(config: Config) : Rule(config, "", null) {
     }
 
     private fun checkClass(clazz: KtClass) {
-        // Check if already extends MviViewModel
+        // Check if already extends MviViewModel. Compare the RAW name — the type
+        // reference text also carries the generic arguments ("MviViewModel<State, …>"),
+        // so an exact match never fired and this early-return was dead.
         val extendsMvi = clazz.superTypeListEntries.any { entry ->
-            entry is KtSuperTypeCallEntry && entry.typeReference?.text == "MviViewModel"
+            entry is KtSuperTypeCallEntry && entry.typeReference?.text?.substringBefore('<') == "MviViewModel"
         }
         if (extendsMvi) return
 
@@ -177,11 +179,11 @@ private class VmCloseableRule(config: Config) : Rule(config, "", null) {
         val hasScope = paramRefs.any { it.name == "scope" }
         if (!hasScope) return
 
-        // Skip StatefulViewModel/MviViewModel/DraftMviViewModel subclasses — they
+        // Skip MviViewModel/DraftMviViewModel subclasses — they
         // manage scope lifecycle internally (addCloseable in the base init).
         // Supertype text includes generic args (e.g. "MviViewModel<S, I, E>"), so
         // compare the raw-name prefix, not the whole text.
-        val mviBaseNames = setOf("StatefulViewModel", "MviViewModel", "DraftMviViewModel")
+        val mviBaseNames = setOf("MviViewModel", "DraftMviViewModel")
         val extendsBase = clazz.superTypeListEntries.any { entry ->
             val rawName = entry.typeReference?.text?.substringBefore('<')
             rawName in mviBaseNames
@@ -230,6 +232,56 @@ private class VmCloseableRule(config: Config) : Rule(config, "", null) {
     }
 }
 
+/**
+ * Flags a class that extends [MviViewModel] but declares its own `uiState` / `_uiState`.
+ *
+ * Such a class has two sources of truth: the base class's `state` (which the base owns
+ * and the event channel is paired with) and a shadow flow the screen actually reads.
+ * Nothing reports the drift — `onCleared`, `updateState` and the state contract all
+ * apply to the inherited `state` while the UI renders the other one.
+ *
+ * Name-based on purpose, matching the existing [IntentMethodName] rule: PSI has no
+ * type inference here, so comparing against the inherited generic argument is not
+ * reliably possible, and a broader heuristic would flag the legitimate side-flows
+ * that VMs use as `combine` inputs.
+ */
+private class ShadowedStateRule(config: Config) : Rule(config, "", null) {
+    override fun visitKtFile(root: KtFile) {
+        super.visitKtFile(root)
+        if (!root.name.endsWith("ViewModel.kt")) return
+        for (declaration in root.declarations) {
+            if (declaration is KtClass) checkClass(declaration)
+        }
+    }
+
+    private fun checkClass(clazz: KtClass) {
+        val extendsMvi = clazz.superTypeListEntries.any { entry ->
+            entry is KtSuperTypeCallEntry && entry.typeReference?.text?.substringBefore('<') == "MviViewModel"
+        }
+        if (!extendsMvi) return
+
+        val body = clazz.body ?: return
+        val shadow = body.properties.filter { it.name in SHADOW_NAMES }
+        if (shadow.isEmpty()) return
+
+        report(
+            Finding(
+                entity = Entity.from(shadow.first()),
+                message = "ViewModel extends MviViewModel but declares its own state (" +
+                    "${shadow.joinToString { it.name ?: "?" }}). " +
+                    "MviViewModel already owns the state; use updateState { } / setState() " +
+                    "and read `state` in the screen.",
+                references = emptyList(),
+                suppressReasons = emptyList(),
+            ),
+        )
+    }
+
+    private companion object {
+        val SHADOW_NAMES = setOf("uiState", "_uiState")
+    }
+}
+
 class MviViewModelRulesProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("mvi-viewmodel")
     override fun instance(): RuleSet = RuleSet(
@@ -239,6 +291,7 @@ class MviViewModelRulesProvider : RuleSetProvider {
             RuleName("IntentMethodName") to { cfg: Config -> IntentMethodNameRule(cfg) },
             RuleName("VmScopePosition") to { cfg: Config -> VmScopePositionRule(cfg) },
             RuleName("VmCloseable") to { cfg: Config -> VmCloseableRule(cfg) },
+            RuleName("ShadowedState") to { cfg: Config -> ShadowedStateRule(cfg) },
         ),
     )
 }

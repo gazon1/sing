@@ -1,15 +1,31 @@
 package com.singularity.todo.core.ui
 
+import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.toMessage
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
- * Full-featured MVI ViewModel base with event emission and typed state updates.
+ * Base ViewModel for the MVI loop: a single [StateFlow] of UI state, a one-shot
+ * [EventBus] for effects the screen must act on exactly once, and an [onIntent] entry point.
  *
- * Combines [StatefulViewModel] with [EventBus] for one-shot events and adds
- * [updateState] variants — including a reified overload that eliminates `?: return` guards
- * for sealed state hierarchies.
+ * ## State has exactly two entry points
+ * [updateState] (apply a reducer, CAS) and [setState] (direct replacement). Both are
+ * `final` on purpose: an `open` writer that a subclass can silently override is how
+ * the state stream and the event bus drift apart.
+ *
+ * ## Errors
+ * [catchTo] is the primitive for "run this, route a failure somewhere"; [emitError] is
+ * the common case where a failure becomes a one-shot event. [catchTo]'s [onError] is
+ * `suspend` so callers can [emit] straight from it — the non-suspend variants forced
+ * every call site to wrap the emit in a nested `launch`.
  *
  * ## Usage
  * ```
@@ -20,16 +36,14 @@ import kotlinx.coroutines.flow.Flow
  *     initialState = TagsUiState.Loading,
  *     scope = scope,
  * ) {
- *     // no addCloseable(scope) needed here — parent handles it
+ *     // no addCloseable(scope) needed here — the base init does it
  *
  *     override fun onIntent(intent: TagsIntent) {
  *         when (intent) {
- *             is TagsIntent.Delete -> scope.launch { delete(intent.id) }
+ *             is TagsIntent.Delete -> emitError("Delete failed", TagsUiEvent::ShowError) {
+ *                 tagRepo.delete(intent.id)
+ *             }
  *         }
- *     }
- *
- *     private suspend fun delete(id: TagId) {
- *         tagRepo.delete(id).onFailure { emit(TagsUiEvent.ShowError(it.toMessage())) }
  *     }
  * }
  * ```
@@ -45,14 +59,47 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     initialState: S,
     extraEventCapacity: Int = Channel.BUFFERED,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : StatefulViewModel<S>(initialState, scope) {
+) : ViewModel() {
 
-    /** Exposed scope for subclasses launching coroutines in intent handlers. */
-    protected open val vmScope: AutoCloseableCoroutineScope = scope
+    init {
+        addCloseable(scope)
+    }
+
+    /**
+     * Scope for collectors and intent handlers. Deliberately not `open` — the eight
+     * subclasses that overrode it only ever assigned the same `scope` back to it.
+     */
+    protected val vmScope: AutoCloseableCoroutineScope = scope
+
+    private val _state = MutableStateFlow(initialState)
+
+    /** Public read-only state. The single way a screen observes this ViewModel. */
+    val state: StateFlow<S> = _state.asStateFlow()
+
+    /** Synchronous snapshot. Use inside reducers and intent handlers. */
+    protected val currentState: S get() = _state.value
+
+    /**
+     * Updates state by applying [transform] to the current value.
+     *
+     * Non-suspending, backed by a CAS loop — safe when more than one coroutine
+     * writes concurrently. For a value you have already computed, use [setState].
+     */
+    protected fun updateState(transform: (S) -> S) {
+        _state.update(transform)
+    }
+
+    /**
+     * Directly replaces the current state with [newState].
+     * @see updateState
+     */
+    protected fun setState(newState: S) {
+        _state.value = newState
+    }
 
     private val _events = EventBus<E>(extraEventCapacity)
 
-    /** Flow of one-shot UI events. Collect in your screen's effect layer. */
+    /** Flow of one-shot events. Collect in your screen's effect layer. */
     val events: Flow<E> get() = _events.flow
 
     /** Emits a one-shot event. Suspends until the channel accepts it. */
@@ -65,53 +112,19 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     protected fun tryEmit(event: E): Boolean = _events.tryEmit(event)
 
     /**
-     * Updates state by applying [transform] to the current value.
+     * Runs [block] on [vmScope]; on `Result.failure` hands `toMessage(errorLabel)` to [onError].
      *
-     * Non-suspending — delegates to [kotlinx.coroutines.flow.MutableStateFlow.update].
-     * Override [onStateChanged] to react to state transitions (logging, analytics, etc.).
-     *
-     * For simple direct replacement (when you already have the full new state),
-     * use [setState] instead.
+     * Use when the failure lands in state (`catchTo(label, { msg -> updateState { … } })`).
+     * For the one-shot-event case prefer [emitError].
      */
-    protected fun updateState(transform: (S) -> S) {
-        val old = currentState
-        update(transform)
-        onStateChanged(old, currentState)
-    }
-
-    /**
-     * Directly replaces the current state with [newState].
-     * Prefer [updateState] for reducer-style mutations.
-     * @see updateState
-     */
-    override fun setState(newState: S) {
-        val old = currentState
-        super.setState(newState)
-        onStateChanged(old, newState)
-    }
-
-    /**
-     * Type-safe state update that only runs [transform] when the current state is of type [T].
-     *
-     * Eliminates `?: return` guards in sealed state hierarchies.
-     * @see updateState
-     */
-    protected inline fun <reified T : S> updateStateAs(noinline transform: (T) -> S) {
-        val current = currentState
-        if (current is T) {
-            val old = currentState
-            update { transform(current) }
-            @Suppress("UNCHECKED_CAST")
-            onStateChanged(old, currentState)
+    protected fun catchTo(errorLabel: String, onError: suspend (String) -> Unit, block: suspend () -> Result<*>): Job =
+        vmScope.launch {
+            block().onFailure { onError(it.toMessage(errorLabel)) }
         }
-    }
 
-    /**
-     * Called after every state mutation via [updateState] or [updateStateAs].
-     * Override to log state transitions, fire analytics, etc.
-     * Default implementation is a no-op.
-     */
-    protected open fun onStateChanged(old: S, new: S) {}
+    /** [catchTo] for the common case: a failure becomes a one-shot [E] built from the message. */
+    protected fun emitError(errorLabel: String, errorEvent: (String) -> E, block: suspend () -> Result<*>): Job =
+        catchTo(errorLabel, { msg -> emit(errorEvent(msg)) }, block)
 
     /**
      * Called by the screen layer to dispatch an intent into the MVI loop.
@@ -120,5 +133,6 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
 
     override fun onCleared() {
         _events.close()
+        super.onCleared()
     }
 }

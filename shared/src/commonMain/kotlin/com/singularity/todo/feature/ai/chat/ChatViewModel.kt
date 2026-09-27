@@ -2,20 +2,18 @@ package com.singularity.todo.feature.ai.chat
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.ai.TextGenPort
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
  * AI chat state and intents.
  *
- * The screen subscribes to [uiState] (continuous) and [events] (one-shot).
+ * The screen subscribes to [state] (continuous) and [events] (one-shot).
  * Composable stays thin — every action is expressed as an [Intent] and the
  * ViewModel is the single source of truth for messages, input, and loading.
  */
@@ -40,45 +38,45 @@ class ChatViewModel(
         data object Send : Intent
     }
 
-    /** Public UI state — StateFlow for screen observation. */
-    private val _uiState = MutableStateFlow(State())
-    val uiState: StateFlow<State> = _uiState.asStateFlow()
-
     override fun onIntent(intent: Intent) {
         when (intent) {
-            is Intent.InputChanged -> _uiState.value = _uiState.value.copy(input = intent.text)
+            is Intent.InputChanged -> updateState { it.copy(input = intent.text) }
             Intent.Send -> send()
         }
     }
 
     private fun send() = vmScope.launch {
-        val current = _uiState.value
+        val current = currentState
         val text = current.input.trim()
         if (text.isBlank() || current.isLoading) return@launch
 
         val assistantId = newId()
-        _uiState.value = _uiState.value.copy(
-            input = "",
-            isLoading = true,
-            messages = _uiState.value.messages +
-                ChatMessage(newId(), ChatRole.User, text) +
-                ChatMessage(assistantId, ChatRole.Assistant, ""),
-        )
+        updateState {
+            it.copy(
+                input = "",
+                isLoading = true,
+                messages = it.messages +
+                    ChatMessage(newId(), ChatRole.User, text) +
+                    ChatMessage(assistantId, ChatRole.Assistant, ""),
+            )
+        }
 
         val collected = StringBuilder()
         runCatching {
             agent.streamChat(text).collect { chunk ->
                 collected.append(chunk)
-                _uiState.value = _uiState.value.copy(
-                    messages = _uiState.value.messages.replaceAssistantContent(assistantId, collected.toString()),
-                )
+                updateState {
+                    it.copy(
+                        messages = it.messages.replaceAssistantContent(assistantId, collected.toString()),
+                    )
+                }
             }
         }.onFailure { error ->
             log.e(error) { "AI stream failed [msg=${text.take(50)}]" }
-            emit(ChatUiEvent.Error(error.message ?: "AI request failed"))
+            emit(ChatUiEvent.Error(error.toMessage("AI request failed")))
         }
 
-        _uiState.value = _uiState.value.copy(isLoading = false)
+        updateState { it.copy(isLoading = false) }
     }
 
     private fun List<ChatMessage>.replaceAssistantContent(id: String, content: String) =

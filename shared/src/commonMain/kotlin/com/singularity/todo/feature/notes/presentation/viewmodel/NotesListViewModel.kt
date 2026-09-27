@@ -1,8 +1,6 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.fireAndForget
-import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.notes.Note
@@ -17,8 +15,6 @@ import com.singularity.todo.feature.notes.presentation.NotesIntent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -45,11 +41,12 @@ class NotesListViewModel(
         scope = scope,
     ) {
 
-    private val _filter = MutableStateFlow(NoteFilter.All)
-    val filter: StateFlow<NoteFilter> = _filter.asStateFlow()
+    // [filter] and [sortOrder] are inputs to the collector below, not public surface:
+    // [NotesListState] already carries both, so the screen reads them from the state
+    // instead of collecting a second, independently-timed copy of the same value.
+    private val filterFlow = MutableStateFlow(NoteFilter.All)
 
-    private val _sortOrder = MutableStateFlow(NoteSortOrder.UpdatedDesc)
-    val sortOrder: StateFlow<NoteSortOrder> = _sortOrder.asStateFlow()
+    private val sortOrderFlow = MutableStateFlow(NoteSortOrder.UpdatedDesc)
 
     private val _selectedIds = MutableStateFlow<Set<NoteId>>(emptySet())
     private val _isSelectionMode = MutableStateFlow(false)
@@ -57,7 +54,7 @@ class NotesListViewModel(
     init {
         scope.launch {
             // Watch notes based on current filter, then split into pinned/unpinned.
-            _filter.flatMapLatest { f ->
+            filterFlow.flatMapLatest { f ->
                 val flow = when (f) {
                     NoteFilter.All -> repo.observeAll()
                     NoteFilter.Pinned -> repo.watchPinned()
@@ -67,25 +64,21 @@ class NotesListViewModel(
             }
                 .catch { emit(NoteFilter.All to emptyList()) }
                 .collect { (filter, allNotes) ->
-                    if (allNotes.isEmpty() && filter == NoteFilter.All) {
-                        setState(NotesUiState.Empty)
-                    } else {
-                        val sorted = sortNotes(allNotes, _sortOrder.value)
-                        val pinned = sorted.filter { it.isPinned }
-                        val unpinned = sorted.filter { !it.isPinned }
-                        setState(
-                            NotesUiState.Content(
-                                NotesListState(
-                                    pinned = pinned,
-                                    unpinned = unpinned,
-                                    filter = filter,
-                                    sortOrder = _sortOrder.value,
-                                    selectedIds = _selectedIds.value,
-                                    isSelectionMode = _isSelectionMode.value,
-                                ),
+                    val sorted = sortNotes(allNotes, sortOrderFlow.value)
+                    val pinned = sorted.filter { it.isPinned }
+                    val unpinned = sorted.filter { !it.isPinned }
+                    setState(
+                        NotesUiState.Content(
+                            NotesListState(
+                                pinned = pinned,
+                                unpinned = unpinned,
+                                filter = filter,
+                                sortOrder = sortOrderFlow.value,
+                                selectedIds = _selectedIds.value,
+                                isSelectionMode = _isSelectionMode.value,
                             ),
-                        )
-                    }
+                        ),
+                    )
                 }
         }
     }
@@ -115,11 +108,11 @@ class NotesListViewModel(
     // ─── Filter / Sort ───────────────────────────────────────────────────────
 
     private fun setFilter(filter: NoteFilter) {
-        _filter.value = filter
+        filterFlow.value = filter
     }
 
     private fun setSortOrder(order: NoteSortOrder) {
-        _sortOrder.value = order
+        sortOrderFlow.value = order
         // Re-sort current content if already loaded.
         val current = currentState
         if (current is NotesUiState.Content) {
@@ -141,10 +134,7 @@ class NotesListViewModel(
             ?: return
         val note = (current.list.pinned + current.list.unpinned).firstOrNull { it.id == id }
             ?: return
-        scope.fireAndForget(
-            errorLabel = "Pin failed",
-            onError = { e -> scope.launch { emit(NotesUiEvent.Error("Pin failed: ${e.toMessage()}")) } },
-        ) {
+        emitError("Pin failed", { msg -> NotesUiEvent.Error("Pin failed: $msg") }) {
             repo.setPinned(id, !note.isPinned)
         }
     }
@@ -152,10 +142,7 @@ class NotesListViewModel(
     // ─── Archive ───────────────────────────────────────────────────────────
 
     private fun archive(id: NoteId) {
-        scope.fireAndForget(
-            errorLabel = "Archive failed",
-            onError = { e -> scope.launch { emit(NotesUiEvent.Error("Archive failed: ${e.toMessage()}")) } },
-        ) {
+        emitError("Archive failed", { msg -> NotesUiEvent.Error("Archive failed: $msg") }) {
             repo.archive(id)
         }
     }

@@ -2,7 +2,6 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.debounce.Debouncer
@@ -63,12 +62,17 @@ class ProjectDetailViewModel(
         initialState = ProjectDetailUiState.Loading,
         scope = scope,
     ) {
-    override val vmScope = scope
 
     // ─── UI State ───────────────────────────────────────────────────────────────
 
-    private val _hideCompleted = MutableStateFlow(false)
-    val hideCompleted: StateFlow<Boolean> = _hideCompleted
+    // The three flows below are inputs to the state `combine` in [init], not part of
+    // the public surface. The screen reads them from [ProjectDetailUiState.Content], so
+    // it observes one atomic snapshot instead of collecting four flows independently.
+    // [lastEditedAt] is deliberately NOT folded in: it is written by [mutate] after the
+    // repository write, not by the combine, so putting it in Content would give the
+    // state two writers and open a lost-update window.
+
+    private val hideCompletedFlow = MutableStateFlow(false)
 
     /** Emits null on start (loading placeholder), then the project flow. */
     private val _projectFlow = MutableStateFlow<Project?>(null)
@@ -78,16 +82,14 @@ class ProjectDetailViewModel(
      * [ProjectsRepository.watchProjects]. Excludes the current project (cycle prevention)
      * and already-deleted / non-root projects.
      */
-    private val _parentOptionsFlow = MutableStateFlow<List<ParentOption>>(emptyList())
-    val parentOptionsFlow: StateFlow<List<ParentOption>> = _parentOptionsFlow
+    private val parentOptionsFlow = MutableStateFlow<List<ParentOption>>(emptyList())
 
     /**
      * All active tasks that are NOT in this project — for the "add existing task"
      * quick-add picker. Excludes inbox tasks (projectId == null) and completed tasks.
      * Sorted by dueDate ascending (nulls last), then updatedAt descending.
      */
-    private val _availableTasksFlow = MutableStateFlow<List<Task>>(emptyList())
-    val availableTasksFlow: StateFlow<List<Task>> = _availableTasksFlow
+    private val availableTasksFlow = MutableStateFlow<List<Task>>(emptyList())
 
     init {
         // Single project observer: feeds [projectFlow], seeds the editable draft,
@@ -109,7 +111,7 @@ class ProjectDetailViewModel(
                 }
         }
 
-        // Collect parentOptionsFlow
+        // Parent-picker options
         vmScope.launch {
             combine(
                 _projectFlow,
@@ -121,10 +123,10 @@ class ProjectDetailViewModel(
                     allProjects.filter { it.id != project.id && it.parentId == null && !it.isDeleted }
                         .map { ParentOption(it.id, it.name, it.id == project.parentId) }
                 }
-            }.collect { _parentOptionsFlow.value = it }
+            }.collect { parentOptionsFlow.value = it }
         }
 
-        // Collect availableTasksFlow
+        // Quick-add picker candidates
         vmScope.launch {
             taskRepo.observeByFilter(TaskFilter.All)
                 .map { all ->
@@ -135,12 +137,14 @@ class ProjectDetailViewModel(
                             ) { it.dueDate }.thenByDescending { it.updatedAt },
                         )
                 }
-                .collect { _availableTasksFlow.value = it }
+                .collect { availableTasksFlow.value = it }
         }
 
-        // Collect state
+        // Collect state. Two nested combines rather than one 7-argument combine:
+        // kotlinx only ships typed `combine` overloads up to 5 flows, and a 7-flow
+        // vararg call would collapse to `Array<Any?>`.
         vmScope.launch {
-            combine(
+            val projectState = combine(
                 _projectFlow,
                 _projectFlow.flatMapLatest { project ->
                     if (project == null) {
@@ -157,7 +161,7 @@ class ProjectDetailViewModel(
                 _projectFlow.flatMapLatest { p ->
                     if (p == null || p.parentId == null) flowOf(null) else projectRepo.observe(p.parentId)
                 },
-                _hideCompleted,
+                hideCompletedFlow,
             ) { project, tasks, childProjects, parent, hideCompleted ->
                 when {
                     project == null -> ProjectDetailUiState.Loading
@@ -167,7 +171,7 @@ class ProjectDetailViewModel(
                     else -> {
                         val visibleTasks = if (hideCompleted) tasks.filter { it.completedAt == null } else tasks
                         ProjectDetailUiState.Content(
-                            ProjectDetailUi(
+                            ui = ProjectDetailUi(
                                 project = project,
                                 tasks = visibleTasks.take(5),
                                 totalCount = tasks.size,
@@ -175,8 +179,18 @@ class ProjectDetailViewModel(
                                 childProjects = childProjects,
                                 parent = parent,
                             ),
+                            hideCompleted = hideCompleted,
+                            parentOptions = emptyList(),
+                            availableTasks = emptyList(),
                         )
                     }
+                }
+            }
+            combine(projectState, parentOptionsFlow, availableTasksFlow) { state, parentOptions, availableTasks ->
+                if (state is ProjectDetailUiState.Content) {
+                    state.copy(parentOptions = parentOptions, availableTasks = availableTasks)
+                } else {
+                    state
                 }
             }.collect { setState(it) }
         }
@@ -194,7 +208,7 @@ class ProjectDetailViewModel(
     private val debouncer = Debouncer(scope, 300.milliseconds)
 
     init {
-        // Name debounce — mutate reads _latestProject inside fireAndForget to avoid TOCTOU.
+        // Name debounce — mutate reads _latestProject inside the launched block to avoid TOCTOU.
         debouncer.debounce(draftState.state.map { it.name }) { name ->
             mutate { copy(name = name) }
         }
@@ -219,7 +233,7 @@ class ProjectDetailViewModel(
     override fun onIntent(intent: ProjectDetailIntent.Domain) {
         when (intent) {
             // ── Visibility ──────────────────────────────────────────────────
-            is ProjectDetailIntent.Domain.ToggleHideCompleted -> _hideCompleted.value = !_hideCompleted.value
+            is ProjectDetailIntent.Domain.ToggleHideCompleted -> hideCompletedFlow.value = !hideCompletedFlow.value
 
             // ── Inline edits — debounced, written to draft StateFlows ────────
             is ProjectDetailIntent.Domain.UpdateName -> draftState.setName(intent.name)
@@ -252,67 +266,40 @@ class ProjectDetailViewModel(
             }
 
             is ProjectDetailIntent.Domain.Delete -> vmScope.launch {
-                deleteProject(projectId).onSuccess { emit(ProjectDetailUiEvent.NavigateBack) }
-                    .onFailure { e ->
-                        emit(
-                            ProjectDetailUiEvent.ShowError(
-                                e.toMessage("Delete failed"),
-                            ),
-                        )
-                    }
+                deleteProject(projectId)
+                    .onSuccess { emit(ProjectDetailUiEvent.NavigateBack) }
+                    .onFailure { emit(ProjectDetailUiEvent.ShowError(it.toMessage("Delete failed"))) }
             }
 
             // ── Tasks ──────────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.CreateTask -> {
                 val trimmed = intent.title.trim()
                 if (trimmed.isEmpty()) return
-                vmScope.launch {
+                emitError("Create task failed", ProjectDetailUiEvent::ShowError) {
                     createTaskUseCase(
                         CreateTaskInput(
                             title = trimmed,
                             projectId = projectId,
                             kind = TaskKind.Task,
                         ),
-                    ).onFailure { e ->
-                        emit(
-                            ProjectDetailUiEvent.ShowError(
-                                e.toMessage("Create task failed"),
-                            ),
-                        )
-                    }
+                    )
                 }
             }
 
-            is ProjectDetailIntent.Domain.MoveTaskToProject -> vmScope.launch {
-                updateTask.invoke(intent.taskId) { it.copy(projectId = projectId) }
-                    .onFailure { e ->
-                        emit(
-                            ProjectDetailUiEvent.ShowError(
-                                e.toMessage("Move task failed"),
-                            ),
-                        )
-                    }
-            }
+            is ProjectDetailIntent.Domain.MoveTaskToProject ->
+                emitError("Move task failed", ProjectDetailUiEvent::ShowError) {
+                    updateTask.invoke(intent.taskId) { it.copy(projectId = projectId) }
+                }
 
-            is ProjectDetailIntent.Domain.ToggleTaskPin -> vmScope.fireAndForget(
-                errorLabel = "Pin failed",
-                onError = { e ->
-                    vmScope.launch { emit(ProjectDetailUiEvent.ShowError(e.toMessage("Pin failed"))) }
-                },
-            ) {
-                taskRepo.togglePinned(intent.taskId)
-            }
+            is ProjectDetailIntent.Domain.ToggleTaskPin ->
+                emitError("Pin failed", ProjectDetailUiEvent::ShowError) {
+                    taskRepo.togglePinned(intent.taskId)
+                }
 
-            is ProjectDetailIntent.Domain.DeleteTask -> vmScope.launch {
-                taskRepo.softDelete(intent.taskId)
-                    .onFailure { e ->
-                        emit(
-                            ProjectDetailUiEvent.ShowError(
-                                e.toMessage("Delete task failed"),
-                            ),
-                        )
-                    }
-            }
+            is ProjectDetailIntent.Domain.DeleteTask ->
+                emitError("Delete task failed", ProjectDetailUiEvent::ShowError) {
+                    taskRepo.softDelete(intent.taskId)
+                }
         }
     }
 
@@ -320,13 +307,10 @@ class ProjectDetailViewModel(
 
     /**
      * Applies a mutation to the current project and persists via [updateProject].
-     * Reads from [_latestProject] inside the fireAndForget block to avoid TOCTOU.
+     * Reads from [_latestProject] inside the launched block to avoid TOCTOU.
      */
     private fun mutate(transform: Project.() -> Project) {
-        vmScope.fireAndForget(
-            errorLabel = "Update project failed",
-            onError = { e -> vmScope.launch { emit(ProjectDetailUiEvent.ShowError(e.toMessage())) } },
-        ) {
+        emitError("Update project failed", ProjectDetailUiEvent::ShowError) {
             updateProject(projectId, transform).also {
                 if (it.isSuccess) _lastEditedAt.value = clock.now()
             }

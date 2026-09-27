@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.search
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.fireAndForget
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
@@ -342,12 +341,7 @@ class SearchViewModel(
     }
 
     private fun onTogglePin(taskId: TaskId) {
-        vmScope.fireAndForget(
-            errorLabel = "Pin failed",
-            onError = { e ->
-                vmScope.launch { emit(SearchUiEvent.Error("Pin failed: ${e.message ?: "unknown"}")) }
-            },
-        ) {
+        emitError("Pin failed", { msg -> SearchUiEvent.Error("Pin failed: $msg") }) {
             taskRepo.togglePinned(taskId)
         }
     }

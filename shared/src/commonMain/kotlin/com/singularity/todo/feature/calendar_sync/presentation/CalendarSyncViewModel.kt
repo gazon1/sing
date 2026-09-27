@@ -71,8 +71,6 @@ class CalendarSyncViewModel(
     ) {
     // MviViewModel handles addCloseable(scope) — no manual call needed
 
-    override val vmScope = scope
-
     init {
         vmScope.launch {
             combine(

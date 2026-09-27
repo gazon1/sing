@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,16 +51,17 @@ import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.datetime.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackupScreen(
     state: BackupUiState,
-    events: SharedFlow<BackupUiEvent>,
-    snackbar: SharedFlow<String>,
+    events: Flow<BackupUiEvent>,
     onBack: () -> Unit,
     onCreateBackup: () -> Unit,
     /** Called when user wants to restore — platform shell should open file picker and call [onRestore]. */
@@ -89,9 +91,17 @@ fun BackupScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSettingsJson by remember { mutableStateOf<String?>(null) }
 
-    // Collect SettingsSnapshotExported events and show a snackbar with share action.
-    LaunchedEffect(events) {
-        events.collect { event ->
+    // `events` is backed by a Channel (single consumer). The screen needs it in two
+    // places — the snackbar handler below and NotificationHost — so fan it out once
+    // with shareIn; collecting a Channel twice would split events between the two.
+    val scope = rememberCoroutineScope()
+    val sharedEvents = remember(events, scope) {
+        events.shareIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 0), replay = 0)
+    }
+
+    // Collect SettingsSnapshotExported / ShowSnackbar and render them.
+    LaunchedEffect(sharedEvents) {
+        sharedEvents.collect { event ->
             when (event) {
                 is BackupUiEvent.SettingsSnapshotExported -> {
                     pendingSettingsJson = event.json
@@ -106,23 +116,19 @@ fun BackupScreen(
                     }
                 }
 
+                is BackupUiEvent.ShowSnackbar -> snackbarHostState.showSnackbar(event.message)
+
                 is BackupUiEvent.Error -> { /* handled by NotificationHost */ }
             }
         }
     }
 
     NotificationHost(
-        events = events.filterIsInstance<BackupUiEvent.Error>(),
+        events = sharedEvents.filterIsInstance<BackupUiEvent.Error>(),
         mapper = { event ->
             Notification.Error(event.message)
         },
     )
-
-    LaunchedEffect(snackbar) {
-        snackbar.collect { message ->
-            snackbarHostState.showSnackbar(message)
-        }
-    }
 
     Scaffold(
         topBar = {
