@@ -58,6 +58,10 @@ place where bindings live, and document the per-domain layout as the actual conv
   `*DiModule.kt`.
 - `domainModule()` returns a list rather than nesting via `includes()` (Koin 4 scope
   isolation). Profile bindings are the documented exception — inlined at root scope.
+- **Modules that need a runtime argument are registered by the app entry point, not by
+  `domainModule()`.** `gateModule(playStoreUrl)` is the example: each platform passes its
+  own store URL (`PLAY_STORE_URI` in `androidApp/SingularityApp.kt`, `RELEASES_URL` in
+  `desktopApp/main.kt`). Do not add such modules to `domainModule()`.
 
 ## Rationale
 
