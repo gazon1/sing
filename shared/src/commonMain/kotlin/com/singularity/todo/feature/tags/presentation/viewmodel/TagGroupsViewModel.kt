@@ -65,7 +65,7 @@ class TagGroupsViewModel(
                         ),
                     )
                 }
-                .collect { updateState { it } }
+                .collect { content -> setState(content) }
         }
     }
 

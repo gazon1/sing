@@ -49,7 +49,7 @@ class ProfileSwitcherViewModel(
                     isLoading = false,
                     errorMessage = errorMsg,
                 )
-            }.collect { updateState { it } }
+            }.collect { state -> setState(state) }
         }
     }
 

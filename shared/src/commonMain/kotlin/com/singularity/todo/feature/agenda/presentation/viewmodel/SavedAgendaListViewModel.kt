@@ -67,7 +67,7 @@ class SavedAgendaListViewModel(
         scope.launch {
             deps.repo.observeAll()
                 .map { views -> SavedAgendaListState.Loaded(views) }
-                .collect { updateState { it } }
+                .collect { loaded -> setState(loaded) }
         }
     }
 
