@@ -1,4 +1,5 @@
 ---
+title: DI: `Modules.kt` is a facade, not the source of truth
 date: 2026-09-27
 status: accepted
 tags: [koin, di, architecture, documentation]

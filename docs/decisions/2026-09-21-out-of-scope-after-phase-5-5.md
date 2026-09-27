@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Post-Phase-5.5 Out-of-Scope Decisions
 date: 2026-09-21
+status: accepted
 ---
 
 # Post-Phase-5.5 Out-of-Scope Decisions

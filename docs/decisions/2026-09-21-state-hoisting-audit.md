@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: State Hoisting Audit
 date: 2026-09-21
+status: accepted
 tags: [vm, compose, state-hoisting, refactor]
 ---
 

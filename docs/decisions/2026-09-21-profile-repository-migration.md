@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: ProfileRepository Migration to GenericUserScopedRepository
 date: 2026-09-21
+status: accepted
 ---
 
 # ProfileRepository Migration to GenericUserScopedRepository

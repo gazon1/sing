@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: DataStore `.catch` fix-together
 date: 2026-09-24
+status: accepted
 tags: [datastore, resilience, error-handling]
 epic: chore/datastore-catch-together
 ---

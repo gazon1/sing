@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Test Flaky Root Causes — Findings from Test Suite Audit
 date: 2026-09-25
+status: accepted
 ---
 
 # Test Flaky Root Causes — Findings from Test Suite Audit

@@ -1,4 +1,6 @@
 ---
+title: ADR 2026-09-16 — Reactive `todayFlow` for AgendaEngine
+date: 2026-09-16
 status: accepted
 ---
 > **Superseded in part (2026-09-27):** the project-level `com.singularity.todo.core.platform.Clock` expect/actual object was removed. Use `kotlin.time.Clock.System.now()` (inject `Clock` for tests) and `core.platform.todayFlow()` / `todayInSystemZone()`. See [2026-09-27-remove-platform-clock-object.md](2026-09-27-remove-platform-clock-object.md).

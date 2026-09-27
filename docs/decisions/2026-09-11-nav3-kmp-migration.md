@@ -1,4 +1,6 @@
 ---
+title: Nav3 KMP Migration (Android + JVM Desktop)
+date: 2026-09-11
 status: accepted
 ---
 # Nav3 KMP Migration (Android + JVM Desktop)

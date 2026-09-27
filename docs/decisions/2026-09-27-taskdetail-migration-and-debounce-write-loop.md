@@ -1,6 +1,8 @@
 ---
-status: accepted
+title: TaskDetailViewModel Migration + Debounce Write-Loop Fix
 date: 2026-09-27
+status: accepted
+deciders: Singularity Developer
 deciders: Singularity Developer
 ---
 

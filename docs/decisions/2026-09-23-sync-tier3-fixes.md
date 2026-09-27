@@ -1,6 +1,8 @@
 ---
-description: Tier 3.5 fix pass — sync UI bugs, sync integrity issues, and cross-feature VM bug consolidation.
+title: ADR: Sync Tier 3.5 Fixes & Non-Settings Consolidation
+date: 2026-09-23
 status: accepted
+description: Tier 3.5 fix pass — sync UI bugs, sync integrity issues, and cross-feature VM bug consolidation.
 ---
 
 # ADR: Sync Tier 3.5 Fixes & Non-Settings Consolidation

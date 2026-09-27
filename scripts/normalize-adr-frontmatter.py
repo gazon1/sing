@@ -6,6 +6,8 @@ Operations:
   - Rename `created:` key to `date:`
   - Strip quotes from tag values (both " and ')
   - Lowercase tag values
+  - Backfill `date:` from the filename when missing
+  - Backfill `title:` from the first H1 heading, or from the filename slug
   - Preserve all other frontmatter keys
 
 Usage:
@@ -18,6 +20,19 @@ import sys
 from pathlib import Path
 
 DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
+
+# Frontmatter key order — `title` first so the digest and listings read naturally.
+KEY_ORDER = ['title', 'date', 'status', 'tags', 'deciders', 'supersedes',
+             'superseded-by', 'epic', 'deciders']
+
+DATE_RE = re.compile(r'^(\d{4}-\d{2}-\d{2})-')
+H1_RE = re.compile(r'^#\s+(.+?)\s*$', re.M)
+
+
+def slug_to_title(slug: str) -> str:
+    """`2026-09-27-some-slug` -> `Some slug`."""
+    stem = DATE_RE.sub('', slug)
+    return stem.replace('-', ' ').strip().capitalize()
 
 
 def parse_frontmatter(lines: list[str]) -> tuple[dict[str, str], list[str], int | None]:
@@ -45,7 +60,7 @@ def parse_frontmatter(lines: list[str]) -> tuple[dict[str, str], list[str], int 
     return fm, body, body_start
 
 
-def normalize_frontmatter(fm: dict[str, str]) -> dict[str, str]:
+def normalize_frontmatter(fm: dict[str, str], body_text: str = '', path: Path | None = None) -> dict[str, str]:
     """Apply normalization rules to frontmatter dict."""
     result = dict(fm)
 
@@ -56,6 +71,23 @@ def normalize_frontmatter(fm: dict[str, str]) -> dict[str, str]:
     # Add status: accepted if missing
     if 'status' not in result:
         result['status'] = 'accepted'
+
+    # Backfill date from the filename
+    if 'date' not in result and path is not None:
+        m = DATE_RE.match(path.stem)
+        if m:
+            result['date'] = m.group(1)
+
+    # Backfill title from the first H1, else from the filename slug
+    if 'title' not in result and not result.get('title'):
+        title = ''
+        m = H1_RE.search(body_text)
+        if m:
+            title = m.group(1).strip()
+        elif path is not None:
+            title = slug_to_title(path.stem)
+        if title:
+            result['title'] = title
 
     # Normalize tags: strip quotes, lowercase, deduplicate
     if 'tags' in result:
@@ -73,10 +105,16 @@ def normalize_frontmatter(fm: dict[str, str]) -> dict[str, str]:
 
 
 def format_frontmatter(fm: dict[str, str]) -> list[str]:
-    """Format frontmatter dict as YAML lines."""
+    """Format frontmatter dict as YAML lines, in a stable key order."""
     lines = ['---']
+    seen: set[str] = set()
+    for key in KEY_ORDER:
+        if key in fm:
+            lines.append(f'{key}: {fm[key]}')
+            seen.add(key)
     for key, val in fm.items():
-        lines.append(f'{key}: {val}')
+        if key not in seen:
+            lines.append(f'{key}: {val}')
     lines.append('---')
     return lines
 
@@ -88,7 +126,7 @@ def process_file(path: Path, dry_run: bool = True) -> tuple[bool, str]:
 
     fm, body, body_start = parse_frontmatter(lines)
     original_fm = dict(fm)
-    fm = normalize_frontmatter(fm)
+    fm = normalize_frontmatter(fm, body_text='\n'.join(body), path=path)
 
     # Check if anything changed
     if fm == original_fm:

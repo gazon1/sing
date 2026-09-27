@@ -1,6 +1,8 @@
 ---
-status: accepted
+title: MVI Base — Single State-Update Entry + ViewModel Sweep
 date: 2026-09-27
+status: accepted
+deciders: Singularity Developer
 deciders: Singularity Developer
 ---
 

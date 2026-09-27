@@ -1,4 +1,6 @@
 ---
+title: OTA Deferred Items — post-MR follow-ups
+date: 2026-09-23
 status: accepted
 ---
 

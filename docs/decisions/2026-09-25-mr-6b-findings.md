@@ -1,6 +1,8 @@
 ---
-status: accepted
+title: MR-6b Findings (No-Code MR)
 date: 2026-09-25
+status: accepted
+deciders: Singularity Developer
 deciders: Singularity Developer
 ---
 

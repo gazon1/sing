@@ -1,4 +1,6 @@
 ---
+title: Local MVI Framework — StatefulViewModel + MviViewModel + EventBus
+date: 2026-09-25
 status: accepted
 ---
 # Local MVI Framework — StatefulViewModel + MviViewModel + EventBus

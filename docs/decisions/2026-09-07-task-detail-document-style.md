@@ -1,11 +1,13 @@
 ---
+title: Task Detail — Document-Style Migration
+date: 2026-09-07
+status: accepted
 Context: TaskDetailScreen.kt was a form-style read-only screen with every field in its own Row + explicit "Edit"/"Save" buttons. FieldMode state was declared in TaskDetailUi but never mutated by the VM — EditableTextRow was permanently stuck in View mode. Date/time/priority entered as free-form text. Empty sections (Reminders, Attachments) occupied vertical space with "(none)" text. No completion checkbox in the hero position. Emoji used for Pin/Archive status. The screen had no visual hierarchy.
 Decision: Migrate to document-style UX (TickTick/Todoist reference): hero block (checkbox + inline-edit title/description), meta-chips row (date/time, priority, project as FilterChips), tags row, checklist with progress bar, bottom action bar with badge counts. Inline-edit via debounced MutableStateFlow in VM (300ms) — not Composable state. Unified ActiveSheet sealed interface routes all bottom sheets/dialogs from a single state source. Three-level due-date visual state (Overdue/Today/Future) via pure formatter.
 Rationale: form-style is a known UX anti-pattern for task-detail screens — every professional app (TickTick, Todoist, Things 3) uses document-style. The form-style pattern also requires explicit Edit/Save buttons per field (5+ on screen) creating visual noise. Removing FieldMode and replacing with direct VM method calls eliminates dead UI state. ActiveSheet prevents the "state as? Loaded" cast race condition. Three-level due-date states match TickTick's visual language.
 Consequences: EditableTextRow and TaskDetailField stub remain until full screen rewrite (see below). ProjectPickerSheet and TagPickerSheet remain AlertDialog (not ModalBottomSheet) — follow-up migration needed separately. ChecklistItemRow (feature/checklist/) was already designed as a replacement for the inline rows in this screen — now wired up. Debounce(300) requires FlowPreview opt-in. deleteTask uses TaskRepository.softDelete (already existed at TaskRepository.kt:32).
 Links: skill:singularity-todo-task-detail-ux, skill:singularity-todo-ui-event-vs-state, skill:singularity-todo-pure-formatters, skill:singularity-todo-adb-workflow, docs/decisions/DIGEST.md
 Tags: ux, task-detail, compose
-status: accepted
 ---
 
 # Task Detail — Document-Style Migration

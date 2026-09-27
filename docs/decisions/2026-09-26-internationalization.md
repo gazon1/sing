@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Internationalization
 date: 2026-09-26
+status: accepted
 ---
 
 # Internationalization

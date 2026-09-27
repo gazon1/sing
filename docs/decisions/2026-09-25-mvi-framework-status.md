@@ -1,6 +1,8 @@
 ---
-status: accepted
+title: MVI Framework Audit Summary (Post MR-6a/6b/7)
 date: 2026-09-25
+status: accepted
+deciders: Singularity Developer
 deciders: Singularity Developer
 ---
 

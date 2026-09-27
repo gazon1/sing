@@ -1,4 +1,7 @@
-# singularity-todo-worktree-isolation
+---
+name: singularity-todo-worktree-isolation
+description: Run a refactor in an isolated git worktree so the main checkout stays clean and parallel work is unaffected. Covers setup, branch naming, the per-PR commit flow, and cleanup. Use for any refactoring that touches many files, changes architecture, or needs a long series of PRs.
+---
 
 > **When to use:** Any refactoring that touches many files, changes architecture, or requires a long-running series of PRs. Keeps main checkout clean and allows parallel work.
 

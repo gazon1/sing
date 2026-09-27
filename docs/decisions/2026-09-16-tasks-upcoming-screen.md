@@ -1,4 +1,5 @@
 ---
+title: Tasks — Upcoming screen
 date: 2026-09-16
 status: accepted
 tags: [tasks, filter, repository]

@@ -1,4 +1,5 @@
 ---
+title: Retire `singularity-todo-vm-koin-scoping`
 date: 2026-09-27
 status: accepted
 tags: [koin, viewmodel, skills, documentation]

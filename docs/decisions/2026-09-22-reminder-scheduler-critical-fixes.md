@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: ReminderScheduler — 9 critical fixes
 date: 2026-09-22
+status: accepted
 tags: [reminders, scheduler, concurrency, coroutines, di]
 ---
 

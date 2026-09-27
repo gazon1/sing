@@ -1,6 +1,8 @@
 ---
-description: Real pull event handlers, repository upsert, sync UI (ViewModel/Button/Screen), and entity sync field round-tripping.
+title: ADR: Sync Pull Handlers & Sync UI
+date: 2026-09-23
 status: accepted
+description: Real pull event handlers, repository upsert, sync UI (ViewModel/Button/Screen), and entity sync field round-tripping.
 ---
 
 # ADR: Sync Pull Handlers & Sync UI

@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Dead currentUser and orphan VM cleanup
 date: 2026-09-23
+status: accepted
 ---
 
 # Dead currentUser and orphan VM cleanup

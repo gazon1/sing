@@ -1,4 +1,6 @@
 ---
+title: UI Decomposition — reusable widgets, per-feature events, use-case extraction
+date: 2026-09-05
 status: accepted
 ---
 # UI Decomposition — reusable widgets, per-feature events, use-case extraction

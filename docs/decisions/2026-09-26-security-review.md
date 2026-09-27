@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Security Review Process
 date: 2026-09-26
+status: accepted
 ---
 
 # Security Review Process

@@ -1,6 +1,8 @@
 ---
-status: accepted
+title: Post-MR-6d Audit: MVI Framework Migration — Final Status
 date: 2026-09-25
+status: accepted
+deciders: Singularity Developer
 deciders: Singularity Developer
 ---
 

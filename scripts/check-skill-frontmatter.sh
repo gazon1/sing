@@ -13,8 +13,12 @@ SKIPPED=0
 CHECKED=0
 
 while IFS= read -r -d '' file; do
-    # Skip files without frontmatter start
+    # A skill with no frontmatter block is invisible to skill loaders, which
+    # discover skills by their `name`/`description`. Treat it as an error rather
+    # than skipping it silently.
     if ! head -1 "$file" | grep -qP '^---$'; then
+        echo "ERROR: $file has no frontmatter block (skill loaders cannot see it)"
+        ERRORS=$((ERRORS + 1))
         SKIPPED=$((SKIPPED + 1))
         continue
     fi

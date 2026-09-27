@@ -1,7 +1,8 @@
 ---
+title: Tasks feature → nested navigation3 graph
 date: 2026-09-14
-tags: [architecture, navigation, koin, viewmodel]
 status: accepted
+tags: [architecture, navigation, koin, viewmodel]
 ---
 
 # Tasks feature → nested navigation3 graph

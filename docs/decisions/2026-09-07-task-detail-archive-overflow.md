@@ -1,4 +1,6 @@
 ---
+title: Archive in Overflow menu + Picker sheet chrome
+date: 2026-09-07
 status: accepted
 ---
 # Archive in Overflow menu + Picker sheet chrome

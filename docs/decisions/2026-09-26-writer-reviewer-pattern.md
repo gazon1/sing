@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Writer-Reviewer Pattern
 date: 2026-09-26
+status: accepted
 ---
 
 # Writer-Reviewer Pattern

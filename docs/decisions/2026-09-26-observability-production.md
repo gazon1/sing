@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Observability in Production
 date: 2026-09-26
+status: accepted
 ---
 
 # Observability in Production

@@ -1,4 +1,7 @@
-# singularity-todo-detekt-workflow
+---
+name: singularity-todo-detekt-workflow
+description: Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules (PassThroughUseCase, NoStateIn, NoRunBlocking, NoViewModelScopeInProduction, NoRealDelayInTest, KDoc enforcement). Use before committing or when a lint failure needs diagnosing. For rule authoring see singularity-todo-detekt-rules-authoring; for the full toolchain (ktlint, kover, coverage) see singularity-todo-quality-tools.
+---
 
 > **When to use:** Any lint/formatting work, especially before committing, or when adding new code patterns.
 

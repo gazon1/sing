@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Note AI Multi-Op Design
 date: 2026-09-25
+status: accepted
 ---
 
 # Note AI Multi-Op Design

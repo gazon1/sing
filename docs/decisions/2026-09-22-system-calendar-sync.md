@@ -1,4 +1,6 @@
 ---
+title: System Calendar Provider sync (one-way)
+date: 2026-09-22
 status: accepted
 ---
 

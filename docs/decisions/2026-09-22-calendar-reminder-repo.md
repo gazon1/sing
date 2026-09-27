@@ -1,4 +1,6 @@
 ---
+title: Calendar + ReminderRepo Integration (MR-3a)
+date: 2026-09-22
 status: accepted
 ---
 

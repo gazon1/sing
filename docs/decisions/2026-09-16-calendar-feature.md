@@ -1,4 +1,5 @@
 ---
+title: Calendar feature — data layer, UI modes, view models
 date: 2026-09-16
 status: accepted
 tags: [calendar, feature, navigation]

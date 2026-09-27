@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Pre-existing Issues Found During Tech Debt Audit
 date: 2026-09-24
+status: accepted
 tags: [techdebt, testing, di, epic1]
 epic: refactor/techdebt-epic1
 ---

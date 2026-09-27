@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Deferred Backlog
 date: 2026-09-24
+status: accepted
 tags: [deferred, backlog, epic3]
 epic: refactor/techdebt-epic2
 ---

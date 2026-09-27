@@ -1,4 +1,5 @@
 ---
+title: Triage findings from the doc-and-skills hygiene sprint
 date: 2026-09-27
 status: accepted
 tags: [sprint, hygiene, triage, documentation]

@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: AutoCloseableCoroutineScope — ViewModel lifecycle scope pattern
 date: 2026-09-21
+status: accepted
 ---
 
 # AutoCloseableCoroutineScope — ViewModel lifecycle scope pattern

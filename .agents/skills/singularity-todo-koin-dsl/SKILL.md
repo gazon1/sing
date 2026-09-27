@@ -1,4 +1,7 @@
-# singularity-todo-koin-dsl
+---
+name: singularity-todo-koin-dsl
+description: Canonical Koin 4.x pure-DSL patterns for this project: viewModelOf vs viewModel {}, singleOf / factoryOf, koinBridge for suspend factories, and where bindings live (per-domain *DiModule.kt, with core/di/Modules.kt as an aggregator). Use when adding or modifying any DI registration, or any koinInject()/koinViewModel() usage in a Composable.
+---
 
 > **When to use:** Adding or modifying any DI registration in `*DiModule.kt`, or any `koinInject()`/`koinViewModel()` usage in Compose screens.
 

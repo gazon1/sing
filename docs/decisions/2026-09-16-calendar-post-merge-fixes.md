@@ -1,4 +1,5 @@
 ---
+title: Calendar post-merge fixes
 date: 2026-09-16
 status: accepted
 tags: [calendar, code-review, compose]

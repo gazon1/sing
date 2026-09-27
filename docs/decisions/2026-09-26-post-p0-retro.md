@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Post-P0 retro: all P0 PRs complete
 date: 2026-09-26
+status: accepted
 ---
 
 # Post-P0 retro: all P0 PRs complete

@@ -1,6 +1,8 @@
 ---
-status: accepted
+title: Post-MR-7 Audit (MR-6a + MR-7 completed)
 date: 2026-09-25
+status: accepted
+deciders: Singularity Developer
 deciders: Singularity Developer
 ---
 

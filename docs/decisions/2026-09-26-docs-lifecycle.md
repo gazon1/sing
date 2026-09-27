@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Docs Lifecycle
 date: 2026-09-26
+status: accepted
 ---
 
 # Docs Lifecycle
