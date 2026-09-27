@@ -98,9 +98,14 @@ an explicit `close()` — an init coroutine that never completes cannot be a chi
 - The task list, tag groups and saved agendas render again on desktop and Android.
 - `updateState { it }` is now a build failure, so the mechanical-rewrite trap cannot
   recur silently.
-- `NoFactoryViewModelProvider` is absent from the `detekt-rules` service-loader file and
-  therefore never runs, despite `NoFactoryViewModelRuleTest` existing. Unrelated to this
-  fix and left alone, but it means that rule is not actually enforcing anything.
+- Found while writing this up: `NoFactoryViewModelProvider` was missing from the
+  `detekt-rules` service-loader file, so `NoFactoryViewModelRule` had never run despite
+  having its own test. Registered and activated in the same change. The codebase has
+  zero violations, so enabling it cost nothing — verified by injecting a
+  `factory { ProbeViewModel() }` probe and confirming `:shared:detekt` fails on it.
+  The lesson generalises: a rule set with a passing test is not evidence that the rule
+  is registered, and a clean detekt run is equally consistent with "no violations" and
+  "never loaded".
 
 ## Links
 

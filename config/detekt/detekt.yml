@@ -294,6 +294,10 @@ no-op-update-state:
   NoOpUpdateState:
     active: true
 
+no-factory-viewmodel:
+  NoFactoryViewModel:
+    active: true
+
 no-static-profile-aware-current-user:
   NoStaticProfileAwareCurrentUser:
     active: true
