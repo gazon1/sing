@@ -59,8 +59,7 @@ class KoogJsonSchemaBuilderTest {
         val descriptor = (listTasksTool() as SimpleTool<*>).descriptor
         val built = KoogJsonSchemaBuilder.build(descriptor)
         val properties = built.properties ?: error("properties should not be null")
-        // userId, projectId, limit
-        assertTrue("userId" in properties.keys, "userId must be in properties")
+        // projectId, limit
         assertTrue("projectId" in properties.keys, "projectId must be in properties")
         assertTrue("limit" in properties.keys, "limit must be in properties")
     }
@@ -152,7 +151,7 @@ class KoogJsonSchemaBuilderTest {
     private fun createTaskTool() = CreateTaskTool(
         taskRepository = FakeTaskRepository(),
         currentUser = FakeProfileAwareCurrentUser(),
-        clock = kotlin.time.Clock,
+        clock = kotlin.time.Clock.System,
     )
 
     /** Tools that don't need an LLM executor at construction time. */
