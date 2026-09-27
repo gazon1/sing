@@ -233,6 +233,30 @@ class FakeRepositoryFidelityTest {
         assertTrue(repo.update(task("t1", bob).copy(title = "hijacked")).isFailure)
     }
 
+    @Test
+    fun `task get and exists do not leak another user's task`() = runTest {
+        val auth = FakeAuthRepository(Session.Anonymous(alice))
+        val repo = FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
+        repo.seed(task("t1", bob))
+        advanceUntilIdle()
+
+        assertNull(repo.get(TaskId("t1")), "get must not return another user's task")
+        assertTrue(!repo.exists(TaskId("t1")), "exists must not report a foreign task")
+    }
+
+    @Test
+    fun `task getTagIds is scoped to the owning user`() = runTest {
+        val auth = FakeAuthRepository(Session.Anonymous(alice))
+        val repo = FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
+        repo.seed(task("t1", bob).copy(tags = listOf(TagId("secret"))))
+        advanceUntilIdle()
+
+        assertTrue(
+            repo.getTagIds(TaskId("t1")).first().isEmpty(),
+            "tag ids of another user's task must not be observable",
+        )
+    }
+
     // ─── Notes ────────────────────────────────────────────────────────────────
 
     @Test

@@ -38,6 +38,7 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
@@ -179,6 +180,9 @@ private class FakeTaskDao(
 
     override fun watchById(id: String): Flow<TaskEntity?> = store.map { it[id] }
 
+    override fun watchByIdForUser(id: String, userId: String): Flow<TaskEntity?> =
+        store.map { it[id]?.takeIf { t -> t.userId == userId } }
+
     override fun watchTrash(userId: String): Flow<List<TaskEntity>> = store.map {
         it.values.filter { t -> t.userId == userId && t.archivedAt != null }
             .sortedByDescending { it.archivedAt }
@@ -307,6 +311,9 @@ private class FakeTaskDao(
 
     override suspend fun getById(id: String): TaskEntity? = store.value[id]
 
+    override suspend fun getByIdForUser(id: String, userId: String): TaskEntity? =
+        store.value[id]?.takeIf { it.userId == userId }
+
     override suspend fun markCompleteForUser(id: String, ts: Long, userId: String): Int =
         mutateTaskForUser(id, userId) { it.copy(completedAt = ts, updatedAt = ts) }
 
@@ -349,8 +356,26 @@ private class FakeTaskDao(
     override fun getTagIdsForTask(taskId: String): Flow<List<String>> =
         crossRefs.map { refs -> refs.filter { it.taskId == taskId }.map { it.tagId } }
 
+    override fun getTagIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+        combine(crossRefs, store) { refs, tasks ->
+            if (tasks[taskId]?.userId != userId) {
+                emptyList()
+            } else {
+                refs.filter { it.taskId == taskId }.map { it.tagId }
+            }
+        }
+
     override fun getDependencyIdsForTask(taskId: String): Flow<List<String>> =
         depRefs.map { refs -> refs.filter { it.taskId == taskId }.map { it.dependsOnTaskId } }
+
+    override fun getDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+        combine(depRefs, store) { refs, tasks ->
+            if (tasks[taskId]?.userId != userId) {
+                emptyList()
+            } else {
+                refs.filter { it.taskId == taskId }.map { it.dependsOnTaskId }
+            }
+        }
 
     override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
         depRefs.map { refs -> refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId } }

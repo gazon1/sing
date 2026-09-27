@@ -13,6 +13,14 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     fun watchById(id: String): Flow<TaskEntity?>
 
+    /**
+     * Scoped read. [watchById] / [getById] filter by id alone, so a repository
+     * using them can return another user's task; these are the user-scoped
+     * counterparts every repository read path should use.
+     */
+    @Query("SELECT * FROM tasks WHERE id = :id AND user_id = :userId")
+    fun watchByIdForUser(id: String, userId: String): Flow<TaskEntity?>
+
     @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NOT NULL ORDER BY archived_at DESC")
     fun watchTrash(userId: String): Flow<List<TaskEntity>>
 
@@ -102,6 +110,10 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getById(id: String): TaskEntity?
 
+    /** Scoped counterpart of [getById] — see [watchByIdForUser]. */
+    @Query("SELECT * FROM tasks WHERE id = :id AND user_id = :userId")
+    suspend fun getByIdForUser(id: String, userId: String): TaskEntity?
+
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND (title LIKE '%' || :q || '%' OR description LIKE '%' || :q || '%') ORDER BY due_date ASC, is_pinned DESC",
     )
@@ -174,10 +186,30 @@ interface TaskDao {
     @Query("SELECT tag_id FROM task_tags WHERE task_id = :taskId")
     fun getTagIdsForTask(taskId: String): Flow<List<String>>
 
+    /** Scoped to the owning task's user; the cross-ref table has no `user_id`. */
+    @Query(
+        """
+        SELECT tag_id FROM task_tags
+        WHERE task_id = :taskId
+        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    fun getTagIdsForUser(taskId: String, userId: String): Flow<List<String>>
+
     // ── Task dependencies ─────────────────────────────────────────────────────
 
     @Query("SELECT depends_on_task_id FROM task_dependencies WHERE task_id = :taskId")
     fun getDependencyIdsForTask(taskId: String): Flow<List<String>>
+
+    /** Scoped to the owning task's user; the cross-ref table has no `user_id`. */
+    @Query(
+        """
+        SELECT depends_on_task_id FROM task_dependencies
+        WHERE task_id = :taskId
+        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    fun getDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>>
 
     @Query("SELECT task_id FROM task_dependencies WHERE depends_on_task_id = :taskId")
     fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>>

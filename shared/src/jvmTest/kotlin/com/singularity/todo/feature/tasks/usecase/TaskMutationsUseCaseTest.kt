@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.usecase
 
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.test.fakes.FakeTaskRepository
@@ -11,11 +12,17 @@ import kotlin.test.assertTrue
 
 class TaskMutationsUseCaseTest {
 
+    /**
+     * The fake's default current user. Tasks must be seeded as belonging to it:
+     * `testTask` defaults to [UserId.anonymous], which no real user-scoped
+     * repository would ever own, so the repository's ownership check rejects it.
+     */
+    private val user = UserId("test-user")
     private val repo = FakeTaskRepository()
     private val mutations = TaskMutationsUseCase(repo)
 
-    private val t1 = testTask(id = TaskId.fromString("t1"), title = "Task 1")
-    private val t2 = testTask(id = TaskId.fromString("t2"), title = "Task 2")
+    private val t1 = testTask(id = TaskId.fromString("t1"), title = "Task 1", userId = user)
+    private val t2 = testTask(id = TaskId.fromString("t2"), title = "Task 2", userId = user)
 
     // ─── bulkComplete ─────────────────────────────────────────────────────────
 

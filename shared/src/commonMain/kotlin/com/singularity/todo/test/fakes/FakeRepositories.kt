@@ -263,6 +263,8 @@ internal class InMemoryTaskDao : TaskDao {
     override fun getDependencyIdsForTask(taskId: String): Flow<List<String>> =
         _deps.map { refs -> refs.filter { it.taskId == taskId }.map { it.dependsOnTaskId } }
 
+    override fun getDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>> = error("not implemented")
+
     override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
         _deps.map { refs -> refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId } }
 
@@ -302,6 +304,8 @@ internal class InMemoryTaskDao : TaskDao {
     override fun getTagIdsForTask(taskId: String): Flow<List<String>> =
         _tags.map { refs -> refs.filter { it.taskId == taskId }.map { it.tagId } }
 
+    override fun getTagIdsForUser(taskId: String, userId: String): Flow<List<String>> = error("not implemented")
+
     override suspend fun upsertTagCrossRef(ref: TaskTagCrossRef) {
         _tags.update { current -> current.filter { !(it.taskId == ref.taskId && it.tagId == ref.tagId) } + ref }
     }
@@ -340,6 +344,9 @@ internal class InMemoryTaskDao : TaskDao {
         error("not implemented")
 
     override fun watchById(id: String): Flow<com.singularity.todo.core.database.TaskEntity?> = error("not implemented")
+
+    override fun watchByIdForUser(id: String, userId: String): Flow<com.singularity.todo.core.database.TaskEntity?> =
+        error("not implemented")
 
     override fun watchTrash(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
@@ -401,6 +408,9 @@ internal class InMemoryTaskDao : TaskDao {
         error("not implemented")
 
     override suspend fun getById(id: String): com.singularity.todo.core.database.TaskEntity? = error("not implemented")
+
+    override suspend fun getByIdForUser(id: String, userId: String): com.singularity.todo.core.database.TaskEntity? =
+        error("not implemented")
 
     override fun watchSearchResults(
         userId: String,
@@ -476,7 +486,9 @@ open class FakeTaskRepository(
             .map { map -> map.values.filter { it.userId == uid }.toList() }
     }
 
-    override fun observe(id: TaskId): Flow<Task?> = store.state.onStart { emit(store.state.value) }.map { it[id.value] }
+    override fun observe(id: TaskId): Flow<Task?> = currentUser.observeForCurrentUser { uid ->
+        store.state.onStart { emit(store.state.value) }.map { it[id.value]?.takeIf { t -> t.userId == uid } }
+    }
 
     open override suspend fun create(item: Task): Result<Task> {
         createOverride?.let { return it }
@@ -575,9 +587,10 @@ open class FakeTaskRepository(
         }
     }
 
-    override suspend fun get(id: TaskId): Task? = store[id.value]
-
-    // getByIdForCurrentUser intentionally omitted — use getById + caller-side userId check
+    override suspend fun get(id: TaskId): Task? {
+        val uid = currentUserId()
+        return store[id.value]?.takeIf { it.userId == uid }
+    }
 
     open override suspend fun restore(id: TaskId): Result<Unit> {
         restoreOverride?.let { return it }
@@ -613,7 +626,10 @@ open class FakeTaskRepository(
         }
     }
 
-    override suspend fun exists(id: TaskId): Boolean = store.contains(id.value)
+    override suspend fun exists(id: TaskId): Boolean {
+        val uid = currentUserId()
+        return store[id.value]?.userId == uid
+    }
 
     open override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> {
         setTagsOverride?.let { return it }
@@ -625,8 +641,11 @@ open class FakeTaskRepository(
         }
     }
 
-    override fun getTagIds(taskId: TaskId): Flow<List<TagId>> =
-        store.state.map { it[taskId.value]?.tags ?: emptyList() }
+    override fun getTagIds(taskId: TaskId): Flow<List<TagId>> = currentUser.observeForCurrentUser { uid ->
+        store.state.map { list ->
+            list[taskId.value]?.takeIf { it.userId == uid }?.tags ?: emptyList()
+        }
+    }
 
     open override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> {
         setDependenciesOverride?.let { return it }
@@ -871,9 +890,10 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
     }
 
     override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.System.now()))
-        }
+        val uid = currentUser.scopedUserId.value
+        val existing = store[id.value]?.takeIf { it.userId == uid }
+            ?: throw NoSuchElementException("Project $id not found or not owned by current user")
+        store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.System.now()))
     }
 
     override suspend fun upsert(project: Project): Project {
@@ -884,9 +904,10 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
     // ─── SoftDeletable ───────────────────────────────────────────────────────
 
     override suspend fun restore(id: ProjectId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(isDeleted = false, deletedAt = null))
-        }
+        val uid = currentUser.scopedUserId.value
+        val existing = store[id.value]?.takeIf { it.userId == uid }
+            ?: throw NoSuchElementException("Project $id not found or not owned by current user")
+        store.upsert(existing.copy(isDeleted = false, deletedAt = null))
     }
 
     // ─── Domain methods ─────────────────────────────────────────────────────
@@ -1476,9 +1497,10 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
     }
 
     override suspend fun saveAsTemplate(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        store[id.value]?.let { existing ->
-            store.upsert(existing.copy(kind = com.singularity.todo.feature.notes.NoteKind.Template))
-        }
+        val uid = currentUser.scopedUserId.value
+        val existing = store[id.value]?.takeIf { it.userId == uid }
+            ?: throw NoSuchElementException("Note $id not found or not owned by current user")
+        store.upsert(existing.copy(kind = com.singularity.todo.feature.notes.NoteKind.Template))
     }
 
     override suspend fun getOrCreateDailyNote(
