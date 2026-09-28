@@ -5,8 +5,9 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -98,7 +99,8 @@ class DraftMviViewModelTest {
             initialDraft = TestDraft(title = ""),
             validateBlock = { if (it.title.isBlank()) "Title required" else null },
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
         val state = vm.state.value
         assertEquals("", state.draft.title)
         assertFalse(state.isSaveEnabled)
@@ -113,10 +115,12 @@ class DraftMviViewModelTest {
             initialDraft = TestDraft(title = ""),
             validateBlock = { if (it.title.isBlank()) "Title required" else null },
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         vm.updateDraft { it.copy(title = "Hello") }
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         val state = vm.state.value
         assertEquals("Hello", state.draft.title)
@@ -131,14 +135,17 @@ class DraftMviViewModelTest {
             validateBlock = { if (it.title.isBlank()) "Title required" else null },
             persistBlock = { Either.Left(AppError.Persistence("db error")) },
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         vm.updateDraft { it.copy(title = "") }
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
         assertNotNull(vm.state.value.error)
 
         vm.updateDraft { it.copy(title = "Hello") }
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
         assertNull(vm.state.value.error)
     }
 
@@ -148,7 +155,8 @@ class DraftMviViewModelTest {
             initialDraft = TestDraft(title = "initial"),
             restoreBlock = { TestDraft(title = "restored") },
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         assertEquals("restored", vm.state.value.draft.title)
         assertFalse(vm.state.value.isDirty)
@@ -160,7 +168,8 @@ class DraftMviViewModelTest {
             initialDraft = TestDraft(title = "initial"),
             restoreBlock = { null },
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         assertEquals("initial", vm.state.value.draft.title)
     }
@@ -173,11 +182,13 @@ class DraftMviViewModelTest {
             validateBlock = { if (it.title.isBlank()) "Title required" else null },
             onSavedBlock = { onSavedCalled = true },
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
         assertTrue(vm.state.value.isSaveEnabled)
 
         vm.save()
-        delay(50)
+        advanceTimeBy(50L)
+        runCurrent()
 
         assertTrue(onSavedCalled)
     }
@@ -189,16 +200,19 @@ class DraftMviViewModelTest {
             initialDraft = TestDraft(title = "Hello"),
             persistBlock = {
                 persistCount++
-                delay(100)
+                advanceTimeBy(100L)
+                runCurrent()
                 Either.Right(Unit)
             },
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         vm.save()
         vm.save()
         vm.save()
-        delay(200)
+        advanceTimeBy(200L)
+        runCurrent()
 
         assertEquals(1, persistCount)
     }
@@ -209,10 +223,12 @@ class DraftMviViewModelTest {
             initialDraft = TestDraft(title = "Hello"),
             persistBlock = { Either.Left(AppError.Persistence("db error")) },
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         vm.save()
-        delay(50)
+        advanceTimeBy(50L)
+        runCurrent()
 
         assertNotNull(vm.state.value.error)
         assertFalse(vm.state.value.isSaving)
@@ -224,10 +240,12 @@ class DraftMviViewModelTest {
             initialDraft = TestDraft(title = ""),
             validateBlock = { "Title required" },
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         vm.save()
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         assertEquals("Title required", vm.state.value.error)
         assertFalse(vm.state.value.isSaving)
@@ -238,15 +256,18 @@ class DraftMviViewModelTest {
         val vm = testVm(
             initialDraft = TestDraft(title = "original"),
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         vm.updateDraft { it.copy(title = "edited") }
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
         assertEquals("edited", vm.state.value.draft.title)
         assertTrue(vm.state.value.isDirty)
 
         vm.discard()
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         assertEquals("original", vm.state.value.draft.title)
         assertFalse(vm.state.value.isDirty)
@@ -259,13 +280,16 @@ class DraftMviViewModelTest {
         val vm = testVm(
             initialDraft = TestDraft(title = "first"),
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         vm.updateDraft { it.copy(title = "first-edited") }
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         vm.open(TestDraft(title = "second"))
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         assertEquals("second", vm.state.value.draft.title)
         assertFalse(vm.state.value.isDirty)
@@ -277,10 +301,12 @@ class DraftMviViewModelTest {
         val vm = testVm(
             initialDraft = draft,
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         vm.open(draft)
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         assertFalse(vm.state.value.isDirty)
     }
@@ -291,14 +317,17 @@ class DraftMviViewModelTest {
             initialDraft = TestDraft(title = " "), // non-empty so first edit produces a new value
             validateBlock = { if (it.title.isBlank()) "Title required" else null },
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         vm.updateDraft { it.copy(title = "") }
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
         assertNotNull(vm.state.value.error)
 
         vm.dismissError()
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         assertNull(vm.state.value.error)
     }
@@ -311,11 +340,13 @@ class DraftMviViewModelTest {
             autosaveBlock = { autosaveCalled = true },
             autosaveDebounceMs = 10L,
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
         assertFalse(autosaveCalled)
 
         vm.updateDraft { it.copy(title = "edited") }
-        delay(50)
+        advanceTimeBy(50L)
+        runCurrent()
 
         assertTrue(autosaveCalled)
     }
@@ -326,13 +357,15 @@ class DraftMviViewModelTest {
         val vm = testVm(
             initialDraft = TestDraft(title = "Hello"),
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         vm.launchDraftEffect(
             key = "op",
             operation = {
                 operationCount++
-                delay(50)
+                advanceTimeBy(50L)
+                runCurrent()
                 "result1"
             },
             onResult = { _, _ -> null },
@@ -345,7 +378,8 @@ class DraftMviViewModelTest {
             },
             onResult = { _, _ -> null },
         )
-        delay(100)
+        advanceTimeBy(100L)
+        runCurrent()
 
         assertEquals(1, operationCount)
     }
@@ -357,12 +391,14 @@ class DraftMviViewModelTest {
         val vm = testVm(
             initialDraft = TestDraft(title = "Hello"),
         )
-        delay(20)
+        advanceTimeBy(20L)
+        runCurrent()
 
         vm.launchDraftEffect(
             key = "op1",
             operation = {
-                delay(20)
+                advanceTimeBy(20L)
+                runCurrent()
                 op1Done = true
                 "r1"
             },
@@ -376,7 +412,8 @@ class DraftMviViewModelTest {
             },
             onResult = { _, _ -> null },
         )
-        delay(50)
+        advanceTimeBy(50L)
+        runCurrent()
 
         assertTrue(op1Done)
         assertTrue(op2Done)
