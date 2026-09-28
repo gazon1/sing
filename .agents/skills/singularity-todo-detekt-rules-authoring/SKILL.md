@@ -98,6 +98,26 @@ zero errors** — it looks working. Every new rule must pass all three steps:
 Historical: `no-runblocking` + `no-viewmodel-scope` sat inactive for days because
 step 2 was missed (see `2026-09-26-preflight-retro-findings`, R1).
 
+4. **`./gradlew --stop` after editing an existing rule.** The Gradle daemon caches the
+   resolved detekt plugin classpath, so a change to a rule that already runs is invisible
+   until the daemon restarts. A marker string added to a finding message kept printing the
+   old text across `--rerun-tasks` and `--no-configuration-cache`, and appeared on the
+   first try under `--no-daemon`. Without this, "the rule does not work" and "the daemon
+   is serving the old class" are indistinguishable. See
+   `2026-09-28-detekt-daemon-and-crashing-rule`.
+
+**Never use inline Kotlin-compiler PSI helpers in a detekt plugin.**
+`psiUtil.collectDescendantsOfType` and friends are `inline`, so the synthetic
+`$inlined$…` class fails to load inside detekt's classloader and throws
+`NoClassDefFoundError`. Because the exception escapes the rule, `:shared:detekt` fails
+**and writes no report**, leaving the previous run's file on disk — which reads as a
+clean pass. Walk `node.children` explicitly instead; see
+`2026-09-28-detekt-daemon-and-crashing-rule`.
+
+**A failed build task's report is not evidence.** When a rule throws, or the task fails
+for any other reason, the report on disk is the previous run's. Check the task outcome
+before reading it.
+
 ## Registering the same rule twice
 
 Steps 1–3 above assume nobody else registered the rule while you worked. In parallel

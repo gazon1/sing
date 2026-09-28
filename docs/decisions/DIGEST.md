@@ -1624,6 +1624,7 @@ _6 entries need attention._
 - `2026-09-27-taskdetail-migration-and-debounce-write-loop` — _untagged_
 - `2026-09-27-vm-koin-scoping-retired` — koin, viewmodel, skills, documentation
 - `2026-09-27-write-layer-soundness` — repository, multi-profile, sync, architecture, security
+- `2026-09-28-detekt-daemon-and-crashing-rule` — detekt, tooling, build, ci, retro
 - `2026-09-28-detekt-duplicate-registration-guard` — detekt, tooling, ci, parallel-work, postmortem
 - `2026-09-28-mr1-test-virtualization-retro` — retro, tech-debt, tests, coroutines
 - `2026-09-28-mr2-project-detail-retro` — retro, tech-debt, viewmodel, coroutines, deprecation
@@ -1914,6 +1915,7 @@ _6 entries need attention._
 - `2026-09-27-taskdetail-migration-and-debounce-write-loop` — TaskDetailViewModel Migration + Debounce Write-Loop Fix
 - `2026-09-27-vm-koin-scoping-retired` — Retire `singularity-todo-vm-koin-scoping`
 - `2026-09-27-write-layer-soundness` — Write-layer soundness — ownership-scoped DAO mutations and the two-layer guard model
+- `2026-09-28-detekt-daemon-and-crashing-rule` — A detekt rule that aborted the run, and a rule change the daemon never saw
 - `2026-09-28-detekt-duplicate-registration-guard` — Guard against duplicate detekt rule registration
 - `2026-09-28-mr1-test-virtualization-retro` — MR-1 retro — three ADRs recorded a test constraint that had already been fixed
 - `2026-09-28-mr2-project-detail-retro` — MR-2 retro — the god-VM split was rejected once already, and the real defect was a subscription

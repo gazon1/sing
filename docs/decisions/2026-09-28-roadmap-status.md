@@ -33,6 +33,8 @@ Updated after MR-4: see `2026-09-28-mr4-combine-soundness.md`.
 | `ProjectDetailViewModel` split | roadmap item | **not needed** — already rejected in `pr24-rescope` |
 | `CalendarSyncViewModel` combine | `updateState` inside the transform, `.collect {}` on nothing | transform returns the reducer; collector applies |
 | `SearchViewModel` combine | `listOf` packing + `@Suppress("UNCHECKED_CAST")` | `combineStates`; suppression gone |
+| `NoCombineSideEffect` coverage | `updateState`/`setState` unguarded in a projection | both covered, positive control verified |
+| `NoOpUpdateStateRule` | aborted `:shared:detekt` on `updateState(reduce)` | explicit walk; no `psiUtil` |
 
 ## Where the plan was wrong
 
@@ -63,8 +65,8 @@ interface alone has 20 methods. Both entries stay.
 | 1 | `NotesListViewModel` uses `Dispatchers.Unconfined` at 3 sites (`:172, :185, :194`) | `2026-09-25-remaining-test-debt` O1 | untouched; needs an injected dispatcher |
 | 2 | `NoRealDelayInTest` has a `value <= 500` cutoff, so it could not flag any of the 109 real-time sites it exists to catch | MR-1 retro | threshold is the defect |
 | 3 | 81 production deprecation warnings across 30 files, untracked | MR-2 retro | 12 are deprecated Nav2 `AppDestination` variants |
-| 3b | `NoCombineSideEffectRule` does not fire on `updateState` in a combine transform on real code, though it does in a unit test | MR-4 retro | unexplained; do not rely on the guard |
-| 3c | `NoOpUpdateStateRule` throws on some inputs, which fails `:shared:detekt` **and leaves a stale report on disk** | MR-4 retro | a throwing rule means the previous report is not evidence |
+| 3b | ~~`NoCombineSideEffectRule` does not fire on `updateState`~~ — **closed**: the Gradle daemon was caching the detekt plugin classpath, so the extension was invisible until `./gradlew --stop`. The rule is extended and verified | `2026-09-28-detekt-daemon-and-crashing-rule` | **run `./gradlew --stop` after editing any rule** |
+| 3c | ~~`NoOpUpdateStateRule` throws on some inputs~~ — **closed**: `psiUtil.collectDescendantsOfType` is inlined and its synthetic class fails to load in detekt's classloader. Replaced with an explicit walk | same ADR | no `psiUtil` in detekt plugins |
 | 4 | `UpdateProjectUseCase` returns `Result<Unit>`; `UpdateTaskUseCase` returns `Result<Task>`. Its full-entity overload has no callers and is not deprecated | MR-2 retro | harmless today |
 | 5 | `NotesRepository.kt` per-declaration function limits | ledger #9 | the mapper split did not close it |
 | 6 | `RoomNotesRepository`, `RoomSavedAgendaViewsRepository`, `RoomReminderRepository`, `RoomChecklistRepository` all deviate from the `*RepositoryImpl` convention | MR-3 retro | rename all four or none |

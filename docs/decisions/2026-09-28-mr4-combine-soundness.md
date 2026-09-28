@@ -42,36 +42,23 @@ combine(enabled, calendarId, status, lastAt, appPkg) { … ->
 That is precisely what `NoCombineSideEffect` exists to prevent, live in production.
 Both files now return the reducer from the transform and let `collect` apply it.
 
-## The rule change that is NOT in this MR
+## The rule change, and the false negative that hid it
 
 The plan's third item was to add `updateState` / `setState` to
 `NoCombineSideEffectRule.SIDE_EFFECT_CALLS`, on the reasoning that a side effect in a
-projection can be any call that writes state, not just the four names currently listed.
+projection can be any call that writes state, not just the four names listed.
 
-**It is not included, because the extended rule does not fire on the real file.**
+**When this ADR was first written, the extension was rejected** on the grounds that the
+extended rule did not fire on `CalendarSyncViewModel` — `seed` in the same transform was
+reported and `updateState` was not, despite both names being present in the compiled
+class and the jar. That conclusion was wrong. The rule worked the whole time; see
+`2026-09-28-detekt-daemon-and-crashing-rule.md` for the full investigation. The extension
+is now shipped, with a positive control.
 
-What was measured, in order:
-
-1. The rule's logic is correct. A unit test with `combine(a, b) { … updateState { … } }`
-   is flagged, and one with two offenders reports both.
-2. It still does not fire on `CalendarSyncViewModel`, whose transform is byte-for-byte
-   the shape the unit test uses — including the 5-argument multi-line form, the
-   `.collect {}` suffix and the enclosing `vmScope.launch { }`.
-3. In the same file and the same transform, `seed(...)` **is** flagged and
-   `updateState(...)` is not, with both names present in the compiled
-   `NoCombineSideEffectRule.class` and in `detekt-rules.jar`.
-4. `search` and `strings` on the class and the jar both show `updateState`. A clean
-   rebuild of `:detekt-rules` did not change the outcome.
-
-The discrepancy is unexplained. A passing unit test is not evidence that a rule fires
-on real code — the same lesson as `NoFactoryViewModelRule`, which `2026-09-26-konsist-
-architecture-tests` had to correct after it was credited with catching a violation it
-never saw, and `2026-09-28-task-detail-slot-refactor`'s own note that the skill's rule
-table listed a rule that "had never been written".
-
-**Shipping the extension anyway would have added the eighth guard in this project that
-looks active and is not.** The two transforms are fixed structurally instead, which does
-not depend on a lint rule firing.
+The failure mode that produced the false negative is worth recording, because it is the
+same one this project has hit repeatedly: **a build task that throws leaves its previous
+output in place, and stale output reads as a result.** See the infrastructure finding
+below.
 
 ## A second infrastructure finding: a stale report cost this MR several hours
 
@@ -87,9 +74,9 @@ and why several intermediate measurements here were wrong. The detekt report is 
 trustworthy when the run reached the report-writing step — check the task outcome, not
 just the file's contents.
 
-**Worth fixing:** bound or replace the descendant walk in `NoOpUpdateStateRule` with an
-explicit shallow search, and make a rule exception fail with a message that says the
-report was not written.
+**Fixed** in `2026-09-28-detekt-daemon-and-crashing-rule.md`: the descendant walk is now
+an explicit tail-recursive search, and the Gradle-daemon classpath caching that made the
+rule look broken is documented.
 
 ## Rules
 
@@ -102,9 +89,6 @@ report was not written.
 
 ## Open
 
-- `NoCombineSideEffectRule` does not detect `updateState` in a combine transform on real
-  code, though it does in a unit test. Unexplained; needs its own investigation.
-- `NoOpUpdateStateRule` throws on some inputs and takes `:shared:detekt` down with it.
 - `ArchiveViewModel` has `updateState` inside a `.catch { }` on a pure transform. That is
   legitimate error handling, not the projection anti-pattern — noted so the next reader
   does not "fix" it.
@@ -115,5 +99,6 @@ report was not written.
   `combineStates` helper it introduced
 - `2026-09-27-framework-drift-resolution` — the "verify a rule exists before relying on
   it" rule, restated here from the other direction
+- `2026-09-28-detekt-daemon-and-crashing-rule` — the investigation behind the retraction
 - `2026-09-26-konsist-architecture-tests` — the `NoFactoryViewModelRule` correction
 - `2026-09-28-roadmap-status` — the consolidated done/remaining list
