@@ -52,6 +52,18 @@ echo "=== Maestro on $SERIAL ($(adb -s "$SERIAL" shell getprop ro.product.model 
 adb -s "$SERIAL" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
 adb -s "$SERIAL" shell input keyevent 82 >/dev/null 2>&1 || true
 
+# ── 2b. Keep the soft IME off the screen ─────────────────────────────────────
+# The emulator's gfxstream render thread segfaults inside
+# gfxstream::host::gl::TextureResize while creating a ColorBuffer, which is what
+# the guest asks the host to do every time a new surface appears — and the soft
+# keyboard is exactly such a surface. With a hardware keyboard attached the IME
+# never shows, so the crash path is never taken.
+#
+# This is a workaround for a host-side emulator bug, not an app setting: the app
+# behaves identically either way. See
+# docs/decisions/2026-09-28-emulator-gfxstream-colorbuffer-segv.md
+adb -s "$SERIAL" shell settings put secure show_ime_with_hard_keyboard 0 >/dev/null 2>&1 || true
+
 # ── 3. Install unless told to skip ───────────────────────────────────────────
 if [[ "${SKIP_INSTALL:-0}" == "1" ]]; then
     echo "Skipping install (SKIP_INSTALL=1)"
