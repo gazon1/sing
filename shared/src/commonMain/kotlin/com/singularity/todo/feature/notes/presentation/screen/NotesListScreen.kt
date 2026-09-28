@@ -301,7 +301,9 @@ private fun QuickAddRow(onSubmit: (String) -> Unit) {
             value = text,
             onValueChange = { text = it },
             placeholder = { Text("Quick add note...") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.NOTES_QUICK_ADD_INPUT),
             singleLine = true,
             leadingIcon = {
                 Icon(Icons.Default.Add, contentDescription = null)

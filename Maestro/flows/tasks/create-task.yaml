@@ -17,9 +17,16 @@ tags:
 - tapOn:
     id: task_editor_title_input
 - inputText: "Buy milk"
+# Fail here rather than at the save assertion if the keystrokes never landed:
+# the title field is a BasicTextField, and a lost IME composition is otherwise
+# indistinguishable from a broken save button.
+- assertVisible: "Buy milk"
 - hideKeyboard
 - tapOn:
     id: task_editor_save
+# A task saved without a due date lands in Inbox, not Today.
+- tapOn:
+    id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
       id: task_item_buy_milk

@@ -33,11 +33,7 @@ actual fun ProjectsNavGraph(start: ProjectsRoute, onExitGraph: (AppDestination?)
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist.
     val savedStateConfig = remember {
-        navSavedStateConfig(
-            ProjectsRoute.List.serializer(),
-            ProjectsRoute.Editor.serializer(),
-            ProjectsRoute.Detail.serializer(),
-        )
+        navSavedStateConfig(ProjectsRoute.serializer())
     }
 
     @Suppress("UNCHECKED_CAST")

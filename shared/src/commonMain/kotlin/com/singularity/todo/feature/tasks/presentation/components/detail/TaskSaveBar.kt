@@ -11,9 +11,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 
 /**
@@ -42,7 +44,8 @@ fun TaskSaveBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = TaskSpacing.screenPadding, vertical = TaskSpacing.md)
-                .height(52.dp),
+                .height(52.dp)
+                .testTag(TestTags.TASK_EDITOR_SAVE),
         ) {
             Text(
                 text = "Сохранить",

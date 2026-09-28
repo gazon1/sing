@@ -1,4 +1,5 @@
-# Creates one task on the Today agenda and leaves the app on the agenda list.
+# Creates one task with no due date and leaves the app on the Inbox agenda, where
+# that task actually appears.
 #
 # The title is fixed rather than parameterized on purpose: the assertion below
 # addresses the row by its generated testTag (`TestTags.taskItem("Buy milk")` ->
@@ -18,9 +19,14 @@ name: seed-task
 - tapOn:
     id: task_editor_title_input
 - inputText: "Buy milk"
+- assertVisible: "Buy milk"
 - hideKeyboard
 - tapOn:
     id: task_editor_save
+# A task saved without a due date lands in Inbox, not Today — the agenda buckets
+# by date and an undated task has none. Switch before asserting.
+- tapOn:
+    id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
       id: task_item_buy_milk

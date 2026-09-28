@@ -35,7 +35,7 @@ actual fun rememberNav3State(): Nav3State {
     }
 
     val savedStateConfig = remember {
-        navSavedStateConfig(*AppDestinationSerializers.toTypedArray())
+        navSavedStateConfig(AppDestination.serializer())
     }
 
     val backStacks = topLevelRoutes.associateWith { key ->

@@ -71,6 +71,7 @@ object TestTags {
     // ─── Notes ───────────────────────────────────────────────────────────────
     const val NOTES_LIST = "notes_list"
     const val NOTES_FAB = "notes_fab"
+    const val NOTES_QUICK_ADD_INPUT = "notes_quick_add_input"
 
     /** Dynamic tag of the form `note_item_<slug>`. */
     fun noteItem(id: String) = "note_item_${slug(id)}"
