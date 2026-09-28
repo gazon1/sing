@@ -6,6 +6,14 @@ authors: ZCode Agent
 deciders: Singularity Developer
 ---
 
+> **Superseded in part (2026-09-28):** §5 below states that
+> `FakeProfileAwareCurrentUser` "запускает collectors на `Dispatchers.Default`". That
+> stopped being true on 2026-09-25, when `560f3bf8` moved the default to
+> `Dispatchers.Unconfined` — an eager dispatcher that drains inline. A probe test in
+> roadmap MR-1 confirmed `advanceUntilIdle()` drives the whole slot suite; the
+> `CalendarViewModelTest` workaround comments are no longer needed for this reason.
+> See [2026-09-28-mr1-test-virtualization-retro.md](2026-09-28-mr1-test-virtualization-retro.md).
+
 ## Context
 
 Тест-аудит `singularity_cllone_kmp` выявил системные проблемы в тестах и production-коде:
