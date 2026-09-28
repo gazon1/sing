@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Pre-commit hook: compile main + test sources before commit
+# Fails fast on compilation errors (does NOT run tests or lint — use check.sh for that)
+
+set -e
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT"
+
+echo "=== Pre-commit: compiling shared (main + test) ==="
+./gradlew :shared:compileKotlinJvm :shared:compileTestKotlinJvm --no-daemon --quiet || {
+    echo "shared:compileKotlinJvm or :shared:compileTestKotlinJvm FAILED"
+    exit 1
+}
+
+echo "=== Pre-commit: compiling desktop ==="
+./gradlew :desktopApp:compileKotlin --no-daemon --quiet || {
+    echo ":desktopApp:compileKotlin FAILED"
+    exit 1
+}
+
+echo "=== Pre-commit OK ==="

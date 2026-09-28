@@ -87,15 +87,35 @@ setup-hooks:
     #!/bin/bash
     set -euo pipefail
 
-    # Detect if we're in a worktree — hooks live in the main checkout's .githooks/
-    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    # Hooks are version-controlled in .githooks/ at the main checkout and shared by
+    # every worktree through core.hooksPath. Pointing core.hooksPath at a directory
+    # that does not exist does NOT error — git silently runs no hooks at all — so
+    # the existence check below is the load-bearing part of this recipe.
     GITDIR="$(git rev-parse --git-dir)"
     if [[ "$GITDIR" == */worktrees/* ]]; then
-        # Worktree: hooks are in the main checkout
-        HOOKS_SOURCE="$(dirname "$(dirname "$GITDIR")")/.githooks"
+        # Worktree: --git-dir is <main-root>/.git/worktrees/<name>, so the main
+        # checkout is three levels up from the worktree git-dir.
+        MAIN_ROOT="$(dirname "$(dirname "$(dirname "$GITDIR")")")"
     else
-        # Main checkout: hooks live in .githooks/ next to .git/
-        HOOKS_SOURCE="$REPO_ROOT/.githooks"
+        MAIN_ROOT="$(git rev-parse --show-toplevel)"
+    fi
+
+    # Prefer the version-controlled .githooks/; fall back to the live .git/hooks/
+    # until the versioned copy has landed everywhere. Either way, verify the
+    # directory actually holds the hook before pointing core.hooksPath at it —
+    # git silently runs NO hooks when hooksPath does not exist.
+    HOOKS_SOURCE=""
+    for CANDIDATE in "$MAIN_ROOT/.githooks" "$MAIN_ROOT/.git/hooks"; do
+        if [[ -x "$CANDIDATE/pre-commit" ]]; then
+            HOOKS_SOURCE="$CANDIDATE"
+            break
+        fi
+    done
+
+    if [[ -z "$HOOKS_SOURCE" ]]; then
+        echo "ERROR: no hook directory with an executable pre-commit found under $MAIN_ROOT." >&2
+        echo "Refusing to set core.hooksPath: git would silently run NO hooks." >&2
+        exit 1
     fi
 
     echo "=== Installing hooks from $HOOKS_SOURCE ==="
@@ -112,4 +132,4 @@ setup-hooks:
     done
 
     echo "=== Hooks installed: $HOOKS_SOURCE ==="
-    ls -la "$HOOKS_SOURCE"/pre-* 2>/dev/null | awk '{print "  " $NF}'
+    ls -la "$HOOKS_SOURCE"/pre-* "$HOOKS_SOURCE"/post-* | awk '{print "  " $NF}'

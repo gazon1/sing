@@ -308,6 +308,14 @@ dependencies {
     // compose-multiplatform one: AndroidX is compatible with Robolectric, JetBrains is not.
     add("androidHostTestImplementation", libs.robolectric)
     add("androidHostTestImplementation", "androidx.compose.ui:ui-test-junit4:1.7.3")
+    add("androidHostTestImplementation", libs.koin.test)
+    // ApplicationProvider + the instrumentation registry the Koin graph test needs.
+    add("androidHostTestImplementation", libs.androidx.test.core)
+    add("androidHostTestImplementation", libs.androidx.testExt.junit)
+    // The test task uses the JUnit Platform (useJUnitPlatform), and Robolectric is a
+    // JUnit4 runner — without the vintage engine the platform silently skips every
+    // JUnit4 test class in this source set.
+    add("androidHostTestImplementation", libs.junit.vintage.engine)
 }
 
 // Room 3 KSP schema export
