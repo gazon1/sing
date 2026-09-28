@@ -13,6 +13,7 @@ implemented as written. This entry records the corrected state so the next MR st
 facts rather than from the plan.
 
 Verification at time of writing: **1140 tests, 0 failed, 0 skipped; detekt 0 findings.**
+Updated after MR-4: see `2026-09-28-mr4-combine-soundness.md`.
 
 ## Closed
 
@@ -30,6 +31,8 @@ Verification at time of writing: **1140 tests, 0 failed, 0 skipped; detekt 0 fin
 | Ledger #3 in `2026-09-27-write-layer-soundness` | a 60 s hang with a stated cause | **obsolete, not fixed** |
 | "6 VMs not on MVI" (`2026-09-25-mvi-framework-status`) | 6 flagged | all 24 production VMs on MVI |
 | `ProjectDetailViewModel` split | roadmap item | **not needed** — already rejected in `pr24-rescope` |
+| `CalendarSyncViewModel` combine | `updateState` inside the transform, `.collect {}` on nothing | transform returns the reducer; collector applies |
+| `SearchViewModel` combine | `listOf` packing + `@Suppress("UNCHECKED_CAST")` | `combineStates`; suppression gone |
 
 ## Where the plan was wrong
 
@@ -60,6 +63,8 @@ interface alone has 20 methods. Both entries stay.
 | 1 | `NotesListViewModel` uses `Dispatchers.Unconfined` at 3 sites (`:172, :185, :194`) | `2026-09-25-remaining-test-debt` O1 | untouched; needs an injected dispatcher |
 | 2 | `NoRealDelayInTest` has a `value <= 500` cutoff, so it could not flag any of the 109 real-time sites it exists to catch | MR-1 retro | threshold is the defect |
 | 3 | 81 production deprecation warnings across 30 files, untracked | MR-2 retro | 12 are deprecated Nav2 `AppDestination` variants |
+| 3b | `NoCombineSideEffectRule` does not fire on `updateState` in a combine transform on real code, though it does in a unit test | MR-4 retro | unexplained; do not rely on the guard |
+| 3c | `NoOpUpdateStateRule` throws on some inputs, which fails `:shared:detekt` **and leaves a stale report on disk** | MR-4 retro | a throwing rule means the previous report is not evidence |
 | 4 | `UpdateProjectUseCase` returns `Result<Unit>`; `UpdateTaskUseCase` returns `Result<Task>`. Its full-entity overload has no callers and is not deprecated | MR-2 retro | harmless today |
 | 5 | `NotesRepository.kt` per-declaration function limits | ledger #9 | the mapper split did not close it |
 | 6 | `RoomNotesRepository`, `RoomSavedAgendaViewsRepository`, `RoomReminderRepository`, `RoomChecklistRepository` all deviate from the `*RepositoryImpl` convention | MR-3 retro | rename all four or none |
@@ -79,7 +84,8 @@ interface alone has 20 methods. Both entries stay.
 
 ## Roadmap items not started
 
-MR-4 (`SearchViewModel` combine + `CalendarSyncVM` 5-flow), MR-5 (`NotesListViewModel`
+MR-4 is done — but the `SearchViewModel` half was not a deletion as planned; see the
+retro. MR-5 (`NotesListViewModel`
 dispatcher, instrumented tests, and the deprecation warnings), MR-6 (DI cleanup + the
 `Modules.kt` facade Konsist test), MR-7 (`SettingsContributor` → `FeatureSlot`),
 MR-8 (documentation backlog). **None has been verified against the code**, and three of
