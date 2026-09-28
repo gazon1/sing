@@ -51,6 +51,36 @@ class NoCombineSideEffectRuleTest {
     }
 
     @Test
+    fun `updateState inside combine transform is flagged`() {
+        val findings = findingsFor(
+            """
+            package com.example
+
+            fun build() = combine(flowA, flowB) { a, b ->
+                updateState { it.copy(value = a) }
+            }
+            """.trimIndent(),
+        )
+        assertEquals(1, findings.size)
+        assertTrue(findings[0].message.contains("updateState"))
+    }
+
+    @Test
+    fun `setState inside combine transform is flagged`() {
+        val findings = findingsFor(
+            """
+            package com.example
+
+            fun build() = combine(flowA, flowB) { a, b ->
+                setState(State(a, b))
+            }
+            """.trimIndent(),
+        )
+        assertEquals(1, findings.size)
+        assertTrue(findings[0].message.contains("setState"))
+    }
+
+    @Test
     fun `channel send inside combine transform is flagged`() {
         val findings = findingsFor(
             """

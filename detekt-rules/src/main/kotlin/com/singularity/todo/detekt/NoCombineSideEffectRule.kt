@@ -117,7 +117,15 @@ class NoCombineSideEffectRule(config: Config) : Rule(config, "", null) {
 
     private companion object {
         val COMBINE_FUNCTIONS = setOf("combine", "combineStates", "combineTransform")
-        val SIDE_EFFECT_CALLS = setOf("seed", "send", "trySend", "launchIn")
+
+        /**
+         * Calls that write state or emit as a side effect of a projection.
+         *
+         * `updateState` and `setState` are here because writing UI state from inside a
+         * transform is the same defect as `seed()`: the value belongs in the transform's
+         * return, and the collector applies it.
+         */
+        val SIDE_EFFECT_CALLS = setOf("seed", "send", "trySend", "launchIn", "updateState", "setState")
         const val VALUE_SUFFIX = ".value"
     }
 }

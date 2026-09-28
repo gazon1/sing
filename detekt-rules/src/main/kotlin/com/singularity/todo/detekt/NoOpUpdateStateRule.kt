@@ -11,7 +11,7 @@ import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
-import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
+import com.intellij.psi.PsiElement
 
 /**
  * Bans `updateState { it }` — a reducer that returns its input unchanged.
@@ -66,11 +66,12 @@ class NoOpUpdateStateRule(config: Config) : Rule(config, "", null) {
     private fun isIdentityTransform(call: KtCallExpression): Boolean {
         if (call.valueArguments.size != 1) return false
         val arg = call.valueArguments.single().getArgumentExpression() ?: return false
-        // The argument is the lambda itself in trailing-lambda form; collectDescendantsOfType
-        // only walks descendants, so the root node has to be checked separately.
-        val lambda = arg as? KtLambdaExpression
-            ?: arg.collectDescendantsOfType<KtLambdaExpression>().firstOrNull()
-            ?: return false
+        // The argument is the lambda itself in trailing-lambda form. The search is an
+        // explicit walk rather than `psiUtil.collectDescendantsOfType`, which is inlined
+        // into this class and fails to load inside detekt's plugin classloader — the
+        // synthetic `$inlined$collectDescendantsOfType` class raised NoClassDefFoundError,
+        // which aborts `:shared:detekt` and leaves the previous report on disk.
+        val lambda = arg as? KtLambdaExpression ?: arg.firstLambda() ?: return false
 
         val body = lambda.singleBodyReference() ?: return false
         val params = lambda.valueParameters
@@ -91,6 +92,18 @@ class NoOpUpdateStateRule(config: Config) : Rule(config, "", null) {
     private fun KtLambdaExpression.singleBodyReference(): KtNameReferenceExpression? {
         val statement = bodyExpression?.statements?.singleOrNull() ?: return null
         return statement as? KtNameReferenceExpression
+    }
+
+    /**
+     * First [KtLambdaExpression] at or below this node, or null.
+     *
+     * Depth-first. An identity reducer is a leaf expression, so the first lambda found is
+     * the one the caller wrote; the walk never needs a depth bound.
+     */
+    private tailrec fun PsiElement.firstLambda(): KtLambdaExpression? {
+        if (this is KtLambdaExpression) return this
+        val next = children.firstOrNull() ?: return null
+        return next.firstLambda()
     }
 }
 
