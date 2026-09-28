@@ -92,6 +92,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **ADR `2026-09-16-agenda-engine.md` mandate completed** — TasksViewModel
 - **All 5 `SyncViewModelTest` cases pass** under `:shared:jvmTest`. The pre-existing `DiGraphTest` failure (DataStore multi-instance on the same file) is unrelated to this PR.
 - **Breaking change** for `NoteEditor`, `NotePreview`, and their tests — the `userId` argument is removed from `linkRepo.searchNotes(...)`, `linkRepo.searchTasks(...)`, and `linkRepo.getBacklinkNotes(...)` calls.
+- **CI не затронут**: `.github/workflows/ci.yml` эмулятор не поднимает.
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска
 - **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
 - **Duplicate snackbar on settings export.** `exportSettingsSnapshot` emitted both
@@ -132,6 +133,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`testConnection()` requires `authRepository` + `api`** in `SyncRepositoryImpl`. `CoreDiModule` updated to pass both.
 - **~14 изменённых файлов**: Screen.kt + testTag, VM constructors, DI module
 - **~25 новых файлов**: 4 порта, 7 Page Objects, test infrastructure, integration tests
+- **Гипотеза на будущее:** если `amdgpu: CS has been rejected` вернётся после
+- **Сторонние модули**: переход ядра 6.17 → 7.2 ломает модули, собранные под
+- **Эмулятор работает штатно**, на аппаратном GPU. Никаких обёрток и
 - 1 orphan VM deleted
 - 15/21 VMs are on the MVI framework
 - 2 UI state classes simplified (`data object` instead of `data class` with dead field)
@@ -1630,6 +1634,7 @@ _6 entries need attention._
 - `2026-09-27-write-layer-soundness` — repository, multi-profile, sync, architecture, security
 - `2026-09-28-detekt-daemon-and-crashing-rule` — detekt, tooling, build, ci, retro
 - `2026-09-28-detekt-duplicate-registration-guard` — detekt, tooling, ci, parallel-work, postmortem
+- `2026-09-28-emulator-mesa-radeon-cs-rejected` — _untagged_
 - `2026-09-28-mr1-test-virtualization-retro` — retro, tech-debt, tests, coroutines
 - `2026-09-28-mr2-project-detail-retro` — retro, tech-debt, viewmodel, coroutines, deprecation
 - `2026-09-28-mr2-retro-findings` — retro, tech-debt, tasks, tests
@@ -1927,6 +1932,7 @@ _6 entries need attention._
 - `2026-09-27-write-layer-soundness` — Write-layer soundness — ownership-scoped DAO mutations and the two-layer guard model
 - `2026-09-28-detekt-daemon-and-crashing-rule` — A detekt rule that aborted the run, and a rule change the daemon never saw
 - `2026-09-28-detekt-duplicate-registration-guard` — Guard against duplicate detekt rule registration
+- `2026-09-28-emulator-mesa-radeon-cs-rejected` — Emulator crash on Renoir — Mesa 25.3.6 + kernel 6.17 regression
 - `2026-09-28-mr1-test-virtualization-retro` — MR-1 retro — three ADRs recorded a test constraint that had already been fixed
 - `2026-09-28-mr2-project-detail-retro` — MR-2 retro — the god-VM split was rejected once already, and the real defect was a subscription
 - `2026-09-28-mr2-retro-findings` — MR-2 retro — a subtask bug the slot tests exposed, and what the split did not fix
