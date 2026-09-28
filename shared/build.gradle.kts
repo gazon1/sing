@@ -42,6 +42,9 @@ kotlin {
         }.configure {
             instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         }
+        // Enables Robolectric tests in src/androidHostTest/ (runs on JVM, no emulator).
+        // See docs/decisions/2026-09-28-androidApp-smoke-tests-enabled.md
+        withHostTest {}
     }
 
     sourceSets {
@@ -299,6 +302,12 @@ dependencies {
     // for both Android and JVM. JVM builds the same Room DB via BundledSQLiteDriver.
     add("kspAndroid", libs.androidx.room3.compiler)
     add("kspJvm", libs.androidx.room3.compiler)
+
+    // androidHostTest (Robolectric) — JVM-based Android emulator for widget/Compose UI tests.
+    // AndroidX compose-ui-test-junit4 (1.7.3) is used here, NOT the JetBrains
+    // compose-multiplatform one: AndroidX is compatible with Robolectric, JetBrains is not.
+    add("androidHostTestImplementation", libs.robolectric)
+    add("androidHostTestImplementation", "androidx.compose.ui:ui-test-junit4:1.7.3")
 }
 
 // Room 3 KSP schema export
