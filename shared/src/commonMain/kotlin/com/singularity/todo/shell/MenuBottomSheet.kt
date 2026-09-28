@@ -65,7 +65,7 @@ fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
                         onClick = { onSelect(item.destination) },
                         icon = item.iconContent(),
                         modifier = Modifier.fillMaxWidth()
-                            .testTag(TestTags.menuItem(item.destination.title.lowercase())),
+                            .testTag(TestTags.menuItem(item.label)),
                     )
                 }
                 HorizontalDivider()

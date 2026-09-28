@@ -78,7 +78,7 @@ fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                             Icon(
                                 destination.icon,
                                 contentDescription = destination.title,
-                                modifier = Modifier.testTag(TestTags.navTab(destination.title.lowercase())),
+                                modifier = Modifier.testTag(TestTags.navTab(destination.title)),
                             )
                         },
                         label = { Text(destination.title) },

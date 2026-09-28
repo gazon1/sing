@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -91,7 +92,7 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
         events = viewModel.events,
         mapper = { it.toNotification() },
         onNavigateBack = onBack,
-        modifier = Modifier.testTag("project_editor_notification_host"),
+        modifier = Modifier.testTag(TestTags.PROJECT_EDITOR_NOTIFICATION_HOST),
     )
 
     if (state.loading) {
@@ -105,7 +106,10 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
             TopAppBar(
                 title = { Text(if (state.isEditMode) "Edit Project" else "New Project") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.testTag(TestTags.PROJECT_EDITOR_BACK),
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -113,6 +117,7 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
                     IconButton(
                         onClick = { viewModel.onIntent(ProjectEditorIntent.Save) },
                         enabled = state.name.isNotBlank() && !state.saving,
+                        modifier = Modifier.testTag(TestTags.PROJECT_EDITOR_SAVE),
                     ) {
                         Icon(Icons.Filled.Check, contentDescription = "Save")
                     }
@@ -136,7 +141,9 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
                 isError = state.errorMessage != null,
                 supportingText = state.errorMessage?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.PROJECT_EDITOR_NAME_INPUT),
             )
 
             OutlinedTextField(
@@ -144,7 +151,9 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
                 onValueChange = { viewModel.onIntent(ProjectEditorIntent.DescriptionChanged(it)) },
                 label = { Text("Description (optional)") },
                 minLines = 3,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.PROJECT_EDITOR_DESCRIPTION_INPUT),
             )
 
             // ── Appearance: icon + color (consolidated) ──────────────────
