@@ -73,6 +73,7 @@ import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -86,6 +87,11 @@ import org.koin.dsl.module
  */
 actual fun aiToolsModule(): Module = module {
     // ─── Profile-aware secure storage for AI ────────────────────────────────
+
+    // Interface bindings stay as explicit lambdas: `factoryOf(::Impl)` binds the concrete
+    // type, so it cannot express `factory<ProfileAwareSecureStorage> { … }` or
+    // `factory<GenuiTransport> { … }` below. `ImproveNoteUseCase(tool = …)` keeps its
+    // named argument for the same reason — `factoryOf` passes positionally only.
     factory<ProfileAwareSecureStorage> {
         ProfileAwareSecureStorage(get(), get())
     }
@@ -128,60 +134,60 @@ actual fun aiToolsModule(): Module = module {
 
     // ─── AI Use Cases ───
 
-    factory { RefineTaskUseCase(get()) }
-    factory { SmartRewriteUseCase(get()) }
-    factory { GenerateDescriptionUseCase(get()) }
-    factory { DecomposeTaskUseCase(get()) }
-    factory { GenerateChecklistUseCase(get()) }
-    factory { PickTimeUseCase(get()) }
-    factory { ClusterTasksUseCase(get()) }
-    factory { ClusterNotesUseCase(get()) }
+    factoryOf(::RefineTaskUseCase)
+    factoryOf(::SmartRewriteUseCase)
+    factoryOf(::GenerateDescriptionUseCase)
+    factoryOf(::DecomposeTaskUseCase)
+    factoryOf(::GenerateChecklistUseCase)
+    factoryOf(::PickTimeUseCase)
+    factoryOf(::ClusterTasksUseCase)
+    factoryOf(::ClusterNotesUseCase)
     factory { ImproveNoteUseCase(tool = get<ImproveNoteTool>()) }
-    factory { SummarizeNoteUseCase(get()) }
-    factory { ExtractActionsUseCase(get()) }
-    factory { RewriteNoteUseCase(get()) }
-    factory { SuggestTagsUseCase(get()) }
-    factory { ProjectReviewUseCase(get()) }
+    factoryOf(::SummarizeNoteUseCase)
+    factoryOf(::ExtractActionsUseCase)
+    factoryOf(::RewriteNoteUseCase)
+    factoryOf(::SuggestTagsUseCase)
+    factoryOf(::ProjectReviewUseCase)
 
     // ─── AI Tools ───
 
-    factory { RefineTaskTool(get(), get()) }
-    factory { SmartRewriteTool(get(), get()) }
-    factory { GenerateDescriptionTool(get(), get()) }
-    factory { DecomposeTaskTool(get(), get()) }
-    factory { DecomposeAndCreateTool(get(), get(), get(), get(), get()) }
-    factory { GenerateChecklistTool(get(), get()) }
-    factory { PickTimeTool(get(), get()) }
-    factory { ClusterTasksTool(get(), get()) }
-    factory { ClusterNotesTool(get(), get()) }
-    factory { ProjectReviewTool(get(), get()) }
-    factory { WeeklyPlanTool(get(), get()) }
-    factory { ImproveNoteTool(get(), get()) }
-    factory { SummarizeNoteTool(get(), get()) }
-    factory { ExtractActionsTool(get(), get()) }
-    factory { RewriteNoteTool(get(), get()) }
-    factory { SuggestTagsTool(get(), get()) }
-    factory { GetNoteTool(get()) }
-    factory { GetProjectTool(get()) }
-    factory { GetTaskTool(get()) }
-    factory { ListLinkedTasksTool(get<TaskRepository>()) }
-    factory { ListTasksTool(get<TaskRepository>()) }
-    factory { SearchTasksTool(get<TaskRepository>()) }
-    factory { CreateTaskTool(get(), get(), get()) }
-    factory { UpdateTaskTool(get(), get()) }
-    factory { DeleteTaskTool(get()) }
-    factory { CreateNoteTool(get(), get(), get()) }
-    factory { UpdateNoteTool(get(), get()) }
-    factory { DeleteNoteTool(get()) }
-    factory { CreateProjectTool(get(), get(), get()) }
-    factory { UpdateProjectTool(get(), get()) }
-    factory { DeleteProjectTool(get()) }
-    factory { ListProjectsTool(get()) }
-    factory { CreateTagTool(get(), get(), get()) }
-    factory { DeleteTagTool(get()) }
-    factory { ListAdrsTool() }
-    factory { ReadAdrTool() }
-    factory { WriteAdrTool() }
+    factoryOf(::RefineTaskTool)
+    factoryOf(::SmartRewriteTool)
+    factoryOf(::GenerateDescriptionTool)
+    factoryOf(::DecomposeTaskTool)
+    factoryOf(::DecomposeAndCreateTool)
+    factoryOf(::GenerateChecklistTool)
+    factoryOf(::PickTimeTool)
+    factoryOf(::ClusterTasksTool)
+    factoryOf(::ClusterNotesTool)
+    factoryOf(::ProjectReviewTool)
+    factoryOf(::WeeklyPlanTool)
+    factoryOf(::ImproveNoteTool)
+    factoryOf(::SummarizeNoteTool)
+    factoryOf(::ExtractActionsTool)
+    factoryOf(::RewriteNoteTool)
+    factoryOf(::SuggestTagsTool)
+    factoryOf(::GetNoteTool)
+    factoryOf(::GetProjectTool)
+    factoryOf(::GetTaskTool)
+    factoryOf(::ListLinkedTasksTool)
+    factoryOf(::ListTasksTool)
+    factoryOf(::SearchTasksTool)
+    factoryOf(::CreateTaskTool)
+    factoryOf(::UpdateTaskTool)
+    factoryOf(::DeleteTaskTool)
+    factoryOf(::CreateNoteTool)
+    factoryOf(::UpdateNoteTool)
+    factoryOf(::DeleteNoteTool)
+    factoryOf(::CreateProjectTool)
+    factoryOf(::UpdateProjectTool)
+    factoryOf(::DeleteProjectTool)
+    factoryOf(::ListProjectsTool)
+    factoryOf(::CreateTagTool)
+    factoryOf(::DeleteTagTool)
+    factoryOf(::ListAdrsTool)
+    factoryOf(::ReadAdrTool)
+    factoryOf(::WriteAdrTool)
 
     // ─── AI tools list for KoogAgentService ───
 
