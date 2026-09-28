@@ -27,7 +27,7 @@ Updated after MR-4: see `2026-09-28-mr4-combine-soundness.md`.
 | `TagsRepositoryImpl.observeTag` | unscoped — another profile's tag, and soft-deleted ones | scoped |
 | `TagGroupRepositoryImpl.observe` | unscoped — another profile's tag group | scoped |
 | `NoRunBlocking` in new tests | caught by the project's own rule | tests are `suspend` |
-| R7 in `2026-09-28-mr2-retro-findings` | "deprecated `invoke(task)` still used" | no caller; clean compile |
+| R7 in `2026-09-28-mr2-retro-findings` | 7 call sites in 5 slot files on the deprecated `invoke(task)` | **re-opened** — an earlier closure was based on a grep that missed the `deps.updateTask(task.copy(…))` form |
 | Ledger #3 in `2026-09-27-write-layer-soundness` | a 60 s hang with a stated cause | **obsolete, not fixed** |
 | "6 VMs not on MVI" (`2026-09-25-mvi-framework-status`) | 6 flagged | all 24 production VMs on MVI |
 | `ProjectDetailViewModel` split | roadmap item | **not needed** — already rejected in `pr24-rescope` |
