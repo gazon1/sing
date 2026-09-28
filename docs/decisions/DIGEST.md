@@ -1628,6 +1628,7 @@ _6 entries need attention._
 - `2026-09-28-mr1-test-virtualization-retro` — retro, tech-debt, tests, coroutines
 - `2026-09-28-mr2-project-detail-retro` — retro, tech-debt, viewmodel, coroutines, deprecation
 - `2026-09-28-mr2-retro-findings` — retro, tech-debt, tasks, tests
+- `2026-09-28-mr3-repository-read-isolation` — retro, tech-debt, repository, multi-profile, security, detekt
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
 
 ## Active entries
@@ -1915,5 +1916,6 @@ _6 entries need attention._
 - `2026-09-28-mr1-test-virtualization-retro` — MR-1 retro — three ADRs recorded a test constraint that had already been fixed
 - `2026-09-28-mr2-project-detail-retro` — MR-2 retro — the god-VM split was rejected once already, and the real defect was a subscription
 - `2026-09-28-mr2-retro-findings` — MR-2 retro — a subtask bug the slot tests exposed, and what the split did not fix
+- `2026-09-28-mr3-repository-read-isolation` — MR-3 retro — the write-layer sweep left two read leaks, and the note split does not clear its baseline
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
 
