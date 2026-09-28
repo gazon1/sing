@@ -85,6 +85,12 @@ interface alone has 20 methods. Both entries stay.
 |---|---|---|
 | 13 | **A Konsist rule for scoped reads** | `ArchitectureTest` has `DAO mutations are ownership-scoped` and no read counterpart. That mechanical gap is why MR-3's two leaks survived eight MRs of write-layer work. Highest-value item on this list |
 | 14 | A sweep of the remaining DAO read paths for the same class | only Tasks has a read-isolation test; tags and tag groups were the two that turned out to be broken |
+| 15 | **The repository-package convention has never been settled** | 6 features keep repositories in `.data`, 5 at the feature root, and 2 (`search`, `tags`) in both. The ADR calls two files inconsistent with a convention that does not exist yet. Decide, then migrate — or record why the spread is fine. `2026-09-28-mr6-verification` |
+
+| # | Item | Why it matters |
+|---|---|---|
+| 13 | **A Konsist rule for scoped reads** | `ArchitectureTest` has `DAO mutations are ownership-scoped` and no read counterpart. That mechanical gap is why MR-3's two leaks survived eight MRs of write-layer work. Highest-value item on this list |
+| 14 | A sweep of the remaining DAO read paths for the same class | only Tasks has a read-isolation test; tags and tag groups were the two that turned out to be broken |
 
 ## Roadmap items not started
 
