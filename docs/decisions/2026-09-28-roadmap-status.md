@@ -64,7 +64,7 @@ interface alone has 20 methods. Both entries stay.
 | # | Item | Source | Note |
 |---|---|---|---|
 | 1 | ~~`NotesListViewModel` uses `Dispatchers.Unconfined`~~ — **closed**: hardcoded dispatcher dropped, all four launches use the injected scope | `2026-09-28-mr5-vm-hygiene` | O1 |
-| 1b | **`NotesListViewModel.createNoteWithTitle` returns an id the repository never used** — the empty-state button opens the editor for a note that does not exist | MR-5 retro | needs a screen-API decision; highest-severity open item |
+| 1b | ~~`NotesListViewModel.createNoteWithTitle` returned an id the repository never used~~ — **closed**: `NotesUiEvent.NavigateToEditor` carries the real id, following `CalendarUiEvent.NavigateToTask` | `2026-09-28-notes-create-navigation` | the only user-facing bug found by this roadmap |
 | 2 | `NoRealDelayInTest` has a `value <= 500` cutoff, so it could not flag any of the 109 real-time sites it exists to catch | MR-1 retro | threshold is the defect |
 | 3 | 67 production deprecation warnings (was 81) across 30 files, untracked | MR-2 retro | 12 are deprecated Nav2 `AppDestination` variants |
 | 3b | ~~`NoCombineSideEffectRule` does not fire on `updateState`~~ — **closed**: the Gradle daemon was caching the detekt plugin classpath, so the extension was invisible until `./gradlew --stop`. The rule is extended and verified | `2026-09-28-detekt-daemon-and-crashing-rule` | **run `./gradlew --stop` after editing any rule** |

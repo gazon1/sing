@@ -48,24 +48,28 @@ onClick = {
 ```
 
 **Tapping "Create your first note" opens the editor for a note that does not exist.** The
-note the repository did create is orphaned, and the user's first note is lost.
+note the repository did create is orphaned, and the user's first note is lost. The
+quick-add row was affected the same way.
+
+**Fixed.** The write is launched, so there is nothing to return synchronously and
+nothing correct to generate locally. Following the existing
+`CalendarUiEvent.NavigateToTask` shape, `NotesUiEvent.NavigateToEditor(noteId)` was
+added; the ViewModel emits it with the repository's id and the screen navigates from
+the event. Failures now surface as `NotesUiEvent.Error` rather than opening an editor
+for a note that was never created. `idGen`, now unused in the ViewModel, is removed
+from the constructor, the Koin binding and the test rather than left as speculative
+API. See `2026-09-28-notes-create-navigation.md`.
 
 The bug is confined to this call site: `TemplatePickerTest` and
 `RoomNotesRepositorySyncTest` both use the repository's returned id correctly. Only the
 ViewModel discards it.
 
-**Not fixed here** — the screen API is synchronous while the repository is not, so closing
-it is a design decision, not a patch:
-
-- make `onCreateNote` a suspend call that awaits the `Result<NoteId>`, or
-- have the ViewModel own the id and pass it down, or
-- keep the launch and deliver the real id through the event bus, which makes the screen's
-  `openEditor` an event rather than a return value.
-
-The first is the smallest and matches what the repository already returns. Whichever is
-chosen, the invariant to record is: **a ViewModel that returns an entity id must return
-the one the write actually used.** `idGen` in this ViewModel is now unused by this path,
-which is the tell.
+The chosen fix is the third option above — deliver the real id through the event bus —
+because the project already had the pattern in `CalendarUiEvent.NavigateToTask`, so
+adopting it was cheaper than inventing a suspend-based screen API. The invariant it
+records: **a ViewModel that surfaces a created entity's id must surface the one the
+write used**, and a generated id that no repository call ever saw is worse than no id
+at all.
 
 ## R7 — closed twice, on a grep
 
@@ -116,9 +120,6 @@ dispatcher. Nothing enforces that rule mechanically; a detekt check would be wor
 
 ## Open
 
-- The phantom note id above, awaiting a screen-API decision.
-- `NotesListViewModel.createNoteWithTitle`'s synchronous return remains a latent ordering
-  problem independent of the id bug: the write is launched and not awaited.
 - 12 deprecated Nav2-era `AppDestination` variants, still referenced (2–5 call sites
   each) — a migration, not a deletion.
 - 7 `kotlinx.datetime` warnings in `CalendarEventMapper`, entangled with the deferred R26

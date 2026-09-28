@@ -904,6 +904,8 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `notes`
 
+- **A ViewModel that surfaces a created entity's id must surface the one the write used.**
+- **A create that navigates should carry the navigation in the result path**, so a
 - All new helpers are `internal` except `NoteAiController` (used in DI) and `NoteContentMapper`
 - Backlinks are now shown and functional
 - Caller must provide `MutableStateFlow<String>` and inject `InternalLinkRepository` and `ProfileAwareCurrentUser` — slightly more boilerplate at call site
@@ -937,9 +939,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `NoteEditorScreen` (UI) is unaffected — public API (`editorState`, `savedPulse`, `events`,
 - `NotePreview` must observe the note via `repo.watchNote()` — requires a Flow subscription
 - `NoteSaver.fail()` is the only error path — all save failures emit `NotesUiEvent.SaveFailed`
+- `NotesIntent.CreateNote` has no dispatcher anywhere in the tree — the screen calls the
 - `NotesListViewModel` now requires `IdGenerator` as a third constructor parameter
 - `NotesRepository.createWithContent` и `updateContent` сигнатуры изменились: добавлен параметр `bodyHtml: String`.
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables
+- `NotesUiEvent` is shared between the list and editor ViewModels, so adding a variant
 - `OutgoingLinksExtractor` regex now uses two separate `Regex` instances (one for `note://`,
 - `SavedPulse` (a `SharedFlow<Unit>`) is the only pulse channel. Phase 1 placeholder;
 - `core/ui/components/` is now free of feature-domain imports
@@ -1633,6 +1637,7 @@ _6 entries need attention._
 - `2026-09-28-mr4-combine-soundness` — retro, tech-debt, detekt, coroutines, mvi
 - `2026-09-28-mr5-verification` — retro, tech-debt, verification, coroutines, testing
 - `2026-09-28-mr5-vm-hygiene` — retro, tech-debt, viewmodel, coroutines, notes
+- `2026-09-28-notes-create-navigation` — notes, viewmodel, navigation, mvi, bug
 - `2026-09-28-roadmap-status` — retro, tech-debt, roadmap, status
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
 
@@ -1926,6 +1931,7 @@ _6 entries need attention._
 - `2026-09-28-mr4-combine-soundness` — MR-4 retro — a lint guard that passes its test and misses the real file
 - `2026-09-28-mr5-verification` — MR-5 verification — two of four items do not survive, and a wrongly-closed finding is open again
 - `2026-09-28-mr5-vm-hygiene` — MR-5 retro — R7 was closed twice on a grep, and a phantom note id was hiding in plain sight
+- `2026-09-28-notes-create-navigation` — A created note is opened on an id the repository never used
 - `2026-09-28-roadmap-status` — Tech-debt roadmap v3 — what three MRs closed, and what is left
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
 
