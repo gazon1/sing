@@ -38,6 +38,8 @@ at the call site so the next omitted field is not silent. `startDate`, `startTim
 ## MEDIUM — not fixed, recorded
 
 ### R6 — R1 is still open, and this MR had to work around it
+> **RESOLVED 2026-09-28 (roadmap MR-1):** This finding is the third ADR to carry the claim forward. It is not open and the three reverted attempts were chasing a premise that had expired. A probe test in MR-1 confirmed the fakes' `Unconfined` default already lets `advanceUntilIdle()` drain the chain; no fake was changed to get the slot suite onto virtual time. See `2026-09-28-mr1-test-virtualization-retro.md`.
+
 
 `TaskDetailViewModelTest.TitleChanged debounce saves after delay()` was red on the branch
 baseline (see the MR-1 retro). This MR deletes that file, so the red test is gone, but the
@@ -58,6 +60,8 @@ observers, not to the tests. Until then, real-time pumping is the working patter
 test in the repo should use it consistently rather than each discovering it.
 
 ### R7 — `UpdateTaskUseCase.invoke(task)` is still deprecated and still used
+> **RESOLVED 2026-09-28 (roadmap MR-1):** Closed. A clean `:shared:compileKotlinJvm` emits no deprecation warning for `invoke(task)`, and every call site is on `invoke(id) { … }` — the slots migrated them. The MR-2 retro had already noted the pattern was resolved by the slot refactor; this confirms it on a full production compile.
+
 
 Five call sites in the slots read the task from `taskFlow`, `copy()` one field, and write the
 whole entity back. A concurrent remote edit to any other field is silently reverted. The

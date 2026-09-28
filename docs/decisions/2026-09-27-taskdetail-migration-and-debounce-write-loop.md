@@ -6,6 +6,15 @@ deciders: Singularity Developer
 deciders: Singularity Developer
 ---
 
+> **Superseded in part (2026-09-28):** this ADR records that
+> `FakeProfileAwareCurrentUser` "running on `Dispatchers.Default`" is why the slot
+> suite cannot use virtual time. That was already false when written — `560f3bf8` had
+> moved the default to `Dispatchers.Unconfined`, an eager dispatcher. A probe test in
+> MR-1 confirmed `advanceUntilIdle()` drains the whole slot suite with no fakes
+> changed. The row-4 follow-up is done: those `delay(100)` / `delay(50)` calls are
+> gone, and the 300 ms debounce is crossed with `advanceTimeBy`.
+> See [2026-09-28-mr1-test-virtualization-retro.md](2026-09-28-mr1-test-virtualization-retro.md).
+
 # TaskDetailViewModel Migration + Debounce Write-Loop Fix
 
 ## Context

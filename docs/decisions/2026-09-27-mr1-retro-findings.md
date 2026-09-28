@@ -22,6 +22,8 @@ rule from the epic: critical is fixed now, medium is recorded, low goes to the t
 ## CRITICAL
 
 ### R1 — `TaskDetailViewModelTest.TitleChanged debounce saves after delay()` is red on the branch baseline
+> **RESOLVED 2026-09-28 (roadmap MR-1):** The root cause recorded here — `FakeProfileAwareCurrentUser` defaulting to `Dispatchers.Default` — was already wrong when this ADR was written. `560f3bf8` had moved the default to `Dispatchers.Unconfined` and flagged the change as unverified. A probe test built the fake on `StandardTestDispatcher(testScheduler)` and printed `scopedUserId=UserId(value=test-user) tasks=[t1, t2]`: the scheduler-bound fake works. All 45 slot tests then passed on virtual time. The test file itself was deleted by the slot refactor, so the symptom is gone and the cause was never real. See `2026-09-28-mr1-test-virtualization-retro.md`.
+
 
 **Evidence.** Verified by stashing every MR-1 change to `TaskDetail.kt` and re-running: the
 test fails identically. It is not a regression from this work.

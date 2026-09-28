@@ -5,6 +5,12 @@ tags: [viewmodel, mvi, tasks, refactor, bugfix]
 status: accepted
 ---
 
+> **Superseded in part (2026-09-28):** the Consequences above state that "Slot tests
+> pump with real `delay()`, not `advanceUntilIdle()`" because the fakes' current user
+> runs on `Dispatchers.Default`. The default was already `Dispatchers.Unconfined`.
+> All 45 slot tests now run on virtual time; see
+> [2026-09-28-mr1-test-virtualization-retro.md](2026-09-28-mr1-test-virtualization-retro.md).
+
 ## Context
 
 `TaskDetailViewModel` had grown to 524 lines owning nineteen unrelated concerns behind a

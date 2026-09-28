@@ -5,6 +5,18 @@ tags: [testing, quality, kotlin, junit5]
 status: accepted
 ---
 
+> **Superseded in part (2026-09-28):** the "~28 tests using real `delay()`" and the
+> baseline entry covering them are stale. The slot suite (45 tests) and
+> `DraftMviViewModelTest` (16) were moved to virtual time. Three sites keep real time
+> on purpose, each documented in-file: `SyncRepositoryCoalescingTest` (freezes a
+> coroutine to prove the coalescing guard), `WriteToolsTest` (waits for a timestamp),
+> `AgendaViewModelTest` (the infinite `todayFlow` means the scheduler never drains).
+>
+> The rule itself was found not to hold: `NoRealDelayInTest` has a `value <= 500`
+> cutoff, so it could not have flagged any of the 109 sites — they were `delay(20)`,
+> `delay(100)`, `delay(400)`. The threshold is the defect.
+> See [2026-09-28-mr1-test-virtualization-retro.md](2026-09-28-mr1-test-virtualization-retro.md).
+
 ## Context
 
 After the test-suite audit (2026-09-25) we identified 167 test files / 1158 `@Test` methods with the following problems:

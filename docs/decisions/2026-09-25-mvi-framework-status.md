@@ -6,6 +6,24 @@ deciders: Singularity Developer
 deciders: Singularity Developer
 ---
 
+> **Superseded in part (2026-09-28):** this ADR's "6 ⚠️ remaining" and the
+> `SettingsViewModel` / `BackupViewModel` / `SearchViewModel` / `ProjectsViewModel` rows
+> below are historical. A census during roadmap MR-1 found **every** production ViewModel
+> — all 24 — already on `MviViewModel` or `DraftMviViewModel`, with zero bare
+> `androidx.lifecycle.ViewModel` subclasses. `BackupViewModel`, `SettingsViewModel`,
+> `SearchViewModel` and `ProjectsViewModel` were migrated by
+> `2026-09-27-mvi-single-state-entry-and-vm-sweep`.
+>
+> The TOCTOU rows (2 and 3) are resolved as follows. `TaskDetailViewModel` was deleted by
+> the slot refactor. `ProjectDetailViewModel`'s `_latestProject` cache turned out to be
+> write-only — the two comments claiming `mutate` re-read it were false — so there was no
+> TOCTOU to fix; the cache is gone. See
+> `2026-09-28-mr2-project-detail-retro.md`.
+>
+> Still open from this ADR: item 5, `SettingsIntent` not being an `MviIntent`; and the
+> `SettingsContributor` → `FeatureSlot` conversion, which that same sweep deliberately
+> deferred. See `2026-09-28-roadmap-status.md`.
+
 # MVI Framework Audit Summary (Post MR-6a/6b/7)
 
 ## Context

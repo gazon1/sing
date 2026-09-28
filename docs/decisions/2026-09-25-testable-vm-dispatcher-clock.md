@@ -5,6 +5,17 @@ tags: [testing, coroutines, viewmodel, koin, di]
 status: accepted
 ---
 
+> **Corrected in part (2026-09-28):** the Context above records that
+> `FakeProfileAwareCurrentUser` "defaults its `CoroutineScope` to
+> `createBackgroundScope()`, which uses `Dispatchers.Default`". That stopped being
+> true the same day: `560f3bf8` changed the default to `Dispatchers.Unconfined`, and
+> that ADR noted the change was never verified. The diagnosis here was never
+> re-tested, and three later ADRs quoted it as current.
+>
+> The `TaskDetailViewModelTest` it measures was deleted outright by the slot
+> refactor, so its 16 `delay()` calls no longer exist. See
+> [2026-09-28-mr1-test-virtualization-retro.md](2026-09-28-mr1-test-virtualization-retro.md).
+
 
 > **Corrected (2026-09-27):** the 60 s hang this ADR set out to fix was not a
 > dispatcher problem. The debounce collector wrote to the repository, whose
