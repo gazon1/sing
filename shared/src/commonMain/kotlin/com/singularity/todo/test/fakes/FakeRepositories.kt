@@ -451,9 +451,17 @@ open class FakeTaskRepository(
 ) : TaskRepository {
     private val store = InMemoryStore<Task>(keyOf = { it.id.value })
 
-    // The effective currentUser — injected for tests, or a default fake for backward compatibility.
-    private val currentUser: ProfileAwareCurrentUser
-        get() = explicitCurrentUser ?: FakeProfileAwareCurrentUser()
+    /**
+     * The effective current user — injected for tests, or a lazily-created default fake.
+     *
+     * Lazy, not a `get()`: each [FakeProfileAwareCurrentUser] owns a
+     * `CoroutineScope(SupervisorJob())` that nothing ever cancels, so a getter that
+     * constructs one per access leaks a supervisor job on every read. This repository
+     * reads `currentUser` from 17 call sites.
+     */
+    private val currentUser: ProfileAwareCurrentUser by lazy {
+        explicitCurrentUser ?: FakeProfileAwareCurrentUser()
+    }
 
     /** Expose store state as [StateFlow] for [watchTasks] and other flows. */
     internal val tasks: StateFlow<Map<String, Task>> = store.state

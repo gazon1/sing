@@ -63,15 +63,16 @@ internal class RecordingReminderScheduler : ReminderScheduler {
 /**
  * Fakes shared by every slot test.
  *
- * The fakes use their default `FakeProfileAwareCurrentUser`, which runs on
- * `Dispatchers.Default`, so slot tests must pump with real `delay()` rather than
- * `advanceUntilIdle()`. Virtual time cannot advance a real dispatcher.
+ * The fakes take their default `FakeProfileAwareCurrentUser`, which runs on
+ * `Dispatchers.Unconfined` — an eager dispatcher that drains inline, so the
+ * `scopedUserId` emission lands before the slot subscribes. Slot tests therefore
+ * settle with `runCurrent()` / `advanceTimeBy(...)` and use no real time.
  *
- * This is the known limitation recorded as R1 in
- * `docs/decisions/2026-09-27-mr1-retro-findings.md`: the fix is to build the fakes on the
- * test scheduler, which is a separate change because it also requires the repository
- * observers to stop depending on a detached scope. Until then the working pattern is real
- * time, which is what the slot tests use.
+ * This supersedes R1 in `docs/decisions/2026-09-27-mr1-retro-findings.md` and R6 in
+ * `2026-09-28-mr2-retro-findings.md`, which both recorded that slot tests had to pump with
+ * real `delay()`. That was true while the default was `Dispatchers.Default`; commit
+ * `560f3bf8` changed it to `Unconfined`, and the constraint was never re-tested. Verified:
+ * all 45 slot tests run on virtual time.
  */
 internal class SlotFakes {
     val scheduler = RecordingReminderScheduler()
@@ -139,15 +140,6 @@ internal fun task(id: String = "t1", title: String = "Test task"): Task = Task(
 /** Slot scopes run on the test dispatcher; collectors still need a real-time pump. */
 internal fun testSlotScope(scope: CoroutineScope): AutoCloseableCoroutineScope =
     AutoCloseableCoroutineScope(scope.coroutineContext)
-
-/**
- * Settling time for a slot's collectors.
- *
- * Slot tests pump with real time because the fakes' current user runs on
- * `Dispatchers.Default`, which `runTest` cannot virtualize. 100ms lets the user
- * emission land and the repository flow deliver its first value.
- */
-internal const val SETTLE = 100L
 
 /** A tag for the catalogue the entity slot filters against. */
 internal fun tag(id: com.singularity.todo.feature.tags.TagId, name: String) = com.singularity.todo.feature.tags.Tag(

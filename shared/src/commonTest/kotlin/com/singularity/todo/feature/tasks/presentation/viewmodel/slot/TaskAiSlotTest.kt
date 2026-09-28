@@ -4,7 +4,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -36,7 +36,7 @@ class TaskAiSlotTest {
     fun `is not running before any action`() = runTest {
         val fakes = SlotFakes()
         val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         assertFalse(slot.state.value.isRunning)
     }
@@ -47,11 +47,11 @@ class TaskAiSlotTest {
         fakes.taskRepo.seed(task("t1"))
         val errors = mutableListOf<String>()
         val slot = slot(fakes, TaskSource(task("t1")), backgroundScope, onError = { errors += it })
-        delay(SETTLE)
+        runCurrent()
 
         val actions = AiAction.entries.map { TaskDetailIntent.Domain.RunAiAction(it) }
         actions.forEach { slot.onIntent(it) }
-        delay(SETTLE)
+        runCurrent()
 
         // A null use case must take the failure path, never the silent no-op path.
         assertTrue(errors.isNotEmpty(), "expected a missing-use-case error for each action, got none")
@@ -64,14 +64,14 @@ class TaskAiSlotTest {
         fakes.taskRepo.seed(task("t1", title = "original"))
         val errors = mutableListOf<String>()
         val slot = slot(fakes, TaskSource(task("t1", title = "original")), backgroundScope, onError = { errors += it })
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(
             TaskDetailIntent.Domain.RunAiAction(
                 AiAction.RefineTitle,
             ),
         )
-        delay(SETTLE)
+        runCurrent()
 
         assertTrue(errors.isNotEmpty())
         assertNull(fakes.taskRepo.tasks.value["t1"]?.description, "no field may be written on a failed action")
@@ -82,14 +82,14 @@ class TaskAiSlotTest {
         val fakes = SlotFakes()
         val errors = mutableListOf<String>()
         val slot = slot(fakes, TaskSource(null), backgroundScope, onError = { errors += it })
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(
             TaskDetailIntent.Domain.RunAiAction(
                 AiAction.RefineTitle,
             ),
         )
-        delay(SETTLE)
+        runCurrent()
 
         assertTrue(errors.isEmpty(), "no task means no action and no error")
     }

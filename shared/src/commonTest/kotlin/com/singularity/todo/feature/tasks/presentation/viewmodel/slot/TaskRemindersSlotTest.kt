@@ -5,7 +5,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -33,7 +33,7 @@ class TaskRemindersSlotTest {
     fun `no reminders before anything is scheduled`() = runTest {
         val fakes = SlotFakes()
         val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(emptyList(), slot.state.value.reminders)
     }
@@ -45,10 +45,10 @@ class TaskRemindersSlotTest {
             task("t1").copy(dueDate = DUE, dueTime = AT_NINE),
         )
         val slot = slot(fakes, source, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(1, fakes.scheduler.scheduled.size, "the platform alarm must be scheduled")
         assertTrue(fakes.scheduler.scheduled.first().fireAt > 0)
@@ -59,10 +59,10 @@ class TaskRemindersSlotTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1").copy(dueDate = DUE))
         val slot = slot(fakes, source, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.AT_DUE))
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
         assertTrue(fakes.scheduler.scheduled.isEmpty(), "AT_DUE must not schedule a new alarm")
@@ -73,10 +73,10 @@ class TaskRemindersSlotTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1").copy(dueDate = DUE))
         val slot = slot(fakes, source, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.DeleteReminder)
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
     }

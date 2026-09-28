@@ -3,7 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.search.InternalLinkRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -36,7 +36,7 @@ class TaskBacklinksCollectorTest {
             testSlotScope(backgroundScope),
             TaskSource(null).state,
         )
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(TaskBacklinksState(), collector.state.value)
     }
@@ -58,7 +58,7 @@ class TaskBacklinksCollectorTest {
             testSlotScope(backgroundScope),
             TaskSource(task("t1")).state,
         )
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(listOf("n1"), collector.state.value.notes.map { it.id.value })
         assertEquals(listOf("t2"), collector.state.value.tasks.map { it.id.value })
@@ -72,7 +72,7 @@ class TaskBacklinksCollectorTest {
             testSlotScope(backgroundScope),
             TaskSource(task("t1")).state,
         )
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(TaskBacklinksState(), collector.state.value)
     }
@@ -86,7 +86,7 @@ class TaskBacklinksCollectorTest {
             testSlotScope(backgroundScope),
             source.state,
         )
-        delay(SETTLE)
+        runCurrent()
         assertTrue(collector.state.value.notes.isEmpty())
 
         // The old implementation read the backlink lists with `.value` inside a combine
@@ -100,7 +100,7 @@ class TaskBacklinksCollectorTest {
             updatedAt = Clock.System.now(),
         )
         source.emit(task("t1", title = "Edited"))
-        delay(SETTLE)
+        runCurrent()
 
         // The re-query ran; the fake still returns the original (empty) list.
         assertEquals(TaskBacklinksState(), collector.state.value)

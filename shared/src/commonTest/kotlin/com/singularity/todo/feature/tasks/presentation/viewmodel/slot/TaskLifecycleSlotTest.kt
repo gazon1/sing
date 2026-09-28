@@ -3,7 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,10 +37,10 @@ class TaskLifecycleSlotTest {
         fakes.taskRepo.seed(task("t1"))
         val undone = mutableListOf<String>()
         val slot = slot(fakes, TaskSource(task("t1")), backgroundScope, onUndo = { undone += it })
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.Delete)
-        delay(SETTLE)
+        runCurrent()
 
         assertNotNull(fakes.taskRepo.tasks.value["t1"]?.archivedAt)
         assertEquals(listOf("t1"), undone)
@@ -51,10 +51,10 @@ class TaskLifecycleSlotTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1"))
         val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.Delete)
-        delay(SETTLE)
+        runCurrent()
 
         assertNotNull(slot.state.value.recentlyDeleted)
     }
@@ -64,10 +64,10 @@ class TaskLifecycleSlotTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1"))
         val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.Archive)
-        delay(SETTLE)
+        runCurrent()
 
         assertNotNull(fakes.taskRepo.tasks.value["t1"]?.archivedAt)
         assertNull(slot.state.value.recentlyDeleted, "archive must not offer an undo path")
@@ -79,10 +79,10 @@ class TaskLifecycleSlotTest {
         fakes.taskRepo.seed(task("t1"))
         var navigated = false
         val slot = slot(fakes, TaskSource(task("t1")), backgroundScope, onBack = { navigated = true })
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.Archive)
-        delay(SETTLE)
+        runCurrent()
 
         assertTrue(navigated)
     }
@@ -92,12 +92,12 @@ class TaskLifecycleSlotTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1"))
         val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.Delete)
-        delay(SETTLE)
+        runCurrent()
         slot.onIntent(TaskDetailIntent.Domain.Restore)
-        delay(SETTLE)
+        runCurrent()
 
         assertNull(fakes.taskRepo.tasks.value["t1"]?.archivedAt)
         assertNull(slot.state.value.recentlyDeleted)
@@ -108,10 +108,10 @@ class TaskLifecycleSlotTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1"))
         val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.Restore)
-        delay(SETTLE)
+        runCurrent()
 
         assertNull(slot.state.value.recentlyDeleted)
     }

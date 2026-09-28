@@ -3,7 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,7 +21,7 @@ class TaskCompletionSlotTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1").copy(completedAt = kotlin.time.Clock.System.now()))
         val slot = TaskCompletionSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
-        delay(SETTLE)
+        runCurrent()
 
         assertTrue(slot.state.value.isCompleted)
         assertFalse(slot.state.value.hasRecurrence)
@@ -35,10 +35,10 @@ class TaskCompletionSlotTest {
         fakes.taskRepo.seed(task("t1"))
         val source = TaskSource(task("t1"))
         val slot = TaskCompletionSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)
-        delay(SETTLE)
+        runCurrent()
 
         assertNotNull(fakes.taskRepo.tasks.value["t1"]?.completedAt)
     }
@@ -48,10 +48,10 @@ class TaskCompletionSlotTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1").copy(completedAt = kotlin.time.Clock.System.now()))
         val slot = TaskCompletionSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)
-        delay(SETTLE)
+        runCurrent()
 
         assertNull(fakes.taskRepo.tasks.value["t1"]?.completedAt)
     }
@@ -69,10 +69,10 @@ class TaskCompletionSlotTest {
             ),
         )
         val slot = TaskCompletionSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(TaskId("t1"), fakes.recurringCompleted)
         assertNull(

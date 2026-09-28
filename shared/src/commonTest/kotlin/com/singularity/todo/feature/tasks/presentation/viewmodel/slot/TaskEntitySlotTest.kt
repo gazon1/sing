@@ -6,7 +6,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -42,7 +42,7 @@ class TaskEntitySlotTest {
         )
         val source = TaskSource(task("t1"))
         val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
-        delay(SETTLE)
+        runCurrent()
 
         val available = slot.state.value.availableTasks.map { it.id.value }
         assertTrue("t1" !in available, "the task must not be offered as its own dependency")
@@ -66,7 +66,7 @@ class TaskEntitySlotTest {
             taskFlow = TaskSource(task("t1").copy(tags = listOf(tagA))).state,
             onError = {},
         )
-        delay(SETTLE)
+        runCurrent()
 
         // Both tags exist in the catalogue, but only tag-a is on the task.
         assertEquals(listOf(tagA), slot.state.value.tags.map { it.id })
@@ -80,10 +80,10 @@ class TaskEntitySlotTest {
         fakes.taskRepo.seed(task("t1"))
         val source = TaskSource(task("t1"))
         val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.High))
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(TaskPriority.High, fakes.taskRepo.tasks.value["t1"]?.priority)
     }
@@ -96,17 +96,17 @@ class TaskEntitySlotTest {
         fakes.taskRepo.seed(task("t1"))
         val source = TaskSource(task("t1"))
         val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.TogglePinned)
-        delay(SETTLE)
+        runCurrent()
         // Room re-emits the updated row; the slot reads its write base from the task flow,
         // so a test must mirror that or the second toggle would flip the same stale value.
         source.emit(fakes.taskRepo.tasks.value["t1"])
         assertEquals(true, fakes.taskRepo.tasks.value["t1"]?.isPinned)
 
         slot.onIntent(TaskDetailIntent.Domain.TogglePinned)
-        delay(SETTLE)
+        runCurrent()
         assertEquals(false, fakes.taskRepo.tasks.value["t1"]?.isPinned)
     }
 
@@ -115,10 +115,10 @@ class TaskEntitySlotTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1").copy(dueDate = kotlinx.datetime.LocalDate(2026, 9, 27)))
         val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.SetDueDate(null))
-        delay(SETTLE)
+        runCurrent()
 
         assertNull(fakes.taskRepo.tasks.value["t1"]?.dueDate)
     }
@@ -128,10 +128,10 @@ class TaskEntitySlotTest {
         val fakes = SlotFakes()
         val source = TaskSource(null)
         val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.Low))
-        delay(SETTLE)
+        runCurrent()
 
         assertTrue(fakes.taskRepo.tasks.value.isEmpty())
     }
@@ -152,7 +152,7 @@ class TaskEntitySlotTest {
         )
         val source = TaskSource(task("t1").copy(projectId = projectId))
         val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
-        delay(SETTLE)
+        runCurrent()
 
         assertNotNull(slot.state.value.project)
         assertEquals("Work", slot.state.value.project?.name)

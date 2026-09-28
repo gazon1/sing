@@ -2,7 +2,8 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,8 +12,9 @@ import kotlin.test.assertNotNull
 /**
  * Covers the draft slot: seeding, immediate echo of a keystroke, and debounced persistence.
  *
- * The debounce cases replace the two `delay()` calls the previous god-VM test needed, and
- * assert on the repository rather than on a captured flag.
+ * The debounce cases replace the two real-time `delay()` calls the previous god-VM test
+ * needed, and assert on the repository rather than on a captured flag. The 300ms debounce
+ * is crossed with `advanceTimeBy`, so no wall-clock time passes.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskDraftSlotTest {
@@ -58,7 +60,7 @@ class TaskDraftSlotTest {
         val source = TaskSource(task("t1"))
         val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
         slot.seed("Original", "")
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited"))
 
@@ -74,11 +76,12 @@ class TaskDraftSlotTest {
         val source = TaskSource(task("t1", title = "Original"))
         val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
         slot.seed("Original", "")
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited"))
-        // Real time, past the 300ms debounce configured in TaskDetailDeps.
-        delay(DEBOUNCE_PLUS_SETTLE)
+        // Virtual time past the 300ms debounce configured in TaskDetailDeps.
+        advanceTimeBy(DEBOUNCE_PLUS_SETTLE)
+        runCurrent()
 
         assertEquals("Edited", fakes.taskRepo.tasks.value["t1"]?.title)
     }
@@ -89,10 +92,11 @@ class TaskDraftSlotTest {
         val source = TaskSource(task("t1").copy(description = "Old"))
         val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
         slot.seed("Original", "Old")
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.DescriptionChanged("  "))
-        delay(DEBOUNCE_PLUS_SETTLE)
+        advanceTimeBy(DEBOUNCE_PLUS_SETTLE)
+        runCurrent()
 
         assertEquals(null, fakes.taskRepo.tasks.value["t1"]?.description)
     }
@@ -106,16 +110,18 @@ class TaskDraftSlotTest {
         val source = TaskSource(task("t1", title = "Original"))
         val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
         slot.seed("Original", "")
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited title"))
-        delay(DEBOUNCE_PLUS_SETTLE)
+        advanceTimeBy(DEBOUNCE_PLUS_SETTLE)
+        runCurrent()
         val afterFirstWrite = fakes.taskRepo.tasks.value["t1"]?.updatedAt
         assertNotNull(afterFirstWrite, "the debounced write should have landed")
 
         // A write stamps a new updatedAt, which re-emits the repository observation. If
         // that fed back into the collector, the debounce loop would rewrite forever.
-        delay(5_000)
+        advanceTimeBy(5_000)
+        runCurrent()
         val afterQuietPeriod = fakes.taskRepo.tasks.value["t1"]?.updatedAt
         assertEquals(afterFirstWrite, afterQuietPeriod, "the debounce must not loop on its own write")
         assertEquals("Edited title", fakes.taskRepo.tasks.value["t1"]?.title)
@@ -130,10 +136,11 @@ class TaskDraftSlotTest {
         val source = TaskSource(task("t1", title = "Original").copy(emoji = "🎯"))
         val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
         slot.seed("Original", "")
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited"))
-        delay(DEBOUNCE_PLUS_SETTLE)
+        advanceTimeBy(DEBOUNCE_PLUS_SETTLE)
+        runCurrent()
 
         val saved = fakes.taskRepo.tasks.value["t1"]
         assertNotNull(saved)

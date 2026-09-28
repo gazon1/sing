@@ -3,7 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,7 +34,7 @@ class TaskChildrenSlotTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1"))
         val slot = slot(fakes, source, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(TaskChildrenState(), slot.state.value)
     }
@@ -44,10 +44,10 @@ class TaskChildrenSlotTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1"))
         val slot = slot(fakes, source, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.AddChecklistItem("New item"))
-        delay(SETTLE)
+        runCurrent()
 
         val items = fakes.checklistRepo.items.value.values.toList()
         assertEquals(1, items.size)
@@ -60,10 +60,10 @@ class TaskChildrenSlotTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1"))
         val slot = slot(fakes, source, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.AddChecklistItem("   "))
-        delay(SETTLE)
+        runCurrent()
 
         assertTrue(fakes.checklistRepo.items.value.isEmpty())
     }
@@ -73,15 +73,15 @@ class TaskChildrenSlotTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1"))
         val slot = slot(fakes, source, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.AddChecklistItem("Toggle me"))
-        delay(SETTLE)
+        runCurrent()
         val item = fakes.checklistRepo.items.value.values.first()
         assertFalse(item.isCompleted)
 
         slot.onIntent(TaskDetailIntent.Domain.ToggleChecklistItem(item))
-        delay(SETTLE)
+        runCurrent()
 
         assertTrue(fakes.checklistRepo.items.value[item.id.value]?.isCompleted == true)
     }
@@ -100,10 +100,10 @@ class TaskChildrenSlotTest {
             onError = { errors += it },
             onSaved = { saved += it },
         )
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.AddSubtask("Child"))
-        delay(SETTLE)
+        runCurrent()
 
         val subtasks = fakes.taskRepo.tasks.value.values.filter { it.parentTaskId == TaskId("t1") }
         assertEquals(
@@ -121,10 +121,10 @@ class TaskChildrenSlotTest {
         fakes.taskRepo.seed(task("t1"), child)
         val source = TaskSource(task("t1"))
         val slot = slot(fakes, source, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.DeleteSubtask(child))
-        delay(SETTLE)
+        runCurrent()
 
         assertNotNull(fakes.taskRepo.tasks.value["c1"]?.archivedAt)
     }
@@ -135,10 +135,10 @@ class TaskChildrenSlotTest {
         val source = TaskSource(task("t1"))
         val saved = mutableListOf<String>()
         val slot = slot(fakes, source, backgroundScope) { saved += it }
-        delay(SETTLE)
+        runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.AddUrlAttachment("https://example.com", "Example"))
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(listOf("Attachment added"), saved)
     }

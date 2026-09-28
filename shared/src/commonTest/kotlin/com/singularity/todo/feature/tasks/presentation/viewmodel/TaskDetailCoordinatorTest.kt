@@ -6,12 +6,11 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
-import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.SETTLE
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.SlotFakes
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.task
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -39,7 +38,7 @@ class TaskDetailCoordinatorTest {
     fun `an empty repository resolves to a terminal state, not a hang`() = runTest {
         val fakes = SlotFakes()
         val vm = coordinator(fakes, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         // The coordinator subscribes immediately, so a missing row resolves to the
         // not-found error rather than staying in Loading forever.
@@ -55,7 +54,7 @@ class TaskDetailCoordinatorTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1", title = "Original"))
         val vm = coordinator(fakes, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         val loaded = vm.state.value as? TaskDetailUiState.Loaded
         assertNotNull(loaded, "expected the task to have loaded, got ${vm.state.value}")
@@ -68,7 +67,7 @@ class TaskDetailCoordinatorTest {
     fun `a missing task produces the not-found error`() = runTest {
         val fakes = SlotFakes()
         val vm = coordinator(fakes, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         val state = vm.state.value
         assertTrue(state is TaskDetailUiState.Error || state == TaskDetailUiState.Loading)
@@ -79,10 +78,10 @@ class TaskDetailCoordinatorTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1"))
         val vm = coordinator(fakes, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         vm.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.High))
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(TaskPriority.High, fakes.taskRepo.tasks.value["t1"]?.priority)
     }
@@ -92,10 +91,10 @@ class TaskDetailCoordinatorTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1"))
         val vm = coordinator(fakes, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         vm.onIntent(TaskDetailIntent.Domain.AddChecklistItem("Step"))
-        delay(SETTLE)
+        runCurrent()
 
         assertEquals(1, fakes.checklistRepo.items.value.size)
     }
@@ -105,10 +104,10 @@ class TaskDetailCoordinatorTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1"))
         val vm = coordinator(fakes, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         vm.onIntent(TaskDetailIntent.Domain.Delete)
-        delay(SETTLE)
+        runCurrent()
 
         assertNotNull(fakes.taskRepo.tasks.value["t1"]?.archivedAt)
     }
@@ -118,10 +117,10 @@ class TaskDetailCoordinatorTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1", title = "Original"))
         val vm = coordinator(fakes, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         vm.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited"))
-        delay(SETTLE)
+        runCurrent()
 
         val loaded = vm.state.value as? TaskDetailUiState.Loaded
         assertNotNull(loaded)
@@ -133,10 +132,10 @@ class TaskDetailCoordinatorTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1"))
         val vm = coordinator(fakes, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         vm.onIntent(TaskDetailIntent.Domain.RunAiAction(TaskAiAction.RefineTitle))
-        delay(SETTLE)
+        runCurrent()
 
         // The failure is reported through the event bus, not thrown into the caller.
         assertEquals("Test task", fakes.taskRepo.tasks.value["t1"]?.title)
@@ -147,7 +146,7 @@ class TaskDetailCoordinatorTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1"))
         val vm = coordinator(fakes, backgroundScope)
-        delay(SETTLE)
+        runCurrent()
 
         val all: List<TaskDetailIntent.Domain> = listOf(
             TaskDetailIntent.Domain.ToggleComplete,
@@ -184,7 +183,7 @@ class TaskDetailCoordinatorTest {
         )
 
         all.forEach { vm.onIntent(it) }
-        delay(SETTLE)
+        runCurrent()
 
         // A task that survives every routed intent proves none of them crashed the loop.
         assertNotNull(fakes.taskRepo.tasks.value["t1"])
