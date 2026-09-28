@@ -142,6 +142,13 @@ adb -s $SERIAL logcat -d -t 50 | grep -iE "singularity|AndroidRuntime|FATAL"
 
 This skill is the physical-device counterpart to the `android-emulator:android-dev` skill. The MCP tools (`android_build_and_run`, `android_screenshot`, `android_ui_describe`, `android_ui_tap`) also work with a physical device when you pass `serial=$SERIAL`. Use whichever interface is more convenient — the underlying protocol is the same `adb` commands shown above.
 
+> **If the emulator dies on startup** with `amdgpu: The CS has been rejected
+> (-22)` + `IOT instruction (core dumped)`, that is a Mesa + kernel regression on
+> AMD Renoir, not a bad AVD or a bad `-gpu` mode. Fix it by updating the system
+> (`dnf upgrade --refresh kernel kernel-core mesa-*` + reboot); no flags or
+> wrapper scripts help. Verified on Fedora 44 (Mesa 26.2.3, kernel 7.2.7).
+> See `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md`.
+
 ## When to use this vs android-emulator skill
 
 | Situation | Use |

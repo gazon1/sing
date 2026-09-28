@@ -67,6 +67,15 @@ adb -s $SERIAL shell input keyevent 82
 
 This skill replaces `mcp__android_emulator__android_start_emulator` when the target is a physical device (no AVD involved). The MCP tool `android_start_emulator` launches a virtual device; this skill operates on hardware you already have connected.
 
+> **If `android_start_emulator` produces a process that dies on startup** with
+> `amdgpu: The CS has been rejected (-22)` + `IOT instruction (core dumped)`,
+> that is a Mesa + kernel regression on AMD Renoir — fix it by updating the
+> system, not by changing emulator flags. Then wait for the one-time
+> "Allow USB debugging" tap before running this skill. If the AVD aborts with
+> `eglMakeCurrent failed`, drop the stale snapshot
+> (`rm -rf ~/.android/avd/<AVD>/snapshots/*`) and cold-boot. See
+> `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md`.
+
 The upstream `singularity-todo-adb-workflow` skill uses this as its first step (wake/unlock) before build/install/launch.
 
 ## Anti-patterns
