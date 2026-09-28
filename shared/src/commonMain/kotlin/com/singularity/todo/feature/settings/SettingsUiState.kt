@@ -11,16 +11,26 @@ import com.singularity.todo.core.settings.SettingsSection
 typealias SettingsIntent = SettingsIntent
 
 /**
- * Settings screen UI state — thin sealed interface.
- * [Loading] while DataStore loads; [Content] once ready; [Error] on failure.
+ * Settings screen UI state.
+ *
+ * ## Invariant
+ *
+ * [Content] is the only state the screen ever sees: `SettingsViewModel` initialises with
+ * `Content()` and never emits anything else, so the `when` in `SettingsScreen` is
+ * exhaustive by construction rather than by luck. Do not add a `Loading` or `Error`
+ * variant without also producing it — a branch that renders an unreachable state is a
+ * branch that is never verified.
+ *
+ * The `Loading` and `Error` variants that used to sit here had no producer: the screen
+ * carried two render branches for states that could not occur, and they were dead code
+ * that no test could cover. A transient failure belongs in [Content.errorMessage], which
+ * the ViewModel already clears on the next successful action.
  *
  * ## Architecture note
  * [Content] holds typed contributor sections plus ephemeral (non-persisted) state.
  * Error state is a top-level field because it is not a contributor section.
  */
 sealed interface SettingsUiState {
-    data object Loading : SettingsUiState
-    data class Error(val cause: Throwable) : SettingsUiState
     data class Content(
         // ── Typed contributor sections ─────────────────────────────────────────
         val appearance: SettingsSection.Appearance = SettingsSection.Appearance(),

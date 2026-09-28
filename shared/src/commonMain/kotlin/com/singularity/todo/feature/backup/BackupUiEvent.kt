@@ -10,6 +10,17 @@ import com.singularity.todo.core.ui.MviEvent
  * single event stream and the ViewModel's `onCleared` closes all of it.
  *
  * [Error] replaces the `showError = true` / `error = message` pattern on [BackupUiState].
+ *
+ * ## Invariant
+ *
+ * Every variant is a **one-shot signal, not state**: the backing bus is a channel, so a
+ * consumer that is not collecting at the moment of emission never sees the event. Nothing
+ * here is re-readable later — if the screen needs the value to persist, it belongs on
+ * [BackupUiState] instead.
+ *
+ * One consequence is worth stating, because it was a real bug once: this type is
+ * single-consumer. Two collectors split the events between them, so exactly one
+ * `LaunchedEffect` may subscribe.
  */
 sealed interface BackupUiEvent : MviEvent {
     data class Error(val message: String) : BackupUiEvent

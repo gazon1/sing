@@ -47,8 +47,6 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.settings.SettingsIntent
-import com.singularity.todo.core.ui.components.EmptyState
-import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.backup.BackupIntent
 import com.singularity.todo.feature.backup.BackupScreen
@@ -129,14 +127,6 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         modifier = modifier,
     ) { paddingValues ->
         when (val state = uiState) {
-            is SettingsUiState.Loading -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
-
-            is SettingsUiState.Error -> EmptyState(
-                title = "Error",
-                subtitle = state.cause.toString(),
-                modifier = Modifier.padding(paddingValues),
-            )
-
             is SettingsUiState.Content -> SettingsContent(
                 state = state,
                 selectedTab = selectedTab,
