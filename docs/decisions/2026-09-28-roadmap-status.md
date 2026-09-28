@@ -27,11 +27,12 @@ Updated after MR-4: see `2026-09-28-mr4-combine-soundness.md`.
 | `TagsRepositoryImpl.observeTag` | unscoped — another profile's tag, and soft-deleted ones | scoped |
 | `TagGroupRepositoryImpl.observe` | unscoped — another profile's tag group | scoped |
 | `NoRunBlocking` in new tests | caught by the project's own rule | tests are `suspend` |
-| R7 in `2026-09-28-mr2-retro-findings` | 7 call sites in 5 slot files on the deprecated `invoke(task)` | **re-opened** — an earlier closure was based on a grep that missed the `deps.updateTask(task.copy(…))` form |
+| R7 in `2026-09-28-mr2-retro-findings` | **closed** — 7 call sites migrated to `invoke(id) { copy(…) }`; 0 deprecation warnings remain | `2026-09-28-mr5-vm-hygiene` |
 | Ledger #3 in `2026-09-27-write-layer-soundness` | a 60 s hang with a stated cause | **obsolete, not fixed** |
 | "6 VMs not on MVI" (`2026-09-25-mvi-framework-status`) | 6 flagged | all 24 production VMs on MVI |
 | `ProjectDetailViewModel` split | roadmap item | **not needed** — already rejected in `pr24-rescope` |
 | `CalendarSyncViewModel` combine | `updateState` inside the transform, `.collect {}` on nothing | transform returns the reducer; collector applies |
+| MR-5 items 1–3 | deprecated `invoke(task)` ×7, unreachable `else` ×7, `repeat(3)` ×15 | all gone; 1140 tests pass |
 | `SearchViewModel` combine | `listOf` packing + `@Suppress("UNCHECKED_CAST")` | `combineStates`; suppression gone |
 | `NoCombineSideEffect` coverage | `updateState`/`setState` unguarded in a projection | both covered, positive control verified |
 | `NoOpUpdateStateRule` | aborted `:shared:detekt` on `updateState(reduce)` | explicit walk; no `psiUtil` |
@@ -62,9 +63,10 @@ interface alone has 20 methods. Both entries stay.
 
 | # | Item | Source | Note |
 |---|---|---|---|
-| 1 | `NotesListViewModel` uses `Dispatchers.Unconfined` at 3 sites (`:172, :185, :194`) | `2026-09-25-remaining-test-debt` O1 | untouched; needs an injected dispatcher |
+| 1 | ~~`NotesListViewModel` uses `Dispatchers.Unconfined`~~ — **closed**: hardcoded dispatcher dropped, all four launches use the injected scope | `2026-09-28-mr5-vm-hygiene` | O1 |
+| 1b | **`NotesListViewModel.createNoteWithTitle` returns an id the repository never used** — the empty-state button opens the editor for a note that does not exist | MR-5 retro | needs a screen-API decision; highest-severity open item |
 | 2 | `NoRealDelayInTest` has a `value <= 500` cutoff, so it could not flag any of the 109 real-time sites it exists to catch | MR-1 retro | threshold is the defect |
-| 3 | 81 production deprecation warnings across 30 files, untracked | MR-2 retro | 12 are deprecated Nav2 `AppDestination` variants |
+| 3 | 67 production deprecation warnings (was 81) across 30 files, untracked | MR-2 retro | 12 are deprecated Nav2 `AppDestination` variants |
 | 3b | ~~`NoCombineSideEffectRule` does not fire on `updateState`~~ — **closed**: the Gradle daemon was caching the detekt plugin classpath, so the extension was invisible until `./gradlew --stop`. The rule is extended and verified | `2026-09-28-detekt-daemon-and-crashing-rule` | **run `./gradlew --stop` after editing any rule** |
 | 3c | ~~`NoOpUpdateStateRule` throws on some inputs~~ — **closed**: `psiUtil.collectDescendantsOfType` is inlined and its synthetic class fails to load in detekt's classloader. Replaced with an explicit walk | same ADR | no `psiUtil` in detekt plugins |
 | 4 | `UpdateProjectUseCase` returns `Result<Unit>`; `UpdateTaskUseCase` returns `Result<Task>`. Its full-entity overload has no callers and is not deprecated | MR-2 retro | harmless today |
@@ -73,7 +75,7 @@ interface alone has 20 methods. Both entries stay.
 | 7 | `ProjectDetailViewModelTest` covers 5 of 13 domain intents; the two debounced ones are untested | MR-2 retro | |
 | 8 | `TagGroupRepository` / `ReminderRepository` / `AttachmentRepository` do not extend `GenericUserScopedRepository` | MR-3 retro | a contract change, not a cleanup |
 | 9 | `AttachmentRepository.create()` has no callers | MR-3 retro | delete, or keep for a bulk-import path |
-| 10 | 4 JUnit 4 Robolectric instrumented tests | `2026-09-25-remaining-test-debt` O3 | |
+| 10 | 4 JUnit 4 instrumented tests in `androidApp/src/androidTest` — CI has no `connectedAndroidTest` step, so they never run | `2026-09-28-mr5-verification` | O3 pointed at a deleted Robolectric file; needs its own MR with a device |
 | 11 | `TaskMenuBuilder.kt` — 15 TODOs naming use cases the `PassThroughUseCase` rule forbids | `2026-09-24-deferred-backlog` | |
 | 12 | 34 dead references in skill prose; `DIGEST.md` at 1921 lines against a 1500 budget | `2026-09-27-doc-and-skills-sprint-findings` | `just docs-audit` fails on both, pre-existing |
 

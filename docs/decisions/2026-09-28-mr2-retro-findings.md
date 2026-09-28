@@ -60,7 +60,7 @@ observers, not to the tests. Until then, real-time pumping is the working patter
 test in the repo should use it consistently rather than each discovering it.
 
 ### R7 — `UpdateTaskUseCase.invoke(task)` is still deprecated and still used
-> **RESOLVED 2026-09-28 (roadmap MR-1):** **Still open — a closure was recorded here on 2026-09-28 and was wrong.** The check
+> **RESOLVED 2026-09-28 (roadmap MR-1):** **Closed 2026-09-28, after a false closure.** The check
 behind that closure was a grep for `updateTask.invoke`, which finds the two-argument form
 `updateTask.invoke(id) { … }`. The offending call sites are `deps.updateTask(task.copy(…))`
 — the single-argument form, with no `.invoke` — so the grep matched almost nothing and the
@@ -68,8 +68,12 @@ deprecation warnings were never actually inspected. A later full compile shows *
 sites across 5 slot files** still on the deprecated form: `TaskDraftSlot` (×2),
 `TaskAiSlot` (×2), `TaskEntitySlot`, `TaskCompletionSlot`, `TaskChildrenSlot`.
 
+All 7 are now on `invoke(id) { copy(…) }`, which re-reads through `repo.get(id)`; a
+production compile emits no warning for the deprecated form.
+
 The closure mistake is the general lesson: a compile warning is the evidence, not a grep
-over the identifier you expect. See `2026-09-28-mr5-verification.md`.
+over the identifier you expect. See `2026-09-28-mr5-verification.md` and
+`2026-09-28-mr5-vm-hygiene.md`.
 
 
 Five call sites in the slots read the task from `taskFlow`, `copy()` one field, and write the
