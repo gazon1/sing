@@ -43,6 +43,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,6 +67,7 @@ import com.singularity.todo.feature.notes.NoteFilter
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NoteSortOrder
 import com.singularity.todo.feature.notes.NotesListState
+import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.notes.components.NoteCardContent
 import com.singularity.todo.feature.notes.components.NotesActions
@@ -92,12 +94,24 @@ fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koin
     // snapshot instead of collecting a duplicate copy from the ViewModel.
     val listState = (state as? NotesUiState.Content)?.list
 
+    // A created note is opened on the id the repository returned. The ViewModel cannot
+    // hand one back synchronously — the write is launched — and a locally generated id
+    // names a note that does not exist. See `NotesUiEvent.NavigateToEditor`.
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is NotesUiEvent.NavigateToEditor -> navigator.openEditor(event.noteId)
+                else -> Unit
+            }
+        }
+    }
+
     NotesScreenContent(
         state = state,
         currentFilter = listState?.filter ?: NoteFilter.All,
         currentSortOrder = listState?.sortOrder ?: NoteSortOrder.UpdatedDesc,
         navigator = navigator,
-        onCreateNote = { title -> NoteId.fromString(viewModel.createNoteWithTitle(title)) },
+        onCreateNote = { title -> viewModel.createNoteWithTitle(title) },
         actions = actions,
     )
 }
@@ -113,7 +127,7 @@ fun NotesScreenContent(
     currentFilter: NoteFilter,
     currentSortOrder: NoteSortOrder,
     navigator: NotesNavigator,
-    onCreateNote: (title: String) -> NoteId,
+    onCreateNote: (title: String) -> Unit,
     modifier: Modifier = Modifier,
     actions: NotesActions = NotesActions.Empty,
 ) {
@@ -175,12 +189,7 @@ fun NotesScreenContent(
                         currentFilter = currentFilter,
                         onFilterChange = { actions.onSetFilter(it) },
                     )
-                    QuickAddRow(
-                        onSubmit = { title ->
-                            val id = onCreateNote(title)
-                            navigator.openEditor(id)
-                        },
-                    )
+                    QuickAddRow(onSubmit = onCreateNote)
                 }
                 HorizontalDivider()
             }
@@ -192,12 +201,7 @@ fun NotesScreenContent(
                 subtitle = "Create your first note to get started",
                 modifier = Modifier.padding(padding),
                 actions = {
-                    FilledTonalButton(
-                        onClick = {
-                            val id = onCreateNote("")
-                            navigator.openEditor(id)
-                        },
-                    ) {
+                    FilledTonalButton(onClick = { onCreateNote("") }) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
                         Text("Create your first note")

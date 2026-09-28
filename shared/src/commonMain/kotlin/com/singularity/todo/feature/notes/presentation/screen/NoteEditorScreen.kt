@@ -130,6 +130,7 @@ private fun NotesUiEvent.toNotification(): Notification = when (this) {
     is NotesUiEvent.AiResult -> Notification.Text(title = "AI Result", text = text)
     is NotesUiEvent.SaveFailed -> Notification.Error(message)
     is NotesUiEvent.Error -> Notification.Error(message)
+    is NotesUiEvent.NavigateToEditor -> Notification.None
     NotesUiEvent.NavigateBack -> Notification.None
     NotesUiEvent.SavedPulse -> Notification.None
 }

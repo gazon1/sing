@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.ids.IdGenerator
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteFilter
@@ -33,7 +33,6 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalCoroutinesApi::class)
 class NotesListViewModel(
     private val repo: NotesRepository,
-    private val idGen: IdGenerator,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<NotesUiState, NotesIntent, NotesUiEvent>(
         initialState = NotesUiState.Loading,
@@ -178,13 +177,20 @@ class NotesListViewModel(
 
     // ─── Quick-create ──────────────────────────────────────────────────────
 
-    /** Creates a note with the given title. */
-    fun createNoteWithTitle(title: String): String {
-        val id = NoteId(idGen.next())
+    /**
+     * Creates a note with the given title, then asks the screen to open it.
+     *
+     * The navigation carries [NotesUiEvent.NavigateToEditor] with the id the repository
+     * returned. This method deliberately does not return an id: the write is launched, so
+     * there is nothing to return synchronously, and a locally generated id would name a
+     * note that was never created.
+     */
+    fun createNoteWithTitle(title: String) {
         scope.launch {
             repo.createNoteWithTitle(title)
+                .onSuccess { emit(NotesUiEvent.NavigateToEditor(it)) }
+                .onFailure { emit(NotesUiEvent.Error(it.toMessage("Create note failed"))) }
         }
-        return id.value
     }
 
     // ─── Delete ───────────────────────────────────────────────────────────
