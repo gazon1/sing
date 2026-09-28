@@ -37,3 +37,11 @@ baseline screenshot → describe UI → resolve element → tap/type → after s
 - Uses `contentDescription` as primary locator (plentiful in this app: "Toggle complete", "Delete", "Send", "Attachments (N)").
 - Falls back to coordinates if `ui_resolve` can't find the element.
 - If `android_ui_status` reports UI Automator unavailable, fall back to screenshot-only verification.
+
+> **Если эмулятор падает на старте** с `amdgpu: The CS has been rejected (-22)`
+> и `IOT instruction (core dumped)` — это регрессия Mesa + ядра на AMD Renoir.
+> Лечится обновлением системы, не флагами. Отдельно: при смене рендерера,
+> драйвера или версии ОС выбрасывайте снапшот
+> (`rm -rf ~/.android/avd/<AVD>/snapshots/*`), иначе возможен SIGABRT с
+> `eglMakeCurrent failed`. Подробности:
+> `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md`.

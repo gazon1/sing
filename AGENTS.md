@@ -166,6 +166,11 @@ ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и пос�
 + `adb pull` → `sqlite3 /tmp/singularity.db ".schema"` (android);
 `sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"` (desktop).
 
+> **Если эмулятор падает на старте** (`amdgpu: The CS has been rejected (-22)` +
+> `IOT instruction (core dumped)`) — это регрессия связки Mesa + ядро на AMD
+> Renoir, лечится обновлением системы, а не флагами `-gpu`/`-accel`. ADR:
+> `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md`.
+
 ## ❌ Что НЕ делать
 
 1. **`runBlocking` в ViewModel init** — вместо этого `combine(...)` + `flatMapLatest`
