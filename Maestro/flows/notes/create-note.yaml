@@ -19,9 +19,11 @@ tags:
     timeout: 5000
 - tapOn:
     id: menu_notes
+# The list container's testTag is not surfaced by the accessibility layer; the
+# quick-add field is both visible and the control this flow actually drives.
 - extendedWaitUntil:
     visible:
-      id: notes_list
+      id: notes_quick_add_input
     timeout: 5000
 - tapOn:
     id: notes_quick_add_input

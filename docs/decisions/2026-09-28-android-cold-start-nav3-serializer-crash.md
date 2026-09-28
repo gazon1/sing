@@ -1,7 +1,7 @@
 ---
 title: "Android cold start крашится: SerializerAlreadyRegisteredException в navSavedStateConfig"
 date: 2026-09-28
-status: open
+status: resolved
 ---
 
 # Android cold start крашится: `SerializerAlreadyRegisteredException` в `navSavedStateConfig`
@@ -63,9 +63,43 @@ kotlinx.serialization.modules.SerializerAlreadyRegisteredException:
    `fix/nav3-empty-entries-crash` (пока без коммитов поверх `main`).
 3. Откатить `@Serializable` на sealed-иерархиях `NavKey`.
 
-## Decision
+## Decision (обновлено 2026-09-28: исправлено здесь)
 
-**Вариант 2 — передать владельцу навигации. Не чинить в этой ветке.**
+**Изначально выбран вариант 2 — передать владельцу навигации.** Он был
+зафиксирован до того, как удалось довести диагностику до конца.
+
+После постановки диагноза (см. ниже) решение изменено на **вариант 1 — починить
+в этой ветке**: причина оказалась локальной и однострочной по смыслу, а блокировала
+не только тесты, но и вообще запуск Android-сборки. Ожидание, что этим занимается
+другая ветка, не подтвердилось.
+
+### Установленная причина
+
+`subclass(serializer)` в kotlinx-serialization — это `inline reified`-расширение,
+которое берёт `T::class` **на месте вызова**. Старый `navSavedStateConfig` принимал
+`vararg KSerializer<out NavKey>` и кастовал каждый элемент к `KSerializer<NavKey>`,
+поэтому `T` выводился как `NavKey`, и **каждый** элемент регистрировался под ключом
+`NavKey::class`. Второй вызов бросал `SerializerAlreadyRegisteredException` — при
+построении модуля, до первого кадра.
+
+Это подтверждено бисекцией: один элемент строится, любые два — падают. Официальный
+sample androidx избегает этого тем, что не стирает конкретный тип
+(`subclass(serializer = Home.serializer())`).
+
+### Исправление
+
+- `sealed interface AppDestination` помечена `@Serializable` — что её собственный
+  KDoc уже утверждал как замысел.
+- `navSavedStateConfig` принимает одну sealed-иерархию и вызывает
+  `subclassesOfSealed`, иначе вложенные подтипы не разрешаются при поиске.
+- Удалён `AppDestinationSerializers` — список из 24 элементов, который нужно было
+  поддерживать руками и который после фикса избыточен.
+
+Проверено на эмуляторе: `FATAL EXCEPTION: 0`, `MainActivity` в `topResumedActivity`,
+интерфейс отрисовывается. Регресс-тест `NavSavedStateConfigTest` покрывает все шесть
+иерархий и round-trip каждого подтипа destination.
+
+## Decision (первоначальная)
 
 Обоснование:
 
