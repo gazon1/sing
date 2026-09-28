@@ -1626,6 +1626,7 @@ _6 entries need attention._
 - `2026-09-27-write-layer-soundness` — repository, multi-profile, sync, architecture, security
 - `2026-09-28-detekt-duplicate-registration-guard` — detekt, tooling, ci, parallel-work, postmortem
 - `2026-09-28-mr1-test-virtualization-retro` — retro, tech-debt, tests, coroutines
+- `2026-09-28-mr2-project-detail-retro` — retro, tech-debt, viewmodel, coroutines, deprecation
 - `2026-09-28-mr2-retro-findings` — retro, tech-debt, tasks, tests
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
 
@@ -1912,6 +1913,7 @@ _6 entries need attention._
 - `2026-09-27-write-layer-soundness` — Write-layer soundness — ownership-scoped DAO mutations and the two-layer guard model
 - `2026-09-28-detekt-duplicate-registration-guard` — Guard against duplicate detekt rule registration
 - `2026-09-28-mr1-test-virtualization-retro` — MR-1 retro — three ADRs recorded a test constraint that had already been fixed
+- `2026-09-28-mr2-project-detail-retro` — MR-2 retro — the god-VM split was rejected once already, and the real defect was a subscription
 - `2026-09-28-mr2-retro-findings` — MR-2 retro — a subtask bug the slot tests exposed, and what the split did not fix
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
 
