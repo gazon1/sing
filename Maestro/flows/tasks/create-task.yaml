@@ -1,0 +1,27 @@
+# Smoke: create a task from the Today agenda and see it land in the list.
+#
+# Exercises FabActionResolver (Today tab -> "Add task" -> TasksGraph/Create),
+# the task editor's save path, and the round-trip of the title through
+# TestTags.taskItem() so the row is addressable by its generated tag.
+appId: com.singularity.todo
+name: tasks-create-task
+tags:
+  - smoke
+  - tasks
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: tasks_fab
+- assertVisible:
+    id: task_editor_title_input
+- tapOn:
+    id: task_editor_title_input
+- inputText: "Buy milk"
+- hideKeyboard
+- tapOn:
+    id: task_editor_save
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 5000
+- takeScreenshot: tasks/create-task

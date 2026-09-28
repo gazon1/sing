@@ -53,6 +53,7 @@ alias tj     := tests::jvm
 alias tah    := tests::android-host
 alias tcheck := tests::check
 alias tclean := tests::clean
+alias tm     := tests::ui-maestro
 
 # ----- Lint shortcuts -----
 alias lint       := tests::lint

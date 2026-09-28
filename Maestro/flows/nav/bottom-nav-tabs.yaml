@@ -1,0 +1,68 @@
+# Smoke: every bottom-bar tab is reachable and renders its own screen.
+#
+# Written as a linear sequence rather than a `repeat` loop on purpose: when a
+# tab fails, the failing command in the report names that tab, instead of
+# pointing at a loop iteration index.
+appId: com.singularity.todo
+name: nav-bottom-nav-tabs
+tags:
+  - smoke
+  - nav
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Inbox — FAB reads "Add task" here and on Today/Upcoming.
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_inbox
+      selected: true
+    timeout: 5000
+
+# Today — the start destination.
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+      selected: true
+    timeout: 5000
+
+# Upcoming.
+- tapOn:
+    id: nav_tab_upcoming
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_upcoming
+      selected: true
+    timeout: 5000
+
+# Plans — the FAB switches to "Add project" on this tab.
+- tapOn:
+    id: nav_tab_plans
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_plans
+      selected: true
+    timeout: 5000
+- assertVisible:
+    id: tasks_fab
+
+# Pomodoro.
+- tapOn:
+    id: nav_tab_pomodoro
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_pomodoro
+      selected: true
+    timeout: 5000
+
+# Calendar.
+- tapOn:
+    id: nav_tab_calendar
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_calendar
+      selected: true
+    timeout: 5000

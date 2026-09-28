@@ -1,0 +1,23 @@
+# Open a task's detail screen and return to the agenda.
+#
+# Covers the AgendaIntent.TaskClicked -> TasksRoute.Detail(taskId) push and the
+# pop back to the agenda stack.
+appId: com.singularity.todo
+name: tasks-open-task-detail
+tags:
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    notVisible:
+      id: tasks_fab
+    timeout: 5000
+- back
+- extendedWaitUntil:
+    visible:
+      id: tasks_fab
+    timeout: 5000
+- assertVisible:
+    id: task_item_buy_milk

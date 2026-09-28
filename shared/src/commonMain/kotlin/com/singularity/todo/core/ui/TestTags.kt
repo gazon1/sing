@@ -30,7 +30,7 @@ object TestTags {
     const val MENU_SHEET = "menu_sheet"
     const val DESKTOP_SIDEBAR = "desktop_sidebar"
 
-    /** Dynamic: nav_tab_<slug> */
+    /** Dynamic tag of the form `nav_tab_<slug>`. */
     fun navTab(title: String) = "nav_tab_${slug(title)}"
 
     /** Dynamic: menu_<slug> — keyed by the *label* the user sees, not the destination. */
@@ -42,10 +42,10 @@ object TestTags {
     const val TASKS_FILTER_CHIPS = "tasks_filter_chips"
     const val TASKS_SEARCH_BAR = "tasks_search_bar"
 
-    /** Dynamic: task_item_<slug> */
+    /** Dynamic tag of the form `task_item_<slug>`. */
     fun taskItem(title: String) = "task_item_${slug(title)}"
 
-    /** Dynamic: task_checkbox_<slug> */
+    /** Dynamic tag of the form `task_checkbox_<slug>`. */
     fun taskCheckbox(title: String) = "task_checkbox_${slug(title)}"
 
     // ─── Task Editor ─────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ object TestTags {
     const val NOTES_LIST = "notes_list"
     const val NOTES_FAB = "notes_fab"
 
-    /** Dynamic: note_item_<slug> */
+    /** Dynamic tag of the form `note_item_<slug>`. */
     fun noteItem(id: String) = "note_item_${slug(id)}"
 
     // ─── Note Editor ────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ object TestTags {
     const val PROJECT_EDITOR_BACK = "project_editor_back"
     const val PROJECT_EDITOR_NOTIFICATION_HOST = "project_editor_notification_host"
 
-    /** Dynamic: project_card_<slug> */
+    /** Dynamic tag of the form `project_card_<slug>`. */
     fun projectCard(name: String) = "project_card_${slug(name)}"
 
     // ─── Backup ─────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ object TestTags {
 
     // ─── AI ─────────────────────────────────────────────────────────────────
 
-    /** Dynamic: genui_<slug> */
+    /** Dynamic tag of the form `genui_<slug>`. */
     fun genUi(name: String) = "genui_${slug(name)}"
 }
 

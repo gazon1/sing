@@ -1,0 +1,18 @@
+# Toggle a task's completion checkbox.
+#
+# The checkbox carries TestTags.taskCheckbox(title); asserting `checked: true`
+# after the tap is what makes this a state assertion rather than a tap-counting
+# smoke test.
+appId: com.singularity.todo
+name: tasks-toggle-task-complete
+tags:
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: task_checkbox_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_checkbox_buy_milk
+      checked: true
+    timeout: 5000

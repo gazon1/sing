@@ -1,0 +1,37 @@
+# Smoke: create a note via the bottom-sheet menu.
+#
+# Notes live behind the Menu sheet rather than a bottom-bar tab, so this flow
+# also covers MenuBottomSheet -> menu_notes. The tag is keyed by the visible
+# label, so it is `menu_notes` (not the destination-title form).
+appId: com.singularity.todo
+name: notes-create-note
+tags:
+  - smoke
+  - notes
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- assertVisible:
+    id: menu_sheet
+- tapOn:
+    id: menu_notes
+- extendedWaitUntil:
+    visible:
+      id: notes_list
+    timeout: 5000
+- tapOn:
+    id: notes_fab
+- assertVisible:
+    id: note_editor_title_input
+- tapOn:
+    id: note_editor_title_input
+- inputText: "Meeting notes"
+- hideKeyboard
+- tapOn:
+    id: note_editor_save
+- extendedWaitUntil:
+    visible:
+      id: note_item_meeting_notes
+    timeout: 5000
+- takeScreenshot: notes/create-note
