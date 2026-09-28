@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
@@ -11,7 +12,6 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPo
 import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendar_sync.sync.SyncSource
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
@@ -72,16 +72,22 @@ class CalendarSyncViewModel(
     // MviViewModel handles addCloseable(scope) — no manual call needed
 
     init {
+        // The transform projects; the collector applies. Writing state from inside a
+        // `combine` transform is the anti-pattern `NoCombineSideEffect` exists for — the
+        // write re-fires on every upstream emission instead of being applied once per
+        // emission to a value the transform returned. The transform returns the reducer
+        // so the flow's value type stays `CalendarSyncUiState.Content` with no
+        // hand-written intermediate class.
         vmScope.launch {
-            combine(
+            combineStates(
                 syncRepo.observeEnabled(),
                 syncRepo.observeTargetCalendarId(),
                 syncRepo.observeStatus(),
                 syncRepo.observeLastSyncedAt(),
                 syncRepo.observeTargetAppPackage(),
             ) { enabled, calendarId, status, lastAt, appPkg ->
-                updateState {
-                    it.copy(
+                { content: CalendarSyncUiState ->
+                    content.copy(
                         isEnabled = enabled,
                         selectedCalendarId = calendarId,
                         status = status,
@@ -89,7 +95,7 @@ class CalendarSyncViewModel(
                         selectedAppPackage = appPkg,
                     )
                 }
-            }.collect {}
+            }.collect { reduce -> updateState { reduce(it) } }
         }
     }
 

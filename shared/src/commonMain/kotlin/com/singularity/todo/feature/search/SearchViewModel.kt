@@ -5,6 +5,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
@@ -157,21 +158,22 @@ class SearchViewModel(
                 }
         }
 
-        // Keep query and parsedQuery in sync
+        // Mirror the four backing flows into state. `combineStates` gives a typed
+        // 4-parameter transform, so the `listOf` packing and the index casts this used
+        // to need are gone — the cast was only ever an assertion about a tuple the
+        // previous line had just built. The transform returns the reducer so the write
+        // happens in the collector, not in the projection.
         vmScope.launch {
-            combine(_queryString, _parsedQuery, _activeFilter, _activeSavedSearchId) { qs, pq, af, asid ->
-                listOf(qs, pq, af, asid)
-            }.collect { parts ->
-                @Suppress("UNCHECKED_CAST")
-                updateState {
-                    it.copy(
-                        query = parts[0] as String,
-                        parsedQuery = parts[1] as Query?,
-                        activeFilter = parts[2] as SimpleFilter?,
-                        activeSavedSearchId = parts[3] as SavedSearchId?,
+            combineStates(_queryString, _parsedQuery, _activeFilter, _activeSavedSearchId) { qs, pq, af, asid ->
+                { current: SearchUiState ->
+                    current.copy(
+                        query = qs,
+                        parsedQuery = pq,
+                        activeFilter = af,
+                        activeSavedSearchId = asid,
                     )
                 }
-            }
+            }.collect { reduce -> updateState { reduce(it) } }
         }
     }
 
