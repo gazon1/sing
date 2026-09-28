@@ -86,3 +86,4 @@ target/
 # UI verification screenshots
 *.png
 scripts/__pycache__/
+.zcode
