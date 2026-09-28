@@ -1,14 +1,14 @@
-# Smoke: every bottom-bar tab is reachable.
+# Smoke: every bottom-bar tab is reachable, and each routes the FAB correctly.
 #
-# Written as a linear sequence rather than a `repeat` loop on purpose: when a
-# tab fails, the failing command in the report names that tab, instead of
-# pointing at a loop iteration index.
+# The FAB expectations encode the real contract from `FabActionResolver`:
+# Inbox/Today/Upcoming are `AgendaGraph` routes, but only Inbox and Today get
+# "Add task" — Upcoming deliberately has none. Plans gets "Add project".
+# Pomodoro and Calendar are non-agenda destinations and get nothing.
+# Getting this wrong made this flow fail on Upcoming, so the assertions are
+# written to match the resolver rather than to match a guess.
 #
-# Note on assertions: the accessibility layer does not surface the
-# `selected` state of a NavigationBarItem on the same node that carries its
-# test tag, so `selected: true` is not a usable selector here. Reachability is
-# asserted instead — the tab node is present and, on the agenda tabs, the FAB
-# follows the tab's routing (the real behaviour worth protecting).
+# `selected: true` is not usable here: the accessibility layer does not expose
+# the selection state on the same node that carries the test tag.
 appId: com.singularity.todo
 name: nav-bottom-nav-tabs
 tags:
@@ -17,7 +17,7 @@ tags:
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 
-# Inbox — FAB reads "Add task" on every agenda tab.
+# Inbox — FAB reads "Add task".
 - tapOn:
     id: nav_tab_inbox
 - assertVisible:
@@ -25,7 +25,7 @@ tags:
 - assertVisible:
     id: nav_tab_inbox
 
-# Today — the start destination.
+# Today — the start destination, also "Add task".
 - tapOn:
     id: nav_tab_today
 - assertVisible:
@@ -33,15 +33,22 @@ tags:
 - assertVisible:
     id: nav_tab_today
 
-# Upcoming.
+# Upcoming — no FAB by design.
 - tapOn:
     id: nav_tab_upcoming
-- assertVisible:
+- assertNotVisible:
     id: tasks_fab
 - assertVisible:
     id: nav_tab_upcoming
 
-# Plans — the FAB switches to "Add project" on this tab.
+# Back to an agenda tab before leaving for the other destinations, so the
+# next assertion starts from a known FAB state.
+- tapOn:
+    id: nav_tab_today
+- assertVisible:
+    id: tasks_fab
+
+# Plans — the FAB switches to "Add project".
 - tapOn:
     id: nav_tab_plans
 - assertVisible:
@@ -49,7 +56,7 @@ tags:
 - assertVisible:
     id: nav_tab_plans
 
-# Pomodoro — no FAB on this tab.
+# Pomodoro — no shell FAB.
 - tapOn:
     id: nav_tab_pomodoro
 - assertNotVisible:
@@ -57,7 +64,7 @@ tags:
 - assertVisible:
     id: nav_tab_pomodoro
 
-# Calendar — no FAB on this tab either.
+# Calendar — no shell FAB.
 - tapOn:
     id: nav_tab_calendar
 - assertNotVisible:

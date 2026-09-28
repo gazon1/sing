@@ -12,7 +12,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -108,11 +108,17 @@ fun TaskCheckbox(
         modifier = modifier
             .size(TaskListSizes.Checkbox)
             .scale(popScale.value * pressScale)
-            .clickable(
+            // toggleable, not clickable: clickable alone leaves the node without a
+            // ToggleableState, so assistive tech (and UI automation) cannot read whether
+            // the box is actually checked — only the stateDescription string. The press
+            // animation and null indication are preserved from the previous clickable.
+            .toggleable(
+                value = isChecked,
                 interactionSource = interactionSource,
                 indication = null,
                 role = Role.Checkbox,
-            ) { onCheckedChange(!isChecked) }
+                onValueChange = onCheckedChange,
+            )
             .semantics {
                 role = Role.Checkbox
                 stateDescription = if (isChecked) "Выполнено" else "Не выполнено"

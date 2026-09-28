@@ -28,9 +28,21 @@ tags:
 - tapOn:
     id: notes_quick_add_input
 - inputText: "Meeting notes"
+# Quick-add submits on the IME "Done" action, which creates the note AND opens
+# it in the editor — it does not return to the list. Saving from there is what
+# makes the row appear.
 - pressKey: Enter
 - extendedWaitUntil:
     visible:
-      id: note_item_meeting_notes
+      id: note_editor_title_input
+    timeout: 5000
+# The note editor autosaves: tapping save does not pop the screen. Leaving the
+# editor is what puts the row back in the list.
+- tapOn:
+    id: note_editor_save
+- back
+- extendedWaitUntil:
+    visible:
+      id: note_item_by_title_meeting_notes
     timeout: 5000
 - takeScreenshot: notes/create-note

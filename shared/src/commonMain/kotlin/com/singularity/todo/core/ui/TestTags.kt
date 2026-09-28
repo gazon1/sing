@@ -73,8 +73,23 @@ object TestTags {
     const val NOTES_FAB = "notes_fab"
     const val NOTES_QUICK_ADD_INPUT = "notes_quick_add_input"
 
-    /** Dynamic tag of the form `note_item_<slug>`. */
+    /**
+     * Dynamic tag of the form `note_item_<slug>`, keyed by note id.
+     *
+     * Identity-based: correct for tests that already hold a [com.singularity.todo.feature.notes.domain.model.NoteId]
+     * (see `desktopApp`'s `NotesScreenTest`). A ULID is not knowable in advance, so UI
+     * automation that has just created a note cannot use this — see [noteItemByTitle].
+     */
     fun noteItem(id: String) = "note_item_${slug(id)}"
+
+    /**
+     * Dynamic tag of the form `note_item_by_title_<slug>`, keyed by the visible title.
+     *
+     * This is the addressable one for end-to-end automation, which knows the title it
+     * typed but never the generated id. Empty titles produce a bare
+     * `note_item_by_title_` prefix, so a flow should create a titled note.
+     */
+    fun noteItemByTitle(title: String) = "note_item_by_title_${slug(title)}"
 
     // ─── Note Editor ────────────────────────────────────────────────────────
     const val NOTE_EDITOR_TITLE_INPUT = "note_editor_title_input"
