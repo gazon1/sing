@@ -1,0 +1,28 @@
+# Smoke: the app cold-starts into the shell and the primary affordances render.
+#
+# Covers the whole boot chain in one assertion set: AppVersionGate ->
+# AuthGuard (anonymous session) -> Nav3 startRoute (AgendaGraph/Today) ->
+# androidShellNav3Root (bottom bar + FAB).
+appId: com.singularity.todo
+name: smoke-launch-today
+tags:
+  - smoke
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- assertVisible:
+    id: tasks_fab
+- assertVisible:
+    id: nav_tab_inbox
+- assertVisible:
+    id: nav_tab_today
+- assertVisible:
+    id: nav_tab_upcoming
+- assertVisible:
+    id: nav_tab_plans
+- assertVisible:
+    id: nav_tab_pomodoro
+- assertVisible:
+    id: nav_tab_calendar
+- assertVisible:
+    id: nav_menu_button
+- takeScreenshot: smoke/01-launch-today

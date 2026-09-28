@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Pre-push hook: runs the full test suite before pushing.
+#
+# Runs on ALL branches (both main checkout and worktrees).
+# This is the last gate before code leaves the local machine.
+#
+# Use `git push --no-verify` to skip this hook when needed (e.g., WIP commits).
+#
+# To bypass temporarily:
+#   git push --no-verify
+#
+# To disable entirely (not recommended):
+#   git config --unset core.hooksPath
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+
+echo "=== Pre-push [$BRANCH] — full test suite ==="
+
+# Run all fast tests + detekt (slow tests are excluded — use CI for those)
+./gradlew :shared:detekt \
+    :shared:jvmTest \
+    :desktopApp:test \
+    :mcp-server:test \
+    -Ptest.tags=fast \
+    --no-daemon \
+    --parallel || {
+    echo ""
+    echo "pre-push FAILED — push rejected. Fix failures or run with --no-verify"
+    exit 1
+}
+
+echo "=== Pre-push OK ==="

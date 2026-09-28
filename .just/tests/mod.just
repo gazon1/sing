@@ -176,3 +176,14 @@ coverage-html:
 # ---------------------------------------------------------------------------
 # check — run tests + lint (report-only initially)
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# ui-maestro — Maestro UI flows on a connected device/emulator
+# ---------------------------------------------------------------------------
+[group('tests')]
+[doc('Run Maestro UI flows: just ui-maestro [flow] [tags] [serial]')]
+ui-maestro flow="Maestro/flows" tags="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SERIAL="${SERIAL:-}" FLOW="{{ flow }}" TAGS="{{ tags }}" \
+        bash scripts/run-maestro.sh

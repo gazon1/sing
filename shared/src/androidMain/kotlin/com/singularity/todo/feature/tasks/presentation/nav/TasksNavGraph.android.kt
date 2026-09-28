@@ -33,10 +33,7 @@ actual fun TasksNavGraph(start: TasksRoute, onExitGraph: (AppDestination?) -> Un
     // (which concrete NavKey subtypes exist), not a value to persist. It is constant
     // across process death — only the NavBackStack content is serialized.
     val savedStateConfig = remember {
-        navSavedStateConfig(
-            TasksRoute.Detail.serializer(),
-            TasksRoute.Create.serializer(),
-        )
+        navSavedStateConfig(TasksRoute.serializer())
     }
 
     @Suppress("UNCHECKED_CAST")

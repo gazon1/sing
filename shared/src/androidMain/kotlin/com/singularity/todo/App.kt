@@ -11,6 +11,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import com.singularity.todo.core.appearance.AppearanceSettingsRepository
 import com.singularity.todo.core.auth.AuthGuard
 import com.singularity.todo.core.ui.theme.SingularityAccents
@@ -58,7 +60,13 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
             @Suppress("BatteryLife")
             context.startActivity(storeIntent)
         },
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            // Surfaces every Modifier.testTag as an accessibility resource-id, which is how
+            // external UI automation (Maestro, UIAutomator) addresses the TestTags registry.
+            // Without it, Compose keeps test tags in an internal-only semantics property and
+            // the whole TestTags catalogue is invisible outside the app.
+            .semantics { testTagsAsResourceId = true },
         content = {
             AppContent(
                 deeplinkViewId = deeplinkViewId,

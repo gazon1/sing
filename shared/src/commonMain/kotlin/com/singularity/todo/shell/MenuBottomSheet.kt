@@ -37,12 +37,18 @@ import com.singularity.todo.feature.nav.icon
  * The caller (`AndroidShell`) owns `menuVisible` as `rememberSaveable` state.
  *
  * Sections are declarative — adding a new section means adding one entry
- * to [MenuSections], no need to touch the layout. To add new menu items
+ *
+ * @param modifier applied to the sheet's content column. Callers on Android pass
+ *   `Modifier.semantics { testTagsAsResourceId = true }` here so the menu item test
+ *   tags reach UI automation — the sheet lives in its own window, so an
+ *   app-root flag never reaches it.
+ *
+ * To add new menu items
  * to the "Destinations" group, just append to [DestinationKind.menuEntries].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
+fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit, modifier: Modifier = Modifier) {
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
 
     LaunchedEffect(Unit) { sheetState.show() }
@@ -52,7 +58,8 @@ fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
         modifier = Modifier.testTag(TestTags.MENU_SHEET),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth()
+            modifier = modifier
+                .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -65,7 +72,7 @@ fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
                         onClick = { onSelect(item.destination) },
                         icon = item.iconContent(),
                         modifier = Modifier.fillMaxWidth()
-                            .testTag(TestTags.menuItem(item.destination.title.lowercase())),
+                            .testTag(TestTags.menuItem(item.label)),
                     )
                 }
                 HorizontalDivider()

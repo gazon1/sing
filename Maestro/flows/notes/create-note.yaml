@@ -1,0 +1,48 @@
+# Smoke: create a note via the bottom-sheet menu.
+#
+# Notes live behind the Menu sheet rather than a bottom-bar tab, so this flow
+# also covers MenuBottomSheet -> menu_notes. There is no FAB on the notes list;
+# a note is created through the quick-add row, which submits on the IME "Done"
+# action.
+appId: com.singularity.todo
+name: notes-create-note
+tags:
+  - smoke
+  - notes
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_notes
+    timeout: 5000
+- tapOn:
+    id: menu_notes
+# The list container's testTag is not surfaced by the accessibility layer; the
+# quick-add field is both visible and the control this flow actually drives.
+- extendedWaitUntil:
+    visible:
+      id: notes_quick_add_input
+    timeout: 5000
+- tapOn:
+    id: notes_quick_add_input
+- inputText: "Meeting notes"
+# Quick-add submits on the IME "Done" action, which creates the note AND opens
+# it in the editor — it does not return to the list. Saving from there is what
+# makes the row appear.
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: note_editor_title_input
+    timeout: 5000
+# The note editor autosaves: tapping save does not pop the screen. Leaving the
+# editor is what puts the row back in the list.
+- tapOn:
+    id: note_editor_save
+- back
+- extendedWaitUntil:
+    visible:
+      id: note_item_by_title_meeting_notes
+    timeout: 5000
+- takeScreenshot: notes/create-note

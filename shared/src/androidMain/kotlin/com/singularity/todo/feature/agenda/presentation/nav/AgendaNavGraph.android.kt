@@ -26,16 +26,7 @@ import com.singularity.todo.feature.nav.navSavedStateConfig
 @Composable
 actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
     val savedStateConfig = remember {
-        navSavedStateConfig(
-            AgendaStartRoute.Inbox.serializer(),
-            AgendaStartRoute.Today.serializer(),
-            AgendaStartRoute.Upcoming.serializer(),
-            AgendaStartRoute.Project.serializer(),
-            AgendaStartRoute.Tag.serializer(),
-            AgendaStartRoute.SavedAgendaList.serializer(),
-            AgendaStartRoute.SavedAgendaEdit.serializer(),
-            AgendaStartRoute.SavedAgendaCreate.serializer(),
-        )
+        navSavedStateConfig(AgendaStartRoute.serializer())
     }
 
     @Suppress("UNCHECKED_CAST")

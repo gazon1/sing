@@ -43,15 +43,21 @@ internal fun NoteCardContent(note: Note, isSelected: Boolean, modifier: Modifier
         else -> MaterialTheme.colorScheme.surface
     }
     Card(
+        // Identity tag, for tests that already hold a NoteId (see desktopApp's
+        // NotesScreenTest). The title-based tag lives on the inner Row: Modifier.testTag
+        // stores a single value, so applying it twice in one chain keeps only the last.
         modifier = modifier
             .fillMaxWidth()
             .testTag(TestTags.noteItem(note.id.value)),
         colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {
         Row(
+            // Addressable by the title an end-to-end test typed, which never knows the
+            // generated ULID.
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(12.dp)
+                .testTag(TestTags.noteItemByTitle(note.title)),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {

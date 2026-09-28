@@ -10,8 +10,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
@@ -58,7 +60,16 @@ fun TaskRowFlat(
         Modifier
     }
 
-    Column(modifier = modifier.fillMaxWidth().then(indentPadding)) {
+    Column(
+        // TestTags.taskItem lives here, not only on TaskCard: the agenda renders this flat
+        // variant, so a tag on the card alone left every agenda row unaddressable by UI
+        // automation. The tag is applied outside the indent padding so the same title
+        // always yields the same tag regardless of nesting depth.
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(TestTags.taskItem(task.title))
+            .then(indentPadding),
+    ) {
         TaskRowContent(
             task = task,
             onToggleCompleted = onToggleCompleted,

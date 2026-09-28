@@ -33,11 +33,7 @@ actual fun NotesNavGraph(navCallbacks: NavCallbacks, start: NotesRoute, modifier
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist.
     val savedStateConfig = remember {
-        navSavedStateConfig(
-            NotesRoute.List.serializer(),
-            NotesRoute.Preview.serializer(),
-            NotesRoute.Editor.serializer(),
-        )
+        navSavedStateConfig(NotesRoute.serializer())
     }
 
     @Suppress("UNCHECKED_CAST")

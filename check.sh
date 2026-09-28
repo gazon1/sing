@@ -70,5 +70,23 @@ if [[ "${SKIP_ADB:-0}" != "1" ]] && adb devices | grep -q "device$"; then
     fi
 fi
 
+# Optional: Maestro UI flows. Opt-in (RUN_MAESTRO=1) rather than default —
+# these need a booted device, and the emulator cold-start path is not yet
+# reliable enough to gate a local check on. See
+# docs/decisions/2026-09-28-android-cold-start-nav3-serializer-crash.md.
+if [[ "${RUN_MAESTRO:-0}" == "1" ]]; then
+    echo ""
+    echo -e "${YELLOW}=== [opt] Maestro UI flows ===${NC}"
+    if command -v maestro >/dev/null 2>&1; then
+        SERIAL="${SERIAL:-}" TAGS="${MAESTRO_TAGS:-smoke}" SKIP_INSTALL=1 \
+            bash scripts/run-maestro.sh || {
+            echo -e "${RED}Maestro flows FAILED${NC}"
+            exit 1
+        }
+    else
+        echo -e "${YELLOW}maestro CLI not on PATH — skipping${NC}"
+    fi
+fi
+
 echo ""
 echo -e "${GREEN}=== ALL CHECKS PASSED ===${NC}"

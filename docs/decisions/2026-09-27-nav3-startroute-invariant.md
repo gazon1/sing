@@ -47,6 +47,7 @@ A second, independent defect surfaced during the audit: the Android
 3. Add the two missing serializers in place, leaving the hand-maintained list as-is.
 4. Extract the serializer list into a single `AppDestinationSerializers` value and add an
    `init { require(...) }` guard on `Nav3State`.
+   *(Superseded on 2026-09-28: the list is gone — see the update note below.)*
 
 ## Decision
 
@@ -54,11 +55,13 @@ We did all of option 2 and 4 combined:
 
 - `startRoute` is now `AppDestination.AgendaGraph(AgendaStartRoute.Today)` on both platforms,
   with a comment recording why it must stay a member of `topLevelRoutes`.
-- All concrete `AppDestination` serializers moved into a single
-  `AppDestinationSerializers: List<KSerializer<out NavKey>>` in `AppDestination.kt`.
-  `Nav3StateFactory.android.kt` now calls `navSavedStateConfig(*AppDestinationSerializers.toTypedArray())`.
-  The list is grouped by category (tabs/menu, nested graphs, flat sub-routes) and its KDoc
-  states the registration rule.
+- ~~All concrete `AppDestination` serializers moved into a single
+  `AppDestinationSerializers: List<KSerializer<out NavKey>>` in `AppDestination.kt`.~~
+  **Superseded 2026-09-28** (see
+  `2026-09-28-android-cold-start-nav3-serializer-crash.md`): that hand-maintained list fed
+  `subclass(serializer)` with type-erased serializers, which crashed every Android cold
+  start. `AppDestination` is now `@Serializable sealed` and `navSavedStateConfig` registers
+  the hierarchy via `subclassesOfSealed` — no per-leaf list exists.
 - `Nav3State` gained an `init` block asserting both `startRoute in backStacks` and
   `topLevelRouteState.value == startRoute`.
 - `Nav3State.requireBackStackFor(route)` was added, and `Navigator.navigate` / `Navigator.goBack`
@@ -98,7 +101,9 @@ behaviour. The `require` block gives the same safety with a smaller diff.
 
 - `startRoute` used by `rememberNav3State` **must** be a member of `topLevelRoutes`
   (`DestinationKind.tabs + DestinationKind.menuEntries`), or `Nav3State` construction throws.
-- Register new `AppDestination` serializers in `AppDestinationSerializers`, nowhere else.
+- ~~Register new `AppDestination` serializers in `AppDestinationSerializers`, nowhere else.~~
+  Superseded 2026-09-28: a new `@Serializable` `AppDestination` subtype is covered
+  automatically by the sealed serializer; no registration step exists anymore.
 - Call `requireBackStackFor(route)` instead of `backStackFor(route)` at any call site that cannot
   meaningfully continue without a stack.
 - Keep the shell fallback destination (`AndroidShellNav3`, `DesktopShellNav3`) in sync with

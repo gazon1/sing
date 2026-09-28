@@ -17,8 +17,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 
@@ -57,7 +59,9 @@ fun TaskTitleRow(
             ),
             cursorBrush = SolidColor(TaskColors.AccentBlue),
             singleLine = true,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .testTag(TestTags.TASK_EDITOR_TITLE_INPUT),
             decorationBox = { innerTextField ->
                 if (title.isEmpty()) {
                     Text(

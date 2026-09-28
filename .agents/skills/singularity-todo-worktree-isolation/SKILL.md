@@ -78,7 +78,6 @@ main/.githooks/         ← versioned, canonical copy
   post-checkout
 
 main/.git/hooks/        ← NOT versioned; managed by git
-worktree/.git/hooks/    ← NOT versioned; same content as main
 ```
 
 ### Installing hooks
@@ -89,7 +88,7 @@ After cloning or creating a worktree, run:
 just setup-hooks
 ```
 
-This sets `core.hooksPath` to point to the main checkout's `.githooks/` for both the current context and all attached worktrees. It works from both main checkout and any worktree.
+It resolves the hooks source from the main checkout (three levels up from a worktree's git-dir), preferring the versioned `.githooks/` and falling back to `.git/hooks/` where the versioned copy has not landed yet. It **verifies the directory actually contains an executable `pre-commit` before pointing `core.hooksPath` at it** — pointing `core.hooksPath` at a missing directory does not error; git silently runs no hooks at all (this was the failure mode of the previous recipe, see `docs/decisions/2026-09-28-setup-hooks-broken-githooks-path.md`).
 
 ### Hooks behavior
 

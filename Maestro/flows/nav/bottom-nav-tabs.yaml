@@ -1,0 +1,73 @@
+# Smoke: every bottom-bar tab is reachable, and each routes the FAB correctly.
+#
+# The FAB expectations encode the real contract from `FabActionResolver`:
+# Inbox/Today/Upcoming are `AgendaGraph` routes, but only Inbox and Today get
+# "Add task" — Upcoming deliberately has none. Plans gets "Add project".
+# Pomodoro and Calendar are non-agenda destinations and get nothing.
+# Getting this wrong made this flow fail on Upcoming, so the assertions are
+# written to match the resolver rather than to match a guess.
+#
+# `selected: true` is not usable here: the accessibility layer does not expose
+# the selection state on the same node that carries the test tag.
+appId: com.singularity.todo
+name: nav-bottom-nav-tabs
+tags:
+  - smoke
+  - nav
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Inbox — FAB reads "Add task".
+- tapOn:
+    id: nav_tab_inbox
+- assertVisible:
+    id: tasks_fab
+- assertVisible:
+    id: nav_tab_inbox
+
+# Today — the start destination, also "Add task".
+- tapOn:
+    id: nav_tab_today
+- assertVisible:
+    id: tasks_fab
+- assertVisible:
+    id: nav_tab_today
+
+# Upcoming — no FAB by design.
+- tapOn:
+    id: nav_tab_upcoming
+- assertNotVisible:
+    id: tasks_fab
+- assertVisible:
+    id: nav_tab_upcoming
+
+# Back to an agenda tab before leaving for the other destinations, so the
+# next assertion starts from a known FAB state.
+- tapOn:
+    id: nav_tab_today
+- assertVisible:
+    id: tasks_fab
+
+# Plans — the FAB switches to "Add project".
+- tapOn:
+    id: nav_tab_plans
+- assertVisible:
+    id: tasks_fab
+- assertVisible:
+    id: nav_tab_plans
+
+# Pomodoro — no shell FAB.
+- tapOn:
+    id: nav_tab_pomodoro
+- assertNotVisible:
+    id: tasks_fab
+- assertVisible:
+    id: nav_tab_pomodoro
+
+# Calendar — no shell FAB.
+- tapOn:
+    id: nav_tab_calendar
+- assertNotVisible:
+    id: tasks_fab
+- assertVisible:
+    id: nav_tab_calendar

@@ -24,6 +24,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.AgendaStartRoute
@@ -78,10 +80,12 @@ fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                             Icon(
                                 destination.icon,
                                 contentDescription = destination.title,
-                                modifier = Modifier.testTag(TestTags.navTab(destination.title.lowercase())),
                             )
                         },
                         label = { Text(destination.title) },
+                        // On the item, not the icon: a tag on a decorative child is merged
+                        // into the clickable node and never surfaces as a resource-id.
+                        modifier = Modifier.testTag(TestTags.navTab(destination.title)),
                     )
                 }
                 NavigationBarItem(
@@ -91,10 +95,10 @@ fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                         Icon(
                             Icons.Default.Menu,
                             contentDescription = MenuButtonTitle,
-                            modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
                         )
                     },
                     label = { Text(MenuButtonTitle) },
+                    modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
                 )
             }
         },
@@ -124,6 +128,12 @@ fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                 menuVisible = false
                 navigator.navigate(dest)
             },
+            // A ModalBottomSheet renders into its own window, so the app-root
+            // testTagsAsResourceId never reaches it and every menu item tag stays
+            // invisible to UI automation. It has to be declared inside the sheet's
+            // own content, and the property only exists on Android — which is why it
+            // arrives as a parameter instead of living in this commonMain composable.
+            modifier = Modifier.semantics { testTagsAsResourceId = true },
         )
     }
 }

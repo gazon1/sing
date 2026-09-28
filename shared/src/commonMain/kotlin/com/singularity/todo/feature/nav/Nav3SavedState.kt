@@ -7,12 +7,22 @@ import androidx.savedstate.serialization.SavedStateConfiguration
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
-import kotlinx.serialization.modules.subclass
+import kotlinx.serialization.modules.subclassesOfSealed
 
 /**
- * Constructs a [SavedStateConfiguration] that registers the concrete [NavKey] subtypes in
- * [routeSerializers] under the polymorphic `NavKey` root, so that
- * `rememberNavBackStack(configuration, ...)` can dispatch correctly during serialization.
+ * Constructs a [SavedStateConfiguration] that registers [routeHierarchy] under the polymorphic
+ * [NavKey] root, so that `rememberNavBackStack(configuration, ...)` can dispatch correctly during
+ * serialization.
+ *
+ * **Pass the serializer of a sealed route base — never a hand-maintained list of leaves.**
+ * `subclass(serializer)` is an `inline reified` function that keys the registration on
+ * `T::class` resolved *at the call site*. Erasing the static type to `KSerializer<NavKey>`
+ * (or looping over a `KSerializer<out NavKey>` list) makes `T` infer as `NavKey`, so every
+ * entry registers under `NavKey::class` and the second one throws
+ * `SerializerAlreadyRegisteredException`. Passing the sealed base once — e.g.
+ * `AppDestination.serializer()` — infers `T = AppDestination`, and the generated
+ * `SealedClassSerializer` already covers every leaf, so a new destination needs no
+ * registration change.
  *
  * **When to use:** call this from Android-side NavGraph actuals that need process-death
  * persistence of the back stack. The resulting configuration is a no-op on JVM Desktop because
@@ -28,17 +38,14 @@ import kotlinx.serialization.modules.subclass
  * `as NavBackStack<T>` cast. This is a known limitation — see
  * `docs/decisions/2026-09-16-nav3-type-asymmetry-adr.md`.
  *
- * @param routeSerializers one [KSerializer] per concrete route type that may appear in the stack.
+ * @param routeHierarchy serializer of a `@Serializable sealed` hierarchy rooted at [NavKey].
  * @see rememberInMemoryNavBackStack
  */
-internal fun navSavedStateConfig(vararg routeSerializers: KSerializer<out NavKey>): SavedStateConfiguration =
+internal inline fun <reified T : NavKey> navSavedStateConfig(routeHierarchy: KSerializer<T>): SavedStateConfiguration =
     SavedStateConfiguration {
         serializersModule = SerializersModule {
             polymorphic(NavKey::class) {
-                routeSerializers.forEach {
-                    @Suppress("UNCHECKED_CAST")
-                    subclass(it as KSerializer<NavKey>)
-                }
+                subclassesOfSealed(routeHierarchy)
             }
         }
     }

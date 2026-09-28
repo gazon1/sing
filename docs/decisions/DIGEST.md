@@ -133,6 +133,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`testConnection()` requires `authRepository` + `api`** in `SyncRepositoryImpl`. `CoreDiModule` updated to pass both.
 - **~14 изменённых файлов**: Screen.kt + testTag, VM constructors, DI module
 - **~25 новых файлов**: 4 порта, 7 Page Objects, test infrastructure, integration tests
+- **Все 8 Maestro flows заблокированы** до фикса краша. Инфраструктура
 - **Гипотеза на будущее:** если `amdgpu: CS has been rejected` вернётся после
 - **Сторонние модули**: переход ядра 6.17 → 7.2 ломает модули, собранные под
 - **Эмулятор работает штатно**, на аппаратном GPU. Никаких обёрток и
@@ -144,6 +145,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - 25 VMs migrated across 3 MRs (MR-0 PoC + MR-1 simple VMs + MR-2 editor VMs + MR-3 complex VMs)
 - 4 VMs no longer inject `ProfileAwareCurrentUser`
 - 4 detekt rules promoted from warn to error in MR-4
+- 4 instrumented tests now have minimal assertions and will fail if ComposeView is not attached
 - 4 test files updated (removed `fakeCurrentUser` args where no longer needed)
 - 8 экранов мигрированы: Tasks, Notes, TaskDetail, TaskEditor, Projects, ProjectEditor, Chat, Archive
 - ADRs with `status: proposed` must not be cited in `DIGEST.md` critical/warnings sections
@@ -189,6 +191,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Deprecated skills are still loaded by the agent but emit a warning
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed.
 - Detekt `ParameterNaming` rule suppressed in two places (`TagsRepository.kt:54,59`) because `create(item: Tag)` vs `create(item: E)` parameter naming follows the domain convention — not a bug.
+- Detekt will fail (build failure) on any new `Thread.sleep(N > 0)` in test sources
 - Developers must run `just detekt-fix` before committing new code to auto-fix style violations.
 - Developers should prefer `kotlinx.datetime.Instant` in new code.
 - Domain models gain `serverVersion` and `hlc` fields — existing call sites unaffected (defaults)
@@ -345,6 +348,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `ProfileAwareCurrentUser` moves **inside** repositories; the DI graph registers
 - `ProjectEditorViewModel`, `TaskCreateViewModel`, `NotesListViewModel` in MR-2
 - `ProjectsDiModule.kt` подключён через `domainModule` в `Modules.kt`.
+- `RUN_MAESTRO=1 ./check.sh` добавлен как **opt-in**, что в этих обстоятельствах
 - `ReminderRepository` is now a dependency of `CalendarViewModel` — tested via `FakeReminderRepository` in `CalendarViewModelTest`.
 - `RemoteConfigPort` schema version must increment if `updatePriority` or any new field is added — existing clients silently fall back to defaults
 - `RoomReminderRepository.upsert` now stamps ambient on insert — no more stale/missing userId.
@@ -378,6 +382,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `TreeVisitor` remains unchanged for other use cases (non-cycle-detection tree traversal).
 - `ViewModelMustHaveKDoc` skips abstract and inner classes (documented via outer class).
 - `androidHostTest` configuration (Robolectric) exists in `shared/build.gradle.kts` but runs 0 tests — no harm in leaving it.
+- `androidHostTest` configuration is present but tests never run — this is documented as an AGP limitation, not a code bug
 - `appearanceModule()` was removed (no `AppearanceContributor` needed — `SettingsViewModel` handles appearance intents directly).
 - `applyRoute` in `TasksViewModel` is dead code — zero callers confirmed; deleted.
 - `catchTo`'s `onError` being `suspend` is load-bearing. Reverting it to non-suspend
@@ -386,9 +391,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `createdAt` is preserved for existing notes via `cachedNote` in `persist()`
 - `debugging-investigation` skill gives engineers a step-by-step diagnosis procedure
 - `delay(until-midnight)` means the flow never completes — collectors must be scoped
+- `docs-audit` остаётся красным из-за п.9 до отдельного фикса — это
+- `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md` описывает
 - `errorLabel` is a **fallback**, not a prefix: `toMessage(label)` prefers
 - `flatMapLatest` re-evaluates all tasks on every date change (necessary trade-off;
 - `getOrThrow()` removed from 5 VM sites; replaced with `fireAndForget` + channel emit.
+- `gradle/wrapper/gradle-wrapper.jar` в новом worktree присутствует (45 KB) —
 - `isActive` is a behavioral change from previous inline logic — tested thoroughly.
 - `isBlocked` badge will appear on task cards when dependencies are unfinished.
 - `just docs-audit` checks skill size limits
@@ -396,8 +404,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `just docs-audit` validates PROGRESS.md exists if `docs/decisions/` contains retro ADRs from the last 30 days
 - `just docs-audit` validates that `status: proposed` ADRs are in open PRs (check via GitHub API)
 - `just docs-audit` validates that no `superseded-by` points to a non-existent file
+- `just setup-hooks` **нельзя запускать** до отдельного фикса. Это не записано
 - `just tcheck` (full pipeline) is the authoritative check before merge
 - `just` must be installed (`just 1.57.0` is present in this environment).
+- `local.properties` отсутствует в новом worktree (`gitignore`) — Gradle падает с
+- `mcp-server` and `desktopApp` have similar zero-assertion placeholder tests (follow-up PR)
 - `observeByFilter` now contains the filter-logic inline (was delegated to `watchTasks`)
 - `onIntent` is still 249 lines with cyclomatic complexity over the limit. That debt is
 - `refresh-decisions-digest.sh` must handle `superseded-by` by not duplicating superseded ADR bullets into DIGEST Critical section
@@ -422,7 +433,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Все импорты в 30+ файлах обновлены на новые FQN (`.domain.model`, `.domain.port`, `.domain.usecase`, `.data`, `.presentation.state`, `.presentation.viewmodel`).
 - Для UI-тестов на реальном устройстве: Kaspresso или `contentDescription` + `By.desc()`.
 - Критических багов после MR-7 нет
+- Настоящее лечение — обновление Android Emulator, когда в
+- Новые worktrees получают hooks только потому, что `core.hooksPath` наследуется
+- Нужен отдельный MR/инцидент на краш навигации.
 - Оставшиеся `androidHostTest`: только `AppNavigatorTest` (nav contract, без Espresso),
+- Скриншотные тесты, требующие IME, придётся запускать с явным включением
+- Этот ADR — единственная запись о семи проблемах; фикс каждой завершается
 - ✅ Multi-profile isolation
 - ✅ No `SCHEDULE_EXACT_ALARM` permission
 - ✅ Phase transitions гарантированы даже после process death
@@ -864,7 +880,6 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops.
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells.
 - Keep the shell fallback destination (`AndroidShellNav3`, `DesktopShellNav3`) in sync with
-- Register new `AppDestination` serializers in `AppDestinationSerializers`, nowhere else.
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`.
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android.
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods.
@@ -872,6 +887,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `TasksNavigator` is the only class that mutates `NavBackStack<TasksRoute>`.
 - `TasksRoute` is the sealed interface defining all routes within the tasks graph (Inbox, Today, ByProject, Detail, Create).
 - `startRoute` used by `rememberNav3State` **must** be a member of `topLevelRoutes`
+- ~~Register new `AppDestination` serializers in `AppDestinationSerializers`, nowhere else.~~
 
 ### `navigation`
 
@@ -1335,7 +1351,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ## Open / Deferred
 
-_6 entries need attention._
+_8 entries need attention._
 
 - `2026-09-08-instant-migration` — **deferred** — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
 - `2026-09-25-remaining-test-debt` — **open** — Remaining Test Debt — post JUnit/suite-acceleration audit
@@ -1343,6 +1359,8 @@ _6 entries need attention._
 - `2026-09-26-deferred-r24-r30` — **deferred** — R24: Profile subsystem ADR — deferred
 - `2026-09-26-deferred-r25-r30` — **deferred** — Deferred Backlog Items R25–R30
 - `2026-09-26-notes-clean-architecture-r21` — **deferred** — R21: Notes Clean Architecture — deferred
+- `2026-09-28-setup-hooks-broken-githooks-path` — **open** — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
+- `2026-09-29-remaining-problem-areas-after-maestro-mr` — **deferred** — Оставшиеся проблемные места после MR про Maestro UI-тесты
 
 ## Recently superseded
 
@@ -1632,8 +1650,11 @@ _6 entries need attention._
 - `2026-09-27-taskdetail-migration-and-debounce-write-loop` — _untagged_
 - `2026-09-27-vm-koin-scoping-retired` — koin, viewmodel, skills, documentation
 - `2026-09-27-write-layer-soundness` — repository, multi-profile, sync, architecture, security
+- `2026-09-28-android-cold-start-nav3-serializer-crash` — _untagged_
+- `2026-09-28-androidApp-smoke-tests-enabled` — _untagged_
 - `2026-09-28-detekt-daemon-and-crashing-rule` — detekt, tooling, build, ci, retro
 - `2026-09-28-detekt-duplicate-registration-guard` — detekt, tooling, ci, parallel-work, postmortem
+- `2026-09-28-emulator-gfxstream-colorbuffer-segv` — _untagged_
 - `2026-09-28-emulator-mesa-radeon-cs-rejected` — _untagged_
 - `2026-09-28-mr1-test-virtualization-retro` — retro, tech-debt, tests, coroutines
 - `2026-09-28-mr2-project-detail-retro` — retro, tech-debt, viewmodel, coroutines, deprecation
@@ -1647,7 +1668,9 @@ _6 entries need attention._
 - `2026-09-28-notes-create-navigation` — notes, viewmodel, navigation, mvi, bug
 - `2026-09-28-roadmap-closeout` — retro, tech-debt, koin, konsist, docs
 - `2026-09-28-roadmap-status` — retro, tech-debt, roadmap, status
+- `2026-09-28-setup-hooks-broken-githooks-path` — _untagged_
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
+- `2026-09-29-remaining-problem-areas-after-maestro-mr` — _untagged_
 
 ## Active entries
 
@@ -1930,8 +1953,11 @@ _6 entries need attention._
 - `2026-09-27-taskdetail-migration-and-debounce-write-loop` — TaskDetailViewModel Migration + Debounce Write-Loop Fix
 - `2026-09-27-vm-koin-scoping-retired` — Retire `singularity-todo-vm-koin-scoping`
 - `2026-09-27-write-layer-soundness` — Write-layer soundness — ownership-scoped DAO mutations and the two-layer guard model
+- `2026-09-28-android-cold-start-nav3-serializer-crash` — Android cold start крашится: SerializerAlreadyRegisteredException в navSavedStateConfig
+- `2026-09-28-androidApp-smoke-tests-enabled` — Enable Android UI smoke tests + document AGP KMP Robolectric limitation
 - `2026-09-28-detekt-daemon-and-crashing-rule` — A detekt rule that aborted the run, and a rule change the daemon never saw
 - `2026-09-28-detekt-duplicate-registration-guard` — Guard against duplicate detekt rule registration
+- `2026-09-28-emulator-gfxstream-colorbuffer-segv` — Эмулятор падает с SIGSEGV в gfxstream при создании ColorBuffer (триггер — soft IME)
 - `2026-09-28-emulator-mesa-radeon-cs-rejected` — Emulator crash on Renoir — Mesa 25.3.6 + kernel 6.17 regression
 - `2026-09-28-mr1-test-virtualization-retro` — MR-1 retro — three ADRs recorded a test constraint that had already been fixed
 - `2026-09-28-mr2-project-detail-retro` — MR-2 retro — the god-VM split was rejected once already, and the real defect was a subscription
@@ -1945,5 +1971,7 @@ _6 entries need attention._
 - `2026-09-28-notes-create-navigation` — A created note is opened on an id the repository never used
 - `2026-09-28-roadmap-closeout` — Roadmap close-out — what the verified items actually delivered
 - `2026-09-28-roadmap-status` — Tech-debt roadmap v3 — what three MRs closed, and what is left
+- `2026-09-28-setup-hooks-broken-githooks-path` — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
+- `2026-09-29-remaining-problem-areas-after-maestro-mr` — Оставшиеся проблемные места после MR про Maestro UI-тесты
 

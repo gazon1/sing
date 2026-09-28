@@ -1,0 +1,29 @@
+# Open a task's detail screen and return to the agenda.
+#
+# Covers the AgendaIntent.TaskClicked -> TasksRoute.Detail(taskId) push and the
+# pop back to the agenda stack.
+#
+# The detail screen is the editor in edit mode, and it keeps the shell's FAB —
+# FabActionResolver resolves against the top-level destination, which stays the
+# agenda while a nested route is pushed. So the push is detected by the editor
+# appearing, not by the FAB disappearing.
+appId: com.singularity.todo
+name: tasks-open-task-detail
+tags:
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+# The row's title must have carried into the editor — this is what proves the
+# tap routed to *this* task and not merely that some editor opened.
+- assertVisible: "Buy milk"
+- back
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 5000

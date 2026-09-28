@@ -1,0 +1,19 @@
+# Launches the app from a clean state and waits for the shell to be interactive.
+#
+# Why the 8s budget: MainActivity cold start initialises Koin, Room, DataStore
+# migrations and the calendar sync orchestrator. On an emulator that can ANR —
+# see docs/decisions/2026-09-28-androidApp-smoke-tests-enabled.md. A shorter
+# timeout turns a slow start into a false failure; a longer one only delays a
+# real hang.
+appId: com.singularity.todo
+name: launch-clean
+---
+- launchApp:
+    appId: com.singularity.todo
+    clearState: true
+    permissions:
+      notifications: allow
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000

@@ -1,0 +1,56 @@
+# Smoke: the Menu bottom sheet opens and exposes every documented item.
+#
+# Visibility only — this does not navigate into each destination. It is the
+# cheap regression net for the menu's structure, not a coverage of the
+# screens behind it.
+appId: com.singularity.todo
+name: system-menu-sheet
+tags:
+  - smoke
+  - system
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+# The sheet renders in its own window; the first menu item is the reliable
+# signal that it is open and interactive.
+- extendedWaitUntil:
+    visible:
+      id: menu_profile_sync
+    timeout: 5000
+
+# Account section
+- assertVisible:
+    id: menu_profile_sync
+- assertVisible:
+    id: menu_profiles
+
+# Search section
+- assertVisible:
+    id: menu_quick_search
+
+# Destinations section — the lower items are below the fold on a 1080x2400 screen
+- scrollUntilVisible:
+    element:
+      id: menu_ai_chat
+    direction: DOWN
+    timeout: 8000
+- assertVisible:
+    id: menu_statistics
+- assertVisible:
+    id: menu_notes
+- assertVisible:
+    id: menu_ai_chat
+- scrollUntilVisible:
+    element:
+      id: menu_settings
+    direction: DOWN
+    timeout: 8000
+- assertVisible:
+    id: menu_search
+- assertVisible:
+    id: menu_archive
+- assertVisible:
+    id: menu_settings
+
+- takeScreenshot: system/menu-sheet

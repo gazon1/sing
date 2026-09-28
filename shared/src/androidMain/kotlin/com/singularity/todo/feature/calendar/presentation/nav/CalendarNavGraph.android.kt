@@ -29,10 +29,7 @@ import com.singularity.todo.feature.nav.navSavedStateConfig
 @Composable
 actual fun CalendarNavGraph(start: CalendarRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
     val savedStateConfig = remember {
-        navSavedStateConfig(
-            CalendarRoute.Month.serializer(),
-            CalendarRoute.Day.serializer(),
-        )
+        navSavedStateConfig(CalendarRoute.serializer())
     }
 
     @Suppress("UNCHECKED_CAST")

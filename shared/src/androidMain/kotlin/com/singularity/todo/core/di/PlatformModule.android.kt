@@ -35,6 +35,7 @@ import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroAlarmScheduler
 import com.singularity.todo.feature.pomodoro.PomodoroConfig
 import com.singularity.todo.feature.pomodoro.PomodoroScheduler
+import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.AlarmManagerReminderScheduler
@@ -193,7 +194,11 @@ actual fun platformModule(): Module = module {
 
     single { PomodoroConfig() }
     single<PomodoroScheduler> { PomodoroAlarmScheduler(get()) }
-    single { AndroidPomodoroTaskListProvider(get(), MainScope()) }
+    // Bound to the interface, not the concrete class: registering the implementation
+    // type made every koinInject<PomodoroTaskListProvider>() fail with
+    // NoDefinitionFoundException, which crashed the Pomodoro tab on Android while
+    // Desktop worked. The JVM module binds the interface — mirror that.
+    single<PomodoroTaskListProvider> { AndroidPomodoroTaskListProvider(get(), MainScope()) }
     // AndroidPomodoroTimer no longer extends ViewModel — use factory so each injection
     // point gets its own instance with the shared MainScope.
     factory<PomodoroTimer> { AndroidPomodoroTimer(get(), get(), get(), get(), MainScope()) }

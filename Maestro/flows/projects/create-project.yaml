@@ -1,0 +1,30 @@
+# Smoke: create a project from the Plans tab.
+#
+# The FAB is the same widget as on the agenda tabs (TestTags.TASKS_FAB) but
+# FabActionResolver routes it to ProjectsRoute.Editor and labels it
+# "Add project" on this tab — so the flow asserts the editor's own testTag to
+# prove the right destination opened, not just that something opened.
+appId: com.singularity.todo
+name: projects-create-project
+tags:
+  - smoke
+  - projects
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_plans
+- tapOn:
+    id: tasks_fab
+- assertVisible:
+    id: project_editor_name_input
+- tapOn:
+    id: project_editor_name_input
+- inputText: "Project Alpha"
+- hideKeyboard
+- tapOn:
+    id: project_editor_save
+- extendedWaitUntil:
+    visible:
+      id: project_card_project_alpha
+    timeout: 5000
+- takeScreenshot: projects/create-project

@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation3.runtime.NavKey
 import com.singularity.todo.core.platform.todayInSystemZone
 import kotlinx.datetime.LocalDate
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 
 /**
@@ -45,6 +44,7 @@ import kotlinx.serialization.Serializable
  * [icon] is `@Transient` because [ImageVector] isn't serializable; the
  * Compose runtime uses [title] for accessibility only.
  */
+@Serializable
 sealed interface AppDestination : NavKey {
     /** User-visible label — used by BottomBar and MenuSheet. */
     val title: String
@@ -346,48 +346,6 @@ val AppDestination.icon: ImageVector
 
 /** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */
 const val MenuButtonTitle = "Menu"
-
-/**
- * Every concrete [AppDestination] subtype reachable in an outer back stack, for the
- * `polymorphic(NavKey::class) { subclass(...) }` scope built by `navSavedStateConfig`.
- *
- * **Rules** (see `docs/decisions/2026-09-16-nav3-savedstate-serializers-required.md`):
- * - Register here, nowhere else. A subtype missing from this list throws
- *   `SerializationException` on process-death restore — not at build time.
- * - Add an entry whenever a new `data object` or `data class` is added to [AppDestination]
- *   and is reachable via `Navigator.navigate` or `NavBackStack.add`.
- * - The `startRoute` used by `rememberNav3State` MUST appear in this list, otherwise Android
- *   cannot restore the back stack at all.
- */
-val AppDestinationSerializers: List<KSerializer<out NavKey>> = listOf(
-    // Top-level tabs and menu entries
-    AppDestination.Inbox.serializer(),
-    AppDestination.Today.serializer(),
-    AppDestination.Upcoming.serializer(),
-    AppDestination.Plans.serializer(),
-    AppDestination.Pomodoro.serializer(),
-    AppDestination.Statistics.serializer(),
-    AppDestination.Calendar.serializer(),
-    AppDestination.Notes.serializer(),
-    AppDestination.AiChat.serializer(),
-    AppDestination.Search.serializer(),
-    AppDestination.Archive.serializer(),
-    AppDestination.Settings.serializer(),
-    AppDestination.AiUsage.serializer(),
-    AppDestination.ProfileSwitcher.serializer(),
-    // Nested graphs (pushed on top of a top-level destination)
-    AppDestination.AgendaGraph.serializer(),
-    AppDestination.TasksGraph.serializer(),
-    AppDestination.TasksByProject.serializer(),
-    AppDestination.ProjectsGraph.serializer(),
-    AppDestination.NotesGraph.serializer(),
-    AppDestination.CalendarGraph.serializer(),
-    // Flat sub-routes
-    AppDestination.TaskDetail.serializer(),
-    AppDestination.TaskDetailCreate.serializer(),
-    AppDestination.ProjectEditor.serializer(),
-    AppDestination.ProjectDetail.serializer(),
-)
 
 /**
  * Pure helpers — no Compose runtime, no Android, no JVM.

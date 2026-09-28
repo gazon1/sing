@@ -1,0 +1,9 @@
+# Maestro workspace configuration.
+#
+# `appId` here is a default for flows that do not declare their own header;
+# every flow in flows/ also declares it explicitly so a flow stays runnable
+# in isolation with `maestro test <file>`.
+#
+# Selector source of truth: shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt
+appId: com.singularity.todo
+name: Singularity Todo
