@@ -77,7 +77,8 @@ interface alone has 20 methods. Both entries stay.
 | 9 | `AttachmentRepository.create()` has no callers | MR-3 retro | delete, or keep for a bulk-import path |
 | 10 | 4 JUnit 4 instrumented tests in `androidApp/src/androidTest` — CI has no `connectedAndroidTest` step, so they never run | `2026-09-28-mr5-verification` | O3 pointed at a deleted Robolectric file; needs its own MR with a device |
 | 11 | `TaskMenuBuilder.kt` — 15 TODOs naming use cases the `PassThroughUseCase` rule forbids | `2026-09-24-deferred-backlog` | |
-| 12 | 34 dead references in skill prose; `DIGEST.md` at 1921 lines against a 1500 budget | `2026-09-27-doc-and-skills-sprint-findings` | `just docs-audit` fails on both, pre-existing |
+| 12 | 34 dead references in skill prose; `DIGEST.md` at 1940 lines against a 1500 budget | `2026-09-27-doc-and-skills-sprint-findings` | pre-existing. The excess is **all** per-tag content across 57 sections — a budget question, not a generator defect; see `2026-09-28-mr7-mr8-verification` |
+| 12b | `TaskMenuBuilder`'s 15 TODOs: 8 name use cases that were never written, 2 are UI, 2 (print, share) are platform actions where no use case is right | `2026-09-28-mr7-mr8-verification` | needs per-item resolution, not a blanket rewrite. `ArchiveTaskUseCase` is stale — the repository call landed with the write-layer sweep |
 
 ### Proposed by this work
 
@@ -85,6 +86,8 @@ interface alone has 20 methods. Both entries stay.
 |---|---|---|
 | 13 | **A Konsist rule for scoped reads** | `ArchitectureTest` has `DAO mutations are ownership-scoped` and no read counterpart. That mechanical gap is why MR-3's two leaks survived eight MRs of write-layer work. Highest-value item on this list |
 | 14 | A sweep of the remaining DAO read paths for the same class | only Tasks has a read-isolation test; tags and tag groups were the two that turned out to be broken |
+| 16 | **`SettingsContributor` vs `FeatureSlot`** — two parallel abstractions, both sound. Conversion needs a scope per contributor and a suspend change to an interface 7 task slots implement | `2026-09-28-mr7-mr8-verification` | no defect behind it; a style decision, not roadmap work |
+| 17 | **Cost tracking is 60% wired** — `costUsdMicros` is plumbed end to end and documented as "null if model not in pricing table"; the pricing table and the Koog `metaInfo` bridge are both absent | same | not "write two files" — a table plus a hook into the agent pipeline |
 | 15 | **The repository-package convention has never been settled** | 6 features keep repositories in `.data`, 5 at the feature root, and 2 (`search`, `tags`) in both. The ADR calls two files inconsistent with a convention that does not exist yet. Decide, then migrate — or record why the spread is fine. `2026-09-28-mr6-verification` |
 
 | # | Item | Why it matters |

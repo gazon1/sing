@@ -1638,6 +1638,7 @@ _6 entries need attention._
 - `2026-09-28-mr5-verification` — retro, tech-debt, verification, coroutines, testing
 - `2026-09-28-mr5-vm-hygiene` — retro, tech-debt, viewmodel, coroutines, notes
 - `2026-09-28-mr6-verification` — retro, tech-debt, koin, di, konsist, verification
+- `2026-09-28-mr7-mr8-verification` — retro, tech-debt, verification, settings, docs
 - `2026-09-28-notes-create-navigation` — notes, viewmodel, navigation, mvi, bug
 - `2026-09-28-roadmap-status` — retro, tech-debt, roadmap, status
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
@@ -1933,6 +1934,7 @@ _6 entries need attention._
 - `2026-09-28-mr5-verification` — MR-5 verification — two of four items do not survive, and a wrongly-closed finding is open again
 - `2026-09-28-mr5-vm-hygiene` — MR-5 retro — R7 was closed twice on a grep, and a phantom note id was hiding in plain sight
 - `2026-09-28-mr6-verification` — MR-6 verification — the DI cleanup is real but cosmetic, the facade rule has nothing to guard yet, the repo move is backwards
+- `2026-09-28-mr7-mr8-verification` — MR-7 and MR-8 verification — the sealed hierarchy is already migrated, and three of MR-8's items are mis-scoped
 - `2026-09-28-notes-create-navigation` — A created note is opened on an id the repository never used
 - `2026-09-28-roadmap-status` — Tech-debt roadmap v3 — what three MRs closed, and what is left
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
