@@ -1132,6 +1132,9 @@ private class FakeTagGroupDao(private val store: MutableStateFlow<Map<String, Ta
         it.values.filter { t -> t.userId == userId }.sortedBy { t -> t.name }
     }
     override fun watchById(id: String): Flow<TagGroupEntity?> = store.map { it[id] }
+    override fun watchByIdForUser(id: String, userId: String): Flow<TagGroupEntity?> = store.map {
+        it[id]?.takeIf { t -> t.userId == userId }
+    }
     override suspend fun getByIdForUser(id: String, userId: String): TagGroupEntity? =
         store.value.values.find { it.id == id && it.userId == userId }
     override suspend fun upsert(entity: TagGroupEntity) {

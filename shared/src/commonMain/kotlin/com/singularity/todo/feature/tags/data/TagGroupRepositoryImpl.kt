@@ -40,7 +40,10 @@ class TagGroupRepositoryImpl(
         }
     }
 
-    override fun observe(id: TagGroupId): Flow<TagGroup?> = tagGroupDao.watchById(id.value).map { it?.toTagGroup() }
+    // Scoped: the unscoped `watchById` returns another profile's tag group.
+    override fun observe(id: TagGroupId): Flow<TagGroup?> = currentUser.observeForCurrentUser { uid ->
+        tagGroupDao.watchByIdForUser(id.value, uid.value).map { it?.toTagGroup() }
+    }
 
     override suspend fun get(id: TagGroupId): TagGroup? {
         val uid = currentUser.scopedUserId.value

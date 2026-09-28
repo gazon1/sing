@@ -73,7 +73,11 @@ class TagsRepositoryImpl(
         syncRepository.enqueue(row.toTag())
     }
 
-    override fun observeTag(id: TagId): Flow<Tag?> = tagDao.watchById(id.value).map { it?.toTag() }
+    // Scoped: the unscoped `watchById` returns another profile's tag, and — because it
+    // also lacks the `deleted_at` filter — a soft-deleted one. See TagsReadIsolationTest.
+    override fun observeTag(id: TagId): Flow<Tag?> = currentUser.observeForCurrentUser { uid ->
+        tagDao.watchByIdForUser(id.value, uid.value).map { it?.toTag() }
+    }
 }
 
 private fun TagEntity.toTag(): Tag = Tag(

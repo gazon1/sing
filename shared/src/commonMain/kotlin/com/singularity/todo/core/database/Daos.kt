@@ -747,6 +747,9 @@ interface TagGroupDao {
     fun watchById(id: String): Flow<TagGroupEntity?>
 
     @Query("SELECT * FROM tag_groups WHERE id = :id AND user_id = :userId")
+    fun watchByIdForUser(id: String, userId: String): Flow<TagGroupEntity?>
+
+    @Query("SELECT * FROM tag_groups WHERE id = :id AND user_id = :userId")
     suspend fun getByIdForUser(id: String, userId: String): TagGroupEntity?
 
     @Upsert
