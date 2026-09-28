@@ -54,7 +54,6 @@ class TaskRemindersSlot(
         when (intent) {
             is TaskDetailIntent.Domain.SetReminder -> setReminder(intent.offset)
             TaskDetailIntent.Domain.DeleteReminder -> clearReminder()
-            else -> Unit // unreachable through the coordinator's exhaustive `when`
         }
     }
 

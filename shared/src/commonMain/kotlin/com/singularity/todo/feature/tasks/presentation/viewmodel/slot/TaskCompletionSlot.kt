@@ -47,7 +47,6 @@ class TaskCompletionSlot(
         val task = taskFlow.value ?: return
         when (intent) {
             TaskDetailIntent.Domain.ToggleComplete -> toggleComplete(task)
-            else -> Unit // unreachable through the coordinator's exhaustive `when`
         }
     }
 
@@ -62,7 +61,7 @@ class TaskCompletionSlot(
         }
         val completedAt = if (completing) deps.clock.now() else null
         scope.launch {
-            deps.updateTask(task.copy(completedAt = completedAt))
+            deps.updateTask(task.id) { it.copy(completedAt = completedAt) }
                 .onFailure { onError("Save failed") }
         }
     }

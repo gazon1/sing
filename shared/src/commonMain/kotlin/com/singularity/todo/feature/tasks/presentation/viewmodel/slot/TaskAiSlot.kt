@@ -43,7 +43,6 @@ class TaskAiSlot(
     override fun onIntent(intent: TaskAiIntent) {
         when (intent) {
             is TaskDetailIntent.Domain.RunAiAction -> run(intent.action)
-            else -> Unit // unreachable through the coordinator's exhaustive `when`
         }
     }
 
@@ -59,14 +58,14 @@ class TaskAiSlot(
         when (action) {
             TaskAiAction.RefineTitle -> withUseCase(deps.refineTask, "RefineTitle") { refine ->
                 val title = refine(task.title, task.description).getOrThrow()
-                deps.updateTask(task.copy(title = title))
+                deps.updateTask(task.id) { it.copy(title = title) }
                     .onSuccess { onSaved("Title refined") }
             }
 
             TaskAiAction.GenerateDescription ->
                 withUseCase(deps.generateDescription, "GenerateDescription") { generate ->
                     val description = generate(task.title).getOrThrow()
-                    deps.updateTask(task.copy(description = description))
+                    deps.updateTask(task.id) { it.copy(description = description) }
                         .onSuccess { onSaved("Description generated") }
                 }
 

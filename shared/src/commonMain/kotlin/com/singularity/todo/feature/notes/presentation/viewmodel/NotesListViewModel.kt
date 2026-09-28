@@ -12,7 +12,6 @@ import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.notes.presentation.NotesIntent
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
@@ -169,7 +168,7 @@ class NotesListViewModel(
 
     private fun deleteSelected() {
         val ids = _selectedIds.value.toList()
-        scope.launch(Dispatchers.Unconfined) {
+        scope.launch {
             ids.forEach { id ->
                 repo.delete(id)
             }
@@ -182,7 +181,7 @@ class NotesListViewModel(
     /** Creates a note with the given title. */
     fun createNoteWithTitle(title: String): String {
         val id = NoteId(idGen.next())
-        scope.launch(Dispatchers.Unconfined) {
+        scope.launch {
             repo.createNoteWithTitle(title)
         }
         return id.value
@@ -191,7 +190,7 @@ class NotesListViewModel(
     // ─── Delete ───────────────────────────────────────────────────────────
 
     private fun delete(id: NoteId) {
-        scope.launch(Dispatchers.Unconfined) {
+        scope.launch {
             repo.delete(id)
         }
     }

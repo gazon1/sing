@@ -92,7 +92,7 @@ class SettingsViewModelTest {
         val vm = createVm(backgroundScope)
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals(false, state.appearance.darkTheme)
@@ -109,7 +109,7 @@ class SettingsViewModelTest {
         val vm = createVm(backgroundScope)
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals(false, state.appearance.darkTheme)
@@ -124,12 +124,12 @@ class SettingsViewModelTest {
         val vm = createVm(backgroundScope)
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         vm.onIntent(SettingsIntent.Notifications.UpdateEnabled(false))
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals(false, state.notifications.enabled)
@@ -142,12 +142,12 @@ class SettingsViewModelTest {
         val vm = createVm(backgroundScope)
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         vm.onIntent(SettingsIntent.WorkSchedule.UpdateWorkDayStart(600))
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals(600, state.workSchedule.dayStartMinutes)
@@ -160,12 +160,12 @@ class SettingsViewModelTest {
         val vm = createVm(backgroundScope)
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         vm.onIntent(SettingsIntent.Greeting.UpdateMorningEnd(10))
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals(10, state.greeting.morningEndHour)
@@ -178,7 +178,7 @@ class SettingsViewModelTest {
         val vm = createVm(backgroundScope)
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         val job = backgroundScope.launch {
             vm.onIntent(SettingsIntent.Ai.UpdateProvider(com.singularity.todo.core.llm.LlmProvider.OLLAMA))
@@ -186,7 +186,7 @@ class SettingsViewModelTest {
         job.join()
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         val state = vm.state.value as SettingsUiState.Content
         assertEquals("ollama", state.ai.provider.id)
@@ -197,7 +197,7 @@ class SettingsViewModelTest {
         val vm = createVm(backgroundScope)
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         backgroundScope.launch {
             vm.onIntent(SettingsIntent.Ai.TestConnection)
@@ -217,7 +217,7 @@ class SettingsViewModelTest {
         val vm = createVm(backgroundScope)
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         val job = backgroundScope.launch {
             vm.onIntent(SettingsIntent.Ai.TestConnection)
@@ -225,7 +225,7 @@ class SettingsViewModelTest {
         job.join()
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         val state = vm.state.value as SettingsUiState.Content
         val testResult = state.aiEphemeral.testResult
@@ -262,7 +262,7 @@ class SettingsViewModelTest {
         )
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         val job = backgroundScope.launch {
             vm.onIntent(SettingsIntent.Ai.TestConnection)
@@ -270,7 +270,7 @@ class SettingsViewModelTest {
         job.join()
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        repeat(3) { advanceUntilIdle() }
+        advanceUntilIdle()
         runCurrent()
         val state = vm.state.value as SettingsUiState.Content
         val testResult = state.aiEphemeral.testResult

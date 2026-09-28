@@ -45,7 +45,6 @@ class TaskLifecycleSlot(
             TaskDetailIntent.Domain.Delete -> delete()
             TaskDetailIntent.Domain.Archive -> archive()
             TaskDetailIntent.Domain.Restore -> restore()
-            else -> Unit // unreachable through the coordinator's exhaustive `when`
         }
     }
 

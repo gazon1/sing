@@ -89,13 +89,11 @@ class TaskEntitySlot(
                 mutate(task, "Failed to set recurrence") { copy(recurrence = intent.spec) }
 
             is TaskDetailIntent.Domain.SetDependencies -> setDependencies(task, intent)
-
-            else -> Unit // unreachable through the coordinator's exhaustive `when`
         }
     }
 
     private fun mutate(task: Task, error: String = "Save failed", transform: Task.() -> Task) = scope.launch {
-        deps.updateTask(task.transform()).onFailure { onError(error) }
+        deps.updateTask(task.id) { it.transform() }.onFailure { onError(error) }
     }
 
     private fun setDependencies(task: Task, intent: TaskDetailIntent.Domain.SetDependencies) = scope.launch {

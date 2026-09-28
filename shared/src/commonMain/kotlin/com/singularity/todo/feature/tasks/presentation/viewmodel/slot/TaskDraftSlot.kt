@@ -65,7 +65,7 @@ class TaskDraftSlot(
                 titleEdits.debounce(debounceMs),
             ) { task, title -> task to title }
                 .collect { (task, title) ->
-                    deps.updateTask(task.copy(title = title))
+                    deps.updateTask(task.id) { it.copy(title = title) }
                         .onFailure { onError("Save failed") }
                 }
         }
@@ -76,7 +76,7 @@ class TaskDraftSlot(
                 descriptionEdits.debounce(debounceMs),
             ) { task, description -> task to description }
                 .collect { (task, description) ->
-                    deps.updateTask(task.copy(description = description.ifBlank { null }))
+                    deps.updateTask(task.id) { it.copy(description = description.ifBlank { null }) }
                         .onFailure { onError("Save failed") }
                 }
         }
@@ -101,8 +101,6 @@ class TaskDraftSlot(
                 draftState.setDescription(intent.description)
                 descriptionEdits.tryEmit(intent.description)
             }
-
-            else -> Unit // unreachable through the coordinator's exhaustive `when`
         }
     }
 }

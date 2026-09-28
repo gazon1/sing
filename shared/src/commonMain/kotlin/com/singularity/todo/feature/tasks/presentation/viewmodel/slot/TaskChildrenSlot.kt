@@ -60,7 +60,6 @@ class TaskChildrenSlot(
             is TaskDetailIntent.Domain.DeleteSubtask -> deleteSubtask(intent.task)
             is TaskDetailIntent.Domain.AddUrlAttachment -> addAttachment(intent)
             is TaskDetailIntent.Domain.DeleteAttachment -> deleteAttachment(intent)
-            else -> Unit // unreachable through the coordinator's exhaustive `when`
         }
     }
 
@@ -95,7 +94,7 @@ class TaskChildrenSlot(
 
     private fun toggleSubtask(subtask: Task) = scope.launch {
         val completedAt = if (subtask.completedAt == null) deps.clock.now() else null
-        deps.updateTask(subtask.copy(completedAt = completedAt))
+        deps.updateTask(subtask.id) { it.copy(completedAt = completedAt) }
             .onFailure { onError("Save failed") }
     }
 
