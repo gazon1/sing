@@ -11,6 +11,10 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectDetailInt
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
@@ -19,6 +23,7 @@ import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -31,6 +36,32 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+
+/**
+ * Counts how many times the task stream for this project is subscribed.
+ *
+ * `flatMapLatest` cancels and re-collects its upstream when the trigger flow emits, so a
+ * ViewModel that derives this stream from the whole `Project` object re-subscribes on every
+ * field write. Deriving it from a nullability signal instead makes the count stable.
+ */
+private class CountingTaskRepository(private val delegate: TaskRepository) : TaskRepository by delegate {
+    var projectFilterSubscriptions = 0
+        private set
+
+    override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> {
+        if (filter is TaskFilter.ByProject) projectFilterSubscriptions++
+        return delegate.observeByFilter(filter)
+    }
+}
+
+private fun testTaskIn(projectId: String, title: String): Task = Task(
+    id = TaskId("t-$projectId-$title"),
+    title = title,
+    projectId = ProjectId(projectId),
+    userId = UserId("test-user"),
+    createdAt = Clock.System.now(),
+    updatedAt = Clock.System.now(),
+)
 
 /**
  * Unit tests for [ProjectDetailViewModel] verifying behavioral contracts.
@@ -48,11 +79,11 @@ class ProjectDetailViewModelTest {
     private val fakeProfileRepo = FakeProfileRepository()
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(fakeAuthRepo, fakeProfileRepo)
 
-    private fun createVm(scope: CoroutineScope): ProjectDetailViewModel {
+    private fun createVm(scope: CoroutineScope, taskRepo: TaskRepository = fakeTaskRepo): ProjectDetailViewModel {
         val vm = ProjectDetailViewModel(
             projectId = ProjectId("p1"),
             projectRepo = fakeProjectsRepo,
-            taskRepo = fakeTaskRepo,
+            taskRepo = taskRepo,
             deleteProject = DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
             updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock.System),
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock.System),
@@ -183,5 +214,34 @@ class ProjectDetailViewModelTest {
         assertEquals(1, tasks.size)
         assertEquals("New task", tasks[0].title)
         assertEquals(ProjectId("p1"), tasks[0].projectId)
+    }
+
+    /**
+     * The task and child-project streams only need to know *whether* a project is loaded,
+     * not its fields. Deriving them from a nullability signal instead of the project object
+     * means a field write does not cancel and recreate the subscription underneath them.
+     */
+    @Test
+    fun `a project field write does not resubscribe the task stream`() = runTest {
+        seedProject()
+        val counting = CountingTaskRepository(fakeTaskRepo)
+        fakeTaskRepo.seed(testTaskIn("p1", "Before"))
+        val vm = createVm(backgroundScope, taskRepo = counting)
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertTrue(vm.state.value is ProjectDetailUiState.Content)
+
+        val afterSubscribe = counting.projectFilterSubscriptions
+        assertTrue(afterSubscribe > 0, "the task stream was never subscribed")
+
+        vm.onIntent(ProjectDetailIntent.Domain.UpdateColor(0xFFE91E63.toInt()))
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertEquals(
+            afterSubscribe,
+            counting.projectFilterSubscriptions,
+            "a project field write restarted the task stream subscription",
+        )
     }
 }

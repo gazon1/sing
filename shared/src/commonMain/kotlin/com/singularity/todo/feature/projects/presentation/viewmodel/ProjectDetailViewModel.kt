@@ -26,6 +26,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -92,15 +93,14 @@ class ProjectDetailViewModel(
     private val availableTasksFlow = MutableStateFlow<List<Task>>(emptyList())
 
     init {
-        // Single project observer: feeds [projectFlow], seeds the editable draft,
-        // and updates the TOCTOU cache. All other streams derive from [projectFlow]
-        // instead of re-subscribing to the repository (one Room observer, not five).
+        // Single project observer: feeds [projectFlow] and seeds the editable draft.
+        // All other streams derive from [projectFlow] instead of re-subscribing to the
+        // repository (one Room observer, not five).
         vmScope.launch {
             projectRepo.observe(projectId)
                 .onStart { emit(null) }
                 .collect { project ->
                     _projectFlow.value = project
-                    _latestProject.value = project
                     if (project != null && !project.isDeleted) {
                         draftState.seed(
                             project.name,
@@ -143,21 +143,22 @@ class ProjectDetailViewModel(
         // Collect state. Two nested combines rather than one 7-argument combine:
         // kotlinx only ships typed `combine` overloads up to 5 flows, and a 7-flow
         // vararg call would collapse to `Array<Any?>`.
+        //
+        // The tasks and children streams depend only on *whether* a project is loaded,
+        // not on any field of it. Triggering them off a nullability signal rather than
+        // the object itself means a field write does not cancel and recreate the
+        // subscription — `flatMapLatest` restarts its upstream on every trigger emission.
         vmScope.launch {
+            val hasProject = _projectFlow.map { it != null }.distinctUntilChanged()
             val projectState = combine(
                 _projectFlow,
-                _projectFlow.flatMapLatest { project ->
-                    if (project == null) {
-                        flowOf(
-                            emptyList(),
-                        )
-                    } else {
-                        taskRepo.observeByFilter(TaskFilter.ByProject(projectId))
-                    }
+                hasProject.flatMapLatest { loaded ->
+                    if (!loaded) flowOf(emptyList()) else taskRepo.observeByFilter(TaskFilter.ByProject(projectId))
                 },
-                _projectFlow.flatMapLatest { project ->
-                    if (project == null) flowOf(emptyList()) else projectRepo.observeChildrenOf(projectId)
+                hasProject.flatMapLatest { loaded ->
+                    if (!loaded) flowOf(emptyList()) else projectRepo.observeChildrenOf(projectId)
                 },
+                // The parent stream does depend on a field, so it stays on the object.
                 _projectFlow.flatMapLatest { p ->
                     if (p == null || p.parentId == null) flowOf(null) else projectRepo.observe(p.parentId)
                 },
@@ -208,19 +209,16 @@ class ProjectDetailViewModel(
     private val debouncer = Debouncer(scope, 300.milliseconds)
 
     init {
-        // Name debounce — mutate reads _latestProject inside the launched block to avoid TOCTOU.
+        // Name and description edits. `mutate` re-reads the project through
+        // [UpdateProjectUseCase] inside its own launch, so neither debounce can write back
+        // a stale snapshot.
         debouncer.debounce(draftState.state.map { it.name }) { name ->
             mutate { copy(name = name) }
         }
-        // Description debounce — same pattern.
         debouncer.debounce(draftState.state.map { it.description }) { desc ->
             mutate { copy(description = desc) }
         }
     }
-
-    // ─── Cached latest project — TOCTOU guard ──────────────────────────────────
-
-    private val _latestProject = MutableStateFlow<Project?>(null)
 
     // ─── Intent dispatcher ─────────────────────────────────────────────────────
 
@@ -307,7 +305,9 @@ class ProjectDetailViewModel(
 
     /**
      * Applies a mutation to the current project and persists via [updateProject].
-     * Reads from [_latestProject] inside the launched block to avoid TOCTOU.
+     *
+     * [UpdateProjectUseCase] re-reads the entity inside its own call, so the transform
+     * always runs against the current row — there is no cached snapshot to go stale here.
      */
     private fun mutate(transform: Project.() -> Project) {
         emitError("Update project failed", ProjectDetailUiEvent::ShowError) {
