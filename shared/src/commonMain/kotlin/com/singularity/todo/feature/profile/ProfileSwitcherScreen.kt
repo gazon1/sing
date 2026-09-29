@@ -17,18 +17,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -60,14 +64,16 @@ private val PROFILE_COLORS = listOf(
     Color(0xFF607D8B), // grey
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileSwitcherScreen(modifier: Modifier = Modifier) {
+fun ProfileSwitcherScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
     val viewModel: ProfileSwitcherViewModel = koinViewModel()
-    ProfileSwitcherContent(viewModel = viewModel, modifier = modifier)
+    ProfileSwitcherContent(viewModel = viewModel, modifier = modifier, onBack = onBack)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier: Modifier = Modifier) {
+private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
     val state by viewModel.state.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var profileToDelete by remember { mutableStateOf<Profile?>(null) }
@@ -77,10 +83,66 @@ private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier
         return
     }
 
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Profiles") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                        )
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        ProfileListContent(
+            profiles = state.profiles,
+            activeProfileId = state.activeProfileId,
+            modifier = modifier.padding(padding),
+            onSelect = { viewModel.onIntent(ProfileSwitcherIntent.SwitchTo(it)) },
+            onDeleteRequest = { profileToDelete = it },
+            onCreateClick = { showCreateDialog = true },
+        )
+    }
+
+    if (showCreateDialog) {
+        CreateProfileDialog(
+            onDismiss = { showCreateDialog = false },
+            onCreate = { name, emoji, colorIdx ->
+                viewModel.onIntent(ProfileSwitcherIntent.Create(name, emoji, colorIdx))
+                showCreateDialog = false
+            },
+        )
+    }
+
+    profileToDelete?.let { profile ->
+        DeleteProfileDialog(
+            profile = profile,
+            onDismiss = { profileToDelete = null },
+            onConfirm = {
+                viewModel.onIntent(ProfileSwitcherIntent.Delete(profile.id))
+                profileToDelete = null
+            },
+        )
+    }
+}
+
+@Composable
+private fun ProfileListContent(
+    profiles: List<Profile>,
+    activeProfileId: ProfileId,
+    modifier: Modifier = Modifier,
+    onSelect: (ProfileId) -> Unit,
+    onDeleteRequest: (Profile) -> Unit,
+    onCreateClick: () -> Unit,
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -93,7 +155,7 @@ private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier
                 fontWeight = FontWeight.Bold,
             )
             FilledTonalButton(
-                onClick = { showCreateDialog = true },
+                onClick = onCreateClick,
                 modifier = Modifier.testTag(TestTags.PROFILE_CREATE_BUTTON),
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -104,16 +166,14 @@ private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier
 
         Spacer(Modifier.height(16.dp))
 
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(state.profiles, key = { it.id.value }) { profile ->
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(profiles, key = { it.id.value }) { profile ->
                 ProfileCard(
                     profile = profile,
-                    isActive = profile.id == state.activeProfileId,
-                    onSelect = { viewModel.onIntent(ProfileSwitcherIntent.SwitchTo(profile.id)) },
-                    onDelete = if (!profile.isDefault && state.profiles.size > 1) {
-                        { profileToDelete = profile }
+                    isActive = profile.id == activeProfileId,
+                    onSelect = { onSelect(profile.id) },
+                    onDelete = if (!profile.isDefault && profiles.size > 1) {
+                        { onDeleteRequest(profile) }
                     } else {
                         null
                     },
@@ -121,39 +181,23 @@ private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier
             }
         }
     }
+}
 
-    // Create dialog
-    if (showCreateDialog) {
-        CreateProfileDialog(
-            onDismiss = { showCreateDialog = false },
-            onCreate = { name, emoji, colorIdx ->
-                viewModel.onIntent(ProfileSwitcherIntent.Create(name, emoji, colorIdx))
-                showCreateDialog = false
-            },
-        )
-    }
-
-    // Delete confirmation
-    profileToDelete?.let { profile ->
-        AlertDialog(
-            onDismissRequest = { profileToDelete = null },
-            title = { Text("Delete profile?") },
-            text = { Text("\"${profile.name}\" will be permanently deleted. This cannot be undone.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.onIntent(ProfileSwitcherIntent.Delete(profile.id))
-                        profileToDelete = null
-                    },
-                ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { profileToDelete = null }) { Text("Cancel") }
-            },
-        )
-    }
+@Composable
+private fun DeleteProfileDialog(profile: Profile, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete profile?") },
+        text = { Text("\"${profile.name}\" will be permanently deleted. This cannot be undone.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Delete", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
 
 @Composable

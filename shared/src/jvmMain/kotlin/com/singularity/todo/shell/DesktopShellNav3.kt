@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
@@ -67,6 +68,9 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
 
     val current: AppDestination = state.topLevelRoute as? AppDestination
         ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
+
+    val currentStack = state.requireBackStackFor(state.topLevelRoute)
+    val canGoBack = currentStack.size > 1
 
     val appEntryProvider = createJvmEntryProvider(navCallbacks)
 
@@ -200,16 +204,27 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                         TopAppBar(
                             title = { Text(current.title) },
                             navigationIcon = {
-                                IconButton(onClick = {
-                                    scope.launch {
-                                        if (drawerState.isClosed) {
-                                            drawerState.open()
-                                        } else {
-                                            drawerState.close()
+                                IconButton(
+                                    onClick = {
+                                        scope.launch {
+                                            if (canGoBack) {
+                                                navigator.goBack()
+                                            } else if (drawerState.isClosed) {
+                                                drawerState.open()
+                                            } else {
+                                                drawerState.close()
+                                            }
                                         }
-                                    }
-                                }) {
-                                    Icon(Icons.Default.Menu, contentDescription = "Menu")
+                                    },
+                                ) {
+                                    Icon(
+                                        imageVector = if (canGoBack) {
+                                            Icons.AutoMirrored.Filled.ArrowBack
+                                        } else {
+                                            Icons.Default.Menu
+                                        },
+                                        contentDescription = if (canGoBack) "Back" else "Menu",
+                                    )
                                 }
                             },
                         )

@@ -121,7 +121,7 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     }
 
     entry<AppDestination.Archive> {
-        ArchiveScreen()
+        ArchiveScreen(onBack = { nav.goBack() })
     }
 
     entry<AppDestination.Settings> {
@@ -135,7 +135,7 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     }
 
     entry<AppDestination.ProfileSwitcher> {
-        ProfileSwitcherScreen()
+        ProfileSwitcherScreen(onBack = { nav.goBack() })
     }
 
     // ─── Sub-routes ────────────────────────────────────────────────────
