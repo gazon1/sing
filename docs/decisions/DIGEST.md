@@ -726,6 +726,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `ListPickerScope<T>.header { }` and `footer { }` are the canonical way to add custom content above/below the item list.
 - `T : Any?` means callers can use `null` as a key — filter at call site if needed.
 
+### `emulator`
+
+- After any crash: `pkill -f qemu-system-x86_64` and remove
+- Aliveness is determined by the `/proc` exe scan and `adb devices`; `pgrep -f`
+- Launch the emulator only via the recipe in `singularity-todo-emulator-launch`;
+- The `android-emulator` MCP plugin's `android_start_emulator` times out on
+
 ### `git`
 
 - Developers in worktrees get fast pre-commit feedback (compile only); full test suite runs in CI or via `just tcheck`
@@ -1693,6 +1700,7 @@ _8 entries need attention._
 - `2026-09-28-setup-hooks-broken-githooks-path` — _untagged_
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
 - `2026-09-29-archive-has-no-restore-ui` — ui, tasks, gap
+- `2026-09-29-emulator-launch-recipe` — emulator, android, tooling
 - `2026-09-29-maestro-archive-seed-strategy` — maestro, testing
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — maestro, testing, ui
 - `2026-09-29-missing-koin-dao-bindings` — koin, di, crash
@@ -2002,6 +2010,7 @@ _8 entries need attention._
 - `2026-09-28-setup-hooks-broken-githooks-path` — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
 - `2026-09-29-archive-has-no-restore-ui` — Archiving is a one-way door — no restore UI exists
+- `2026-09-29-emulator-launch-recipe` — Emulator launch recipe — windowed, hardware GPU, camera and audio off
 - `2026-09-29-maestro-archive-seed-strategy` — Archive seed strategy — session coupling in archive-restore flow
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — AlertDialog buttons use visible text instead of testTag
 - `2026-09-29-missing-koin-dao-bindings` — Three Room DAOs were never bound in Koin

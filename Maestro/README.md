@@ -26,41 +26,21 @@ Maestro/
 ├── TAGS.md                     # complete catalogue of Maestro-addressable ids
 ├── helpers/                    # subflows — never run standalone
 │   ├── launch-clean.yaml       # clean launch + wait for the shell (8s budget)
-│   ├── seed-task.yaml          # create one task titled "Buy milk"
-│   ├── seed-task-with-details.yaml  # task with priority, due-date, tag
-│   ├── seed-note.yaml          # create one note via quick-add
-│   └── seed-project.yaml       # create "Project Alpha"
+│   └── seed-task.yaml          # create one task titled "Buy milk"
 └── flows/
-    ├── smoke/                  # must-pass subset, runs in ~2-3 min
+    ├── smoke/                  # must-pass subset (8 flows, ~3.5 min)
     ├── nav/                    # bottom-bar navigation
     ├── tasks/                  # task CRUD and editor flows
-    ├── agenda/                 # Inbox / Today / Upcoming / saved views
-    ├── notes/                  # note list, editor, preview
-    ├── projects/               # project CRUD, detail, hierarchy
-    ├── calendar/               # month/week/day views, task-on-day
-    ├── pomodoro/              # timer, phases, cycle counter
-    ├── search/                 # query, filters, saved searches
-    ├── settings/               # theme, notifications, AI provider, etc.
-    ├── tags/                   # tag list, create, delete
-    ├── archive/                # archive, restore
-    ├── statistics/             # cards and charts
-    ├── sync/                  # offline create, auto-sync toggle
-    ├── backup/                # create, restore, export settings
-    ├── ai/                    # AI chat, usage screen
-    ├── profile/               # profile switcher, create, delete
-    ├── auth/                  # continue offline, validation
-    ├── calendar-sync/          # calendar sync settings
-    ├── system/                 # shell-level chrome (menu sheet)
-    ├── lifecycle/              # kill/restart, home-return, rotation
-    ├── theme/                  # dark mode, light mode
-    ├── l10n/                   # localization smoke
-    ├── a11y/                   # font scale, accessibility
-    ├── negative/               # empty states
-    └── validation/             # input validation errors
+    ├── notes/                  # note list, editor
+    ├── projects/               # project create
+    └── system/                 # shell-level chrome (menu sheet)
 ```
 
 The subdirectory split mirrors `shared/src/commonMain/.../feature/`, so a flow
-lives next to the feature it covers.
+lives next to the feature it covers. New feature subdirectories are added as
+their flows land — the plan for the remaining coverage (agenda, calendar,
+search, pomodoro, settings-deep, sync, backup, ai, profile, auth, lifecycle,
+negative, validation) lives in the Maestro UI test plan.
 
 ## Tags
 
@@ -120,7 +100,7 @@ the real cause — the `assertVisible`/`inputText` round-trip.
 
 1. Pick the subdirectory matching the feature; name it `<verb>-<object>.yaml`.
 2. `runFlow: ../../helpers/launch-clean.yaml` first, unless you need existing
-   data (use `seed-task.yaml`, `seed-note.yaml`, or `seed-project.yaml`).
+   data (`seed-task.yaml`; new flows should seed their own fixtures inline).
 3. Prefer an existing `TestTags` constant. If the screen has no testTag, add
    one to `TestTags.kt` and a `Modifier.testTag` at the call site — do not
    select by visible text as a shortcut.

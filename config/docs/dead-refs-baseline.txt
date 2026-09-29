@@ -38,3 +38,10 @@
 PROGRESS.md:StateStrategy.kt
 PROGRESS.md:StatefulViewModel.kt
 shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector/package-info.kt:DateBucketExtensions.kt
+# TaskDetailViewModel.kt was removed by the Clean Architecture refactor
+# (0ea2eedc, replaced by TaskDetailCoordinator + slots). The refs below are
+# historical narratives about bugs that lived in that file when it existed.
+PROGRESS.md:TaskDetailViewModel.kt
+.agents/skills/singularity-todo-document-style-detail/SKILL.md:TaskDetailViewModel.kt
+.agents/skills/singularity-todo-task-detail-ux/SKILL.md:TaskDetailViewModel.kt
+.agents/skills/singularity-todo-testable-vm/SKILL.md:feature/tasks/presentation/viewmodel/TaskDetailViewModel.kt

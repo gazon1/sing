@@ -43,7 +43,11 @@ class DiGraphTest {
 }
 ```
 
-### `shared/src/androidHostTest/kotlin/com/singularity/todo/test/KoinGraphValidationTest.kt`
+### `shared/src/androidHostTest/kotlin/com/singularity/todo/test/AndroidKoinGraphValidationTest.kt`
+
+This test also carries `externalTypes` — the DAO list the static `verify()`
+needs (see the checklist below) — plus a `key android singletons resolve`
+test that builds the real Koin graph under Robolectric.
 
 ```kotlin
 package com.singularity.todo.core.di
@@ -167,7 +171,31 @@ Don't `as JvmPromptExecutorPort` cast in commonMain — register in JVM `platfor
 
 **Always run BOTH tests after touching the DI graph.** The JVM test passes if Android `platformModule()` is missing a binding — they have separate registrations. Example: `NotesStore` (Android `RoomNotesStore`, JVM `JdbcNotesStore`) was missing on Android and only caught by `AndroidDiGraphTest`.
 
-### 4. Robolectric + EncryptedSharedPreferences
+### 4. New Room DAO — the three-place checklist
+
+A new `abstract fun xDao(): XDao` accessor on `AppDatabase` compiles, tests
+green, and then throws `NoDefinitionFoundException` the first time a screen
+resolves the repository that needs it. Three Room DAOs shipped that way
+(`TagGroupDao`, `ProjectInheritedTagGroupDao`, `SavedSearchDao`) — the Tag
+Groups settings tab killed the process on open. See
+`docs/decisions/2026-09-29-missing-koin-dao-bindings.md`.
+
+Checklist, every item required:
+
+1. **`PlatformModule.android.kt`** — `single { get<AppDatabase>().xDao() }`.
+2. **`PlatformModule.jvm.kt`** — same, unless the DAO is genuinely Android-only
+   (`CalendarSyncTaskMapDao` is the one deliberate exception: JVM uses
+   `NoopCalendarProvider`).
+3. **`AndroidKoinGraphValidationTest.externalTypes`** — add `XDao::class`, or
+   the static `verify()` treats the type as unknown-by-design and stays silent.
+
+The graph tests cannot fully automate item 3 — deriving the list needs
+reflection unavailable in commonMain — so this checklist is the guard. When
+auditing, diff `AppDatabase` accessors against the `get<AppDatabase>()…`
+bindings in both platform modules; any accessor absent from both is a latent
+crash.
+
+### 5. Robolectric + EncryptedSharedPreferences
 
 `AndroidSecureStorage` uses `EncryptedSharedPreferences` which fails under Robolectric (Tink + Keystore). Override in the test module:
 

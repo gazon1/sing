@@ -28,7 +28,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT / ".agents" / "skills"
 DECISIONS_DIR = ROOT / "docs" / "decisions"
 SRC_DIRS = ["shared/src", "shared", "androidApp", "desktopApp", "mcp-server",
-            "detekt-rules", "scripts", "docs", "config", "evals", ".agents", "gradle"]
+            "detekt-rules", "scripts", "docs", "config", "evals", ".agents", "gradle",
+            "Maestro"]
 
 # Top-level files that exist but are not under SRC_DIRS.
 TOP_LEVEL_FILES = [

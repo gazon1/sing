@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-nav3-savedstate
-description: Nav3 back stack persistence in this KMP project. Covers Android (SavedStateConfiguration + navSavedStateConfig helper for process-death persistence) vs Desktop JVM (in-memory NavBackStack via rememberInMemoryNavBackStack, no SavedStateConfiguration). Use when creating or modifying any *NavGraph.kt file, when adding a new route/data-object to AppDestination or any sealed route hierarchy, or when a SerializationException "Serializer for subclass 'X' is not found in the polymorphic scope of 'NavKey'" appears on Android.
+description: Nav3 back stack persistence in this KMP project. Covers the single shared appNavSavedStateConfig (one sealed AppNavKey root, one subclassesOfSealed call) on Android vs in-memory NavBackStack on Desktop JVM, where route types must live (feature/nav/), and why a route extending NavKey instead of AppNavKey crashes its screen on open. Use when creating or modifying any *NavGraph.kt file, when adding a new route type, or when IllegalArgumentException "subclassesOfSealed only supports automatic adding of subclasses of sealed types" or "Serializer for subclass 'X' is not found" appears on Android.
 ---
 
 # Nav3 Back Stack — Android vs Desktop JVM
@@ -9,87 +9,84 @@ This project uses two different back stack strategies by platform:
 
 | | Android | Desktop JVM |
 |---|---|---|
-| Back stack type | `rememberNavBackStack(savedStateConfig, start)` | `rememberInMemoryNavBackStack(start)` |
-| Process death survival | ✅ Yes — `SavedStateConfiguration` + `navSavedStateConfig(...)` | ❌ No — in-memory only |
+| Back stack type | `rememberNavBackStack(appNavSavedStateConfig, start)` | `rememberInMemoryNavBackStack(start)` |
+| Process death survival | Yes — the shared config serializes keys | No — in-memory only |
 | `LocalSaveableStateRegistry` | Real registry from ComponentActivity | Always `null` (`savedstate-compose-desktop` is an empty stub) |
-| Serializer registration | Required — `navSavedStateConfig(...)` registers all `NavKey` subtypes | Not needed — no serialization |
+| Serializer registration | One shared config registers the whole app | Not needed — no serialization |
 
-**The two paths are not equivalent.** If you are uncertain which template to use, check the file extension: `*.android.kt` → Android template; `*.jvm.kt` → Desktop template.
+**The two paths are not equivalent.** If uncertain which template applies, check
+the file extension: `*.android.kt` → Android; `*.jvm.kt` → Desktop.
 
 ---
 
-## Android: `navSavedStateConfig(...)` helper
+## The single sealed root: `AppNavKey`
 
-On Android, `rememberNavBackStack` requires a `SavedStateConfiguration` whose `serializersModule` registers every concrete `NavKey` subtype reachable in the stack. Use the shared `navSavedStateConfig(...)` helper from `com.singularity.todo.feature.nav.navSavedStateConfig`.
-
-**Do NOT** write the `SerializersModule { polymorphic(NavKey::class) { subclass(...) } }` block inline — use the helper instead.
-
-### Top-level factory — `Nav3StateFactory.android.kt`
+Every route in the app is a leaf (or a sealed sub-hierarchy) of one interface:
 
 ```kotlin
-import com.singularity.todo.feature.nav.navSavedStateConfig
+// feature/nav/AppNavKey.kt
+@Serializable
+sealed interface AppNavKey : NavKey
+```
 
-val savedStateConfig = remember {
-    navSavedStateConfig(
-        AppDestination.Inbox.serializer(),
-        AppDestination.Today.serializer(),
-        // ... all AppDestination subtypes
-    )
-}
+`appNavSavedStateConfig` registers it once:
 
-val backStacks = topLevelRoutes.associateWith { key ->
-    rememberNavBackStack(savedStateConfig, key)
+```kotlin
+// feature/nav/Nav3SavedState.kt
+internal val appNavSavedStateConfig: SavedStateConfiguration = SavedStateConfiguration {
+    serializersModule = SerializersModule {
+        polymorphic(NavKey::class) {
+            subclassesOfSealed(AppNavKey.serializer())
+        }
+    }
 }
 ```
 
-### Nested multi-route graph — `*NavGraph.android.kt`
+`subclassesOfSealed` walks the sealed hierarchy at configuration time, so a newly
+added route needs no registration anywhere. **The config is shared by all eight
+NavGraphs** — a nested graph only ever holds keys from its own hierarchy, and
+registering the whole app costs one sealed walk.
+
+**Why one root, not per-graph configs.** The previous pattern called
+`navSavedStateConfig(serializer)` per graph and assumed every route base was a
+sealed hierarchy. Two graphs had none: `Settings` and `Search` were lone
+`data object`s extending `NavKey`, and `subclassesOfSealed` rejects those —
+opening either screen killed the process
+(`IllegalArgumentException: subclassesOfSealed only supports automatic adding of
+subclasses of sealed types`). One root makes that state unrepresentable. See
+`docs/decisions/2026-09-29-single-sealed-navkey-root.md`.
+
+**Where route types live.** Kotlin requires a sealed hierarchy in one package,
+so every route type sits in `com.singularity.todo.feature.nav` —
+`AppDestination.kt`, `AgendaStartRoute.kt`, `TasksRoute.kt`, `NotesRoute.kt`,
+`ProjectsRoute.kt`, `CalendarRoute.kt`, `Settings.kt`, `Search.kt` — not beside
+the screens they open. NavGraphs and entry providers stay per feature.
+
+---
+
+## Android NavGraph actual
 
 ```kotlin
-import com.singularity.todo.feature.nav.navSavedStateConfig
+import com.singularity.todo.feature.nav.appNavSavedStateConfig
 
 @Composable
 actual fun TasksNavGraph(start: TasksRoute, onExitGraph: ..., modifier: ...) {
-    val savedStateConfig = remember {
-        navSavedStateConfig(
-            TasksRoute.Inbox.serializer(),
-            TasksRoute.Today.serializer(),
-            TasksRoute.ByProject.serializer(),
-            TasksRoute.Detail.serializer(),
-            TasksRoute.Create.serializer(),
-        )
-    }
-    val backStack: NavBackStack<TasksRoute> = rememberNavBackStack(savedStateConfig, start)
+    // A schema constant — remember { } around it is unnecessary.
+    val savedStateConfig = appNavSavedStateConfig
 
+    @Suppress("UNCHECKED_CAST")  // rememberNavBackStack is not reified; see ADR below
+    val backStack: NavBackStack<TasksRoute> =
+        rememberNavBackStack(savedStateConfig, start) as NavBackStack<TasksRoute>
     // ... NavDisplay setup
 }
 ```
 
-### Nested single-route graph — `SettingsNavGraph.android.kt`, `SearchNavGraph.android.kt`
-
-```kotlin
-val savedStateConfig = remember {
-    navSavedStateConfig(Settings.serializer()) // or Search.serializer()
-}
-val backStack: NavBackStack<Settings> = rememberNavBackStack(savedStateConfig, Settings)
-```
-
 ---
 
-## Desktop JVM: `rememberInMemoryNavBackStack(...)`
+## Desktop JVM
 
-On Desktop, `LocalSaveableStateRegistry` is always `null` (the `savedstate-compose-desktop` artifact is a deliberate empty stub). Any `SavedStateConfiguration` is dead code. Use the in-memory `NavBackStack` directly:
-
-### Top-level factory — `Nav3StateFactory.jvm.kt`
-
-```kotlin
-import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
-
-val backStacks = topLevelRoutes.associateWith { key ->
-    rememberInMemoryNavBackStack(key)
-}
-```
-
-### Any nested graph — `*NavGraph.jvm.kt`
+On Desktop, `LocalSaveableStateRegistry` is always `null`, so any
+`SavedStateConfiguration` is dead code. Use the in-memory back stack:
 
 ```kotlin
 import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
@@ -97,74 +94,61 @@ import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
 @Composable
 actual fun TasksNavGraph(start: TasksRoute, onExitGraph: ..., modifier: ...) {
     val backStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(start)
-
     // ... NavDisplay setup
 }
 ```
 
-No `SavedStateConfiguration`, no `SerializersModule`, no `polymorphic`, no `subclass`. The type is inferred from `start: TasksRoute` — no cast needed, no `@Suppress("UNCHECKED_CAST")`.
+No config, no cast, no `@Suppress`. The type is inferred from `start: TasksRoute`.
 
 ---
 
 ## Adding a new route type
 
-### On Android (always required)
-
-Every `NavKey` subtype that may appear in an Android back stack **must** be registered in `navSavedStateConfig(...)` for every NavGraph that can contain it. Without registration, process death / rotation causes `SerializationException`.
+1. Declare it as a leaf of the root — `AppNavKey`, never `NavKey`:
 
 ```kotlin
-// TasksNavGraph.android.kt — add the new subtype:
-navSavedStateConfig(
-    TasksRoute.Inbox.serializer(),
-    TasksRoute.Today.serializer(),
-    TasksRoute.ByProject.serializer(),
-    TasksRoute.Detail.serializer(),
-    TasksRoute.Create.serializer(),
-    TasksRoute.NewRoute.serializer(), // ← ADD THIS LINE
-)
-```
-
-The compiler will not warn if you forget. Always update `navSavedStateConfig(...)` when adding a new route.
-
-### On Desktop (not needed)
-
-No registration required. `rememberInMemoryNavBackStack(start)` works for any `T : NavKey`.
-
-### In `commonMain` sealed hierarchy
-
-The route type itself must be `@Serializable` (so Android can call `.serializer()` on it):
-
-```kotlin
+// feature/nav/TasksRoute.kt
 @Serializable
-data object NewRoute : TasksRoute()
+data class NewRoute(val id: SomeId) : TasksRoute   // TasksRoute : AppNavKey
 ```
+
+2. Add the `entry { }` in both NavGraph actuals' `entryProvider`.
+3. Done. The shared config picks it up; no serializer list to edit.
+
+A route extending `NavKey` directly compiles and tests green — it is only
+invisible to `subclassesOfSealed`, so its screen crashes the moment it opens.
+`NavSavedStateConfigTest` holds the inventory of nested graph routes to catch
+this; name a new graph's route there.
 
 ---
 
 ## Symptoms of getting it wrong
 
-### Android: missing serializer registration
-
-**`SerializationException: Serializer for subclass 'X' is not found in the polymorphic scope of 'NavKey'`** at rotation or process death. The back stack silently fails to restore — the app appears to restart from the initial route instead of restoring the previous navigation state.
-
-### Cascade crash on both platforms
-
-**`Size(2147483647 x 64)`** inside `TopAppBarMeasurePolicy`. This is a cascade failure: `SerializationException` aborts composition mid-measure, leaving `Constraints.Infinity` on width. Fix the serializer registration and the layout error vanishes.
+| Symptom | Cause |
+|---|---|
+| `IllegalArgumentException: subclassesOfSealed only supports automatic adding of subclasses of sealed types` when a screen opens | A route (usually a lone `data object`) extends `NavKey` or a non-sealed type instead of `AppNavKey`. |
+| `SerializerAlreadyRegisteredException` at startup | Two registrations under the same base — historically caused by erasing the static type to `KSerializer<NavKey>` in a vararg helper. The shared-config design removes the failure mode; if it reappears, something registered outside `appNavSavedStateConfig`. |
+| `SerializationException: Serializer for subclass 'X' is not found` at rotation/process death | A route not reachable from `AppNavKey` (see above) — same root cause, different surfacing. |
 
 ---
 
 ## What NOT to do
 
-- **Never** write `SavedStateConfiguration { }` with an empty body on Android — it opts into `PolymorphicSerializer(NavKey::class)` with no registrations. Always use `navSavedStateConfig(...)`.
-- **Never** use `SavedStateConfiguration` on Desktop — it is dead code and a maintenance burden. Use `rememberInMemoryNavBackStack(...)`.
-- **Never** call `subclass(SomeSealedInterface.serializer())` — sealed intermediate interfaces are not instantiable; only concrete leaf types can be in the stack. Register only the leaves.
-- **Never** add `@Suppress("UNCHECKED_CAST")` for the `NavBackStack` cast — `NavBackStack<T>(start)` or `rememberNavBackStack(config, start)` already returns the correctly typed stack.
+- **Never** declare a route as `... : NavKey`. Extend `AppNavKey`.
+- **Never** build a per-graph `SavedStateConfiguration` — the shared
+  `appNavSavedStateConfig` is the single source. A second config is how the
+  duplicate-registration crash returned last time.
+- **Never** use `SavedStateConfiguration` on Desktop — dead code. Use
+  `rememberInMemoryNavBackStack(...)`.
+- **Never** register sealed intermediate interfaces manually —
+  `subclassesOfSealed(AppNavKey.serializer())` already covers every leaf.
 
 ---
 
-## Related decisions and skills
+## Related
 
-- `docs/decisions/2026-09-16-nav3-savedstate-serializers-required.md` — Android serializer requirement (still in force for Android)
-- `docs/decisions/2026-09-16-nav3-desktop-in-memory-no-savedstate.md` — this design decision
-- `singularity-todo-cross-feature-navigation` — orthogonal; chip navigation
-- `singularity-todo-feature-scaffold` — broader CRUD-feature pattern
+- `docs/decisions/2026-09-29-single-sealed-navkey-root.md` — the one-root decision and the Settings/Search crash
+- `docs/decisions/2026-09-16-nav3-desktop-in-memory-no-savedstate.md` — JVM in-memory rationale
+- `docs/decisions/2026-09-16-nav3-savedstate-serializers-required.md` — Android serializer requirement (historical, superseded in part by the one-root ADR)
+- `docs/decisions/2026-09-16-nav3-type-asymmetry-adr.md` — why Android needs the cast and JVM does not
+- `singularity-todo-nav3-nested-graphs` — graph architecture and entry wiring

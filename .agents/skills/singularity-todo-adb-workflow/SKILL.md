@@ -154,7 +154,7 @@ This skill is the physical-device counterpart to the `android-emulator:android-d
 | Situation | Use |
 |---|---|
 | Physical phone/tablet connected | This skill (adb direct) |
-| AVD / emulator | `android-emulator:android-dev` MCP |
+| AVD / emulator | `singularity-todo-emulator-launch` (direct command; the MCP start tool times out on this host) |
 | Quick tap/screenshot on known serial | MCP tools with `serial=` |
 | Full verification run (build + install + wake + screenshot + logs) | This skill |
 | Starting a fresh AVD | `android-emulator:android-dev` |
