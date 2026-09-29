@@ -25,6 +25,9 @@ set -euo pipefail
 AVD="${AVD:-Medium_Phone}"
 SERIAL="${SERIAL:-}"
 EMULATOR_TIMEOUT="${EMULATOR_TIMEOUT:-300}"
+# Extra flags passed through to the emulator binary, e.g. for A/B-testing
+# crash mitigations: EMULATOR_EXTRA_FLAGS="-no-metrics -crash-report-mode disabled"
+EMULATOR_EXTRA_FLAGS="${EMULATOR_EXTRA_FLAGS:-}"
 LOG_FILE="${EMULATOR_LOG:-/tmp/singularity-emulator.log}"
 
 RED=$'\033[0;31m'; YELLOW=$'\033[0;33m'; NC=$'\033[0m'
@@ -82,9 +85,11 @@ rm -f "$HOME/.android/avd/$AVD.avd/"*.lock >/dev/null 2>&1 || true
 #   -no-window         SIGSEGV before the window is created
 #   -gpu software      dies during startup (API 36)
 #   -gpu swangle       dies during startup
+# shellcheck disable=SC2086
 emulator -avd "$AVD" \
     -no-snapshot-load -no-boot-anim \
     -camera-back none -camera-front none -no-audio \
+    $EMULATOR_EXTRA_FLAGS \
     >"$LOG_FILE" 2>&1 &
 
 # `&` alone is not enough: a child dies with the shell that spawned it, so the

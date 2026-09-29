@@ -165,7 +165,9 @@ fi
 #
 # Running one flow per invocation keeps the blast radius to one flow, and a lost
 # device is recoverable: relaunch the AVD, reinstall, and retry that flow.
-MAX_RETRIES="${MAESTRO_MAX_RETRIES:-1}"
+# Measured crash rate on this host: ~1 device loss per 2-3 smoke passes
+# (~0.4/pass), so a pass can contain two losses; the default covers that.
+MAX_RETRIES="${MAESTRO_MAX_RETRIES:-2}"
 
 PASSED=(); FAILED=()
 
