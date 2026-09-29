@@ -26,23 +26,18 @@ tags:
 - tapOn:
     id: task_item_renameme
 
-# Clear the title field.
+# Clear the title field: longPress selects all text; eraseText with no arg erases it.
 - tapOn:
     id: task_editor_title_input
 - longPress:
     id: task_editor_title_input
-- tapOn:
-    id: task_editor_title_input
-- confirmContextMenu: {}
+- eraseText
 
-# Try to save — the button should be disabled or the save should be rejected.
-# Check that the editor is still open with an empty field, not that a save succeeded.
+# The editor stays open with an empty title field.
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
     timeout: 3000
-- assertVisible:
-    id: task_editor_title_input
 
 # Navigate back — task should still exist with its original title.
 - back
