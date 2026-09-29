@@ -67,58 +67,36 @@ class FabActionResolverTest {
         assertEquals("Add project", result.label())
     }
 
-    // ── Deprecated singletons (Android shell) ────────────────────────────────────
+    // ── Agenda routes (modern) ────────────────────────────────────────────────
 
-    @Suppress("DEPRECATION")
     @Test
-    fun inboxDeprecated_returnsAddTask() {
-        val result = fabActionForNav3(AppDestination.Inbox, navigate)
-        assertEquals("Add task", result.label())
-        result.click()
-        assertEquals(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create), navigatedTo)
-    }
-
-    @Suppress("DEPRECATION")
-    @Test
-    fun todayDeprecated_returnsAddTask() {
-        val result = fabActionForNav3(AppDestination.Today, navigate)
-        assertEquals("Add task", result.label())
-    }
-
-    @Suppress("DEPRECATION")
-    @Test
-    fun plansDeprecated_returnsAddProject() {
+    fun plans_returnsAddProject() {
         val result = fabActionForNav3(AppDestination.Plans, navigate)
         assertEquals("Add project", result.label())
     }
 
     // ── Destinations with no FAB ────────────────────────────────────────────────
 
-    @Suppress("DEPRECATION")
     @Test
     fun notes_returnsNull() {
         assertNull(fabActionForNav3(AppDestination.Notes, navigate))
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun pomodoro_returnsNull() {
         assertNull(fabActionForNav3(AppDestination.Pomodoro, navigate))
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun statistics_returnsNull() {
         assertNull(fabActionForNav3(AppDestination.Statistics, navigate))
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun archive_returnsNull() {
         assertNull(fabActionForNav3(AppDestination.Archive, navigate))
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun settings_returnsNull() {
         assertNull(fabActionForNav3(AppDestination.Settings, navigate))
