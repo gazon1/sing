@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
  * Single source of truth — all code that needs the running app's version
  * must use [appVersion()], not a hardcoded literal.
  *
- * Android: reads BuildConfig.VERSION_NAME / VERSION_CODE from androidApp.
+ * Android: reads BuildConfig.VERSION_NAME / VERSION_CODE at runtime via Class.forName.
  * JVM/Desktop: reads -Dsingularity.version system property; falls back to "0.0.0".
  */
 @Serializable
