@@ -105,6 +105,7 @@ fun TaskEditorContent(
     bottomBar: (@Composable () -> Unit)?,
     menuItems: List<TaskEditorMenuItem>,
     onBack: () -> Unit,
+    onAiClick: (() -> Unit)? = null,
 ) {
     val sheets = rememberDialogState<TaskEditorSheet>()
     var showMenu by remember { mutableStateOf(false) }
@@ -114,6 +115,7 @@ fun TaskEditorContent(
             TaskDetailTopBar(
                 onBackClick = onBack,
                 onMoreClick = { showMenu = true },
+                onAiClick = onAiClick,
             )
         },
         bottomBar = bottomBar
@@ -365,6 +367,7 @@ fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, is
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,
         onBack = callbacks.onBack,
+        onAiClick = callbacks.onAiClick,
     )
 }
 

@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -20,10 +21,17 @@ import com.singularity.todo.core.ui.TestTags
  * @param onBackClick called when the back arrow is tapped
  * @param onMoreClick called when the menu button is tapped. Null means the button is hidden
  *        (e.g. in Create mode where there is no overflow menu).
+ * @param onAiClick called when the AI button is tapped. Null means the button is hidden
+ *        (AI features not available on this platform).
  */
 @OptIn(ExperimentalMaterial3Api::class)
+@Suppress("FunctionSignature")
 @Composable
-fun TaskDetailTopBar(onBackClick: () -> Unit, onMoreClick: (() -> Unit)? = null) {
+fun TaskDetailTopBar(
+    onBackClick: () -> Unit,
+    onMoreClick: (() -> Unit)? = null,
+    onAiClick: (() -> Unit)? = null,
+) {
     TopAppBar(
         title = {},
         navigationIcon = {
@@ -36,6 +44,18 @@ fun TaskDetailTopBar(onBackClick: () -> Unit, onMoreClick: (() -> Unit)? = null)
             }
         },
         actions = {
+            if (onAiClick != null) {
+                IconButton(
+                    onClick = onAiClick,
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_AI_BUTTON),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AutoAwesome,
+                        contentDescription = "AI Actions",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
             if (onMoreClick != null) {
                 IconButton(onClick = onMoreClick, modifier = Modifier.testTag(TestTags.TASK_EDITOR_MORE_MENU)) {
                     Icon(

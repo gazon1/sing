@@ -27,6 +27,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
@@ -42,6 +45,7 @@ import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
@@ -86,6 +90,7 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
 
             is TaskDetailUiState.Loaded -> {
                 val ui = s.ui
+                var showAiSheet by rememberSaveable { mutableStateOf(false) }
 
                 TaskEditorContent(
                     titleDraft = ui.titleDraft,
@@ -138,7 +143,19 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                         vm.onIntent(intent)
                     },
                     onBack = { navigator.back() },
+                    onAiClick = { showAiSheet = true },
                 )
+
+                if (showAiSheet) {
+                    TaskAiBottomSheet(
+                        task = ui.task,
+                        onAction = { action ->
+                            vm.onIntent(TaskDetailIntent.Domain.RunAiAction(action))
+                            showAiSheet = false
+                        },
+                        onDismiss = { showAiSheet = false },
+                    )
+                }
             }
         }
     }

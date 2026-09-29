@@ -70,6 +70,7 @@ object TestTags {
     const val TASK_EDITOR_TITLE_INPUT = "task_editor_title_input"
     const val TASK_EDITOR_SAVE = "task_editor_save"
     const val TASK_EDITOR_MORE_MENU = "task_editor_more_menu"
+    const val TASK_EDITOR_AI_BUTTON = "task_editor_ai_button"
 
     // ─── Agenda ────────────────────────────────────────────────────────────
 
