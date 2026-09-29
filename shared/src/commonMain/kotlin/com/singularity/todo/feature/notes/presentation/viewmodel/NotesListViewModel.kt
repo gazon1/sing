@@ -14,9 +14,12 @@ import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.notes.presentation.NotesIntent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -27,15 +30,15 @@ import kotlinx.datetime.plus
 /**
  * Notes list screen ViewModel.
  *
- * Owns: note list filtered by [NoteFilter], sorted by [NoteSortOrder].
- * Triggers: filter/sort changes, note create/delete/restore.
+ * Owns: note list filtered by [NoteFilter] and [searchQueryFlow], sorted by [NoteSortOrder].
+ * Triggers: filter/sort/search changes, note create/delete/archive/restore.
  * One-shot events: [NotesUiEvent.NavigateToEditor], [NotesUiEvent.NavigateToPreview],
  *   [NotesUiEvent.ShowError].
  *
  * @see NotesListState
  * @see NotesUiState
  */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class NotesListViewModel(
     private val repo: NotesRepository,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
@@ -44,6 +47,11 @@ class NotesListViewModel(
         scope = scope,
     ) {
 
+    private companion object {
+        /** Keystrokes settle for this long before a repository query runs. */
+        const val SEARCH_DEBOUNCE_MS = 200L
+    }
+
     // [filter] and [sortOrder] are inputs to the collector below, not public surface:
     // [NotesListState] already carries both, so the screen reads them from the state
     // instead of collecting a second, independently-timed copy of the same value.
@@ -51,28 +59,47 @@ class NotesListViewModel(
 
     private val sortOrderFlow = MutableStateFlow(NoteSortOrder.UpdatedDesc)
 
+    /**
+     * Raw keystrokes. Debounced before it reaches [filterFlow] so a fast typist
+     * triggers one query, not one per character — see [SearchQueryChanged].
+     */
+    private val searchQueryFlow = MutableStateFlow("")
+
+    /**
+     * The query actually applied to the repository.
+     *
+     * A blank query passes through with no delay so the first list emission is not
+     * held hostage by the debounce — otherwise the screen would sit on `Loading`
+     * for 200 ms on every launch. Only real keystrokes wait.
+     */
+    private val debouncedQueryFlow = searchQueryFlow
+        .debounce { query -> if (query.isEmpty()) 0L else SEARCH_DEBOUNCE_MS }
+        .distinctUntilChanged()
+
     private val _selectedIds = MutableStateFlow<Set<NoteId>>(emptySet())
     private val _isSelectionMode = MutableStateFlow(false)
 
     init {
         scope.launch {
-            // Combine four flows: filtered notes + templates + daily notes + sort order.
+            // Combine five flows: notes + templates + daily notes + sort order + search.
             val templatesFlow = repo.watchTemplates()
             val dailyNotesFlow = todayFlow().flatMapLatest { today ->
                 val from = today.minus(7, DateTimeUnit.DAY).toString()
                 val to = today.plus(30, DateTimeUnit.DAY).toString()
                 repo.watchDailyNotesInRange(from, to)
             }
-            val notesFlow = filterFlow.flatMapLatest { f ->
-                val flow = when (f) {
-                    NoteFilter.All -> repo.observeAll()
-                    NoteFilter.Pinned -> repo.watchPinned()
-                    NoteFilter.Archived -> repo.watchArchived()
+            val notesFlow = combine(filterFlow, debouncedQueryFlow) { f, query -> f to query }
+                .flatMapLatest { (f, query) ->
+                    val flow = when {
+                        query.isNotBlank() -> repo.search(query)
+                        f == NoteFilter.All -> repo.observeAll()
+                        f == NoteFilter.Pinned -> repo.watchPinned()
+                        else -> repo.watchArchived()
+                    }
+                    flow.map { notes -> Triple(f, query, notes) }
                 }
-                flow.map { notes -> f to notes }
-            }
             combine(notesFlow, templatesFlow, dailyNotesFlow, sortOrderFlow) {
-                (filter, allNotes),
+                (filter, query, allNotes),
                 templates,
                 dailyNotes,
                 sortOrder,
@@ -88,6 +115,7 @@ class NotesListViewModel(
                         dailyNotes = dailyNotes,
                         filter = filter,
                         sortOrder = sortOrder,
+                        searchQuery = query,
                         selectedIds = _selectedIds.value,
                         isSelectionMode = _isSelectionMode.value,
                     ),
@@ -113,6 +141,7 @@ class NotesListViewModel(
             is NotesIntent.Unarchive -> unarchive(intent.id)
             is NotesIntent.SetFilter -> setFilter(intent.filter)
             is NotesIntent.SetSortOrder -> setSortOrder(intent.order)
+            is NotesIntent.SearchQueryChanged -> searchQueryFlow.value = intent.query
             is NotesIntent.EnterSelection -> enterSelectionMode(intent.id)
             is NotesIntent.ToggleSelection -> toggleSelection(intent.id)
             NotesIntent.ExitSelection -> exitSelectionMode()

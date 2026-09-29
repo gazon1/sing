@@ -29,6 +29,7 @@ value class NotesActions(private val dispatch: (NotesIntent) -> Unit) {
 
     fun onSetFilter(filter: NoteFilter) = dispatch(NotesIntent.SetFilter(filter))
     fun onSetSortOrder(order: NoteSortOrder) = dispatch(NotesIntent.SetSortOrder(order))
+    fun onSearchQueryChange(query: String) = dispatch(NotesIntent.SearchQueryChanged(query))
 
     // ── Selection mode ─────────────────────────────────────────────────────────
 

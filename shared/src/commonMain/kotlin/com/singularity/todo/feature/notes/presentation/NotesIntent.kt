@@ -15,6 +15,7 @@ sealed interface NotesIntent : MviIntent {
     data class Unarchive(val id: NoteId) : NotesIntent
     data class SetFilter(val filter: NoteFilter) : NotesIntent
     data class SetSortOrder(val order: NoteSortOrder) : NotesIntent
+    data class SearchQueryChanged(val query: String) : NotesIntent
     data class EnterSelection(val id: NoteId) : NotesIntent
     data class ToggleSelection(val id: NoteId) : NotesIntent
     data object ExitSelection : NotesIntent

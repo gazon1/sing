@@ -23,8 +23,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -190,6 +192,10 @@ fun NotesScreenContent(
                         currentFilter = currentFilter,
                         onFilterChange = { actions.onSetFilter(it) },
                     )
+                    NoteSearchField(
+                        query = listState?.searchQuery ?: "",
+                        onQueryChange = { actions.onSearchQueryChange(it) },
+                    )
                     QuickAddRow(onSubmit = onCreateNote)
                 }
                 HorizontalDivider()
@@ -287,6 +293,34 @@ private fun SortDropdownMenu(
 }
 
 // ─── Quick-add row ─────────────────────────────────────────────────────────---
+
+// ─── Search field ───────────────────────────────────────────────────────────
+
+/**
+ * Title search box. The text field is screen-local echo; the query the list is
+ * actually filtered by is debounced 200 ms in the ViewModel, so a fast typist
+ * triggers one repository query rather than one per keystroke.
+ */
+@Composable
+private fun NoteSearchField(query: String, onQueryChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        placeholder = { Text("Search notes") },
+        singleLine = true,
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Default.Close, contentDescription = "Clear search")
+                }
+            }
+        },
+    )
+}
 
 @Composable
 private fun QuickAddRow(onSubmit: (String) -> Unit) {
