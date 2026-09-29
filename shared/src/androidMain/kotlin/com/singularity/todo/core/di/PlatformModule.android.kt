@@ -10,8 +10,10 @@ import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.files.AndroidFileRevealer
+import com.singularity.todo.core.files.AndroidFileSourceFactory
 import com.singularity.todo.core.files.AndroidFileSystem
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.AndroidNotifier
@@ -167,6 +169,8 @@ actual fun platformModule(): Module = module {
     single<FileSystem> { AndroidFileSystem(get()) }
 
     single<FileRevealer> { AndroidFileRevealer(get()) }
+
+    single<FileSourceFactory> { AndroidFileSourceFactory(get()) }
 
     single<BackupCodec> { AndroidBackupCodec() }
 

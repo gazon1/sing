@@ -1,5 +1,6 @@
 package com.singularity.todo.core.backup
 
+import com.singularity.todo.core.files.FileSource
 import com.singularity.todo.core.files.FileSystem
 
 /**
@@ -30,6 +31,15 @@ interface BackupCodec {
      * Returns the decoded manifest, payload, and all attachment entries.
      */
     suspend fun import(sourcePath: String, fs: FileSystem): Result<CodecReadResult>
+
+    /**
+     * Reads and parses the zip backup from a [FileSource].
+     * Use this when the source is a `content://` URI from the system file picker
+     * on Android — [import] cannot handle URIs.
+     *
+     * Default implementation delegates to [import] for source-path backward compatibility.
+     */
+    suspend fun importFromSource(source: FileSource): Result<CodecReadResult>
 
     data class CodecReadResult(
         val manifestBytes: ByteArray,

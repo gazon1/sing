@@ -10,8 +10,10 @@ import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.JvmFileRevealer
+import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
@@ -112,6 +114,8 @@ actual fun platformModule(): Module = module {
     single<FileSystem> { JvmFileSystem() }
 
     single<FileRevealer> { JvmFileRevealer() }
+
+    single<FileSourceFactory> { JvmFileSourceFactory() }
 
     single<BackupCodec> { JvmBackupCodec() }
 

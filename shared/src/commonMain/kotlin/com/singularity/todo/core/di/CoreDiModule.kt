@@ -239,7 +239,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             get(), get(),
             get(),
             get(), get(),
-            get(),
+            createFileSource = get(),
         )
     }
     single<BackupRepository> {

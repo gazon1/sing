@@ -1,5 +1,6 @@
 package com.singularity.todo.core.backup
 
+import com.singularity.todo.core.files.FileSource
 import com.singularity.todo.core.files.FileSystem
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -47,7 +48,15 @@ class JvmBackupCodec : BackupCodec {
     override suspend fun import(sourcePath: String, fs: FileSystem): Result<BackupCodec.CodecReadResult> = runCatching {
         if (!fs.exists(sourcePath)) throw BackupError.FileNotFound(sourcePath)
         val bytes = fs.readBytes(sourcePath)
+        decodeZip(bytes)
+    }
 
+    override suspend fun importFromSource(source: FileSource): Result<BackupCodec.CodecReadResult> = runCatching {
+        val bytes = source.readBytes()
+        decodeZip(bytes)
+    }
+
+    private fun decodeZip(bytes: ByteArray): BackupCodec.CodecReadResult {
         var manifest: ByteArray? = null
         var payload: ByteArray? = null
         val attachments = mutableMapOf<String, ByteArray>()
@@ -69,7 +78,7 @@ class JvmBackupCodec : BackupCodec {
             }
         }
 
-        BackupCodec.CodecReadResult(
+        return BackupCodec.CodecReadResult(
             manifestBytes = manifest
                 ?: throw BackupError.MalformedManifest("missing manifest.json"),
             payloadBytes = payload
