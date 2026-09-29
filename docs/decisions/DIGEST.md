@@ -801,6 +801,17 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `RefineTaskTool.kt:34-38` has identical try and catch branches (copy-paste bug) — not fixed in this PR.
 - `initLogging` must be called **before** `startKoin` (unchanged from previous behavior).
 
+### `maestro`
+
+- A new `Maestro/helpers/seed-archived-task.yaml` helper is created in PR-2
+- All `AlertDialog`-based buttons in `core/ui/components/` must eventually
+- All `ModalBottomSheet` item rows should carry `sheet_item_<slug>`.
+- If a future debug-seed API is added (approach 3), both seeder helpers become
+- The helper is tagged `helpers` (never run standalone).
+- When writing a new Maestro flow that hits a dialog/sheet without a testTag,
+- `11-archive-restore-smoke.yaml` is updated to `runFlow:
+- `Maestro/TAGS.md` is the authoritative list of missing testTags; it is
+
 ### `mcp`
 
 - ADR пишется в `docs/decisions/{YYYY-MM-DD}-{slug}.md` (server-side date).
@@ -1670,6 +1681,8 @@ _8 entries need attention._
 - `2026-09-28-roadmap-status` — retro, tech-debt, roadmap, status
 - `2026-09-28-setup-hooks-broken-githooks-path` — _untagged_
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
+- `2026-09-29-maestro-archive-seed-strategy` — maestro, testing
+- `2026-09-29-maestro-dialog-buttons-no-testtag` — maestro, testing, ui
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — _untagged_
 
 ## Active entries
@@ -1973,5 +1986,7 @@ _8 entries need attention._
 - `2026-09-28-roadmap-status` — Tech-debt roadmap v3 — what three MRs closed, and what is left
 - `2026-09-28-setup-hooks-broken-githooks-path` — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
+- `2026-09-29-maestro-archive-seed-strategy` — Archive seed strategy — session coupling in archive-restore flow
+- `2026-09-29-maestro-dialog-buttons-no-testtag` — AlertDialog buttons use visible text instead of testTag
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — Оставшиеся проблемные места после MR про Maestro UI-тесты
 
