@@ -3,7 +3,6 @@ package com.singularity.todo.feature.pomodoro
 import com.singularity.todo.feature.pomodoro.recomputeRemaining
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,14 +57,6 @@ class AndroidPomodoroTimer(
         // Defensive cancel: a stale alarm from a previous process instance must not fire
         alarmScheduler.cancelPhaseEndAlarm()
     }
-
-    /** Secondary constructor for Koin injection — uses [MainScope] as the execution context. */
-    constructor(
-        clock: Clock,
-        taskListProvider: PomodoroTaskListProvider,
-        alarmScheduler: PomodoroAlarmScheduler,
-        config: PomodoroConfig,
-    ) : this(clock, taskListProvider, alarmScheduler, config, MainScope())
 
     override fun start(taskId: String?) {
         if (_state.value.isRunning) return
