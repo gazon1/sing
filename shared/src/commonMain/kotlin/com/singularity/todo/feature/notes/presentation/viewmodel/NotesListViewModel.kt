@@ -2,6 +2,7 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
+import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteFilter
@@ -15,9 +16,13 @@ import com.singularity.todo.feature.notes.presentation.NotesIntent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 
 /**
  * Notes list screen ViewModel.
@@ -51,8 +56,14 @@ class NotesListViewModel(
 
     init {
         scope.launch {
-            // Watch notes based on current filter, then split into pinned/unpinned.
-            filterFlow.flatMapLatest { f ->
+            // Combine four flows: filtered notes + templates + daily notes + sort order.
+            val templatesFlow = repo.watchTemplates()
+            val dailyNotesFlow = todayFlow().flatMapLatest { today ->
+                val from = today.minus(7, DateTimeUnit.DAY).toString()
+                val to = today.plus(30, DateTimeUnit.DAY).toString()
+                repo.watchDailyNotesInRange(from, to)
+            }
+            val notesFlow = filterFlow.flatMapLatest { f ->
                 val flow = when (f) {
                     NoteFilter.All -> repo.observeAll()
                     NoteFilter.Pinned -> repo.watchPinned()
@@ -60,24 +71,30 @@ class NotesListViewModel(
                 }
                 flow.map { notes -> f to notes }
             }
-                .catch { emit(NoteFilter.All to emptyList()) }
-                .collect { (filter, allNotes) ->
-                    val sorted = sortNotes(allNotes, sortOrderFlow.value)
-                    val pinned = sorted.filter { it.isPinned }
-                    val unpinned = sorted.filter { !it.isPinned }
-                    setState(
-                        NotesUiState.Content(
-                            NotesListState(
-                                pinned = pinned,
-                                unpinned = unpinned,
-                                filter = filter,
-                                sortOrder = sortOrderFlow.value,
-                                selectedIds = _selectedIds.value,
-                                isSelectionMode = _isSelectionMode.value,
-                            ),
-                        ),
-                    )
-                }
+            combine(notesFlow, templatesFlow, dailyNotesFlow, sortOrderFlow) {
+                (filter, allNotes),
+                templates,
+                dailyNotes,
+                sortOrder,
+                ->
+                val sorted = sortNotes(allNotes, sortOrder)
+                val pinned = sorted.filter { it.isPinned }
+                val unpinned = sorted.filter { !it.isPinned }
+                NotesUiState.Content(
+                    NotesListState(
+                        pinned = pinned,
+                        unpinned = unpinned,
+                        templates = templates,
+                        dailyNotes = dailyNotes,
+                        filter = filter,
+                        sortOrder = sortOrder,
+                        selectedIds = _selectedIds.value,
+                        isSelectionMode = _isSelectionMode.value,
+                    ),
+                )
+            }
+                .catch { emit(NotesUiState.Content(NotesListState())) }
+                .collect { state -> setState(state) }
         }
     }
 
