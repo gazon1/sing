@@ -618,15 +618,20 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Full filter panel with Project / Tags / Priority / Status.
 - Future developers understand which fields are stubbed vs. populated
 - Horizontal swipe between dates.
+- If calendar filtering is built later, the affordances go back — as real controls
 - Locale-aware first day of week.
 - Nested nav3 graph keeps task-click navigation encapsulated.
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - None
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Slot-API (`CalendarContent` separate from `CalendarScreen`) enables preview without Koin.
+- The `AgendaStartRoute`/`CalendarIntent` audit should be repeated for other features:
+- The calendar top bar is visually shorter. No functional loss, because nothing it lost
 - Theme switching now correctly recomposes the calendar palette
 - `CalendarDeps` matches the `AgendaDeps` pattern (project convention)
+- `FilterRow`, `ImageVector` and several icon imports became dead and were removed.
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
+- `MoreTasksLabel`'s signature changed to `onClick: (() -> Unit)?`. It is an internal
 - `TaskEditorDeps.clock` is also dead (the file's own KDoc flags it for deletion alongside `TaskEditorViewModel`)
 - `deadlineDate` badge rendering in month grid.
 - `endTime` / `accentColor` — blocked on Room migration for `startAt`/`endAt`/`accentColor` fields in `Task`
@@ -1761,6 +1766,7 @@ _9 entries need attention._
 - `2026-09-29-sync-config-screen-has-no-host` — sync, ui, gap, maestro
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
 - `2026-09-30-card-level-ai-actions-deferred` — tasks, ai, ux, gap
+- `2026-09-30-dead-affordances-removed` — calendar, ui, gap, cleanup
 
 ## Active entries
 
@@ -2085,4 +2091,5 @@ _9 entries need attention._
 - `2026-09-29-sync-config-screen-has-no-host` — SyncConfigScreen is never rendered — the planned sync flows have nothing to drive
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
 - `2026-09-30-card-level-ai-actions-deferred` — Card-level AI actions are deferred: they mutate without preview or undo
+- `2026-09-30-dead-affordances-removed` — Nine calendar affordances were removed: they promised a feature that does not exist
 

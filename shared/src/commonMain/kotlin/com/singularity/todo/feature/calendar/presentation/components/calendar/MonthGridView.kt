@@ -246,7 +246,10 @@ private fun MonthDayCell(
                     )
                 }
                 if (overflow > 0) {
-                    MoreTasksLabel(count = overflow, onClick = {})
+                    // Opens the day rather than expanding in place: a cell is three tasks
+                    // tall by design, so there is no room to grow, and the day
+                    // view is where the full list already lives.
+                    MoreTasksLabel(count = overflow, onClick = onClick)
                 }
             }
         }

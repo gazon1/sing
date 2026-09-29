@@ -15,14 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
-import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DonutLarge
-import androidx.compose.material.icons.filled.LocalOffer
-import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,7 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -124,14 +117,12 @@ fun MiniCalendarPanel(
             }
         }
 
-        Spacer(Modifier.height(20.dp))
-
-        // Filter rows (placeholder — connects to CalendarFilterPanel state later)
-        FilterRow(icon = Icons.Default.DonutLarge, label = "Project", onClick = {})
-        FilterRow(icon = Icons.Default.LocalOffer, label = "Tags", onClick = {})
-        FilterRow(icon = Icons.Default.PriorityHigh, label = "Priority", onClick = {})
-        FilterRow(icon = Icons.Default.Checklist, label = "Tasks / Notes", onClick = {})
-        FilterRow(icon = Icons.Default.CheckBoxOutlineBlank, label = "Status", onClick = {})
+        // The filter rows that used to sit here (Project / Tags / Priority / Tasks /
+        // Status) were removed rather than wired: there is no CalendarFilterPanel, no
+        // filter state on CalendarViewModel and no filtering anywhere in the query, so
+        // every one of them was a rendered control that did nothing. A visible absence
+        // is recoverable; a dead affordance teaches the user the feature exists.
+        // See ADR 2026-09-30-dead-affordances-removed.
     }
 }
 
@@ -182,41 +173,4 @@ private fun MiniDateCell(
             }
         }
     }
-}
-
-@Composable
-private fun FilterRow(icon: ImageVector, label: String, onClick: () -> Unit) {
-    val palette = LocalCalendarPalette.current
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(palette.surface, RoundedCornerShape(10.dp))
-            .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = palette.textSecondary,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = label,
-                color = palette.textPrimary,
-                fontSize = 15.sp,
-            )
-        }
-        Icon(
-            Icons.Default.Close, // placeholder — will be ChevronRight
-            contentDescription = null,
-            tint = palette.textMuted,
-            modifier = Modifier.size(18.dp),
-        )
-    }
-    Spacer(Modifier.height(10.dp))
 }
