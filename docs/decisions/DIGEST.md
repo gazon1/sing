@@ -732,6 +732,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Aliveness is determined by the `/proc` exe scan and `adb devices`; `pgrep -f`
 - Launch the emulator only via the recipe in `singularity-todo-emulator-launch`;
 - The `android-emulator` MCP plugin's `android_start_emulator` times out on
+- The `show_ime_with_hard_keyboard 0` mitigation is kept — it reduces crash rate
+- The real fix is upstream: a corrected `TextureResize` in a future Android
+- `SKIP_INSTALL=1` is honoured on recovery too, so a fast re-run stays fast; a
+- `ensure-emulator.sh` is now the documented way to get a device; the
+- `just tm` is no longer all-or-nothing across a device death; at most one flow
 
 ### `git`
 
@@ -1719,6 +1724,7 @@ _8 entries need attention._
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
 - `2026-09-29-archive-has-no-restore-ui` — ui, tasks, gap
 - `2026-09-29-editor-row-onclick-noop-default` — ui, tasks, android
+- `2026-09-29-emulator-crash-recovery-runner` — emulator, android, maestro, tooling
 - `2026-09-29-emulator-launch-recipe` — emulator, android, tooling
 - `2026-09-29-maestro-archive-seed-strategy` — maestro, testing
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — maestro, testing, ui
@@ -2034,6 +2040,7 @@ _8 entries need attention._
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
 - `2026-09-29-archive-has-no-restore-ui` — Archiving is a one-way door — no restore UI exists
 - `2026-09-29-editor-row-onclick-noop-default` — Editor rows did nothing — onClick defaulted to a no-op lambda
+- `2026-09-29-emulator-crash-recovery-runner` — Emulator gfxstream crash — the IME mitigation is insufficient, recover instead of prevent
 - `2026-09-29-emulator-launch-recipe` — Emulator launch recipe — windowed, hardware GPU, camera and audio off
 - `2026-09-29-maestro-archive-seed-strategy` — Archive seed strategy — session coupling in archive-restore flow
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — AlertDialog buttons use visible text instead of testTag

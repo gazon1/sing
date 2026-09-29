@@ -16,7 +16,26 @@ RUN_MAESTRO=1 ./check.sh
 ```
 
 Environment variables understood by `scripts/run-maestro.sh`:
-`SERIAL`, `FLOW`, `TAGS`, `SKIP_INSTALL=1`.
+`SERIAL`, `FLOW`, `TAGS`, `SKIP_INSTALL=1`, `MAESTRO_MAX_RETRIES` (default 1).
+
+### Getting a device
+
+```bash
+SERIAL=$(./scripts/ensure-emulator.sh)   # prints a serial, starting the AVD if needed
+```
+
+`run-maestro.sh` calls this itself when no device is ready, and again whenever
+the device is lost mid-suite. That is not defensive padding: the host emulator
+has an unfixed gfxstream crash (`TextureResize` segfault while the guest
+creates a ColorBuffer) that takes the whole device with it. No renderer
+configuration avoids it — `-gpu software` and `-gpu swangle` both die at
+start-up on this AVD — so the suite recovers rather than preventing. See
+`docs/decisions/2026-09-29-emulator-crash-recovery-runner.md`.
+
+Consequences for reading a run: flows run one per Maestro invocation, so a
+device death costs at most one flow instead of the whole suite; and a flow is
+retried only when Maestro itself reported no device, never for a genuine
+assertion failure.
 
 ## Layout
 

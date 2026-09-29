@@ -37,7 +37,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-domain-logic-pattern` | 203 | Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. |
 | `singularity-todo-draft-restoration` | 427 | How to implement State Restoration for any form or editor screen in Singularity Todo. |
 | `singularity-todo-dsl-pattern` | 225 | Kotlin DSL patterns used in this project. |
-| `singularity-todo-emulator-launch` | 106 | Launch the Android emulator on this dev host so it stays up. |
+| `singularity-todo-emulator-launch` | 139 | Launch and recover the Android emulator on this dev host. |
 | `singularity-todo-feature-scaffold` | 454 | Feature scaffold pattern for the Singularity Todo KMP app. |
 | `singularity-todo-icon-registry` | 261 | KMP-native pattern for user-facing icon selection registries (project icons, tag emoji, priority icons, note color icons). |
 | `singularity-todo-inline-edit-saved-feedback` | 240 | Debounced inline-edit pattern for document-style detail screens. |
@@ -50,7 +50,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-koog-agent` | 242 | KMP-native AI agent pattern using JetBrains Koog 1.1.1 with SimpleTool<T>, expect/actual PromptExecutor, ToolRegistry, and Koin auto-registration. |
 | `singularity-todo-kotlin-idioms` | 454 | Kotlin boilerplate-reduction catalog for Kotlin 2.4. |
 | `singularity-todo-llm-usage-tracking` | 468 | LLM token usage tracking pattern for Singularity Todo KMP. |
-| `singularity-todo-maestro-flows` | 211 | Author and run Maestro UI flows for the Android app. |
+| `singularity-todo-maestro-flows` | 237 | Author and run Maestro UI flows for the Android app. |
 | `singularity-todo-mcp-dogfooding` | 202 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
 | `singularity-todo-mcp-init` | 261 | MCP init command pattern for Singularity Todo KMP. |
 | `singularity-todo-mcp-server` | 424 | MCP server pattern for Singularity Todo KMP. |

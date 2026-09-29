@@ -4,6 +4,12 @@ date: 2026-09-28
 status: resolved
 ---
 
+> **Control run added (2026-09-29).** The IME mitigation below is **insufficient** and
+> the crash has a wider trigger than the soft keyboard. `scripts/ensure-emulator.sh`
+> is now the recovery path. See
+> [2026-09-29-emulator-crash-recovery-runner.md](2026-09-29-emulator-crash-recovery-runner.md)
+> for the full control experiment; this entry's diagnosis of the stack still holds.
+
 # Эмулятор падает с SIGSEGV в gfxstream при создании ColorBuffer
 
 ## Context

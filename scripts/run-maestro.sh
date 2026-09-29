@@ -7,12 +7,19 @@
 # .agents/skills/singularity-todo-adb-workflow/SKILL.md — this script automates
 # that skill rather than replacing it.
 #
+# Flows are run one per Maestro invocation and the emulator is relaunched when it
+# dies mid-suite, because the host emulator has an unfixed gfxstream crash that a
+# single lost device would otherwise turn into a cascade of false failures. See
+# scripts/ensure-emulator.sh and
+# docs/decisions/2026-09-28-emulator-gfxstream-colorbuffer-segv.md.
+#
 # Usage:
 #   scripts/run-maestro.sh                          # every flow
 #   TAGS=smoke scripts/run-maestro.sh               # only flows tagged "smoke"
 #   FLOW=Maestro/flows/tasks scripts/run-maestro.sh # one directory
 #   SERIAL=emulator-5554 scripts/run-maestro.sh    # pin the device
 #   SKIP_INSTALL=1 scripts/run-maestro.sh          # reuse the installed APK
+#   MAESTRO_MAX_RETRIES=0 scripts/run-maestro.sh   # do not retry a lost device
 set -euo pipefail
 
 APP_ID="com.singularity.todo"
@@ -29,15 +36,24 @@ RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[0;33m'; NC=$'\033[0m'
 # ── 1. Locate a usable device ────────────────────────────────────────────────
 # `adb devices` reports state in column 2. Anything other than "device" means
 # unauthorized/offline, which must not be mistaken for a usable target.
+#
+# If nothing usable is there, try to recover rather than stopping: the host
+# emulator crashes on its own (gfxstream), so "no device" is an expected state
+# between flows, not only a setup mistake. ensure-emulator.sh prints a serial if
+# one is already up and otherwise starts the AVD and waits for boot.
 if [[ -z "$SERIAL" ]]; then
     SERIAL="$(adb devices | awk 'NR>1 && $2=="device" {print $1; exit}')"
 fi
 
-if [[ -z "$SERIAL" ]]; then
-    echo -e "${RED}No device in state 'device' found.${NC}" >&2
-    adb devices >&2 || true
-    echo -e "${YELLOW}Connect a device or start an emulator, or set SERIAL=...${NC}" >&2
-    exit 1
+if [[ -z "$SERIAL" ]] || ! adb -s "$SERIAL" get-state 2>/dev/null | grep -q "^device$"; then
+    # A serial that adb knows but cannot reach is a leftover from a crashed
+    # emulator; ensure-emulator.sh is what decides whether it is recoverable.
+    echo -e "${YELLOW}No ready device; attempting recovery.${NC}" >&2
+    if ! SERIAL="$("$REPO_ROOT/scripts/ensure-emulator.sh" | tail -1)"; then
+        echo -e "${RED}Could not obtain a device.${NC}" >&2
+        adb devices >&2 || true
+        exit 1
+    fi
 fi
 
 if ! adb -s "$SERIAL" get-state 2>/dev/null | grep -q "^device$"; then
@@ -101,32 +117,175 @@ fi
 echo "Discovered ${#FLOW_FILES[@]} flow file(s):"
 printf '  %s\n' "${FLOW_FILES[@]}"
 
-MAESTRO_ARGS=(test)
-if [[ -n "$TAGS" ]]; then
-    MAESTRO_ARGS+=(--include-tags "$TAGS")
-    echo "Filtering to flows tagged: $TAGS"
-fi
-MAESTRO_ARGS+=("${FLOW_FILES[@]}")
+# Maestro's --include-tags is ignored when a single file is passed, so the tag
+# filter is applied here. A flow matches when its header carries the tag.
+flow_has_tag() {
+    local file="$1" tag="$2"
+    awk -v want="$tag" '
+        /^---[[:space:]]*$/ { in_tags = 0 }
+        /^tags:/ { in_tags = 1; next }
+        in_tags && /^[[:space:]]*-/ {
+            line = $0
+            sub(/^[[:space:]]*-[[:space:]]*/, "", line)
+            if (line == want) { found = 1; exit }
+        }
+        END { exit found ? 0 : 1 }
+    ' "$file"
+}
 
-set +e
-(cd "$REPO_ROOT" && maestro "${MAESTRO_ARGS[@]}")
-MAESTRO_STATUS=$?
-set -e
+if [[ -n "$TAGS" ]]; then
+    FILTERED=()
+    for f in "${FLOW_FILES[@]}"; do
+        # A comma-separated TAGS is treated as "any of".
+        IFS=',' read -ra WANTED <<< "$TAGS"
+        for want in "${WANTED[@]}"; do
+            want="$(echo "$want" | tr -d ' ')"
+            [[ -z "$want" ]] && continue
+            if flow_has_tag "$f" "$want"; then
+                FILTERED+=("$f")
+                break
+            fi
+        done
+    done
+    if [[ ${#FILTERED[@]} -eq 0 ]]; then
+        echo -e "${RED}No flow files carry tag(s): $TAGS${NC}" >&2
+        exit 1
+    fi
+    FLOW_FILES=("${FILTERED[@]}")
+    echo "Filtering to flows tagged: $TAGS (${#FLOW_FILES[@]} file(s))"
+fi
+
+# ── 5b. Run each flow in its own Maestro invocation ───────────────────────────
+# The emulator's gfxstream render thread segfaults while creating a ColorBuffer —
+# a host-side emulator bug this project cannot fix, and no renderer setting
+# avoids it (see scripts/ensure-emulator.sh). The crash takes the whole device
+# with it, so a single batched `maestro test a.yaml b.yaml c.yaml` turns one
+# crash into a cascade: every later flow fails in milliseconds because there is
+# no device left, which reads as a wall of selector failures.
+#
+# Running one flow per invocation keeps the blast radius to one flow, and a lost
+# device is recoverable: relaunch the AVD, reinstall, and retry that flow.
+MAX_RETRIES="${MAESTRO_MAX_RETRIES:-1}"
+
+PASSED=(); FAILED=()
+
+device_alive() {
+    # Both checks, not just adb state: after the emulator's render thread dies,
+    # adb keeps listing the serial as "device" for a while before it flips to
+    # "offline", and a half-dead adbd can still answer a trivial shell command.
+    adb -s "$SERIAL" get-state 2>/dev/null | grep -q "^device$" || return 1
+    adb -s "$SERIAL" shell echo ping 2>/dev/null | grep -q ping || return 1
+}
+
+# The decisive signal is Maestro's own report that it could not talk to the
+# device, not our inference from adb: the render thread can die while adb still
+# answers, and the window is long enough that a post-hoc probe gives the wrong
+# answer.
+#
+# Two distinct device-side failures have been observed:
+#   * the device disappears  -> "0 devices connected" / "Not enough devices"
+#   * the device is alive but adbd/DADB stops serving -> RawAdbSocket / gRPC
+#     UNAVAILABLE, or a closed socket, from deviceInfo
+# Both cost the run; neither is a flow regression.
+maestro_saw_device_failure() {
+    grep -qiE "0 devices connected|Not enough devices|device '[^']*' not found|RawAdbSocket|AdbSocketFactory|AdbServer|Device server died|UNAVAILABLE|Connection refused" "$1"
+}
+
+# adbd can wedge while the emulator process survives. Resetting the host adb
+# server is much cheaper than a relaunch and often enough on its own.
+reset_adb_server() {
+    adb kill-server >/dev/null 2>&1 || true
+    sleep 2
+    adb start-server >/dev/null 2>&1 || true
+    sleep 2
+}
+
+run_one_flow() {
+    local flow="$1" attempt=0 log
+    log="$(mktemp)"
+    while (( attempt <= MAX_RETRIES )); do
+        set +e
+        (cd "$REPO_ROOT" && maestro test "$flow") >"$log" 2>&1
+        local status=$?
+        set -e
+        cat "$log"
+
+        if [[ $status -eq 0 ]]; then
+            rm -f "$log"
+            return 0
+        fi
+        # A failure the device did not cause is a real failure; retrying it
+        # would only hide a regression behind a flake.
+        if ! maestro_saw_device_failure "$log" && device_alive; then
+            rm -f "$log"
+            return 1
+        fi
+        attempt=$((attempt + 1))
+        if (( attempt > MAX_RETRIES )); then
+            rm -f "$log"
+            return 1
+        fi
+        echo -e "${YELLOW}Device unusable during $(basename "$flow"); recovering (attempt $((attempt+1))).${NC}" >&2
+        reset_adb_server
+        # Resetting adb is enough when the emulator survived; only relaunch when
+        # it did not.
+        if ! device_alive; then
+            if ! SERIAL="$("$REPO_ROOT/scripts/ensure-emulator.sh" | tail -1)"; then
+                rm -f "$log"
+                return 1
+            fi
+        else
+            SERIAL="$(adb devices | awk 'NR>1 && $2=="device" {print $1; exit}')"
+        fi
+        adb -s "$SERIAL" shell settings put secure show_ime_with_hard_keyboard 0 >/dev/null 2>&1 || true
+        if [[ "${SKIP_INSTALL:-0}" != "1" ]]; then
+            (cd "$REPO_ROOT" && ./gradlew :androidApp:installDebug -Pandroid.device="$SERIAL" --quiet) || {
+                rm -f "$log"; return 1; }
+        fi
+    done
+    rm -f "$log"
+    return 1
+}
+
+for flow_file in "${FLOW_FILES[@]}"; do
+    flow_name="$(basename "$flow_file" .yaml)"
+    echo -e "\n=== $flow_name ==="
+    if run_one_flow "$flow_file"; then
+        PASSED+=("$flow_name")
+    else
+        if ! device_alive; then
+            echo -e "${YELLOW}(device is gone after retries)${NC}"
+        fi
+        FAILED+=("$flow_name")
+    fi
+done
+
+MAESTRO_STATUS=0
+if [[ ${#PASSED[@]} -gt 0 ]]; then
+    echo -e "\n${GREEN}Passed (${#PASSED[@]}):${NC} ${PASSED[*]}"
+fi
+if [[ ${#FAILED[@]} -gt 0 ]]; then
+    echo -e "${RED}Failed (${#FAILED[@]}):${NC} ${FAILED[*]}"
+    MAESTRO_STATUS=1
+fi
 
 # ── 6. Crash triage ──────────────────────────────────────────────────────────
 # Maestro reports assertion failures; it does not always surface a process death
-# as one, so scan logcat independently before calling the run green.
-CRASHES="$(adb -s "$SERIAL" logcat -d 2>/dev/null \
-    | grep -E "FATAL EXCEPTION|AndroidRuntime.*com\.singularity\.todo" \
-    | head -20 || true)"
+# as one, so scan logcat independently before calling the run green. Only
+# meaningful while a device is still attached — a lost emulator has no logcat.
+if device_alive; then
+    CRASHES="$(adb -s "$SERIAL" logcat -d 2>/dev/null \
+        | grep -E "FATAL EXCEPTION|AndroidRuntime.*com\.singularity\.todo" \
+        | head -20 || true)"
 
-echo ""
-if [[ -n "$CRASHES" ]]; then
-    echo -e "${RED}=== App crashes detected in logcat ===${NC}"
-    echo "$CRASHES"
-    if [[ $MAESTRO_STATUS -eq 0 ]]; then
+    if [[ -n "$CRASHES" ]]; then
+        echo -e "${RED}=== App crashes detected in logcat ===${NC}"
+        echo "$CRASHES"
         MAESTRO_STATUS=1
     fi
+else
+    echo -e "${RED}=== No device at the end of the run; crash triage skipped ===${NC}"
+    MAESTRO_STATUS=1
 fi
 
 if [[ $MAESTRO_STATUS -eq 0 ]]; then

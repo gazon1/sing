@@ -166,10 +166,13 @@ ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и пос�
 + `adb pull` → `sqlite3 /tmp/singularity.db ".schema"` (android);
 `sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"` (desktop).
 
-> **Запуск эмулятора на этой машине** — только по рецепту из skill
-> `singularity-todo-emulator-launch` (hardware GPU, окно, `-camera-* none`):
-> `-gpu swiftshader_indirect`, `-no-window` и камера по умолчанию — проверенные
-> причины падений, не варианты тюнинга.
+> **Эмулятор**: `./scripts/ensure-emulator.sh` печатает готовый serial (или
+> поднимает AVD и ждёт загрузки); `scripts/run-maestro.sh` сам перезапустит
+> эмулятор, если устройство пропало. Не подкручивайте `-gpu`: единственный
+> рабочий режим — дефолтный host GPU, а он периодически падает в gfxstream
+> (баг хоста, лечения нет). Подробности — ADR
+> `2026-09-29-emulator-crash-recovery-runner.md` и скилл
+> `singularity-todo-emulator-launch`.
 
 > **Если эмулятор падает на старте** (`amdgpu: The CS has been rejected (-22)` +
 > `IOT instruction (core dumped)`) — это регрессия связки Mesa + ядро на AMD

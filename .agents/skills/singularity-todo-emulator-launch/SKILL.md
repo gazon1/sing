@@ -1,107 +1,140 @@
 ---
 name: singularity-todo-emulator-launch
-description: Launch the Android emulator on this dev host so it stays up. Covers the exact verified command, why each flag is there, proving the process is alive (pgrep lies), waiting for boot, device prep for Maestro, lock cleanup after a crash, and crash triage by signature. Use whenever an emulator is needed — for Maestro flows, adb verification, or screenshots — and it is not running, or one died mid-session.
+description: Launch and recover the Android emulator on this dev host. Covers the verified launch command, why each flag is there, proving the process is alive, crash triage by signature, and — most importantly — recovery when the host's gfxstream bug kills it mid-session. Use whenever an emulator is needed (Maestro flows, adb verification, screenshots) and one is not running or has died. For scripted runs prefer scripts/ensure-emulator.sh, which does all of this.
 ---
 
-# Emulator Launch (this host)
+# Emulator Launch and Recovery (this host)
 
-One command works on this machine. Every deviation tried so far either fails to
-start or kills the emulator mid-session — the flags are not tunables, they are
-the fix for two documented host-specific crashes.
+## Use the script, not this file, for anything scripted
 
-## The recipe
+`scripts/ensure-emulator.sh` prints a ready serial on stdout, or starts the AVD
+with the verified flags, waits for boot, and prints the serial. It is the
+recovery primitive for the whole repo:
 
 ```bash
-# 1. Clear any zombie + stale locks (a crashed run holds the AVD)
-pkill -f "qemu-system-x86_64"; sleep 2
+SERIAL=$(./scripts/ensure-emulator.sh)     # start if needed, wait for boot
+./scripts/run-maestro.sh                   # runs per-flow and relaunches on its own
+```
+
+Everything below is for the interactive case and for understanding *why* the
+script does what it does.
+
+## The launch command
+
+```bash
+# A crashed run leaves the AVD locked; a second qemu refuses to start.
+pkill -9 -f "qemu-system-x86_64 -avd Medium_Phone"; sleep 2
 rm -f ~/.android/avd/Medium_Phone.avd/*.lock
 
-# 2. Launch. Windowed, hardware GPU, camera and audio OFF, no snapshot.
 emulator -avd Medium_Phone -no-snapshot-load -no-boot-anim \
-  -camera-back none -camera-front none -no-audio \
-  > /tmp/emu.log 2>&1 &
-sleep 8   # keep this shell call alive; see "Process survival" below
+  -camera-back none -camera-front none -no-audio > /tmp/emu.log 2>&1 &
+sleep 10    # keep this shell call alive; see "Process survival"
 ```
 
-Completion criterion for step 2: the log exists and grew — `ls -la /tmp/emu.log`
-shows bytes. `Created extended window` in the log means the GUI is up.
+Completion criterion: the log exists and grew, and contains
+`Created extended window`. Boot takes ~12–60 s; `adb devices` should show
+`emulator-5554   device`.
 
-```bash
-# 3. Wait for boot (observed: ~15 s to BOOT_COMPLETED, ~25 s to usable)
-until [ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do sleep 5; done
-adb devices   # expect: emulator-5554   device
-```
-
-```bash
-# 4. Prep for automation (same steps scripts/run-maestro.sh performs)
-adb -s emulator-5554 shell input keyevent KEYCODE_WAKEUP
-adb -s emulator-5554 shell wm dismiss-keyguard
-adb -s emulator-5554 shell settings put secure show_ime_with_hard_keyboard 0
-adb -s emulator-5554 shell input keyevent 82
-```
-
-The `show_ime_with_hard_keyboard 0` line is a workaround for an emulator
-gfxstream `TextureResize` segfault when the IME pops during text entry — see
-`docs/decisions/2026-09-28-emulator-gfxstream-colorbuffer-segv.md`.
-
-## Why each flag is load-bearing
+Why each flag is load-bearing:
 
 | Flag | Without it |
 |---|---|
-| *(no `-gpu` flag — default hardware GPU)* | `-gpu swiftshader_indirect` and `-gpu off` both SIGSEGV on this host. Do not "fix" GPU problems with software rendering. |
-| *(windowed — no `-no-window`)* | Headless SIGSEGVs before creating a window. The window is expected to appear on the desktop; if the user says "I don't see the emulator", it was launched headless. |
-| `-camera-back none -camera-front none` | The virtual camera's webrtc thread aborts after ~9 min of uptime (`SIGABRT` in `libandroid-webrtc.so`, `event_engine` in the stack) and takes the whole emulator down mid-session. See `docs/decisions/2026-09-29-emulator-launch-recipe.md`. |
-| `-no-snapshot-load` | Snapshots saved under one renderer fail to load under another (renderer-change trap in the Mesa ADR). |
-| `-no-audio` | Removes a host-audio failure mode; harmless otherwise. |
+| *(no `-gpu` flag — default host GPU)* | `-gpu software` and `-gpu swangle` both die during start-up on this API 36 AVD. **This is the only mode that boots**, despite being the one that crashes later. |
+| *(windowed — no `-no-window`)* | Headless SIGSEGVs before the window is created. |
+| `-camera-back none -camera-front none` | The virtual camera's WebRTC thread aborts the process after ~9 min (`SIGABRT` in `libandroid-webrtc.so`). |
+| `-no-snapshot-load` | A snapshot saved under one renderer floods the log and aborts under another. |
+| `-no-audio` | Removes an unrelated host-audio failure mode. |
+
+## The gfxstream crash — expect it, recover from it
+
+The host emulator segfaults in its render thread whenever the guest asks for a
+new surface (a bottom sheet, a dialog, a navigation push):
+
+```
+#0  __strlen_avx2
+#1  gfxstream::host::gl::TextureResize::TextureResize(unsigned, unsigned)
+#2  gfxstream::host::gl::ColorBufferGl::create(...)
+...
+#9  gfxstream::host::RenderThread::main()
+```
+
+An earlier ADR blamed the soft keyboard and shipped
+`settings put secure show_ime_with_hard_keyboard 0` as the fix. A control run
+disproved that: with the IME disabled outright the crash still reproduced with
+an identical stack. **The IME is a trigger, not the trigger** — any new surface
+does it, and the app cannot avoid opening surfaces.
+
+No configuration both boots and avoids it. So the answer is recovery, not
+prevention: `scripts/run-maestro.sh` runs one flow per Maestro invocation and
+relaunches the AVD when the device is lost, so one crash costs at most one flow
+instead of the whole suite. Full reasoning:
+`docs/decisions/2026-09-29-emulator-crash-recovery-runner.md`.
 
 ## Proving it is alive — pgrep lies
 
 `pgrep -f "emulator"` matches the very shell command doing the grepping, so it
-reports QEMU RUNNING when nothing is there. Verify by reading `/proc` exe links:
+reports QEMU RUNNING when nothing is there. Read `/proc` exe links instead:
 
 ```bash
 for p in /proc/[0-9]*; do exe=$(readlink "$p/exe" 2>/dev/null); case "$exe" in
   *qemu-system*) echo "alive pid=${p#/proc/}";; esac; done
 ```
 
-Related trap: a background-task harness may report the emulator task as
-"failed" while qemu itself survived — the wrapper exits, the emulator does not.
-The /proc scan above is the source of truth; the notification is not.
+Inside a **script file** `pgrep -f` is safe — the invoking process's command
+line is just `bash script.sh` — which is why `ensure-emulator.sh` uses it.
+
+A background-task harness may report the emulator task "failed" while qemu
+itself survives: the wrapper exits, the emulator does not. The `/proc` scan is
+the source of truth, not the notification.
+
+## Liveness is not `adb get-state`
+
+After the render thread dies, adb keeps reporting the serial as `device` for a
+while before it flips to `offline`. A check based only on `get-state` sees a
+healthy device that cannot serve a single command. Require a shell round trip:
+
+```bash
+adb -s "$SERIAL" get-state | grep -q '^device$' \
+  && adb -s "$SERIAL" shell echo ping | grep -q ping
+```
 
 ## Process survival
 
 The tool harness tears down its shell after each call, and a plain `&` child
-dies with it — *unless the launching call stays alive a few seconds* (hence
-`sleep 8` in the recipe; verified end-to-end). If a launch must survive a shell
-that exits immediately, use `setsid emulator ... < /dev/null & disown` — but
-always confirm with the /proc scan, because a setsid launch that fails writes
-nothing to its log and exits silently.
+dies with it — *unless the launching call stays alive a few seconds*, hence
+`sleep 10` above. `setsid ... & disown` also works but a setsid launch that
+fails writes nothing to its log and exits silently, so it needs the `/proc`
+check to confirm.
 
-The `android-emulator` MCP plugin's `android_start_emulator` times out at 30 s
-on this host without producing a device. Use the direct command above instead;
-MCP `android_screenshot` / `inspect_screen` etc. work fine against the
-already-running emulator.
+The `android-emulator` MCP plugin's `android_start_emulator` times out on this
+host without producing a device. Its other tools (screenshot, UI inspect) work
+fine against an already-running emulator.
 
 ## Crash triage by signature
 
-| Signature | Meaning | Fix |
-|---|---|---|
-| Startup: `amdgpu: The CS has been rejected (-22)` + `IOT instruction (core dumped)` | Mesa + kernel regression on AMD Renoir | Update the system; no flag helps. `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md` |
-| Startup: SIGSEGV under `-gpu swiftshader_indirect`, `-gpu off`, or `-no-window` | Known dead ends on this host | Drop the flag; run the recipe as written |
-| Dies ~9 min in: `SIGABRT`, crash thread in `libandroid-webrtc.so` | Virtual camera webrtc thread | Relaunch with `-camera-back none -camera-front none` |
-| `Running multiple emulators with the same AVD is an experimental feature` | A zombie qemu still holds the AVD | `pkill -f qemu-system-x86_64`, then `rm -f ~/.android/avd/Medium_Phone.avd/*.lock` |
-| adb shows the device `offline` for a while after boot | Normal — registration lags boot | Wait; it flips to `device` within ~1 min |
-| Crash dialog on the device screen ("keeps stopping") | The *app* crashed, not the emulator | Read `adb logcat -d -b crash` — that is an app bug, not an emulator problem |
+| Signature | Meaning |
+|---|---|
+| `SIGSEGV`, render thread, `TextureResize` → `ColorBufferGl::create` | The known gfxstream bug. Relaunch; it is not the app's fault. |
+| `SIGABRT` in `libandroid-webrtc.so`, uptime ~9 min | Virtual camera. Relaunch with `-camera-* none` (already the recipe). |
+| Startup `amdgpu: The CS has been rejected (-22)` + `IOT instruction` | Mesa/kernel regression on AMD Renoir — **a different, already-fixed problem**; do not confuse it with the above. `2026-09-28-emulator-mesa-radeon-cs-rejected.md` |
+| Startup SIGSEGV with `-gpu software` / `-gpu swangle` / `-no-window` | Known dead ends on this AVD. Use the recipe as written. |
+| `Running multiple emulators with the same AVD` | A zombie qemu still holds the AVD. `pkill`, then remove `~/.android/avd/<AVD>.avd/*.lock`. |
+| Device listed but every flow fails in ~10 ms | The device died and is gone. `adb devices` confirms; relaunch. |
+| System "keeps stopping" dialog on the device | The **app** crashed. `adb logcat -d -b crash` names the real bug. |
 
 ## After a mid-session death
 
-1. Relaunch with the recipe (step 1 clears locks).
-2. Reinstall the app if it was a wipe: `adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk`.
-3. Rerun `adb logcat -c` before the next test so crash triage stays clean.
+```bash
+SERIAL=$(./scripts/ensure-emulator.sh)     # relaunches and waits for boot
+adb -s "$SERIAL" shell settings put secure show_ime_with_hard_keyboard 0
+adb -s "$SERIAL" install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
+```
 
 ## Related
 
-- `docs/decisions/2026-09-29-emulator-launch-recipe.md` — the flags decision + webrtc crash evidence
-- `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md` — the GPU dead-ends table
+- `scripts/ensure-emulator.sh` — the recovery primitive (new)
+- `docs/decisions/2026-09-29-emulator-crash-recovery-runner.md` — the control run
+- `docs/decisions/2026-09-29-emulator-launch-recipe.md` — the launch flags
+- `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md` — a different GPU fault
 - `singularity-todo-maestro-flows` — running flows once the emulator is up
 - `singularity-todo-adb-workflow` — physical-device counterpart

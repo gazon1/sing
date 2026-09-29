@@ -26,16 +26,19 @@ just tm flow=Maestro/flows/tasks
 RUN_MAESTRO=1 ./check.sh       # opt-in, from the local check pipeline
 ```
 
-`just tm` forwards to `scripts/run-maestro.sh`, which picks the device, installs
-the APK, and fails on any `FATAL EXCEPTION` in logcat even when Maestro exits 0.
+`just tm` forwards to `scripts/run-maestro.sh`, which picks or relaunches the
+device, installs the APK, runs one flow per Maestro invocation, and fails on any
+`FATAL EXCEPTION` in logcat even when Maestro exits 0.
 
-To run a tag subset directly against an already-prepared device, pass the file
-list explicitly — Maestro 2.10 does not accept a directory or a glob as the
-target:
+Running flows by hand is a debugging aid, not the normal path:
 
 ```bash
-maestro test $(find Maestro/flows -name "*.yaml") --include-tags smoke
+maestro test Maestro/flows/smoke/01-launch-today.yaml   # one flow
 ```
+
+Maestro 2.10 accepts neither a directory nor a glob as the target, and
+**`--include-tags` is ignored when a single file is passed** — the runner
+therefore filters the file list itself by parsing each flow's `tags:` header.
 
 ## The edit–build–install–run loop
 
@@ -145,8 +148,11 @@ copy — "Удалить", "Архивировать" — are fine; only typed i
 | `launch-clean.yaml` | `launchApp` with `clearState: true`, waits 8s for `nav_tab_today` |
 | `seed-task.yaml` | Creates "Buy milk" on Today and asserts `task_item_buy_milk` |
 
-A flow that fails right after the first one in a batch run has usually lost the
-device, not its selectors — check `adb devices` before debugging the flow.
+A flow failing right after the previous one has usually lost the *device*, not
+its selectors — `adb devices` is the check. When running flows by hand, prefer
+`./scripts/run-maestro.sh`: it runs one flow per invocation and relaunches the
+emulator when the device dies, so a single crash costs one flow instead of the
+suite. See `singularity-todo-emulator-launch`.
 
 Start from `launch-clean` unless the flow needs pre-existing data. `seed-task`
 hardcodes its title on purpose — see the comment in the file. Make new flows
