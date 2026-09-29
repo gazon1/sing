@@ -109,6 +109,8 @@ class NotesListViewModel(
         when (intent) {
             is NotesIntent.Delete -> delete(intent.id)
             is NotesIntent.TogglePin -> togglePin(intent.id)
+            is NotesIntent.Archive -> archive(intent.id)
+            is NotesIntent.Unarchive -> unarchive(intent.id)
             is NotesIntent.SetFilter -> setFilter(intent.filter)
             is NotesIntent.SetSortOrder -> setSortOrder(intent.order)
             is NotesIntent.EnterSelection -> enterSelectionMode(intent.id)
@@ -159,6 +161,12 @@ class NotesListViewModel(
     private fun archive(id: NoteId) {
         emitError("Archive failed", { msg -> NotesUiEvent.Error("Archive failed: $msg") }) {
             repo.archive(id)
+        }
+    }
+
+    private fun unarchive(id: NoteId) {
+        emitError("Unarchive failed", { msg -> NotesUiEvent.Error("Unarchive failed: $msg") }) {
+            repo.unarchive(id)
         }
     }
 

@@ -22,6 +22,8 @@ value class NotesActions(private val dispatch: (NotesIntent) -> Unit) {
 
     fun onDelete(id: NoteId) = dispatch(NotesIntent.Delete(id))
     fun onTogglePin(id: NoteId) = dispatch(NotesIntent.TogglePin(id))
+    fun onArchive(id: NoteId) = dispatch(NotesIntent.Archive(id))
+    fun onUnarchive(id: NoteId) = dispatch(NotesIntent.Unarchive(id))
 
     // ── List control ──────────────────────────────────────────────────────────
 

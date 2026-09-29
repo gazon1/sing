@@ -83,4 +83,49 @@ class NotesListViewModelTest {
         testScheduler.runCurrent()
         assertEquals(NoteFilter.Pinned, vm.listState().filter)
     }
+
+    @Test
+    fun `archive intent removes the note from the All list`() = runTest {
+        val vm = createVm()
+        advanceUntilIdle()
+        runCurrent()
+
+        val id = NoteId(fakeNotesRepo.notes.keys.first())
+        vm.onIntent(NotesIntent.Archive(id))
+        advanceUntilIdle()
+        runCurrent()
+
+        assertEquals(
+            emptyList(),
+            vm.listState().unpinned.map { it.id },
+            "an archived note must not stay in the All list",
+        )
+    }
+
+    @Test
+    fun `unarchive intent restores the note into the All list`() = runTest {
+        val id = NoteId(fakeNotesRepo.notes.keys.first())
+        fakeNotesRepo.archive(id)
+        val vm = createVm()
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(NotesIntent.SetFilter(NoteFilter.Archived))
+        advanceUntilIdle()
+        runCurrent()
+        assertEquals(listOf(id), vm.listState().unpinned.map { it.id })
+
+        vm.onIntent(NotesIntent.Unarchive(id))
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(NotesIntent.SetFilter(NoteFilter.All))
+        advanceUntilIdle()
+        runCurrent()
+        assertEquals(
+            listOf(id),
+            vm.listState().unpinned.map { it.id },
+            "an unarchived note must be back in the All list",
+        )
+    }
 }

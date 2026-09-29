@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.DropdownMenu
@@ -224,6 +225,7 @@ fun NotesScreenContent(
                     selectedIds = listState?.selectedIds ?: emptySet(),
                     navigator = navigator,
                     actions = actions,
+                    currentFilter = currentFilter,
                     modifier = contentModifier,
                 )
             }
@@ -341,6 +343,7 @@ private fun NoteList(
     selectedIds: Set<NoteId>,
     navigator: NotesNavigator,
     actions: NotesActions,
+    currentFilter: NoteFilter,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -368,6 +371,7 @@ private fun NoteList(
                     onDelete = { actions.onDelete(note.id) },
                     onTogglePin = { actions.onTogglePin(note.id) },
                     onToggleSelection = { actions.onToggleSelection(note.id) },
+                    isArchived = false,
                 )
             }
         }
@@ -392,6 +396,7 @@ private fun NoteList(
                     onDelete = { actions.onDelete(note.id) },
                     onTogglePin = { actions.onTogglePin(note.id) },
                     onToggleSelection = { actions.onToggleSelection(note.id) },
+                    isArchived = false,
                 )
             }
         }
@@ -416,12 +421,14 @@ private fun NoteList(
                     onDelete = { actions.onDelete(note.id) },
                     onTogglePin = { actions.onTogglePin(note.id) },
                     onToggleSelection = { actions.onToggleSelection(note.id) },
+                    isArchived = currentFilter == NoteFilter.Archived,
+                    onUnarchive = { actions.onUnarchive(note.id) },
                 )
             }
         }
 
-        // Unpinned section
-        if (unpinned.isNotEmpty() && pinned.isNotEmpty()) {
+        // Unpinned section header
+        if (unpinned.isNotEmpty()) {
             stickyHeader(key = "unpinned_header") {
                 Text(
                     text = "Notes",
@@ -441,6 +448,8 @@ private fun NoteList(
                 onDelete = { actions.onDelete(note.id) },
                 onTogglePin = { actions.onTogglePin(note.id) },
                 onToggleSelection = { actions.onToggleSelection(note.id) },
+                isArchived = currentFilter == NoteFilter.Archived,
+                onUnarchive = { actions.onUnarchive(note.id) },
             )
         }
     }
@@ -459,18 +468,20 @@ fun SwipeableNoteCard(
     onDelete: () -> Unit,
     onTogglePin: () -> Unit,
     onToggleSelection: () -> Unit,
+    isArchived: Boolean = false,
+    onUnarchive: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
                 SwipeToDismissBoxValue.StartToEnd -> {
-                    onTogglePin()
+                    if (!isArchived) onTogglePin()
                     false
                 }
 
                 SwipeToDismissBoxValue.EndToStart -> {
-                    onDelete()
+                    if (isArchived) onUnarchive() else onDelete()
                     false
                 }
 
@@ -484,7 +495,7 @@ fun SwipeableNoteCard(
         enableDismissFromStartToEnd = !isSelectionMode,
         enableDismissFromEndToStart = !isSelectionMode,
         backgroundContent = {
-            SwipeBackground(dismissState.currentValue)
+            SwipeBackground(dismissState.currentValue, isArchived)
         },
         modifier = modifier.fillMaxWidth(),
     ) {
@@ -506,11 +517,11 @@ fun SwipeableNoteCard(
 }
 
 @Composable
-private fun SwipeBackground(dismissValue: SwipeToDismissBoxValue) {
+private fun SwipeBackground(dismissValue: SwipeToDismissBoxValue, isArchived: Boolean) {
     val color by animateColorAsState(
         targetValue = when (dismissValue) {
             SwipeToDismissBoxValue.StartToEnd -> Color(0xFFFFB300)
-            SwipeToDismissBoxValue.EndToStart -> Color(0xFFE53935)
+            SwipeToDismissBoxValue.EndToStart -> if (isArchived) Color(0xFF43A047) else Color(0xFFE53935)
             SwipeToDismissBoxValue.Settled -> Color.Transparent
         },
         label = "swipe_bg",
@@ -521,8 +532,8 @@ private fun SwipeBackground(dismissValue: SwipeToDismissBoxValue) {
         SwipeToDismissBoxValue.Settled -> Alignment.Center
     }
     val icon = when (dismissValue) {
-        SwipeToDismissBoxValue.StartToEnd -> Icons.Default.PushPin
-        SwipeToDismissBoxValue.EndToStart -> Icons.Default.Delete
+        SwipeToDismissBoxValue.StartToEnd -> if (!isArchived) Icons.Default.PushPin else null
+        SwipeToDismissBoxValue.EndToStart -> if (isArchived) Icons.Filled.Autorenew else Icons.Default.Delete
         SwipeToDismissBoxValue.Settled -> null
     }
 
