@@ -9,6 +9,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
 import com.singularity.todo.feature.search.SearchScreen
 

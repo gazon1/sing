@@ -38,6 +38,7 @@ non-alphanumeric characters with `_`.
 |---|---|---|
 | `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | TaskTitleRow |
 | `TASK_EDITOR_SAVE` | `task_editor_save` | TaskSaveBar |
+| `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | TaskDetailTopBar overflow (Архивировать / Удалить) |
 
 ### Tags
 | Constant | Value | Where |
@@ -105,17 +106,17 @@ use the expanded string directly).
 | `menuItem("Archive")` | `"Archive"` | `menu_archive` | Menu bottom sheet items |
 | `menuItem("Profiles")` | `"Profiles"` | `menu_profiles` | Menu bottom sheet items |
 | `menuItem("Quick search")` | `"Quick search"` | `menu_quick_search` | Menu bottom sheet items |
-| `settingsTab("Interface")` | `SettingsTab.Interface.name` | `settings_tab_Interface` | Settings nav rail tabs |
-| `settingsTab("Agenda")` | `SettingsTab.Agenda.name` | `settings_tab_Agenda` | Settings nav rail tabs |
-| `settingsTab("Notifications")` | `SettingsTab.Notifications.name` | `settings_tab_Notifications` | Settings nav rail tabs |
-| `settingsTab("AIProvider")` | `SettingsTab.AIProvider.name` | `settings_tab_AIProvider` | Settings nav rail tabs |
-| `settingsTab("WorkSchedule")` | `SettingsTab.WorkSchedule.name` | `settings_tab_WorkSchedule` | Settings nav rail tabs |
-| `settingsTab("Calendar")` | `SettingsTab.Calendar.name` | `settings_tab_Calendar` | Settings nav rail tabs |
-| `settingsTab("Tags")` | `SettingsTab.Tags.name` | `settings_tab_Tags` | Settings nav rail tabs |
-| `settingsTab("TagGroups")` | `SettingsTab.TagGroups.name` | `settings_tab_TagGroups` | Settings nav rail tabs |
-| `settingsTab("Files")` | `SettingsTab.Files.name` | `settings_tab_Files` | Settings nav rail tabs |
-| `settingsTab("Backup")` | `SettingsTab.Backup.name` | `settings_tab_Backup` | Settings nav rail tabs |
-| `settingsTab("Account")` | `SettingsTab.Account.name` | `settings_tab_Account` | Settings nav rail tabs |
+| `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |
+| `settingsTab("Agenda")` | `SettingsTab.Agenda.name` | `settings_tab_agenda` | Settings nav rail tabs |
+| `settingsTab("Notifications")` | `SettingsTab.Notifications.name` | `settings_tab_notifications` | Settings nav rail tabs |
+| `settingsTab("AIProvider")` | `SettingsTab.AIProvider.name` | `settings_tab_aiprovider` | Settings nav rail tabs |
+| `settingsTab("WorkSchedule")` | `SettingsTab.WorkSchedule.name` | `settings_tab_workschedule` | Settings nav rail tabs |
+| `settingsTab("Calendar")` | `SettingsTab.Calendar.name` | `settings_tab_calendar` | Settings nav rail tabs |
+| `settingsTab("Tags")` | `SettingsTab.Tags.name` | `settings_tab_tags` | Settings nav rail tabs |
+| `settingsTab("TagGroups")` | `SettingsTab.TagGroups.name` | `settings_tab_taggroups` | Settings nav rail tabs |
+| `settingsTab("Files")` | `SettingsTab.Files.name` | `settings_tab_files` | Settings nav rail tabs |
+| `settingsTab("Backup")` | `SettingsTab.Backup.name` | `settings_tab_backup` | Settings nav rail tabs |
+| `settingsTab("Account")` | `SettingsTab.Account.name` | `settings_tab_account` | Settings nav rail tabs |
 | `taskItem("Buy milk")` | `"Buy milk"` | `task_item_buy_milk` | Task list rows |
 | `taskCheckbox("Buy milk")` | `"Buy milk"` | `task_checkbox_buy_milk` | Task checkboxes |
 | `noteItemByTitle("Meeting notes")` | `"Meeting notes"` | `note_item_by_title_meeting_notes` | Note cards (automation) |
@@ -144,7 +145,9 @@ that needs one of these, add the testTag first (PR-0 phase for that screen).
   add attachment button, delete button, error message
 - Note editor: delete button, markdown toolbar
 - Project detail: top bar
-- Settings: none — all 11 tabs now have `settings_tab_<name>`
+- Settings tabs: all 11 have `settings_tab_<name>`, lower-case. The rail is a
+  scrollable 80dp column, so a flow must swipe it directly — `scrollUntilVisible`
+  swipes the content pane, not the rail.
 - Search: none — `search_input` now exists
 - AI Chat: chat input, send button
 - Pomodoro: start/pause/skip/stop buttons, phase label, cycle counter,

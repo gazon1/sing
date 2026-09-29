@@ -41,6 +41,7 @@ import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
+import com.singularity.todo.feature.nav.Settings
 import com.singularity.todo.feature.nav.createJvmEntryProvider
 import com.singularity.todo.feature.nav.icon
 import kotlinx.coroutines.launch

@@ -2,6 +2,8 @@ package com.singularity.todo.feature.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -248,8 +250,14 @@ private fun SettingsNavRail(
     modifier: Modifier = Modifier,
     onSelect: (SettingsTab) -> Unit,
 ) {
+    // The rail is a fixed 80dp column holding eleven ~76dp rows. That is taller
+    // than a phone viewport, so without a scroll the trailing tabs (Backup,
+    // Account) are clipped and unreachable — the screen looked complete but two
+    // settings were simply not tappable. Scrolls on every form factor; on a
+    // tablet the content simply fits and the scroll never engages.
     Column(
         modifier = modifier.width(80.dp)
+            .verticalScroll(rememberScrollState())
             .padding(vertical = 8.dp),
     ) {
         SettingsTab.entries.forEach { tab ->

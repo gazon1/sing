@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects.presentation.nav
 
 import androidx.compose.runtime.compositionLocalOf
 import androidx.navigation3.runtime.NavBackStack
+import com.singularity.todo.feature.nav.ProjectsRoute
 
 /**
  * Provides [ProjectsNavigator] to the projects feature screens.

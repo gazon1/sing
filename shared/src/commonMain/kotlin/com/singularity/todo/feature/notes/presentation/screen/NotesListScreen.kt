@@ -62,6 +62,7 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteFilter
 import com.singularity.todo.feature.notes.NoteId
@@ -74,7 +75,6 @@ import com.singularity.todo.feature.notes.components.NotesActions
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
-import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import org.koin.compose.viewmodel.koinViewModel
 

@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.nav
 
-import androidx.navigation3.runtime.NavKey
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -11,7 +10,7 @@ import kotlinx.serialization.Serializable
  * Used by [AppDestination.AgendaGraph] to parameterise the start of the agenda.
  */
 @Serializable
-sealed interface AgendaStartRoute : NavKey {
+sealed interface AgendaStartRoute : AppNavKey {
 
     /** Inbox — all active tasks grouped by relative date bucket. */
     @Serializable

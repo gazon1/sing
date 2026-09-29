@@ -60,6 +60,7 @@ import com.mohamedrejeb.richeditor.model.rememberRichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichText
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.LinkSchemes
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
@@ -67,7 +68,6 @@ import com.singularity.todo.feature.notes.extractPreviewText
 import com.singularity.todo.feature.notes.parseLinkUrl
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
-import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewIntent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewState

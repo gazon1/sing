@@ -13,21 +13,19 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.navSavedStateConfig
+import com.singularity.todo.feature.nav.appNavSavedStateConfig
 
 /**
  * Android implementation of [AgendaNavGraph].
  *
- * Uses [navSavedStateConfig] so the back stack survives process death.
+ * Uses [appNavSavedStateConfig] so the back stack survives process death.
  * Uses [BackHandler] for the system back gesture at the start route.
  * Uses [rememberViewModelStoreNavEntryDecorator] to fix the Koin scoping bug where
  * LocalViewModelStoreOwner resolves to ComponentActivity instead of the NavEntry.
  */
 @Composable
 actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
-    val savedStateConfig = remember {
-        navSavedStateConfig(AgendaStartRoute.serializer())
-    }
+    val savedStateConfig = appNavSavedStateConfig
 
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<AgendaStartRoute> = rememberNavBackStack(savedStateConfig, start)

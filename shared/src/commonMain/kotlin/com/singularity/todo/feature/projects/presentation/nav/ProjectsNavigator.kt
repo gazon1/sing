@@ -3,6 +3,7 @@ package com.singularity.todo.feature.projects.presentation.nav
 import androidx.navigation3.runtime.NavBackStack
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.ProjectsRoute
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 

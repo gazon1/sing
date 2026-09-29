@@ -1,6 +1,5 @@
-package com.singularity.todo.feature.notes.presentation.nav
+package com.singularity.todo.feature.nav
 
-import androidx.navigation3.runtime.NavKey
 import com.singularity.todo.feature.notes.NoteId
 import kotlinx.serialization.Serializable
 
@@ -14,7 +13,7 @@ import kotlinx.serialization.Serializable
  * All [NavKey] subtypes must be serializable for the [SaveableStateHolder] encoder.
  */
 @Serializable
-sealed interface NotesRoute : NavKey {
+sealed interface NotesRoute : AppNavKey {
 
     /** List / home screen — the single entry point of the notes nested graph. */
     @Serializable

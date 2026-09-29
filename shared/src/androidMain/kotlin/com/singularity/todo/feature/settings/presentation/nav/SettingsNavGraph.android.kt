@@ -12,7 +12,8 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
-import com.singularity.todo.feature.nav.navSavedStateConfig
+import com.singularity.todo.feature.nav.Settings
+import com.singularity.todo.feature.nav.appNavSavedStateConfig
 import com.singularity.todo.feature.settings.SettingsScreen
 
 /**
@@ -23,15 +24,13 @@ import com.singularity.todo.feature.settings.SettingsScreen
  * Uses [BackHandler] for system back gesture to exit the nested graph.
  * Uses [rememberViewModelStoreNavEntryDecorator] for per-entry VM scoping.
  *
- * Persistence: uses [navSavedStateConfig] so the back stack survives process death.
+ * Persistence: uses [appNavSavedStateConfig] so the back stack survives process death.
  */
 @Composable
 actual fun SettingsNavGraph(navCallbacks: NavCallbacks, modifier: Modifier) {
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist.
-    val savedStateConfig = remember {
-        navSavedStateConfig(Settings.serializer())
-    }
+    val savedStateConfig = appNavSavedStateConfig
 
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<Settings> = rememberNavBackStack(savedStateConfig, Settings)

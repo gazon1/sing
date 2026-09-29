@@ -1,6 +1,15 @@
 # Smoke: open Settings from the menu and cycle through all 11 tabs without crash.
 #
 # Covers: menu sheet -> Settings entry -> SettingsNavRail (11 tabs).
+#
+# This flow is the regression guard for a crash that shipped: the screen used to
+# die with `subclassesOfSealed only supports automatic adding of subclasses of
+# sealed types`, because `Settings` was a lone `data object` outside the app's
+# sealed NavKey root. Opening Settings at all was a crash. See
+# docs/decisions/2026-09-29-single-sealed-navkey-root.md.
+#
+# Tag ids are lower-case: TestTags.settingsTab() routes through slug(), which
+# lowercases the enum name. `SettingsTab.AIProvider` -> `settings_tab_aiprovider`.
 appId: com.singularity.todo
 name: smoke-settings-cycle-tabs
 tags:
@@ -12,34 +21,50 @@ tags:
     id: nav_menu_button
 - extendedWaitUntil:
     visible:
-      id: menu_settings
+      id: menu_profile_sync
     timeout: 5000
+# Settings sits below the fold on a phone screen — scroll to it before tapping.
+- scrollUntilVisible:
+    element:
+      id: menu_settings
+    direction: DOWN
+    timeout: 8000
 - tapOn:
     id: menu_settings
 - extendedWaitUntil:
     visible:
-      id: settings_tab_Interface
+      id: settings_tab_interface
     timeout: 5000
-# Cycle all 11 tabs in order — a crash or hang on any tab fails the flow.
+
+# Cycle all 11 tabs. A crash or hang on any tab fails the flow.
+# The rail is a fixed-height column, so scroll it before the lower entries.
 - tapOn:
-    id: settings_tab_Interface
+    id: settings_tab_interface
 - tapOn:
-    id: settings_tab_Agenda
+    id: settings_tab_agenda
 - tapOn:
-    id: settings_tab_Notifications
+    id: settings_tab_notifications
 - tapOn:
-    id: settings_tab_AIProvider
+    id: settings_tab_aiprovider
 - tapOn:
-    id: settings_tab_WorkSchedule
+    id: settings_tab_workschedule
 - tapOn:
-    id: settings_tab_Calendar
+    id: settings_tab_calendar
 - tapOn:
-    id: settings_tab_Tags
+    id: settings_tab_tags
 - tapOn:
-    id: settings_tab_TagGroups
+    id: settings_tab_taggroups
 - tapOn:
-    id: settings_tab_Files
+    id: settings_tab_files
+# The rail is the leftmost 80dp (210px at 420dpi), so scroll it explicitly —
+# scrollUntilVisible swipes the screen centre, which is the content pane.
+- swipe:
+    start: 105, 1600
+    end: 105, 800
 - tapOn:
-    id: settings_tab_Backup
+    id: settings_tab_backup
+- swipe:
+    start: 105, 1600
+    end: 105, 800
 - tapOn:
-    id: settings_tab_Account
+    id: settings_tab_account

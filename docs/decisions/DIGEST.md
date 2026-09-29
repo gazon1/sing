@@ -760,6 +760,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`viewModel { Vm(get(), get(), ...) }`** — для VM с nullable dep + getOrNull() (TasksViewModel, ProjectsViewModel)
 - **`viewModelOf(::VM)` для VM без nullable dep** — предпочтительный паттерн
 - **Правило подтверждено:** `koinBridge` только для one-shot startup suspend reads
+- A new DAO on `AppDatabase` must be added to both modules, or the DI graph
 - Adding a binding to the wrong module is still possible, so a new Konsist test could
 - If a future VM genuinely needs constructor-overload resolution, that constraint is
 - Settings → Backup tab no longer crashes during composition.
@@ -769,7 +770,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `AGENTS.md` and `ARCHITECTURE.md` describe the facade + per-domain layout.
 - `AGENTS.md`, `koin-dsl` and `koin-overview` now agree; the contradiction is gone.
 - `BackupRepository` resolves correctly in all environments (JVM desktop, Android).
+- `CalendarSyncTaskMapDao` being absent from the JVM module is intentional; do
 - `Modules.kt` stays small and stable; adding a feature no longer means editing it.
+- `PlatformModule.android.kt` binds all 17 DAO accessors; `PlatformModule.jvm.kt`
 - `koinBridge` is for one-shot startup reads only — **not for** hot-path code, **not for** long-running operations.
 
 ### `koog`
@@ -883,6 +886,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`rememberNavBackStackTyped<T>`** from `2026-09-16-nav3-type-asymmetry-adr.md` is still
 - **`topLevelRoute` is not persisted**, so a cold launch always restores the start tab rather
 - 8 new files (nav package under projects feature) + 2 new ADR records.
+- A new route must extend `AppNavKey`, not `NavKey`. Declaring against `NavKey`
 - Additional level of indirection for new developers: "where am I?"
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters.
 - All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters.
@@ -891,12 +895,15 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops.
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells.
 - Keep the shell fallback destination (`AndroidShellNav3`, `DesktopShellNav3`) in sync with
+- Route types live in `com.singularity.todo.feature.nav`, not beside the screen
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`.
+- `NavSavedStateConfigTest` now names `Settings` and `Search` explicitly and holds
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android.
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods.
 - `TasksNavGraph` is the `@Composable` nav host — it sets up `LocalTasksNavigator`, `LocalNavBackStack`, and the `BackHandler`.
 - `TasksNavigator` is the only class that mutates `NavBackStack<TasksRoute>`.
 - `TasksRoute` is the sealed interface defining all routes within the tasks graph (Inbox, Today, ByProject, Detail, Create).
+- `navSavedStateConfig(routeHierarchy)` is gone — replaced by the
 - `startRoute` used by `rememberNav3State` **must** be a member of `topLevelRoutes`
 - ~~Register new `AppDestination` serializers in `AppDestinationSerializers`, nowhere else.~~
 
@@ -1266,7 +1273,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **NotificationHost** — финальный widget для всех экранов, заменяет ~64 строк ручного glue кода
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)`
+- Archiving remains destructive from the user's point of view. Until restore
 - Future picker sheets (ProjectPickerSheet, TagPickerSheet) should consider `ListPickerSheet` before implementing custom sheets.
+- The eleven tab tags are lower-case, because `TestTags.settingsTab()` routes
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует.
 - `AppShell` — minor change: добавлен `FabAction` parameter.
 - `ConfirmActionDialog` replaces inline `AlertDialog` in any future confirm-dialog use case.
@@ -1274,10 +1283,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `DragHandleRow` is the canonical home for any read-only row that has a drag handle. If a future use case needs click-to-edit or checkable rows, create a separate component.
 - `Icon`, `Column`, `Row`, `Arrangement` imports removed from `ReorderableSectionList.kt` since `SectionRow` no longer uses them directly.
 - `ListPickerSheet` is the canonical bottom-sheet picker in this codebase. For simple static lists, use the DSL form. For dynamic lists (from a repository), construct `ListPickerItem` objects and pass to the data-class overload.
+- `Maestro/flows/smoke/11-archive-restore-smoke.yaml` is named for behaviour it
 - `ProjectDetailScreen` (10 dialogs) remains a future migration candidate — its data-class variants (`PickParent(current: ProjectId?)`) require additional consideration for smart-cast ergonomics.
 - `SavedAgendaScreen` now uses `dialogs.show(X)` and `dialogs.dismiss()` instead of `activeDialog = X` and `activeDialog = null`.
 - `SectionEditorCard` now uses `DragHandleRow` internally, keeping the Card wrapper for elevation and background.
 - `SectionTemplate` data class and `SectionTemplates` list removed from `SavedAgendaScreen`. If templates need to be reused elsewhere, promote them to a shared location.
+- `SettingsNavRail` is scrollable. A flow that reaches a lower tab must scroll the
 - `TagsScreen` больше не принимает callback — экран не подключён к навигации (menu destination `Tags` отсутствует в `AppDestination`).
 
 ### `ui-components`
@@ -1681,9 +1692,13 @@ _8 entries need attention._
 - `2026-09-28-roadmap-status` — retro, tech-debt, roadmap, status
 - `2026-09-28-setup-hooks-broken-githooks-path` — _untagged_
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
+- `2026-09-29-archive-has-no-restore-ui` — ui, tasks, gap
 - `2026-09-29-maestro-archive-seed-strategy` — maestro, testing
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — maestro, testing, ui
+- `2026-09-29-missing-koin-dao-bindings` — koin, di, crash
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — _untagged_
+- `2026-09-29-settings-rail-not-scrollable` — ui, settings, android
+- `2026-09-29-single-sealed-navkey-root` — nav3, serialization, android, crash
 
 ## Active entries
 
@@ -1986,7 +2001,11 @@ _8 entries need attention._
 - `2026-09-28-roadmap-status` — Tech-debt roadmap v3 — what three MRs closed, and what is left
 - `2026-09-28-setup-hooks-broken-githooks-path` — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
+- `2026-09-29-archive-has-no-restore-ui` — Archiving is a one-way door — no restore UI exists
 - `2026-09-29-maestro-archive-seed-strategy` — Archive seed strategy — session coupling in archive-restore flow
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — AlertDialog buttons use visible text instead of testTag
+- `2026-09-29-missing-koin-dao-bindings` — Three Room DAOs were never bound in Koin
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — Оставшиеся проблемные места после MR про Maestro UI-тесты
+- `2026-09-29-settings-rail-not-scrollable` — Settings nav rail was not scrollable — Backup and Account were unreachable
+- `2026-09-29-single-sealed-navkey-root` — One sealed NavKey root — Settings and Search crashed the app on open
 

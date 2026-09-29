@@ -12,7 +12,8 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
-import com.singularity.todo.feature.nav.navSavedStateConfig
+import com.singularity.todo.feature.nav.NotesRoute
+import com.singularity.todo.feature.nav.appNavSavedStateConfig
 import com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreen
 import com.singularity.todo.feature.notes.presentation.screen.NotePreviewScreen
 import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
@@ -26,15 +27,13 @@ import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
  * Uses [rememberViewModelStoreNavEntryDecorator] to fix the Koin bug where
  * LocalViewModelStoreOwner resolves to ComponentActivity instead of the NavEntry.
  *
- * Persistence: uses [navSavedStateConfig] so the back stack survives process death.
+ * Persistence: uses [appNavSavedStateConfig] so the back stack survives process death.
  */
 @Composable
 actual fun NotesNavGraph(navCallbacks: NavCallbacks, start: NotesRoute, modifier: Modifier) {
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist.
-    val savedStateConfig = remember {
-        navSavedStateConfig(NotesRoute.serializer())
-    }
+    val savedStateConfig = appNavSavedStateConfig
 
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<NotesRoute> = rememberNavBackStack(savedStateConfig, start)

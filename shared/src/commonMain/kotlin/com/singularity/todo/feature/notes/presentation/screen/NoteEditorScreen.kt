@@ -45,6 +45,7 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.EditorSession
 import com.singularity.todo.feature.notes.EditorState
 import com.singularity.todo.feature.notes.LinkResult
@@ -54,7 +55,6 @@ import com.singularity.todo.feature.notes.components.InternalLinkPickerSheet
 import com.singularity.todo.feature.notes.presentation.components.NoteAiActionSheet
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
-import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.notes.rememberEditorSession

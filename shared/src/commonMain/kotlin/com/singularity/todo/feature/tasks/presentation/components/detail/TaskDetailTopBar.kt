@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.TestTags
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
@@ -34,7 +37,7 @@ fun TaskDetailTopBar(onBackClick: () -> Unit, onMoreClick: (() -> Unit)? = null)
         },
         actions = {
             if (onMoreClick != null) {
-                IconButton(onClick = onMoreClick) {
+                IconButton(onClick = onMoreClick, modifier = Modifier.testTag(TestTags.TASK_EDITOR_MORE_MENU)) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
                         contentDescription = "Меню",

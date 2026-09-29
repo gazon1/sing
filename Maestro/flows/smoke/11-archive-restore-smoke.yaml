@@ -1,43 +1,56 @@
-# Smoke: archive a task, then restore it from the Archive screen.
+# Smoke: an archived task is listed in the Archive screen.
 #
-# Prerequisites: an archived task exists (created by archive-task-smoke).
-# This flow assumes the same session: run archive-task-smoke first,
-# then this flow without clearing state.
+# Covers: archive a task -> Menu -> Archive -> the row is there.
+#
+# Note: there is deliberately no restore assertion. The app has no restore UI —
+# `TaskDetailIntent.Domain.Restore` exists in the model but is not wired to any
+# screen, and the Archive screen offers only "archive all completed". Archiving is
+# currently a one-way door. Tracked in
+# docs/decisions/2026-09-29-archive-has-no-restore-ui.md. This flow will need a
+# restore step once that gap is closed.
 appId: com.singularity.todo
 name: smoke-archive-restore
 tags:
   - smoke
   - archive
 ---
-# Navigate to Archive via the menu sheet.
+- runFlow: ../../helpers/seed-task.yaml
+# Archive it through the detail overflow menu.
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- tapOn:
+    id: task_editor_more_menu
+- extendedWaitUntil:
+    visible:
+      text: "Архивировать"
+    timeout: 5000
+- tapOn:
+    text: "Архивировать"
+- back
+- extendedWaitUntil:
+    notVisible:
+      id: task_item_buy_milk
+    timeout: 8000
+# Open the Archive screen from the menu sheet.
 - tapOn:
     id: nav_menu_button
 - extendedWaitUntil:
     visible:
-      id: menu_archive
+      id: menu_profile_sync
     timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: menu_archive
+    direction: DOWN
+    timeout: 8000
 - tapOn:
     id: menu_archive
 - extendedWaitUntil:
     visible:
       id: task_item_buy_milk
-    timeout: 5000
-# The task is visible in the archive list.
+    timeout: 8000
 - assertVisible: "Buy milk"
-# Restore: swipe right (startToEnd) to reveal the restore action.
-- swipe:
-    startX: 50
-    startY: 200
-    endX: 800
-    endY: 200
-- extendedWaitUntil:
-    gone:
-      id: task_item_buy_milk
-    timeout: 5000
-# After restore the task should reappear in Inbox.
-- tapOn:
-    id: nav_tab_inbox
-- extendedWaitUntil:
-    visible:
-      id: task_item_buy_milk
-    timeout: 5000

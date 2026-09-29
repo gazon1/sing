@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.notes.LinkKind
 import com.singularity.todo.feature.notes.LinkResult
 import kotlinx.coroutines.FlowPreview

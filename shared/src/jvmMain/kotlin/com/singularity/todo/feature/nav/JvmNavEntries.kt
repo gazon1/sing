@@ -9,23 +9,19 @@ import com.singularity.todo.feature.ai.chat.ChatScreen
 import com.singularity.todo.feature.ai.usage.AiUsageScreen
 import com.singularity.todo.feature.archive.ArchiveScreen
 import com.singularity.todo.feature.calendar.presentation.nav.CalendarNavGraph
-import com.singularity.todo.feature.calendar.presentation.nav.CalendarRoute
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.presentation.nav.NotesNavGraph
-import com.singularity.todo.feature.notes.presentation.nav.NotesRoute
 import com.singularity.todo.feature.pomodoro.PomodoroScreen
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.profile.ProfileSwitcherScreen
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
-import com.singularity.todo.feature.projects.presentation.nav.ProjectsRoute
 import com.singularity.todo.feature.search.presentation.nav.SearchNavGraph
 import com.singularity.todo.feature.settings.presentation.nav.SettingsNavGraph
 import com.singularity.todo.feature.statistics.StatisticsScreen
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.nav.TasksNavGraph
-import com.singularity.todo.feature.tasks.presentation.nav.TasksRoute
 import kotlinx.datetime.LocalDate
 import org.koin.compose.koinInject
 

@@ -1,6 +1,5 @@
-package com.singularity.todo.feature.tasks.presentation.nav
+package com.singularity.todo.feature.nav
 
-import androidx.navigation3.runtime.NavKey
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
@@ -23,7 +22,7 @@ import kotlinx.serialization.Serializable
  * [androidx.navigation3.runtime.serialization.NavBackStackSerializer].
  */
 @Serializable
-sealed interface TasksRoute : NavKey {
+sealed interface TasksRoute : AppNavKey {
 
     @Serializable
     data class Detail(val taskId: TaskId) : TasksRoute

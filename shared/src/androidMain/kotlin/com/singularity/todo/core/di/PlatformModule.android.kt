@@ -84,6 +84,8 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().noteDao() }
     single { get<AppDatabase>().projectDao() }
     single { get<AppDatabase>().tagDao() }
+    single { get<AppDatabase>().tagGroupDao() }
+    single { get<AppDatabase>().projectInheritedTagGroupDao() }
     single { get<AppDatabase>().syncOutboxDao() }
     single { get<AppDatabase>().remoteConfigDao() }
     single { get<AppDatabase>().remoteConfigCacheDao() }

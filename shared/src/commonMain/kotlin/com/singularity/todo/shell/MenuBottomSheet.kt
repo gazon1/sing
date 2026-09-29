@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
+import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.nav.icon
 
 /**

@@ -12,6 +12,7 @@ import com.singularity.todo.core.database.ProfileDao
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.database.TagDao
+import com.singularity.todo.core.database.TagGroupDao
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.di.domainModule
@@ -72,6 +73,7 @@ class AndroidKoinGraphValidationTest : KoinTest {
         NoteDao::class,
         ProjectDao::class,
         TagDao::class,
+        TagGroupDao::class,
         ReminderDao::class,
         ChecklistDao::class,
         LlmUsageDao::class,

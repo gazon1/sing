@@ -72,6 +72,7 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
+import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.projects.presentation.components.ActiveSheet
 import com.singularity.todo.feature.projects.presentation.components.CurrentProjectContent
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions

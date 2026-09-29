@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.nav
 
 import androidx.navigation3.runtime.NavBackStack
+import com.singularity.todo.feature.nav.TasksRoute
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.presentation.nav.TasksRoute
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs

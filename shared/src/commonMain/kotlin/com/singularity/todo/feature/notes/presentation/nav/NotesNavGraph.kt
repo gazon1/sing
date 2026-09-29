@@ -3,6 +3,7 @@ package com.singularity.todo.feature.notes.presentation.nav
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.nav.NotesRoute
 
 /**
  * Creates a nested navigation graph for the notes feature.

@@ -2,7 +2,15 @@
 title: "Archive seed strategy — session coupling in archive-restore flow"
 date: 2026-09-29
 tags: [maestro, testing]
+status: superseded
 ---
+
+> **Superseded in part (2026-09-29):** the flow no longer inherits state from a
+> previous flow — it creates and archives its own fixture inline, so no
+> `seed-archived-task.yaml` helper was needed. The rest of this entry still
+> stands. See
+> [2026-09-29-archive-has-no-restore-ui.md](2026-09-29-archive-has-no-restore-ui.md)
+> for what the flow actually asserts today.
 
 ## Context
 

@@ -1,6 +1,5 @@
-package com.singularity.todo.feature.calendar.presentation.nav
+package com.singularity.todo.feature.nav
 
-import androidx.navigation3.runtime.NavKey
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 
@@ -11,7 +10,7 @@ import kotlinx.serialization.Serializable
  * encodes the stack on each remember via Compose's SaveableStateHolder.
  */
 @Serializable
-sealed interface CalendarRoute : NavKey {
+sealed interface CalendarRoute : AppNavKey {
 
     /**
      * Month overview — the default start route.

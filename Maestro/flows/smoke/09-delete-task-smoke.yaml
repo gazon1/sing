@@ -1,6 +1,10 @@
-# Smoke: delete a task via its detail screen and confirm the dialog.
+# Smoke: delete a task from its detail screen's overflow menu.
 #
-# Covers: task detail open -> More menu -> Delete -> Confirm -> task gone from list.
+# Covers: task detail open -> overflow menu -> Delete -> pop back -> row gone.
+#
+# Delete is immediate and reversible: the screen emits `UndoDelete` and shows a
+# "Task deleted" snackbar rather than a confirmation dialog, so this flow asserts
+# the row is gone on return. The undo path is covered separately.
 appId: com.singularity.todo
 name: smoke-delete-task
 tags:
@@ -14,26 +18,23 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
-# Assert the title carried into the editor (proves we opened *this* task).
+# The row's title must have carried into the editor — this proves the tap routed
+# to *this* task and not merely that some editor opened.
 - assertVisible: "Buy milk"
-# Tap the More menu button (MoreVert, contentDescription = "Меню").
 - tapOn:
-    content-desc: "Меню"
+    id: task_editor_more_menu
 - extendedWaitUntil:
     visible:
       text: "Удалить"
     timeout: 5000
 - tapOn:
     text: "Удалить"
-# Confirm deletion dialog.
+- back
 - extendedWaitUntil:
     visible:
-      text: "Удалить"
+      id: nav_tab_inbox
     timeout: 5000
-- tapOn:
-    text: "Удалить"
-# Task should be gone from the list.
 - extendedWaitUntil:
-    gone:
+    notVisible:
       id: task_item_buy_milk
-    timeout: 5000
+    timeout: 8000

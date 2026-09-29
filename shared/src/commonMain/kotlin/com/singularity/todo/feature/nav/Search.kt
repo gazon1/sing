@@ -1,6 +1,5 @@
-package com.singularity.todo.feature.search.presentation.nav
+package com.singularity.todo.feature.nav
 
-import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
 /**
@@ -14,4 +13,4 @@ import kotlinx.serialization.Serializable
  * `rememberNavBackStack(SavedStateConfiguration, ...)`.
  */
 @Serializable
-data object Search : NavKey
+data object Search : AppNavKey

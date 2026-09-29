@@ -1,6 +1,5 @@
-package com.singularity.todo.feature.projects.presentation.nav
+package com.singularity.todo.feature.nav
 
-import androidx.navigation3.runtime.NavKey
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import kotlinx.serialization.Serializable
 
@@ -14,7 +13,7 @@ import kotlinx.serialization.Serializable
  * All [NavKey] subtypes must be serializable for the [SaveableStateHolder] encoder.
  */
 @Serializable
-sealed interface ProjectsRoute : NavKey {
+sealed interface ProjectsRoute : AppNavKey {
 
     @Serializable
     data object List : ProjectsRoute

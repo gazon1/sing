@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavEntry
 import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.CalendarRoute
 
 /**
  * Creates a nested navigation graph for the Calendar feature.

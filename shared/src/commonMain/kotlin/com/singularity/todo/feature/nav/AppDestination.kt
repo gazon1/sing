@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.navigation3.runtime.NavKey
 import com.singularity.todo.core.platform.todayInSystemZone
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
@@ -45,7 +44,7 @@ import kotlinx.serialization.Serializable
  * Compose runtime uses [title] for accessibility only.
  */
 @Serializable
-sealed interface AppDestination : NavKey {
+sealed interface AppDestination : AppNavKey {
     /** User-visible label — used by BottomBar and MenuSheet. */
     val title: String
 
@@ -153,7 +152,7 @@ sealed interface AppDestination : NavKey {
      * They no longer have corresponding routes in TasksNavGraph — use [Create] or [Detail].
      */
     @Serializable
-    sealed interface TasksStartRoute : NavKey {
+    sealed interface TasksStartRoute : AppNavKey {
         @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
         @Serializable
         data object Inbox : TasksStartRoute
@@ -242,7 +241,7 @@ sealed interface AppDestination : NavKey {
      * Start route for the projects nested graph. Used as `start` param in [ProjectsGraph].
      */
     @Serializable
-    sealed interface ProjectsStartRoute : NavKey {
+    sealed interface ProjectsStartRoute : AppNavKey {
         @Serializable
         data object List : ProjectsStartRoute
 
@@ -254,7 +253,7 @@ sealed interface AppDestination : NavKey {
      * Start route for the notes nested graph. Used as `start` param in [NotesGraph].
      */
     @Serializable
-    sealed interface NotesStartRoute : NavKey {
+    sealed interface NotesStartRoute : AppNavKey {
         @Serializable
         data object List : NotesStartRoute
 
@@ -275,7 +274,7 @@ sealed interface AppDestination : NavKey {
      * Start route for the Calendar nested graph. Used as `start` param in [CalendarGraph].
      */
     @Serializable
-    sealed interface CalendarStartRoute : NavKey {
+    sealed interface CalendarStartRoute : AppNavKey {
         @Serializable
         data class Month(val anchor: String) : CalendarStartRoute
     }
