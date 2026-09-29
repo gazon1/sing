@@ -1179,6 +1179,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive**: `DataStoreSyncPrefs` follows the exact same pattern as `DataStoreSessionStore` — consistent with project.
 - **Positive**: `autoSyncEnabled` and `scheduledInterval` survive app restarts.
 - **Positive**: `enqueue()` wiring in repositories becomes testable via `FakeSyncRepository`.
+- The sync *engine* is untested end to end: `sync-create-offline` proves data
+- This is the third instance of the same shape after the notes row actions and
+- `SyncConfigScreen` and `SyncViewModel` are reachable-looking dead code — both
+- `sync/open-config`, `toggle-auto`, `change-interval` and `sync-now` cannot be
 
 ### `tags`
 
@@ -1724,6 +1728,7 @@ _8 entries need attention._
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — _untagged_
 - `2026-09-29-settings-rail-not-scrollable` — ui, settings, android
 - `2026-09-29-single-sealed-navkey-root` — nav3, serialization, android, crash
+- `2026-09-29-sync-config-screen-has-no-host` — sync, ui, gap, maestro
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
 
 ## Active entries
@@ -2038,5 +2043,6 @@ _8 entries need attention._
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — Оставшиеся проблемные места после MR про Maestro UI-тесты
 - `2026-09-29-settings-rail-not-scrollable` — Settings nav rail was not scrollable — Backup and Account were unreachable
 - `2026-09-29-single-sealed-navkey-root` — One sealed NavKey root — Settings and Search crashed the app on open
+- `2026-09-29-sync-config-screen-has-no-host` — SyncConfigScreen is never rendered — the planned sync flows have nothing to drive
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
 

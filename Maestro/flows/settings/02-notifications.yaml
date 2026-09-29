@@ -1,0 +1,28 @@
+# Settings > Notifications: the notification surface renders its controls.
+appId: com.singularity.todo
+name: settings-notifications
+tags:
+  - regression
+  - settings
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_profile_sync
+    timeout: 5000
+- tapOn:
+    id: menu_profile_sync
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_notifications
+    timeout: 8000
+- tapOn:
+    id: settings_tab_notifications
+- extendedWaitUntil:
+    visible: "Enable Notifications"
+    timeout: 8000
+- assertVisible: "Default Reminder"
+- assertVisible: "Notification Sound"
+- assertVisible: "At due time"

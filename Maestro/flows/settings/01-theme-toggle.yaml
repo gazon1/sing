@@ -1,0 +1,36 @@
+# Settings > Interface: toggling the dark theme does not break the screen.
+#
+# The theme is visual, and neither the a11y tree nor Maestro exposes a switch
+# state for it, so the assertion is that the screen survives the toggle and
+# stays navigable — which is what would catch a crash on theme change.
+appId: com.singularity.todo
+name: settings-theme-toggle
+tags:
+  - regression
+  - settings
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_profile_sync
+    timeout: 5000
+- tapOn:
+    id: menu_profile_sync
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_interface
+    timeout: 8000
+- assertVisible: "Dark Theme"
+- assertVisible: "Accent Color"
+- tapOn:
+    text: "Dark Theme"
+# Still interactive, and the rest of the tab is intact.
+- assertVisible: "Font Size"
+- tapOn:
+    id: settings_tab_agenda
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_interface
+    timeout: 5000

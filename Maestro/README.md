@@ -36,6 +36,9 @@ Maestro/
     ├── notes/                  # note list, editor, filter chips
     ├── projects/               # project list, detail, quick-add task
     ├── calendar/               # month view, view modes, tap-day
+    ├── settings/               # Interface (theme), Notifications
+    ├── profile/                # create a profile from the Menu sheet
+    ├── sync/                   # offline create survives no connectivity
     └── system/                 # shell-level chrome (menu sheet)
 ```
 

@@ -1,0 +1,39 @@
+# Sync: a task created with no connectivity is kept and appears once back online.
+#
+# The app is local-first — Room is the source of truth and the sync engine is a
+# background concern — so this asserts the user's data survives being offline,
+# not that a server round-trip happened.
+appId: com.singularity.todo
+name: sync-create-offline
+tags:
+  - regression
+  - sync
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- setAirplaneMode: enabled
+# Create a task while offline.
+- tapOn:
+    id: tasks_fab
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 8000
+- tapOn:
+    id: task_editor_title_input
+- inputText: "Offline task"
+- assertVisible: "Offline task"
+- hideKeyboard
+- tapOn:
+    id: task_editor_save
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_offline_task
+    timeout: 10000
+# Back online: the task is still there.
+- setAirplaneMode: disabled
+- extendedWaitUntil:
+    visible:
+      id: task_item_offline_task
+    timeout: 10000

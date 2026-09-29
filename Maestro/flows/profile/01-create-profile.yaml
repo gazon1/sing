@@ -1,0 +1,37 @@
+# Profile switcher: create a new profile from the Menu sheet.
+#
+# The dialog pre-fills an emoji, so only the name has to be supplied.
+appId: com.singularity.todo
+name: profile-create
+tags:
+  - regression
+  - profile
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_profiles
+    timeout: 5000
+- tapOn:
+    id: menu_profiles
+- extendedWaitUntil:
+    visible: "Profiles"
+    timeout: 8000
+- tapOn:
+    text: "New"
+- extendedWaitUntil:
+    visible: "New Profile"
+    timeout: 8000
+- tapOn:
+    text: "Name"
+- inputText: "Work"
+- hideKeyboard
+- tapOn:
+    text: "Create"
+- extendedWaitUntil:
+    notVisible: "New Profile"
+    timeout: 8000
+# The new profile is listed.
+- assertVisible: "Work"

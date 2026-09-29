@@ -114,11 +114,15 @@ step time, not at authoring time:
   note's preview or straight in the editor, run to run. Tap the transition action
   with `optional: true` and then wait on the destination you actually need.
 - **A feature can be modelled but unreachable.** Notes row actions (pin,
-  archive, delete, multi-select) and the Calendar Today / prev / next /
-  mini-calendar controls exist as intents with no control that dispatches them,
-  and long-press on a note row does nothing. Before writing a flow for one, check
-  it is reachable — `docs/decisions/2026-09-29-notes-and-calendar-unreachable-controls.md`
-  lists the current gaps.
+  archive, delete, multi-select), the Calendar Today / prev / next /
+  mini-calendar controls, and the whole Sync configuration screen
+  (`SyncConfigScreen` + a complete `SyncViewModel`, composed by nothing) exist
+  with no control that dispatches them, and long-press on a note row does
+  nothing. Before writing a flow, check it is reachable. The three ADRs named
+  below list the current gaps.
+- **Menu-sheet items below the fold are not tappable without a scroll.**
+  `tapOn: id: menu_ai_chat` fails on an off-screen item; `scrollUntilVisible`
+  first is required, exactly as for `menu_settings` and `menu_archive`.
 - **Day cells in a calendar grid are `text:`-addressable** — the number is
   unique within one month, so a full-string match is unambiguous. The mode
   control is labelled with the current mode ("Day", "4 days", "Week", "Month")
