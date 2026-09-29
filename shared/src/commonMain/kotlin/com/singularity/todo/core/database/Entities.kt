@@ -213,6 +213,31 @@ data class TaskReminderEntity(
 )
 
 /**
+ * Reminder that fires for a whole project.
+ *
+ * Separate from [TaskReminderEntity] because that table's `task_id` is non-nullable and
+ * a project has no task. Relaxing the column would mean a table rebuild plus a
+ * permanently ambiguous read path. See `feature/reminders/ProjectReminder.kt`.
+ *
+ * No `type` / `offset_minutes` / `recurring_pattern` columns: a project reminder fires
+ * once, so those would be constants dressed as data.
+ */
+@Entity(
+    tableName = "project_reminders",
+    primaryKeys = ["user_id", "id"],
+    indices = [Index("user_id"), Index("project_id"), Index("fire_at")],
+)
+data class ProjectReminderEntity(
+    val id: String,
+    @ColumnInfo("project_id") val projectId: String,
+    @ColumnInfo("user_id") val userId: String,
+    @ColumnInfo("fire_at") val fireAt: Long,
+    @ColumnInfo("last_fired_at") val lastFiredAt: Long? = null,
+    @ColumnInfo("created_at") val createdAt: Long,
+    @ColumnInfo("updated_at") val updatedAt: Long,
+)
+
+/**
  * Checklist item (subtask) belonging to a task.
  */
 @Entity(

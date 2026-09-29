@@ -21,6 +21,7 @@
     <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _outbox = MutableStateFlow&lt;Map&lt;String, SyncOutboxEntity&gt;&gt;(emptyMap())</ID>
     <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _profiles = MutableStateFlow&lt;Map&lt;String, ProfileEntity&gt;&gt;(emptyMap())</ID>
     <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _projectTagGroups = MutableStateFlow&lt;List&lt;ProjectInheritedTagGroupCrossRef&gt;&gt;(emptyList())</ID>
+    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _projectReminders = MutableStateFlow&lt;Map&lt;Pair&lt;String, String&gt;, ProjectReminderEntity&gt;&gt;(emptyMap())</ID>
     <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _projects = MutableStateFlow&lt;Map&lt;String, ProjectEntity&gt;&gt;(emptyMap())</ID>
     <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _reminders = MutableStateFlow&lt;Map&lt;Pair&lt;String, String&gt;, com.singularity.todo.core.database.TaskReminderEntity&gt;&gt;( emptyMap(), )</ID>
     <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _remoteConfigCache = MutableStateFlow&lt;RemoteConfigCacheEntity?&gt;(null)</ID>

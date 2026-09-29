@@ -1103,6 +1103,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive:** No more leaked coroutine scopes — the scheduler now respects lifecycle boundaries.
 - **Positive:** The `last_fired_at` column is available for future analytics (e.g., "last reminded at").
 - **Positive:** `scheduleAt` failures are gracefully handled — a single failed notification does not crash the loop.
+- **The alarm is scheduled, not fired.** The data model, persistence and UI are wired,
+- A project with **no due date** cannot have a reminder — there is nothing to anchor to.
+- New entity, DAO, repository port + Room impl, `FakeProjectRemindersRepository` and a
+- Re-picking an offset **updates in place**: the handler reuses the existing id rather
+- Schema 23. Migration is additive and needs no spec; Room generated and validated it.
+- `ProjectDetailViewModel` gained a `ProjectRemindersRepository` dependency, so its test
+- `reminderOffsetMinutes` is stored on `ProjectDetailUi` as a raw minute count. When the
 
 ### `repository`
 
@@ -1772,6 +1779,7 @@ _9 entries need attention._
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
 - `2026-09-30-card-level-ai-actions-deferred` — tasks, ai, ux, gap
 - `2026-09-30-dead-affordances-removed` — calendar, ui, gap, cleanup
+- `2026-09-30-project-reminder-own-table` — reminders, projects, database, migration, room
 - `2026-09-30-section-reorder-via-buttons` — agenda, ui, a11y, gap
 
 ## Active entries
@@ -2098,5 +2106,6 @@ _9 entries need attention._
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
 - `2026-09-30-card-level-ai-actions-deferred` — Card-level AI actions are deferred: they mutate without preview or undo
 - `2026-09-30-dead-affordances-removed` — Nine calendar affordances were removed: they promised a feature that does not exist
+- `2026-09-30-project-reminder-own-table` — Project reminders get their own table rather than a nullable task_id
 - `2026-09-30-section-reorder-via-buttons` — Section reordering ships as buttons, not the drag handle that was drawn
 

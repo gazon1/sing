@@ -29,6 +29,15 @@ data class ProjectDetailUi(
     val childProjects: List<Project>,
     /** The parent project, or null if this is a root project. */
     val parent: Project?,
+    /**
+     * Offset of the project's reminder, or null when none is set.
+     *
+     * Persisted as a [com.singularity.todo.feature.reminders.ProjectReminder] whose
+     * `fireAt` is the project due date minus this offset. Held here as the *offset*
+     * rather than the derived instant so the picker can show what the user chose even
+     * after the due date moves.
+     */
+    val reminderOffsetMinutes: Int? = null,
 ) {
     val progressFraction: Float
         get() = if (totalCount > 0) completedCount.toFloat() / totalCount else 0f

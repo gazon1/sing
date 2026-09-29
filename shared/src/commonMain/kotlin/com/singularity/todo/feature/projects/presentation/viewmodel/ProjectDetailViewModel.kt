@@ -3,6 +3,7 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.debounce.Debouncer
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -15,6 +16,9 @@ import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
+import com.singularity.todo.feature.reminders.ProjectReminder
+import com.singularity.todo.feature.reminders.ProjectReminderId
+import com.singularity.todo.feature.reminders.ProjectRemindersRepository
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -27,11 +31,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
@@ -56,6 +63,7 @@ class ProjectDetailViewModel(
     private val updateProject: UpdateProjectUseCase,
     private val updateTask: UpdateTaskUseCase,
     private val createTaskUseCase: CreateTaskUseCase,
+    private val projectReminders: ProjectRemindersRepository,
     private val clock: Clock,
     private val log: Logger,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
@@ -92,6 +100,15 @@ class ProjectDetailViewModel(
      */
     private val availableTasksFlow = MutableStateFlow<List<Task>>(emptyList())
 
+    /**
+     * The project's current reminder offset in minutes, or null when none is set.
+     *
+     * The repository stores an absolute [ProjectReminder.fireAt]; this state holds the
+     * derived offset so the picker can show what the user actually chose, and so a due
+     * date edit can re-anchor the reminder without asking the user to re-pick it.
+     */
+    private val reminderOffsetFlow = MutableStateFlow<Int?>(null)
+
     init {
         // Single project observer: feeds [projectFlow] and seeds the editable draft.
         // All other streams derive from [projectFlow] instead of re-subscribing to the
@@ -107,6 +124,24 @@ class ProjectDetailViewModel(
                             project.description
                                 ?: "",
                         )
+                    }
+                }
+        }
+
+        // Project reminders — read the stored instant back as an offset from the due date.
+        vmScope.launch {
+            projectReminders.watchByProject(projectId)
+                .collect { reminders ->
+                    val project = _projectFlow.value
+                    val due = project?.dueDate
+                    reminderOffsetFlow.value = if (project == null || due == null) {
+                        null
+                    } else {
+                        val dueMillis = due.atStartOfDayIn(TimeZone.currentSystemDefault())
+                            .toEpochMilliseconds()
+                        reminders.firstOrNull()?.let { reminder ->
+                            ((dueMillis - reminder.fireAt) / MILLIS_PER_MINUTE).toInt()
+                        }
                     }
                 }
         }
@@ -187,7 +222,12 @@ class ProjectDetailViewModel(
                     }
                 }
             }
-            combine(projectState, parentOptionsFlow, availableTasksFlow) { state, parentOptions, availableTasks ->
+            combine(
+                projectState,
+                parentOptionsFlow,
+                availableTasksFlow,
+                reminderOffsetFlow,
+            ) { state, parentOptions, availableTasks, reminderOffset ->
                 if (state is ProjectDetailUiState.Content) {
                     state.copy(parentOptions = parentOptions, availableTasks = availableTasks)
                 } else {
@@ -232,6 +272,8 @@ class ProjectDetailViewModel(
         when (intent) {
             // ── Visibility ──────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.ToggleHideCompleted -> hideCompletedFlow.value = !hideCompletedFlow.value
+
+            is ProjectDetailIntent.Domain.SetReminder -> setReminder(intent.offsetMinutes)
 
             // ── Inline edits — debounced, written to draft StateFlows ────────
             is ProjectDetailIntent.Domain.UpdateName -> draftState.setName(intent.name)
@@ -316,4 +358,58 @@ class ProjectDetailViewModel(
             }
         }
     }
+
+    /**
+     * Attach, re-anchor or remove the project's reminder.
+     *
+     * Stored as an absolute [ProjectReminder.fireAt] because that is what an alarm
+     * scheduler needs, but *authored* as an offset from the due date — so editing the
+     * due date re-anchors the alarm instead of leaving a reminder that fires at the
+     * old instant. [reminderOffsetFlow] converts it back for the picker.
+     *
+     * A project with no due date has nothing to anchor to, so picking an offset there
+     * reports an error rather than silently dropping the request.
+     */
+    private fun setReminder(offsetMinutes: Int?) {
+        vmScope.launch {
+            val due = _projectFlow.value?.dueDate
+            if (offsetMinutes != null && due == null) {
+                emit(ProjectDetailUiEvent.ShowError("Set a due date before adding a reminder."))
+                return@launch
+            }
+
+            val existing = projectReminders.watchByProject(projectId).first().firstOrNull()
+            val result = if (offsetMinutes == null) {
+                projectReminders.deleteByProject(projectId)
+            } else {
+                val startOfDay = due!!.atStartOfDayIn(TimeZone.currentSystemDefault())
+                projectReminders.upsert(
+                    ProjectReminder(
+                        // Reuse the existing id so re-picking updates in place instead of
+                        // leaving one alarm row per change.
+                        id = existing?.id ?: ProjectReminderId.generate(),
+                        projectId = projectId,
+                        // The repository asserts ownership and re-stamps the owner, so the
+                        // VM does not need to know the current user id.
+                        userId = existing?.userId ?: UserId(ANONYMOUS_SENTINEL),
+                        fireAt = startOfDay.toEpochMilliseconds() - offsetMinutes * MILLIS_PER_MINUTE,
+                    ),
+                )
+            }
+            result.onFailure { emit(ProjectDetailUiEvent.ShowError("Reminder: ${it.message}")) }
+        }
+    }
 }
+
+/**
+ * Placeholder owner for a newly created project reminder.
+ *
+ * [ProjectRemindersRepositoryImpl.upsert] asserts the caller may write this entity and
+ * then re-stamps the real owner, so this value never reaches the database. It exists
+ * only because the domain model is total — a reminder with no owner is not a state the
+ * type system should allow, even transiently.
+ */
+private const val ANONYMOUS_SENTINEL = "anonymous"
+
+/** Milliseconds in a minute — converts a due-date gap into a stored fire offset. */
+private const val MILLIS_PER_MINUTE = 60_000L
