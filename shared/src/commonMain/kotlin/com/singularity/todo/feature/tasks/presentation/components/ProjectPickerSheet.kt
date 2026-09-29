@@ -35,11 +35,7 @@ import org.koin.compose.koinInject
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("FunctionSignature")
 @Composable
-fun ProjectPickerSheet(
-    selectedId: ProjectId?,
-    onSelect: (ProjectId?) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun ProjectPickerSheet(selectedId: ProjectId?, onSelect: (ProjectId?) -> Unit, onDismiss: () -> Unit) {
     val projectsRepo: ProjectsRepository = koinInject()
     val allProjects by projectsRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -129,11 +125,7 @@ fun ProjectPickerSheet(
 
 @Suppress("FunctionSignature")
 @Composable
-private fun ProjectItem(
-    project: Project,
-    isSelected: Boolean,
-    onSelect: () -> Unit,
-) {
+private fun ProjectItem(project: Project, isSelected: Boolean, onSelect: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

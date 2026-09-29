@@ -27,11 +27,7 @@ import com.singularity.todo.core.ui.TestTags
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("FunctionSignature")
 @Composable
-fun TaskDetailTopBar(
-    onBackClick: () -> Unit,
-    onMoreClick: (() -> Unit)? = null,
-    onAiClick: (() -> Unit)? = null,
-) {
+fun TaskDetailTopBar(onBackClick: () -> Unit, onMoreClick: (() -> Unit)? = null, onAiClick: (() -> Unit)? = null) {
     TopAppBar(
         title = {},
         navigationIcon = {

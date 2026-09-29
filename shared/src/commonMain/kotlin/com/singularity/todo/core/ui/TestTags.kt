@@ -104,8 +104,10 @@ object TestTags {
         const val CYCLE_LABEL = "pomodoro_cycle_label"
         const val STOP_BUTTON = "pomodoro_stop_button"
         const val SKIP_BUTTON = "pomodoro_skip_button"
+
         /** Play icon — shown when the timer is paused. */
         const val PLAY_BUTTON = "pomodoro_play_button"
+
         /** Pause icon — shown when the timer is running. */
         const val PAUSE_BUTTON = "pomodoro_pause_button"
     }
@@ -178,8 +180,10 @@ object TestTags {
     object Dialog {
         /** Positive / destructive confirmation ("Delete", "Discard", "OK"). */
         const val CONFIRM = "dialog_confirm"
+
         /** Cancel / dismiss ("Cancel", "Keep editing"). */
         const val DISMISS = "dialog_dismiss"
+
         /** The title of a dialog (e.g. "Discard changes?", "Delete view?"). */
         fun title(key: String) = "dialog_title_${slug(key)}"
     }

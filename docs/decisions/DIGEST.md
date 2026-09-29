@@ -1226,10 +1226,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - A task may have zero, one, or many dependencies.
 - Cycle detection is deferred — cycles are rare and the cost of a DFS on every `setDependencies` call is non-trivial for large task graphs.
 - Deadline indicator rendering in `UpcomingBadges`.
+- If card-level AI is wanted later, the prerequisite is a preview-and-confirm step —
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP).
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable
 - Self-dependency is validated in the MCP tool and silently ignored by the join-table upsert (PRIMARY KEY prevents the duplicate).
 - Single narrow Room query (`watchByDate`) reused for the new use case.
+- Task AI remains reachable exactly where it was made reachable (PR-1.6): the task
+- The four call sites are now commented rather than silently omitted, so the next
 - Week navigation via swipe on `DaySwitcherRow`.
 - Week-start locale handling is isolated and can be made configurable later.
 - `@Serializable` на `TaskStatus` — нужен для kotlinx.serialization AgendaDefinition (saved views в будущем).
@@ -1757,6 +1760,7 @@ _9 entries need attention._
 - `2026-09-29-single-sealed-navkey-root` — nav3, serialization, android, crash
 - `2026-09-29-sync-config-screen-has-no-host` — sync, ui, gap, maestro
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
+- `2026-09-30-card-level-ai-actions-deferred` — tasks, ai, ux, gap
 
 ## Active entries
 
@@ -2080,4 +2084,5 @@ _9 entries need attention._
 - `2026-09-29-single-sealed-navkey-root` — One sealed NavKey root — Settings and Search crashed the app on open
 - `2026-09-29-sync-config-screen-has-no-host` — SyncConfigScreen is never rendered — the planned sync flows have nothing to drive
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
+- `2026-09-30-card-level-ai-actions-deferred` — Card-level AI actions are deferred: they mutate without preview or undo
 

@@ -1,10 +1,18 @@
 package com.singularity.todo.core.ui.components
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import kotlinx.coroutines.flow.Flow
@@ -34,9 +42,30 @@ fun <T> NotificationHost(
     modifier: Modifier = Modifier,
 ) {
     var notification by remember { mutableStateOf<Notification?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     CollectEvents(events) { event ->
         notification = mapper(event)
+    }
+
+    // Present the undo toast and clear the queued notification. `showSnackbar`
+    // suspends until the toast is dismissed, so one effect both presents it and
+    // keeps the next event from stacking behind it. Taking the result here — rather
+    // than from a button callback — means a swipe-away dismissal cannot fire the
+    // action by accident.
+    LaunchedEffect(notification) {
+        val undo = notification as? Notification.Undo ?: return@LaunchedEffect
+        notification = null
+        val result = snackbarHostState.showSnackbar(
+            message = undo.title,
+            actionLabel = undo.actionLabel,
+            duration = SnackbarDuration.Short,
+        )
+        if (result == SnackbarResult.ActionPerformed) undo.onAction()
+    }
+
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+        SnackbarHost(hostState = snackbarHostState)
     }
 
     when (val n = notification) {
@@ -55,6 +84,10 @@ fun <T> NotificationHost(
                 onDismiss = { notification = null },
             )
         }
+
+        // The undo toast is presented by the LaunchedEffect above — that is where the
+        // host state lives. This branch exists only to keep `when` exhaustive.
+        is Notification.Undo -> Unit
 
         Notification.NavigateBack -> {
             notification = null
