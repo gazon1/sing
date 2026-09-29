@@ -1,0 +1,27 @@
+# Pomodoro: the tab renders its timer and controls.
+#
+# The timer is the only Pomodoro surface — there is no history or stats screen.
+appId: com.singularity.todo
+name: pomodoro-open-tab
+tags:
+  - smoke
+  - pomodoro
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_pomodoro
+- extendedWaitUntil:
+    visible:
+      id: pomodoro_phase_label
+    timeout: 8000
+# A fresh timer sits at its full work duration, paused, on cycle 1.
+- assertVisible:
+    id: pomodoro_timer_label
+- assertVisible: "Work"
+- assertVisible: "Cycle 1"
+- assertVisible:
+    id: pomodoro_stop_button
+- assertVisible:
+    id: pomodoro_play_pause_button
+- assertVisible:
+    id: pomodoro_skip_button

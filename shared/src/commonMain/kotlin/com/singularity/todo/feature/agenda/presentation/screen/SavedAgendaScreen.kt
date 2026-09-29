@@ -31,12 +31,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BackTopAppBar
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
@@ -251,7 +253,9 @@ private fun SavedAgendaContent(
                         label = { Text("View name") },
                         placeholder = { Text("My saved view") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag(TestTags.SAVED_AGENDA_NAME_INPUT),
                         keyboardOptions = KeyboardOptions(
                             capitalization = KeyboardCapitalization.Words,
                             imeAction = ImeAction.Done,
@@ -333,7 +337,9 @@ private fun SavedAgendaContent(
                     Button(
                         onClick = { onIntent(SavedAgendaIntent.Save) },
                         enabled = state.canSave && !state.isSaving,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag(TestTags.SAVED_AGENDA_SAVE_BUTTON),
                     ) {
                         if (state.isSaving) {
                             CircularProgressIndicator(
@@ -350,7 +356,9 @@ private fun SavedAgendaContent(
                         Button(
                             onClick = onRequestDelete,
                             enabled = !state.isSaving,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag(TestTags.SAVED_AGENDA_DELETE_BUTTON),
                         ) {
                             Text("Delete view")
                         }

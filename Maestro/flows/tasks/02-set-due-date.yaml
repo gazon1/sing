@@ -1,0 +1,35 @@
+# Task editor: set a due date from the attribute row.
+#
+# The Material3 date picker exposes day cells only as contentDescription
+# ("Tuesday, September 29, 2026"), and Maestro has no content-desc selector, so
+# the day is picked with a regex anchored on the day number and a year wildcard.
+# That keeps the flow valid past the turn of the year, and picks the 1st of the
+# month currently on screen.
+appId: com.singularity.todo
+name: tasks-set-due-date
+tags:
+  - regression
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- assertVisible: "Добавить дату"
+- tapOn:
+    text: "Добавить дату"
+- extendedWaitUntil:
+    visible: "Select date"
+    timeout: 8000
+- tapOn:
+    text: ".* 1, 20[0-9][0-9]"
+- tapOn:
+    text: "OK"
+# The row switches from its placeholder to the ISO date.
+- extendedWaitUntil:
+    visible: ".*-.*-01"
+    timeout: 8000
+- assertNotVisible: "Добавить дату"

@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -42,6 +43,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import kotlinx.datetime.DateTimeUnit
@@ -111,12 +113,18 @@ fun AgendaContent(
                 title = { Text(title) },
                 actions = {
                     if (onSavedViewsClick != null) {
-                        IconButton(onClick = onSavedViewsClick) {
+                        IconButton(
+                            onClick = onSavedViewsClick,
+                            modifier = Modifier.testTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON),
+                        ) {
                             Icon(Icons.Default.Bookmark, contentDescription = "Saved views")
                         }
                     }
                     if (onSaveCurrentClick != null) {
-                        IconButton(onClick = onSaveCurrentClick) {
+                        IconButton(
+                            onClick = onSaveCurrentClick,
+                            modifier = Modifier.testTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON),
+                        ) {
                             Icon(Icons.Default.BookmarkAdd, contentDescription = "Save current agenda")
                         }
                     }

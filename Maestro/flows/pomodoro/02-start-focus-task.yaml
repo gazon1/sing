@@ -1,0 +1,25 @@
+# Pomodoro: pick a focus task by chip, which starts the timer.
+#
+# The chips only exist when the Pomodoro task provider yields tasks, so this
+# flow seeds one first.
+appId: com.singularity.todo
+name: pomodoro-start-focus-task
+tags:
+  - regression
+  - pomodoro
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: nav_tab_pomodoro
+- extendedWaitUntil:
+    visible:
+      id: pomodoro_phase_label
+    timeout: 8000
+# Selecting a chip starts the timer on that task.
+- tapOn:
+    id: pomodoro_task_chip_buy_milk
+- extendedWaitUntil:
+    visible: "Focus: Buy milk"
+    timeout: 8000
+# Tapping the chip both selects and starts, so the phase is already running.
+- assertVisible: "Work"

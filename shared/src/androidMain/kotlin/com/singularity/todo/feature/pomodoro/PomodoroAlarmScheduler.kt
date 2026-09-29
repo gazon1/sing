@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.singularity.todo.feature.alarms.AlarmContract
 import com.singularity.todo.feature.alarms.AlarmReceiver
 
@@ -24,15 +25,35 @@ open class PomodoroAlarmScheduler(private val context: Context) : PomodoroSchedu
     /**
      * Schedules a phase-end alarm to fire at [fireAtEpochMs].
      *
+     * Falls back to an inexact alarm when the exact-alarm permission is not held —
+     * user-revoked, OEM policy, or any device where the grant did not apply.
+     * `setAlarmClock` throws [SecurityException] in that case, and this is reached
+     * from a composable's click handler: an escaping exception there kills the
+     * process. A Pomodoro phase that ends a few minutes late is a much better
+     * outcome than a crash, so the fallback is deliberate rather than a stub.
+     *
      * @param fireAtEpochMs Wall-clock time when the phase should end.
      * @param taskId Optional task ID for display purposes (passed via PendingIntent extra).
      * @param phase Phase passed to [AlarmReceiver.handlePomodoroPhaseEnd].
      */
     override fun schedulePhaseEnd(fireAtEpochMs: Long, taskId: String?, phase: PomodoroPhase) {
-        alarmManager.setAlarmClock(
-            AlarmManager.AlarmClockInfo(fireAtEpochMs, null),
-            buildPending(taskId, phase),
-        )
+        try {
+            alarmManager.setAlarmClock(
+                AlarmManager.AlarmClockInfo(fireAtEpochMs, null),
+                buildPending(taskId, phase),
+            )
+        } catch (_: SecurityException) {
+            Log.w(
+                "PomodoroAlarmScheduler",
+                "Exact alarm denied — falling back to an inexact alarm. The phase may end " +
+                    "late, and later still under battery saver.",
+            )
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                fireAtEpochMs,
+                buildPending(taskId, phase),
+            )
+        }
     }
 
     /**

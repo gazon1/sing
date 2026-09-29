@@ -1,0 +1,32 @@
+# Pomodoro: skip advances Work -> ShortBreak and increments the cycle counter.
+#
+# Skip is the only way to reach a break phase without waiting out a 25-minute
+# work block, which is what makes it testable.
+appId: com.singularity.todo
+name: pomodoro-skip-to-break
+tags:
+  - regression
+  - pomodoro
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: nav_tab_pomodoro
+- extendedWaitUntil:
+    visible:
+      id: pomodoro_phase_label
+    timeout: 8000
+- tapOn:
+    id: pomodoro_task_chip_buy_milk
+- extendedWaitUntil:
+    visible: "Focus: Buy milk"
+    timeout: 8000
+- assertVisible: "Cycle 1"
+# Skipping the work block lands on a break phase.
+- tapOn:
+    id: pomodoro_skip_button
+- extendedWaitUntil:
+    visible: "Short Break"
+    timeout: 8000
+# The completed-work counter advanced with the phase.
+- assertVisible: "Cycle 2"
+- assertVisible: "Pomodoro: 1 completed"

@@ -1,0 +1,33 @@
+# Pomodoro: pause and resume the running timer.
+#
+# Play/pause is one control whose icon depends on isRunning; the flow drives it
+# twice and asserts the phase label survives both transitions.
+appId: com.singularity.todo
+name: pomodoro-pause-resume
+tags:
+  - regression
+  - pomodoro
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: nav_tab_pomodoro
+- extendedWaitUntil:
+    visible:
+      id: pomodoro_phase_label
+    timeout: 8000
+- tapOn:
+    id: pomodoro_task_chip_buy_milk
+- extendedWaitUntil:
+    visible: "Focus: Buy milk"
+    timeout: 8000
+# First tap: the timer was started by the chip, so this pauses it.
+- tapOn:
+    id: pomodoro_play_pause_button
+- assertVisible:
+    id: pomodoro_timer_label
+# Second tap: resumes.
+- tapOn:
+    id: pomodoro_play_pause_button
+- assertVisible:
+    id: pomodoro_timer_label
+- assertVisible: "Work"

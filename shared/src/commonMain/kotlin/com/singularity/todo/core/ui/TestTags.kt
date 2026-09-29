@@ -27,6 +27,13 @@ object TestTags {
 
     // ─── Navigation ──────────────────────────────────────────────────────────
     const val NAV_MENU_BUTTON = "nav_menu_button"
+
+    /**
+     * Back arrow of the shared `BackTopAppBar`. Maestro cannot select on
+     * contentDescription, and several screens route back through this component
+     * with their own dirty-state confirmation, so the arrow needs a stable id.
+     */
+    const val TOP_BAR_BACK_BUTTON = "top_bar_back_button"
     const val MENU_SHEET = "menu_sheet"
 
     /** Dynamic tag of the form `settings_tab_<slug>`. */
@@ -58,6 +65,40 @@ object TestTags {
     const val TASK_EDITOR_TITLE_INPUT = "task_editor_title_input"
     const val TASK_EDITOR_SAVE = "task_editor_save"
     const val TASK_EDITOR_MORE_MENU = "task_editor_more_menu"
+
+    // ─── Agenda ────────────────────────────────────────────────────────────
+
+    /** Top-bar action opening the saved-agenda-views list. */
+    const val AGENDA_SAVED_VIEWS_BUTTON = "agenda_saved_views_button"
+
+    /** Top-bar action saving the current agenda definition as a new view. */
+    const val AGENDA_SAVE_CURRENT_BUTTON = "agenda_save_current_button"
+
+    /** Dynamic tag of the form `saved_agenda_card_<slug>` — a row in the views list. */
+    fun savedAgendaCard(name: String) = "saved_agenda_card_${slug(name)}"
+
+    const val SAVED_AGENDA_LIST_BACK = "saved_agenda_list_back"
+    const val SAVED_AGENDA_CREATE_FAB = "saved_agenda_create_fab"
+    const val SAVED_AGENDA_NAME_INPUT = "saved_agenda_name_input"
+    const val SAVED_AGENDA_SAVE_BUTTON = "saved_agenda_save_button"
+    const val SAVED_AGENDA_DELETE_BUTTON = "saved_agenda_delete_button"
+
+    // ─── Pomodoro ───────────────────────────────────────────────────────────
+    const val POMODORO_PHASE_LABEL = "pomodoro_phase_label"
+    const val POMODORO_TIMER_LABEL = "pomodoro_timer_label"
+    const val POMODORO_CYCLE_LABEL = "pomodoro_cycle_label"
+    const val POMODORO_STOP_BUTTON = "pomodoro_stop_button"
+
+    /**
+     * Play/pause is one control whose meaning depends on [PomodoroState.isRunning],
+     * so it is a single tag rather than a play/pause pair — a flow asserts the
+     * icon via the rendered phase/timer instead.
+     */
+    const val POMODORO_PLAY_PAUSE_BUTTON = "pomodoro_play_pause_button"
+    const val POMODORO_SKIP_BUTTON = "pomodoro_skip_button"
+
+    /** Dynamic tag of the form `pomodoro_task_chip_<slug>` — a focus-task chip. */
+    fun pomodoroTaskChip(title: String) = "pomodoro_task_chip_${slug(title)}"
 
     // ─── Tags ───────────────────────────────────────────────────────────────
     const val TAGS_LIST = "tags_list"

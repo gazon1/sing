@@ -92,7 +92,24 @@ step time, not at authoring time:
       end: 105, 800
   ```
 - `index:` disambiguates duplicate `text:` matches (two buttons both reading
-  "Удалить" in one dialog).
+  "Удалить" in one dialog). A bare `text:` (no index) is often the right choice —
+  an index that no longer resolves fails the step outright.
+- **ContentDescription-only elements are unreachable.** Material3 pickers (the
+  date picker) put the value in `contentDescription` and leave `text` empty, and
+  there is no `content-desc` selector to fall back on. Select those with a regex
+  over the same string, e.g. `text: ".* 1, 20[0-9][0-9]"` for the 1st of the
+  month on screen — the year wildcard keeps the flow valid past the turn of the year.
+- **The task detail screen has no save button.** Edits autosave; `task_editor_save`
+  exists only on the create screen. A flow that expects it on the detail screen
+  fails with a confusing "not found".
+- **Pre-filled fields append.** `inputText` does not clear, so a field seeded
+  with "Today" becomes "TodayFocus". `eraseText` first.
+- **Leaving a dirty draft raises a guard.** The shared top bar is tagged
+  `top_bar_back_button`; tapping it on a dirty editor opens a
+  "Discard changes?" dialog that must be confirmed with `text: "Discard"`.
+  System back does not pop the saved-view editor at all — use the top-bar arrow.
+- **Some saves do not navigate.** The saved-view editor emits a "Saved" snackbar
+  and stays open; the flow must leave explicitly.
 
 ## Test data: ASCII only
 

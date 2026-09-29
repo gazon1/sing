@@ -1,0 +1,71 @@
+# Agenda: save the current agenda as a named view, then delete it.
+#
+# Save-current seeds the editor with the active definition *and* pre-fills the
+# name with the agenda's title ("Today"), so the field must be cleared before
+# typing — inputText appends. Saving returns to the agenda, not to the list.
+# Delete is only offered in edit mode, which is what the second half exercises.
+appId: com.singularity.todo
+name: agenda-saved-views-crud
+tags:
+  - regression
+  - agenda
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: agenda_save_current_button
+- extendedWaitUntil:
+    visible:
+      id: saved_agenda_name_input
+    timeout: 8000
+- tapOn:
+    id: saved_agenda_name_input
+- eraseText
+- inputText: "Focus"
+- hideKeyboard
+- tapOn:
+    id: saved_agenda_save_button
+# Save keeps the editor open (it emits a "Saved" snackbar and stays, so the user
+# can keep editing) — it does not pop. Leave explicitly.
+- waitForAnimationToEnd:
+    timeout: 2000
+# Leave via the top-bar arrow, not the system back: the arrow is the one that
+# honours the dirty-draft confirmation. The system back does not pop this screen.
+- tapOn:
+    id: top_bar_back_button
+# The rename left the draft dirty, so leaving raises the unsaved-changes guard.
+- extendedWaitUntil:
+    visible: "Discard changes?"
+    timeout: 8000
+- tapOn:
+    text: "Discard"
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 8000
+# The view is now in the list.
+- tapOn:
+    id: agenda_saved_views_button
+- extendedWaitUntil:
+    visible: "Saved Views"
+    timeout: 8000
+- assertVisible: "Focus"
+# Open it — the editor offers Delete only in edit mode.
+- tapOn:
+    text: "Focus"
+- extendedWaitUntil:
+    visible:
+      id: saved_agenda_name_input
+    timeout: 8000
+- assertVisible:
+    id: saved_agenda_delete_button
+- tapOn:
+    id: saved_agenda_delete_button
+- extendedWaitUntil:
+    visible: "Delete view?"
+    timeout: 8000
+- tapOn:
+    text: "Delete"
+- extendedWaitUntil:
+    visible: "Saved Views"
+    timeout: 8000
+- assertNotVisible: "Focus"

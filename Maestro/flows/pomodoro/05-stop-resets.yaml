@@ -1,0 +1,31 @@
+# Pomodoro: stop returns the timer to its initial paused state.
+appId: com.singularity.todo
+name: pomodoro-stop-resets
+tags:
+  - regression
+  - pomodoro
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: nav_tab_pomodoro
+- extendedWaitUntil:
+    visible:
+      id: pomodoro_phase_label
+    timeout: 8000
+- tapOn:
+    id: pomodoro_task_chip_buy_milk
+- extendedWaitUntil:
+    visible: "Focus: Buy milk"
+    timeout: 8000
+- tapOn:
+    id: pomodoro_skip_button
+- extendedWaitUntil:
+    visible: "Short Break"
+    timeout: 8000
+# Stop drops the focus task and the phase, back to a fresh Work cycle.
+- tapOn:
+    id: pomodoro_stop_button
+- extendedWaitUntil:
+    visible: "Work"
+    timeout: 8000
+- assertNotVisible: "Focus: Buy milk"

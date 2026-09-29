@@ -28,9 +28,11 @@ Maestro/
 │   ├── launch-clean.yaml       # clean launch + wait for the shell (8s budget)
 │   └── seed-task.yaml          # create one task titled "Buy milk"
 └── flows/
-    ├── smoke/                  # must-pass subset (8 flows, ~3.5 min)
+    ├── smoke/                  # must-pass subset (12 flows, ~4 min)
     ├── nav/                    # bottom-bar navigation
-    ├── tasks/                  # task CRUD and editor flows
+    ├── tasks/                  # task CRUD and the task editor attribute rows
+    ├── agenda/                 # smart lists (Inbox buckets) + saved agenda views
+    ├── pomodoro/               # timer: open, focus task, pause/resume, skip, stop
     ├── notes/                  # note list, editor
     ├── projects/               # project create
     └── system/                 # shell-level chrome (menu sheet)

@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlin.time.Instant
@@ -76,6 +78,7 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
                     FilterChip(
                         selected = state.taskId == task.id.value,
                         onClick = { timer.start(task.id.value) },
+                        modifier = Modifier.testTag(TestTags.pomodoroTaskChip(task.title)),
                         label = {
                             Text(
                                 task.title,
@@ -104,6 +107,7 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
             text = state.phase.name.replace(Regex("([A-Z])"), " $1").trim(),
             style = MaterialTheme.typography.titleLarge,
             color = phaseColor,
+            modifier = Modifier.testTag(TestTags.POMODORO_PHASE_LABEL),
         )
 
         Spacer(Modifier.height(32.dp))
@@ -145,11 +149,13 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
                 Text(
                     text = "%02d:%02d".format(minutes, seconds),
                     style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.testTag(TestTags.POMODORO_TIMER_LABEL),
                 )
                 Text(
                     text = "Cycle ${state.completedCycles + 1}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag(TestTags.POMODORO_CYCLE_LABEL),
                 )
             }
         }
@@ -161,13 +167,18 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { timer.stop() }) {
+            IconButton(
+                onClick = { timer.stop() },
+                modifier = Modifier.testTag(TestTags.POMODORO_STOP_BUTTON),
+            ) {
                 Icon(Icons.Filled.Stop, contentDescription = "Stop")
             }
 
             FilledIconButton(
                 onClick = { if (state.isRunning) timer.pause() else timer.resume() },
-                modifier = Modifier.size(72.dp),
+                modifier = Modifier
+                    .size(72.dp)
+                    .testTag(TestTags.POMODORO_PLAY_PAUSE_BUTTON),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = phaseColor,
                 ),
@@ -179,7 +190,10 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
                 )
             }
 
-            IconButton(onClick = { timer.skip() }) {
+            IconButton(
+                onClick = { timer.skip() },
+                modifier = Modifier.testTag(TestTags.POMODORO_SKIP_BUTTON),
+            ) {
                 Icon(Icons.Filled.SkipNext, contentDescription = "Skip")
             }
         }
@@ -315,7 +329,9 @@ private fun PomodoroContentPreview(
 
             FilledIconButton(
                 onClick = { },
-                modifier = Modifier.size(72.dp),
+                modifier = Modifier
+                    .size(72.dp)
+                    .testTag(TestTags.POMODORO_PLAY_PAUSE_BUTTON),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = phaseColor,
                 ),

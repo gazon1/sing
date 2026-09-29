@@ -41,6 +41,32 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | TaskDetailTopBar overflow |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | Long-press context menu sheet (Android) |
 
+### Pomodoro
+| Constant | Value | Where |
+|---|---|---|
+| `POMODORO_PHASE_LABEL` | `pomodoro_phase_label` | Phase name (Work / Short Break / Long Break) |
+| `POMODORO_TIMER_LABEL` | `pomodoro_timer_label` | mm:ss countdown |
+| `POMODORO_CYCLE_LABEL` | `pomodoro_cycle_label` | "Cycle N" |
+| `POMODORO_STOP_BUTTON` | `pomodoro_stop_button` | Stop |
+| `POMODORO_PLAY_PAUSE_BUTTON` | `pomodoro_play_pause_button` | One control, play or pause by state |
+| `POMODORO_SKIP_BUTTON` | `pomodoro_skip_button` | Skip to next phase |
+
+### Agenda
+| Constant | Value | Where |
+|---|---|---|
+| `AGENDA_SAVED_VIEWS_BUTTON` | `agenda_saved_views_button` | Top-bar bookmark |
+| `AGENDA_SAVE_CURRENT_BUTTON` | `agenda_save_current_button` | Top-bar bookmark-add |
+| `SAVED_AGENDA_LIST_BACK` | `saved_agenda_list_back` | Saved Views list top bar |
+| `SAVED_AGENDA_CREATE_FAB` | `saved_agenda_create_fab` | Saved Views FAB |
+| `SAVED_AGENDA_NAME_INPUT` | `saved_agenda_name_input` | View editor name field (pre-filled with the agenda title) |
+| `SAVED_AGENDA_SAVE_BUTTON` | `saved_agenda_save_button` | View editor save |
+| `SAVED_AGENDA_DELETE_BUTTON` | `saved_agenda_delete_button` | View editor delete (edit mode only) |
+
+### Shared chrome
+| Constant | Value | Where |
+|---|---|---|
+| `TOP_BAR_BACK_BUTTON` | `top_bar_back_button` | `BackTopAppBar` arrow — use this, not system back, on screens that guard unsaved drafts |
+
 ### Tags
 | Constant | Value | Where |
 |---|---|---|
@@ -124,6 +150,7 @@ use the expanded string directly).
 | `noteItem("01BXFF...")` | `"01BXFF..."` | `note_item_01bxff` | Note cards (desktop unit tests) |
 | `projectCard("Project Alpha")` | `"Project Alpha"` | `project_card_project_alpha` | Project cards |
 | `sheetItem("Archive")` | `"Archive"` | `sheet_item_archive` | Context-menu sheet rows |
+| `pomodoroTaskChip("Buy milk")` | `"Buy milk"` | `pomodoro_task_chip_buy_milk` | Pomodoro focus-task chips |
 | `genUi("whatsnew")` | `"whatsnew"` | `genui_whatsnew` | GenUI surfaces |
 
 ## Raw-string tags (NOT via TestTags.kt — avoid where possible)
@@ -152,8 +179,7 @@ that needs one of these, add the testTag first (PR-0 phase for that screen).
   swipes the content pane, not the rail.
 - Search: none — `search_input` now exists
 - AI Chat: chat input, send button
-- Pomodoro: start/pause/skip/stop buttons, phase label, cycle counter,
-  task chips
+
 - Calendar: view mode button, today button, prev/next, mini-calendar toggle,
   day cells (`calendar_day_<YYYY-MM-DD>`), create task button
 - Sync: auto-switch, interval slider, sync-now button

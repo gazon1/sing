@@ -1,0 +1,30 @@
+# Task editor: cancelling the date picker leaves the task undated.
+#
+# The counterpart to set-due-date: a picker that can be dismissed without a write
+# is what makes the destructive path safe.
+appId: com.singularity.todo
+name: tasks-due-date-cancel
+tags:
+  - regression
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- tapOn:
+    text: "Добавить дату"
+- extendedWaitUntil:
+    visible: "Select date"
+    timeout: 8000
+- tapOn:
+    text: ".* 1, 20[0-9][0-9]"
+- tapOn:
+    text: "Cancel"
+- extendedWaitUntil:
+    visible: "Добавить дату"
+    timeout: 8000
+- assertVisible: "No priority"

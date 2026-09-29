@@ -1,0 +1,22 @@
+# Agenda: the saved-views list opens and shows its empty state.
+appId: com.singularity.todo
+name: agenda-saved-views-open
+tags:
+  - regression
+  - agenda
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: agenda_saved_views_button
+- extendedWaitUntil:
+    visible: "Saved Views"
+    timeout: 8000
+- assertVisible: "No saved views yet"
+- assertVisible:
+    id: saved_agenda_create_fab
+- tapOn:
+    id: saved_agenda_list_back
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 8000

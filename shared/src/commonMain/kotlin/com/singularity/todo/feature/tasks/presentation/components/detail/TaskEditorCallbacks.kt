@@ -16,18 +16,30 @@ import kotlinx.datetime.LocalTime
  * `null` means the row is hidden entirely.
  *
  * @param onChange called when the value changes (e.g. priority selected, project set)
+ * @param onClick overrides the row's own behaviour (e.g. opening a picker). Null — the
+ *        default — lets the row open its own sheet, which is what almost every call
+ *        site wants. It must NOT default to an empty lambda: a no-op lambda is a
+ *        supplied value, so the row's `onClick ?: openOwnSheet` fallback never
+ *        fires and the row silently does nothing.
  * @param onClear called when the X/clear button is tapped. Null means no clear button shown.
  */
-data class RowCallbacks<T>(val onChange: (T) -> Unit, val onClick: () -> Unit = {}, val onClear: (() -> Unit)? = null)
+data class RowCallbacks<T>(
+    val onChange: (T) -> Unit,
+    val onClick: (() -> Unit)? = null,
+    val onClear: (() -> Unit)? = null,
+)
 
 /**
  * Callback bundle for date+time rows (Due Date, Start Date).
- * `null` means the row is hidden entirely.
+ * `null` for the whole bundle means the row is hidden entirely.
+ *
+ * [onClick] is nullable for the same reason as in [RowCallbacks]: a no-op default would
+ * suppress the row's own date/time picker.
  */
 data class DateRowCallbacks(
     val onChangeDate: (LocalDate?) -> Unit,
     val onChangeTime: (LocalTime?) -> Unit,
-    val onClick: () -> Unit = {},
+    val onClick: (() -> Unit)? = null,
     val onClear: (() -> Unit)? = null,
 )
 

@@ -1,0 +1,31 @@
+# Task editor: set the priority from the attribute row.
+#
+# Regression guard: the priority row's onClick defaulted to an empty lambda, which
+# suppressed the row's own picker fallback and made the row a dead tap. See
+# docs/decisions/2026-09-29-editor-row-onclick-noop-default.md.
+appId: com.singularity.todo
+name: tasks-set-priority
+tags:
+  - regression
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- assertVisible: "No priority"
+- tapOn:
+    text: "No priority"
+- extendedWaitUntil:
+    visible: "Приоритет"
+    timeout: 8000
+- tapOn:
+    text: "High priority"
+# Edits autosave — the detail screen has no save button; the row relabels.
+- extendedWaitUntil:
+    visible: "High priority"
+    timeout: 8000
+- assertNotVisible: "No priority"

@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ids.UserId
@@ -35,6 +36,7 @@ import com.singularity.todo.core.ui.components.sheet.ListPickerItem
 import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.presentation.components.SavedAgendaCard
@@ -77,7 +79,10 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
             TopAppBar(
                 title = { Text("Saved Views") },
                 navigationIcon = {
-                    IconButton(onClick = { navigator.back() }) {
+                    IconButton(
+                        onClick = { navigator.back() },
+                        modifier = Modifier.testTag(TestTags.SAVED_AGENDA_LIST_BACK),
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -89,6 +94,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { navigator.openSavedAgendaCreate(AgendaPresets.Inbox) },
+                modifier = Modifier.testTag(TestTags.SAVED_AGENDA_CREATE_FAB),
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Create view")
             }

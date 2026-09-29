@@ -1,0 +1,56 @@
+# Agenda: Inbox buckets tasks by date, and a dated task leaves the "No Date" bucket.
+#
+# Inbox is not the undated list — it is a full agenda (Today, Yesterday, …,
+# No Date), so a dated task stays in Inbox and simply moves to its date's
+# section. The assertion is therefore on the section header, not on the row
+# leaving the screen. Section headers render as "<Section>  ·  <count>".
+appId: com.singularity.todo
+name: agenda-smart-lists
+tags:
+  - regression
+  - agenda
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 8000
+# Undated -> the "No Date" bucket holds exactly this task.
+- assertVisible: "No Date  ·  1"
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    notVisible:
+      id: task_item_buy_milk
+    timeout: 5000
+# Date it -> the bucket empties, and the row is no longer under "No Date".
+- tapOn:
+    id: nav_tab_inbox
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- tapOn:
+    text: "Добавить дату"
+- extendedWaitUntil:
+    visible: "Select date"
+    timeout: 8000
+- tapOn:
+    text: ".* 1, 20[0-9][0-9]"
+- tapOn:
+    text: "OK"
+- back
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_inbox
+    timeout: 5000
+- extendedWaitUntil:
+    notVisible: "No Date  ·  1"
+    timeout: 8000
+# The task is still in Inbox, now under a dated section. Note the Today tab is
+# NOT asserted to be free of it: a date in the past makes the task overdue, and
+# the Today preset shows overdue at the top by design.

@@ -9,6 +9,17 @@
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
 
+    <!--
+      Pomodoro phase ends and task reminders are wall-clock events, and both
+      schedule through AlarmManager.setAlarmClock(), which on API 31+ throws
+      SecurityException without one of these. USE_EXACT_ALARM is the grant-on-
+      install variant, intended for alarm/timer apps — which is what this is.
+      Declared here as well as guarded at the call site: a user or an OEM can
+      still revoke it, and an exception crossing a suspend boundary is a crash.
+    -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
     <application
         android:name=".SingularityApp"
         android:allowBackup="true"

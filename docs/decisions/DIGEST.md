@@ -998,8 +998,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `pomodoro`
 
+- Starting a Pomodoro no longer crashes with or without the permission; without
+- The reminder scheduler shares this concern; a future reminder flow will want
 - Tick-based tests (fake clock advancing real `delay()`) are unreliable in unit tests. All `AndroidPomodoroTimer` tests use `skip()` to drive phase transitions without depending on virtual time.
 - `AlarmContract` is an `object` (no `Companion`). Static-style access (`AlarmContract.EXTRA_PHASE`) is direct, not via `.Companion`.
+- `Maestro/flows/pomodoro/*.yaml` cover start, pause/resume, skip and stop. They
 - `androidHostTest` (Robolectric) must be used for any tests that require Android runtime or Android-specific types. `jvmTest` cannot access `androidMain`.
 - `factory { AndroidPomodoroTimer(...) }` in Koin is a **memory leak** for ViewModels — must use `factory<PomodoroTimer> { AndroidPomodoroTimer(...) }` or `viewModel { }` for actual ViewModels. `AndroidPomodoroTimer` is not a ViewModel, so `factory` is correct here.
 - `kotlinx.datetime.Clock` is aliased as `com.singularity.todo.core.platform.Clock` (expect/actual). Use `kotlinx.datetime.Clock` in new code; the alias is deprecated.
@@ -1280,9 +1283,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **NotificationHost** — финальный widget для всех экранов, заменяет ~64 строк ручного glue кода
 - **UiEvent marker** — `ShowDialog/ShowError/NavigateBack` больше не определены глобально
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)`
+- A `null` `onClick` is meaningful: "use the row's own behaviour". An empty
 - Archiving remains destructive from the user's point of view. Until restore
 - Future picker sheets (ProjectPickerSheet, TagPickerSheet) should consider `ListPickerSheet` before implementing custom sheets.
 - Sheet rows carry `sheet_item_<label>` tags (`TestTags.sheetItem`) so UI
+- The Material3 date picker's day cells expose only a contentDescription
 - The detail overflow menu is state-dependent — a flow that archives and then
 - The eleven tab tags are lower-case, because `TestTags.settingsTab()` routes
 - The swipe-to-delete on `SwipeableTaskRow` still dispatches
@@ -1705,10 +1710,12 @@ _8 entries need attention._
 - `2026-09-28-setup-hooks-broken-githooks-path` — _untagged_
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
 - `2026-09-29-archive-has-no-restore-ui` — ui, tasks, gap
+- `2026-09-29-editor-row-onclick-noop-default` — ui, tasks, android
 - `2026-09-29-emulator-launch-recipe` — emulator, android, tooling
 - `2026-09-29-maestro-archive-seed-strategy` — maestro, testing
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — maestro, testing, ui
 - `2026-09-29-missing-koin-dao-bindings` — koin, di, crash
+- `2026-09-29-pomodoro-exact-alarm-crash` — pomodoro, android, crash, permissions
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — _untagged_
 - `2026-09-29-settings-rail-not-scrollable` — ui, settings, android
 - `2026-09-29-single-sealed-navkey-root` — nav3, serialization, android, crash
@@ -2016,10 +2023,12 @@ _8 entries need attention._
 - `2026-09-28-setup-hooks-broken-githooks-path` — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
 - `2026-09-29-archive-has-no-restore-ui` — Archiving is a one-way door — no restore UI exists
+- `2026-09-29-editor-row-onclick-noop-default` — Editor rows did nothing — onClick defaulted to a no-op lambda
 - `2026-09-29-emulator-launch-recipe` — Emulator launch recipe — windowed, hardware GPU, camera and audio off
 - `2026-09-29-maestro-archive-seed-strategy` — Archive seed strategy — session coupling in archive-restore flow
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — AlertDialog buttons use visible text instead of testTag
 - `2026-09-29-missing-koin-dao-bindings` — Three Room DAOs were never bound in Koin
+- `2026-09-29-pomodoro-exact-alarm-crash` — Starting a Pomodoro crashed the app — exact-alarm permission was neither declared nor guarded
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — Оставшиеся проблемные места после MR про Maestro UI-тесты
 - `2026-09-29-settings-rail-not-scrollable` — Settings nav rail was not scrollable — Backup and Account were unreachable
 - `2026-09-29-single-sealed-navkey-root` — One sealed NavKey root — Settings and Search crashed the app on open
