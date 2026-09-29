@@ -594,11 +594,15 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `backup`
 
+- **A no-op lambda is now ambiguous by construction.** A reader cannot tell a
 - **Negative**: Attachments are not deduplicated across backups — two backups with the same file will contain two copies
 - **Negative**: No incremental backup — every export is a full snapshot
 - **Positive**: Single portable file with integrity check (SHA-256)
 - **Positive**: Version fields allow future migrations (FORMAT_VERSION / SCHEMA_VERSION)
 - **Positive**: `ignoreUnknownKeys` provides graceful forward compatibility
+- `AppFilePicker` now has call sites, so the seam is exercised and can no longer
+- `Archive` vs `Delete` are the same operation in this codebase —
+- `SharePort` returns `false` on a platform that cannot share. No caller currently
 
 ### `billing`
 
@@ -1723,6 +1727,7 @@ _8 entries need attention._
 - `2026-09-28-setup-hooks-broken-githooks-path` — _untagged_
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
 - `2026-09-29-archive-has-no-restore-ui` — ui, tasks, gap
+- `2026-09-29-destroyed-but-not-deleted-callbacks` — backup, agenda, ui, gap, seam
 - `2026-09-29-editor-row-onclick-noop-default` — ui, tasks, android
 - `2026-09-29-emulator-crash-recovery-runner` — emulator, android, maestro, tooling
 - `2026-09-29-emulator-launch-recipe` — emulator, android, tooling
@@ -2039,6 +2044,7 @@ _8 entries need attention._
 - `2026-09-28-setup-hooks-broken-githooks-path` — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
 - `2026-09-29-archive-has-no-restore-ui` — Archiving is a one-way door — no restore UI exists
+- `2026-09-29-destroyed-but-not-deleted-callbacks` — A control wired to a no-op reads as working; three of them shipped
 - `2026-09-29-editor-row-onclick-noop-default` — Editor rows did nothing — onClick defaulted to a no-op lambda
 - `2026-09-29-emulator-crash-recovery-runner` — Emulator gfxstream crash — the IME mitigation is insufficient, recover instead of prevent
 - `2026-09-29-emulator-launch-recipe` — Emulator launch recipe — windowed, hardware GPU, camera and audio off
