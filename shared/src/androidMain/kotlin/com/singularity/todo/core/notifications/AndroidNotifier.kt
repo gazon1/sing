@@ -1,9 +1,13 @@
 package com.singularity.todo.core.notifications
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 
 /**
  * Thin Koin-injectable wrapper around [NotificationManagerCompat] for posting notifications.
@@ -33,6 +37,11 @@ class AndroidNotifier(private val context: Context) {
      *               launch PendingIntent and read by [MainActivity] to navigate to the correct view.
      */
     fun post(tag: String, title: String, body: String, viewId: String?) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             if (viewId != null) {
                 putExtra(EXTRA_DEEPLINK_VIEW_ID, viewId)
