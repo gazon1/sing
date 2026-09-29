@@ -239,6 +239,6 @@ else
     printf '  - %s\n' "${UNKNOWN[@]}"
     echo ""
     echo "If the id is a new testTag, add it to TestTags.kt as a const val or dynamic function."
-    echo "If it is a legacy raw string, add it to the skip-list (lines 116-225) or LEGACY_RAW array."
+    echo "If it is a legacy raw string, add it to the skip-list (lines 116-225)."
     exit 1
 fi
