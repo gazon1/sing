@@ -286,6 +286,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             clock = get(),
             settingsExporter = get(),
             settingsImporter = get(),
+            fileSourceFactory = get(),
         )
     }
 

@@ -8,6 +8,7 @@ import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.core.ui.MviViewModel
@@ -47,6 +48,7 @@ class BackupViewModel(
     private val clock: Clock,
     private val settingsExporter: com.singularity.todo.core.settings.SettingsExporter,
     private val settingsImporter: SettingsImporter,
+    private val fileSourceFactory: FileSourceFactory,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<BackupUiState, BackupIntent, BackupUiEvent>(
         initialState = BackupUiState(),
@@ -74,6 +76,7 @@ class BackupViewModel(
             is BackupIntent.Push -> vmScope.launch { runPush(intent.id) }
             BackupIntent.ExportSettingsSnapshot -> vmScope.launch { runExportSettingsSnapshot() }
             is BackupIntent.ImportSettingsSnapshot -> vmScope.launch { runImportSettingsSnapshot(intent.json) }
+            is BackupIntent.ImportSettingsFrom -> vmScope.launch { runImportSettingsFrom(intent.sourcePath) }
         }
     }
 
@@ -141,6 +144,25 @@ class BackupViewModel(
                 updateState { it.copy(isWorking = false) }
                 emit(Error(e.message ?: "Settings export failed"))
             }
+    }
+
+    /**
+     * Read the picked settings file and hand its contents to the importer.
+     *
+     * The read goes through [FileSourceFactory] rather than `java.io.File` because the
+     * Android picker returns a SAF `content://` URI that no filesystem API can open.
+     * Decode failures are reported as an ordinary error event, not a crash — a user who
+     * picks the wrong file should see a message, not lose the settings screen.
+     */
+    private suspend fun runImportSettingsFrom(sourcePath: String) {
+        updateState { it.copy(isWorking = true) }
+        val json = runCatching {
+            fileSourceFactory(sourcePath).readBytes().decodeToString()
+        }
+        json.onSuccess { runImportSettingsSnapshot(it) }.onFailure { e ->
+            updateState { it.copy(isWorking = false) }
+            emit(Error(e.message ?: "Could not read the selected file"))
+        }
     }
 
     private suspend fun runImportSettingsSnapshot(json: String) {

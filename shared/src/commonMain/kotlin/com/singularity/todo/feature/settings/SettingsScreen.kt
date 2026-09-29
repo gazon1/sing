@@ -47,7 +47,10 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.SharePort
+import com.singularity.todo.core.files.rememberAppFilePicker
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.TestTags
@@ -231,19 +234,32 @@ private fun SettingsContent(
 private fun BackupScreenWrapper(onBack: () -> Unit) {
     val backupVm: BackupViewModel = koinViewModel()
     val backupState by backupVm.state.collectAsState()
+
+    // The restore / settings-import flows need the *path* the user picked, not just the
+    // fact that they picked. `rememberAppFilePicker` hands the path straight to the
+    // intent, so the launcher callback and the VM stay in step with no intermediate state.
+    val pickBackup = rememberAppFilePicker(FilePickPurpose.Backup) { picked ->
+        val path = picked?.path ?: return@rememberAppFilePicker
+        backupVm.onIntent(BackupIntent.Restore(path))
+    }
+    val pickSettings = rememberAppFilePicker(FilePickPurpose.SettingsJson) { picked ->
+        val source = picked?.path ?: return@rememberAppFilePicker
+        backupVm.onIntent(BackupIntent.ImportSettingsFrom(source))
+    }
+    val sharePort: SharePort = koinInject()
+
     BackupScreen(
         state = backupState,
         events = backupVm.events,
         onBack = onBack,
         onCreateBackup = { backupVm.onIntent(BackupIntent.CreateBackup) },
-        onSelectRestoreFile = { /* Platform shell provides file picker on Android */ },
+        onSelectRestoreFile = pickBackup,
         onRestore = { path -> backupVm.onIntent(BackupIntent.Restore(path)) },
         onDelete = { id -> backupVm.onIntent(BackupIntent.Delete(id)) },
         onPush = { id -> backupVm.onIntent(BackupIntent.Push(id)) },
-        // Settings snapshot — platform shell handles file picking / sharing
         onExportSettings = { backupVm.onIntent(BackupIntent.ExportSettingsSnapshot) },
-        onSelectSettingsFile = { /* shell opens file picker → calls BackupIntent.ImportSettingsSnapshot */ },
-        onShareSettingsJson = { /* shell shows share sheet with JSON */ },
+        onSelectSettingsFile = pickSettings,
+        onShareSettingsJson = { json -> sharePort.shareText("Singularity settings", json) },
         onImportSettings = { json -> backupVm.onIntent(BackupIntent.ImportSettingsSnapshot(json)) },
     )
 }

@@ -279,7 +279,7 @@ private fun AgendaTaskRow(
     }
 
     SwipeableTaskRow(
-        onDelete = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
+        onDelete = { onIntent(AgendaIntent.TaskDeleteClicked(task.id)) },
         secondaryClickModifier = rightClickModifier,
         content = {
             TaskRowFlat(

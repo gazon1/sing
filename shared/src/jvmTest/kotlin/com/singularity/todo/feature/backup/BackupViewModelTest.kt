@@ -9,6 +9,8 @@ import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.EntityCounts
 import com.singularity.todo.core.backup.RestoreResult
 import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.files.FileSource
+import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.settings.SettingsExporter
 import com.singularity.todo.core.settings.SettingsImporter
@@ -53,10 +55,22 @@ class BackupViewModelTest {
             SettingsImporter.ImportResult.Success
     }
 
+    /**
+     * Default for [createVm]: reading a picked file is not what these tests exercise,
+     * so the read fails loudly. A test that *does* exercise it passes its own factory
+     * and asserts on the bytes.
+     */
+    private val unreadableFileSourceFactory = object : FileSourceFactory {
+        override fun invoke(path: String): FileSource = object : FileSource {
+            override suspend fun readBytes(): ByteArray = error("this test does not read files ($path)")
+        }
+    }
+
     private fun createVm(
         repo: FakeBackupRepository,
         auth: FakeAuthRepository,
         scope: CoroutineScope,
+        fileSourceFactory: FileSourceFactory = unreadableFileSourceFactory,
     ): BackupViewModel {
         val namer = DefaultBackupFileNamer { _ -> "test_backup.zip" }
         return BackupViewModel(
@@ -66,6 +80,7 @@ class BackupViewModelTest {
             clock = kotlin.time.Clock.System,
             settingsExporter = stubSettingsExporter,
             settingsImporter = stubSettingsImporter,
+            fileSourceFactory = fileSourceFactory,
             scope = testScope(scope),
         )
     }
@@ -218,5 +233,65 @@ class BackupViewModelTest {
         testScheduler.runCurrent()
 
         assertEquals(BackupId("b1"), repo.lastPushedId)
+    }
+
+    // ─── settings import from a picked file ──────────────────────────────────
+
+    /**
+     * The path a user actually takes: the picker hands back a path (a `content://` URI
+     * on Android), and the ViewModel — not the Composable — is what opens it. A screen
+     * that read the file itself would break on SAF URIs.
+     */
+    @Test
+    fun `ImportSettingsFrom reads the picked file and feeds the importer`() = runTest {
+        var imported: String? = null
+        val importer = object : SettingsImporter(emptySet()) {
+            override suspend fun importFromJson(json: String): SettingsImporter.ImportResult {
+                imported = json
+                return SettingsImporter.ImportResult.Success
+            }
+        }
+        val factory = object : FileSourceFactory {
+            override fun invoke(path: String): FileSource = object : FileSource {
+                override suspend fun readBytes(): ByteArray = """{"version":1}""".encodeToByteArray()
+            }
+        }
+        val vm = BackupViewModel(
+            repository = FakeBackupRepository(),
+            authRepository = fakeAuth(),
+            backupFileNamer = DefaultBackupFileNamer { "b.zip" },
+            clock = kotlin.time.Clock.System,
+            settingsExporter = stubSettingsExporter,
+            settingsImporter = importer,
+            fileSourceFactory = factory,
+            scope = testScope(backgroundScope),
+        )
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+
+        vm.onIntent(BackupIntent.ImportSettingsFrom("content://docs/1"))
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+
+        assertEquals("""{"version":1}""", imported, "the picked file's contents must reach the importer")
+        assertEquals(false, vm.state.value.isWorking, "the working flag must clear when the import lands")
+    }
+
+    @Test
+    fun `ImportSettingsFrom reports a read failure instead of crashing`() = runTest {
+        val factory = object : FileSourceFactory {
+            override fun invoke(path: String): FileSource = object : FileSource {
+                override suspend fun readBytes(): ByteArray = throw java.io.FileNotFoundException(path)
+            }
+        }
+        val vm = createVm(FakeBackupRepository(), fakeAuth(), backgroundScope, fileSourceFactory = factory)
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+
+        vm.onIntent(BackupIntent.ImportSettingsFrom("/nope/missing.json"))
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+
+        assertEquals(false, vm.state.value.isWorking, "a failed read must not leave the screen stuck on 'working'")
     }
 }
