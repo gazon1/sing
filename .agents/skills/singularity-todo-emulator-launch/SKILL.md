@@ -64,6 +64,14 @@ disproved that: with the IME disabled outright the crash still reproduced with
 an identical stack. **The IME is a trigger, not the trigger** — any new surface
 does it, and the app cannot avoid opening surfaces.
 
+A five-way mitigation sweep (idle-soak, adb churn, uiautomator-dump churn,
+`-no-metrics`/`-crash-report-mode disabled` A/B, `ANDROID_EMULATOR_FEATURES`
+toggles) found **no reproducible trigger outside Maestro's own driver path**
+and no flag that reduces the rate — every adb-level activity survives, every
+death happens under Maestro. Do not re-run these experiments; the record is in
+`docs/decisions/2026-09-29-emulator-crash-recovery-runner.md`. Recovery is the
+final mitigation until an emulator release fixes `TextureResize`.
+
 No configuration both boots and avoids it. So the answer is recovery, not
 prevention: `scripts/run-maestro.sh` runs one flow per Maestro invocation and
 relaunches the AVD when the device is lost, so one crash costs at most one flow

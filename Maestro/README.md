@@ -37,6 +37,14 @@ device death costs at most one flow instead of the whole suite; and a flow is
 retried only when Maestro itself reported no device, never for a genuine
 assertion failure.
 
+Measured (2026-09-29, A/B): ~1 device loss per 2-3 smoke passes under the
+shipped runner; `-no-metrics`, `-crash-report-mode disabled` and
+`ANDROID_EMULATOR_FEATURES` toggles do **not** reduce it, and plain adb churn
+(taps, screenshots, hierarchy dumps, rotation — 160+ iterations) never kills
+it. The trigger is specific to Maestro's driver interaction and is upstream;
+the mitigation experiments and their results are recorded in
+`docs/decisions/2026-09-29-emulator-crash-recovery-runner.md`.
+
 ## Layout
 
 ```
