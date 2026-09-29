@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.core.ui.menu.onSecondaryClick
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -43,7 +44,6 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
-import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import kotlinx.datetime.DateTimeUnit

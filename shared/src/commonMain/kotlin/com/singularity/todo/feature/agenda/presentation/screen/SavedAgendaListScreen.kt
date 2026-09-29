@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
@@ -36,7 +37,6 @@ import com.singularity.todo.core.ui.components.sheet.ListPickerItem
 import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
-import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.presentation.components.SavedAgendaCard

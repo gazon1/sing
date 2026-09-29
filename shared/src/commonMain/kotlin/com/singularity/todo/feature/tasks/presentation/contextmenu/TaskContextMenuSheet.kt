@@ -85,11 +85,7 @@ fun TaskContextMenuSheet(
 }
 
 @Composable
-private fun SheetRow(
-    label: String,
-    onClick: () -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun SheetRow(label: String, onClick: () -> Unit, onDismiss: () -> Unit) {
     ListItem(
         headlineContent = { Text(label) },
         modifier = Modifier

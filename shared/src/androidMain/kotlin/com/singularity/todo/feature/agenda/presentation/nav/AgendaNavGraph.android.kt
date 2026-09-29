@@ -80,8 +80,18 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
                 entry<AgendaStartRoute.Inbox> { AgendaNavContent(route = it, contextMenuHost = contextMenuHost) }
                 entry<AgendaStartRoute.Today> { AgendaNavContent(route = it, contextMenuHost = contextMenuHost) }
                 entry<AgendaStartRoute.Upcoming> { AgendaNavContent(route = it, contextMenuHost = contextMenuHost) }
-                entry<AgendaStartRoute.Project> { route -> AgendaNavContent(route = route, contextMenuHost = contextMenuHost) }
-                entry<AgendaStartRoute.Tag> { route -> AgendaNavContent(route = route, contextMenuHost = contextMenuHost) }
+                entry<AgendaStartRoute.Project> { route ->
+                    AgendaNavContent(
+                        route = route,
+                        contextMenuHost = contextMenuHost,
+                    )
+                }
+                entry<AgendaStartRoute.Tag> { route ->
+                    AgendaNavContent(
+                        route = route,
+                        contextMenuHost = contextMenuHost,
+                    )
+                }
                 entry<AgendaStartRoute.SavedAgendaList> { AgendaNavContent(route = it) }
                 entry<AgendaStartRoute.SavedAgendaEdit> { route -> AgendaNavContent(route = route) }
                 entry<AgendaStartRoute.SavedAgendaCreate> { AgendaNavContent(route = it) }

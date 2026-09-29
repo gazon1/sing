@@ -1,8 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import com.singularity.todo.core.ui.TestTags
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
@@ -13,6 +10,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * Top bar for TaskDetail screen (View mode).

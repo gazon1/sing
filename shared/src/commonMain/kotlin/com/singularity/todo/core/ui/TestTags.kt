@@ -14,6 +14,11 @@ package com.singularity.todo.core.ui
  * title ("Buy milk", "Café run", "Profile & sync") can never produce a tag that
  * a UI-automation selector cannot address.
  */
+// The one flat namespace for every automation tag is the point of this object: a
+// tag must be findable from a Compose call site, a unit test, and a Maestro flow
+// without any of them learning a sub-object path. Splitting it to satisfy the
+// function-count rule would break every existing call site and flow for no gain.
+@Suppress("TooManyFunctions")
 object TestTags {
 
     // ─── Auth ────────────────────────────────────────────────────────────────
@@ -138,6 +143,7 @@ object TestTags {
     const val SEARCH_INPUT = "search_input"
 
     // ─── Projects ───────────────────────────────────────────────────────────
+
     /** Quick-add task field on the project detail screen. */
     const val PROJECT_DETAIL_QUICK_ADD = "project_detail_quick_add"
     const val PROJECT_EDITOR_NAME_INPUT = "project_editor_name_input"
