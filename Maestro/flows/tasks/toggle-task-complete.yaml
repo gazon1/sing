@@ -6,6 +6,7 @@
 appId: com.singularity.todo
 name: tasks-toggle-task-complete
 tags:
+  - regression
   - tasks
 ---
 - runFlow: ../../helpers/seed-task.yaml

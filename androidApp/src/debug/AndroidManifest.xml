@@ -1,0 +1,24 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Debug seed activity — enables Maestro flows to inject tasks, notes, and projects
+      directly via deep-link without going through the UI. Lives in the debug source set
+      so release APKs contain no trace of it.
+    -->
+    <application>
+        <activity
+            android:name=".debug.DebugSeedActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="todo-debug"
+                    android:host="seed" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

@@ -9,10 +9,11 @@ tags:
   - calendar
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+- runScript: ../../helpers/scripts/date.js
 - tapOn:
     id: nav_tab_calendar
 - extendedWaitUntil:
-    visible: "September 2026"
+    visible: ${output.monthTitle}
     timeout: 8000
 - assertVisible: "Month"
 - tapOn:

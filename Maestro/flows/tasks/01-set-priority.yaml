@@ -18,12 +18,13 @@ tags:
     timeout: 5000
 - assertVisible: "No priority"
 - tapOn:
-    text: "No priority"
+    id: task_editor_priority_row
 - extendedWaitUntil:
-    visible: "Приоритет"
+    visible:
+      id: dialog_title_priority
     timeout: 8000
 - tapOn:
-    text: "High priority"
+    id: priority_option_high
 # Edits autosave — the detail screen has no save button; the row relabels.
 - extendedWaitUntil:
     visible: "High priority"

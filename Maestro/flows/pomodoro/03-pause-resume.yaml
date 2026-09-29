@@ -20,14 +20,14 @@ tags:
 - extendedWaitUntil:
     visible: "Focus: Buy milk"
     timeout: 8000
-# First tap: the timer was started by the chip, so this pauses it.
+# Chip selection starts the timer (running) — use PAUSE_BUTTON.
 - tapOn:
-    id: pomodoro_play_pause_button
+    id: pomodoro_pause_button
 - assertVisible:
     id: pomodoro_timer_label
-# Second tap: resumes.
+# Paused — use PLAY_BUTTON.
 - tapOn:
-    id: pomodoro_play_pause_button
+    id: pomodoro_play_button
 - assertVisible:
     id: pomodoro_timer_label
 - assertVisible: "Work"

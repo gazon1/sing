@@ -1,0 +1,30 @@
+# Tasks: a task with a Cyrillic title is created, saved, and displayed correctly.
+#
+# Covers: seed task with Cyrillic title via debug-deep-link -> task appears in
+# agenda with the correct Cyrillic title rendered (not mojibake or □).
+#
+# Cyrillic input is only possible via the debug deep-link; inputText on Android
+# Maestro cannot type non-ASCII characters.
+appId: com.singularity.todo
+name: tasks-cyrillic-title
+tags:
+  - tasks
+---
+# Seed a task with a Cyrillic title using the debug deep-link.
+- openLink: "todo-debug://seed?task=%D0%9A%D1%83%D0%BF%D0%B8%D1%82%D1%8C%20%D0%BC%D0%BE%D0%BB%D0%BE%D0%BA%D0%BE&due=today"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+# The task must appear in Today with its Cyrillic title intact.
+- extendedWaitUntil:
+    visible:
+      text: "Купить молоко"
+    timeout: 8000
+# Verify it is in the task list.
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_купить_молоко
+    timeout: 8000

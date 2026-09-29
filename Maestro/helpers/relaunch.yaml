@@ -1,0 +1,11 @@
+# Stops the app then launches it again WITHOUT clearing its state.
+# Data (tasks, notes, etc.) is preserved between relaunches.
+#
+# Use this for persistence and state-survival flows.
+# For a fresh start use launch-clean instead.
+appId: com.singularity.todo
+name: relaunch
+---
+- stopApp
+- launchApp:
+    clearState: false

@@ -146,14 +146,14 @@ fun BackupScreen(
             ) {
                 Button(
                     onClick = onCreateBackup,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).testTag(TestTags.BACKUP_CREATE_BUTTON),
                     enabled = !state.isWorking,
                 ) {
                     Text("Create backup")
                 }
                 Button(
                     onClick = onSelectRestoreFile,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).testTag(TestTags.BACKUP_RESTORE_BUTTON),
                     enabled = !state.isWorking,
                 ) {
                     Text("Restore…")
@@ -169,14 +169,14 @@ fun BackupScreen(
             ) {
                 OutlinedButton(
                     onClick = onExportSettings,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).testTag(TestTags.BACKUP_EXPORT_SETTINGS),
                     enabled = !state.isWorking,
                 ) {
                     Text("Export settings")
                 }
                 OutlinedButton(
                     onClick = onSelectSettingsFile,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).testTag(TestTags.BACKUP_IMPORT_SETTINGS),
                     enabled = !state.isWorking,
                 ) {
                     Text("Import settings")

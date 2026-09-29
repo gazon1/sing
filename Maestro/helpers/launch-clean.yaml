@@ -7,6 +7,8 @@
 # real hang.
 appId: com.singularity.todo
 name: launch-clean
+onFlowComplete:
+  - setAirplaneMode: disabled
 ---
 - launchApp:
     appId: com.singularity.todo

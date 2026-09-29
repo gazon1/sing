@@ -1,0 +1,18 @@
+# Opens the date picker, selects a specific day number, and taps OK.
+# Does NOT navigate away — the caller decides what to do after the date is set.
+#
+# Usage:
+#   env:
+#     DAY: "15"     # day of month to select (1-31)
+#
+# Prerequisites: the due-date row must already be visible/tapped open.
+# After this helper: date picker is open with DAY selected and OK tapped.
+# The sheet/dialog remains open for the caller to act on.
+appId: com.singularity.todo
+name: pick-date
+---
+# The date picker shows a calendar grid — tap the requested day number
+- tapOn:
+    text: "${DAY}"
+- tapOn:
+    id: dialog_date_picker_ok

@@ -28,7 +28,7 @@ import com.singularity.todo.feature.tasks.presentation.model.TaskUi
  * same domain intents the desktop menu dispatches. When more builder items gain
  * writes, add them here in the same order as the builder.
  *
- * Rows carry `sheet_item_<label>` tags (see [TestTags.sheetItem]) so UI
+ * Rows carry `task_action_<slug>` tags (see [TestTags.taskAction]) so UI
  * automation can address actions without reading visible text.
  *
  * @param task        the task the menu is open for; label text follows its state
@@ -94,7 +94,7 @@ private fun SheetRow(
         headlineContent = { Text(label) },
         modifier = Modifier
             .fillMaxWidth()
-            .testTag(TestTags.sheetItem(label))
+            .testTag(TestTags.taskAction(label))
             .clickable {
                 onClick()
                 onDismiss()

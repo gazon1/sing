@@ -10,6 +10,7 @@
 appId: com.singularity.todo
 name: tasks-open-task-detail
 tags:
+  - regression
   - tasks
 ---
 - runFlow: ../../helpers/seed-task.yaml

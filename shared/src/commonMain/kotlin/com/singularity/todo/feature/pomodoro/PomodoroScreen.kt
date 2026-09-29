@@ -107,7 +107,7 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
             text = state.phase.name.replace(Regex("([A-Z])"), " $1").trim(),
             style = MaterialTheme.typography.titleLarge,
             color = phaseColor,
-            modifier = Modifier.testTag(TestTags.POMODORO_PHASE_LABEL),
+            modifier = Modifier.testTag(TestTags.Pomodoro.PHASE_LABEL),
         )
 
         Spacer(Modifier.height(32.dp))
@@ -149,13 +149,13 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
                 Text(
                     text = "%02d:%02d".format(minutes, seconds),
                     style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.testTag(TestTags.POMODORO_TIMER_LABEL),
+                    modifier = Modifier.testTag(TestTags.Pomodoro.TIMER_LABEL),
                 )
                 Text(
                     text = "Cycle ${state.completedCycles + 1}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag(TestTags.POMODORO_CYCLE_LABEL),
+                    modifier = Modifier.testTag(TestTags.Pomodoro.CYCLE_LABEL),
                 )
             }
         }
@@ -169,7 +169,7 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
         ) {
             IconButton(
                 onClick = { timer.stop() },
-                modifier = Modifier.testTag(TestTags.POMODORO_STOP_BUTTON),
+                modifier = Modifier.testTag(TestTags.Pomodoro.STOP_BUTTON),
             ) {
                 Icon(Icons.Filled.Stop, contentDescription = "Stop")
             }
@@ -178,7 +178,10 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
                 onClick = { if (state.isRunning) timer.pause() else timer.resume() },
                 modifier = Modifier
                     .size(72.dp)
-                    .testTag(TestTags.POMODORO_PLAY_PAUSE_BUTTON),
+                    .testTag(
+                        if (state.isRunning) TestTags.Pomodoro.PAUSE_BUTTON
+                        else TestTags.Pomodoro.PLAY_BUTTON
+                    ),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = phaseColor,
                 ),
@@ -192,7 +195,7 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
 
             IconButton(
                 onClick = { timer.skip() },
-                modifier = Modifier.testTag(TestTags.POMODORO_SKIP_BUTTON),
+                modifier = Modifier.testTag(TestTags.Pomodoro.SKIP_BUTTON),
             ) {
                 Icon(Icons.Filled.SkipNext, contentDescription = "Skip")
             }
@@ -331,7 +334,10 @@ private fun PomodoroContentPreview(
                 onClick = { },
                 modifier = Modifier
                     .size(72.dp)
-                    .testTag(TestTags.POMODORO_PLAY_PAUSE_BUTTON),
+                    .testTag(
+                        if (pomodoroState.isRunning) TestTags.Pomodoro.PAUSE_BUTTON
+                        else TestTags.Pomodoro.PLAY_BUTTON
+                    ),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = phaseColor,
                 ),

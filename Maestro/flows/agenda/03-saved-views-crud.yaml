@@ -26,8 +26,10 @@ tags:
     id: saved_agenda_save_button
 # Save keeps the editor open (it emits a "Saved" snackbar and stays, so the user
 # can keep editing) — it does not pop. Leave explicitly.
-- waitForAnimationToEnd:
-    timeout: 2000
+- extendedWaitUntil:
+    visible:
+      id: snackbar_saved
+    timeout: 5000
 # Leave via the top-bar arrow, not the system back: the arrow is the one that
 # honours the dirty-draft confirmation. The system back does not pop this screen.
 - tapOn:
@@ -37,7 +39,7 @@ tags:
     visible: "Discard changes?"
     timeout: 8000
 - tapOn:
-    text: "Discard"
+    id: dialog_dismiss
 - extendedWaitUntil:
     visible:
       id: agenda_saved_views_button
@@ -64,7 +66,7 @@ tags:
     visible: "Delete view?"
     timeout: 8000
 - tapOn:
-    text: "Delete"
+    id: dialog_confirm
 - extendedWaitUntil:
     visible: "Saved Views"
     timeout: 8000

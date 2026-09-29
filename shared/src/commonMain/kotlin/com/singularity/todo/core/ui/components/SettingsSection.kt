@@ -18,10 +18,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 
 /**
@@ -146,11 +148,12 @@ fun SettingsSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    testTag: String = TestTags.Settings.DARK_THEME_SWITCH,
 ) {
     SettingsRow(
         title = title,
         subtitle = subtitle,
-        modifier = modifier,
+        modifier = modifier.testTag(testTag),
         onClick = { onCheckedChange(!checked) },
         trailing = {
             Switch(

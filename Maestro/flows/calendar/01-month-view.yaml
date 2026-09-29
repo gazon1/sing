@@ -9,16 +9,17 @@ tags:
   - calendar
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+- runScript: ../../helpers/scripts/date.js
 - tapOn:
     id: nav_tab_calendar
 - extendedWaitUntil:
-    visible: "September 2026"
+    visible: ${output.monthTitle}
     timeout: 8000
 # Weekday columns.
 - assertVisible: "Mon"
 - assertVisible: "Sun"
 # A month's worth of numbered day cells, first and last of the grid.
 - assertVisible: "1"
-- assertVisible: "30"
+- assertVisible: ${output.lastDay}
 # The view-mode control reports the current mode.
 - assertVisible: "Month"

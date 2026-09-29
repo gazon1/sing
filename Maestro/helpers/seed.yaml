@@ -1,0 +1,25 @@
+# Seeds a task via the DebugSeedActivity deep-link.
+#
+# Usage:
+#   env:
+#     QUERY: "task=Buy%20milk&due=today"
+#
+# QUERY is a URL-encoded deep-link query string:
+#   task=<title>              — create a task
+#   task=<title>&due=today    — task with due date
+#   task=<title>&due=tomorrow — task due tomorrow
+#   task=<title>&due=-1d      — task due yesterday
+#   task=<title>&due=2026-10-01 — exact date
+#   note=<title>              — create a note
+#   project=<name>           — create a project
+#   profile=<name>           — create and switch to a profile
+#
+# This helper does NOT run launch-clean — the caller decides.
+appId: com.singularity.todo
+name: seed
+---
+- openLink: "todo-debug://seed?${QUERY}"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000

@@ -211,6 +211,8 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     single<TimeZoneProvider> { com.singularity.todo.core.platform.systemTimeZone }
 
+    // NoDirectClockSystemRule exemption: the singleton binding itself is the intentional
+    // call site. All production code must inject Clock; only this binding uses Clock.System.
     single<Clock> { Clock.System }
 
     // ─── Observability ─────────────────────────────────────────────────

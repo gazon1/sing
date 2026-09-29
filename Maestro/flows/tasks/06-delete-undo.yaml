@@ -1,0 +1,39 @@
+# Tasks: deleting a task shows an Undo snackbar, and Undo restores the task.
+#
+# Covers: task detail open -> overflow Delete -> snackbar with Undo action ->
+# Undo tap -> task back in the list.
+#
+# Uses the "Buy milk" task from seed-task helper (slug: `buy_milk`).
+appId: com.singularity.todo
+name: tasks-delete-undo
+tags:
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+# Open the overflow menu and delete.
+- tapOn:
+    id: task_editor_more_menu
+- extendedWaitUntil:
+    visible:
+      id: overflow_delete
+    timeout: 5000
+- tapOn:
+    id: overflow_delete
+# After deletion the screen pops back to the list; a snackbar appears with Undo.
+- extendedWaitUntil:
+    visible:
+      text: "Undo"
+    timeout: 8000
+# Undo restores the task.
+- tapOn:
+    text: "Undo"
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 8000

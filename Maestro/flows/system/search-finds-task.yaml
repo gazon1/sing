@@ -1,0 +1,50 @@
+# System: searching for a task title finds it in the results.
+#
+# Covers: tap search icon -> search input opens -> type a known task title ->
+# task appears in results.
+#
+# The search input has testTag `search_input` and results are rendered in the
+# task list with their normal task item ids.
+appId: com.singularity.todo
+name: search-finds-task
+tags:
+  - system
+---
+# Seed a task with a unique searchable title.
+- openLink: "todo-debug://seed?task=UniqueSearchableTask2026"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+
+# Open the quick-search from the menu sheet.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_profile_sync
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+
+# Type the task title.
+- tapOn:
+    id: search_input
+- inputText: "UniqueSearchableTask2026"
+
+# The task must appear in results.
+- extendedWaitUntil:
+    visible:
+      id: task_item_unique_searchable_task_2026
+    timeout: 8000
+
+# Clear the search and verify the task disappears from results.
+- eraseText
+- extendedWaitUntil:
+    notVisible:
+      id: task_item_unique_searchable_task_2026
+    timeout: 5000

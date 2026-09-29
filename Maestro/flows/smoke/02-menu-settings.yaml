@@ -1,0 +1,34 @@
+# Smoke: open Settings from the menu sheet and return.
+#
+# Covers: menu sheet -> Settings entry -> settings_tab_interface visible -> back.
+# This is the smoke subset's settings coverage — full tab cycling is in
+# settings/03-cycle-tabs.yaml.
+appId: com.singularity.todo
+name: smoke-settings-open
+tags:
+  - smoke
+  - settings
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_profile_sync
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: menu_settings
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: menu_settings
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_interface
+    timeout: 5000
+- back
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 5000
