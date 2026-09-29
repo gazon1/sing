@@ -1,6 +1,7 @@
 ---
 title: "Three Room DAOs were never bound in Koin"
 date: 2026-09-29
+status: accepted
 tags: [koin, di, crash]
 ---
 

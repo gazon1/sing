@@ -1,6 +1,7 @@
 ---
 title: "AlertDialog buttons use visible text instead of testTag"
 date: 2026-09-29
+status: accepted
 tags: [maestro, testing, ui]
 ---
 

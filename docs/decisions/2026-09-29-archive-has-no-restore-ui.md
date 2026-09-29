@@ -1,6 +1,7 @@
 ---
 title: "Archiving is a one-way door — no restore UI exists"
 date: 2026-09-29
+status: accepted
 tags: [ui, tasks, gap]
 ---
 

@@ -1,6 +1,7 @@
 ---
 title: "Emulator launch recipe — windowed, hardware GPU, camera and audio off"
 date: 2026-09-29
+status: accepted
 tags: [emulator, android, tooling]
 ---
 

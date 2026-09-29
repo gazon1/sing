@@ -1,6 +1,7 @@
 ---
 title: "One sealed NavKey root — Settings and Search crashed the app on open"
 date: 2026-09-29
+status: accepted
 tags: [nav3, serialization, android, crash]
 ---
 

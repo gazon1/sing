@@ -1,6 +1,7 @@
 ---
 title: "Settings nav rail was not scrollable — Backup and Account were unreachable"
 date: 2026-09-29
+status: accepted
 tags: [ui, settings, android]
 ---
 
