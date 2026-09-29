@@ -951,6 +951,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 - **A ViewModel that surfaces a created entity's id must surface the one the write used.**
 - **A create that navigates should carry the navigation in the result path**, so a
+- A flow that assumes a note can be deleted will hang rather than fail clearly.
 - All new helpers are `internal` except `NoteAiController` (used in DI) and `NoteContentMapper`
 - Backlinks are now shown and functional
 - Caller must provide `MutableStateFlow<String>` and inject `InternalLinkRepository` and `ProfileAwareCurrentUser` — slightly more boilerplate at call site
@@ -967,6 +968,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - No schema migration needed
 - Note metadata (word count, last updated) is visible without entering edit mode
 - One tap fewer than before for the common "capture a thought" workflow
+- Pin, archive, delete, copy and multi-select on notes are **not testable today**;
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency
 - Regex over HTML is less elegant than walking the paragraph tree, but the paragraph tree is internal
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`)
@@ -974,6 +976,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Single search + merged results = better UX (one tap instead of tab switching)
 - Slight visual complexity added to the list screen
 - The `outgoing_links` column is populated on every save, keeping backlinks current
+- The notes quick-add destination is not stable: it lands on the note's preview
 - Three Koin registrations instead of one
 - Title pre-saved to DB before navigating to editor (no lost titles on crash)
 - User must explicitly tap "Edit" to modify — one additional tap for casual reading
@@ -990,6 +993,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables
 - `NotesUiEvent` is shared between the list and editor ViewModels, so adding a variant
 - `OutgoingLinksExtractor` regex now uses two separate `Regex` instances (one for `note://`,
+- `ProjectDetailContent`'s quick-add field is now addressable, so
 - `SavedPulse` (a `SharedFlow<Unit>`) is the only pulse channel. Phase 1 placeholder;
 - `core/ui/components/` is now free of feature-domain imports
 - `getBacklinkNotes` now returns real results — backlinks in `NotePreview` and `InternalLinkPickerSheet` will work
@@ -1715,6 +1719,7 @@ _8 entries need attention._
 - `2026-09-29-maestro-archive-seed-strategy` — maestro, testing
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — maestro, testing, ui
 - `2026-09-29-missing-koin-dao-bindings` — koin, di, crash
+- `2026-09-29-notes-and-calendar-unreachable-controls` — notes, calendar, ui, gap
 - `2026-09-29-pomodoro-exact-alarm-crash` — pomodoro, android, crash, permissions
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — _untagged_
 - `2026-09-29-settings-rail-not-scrollable` — ui, settings, android
@@ -2028,6 +2033,7 @@ _8 entries need attention._
 - `2026-09-29-maestro-archive-seed-strategy` — Archive seed strategy — session coupling in archive-restore flow
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — AlertDialog buttons use visible text instead of testTag
 - `2026-09-29-missing-koin-dao-bindings` — Three Room DAOs were never bound in Koin
+- `2026-09-29-notes-and-calendar-unreachable-controls` — Notes row actions and Calendar header controls are unreachable from the UI
 - `2026-09-29-pomodoro-exact-alarm-crash` — Starting a Pomodoro crashed the app — exact-alarm permission was neither declared nor guarded
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — Оставшиеся проблемные места после MR про Maestro UI-тесты
 - `2026-09-29-settings-rail-not-scrollable` — Settings nav rail was not scrollable — Backup and Account were unreachable

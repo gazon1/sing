@@ -62,6 +62,11 @@ non-alphanumeric characters with `_`.
 | `SAVED_AGENDA_SAVE_BUTTON` | `saved_agenda_save_button` | View editor save |
 | `SAVED_AGENDA_DELETE_BUTTON` | `saved_agenda_delete_button` | View editor delete (edit mode only) |
 
+### Projects
+| Constant | Value | Where |
+|---|---|---|
+| `PROJECT_DETAIL_QUICK_ADD` | `project_detail_quick_add` | Quick-add task field on the project detail screen |
+
 ### Shared chrome
 | Constant | Value | Where |
 |---|---|---|
@@ -180,8 +185,10 @@ that needs one of these, add the testTag first (PR-0 phase for that screen).
 - Search: none — `search_input` now exists
 - AI Chat: chat input, send button
 
-- Calendar: view mode button, today button, prev/next, mini-calendar toggle,
-  day cells (`calendar_day_<YYYY-MM-DD>`), create task button
+- Calendar: today button, prev/next, mini-calendar toggle and the day cells have
+  no testTag. The month header, the mode control ("Day"/"4 days"/"Week"/"Month")
+  and each day number are `text:`-selected instead; a day number is unique within
+  a single month grid, so a full-string match is unambiguous.
 - Sync: auto-switch, interval slider, sync-now button
 - Backup: create button, restore button, export settings, import settings
 - Profile: create button, delete button, profile items

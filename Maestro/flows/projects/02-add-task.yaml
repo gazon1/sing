@@ -1,0 +1,50 @@
+# Projects: add a task from a project's detail screen.
+#
+# The quick-add field submits on the IME "Done" action, same as the notes
+# quick-add row.
+appId: com.singularity.todo
+name: projects-add-task
+tags:
+  - regression
+  - projects
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_plans
+- extendedWaitUntil:
+    visible:
+      id: tasks_fab
+    timeout: 8000
+- tapOn:
+    id: tasks_fab
+- extendedWaitUntil:
+    visible:
+      id: project_editor_name_input
+    timeout: 8000
+- tapOn:
+    id: project_editor_name_input
+- inputText: "Project Alpha"
+- hideKeyboard
+- tapOn:
+    id: project_editor_save
+- extendedWaitUntil:
+    visible:
+      id: project_card_project_alpha
+    timeout: 8000
+- tapOn:
+    id: project_card_project_alpha
+- extendedWaitUntil:
+    visible:
+      id: project_detail_quick_add
+    timeout: 8000
+- tapOn:
+    id: project_detail_quick_add
+- inputText: "Write spec"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Write spec"
+    timeout: 8000
+# It left the empty state and the row is addressable by its title.
+- assertNotVisible: "No tasks yet"
+- assertVisible:
+    id: task_item_write_spec

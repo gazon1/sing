@@ -1,0 +1,80 @@
+# Notes: the All / Pinned / Archived filter chips switch the visible set.
+#
+# Two notes, neither pinned or archived, so Pinned and Archived must come up
+# empty while All shows both.
+appId: com.singularity.todo
+name: notes-filter-chips
+tags:
+  - regression
+  - notes
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_notes
+    timeout: 5000
+- tapOn:
+    id: menu_notes
+- extendedWaitUntil:
+    visible:
+      id: notes_quick_add_input
+    timeout: 8000
+- tapOn:
+    id: notes_quick_add_input
+- inputText: "Alpha"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: note_editor_title_input
+    timeout: 8000
+- tapOn:
+    id: note_editor_save
+- back
+- extendedWaitUntil:
+    visible:
+      id: notes_quick_add_input
+    timeout: 8000
+- tapOn:
+    id: notes_quick_add_input
+- inputText: "Beta"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: note_editor_title_input
+    timeout: 8000
+- tapOn:
+    id: note_editor_save
+- back
+- tapOn:
+    id: note_editor_save
+- back
+# All: both notes.
+- extendedWaitUntil:
+    visible:
+      id: note_item_by_title_alpha
+    timeout: 8000
+- assertVisible:
+    id: note_item_by_title_beta
+# Pinned: neither is pinned.
+- tapOn:
+    text: "Pinned"
+- extendedWaitUntil:
+    notVisible:
+      id: note_item_by_title_alpha
+    timeout: 5000
+# Archived: neither is archived.
+- tapOn:
+    text: "Archived"
+- extendedWaitUntil:
+    notVisible:
+      id: note_item_by_title_alpha
+    timeout: 5000
+# Back to All restores them.
+- tapOn:
+    text: "All"
+- extendedWaitUntil:
+    visible:
+      id: note_item_by_title_alpha
+    timeout: 5000

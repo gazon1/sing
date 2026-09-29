@@ -33,8 +33,9 @@ Maestro/
     ├── tasks/                  # task CRUD and the task editor attribute rows
     ├── agenda/                 # smart lists (Inbox buckets) + saved agenda views
     ├── pomodoro/               # timer: open, focus task, pause/resume, skip, stop
-    ├── notes/                  # note list, editor
-    ├── projects/               # project create
+    ├── notes/                  # note list, editor, filter chips
+    ├── projects/               # project list, detail, quick-add task
+    ├── calendar/               # month view, view modes, tap-day
     └── system/                 # shell-level chrome (menu sheet)
 ```
 

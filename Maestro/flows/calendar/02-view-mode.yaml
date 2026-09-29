@@ -1,0 +1,32 @@
+# Calendar: switch the view mode between the four available modes.
+#
+# The mode control is labelled with the *current* mode ("Month"); tapping it
+# opens the four-way switcher.
+appId: com.singularity.todo
+name: calendar-view-mode
+tags:
+  - regression
+  - calendar
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_calendar
+- extendedWaitUntil:
+    visible: "September 2026"
+    timeout: 8000
+- assertVisible: "Month"
+- tapOn:
+    text: "Month"
+- extendedWaitUntil:
+    visible: "Week"
+    timeout: 8000
+- assertVisible: "Day"
+- assertVisible: "4 days"
+- tapOn:
+    text: "Week"
+# The control now reports the selected mode. The header is asserted on the
+# control rather than the month title: Week shows a date range, not "Month".
+- extendedWaitUntil:
+    visible: "Week"
+    timeout: 8000
+- assertNotVisible: "4 days"

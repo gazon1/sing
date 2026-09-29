@@ -138,6 +138,8 @@ object TestTags {
     const val SEARCH_INPUT = "search_input"
 
     // ─── Projects ───────────────────────────────────────────────────────────
+    /** Quick-add task field on the project detail screen. */
+    const val PROJECT_DETAIL_QUICK_ADD = "project_detail_quick_add"
     const val PROJECT_EDITOR_NAME_INPUT = "project_editor_name_input"
     const val PROJECT_EDITOR_DESCRIPTION_INPUT = "project_editor_description_input"
     const val PROJECT_EDITOR_SAVE = "project_editor_save"

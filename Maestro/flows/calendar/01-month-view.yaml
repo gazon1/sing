@@ -1,0 +1,24 @@
+# Calendar: the Month view renders the current month with weekday columns.
+#
+# Day cells carry no testTag and no contentDescription — only their number as
+# text, which is what this asserts on.
+appId: com.singularity.todo
+name: calendar-month-view
+tags:
+  - smoke
+  - calendar
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_calendar
+- extendedWaitUntil:
+    visible: "September 2026"
+    timeout: 8000
+# Weekday columns.
+- assertVisible: "Mon"
+- assertVisible: "Sun"
+# A month's worth of numbered day cells, first and last of the grid.
+- assertVisible: "1"
+- assertVisible: "30"
+# The view-mode control reports the current mode.
+- assertVisible: "Month"

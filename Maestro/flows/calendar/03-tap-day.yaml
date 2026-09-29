@@ -1,0 +1,25 @@
+# Calendar: tapping a day in Month view opens that day's view.
+#
+# Day cells are addressed by their number as text; in a single month grid each
+# number appears once, so a full-string match is unambiguous. The date header is
+# what proves which day was opened.
+appId: com.singularity.todo
+name: calendar-tap-day
+tags:
+  - regression
+  - calendar
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_calendar
+- extendedWaitUntil:
+    visible: "September 2026"
+    timeout: 8000
+- tapOn:
+    text: "15"
+- extendedWaitUntil:
+    visible: "September 15, 2026"
+    timeout: 8000
+# The mode control followed the navigation into the single-day view.
+- assertVisible: "Day"
+- assertNotVisible: "Mon"

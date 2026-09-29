@@ -1,0 +1,50 @@
+# Notes: edit a note's body and see it survive a round trip.
+#
+# Quick-add lands on the note's preview, not its editor — the editor is reached
+# via the "Edit" action there. The editor autosaves, so what this asserts is
+# that the body is still there when the note is reopened.
+appId: com.singularity.todo
+name: notes-edit-body
+tags:
+  - regression
+  - notes
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_notes
+    timeout: 5000
+- tapOn:
+    id: menu_notes
+- extendedWaitUntil:
+    visible:
+      id: notes_quick_add_input
+    timeout: 8000
+- tapOn:
+    id: notes_quick_add_input
+- inputText: "Meeting notes"
+- pressKey: Enter
+# Quick-add's destination is not stable: it lands on the preview with an empty
+# note, or straight in the editor. Tapping "Edit" is a no-op in the second case,
+# so it is optional and the editor is the thing waited on.
+- tapOn:
+    text: "Edit"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: note_editor_body
+    timeout: 8000
+- tapOn:
+    id: note_editor_body
+- inputText: "Discuss roadmap"
+- hideKeyboard
+- tapOn:
+    id: note_editor_save
+- back
+# Back to the preview, where the body is rendered.
+- extendedWaitUntil:
+    visible: "Discuss roadmap"
+    timeout: 8000
+- assertVisible: "Meeting notes"
