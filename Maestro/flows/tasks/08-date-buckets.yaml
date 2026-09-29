@@ -1,0 +1,44 @@
+# Tasks: tasks appear in the correct date-bucket section (Today / Upcoming / Overdue).
+#
+# Covers: seed three tasks (yesterday, today, tomorrow) via debug deep-link ->
+# verify each appears in the correct agenda section with its section header testTag.
+#
+# The agenda section header uses TestTags.agendaSection(name) so "No Date" ->
+# `agenda_section_no_date`, "Overdue" -> `agenda_section_overdue`, etc.
+appId: com.singularity.todo
+name: tasks-date-buckets
+tags:
+  - tasks
+---
+# Seed three tasks with different due dates.
+- openLink: "todo-debug://seed?task=YesterdayTask&due=-1d"
+- openLink: "todo-debug://seed?task=TodayTask&due=today"
+- openLink: "todo-debug://seed?task=TomorrowTask&due=tomorrow"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+
+# Navigate to agenda.
+- tapOn:
+    id: nav_tab_today
+
+# Overdue section should contain YesterdayTask.
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+    timeout: 8000
+- assertVisible:
+    id: task_item_yesterday_task
+
+# Today section should contain TodayTask.
+- assertVisible:
+    id: agenda_section_today
+- assertVisible:
+    id: task_item_today_task
+
+# Upcoming section should contain TomorrowTask.
+- assertVisible:
+    id: agenda_section_upcoming
+- assertVisible:
+    id: task_item_tomorrow_task

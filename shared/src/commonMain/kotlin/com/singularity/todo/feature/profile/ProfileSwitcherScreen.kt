@@ -38,6 +38,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.TestTags
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -90,7 +92,10 @@ private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
-            FilledTonalButton(onClick = { showCreateDialog = true }) {
+            FilledTonalButton(
+                onClick = { showCreateDialog = true },
+                modifier = Modifier.testTag(TestTags.PROFILE_CREATE_BUTTON),
+            ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("New")
@@ -156,6 +161,7 @@ private fun ProfileCard(profile: Profile, isActive: Boolean, onSelect: () -> Uni
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag(TestTags.profileItem(profile.name))
             .clickable { onSelect() },
         colors = if (isActive) {
             androidx.compose.material3.CardDefaults.cardColors(

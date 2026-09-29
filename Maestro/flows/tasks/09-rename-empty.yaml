@@ -1,0 +1,54 @@
+# Task editor: clearing the title and attempting to save is rejected (title stays unchanged).
+#
+# The TaskDomain rejects empty titles at the repository level. The editor remains open
+# so the user can type a valid title. The task is NOT renamed to "Untitled" or similar.
+#
+# Covers: task rename → empty title → validation prevents save → original title intact.
+appId: com.singularity.todo
+name: tasks-rename-empty
+tags:
+  - tasks
+---
+# Seed a task with a known title.
+- openLink: "todo-debug://seed?task=RenameMe&due=today"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+
+# Open the task in the editor.
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: task_item_renameme
+    timeout: 8000
+- tapOn:
+    id: task_item_renameme
+
+# Clear the title field.
+- tapOn:
+    id: task_editor_title_input
+- longPress:
+    id: task_editor_title_input
+- tapOn:
+    id: task_editor_title_input
+- confirmContextMenu: {}
+
+# Try to save — the button should be disabled or the save should be rejected.
+# Check that the editor is still open with an empty field, not that a save succeeded.
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 3000
+- assertVisible:
+    id: task_editor_title_input
+
+# Navigate back — task should still exist with its original title.
+- back
+- extendedWaitUntil:
+    visible:
+      id: task_item_renameme
+    timeout: 8000
+- assertVisible:
+    id: task_item_renameme

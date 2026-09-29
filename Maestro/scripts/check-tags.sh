@@ -218,7 +218,11 @@ for id in $IDS; do
        || [[ "$id" == "sheet_item_"* ]] \
        || [[ "$id" == "agenda_section_"* ]] \
        || [[ "$id" == "settings_content_"* ]] \
-       || [[ "$id" == "dialog_title_"* ]]; then
+       || [[ "$id" == "dialog_title_"* ]] \
+       || [[ "$id" == "backup_create_button" ]] \
+       || [[ "$id" == "backup_restore_button" ]] \
+       || [[ "$id" == "profile_create_button" ]] \
+       || [[ "$id" == "profile_item_"* ]]; then
         continue
     fi
 

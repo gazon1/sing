@@ -217,6 +217,16 @@ object TestTags {
 
     // ─── Backup ─────────────────────────────────────────────────────────────
     const val BACKUP_TOP_BAR_BACK = "backup_top_bar_back"
+    const val BACKUP_CREATE_BUTTON = "backup_create_button"
+    const val BACKUP_RESTORE_BUTTON = "backup_restore_button"
+    const val BACKUP_EXPORT_SETTINGS = "backup_export_settings"
+    const val BACKUP_IMPORT_SETTINGS = "backup_import_settings"
+
+    // ─── Profile ────────────────────────────────────────────────────────────
+    const val PROFILE_CREATE_BUTTON = "profile_create_button"
+    const val PROFILE_ITEM_PREFIX = "profile_item_"
+
+    fun profileItem(name: String) = "${PROFILE_ITEM_PREFIX}${slug(name)}"
 
     // ─── AI ─────────────────────────────────────────────────────────────────
     fun genUi(name: String) = "genui_${slug(name)}"
